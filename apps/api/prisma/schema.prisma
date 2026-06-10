@@ -1,0 +1,18 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Transaccion {
+  id          String   @id @default(cuid())
+  fecha       DateTime
+  descripcion String
+  monto       Decimal  @db.Decimal(12, 2)
+  tipo        String
+  banco       String
+  cuentaTipo  String
+  creadoEn    DateTime @default(now())
+}

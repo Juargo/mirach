@@ -5,3 +5,6 @@ coverage
 .env.*
 /generated/prisma
 .atl
+
+# TanStack Router auto-generated route tree
+apps/web/src/routeTree.gen.ts
