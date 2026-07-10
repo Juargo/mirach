@@ -6,13 +6,57 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum EstadoIngesta {
+  PENDIENTE
+  PROCESADA
+  FALLIDA
+}
+
+model User {
+  id       String    @id @default(cuid())
+  nombre   String
+  creadoEn DateTime  @default(now())
+  accounts Account[]
+}
+
+model Account {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  banco         String
+  tipoCuenta    String
+  numeroCuenta  String
+  creadoEn      DateTime      @default(now())
+  ingestas      Ingesta[]
+  transacciones Transaccion[]
+
+  @@unique([userId, banco, tipoCuenta, numeroCuenta])
+}
+
+model Ingesta {
+  id                 String        @id @default(cuid())
+  accountId          String
+  account            Account       @relation(fields: [accountId], references: [id])
+  banco              String
+  nombreArchivo      String
+  estado             EstadoIngesta @default(PENDIENTE)
+  totalTransacciones Int?
+  motivoFallo        String?
+  creadoEn           DateTime      @default(now())
+  procesadoEn        DateTime?
+  transacciones      Transaccion[]
+}
+
 model Transaccion {
   id          String   @id @default(cuid())
+  ingestaId   String
+  ingesta     Ingesta  @relation(fields: [ingestaId], references: [id])
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
   fecha       DateTime
   descripcion String
-  monto       Decimal  @db.Decimal(12, 2)
-  tipo        String
-  banco       String
-  cuentaTipo  String
+  cargo       BigInt
+  abono       BigInt
+  bucketId    String?
   creadoEn    DateTime @default(now())
 }
