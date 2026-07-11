@@ -29,9 +29,9 @@ const MAX_BIGINT_SEGURO = BigInt(Number.MAX_SAFE_INTEGER);
  */
 function aBigIntEntero(valor: number, campo: string): bigint {
   if (!Number.isInteger(valor)) {
-    throw new TypeError(
-      `El campo "${campo}" debe ser un entero; se recibió "${valor}".`,
-    );
+    // No se interpola el monto crudo: es un dato sensible que termina en
+    // PersistenciaFallidaError.causa. Solo se reporta el campo.
+    throw new TypeError(`El campo "${campo}" debe ser un entero.`);
   }
   return BigInt(valor);
 }
@@ -44,9 +44,10 @@ function aBigIntEntero(valor: number, campo: string): bigint {
  */
 function aNumberSeguro(valor: bigint, campo: string): number {
   if (valor > MAX_BIGINT_SEGURO || valor < -MAX_BIGINT_SEGURO) {
+    // No se interpola el monto crudo (dato sensible); solo campo y el límite.
     throw new RangeError(
-      `El campo "${campo}" (${valor}) excede Number.MAX_SAFE_INTEGER y no ` +
-        `puede convertirse a number sin pérdida de precisión.`,
+      `El campo "${campo}" excede Number.MAX_SAFE_INTEGER y no puede ` +
+        `convertirse a number sin pérdida de precisión.`,
     );
   }
   return Number(valor);

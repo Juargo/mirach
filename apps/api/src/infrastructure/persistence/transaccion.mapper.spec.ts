@@ -4,6 +4,16 @@ import { Transaccion } from '../../domain/value-objects/transaccion';
 
 const crypto = new NoOpCryptoService();
 
+/** Captura el mensaje del error lanzado por fn (falla si no lanza). */
+function mensajeLanzado(fn: () => unknown): string {
+  try {
+    fn();
+  } catch (e) {
+    return (e as Error).message;
+  }
+  throw new Error('se esperaba que la función lanzara un error');
+}
+
 describe('transaccion.mapper', () => {
   describe('aPersistencia', () => {
     it('convierte cargo/abono numéricos a BigInt y deja bucketId nulo', () => {
@@ -137,6 +147,8 @@ describe('transaccion.mapper', () => {
       expect(() => aDominio(row, crypto)).toThrow(RangeError);
       expect(() => aDominio(row, crypto)).toThrow(/cargo/);
       expect(() => aDominio(row, crypto)).toThrow(/MAX_SAFE_INTEGER/);
+      // El mensaje NO debe filtrar el monto crudo (dato sensible).
+      expect(mensajeLanzado(() => aDominio(row, crypto))).not.toContain('9007199254740992');
     });
 
     it('lanza un error claro cuando abono excede Number.MAX_SAFE_INTEGER', () => {
@@ -165,6 +177,8 @@ describe('transaccion.mapper', () => {
       expect(() => aPersistencia(tx, crypto)).toThrow(TypeError);
       expect(() => aPersistencia(tx, crypto)).toThrow(/cargo/);
       expect(() => aPersistencia(tx, crypto)).toThrow(/entero/);
+      // El mensaje NO debe filtrar el monto crudo (dato sensible).
+      expect(mensajeLanzado(() => aPersistencia(tx, crypto))).not.toContain('1234.56');
     });
 
     it('lanza un error claro para abono NaN', () => {
