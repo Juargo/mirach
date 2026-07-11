@@ -43,14 +43,13 @@ export type ProcessIngestaError =
  *   IngestFile → DetectBank → AccountRepository.ensure
  *     → ValidateStructure → NormalizeTransactions → PersistTransactionsUseCase
  *
- * Pensado para que CLI y HTTP compartan este único pipeline (antes CLI
- * encadenaba manualmente hasta normalizar y HTTP solo llegaba a IngestFile).
- * Por ahora solo el CLI lo usa; conectar IngestaController a este orquestador
- * queda para la siguiente porción (PR4). Cualquier fallo en cualquier paso
- * corta la cadena y retorna Result.fail con un error descriptivo; solo el
- * paso de persistencia puede dejar una Ingesta FALLIDA (los pasos previos no
- * crean fila de Ingesta). NUNCA lanza — cualquier excepción de un
- * colaborador se captura y se traduce a Result.fail.
+ * CLI y HTTP comparten genuinamente este único pipeline (antes CLI
+ * encadenaba manualmente hasta normalizar y HTTP solo llegaba a IngestFile;
+ * ambos ahora inyectan y ejecutan este mismo orquestador). Cualquier fallo
+ * en cualquier paso corta la cadena y retorna Result.fail con un error
+ * descriptivo; solo el paso de persistencia puede dejar una Ingesta FALLIDA
+ * (los pasos previos no crean fila de Ingesta). NUNCA lanza — cualquier
+ * excepción de un colaborador se captura y se traduce a Result.fail.
  */
 export class ProcessIngestaUseCase {
   constructor(

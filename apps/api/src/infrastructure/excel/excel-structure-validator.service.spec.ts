@@ -196,7 +196,11 @@ describe('ExcelStructureValidatorService', () => {
         columna: 'Fecha',
         fila: 15,
       });
-      expect(err.message).toContain('Mayo 13, 2026');
+      // El mensaje NO debe filtrar el valor crudo de la celda (dato
+      // potencialmente sensible que termina, sin envolver, en un 400 HTTP).
+      expect(err.message).not.toContain('Mayo 13, 2026');
+      expect(err.message).toContain('Fila 15');
+      expect(err.message).toContain('columna "Fecha"');
     });
 
     it('rechaza texto donde se espera número', async () => {

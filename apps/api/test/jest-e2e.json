@@ -5,5 +5,8 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "transformIgnorePatterns": ["node_modules/.pnpm/(?!uuid@)"],
+  "setupFiles": ["dotenv/config", "<rootDir>/integration.setup.ts"],
+  "testTimeout": 30000
 }

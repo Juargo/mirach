@@ -40,7 +40,10 @@ export class EstructuraInvalidaError extends Error {
         case 'ColumnaFaltante':
           return `Falta la columna "${p.esperado}" en ${p.columna} (encontrado: "${p.encontrado}").`;
         case 'TipoIncorrecto':
-          return `Fila ${p.fila}, columna "${p.columna}": se esperaba ${p.tipoEsperado} y se encontró "${p.valor}".`;
+          // No se interpola el valor crudo de la celda: podría ser un monto
+          // u otro dato sensible (este error termina, sin envolver, en
+          // respuestas HTTP 400).
+          return `Fila ${p.fila}, columna "${p.columna}": se esperaba ${p.tipoEsperado} y no se encontró un valor válido.`;
         case 'SinEncabezados':
           return `La fila de encabezados (${p.fila}) está vacía.`;
       }

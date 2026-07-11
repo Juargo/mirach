@@ -31,8 +31,11 @@ export class NormalizacionInvalidaError extends Error {
         case 'FilaSinMontos':
           return `Fila ${p.fila}: no tiene ni cargo ni abono.`;
         case 'FechaIninterpretable':
-          return `Fila ${p.fila}: fecha "${p.valor}" no se pudo interpretar.`;
+          // No se interpola el valor crudo: podría filtrar datos sensibles
+          // (este error termina, sin envolver, en respuestas HTTP 400).
+          return `Fila ${p.fila}: la fecha no se pudo interpretar.`;
         case 'MontoIninterpretable':
+          // Ídem: el valor crudo de esta celda podría ser un monto.
           return `Fila ${p.fila}, columna "${p.columna}": el monto no se pudo interpretar.`;
       }
     });

@@ -23,9 +23,8 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
  * Actúa como Composition Root: registra los adapters Prisma/Excel detrás de
  * los tokens de los ports de application, y compone los use cases (incluido
  * el orquestador ProcessIngestaUseCase) como providers. IngestaController
- * TODAVÍA no consume ProcessIngestaUseCase (solo inyecta IngestFileUseCase);
- * queda registrado aquí para que la siguiente porción (PR4) solo tenga que
- * cablear el controller, sin tocar este módulo.
+ * inyecta ProcessIngestaUseCase — el mismo orquestador que usa el CLI —, así
+ * que CLI y HTTP corren genuinamente el mismo pipeline.
  *
  * Los adapters (repos Prisma, NoOpCryptoService, use cases) son clases planas
  * sin decoradores — se registran vía `useFactory` para mantener el dominio y

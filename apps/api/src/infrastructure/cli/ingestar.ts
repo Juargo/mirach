@@ -6,9 +6,9 @@
  *   pnpm cli -- /ruta/absoluta/movimientos.xlsx
  *
  * Ejecuta el pipeline completo vía ProcessIngestaUseCase (detectar → asegurar
- * cuenta → validar → normalizar → persistir). El endpoint HTTP todavía NO usa
- * este orquestador — IngestaController solo corre IngestFileUseCase; conectarlo
- * a ProcessIngestaUseCase queda para la siguiente porción (PR4).
+ * cuenta → validar → normalizar → persistir) — el mismo orquestador que usa
+ * el endpoint HTTP (IngestaController), así que ambas entradas comparten
+ * genuinamente un único pipeline.
  */
 
 import 'dotenv/config';
