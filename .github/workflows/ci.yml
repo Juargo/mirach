@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Typecheck & unit tests
+    runs-on: ubuntu-latest
+    env:
+      # Dummy URLs so prisma.config.ts loads without a real database — its
+      # env() calls throw when the variable is missing, so BOTH must be set.
+      # No CI step connects to a database (see note on test:integration below).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from package.json > packageManager
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Build scripts run only for packages allowlisted in
+      # pnpm-workspace.yaml > allowBuilds; everything else is skipped.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # @prisma/client is not in the allowBuilds allowlist, so its client
+      # is never generated on install — generate it explicitly before
+      # typechecking or testing the API.
+      - name: Generate Prisma client
+        run: pnpm api exec prisma generate
+
+      - name: Typecheck API
+        run: pnpm api exec tsc --noEmit
+
+      # --ci hardens jest for CI (e.g. fails on new snapshots instead of
+      # writing them). pnpm forwards the flag to jest without a `--`
+      # separator; with one, jest would read it as a test-path pattern.
+      - name: Unit tests API
+        run: pnpm api test --ci
+
+      - name: Typecheck web
+        run: pnpm web typecheck
+
+      # NOT run in CI (manual/local gate for now):
+      #   pnpm api test:integration — requires a real Supabase database and
+      #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
+      #   persistence changes.
