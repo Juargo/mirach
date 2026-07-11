@@ -5,8 +5,8 @@ import { PatronClasificacion } from '../../domain/value-objects/patron-clasifica
 /** Datos mínimos de una transacción necesarios para la clasificación. */
 export interface TransaccionInput {
   readonly descripcion: string;
-  readonly abono: number;
-  readonly cargo: number;
+  readonly abono: bigint;
+  readonly cargo: bigint;
 }
 
 /** Resultado de la clasificación: siempre ok (nunca falla por transacción). */
@@ -32,7 +32,7 @@ export class CategorizarTransaccionUseCase {
     patrones: ReadonlyArray<PatronClasificacion>,
   ): Result<CategorizarTransaccionResult, never> {
     // 1. Ingreso rule — tiene prioridad sobre todo el catálogo.
-    if (transaccion.abono > 0 && transaccion.cargo === 0) {
+    if (transaccion.abono > 0n && transaccion.cargo === 0n) {
       return Result.ok({ bucket: Bucket.Ingreso });
     }
 

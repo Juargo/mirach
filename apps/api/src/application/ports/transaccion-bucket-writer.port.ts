@@ -15,7 +15,14 @@ import { Bucket } from '../../domain/value-objects/bucket';
  * Contrato: retorna Result y NUNCA lanza. Array vacío → ok({ actualizadas: 0 }).
  */
 export interface ITransaccionBucketWriter {
+  /**
+   * @param ingestaId - Scope lock: only rows belonging to this ingesta will be
+   *   updated, even if `asignaciones` contains foreign ids. This is structural
+   *   isolation, not just a convention — the WHERE clause enforces both
+   *   `id IN (...)` AND `ingestaId = ?` at the DB level.
+   */
   asignarBuckets(
+    ingestaId: string,
     asignaciones: ReadonlyArray<{ transaccionId: string; bucket: Bucket }>,
   ): Promise<Result<{ actualizadas: number }, CategorizacionFallidaError>>;
 }

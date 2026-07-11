@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
-import { runSeed } from '../prisma/seed';
+import { runSeed, PATRON_CATALOG_SIZE } from '../prisma/seed';
 import {
   USER_ID_FIJO,
   ACCOUNT_ID_FIJO,
@@ -27,5 +27,25 @@ describe('seed idempotency integration (real dev DB)', () => {
 
     expect(await prisma.user.count({ where: { id: USER_ID_FIJO } })).toBe(1);
     expect(await prisma.account.count({ where: { id: ACCOUNT_ID_FIJO } })).toBe(1);
+  });
+
+  // T20 — seed idempotency: exactly 5 BucketPresupuesto rows, no dup PatronClasificacion
+  it('correr el seed dos veces produce exactamente 5 BucketPresupuesto (sin duplicados)', async () => {
+    await runSeed(prisma);
+    await runSeed(prisma);
+
+    const bucketCount = await prisma.bucketPresupuesto.count();
+    expect(bucketCount).toBe(5);
+  });
+
+  it('correr el seed dos veces no crea PatronClasificacion duplicados', async () => {
+    await runSeed(prisma);
+    const countAfterFirst = await prisma.patronClasificacion.count();
+
+    await runSeed(prisma);
+    const countAfterSecond = await prisma.patronClasificacion.count();
+
+    expect(countAfterFirst).toBe(countAfterSecond);
+    expect(countAfterSecond).toBe(PATRON_CATALOG_SIZE);
   });
 });

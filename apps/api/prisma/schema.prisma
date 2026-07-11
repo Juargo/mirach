@@ -47,16 +47,33 @@ model Ingesta {
   transacciones      Transaccion[]
 }
 
+model BucketPresupuesto {
+  id            String               @id
+  nombre        String               @unique
+  patrones      PatronClasificacion[]
+  transacciones Transaccion[]
+}
+
+model PatronClasificacion {
+  id        String            @id @default(cuid())
+  patron    String
+  matchType String
+  bucketId  String
+  bucket    BucketPresupuesto @relation(fields: [bucketId], references: [id])
+  prioridad Int
+}
+
 model Transaccion {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   ingestaId   String
-  ingesta     Ingesta  @relation(fields: [ingestaId], references: [id])
+  ingesta     Ingesta            @relation(fields: [ingestaId], references: [id])
   accountId   String
-  account     Account  @relation(fields: [accountId], references: [id])
+  account     Account            @relation(fields: [accountId], references: [id])
   fecha       DateTime
   descripcion String
   cargo       BigInt
   abono       BigInt
   bucketId    String?
-  creadoEn    DateTime @default(now())
+  bucket      BucketPresupuesto? @relation(fields: [bucketId], references: [id])
+  creadoEn    DateTime           @default(now())
 }

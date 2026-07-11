@@ -5,9 +5,13 @@ import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-c
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
 import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
+import { CategorizarTransaccionUseCase } from '../../application/use-cases/categorizar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
 import { ACCOUNT_REPOSITORY, IAccountRepository } from '../../application/ports/account-repository.port';
 import { INGESTA_REPOSITORY, IIngestaRepository } from '../../application/ports/ingesta-repository.port';
+import { CATALOGO_CLASIFICACION, ICatalogoClasificacion } from '../../application/ports/catalogo-clasificacion.port';
+import { TRANSACCION_BUCKET_WRITER, ITransaccionBucketWriter } from '../../application/ports/transaccion-bucket-writer.port';
+import { TRANSACCION_PARA_CLASIFICAR_READER, ITransaccionParaClasificarReader } from '../../application/ports/transaccion-para-clasificar.port';
 import { CRYPTO_SERVICE } from '../../application/ports/crypto-service.port';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
@@ -15,6 +19,9 @@ import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-no
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
+import { PrismaCatalogoClasificacionRepository } from '../persistence/prisma-catalogo-clasificacion.repository';
+import { PrismaTransaccionBucketRepository } from '../persistence/prisma-transaccion-bucket.repository';
+import { PrismaTransaccionClasificacionRepository } from '../persistence/prisma-transaccion-clasificacion.repository';
 import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
 
 /**
@@ -47,7 +54,26 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
         new PrismaIngestaRepository(prisma, crypto),
       inject: [PrismaService, CRYPTO_SERVICE],
     },
+    {
+      provide: CATALOGO_CLASIFICACION,
+      useFactory: (prisma: PrismaService) =>
+        new PrismaCatalogoClasificacionRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: TRANSACCION_BUCKET_WRITER,
+      useFactory: (prisma: PrismaService) =>
+        new PrismaTransaccionBucketRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: TRANSACCION_PARA_CLASIFICAR_READER,
+      useFactory: (prisma: PrismaService) =>
+        new PrismaTransaccionClasificacionRepository(prisma),
+      inject: [PrismaService],
+    },
     IngestFileUseCase,
+    CategorizarTransaccionUseCase,
     {
       provide: DetectBankUseCase,
       useFactory: () => new DetectBankUseCase(new ExcelBankDetectorService()),
@@ -75,6 +101,10 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
         validateStructureUseCase: ValidateStructureUseCase,
         normalizeTransactionsUseCase: NormalizeTransactionsUseCase,
         persistTransactionsUseCase: PersistTransactionsUseCase,
+        catalogoClasificacion: ICatalogoClasificacion,
+        transaccionBucketWriter: ITransaccionBucketWriter,
+        categorizarTransaccionUseCase: CategorizarTransaccionUseCase,
+        txParaClasificarReader: ITransaccionParaClasificarReader,
       ) =>
         new ProcessIngestaUseCase(
           ingestFileUseCase,
@@ -83,6 +113,10 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
           validateStructureUseCase,
           normalizeTransactionsUseCase,
           persistTransactionsUseCase,
+          catalogoClasificacion,
+          transaccionBucketWriter,
+          categorizarTransaccionUseCase,
+          txParaClasificarReader,
         ),
       inject: [
         IngestFileUseCase,
@@ -91,6 +125,10 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
         ValidateStructureUseCase,
         NormalizeTransactionsUseCase,
         PersistTransactionsUseCase,
+        CATALOGO_CLASIFICACION,
+        TRANSACCION_BUCKET_WRITER,
+        CategorizarTransaccionUseCase,
+        TRANSACCION_PARA_CLASIFICAR_READER,
       ],
     },
   ],

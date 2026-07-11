@@ -18,6 +18,7 @@ import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-c
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
 import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
+import { CategorizarTransaccionUseCase } from '../../application/use-cases/categorizar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
@@ -25,6 +26,9 @@ import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-no
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
+import { PrismaCatalogoClasificacionRepository } from '../persistence/prisma-catalogo-clasificacion.repository';
+import { PrismaTransaccionBucketRepository } from '../persistence/prisma-transaccion-bucket.repository';
+import { PrismaTransaccionClasificacionRepository } from '../persistence/prisma-transaccion-clasificacion.repository';
 import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
 import { USER_ID_FIJO } from '../persistence/constants';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
@@ -72,6 +76,10 @@ async function main(): Promise<void> {
       new ValidateStructureUseCase(new ExcelStructureValidatorService()),
       new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
       new PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto)),
+      new PrismaCatalogoClasificacionRepository(prisma),
+      new PrismaTransaccionBucketRepository(prisma),
+      new CategorizarTransaccionUseCase(),
+      new PrismaTransaccionClasificacionRepository(prisma),
     );
 
     const result = await processIngesta.execute({ fileReader, userId: USER_ID_FIJO });

@@ -61,6 +61,10 @@ export class PatronClasificacion {
         } catch {
           return false;
         }
+
+      default:
+        // Unknown matchType from DB (e.g., a future type not yet handled) → safe no-match.
+        return false;
     }
   }
 }
