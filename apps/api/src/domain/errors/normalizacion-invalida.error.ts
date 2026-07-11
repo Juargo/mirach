@@ -8,7 +8,10 @@
 export type ProblemaNormalizacion =
   | { tipo: 'FilaSinMontos'; fila: number }
   | { tipo: 'FechaIninterpretable'; fila: number; valor: string }
-  | { tipo: 'MontoIninterpretable'; fila: number; columna: string; valor: string };
+  // MontoIninterpretable no transporta el valor crudo: es un dato sensible que
+  // termina en PersistenciaFallidaError.causa (persistido/logueado). Fila y
+  // columna bastan para ubicar la celda.
+  | { tipo: 'MontoIninterpretable'; fila: number; columna: string };
 
 export class NormalizacionInvalidaError extends Error {
   constructor(
@@ -30,7 +33,7 @@ export class NormalizacionInvalidaError extends Error {
         case 'FechaIninterpretable':
           return `Fila ${p.fila}: fecha "${p.valor}" no se pudo interpretar.`;
         case 'MontoIninterpretable':
-          return `Fila ${p.fila}, columna "${p.columna}": monto "${p.valor}" no se pudo interpretar.`;
+          return `Fila ${p.fila}, columna "${p.columna}": el monto no se pudo interpretar.`;
       }
     });
     return `Normalización inválida para ${banco}:\n  - ${partes.join('\n  - ')}`;

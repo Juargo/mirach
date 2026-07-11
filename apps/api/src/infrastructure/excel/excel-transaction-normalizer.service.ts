@@ -159,7 +159,6 @@ export class ExcelTransactionNormalizerService implements ITransactionNormalizer
             tipo: 'MontoIninterpretable',
             fila,
             columna: mapeo.cargo,
-            valor: cargoTxt,
           });
           continue;
         }
@@ -175,7 +174,6 @@ export class ExcelTransactionNormalizerService implements ITransactionNormalizer
             tipo: 'MontoIninterpretable',
             fila,
             columna: mapeo.abono,
-            valor: abonoTxt,
           });
           continue;
         }
