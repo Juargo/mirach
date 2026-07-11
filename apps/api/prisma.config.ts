@@ -15,6 +15,10 @@ export default defineConfig({
     seed: 'ts-node prisma/seed.ts',
   },
   datasource: {
-    url: env<Env>('DIRECT_URL') ?? env<Env>('DATABASE_URL'),
+    // env() lanza PrismaConfigEnvError si la variable no existe, así que la
+    // variable opcional DIRECT_URL se chequea vía process.env antes de resolverla.
+    url: process.env.DIRECT_URL
+      ? env<Env>('DIRECT_URL')
+      : env<Env>('DATABASE_URL'),
   },
 })
