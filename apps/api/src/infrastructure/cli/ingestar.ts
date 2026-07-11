@@ -5,19 +5,28 @@
  *   pnpm cli -- ./cartola.xlsx
  *   pnpm cli -- /ruta/absoluta/movimientos.xlsx
  *
- * Encadena dos use cases:
- *   1. IngestFileUseCase  — valida extensión (.xlsx únicamente) y carga el buffer
- *   2. DetectBankUseCase  — identifica banco, tipo y número de cuenta
+ * Ejecuta el pipeline completo vía ProcessIngestaUseCase (detectar → asegurar
+ * cuenta → validar → normalizar → persistir). El endpoint HTTP todavía NO usa
+ * este orquestador — IngestaController solo corre IngestFileUseCase; conectarlo
+ * a ProcessIngestaUseCase queda para la siguiente porción (PR4).
  */
 
+import 'dotenv/config';
 import 'reflect-metadata';
 import { IngestFileUseCase } from '../../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-case';
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
+import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
+import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
 import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
+import { PrismaService } from '../persistence/prisma.service';
+import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
+import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
+import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
+import { USER_ID_FIJO } from '../persistence/constants';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
 
 function formatCLP(n: number): string {
@@ -50,74 +59,55 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Use case 1: validar extensión y cargar buffer
-  const ingestUseCase = new IngestFileUseCase();
-  const ingestResult = ingestUseCase.execute(fileReader);
+  // Composition root del CLI: construye el orquestador con adapters concretos.
+  const prisma = new PrismaService();
+  await prisma.onModuleInit();
+  const crypto = new NoOpCryptoService();
 
-  if (ingestResult.isFail()) {
-    console.error(`\n❌  ${ingestResult.getError().message}\n`);
-    process.exit(1);
+  try {
+    const processIngesta = new ProcessIngestaUseCase(
+      new IngestFileUseCase(),
+      new DetectBankUseCase(new ExcelBankDetectorService()),
+      new PrismaAccountRepository(prisma),
+      new ValidateStructureUseCase(new ExcelStructureValidatorService()),
+      new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
+      new PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto)),
+    );
+
+    const result = await processIngesta.execute({ fileReader, userId: USER_ID_FIJO });
+
+    if (result.isFail()) {
+      console.error(`\n❌  ${result.getError().message}\n`);
+      process.exit(1);
+    }
+
+    const data = result.getValue();
+    const totalCargos = data.transacciones.reduce((s, t) => s + t.cargo, 0);
+    const totalAbonos = data.transacciones.reduce((s, t) => s + t.abono, 0);
+    const cantCargos = data.transacciones.filter((t) => t.cargo > 0).length;
+    const cantAbonos = data.transacciones.filter((t) => t.abono > 0).length;
+
+    console.log('\n✅  Archivo procesado y persistido correctamente');
+    console.log('─────────────────────────────────────');
+    console.log(`  Nombre       : ${data.archivo.originalName}`);
+    console.log(`  Extensión    : ${data.archivo.extension}`);
+    console.log(`  Tamaño       : ${formatBytes(data.archivo.sizeInBytes)}`);
+    console.log('  ─────────────────────────────────');
+    console.log(`  Banco        : ${data.banco.banco}`);
+    console.log(`  Tipo cuenta  : ${data.banco.tipoCuenta}`);
+    console.log(`  N° cuenta    : ${data.banco.numeroCuenta || '(no disponible)'}`);
+    console.log('  ─────────────────────────────────');
+    console.log(`  Encabezados  : fila ${data.estructura.filaEncabezados}`);
+    console.log(`  Filas datos  : ${data.estructura.totalFilasDatos}`);
+    console.log('  ─────────────────────────────────');
+    console.log(`  Ingesta ID   : ${data.ingestaId}`);
+    console.log(`  Transacciones: ${data.total}`);
+    console.log(`  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`);
+    console.log(`  Abonos       : ${cantAbonos}  ($ ${formatCLP(totalAbonos)})`);
+    console.log('─────────────────────────────────────\n');
+  } finally {
+    await prisma.onModuleDestroy();
   }
-
-  const fileData = ingestResult.getValue();
-
-  // Use case 2: detectar banco (async — ExcelJS es Promise-based)
-  const bankDetector = new ExcelBankDetectorService();
-  const detectUseCase = new DetectBankUseCase(bankDetector);
-  const detectResult = await detectUseCase.execute(fileData.buffer, fileData.originalName);
-
-  if (detectResult.isFail()) {
-    console.error(`\n❌  ${detectResult.getError().message}\n`);
-    process.exit(1);
-  }
-
-  const bankData = detectResult.getValue();
-
-  // Use case 3: validar estructura del archivo (US-002)
-  const structureValidator = new ExcelStructureValidatorService();
-  const validateUseCase = new ValidateStructureUseCase(structureValidator);
-  const validateResult = await validateUseCase.execute(fileData.buffer, bankData.banco);
-
-  if (validateResult.isFail()) {
-    console.error(`\n❌  ${validateResult.getError().message}\n`);
-    process.exit(1);
-  }
-
-  const structureData = validateResult.getValue();
-
-  // Use case 4: normalizar transacciones al esquema canónico (US-007)
-  const normalizer = new ExcelTransactionNormalizerService();
-  const normalizeUseCase = new NormalizeTransactionsUseCase(normalizer);
-  const normalizeResult = await normalizeUseCase.execute(fileData.buffer, bankData.banco);
-
-  if (normalizeResult.isFail()) {
-    console.error(`\n❌  ${normalizeResult.getError().message}\n`);
-    process.exit(1);
-  }
-
-  const transacciones = normalizeResult.getValue();
-  const totalCargos = transacciones.reduce((s, t) => s + t.cargo, 0);
-  const totalAbonos = transacciones.reduce((s, t) => s + t.abono, 0);
-  const cantCargos = transacciones.filter((t) => t.cargo > 0).length;
-  const cantAbonos = transacciones.filter((t) => t.abono > 0).length;
-
-  console.log('\n✅  Archivo procesado correctamente');
-  console.log('─────────────────────────────────────');
-  console.log(`  Nombre       : ${fileData.originalName}`);
-  console.log(`  Extensión    : ${fileData.extension}`);
-  console.log(`  Tamaño       : ${formatBytes(fileData.sizeInBytes)}`);
-  console.log('  ─────────────────────────────────');
-  console.log(`  Banco        : ${bankData.banco}`);
-  console.log(`  Tipo cuenta  : ${bankData.tipoCuenta}`);
-  console.log(`  N° cuenta    : ${bankData.numeroCuenta || '(no disponible)'}`);
-  console.log('  ─────────────────────────────────');
-  console.log(`  Encabezados  : fila ${structureData.filaEncabezados}`);
-  console.log(`  Filas datos  : ${structureData.totalFilasDatos}`);
-  console.log('  ─────────────────────────────────');
-  console.log(`  Transacciones: ${transacciones.length}`);
-  console.log(`  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`);
-  console.log(`  Abonos       : ${cantAbonos}  ($ ${formatCLP(totalAbonos)})`);
-  console.log('─────────────────────────────────────\n');
 }
 
 main().catch((error: unknown) => {
