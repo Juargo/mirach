@@ -41,7 +41,6 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
 @Module({
   controllers: [IngestaController],
   providers: [
-    PrismaService,
     { provide: CRYPTO_SERVICE, useClass: NoOpCryptoService },
     {
       provide: ACCOUNT_REPOSITORY,
