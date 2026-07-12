@@ -1,5 +1,5 @@
 /**
- * E2E tests for GET /api/resumen (US-015 — Cálculo 50/30/20).
+ * E2E tests for GET /api/resumen (US-015 + US-016).
  *
  * Requires a real DB (same dev DB as ingesta e2e). Run via `pnpm api test:e2e`
  * (sets ALLOW_DESTRUCTIVE_DB=1). Seeds its own rows per RUN_ID and cleans up
@@ -8,8 +8,10 @@
  * Covered scenarios (spec BDD):
  *   - SC-07: periodo absent → defaults to current UTC month, HTTP 200
  *   - SC-08: invalid periodo → HTTP 400, scrubbed body (raw input not echoed)
- *   - SC-01: DTO shape — 4 buckets, string totals, number|null porcentajeBp, targets
- *   - SC-04: sinIngreso=true path — HTTP 200, all porcentajeBp null
+ *   - SC-01: DTO shape — 4 buckets, string totals, number|null porcentajeBp, targets,
+ *            estadoSemaforo per bucket, estadoGlobal at top-level (US-016)
+ *   - SC-04: sinIngreso=true path — HTTP 200, all porcentajeBp null,
+ *            all estadoSemaforo null, estadoGlobal null (US-016 SC-SI-01)
  *   - SC-09: user isolation (MANDATORY RNF-SEC-006) — user B data excluded
  */
 import { Test, TestingModule } from '@nestjs/testing';
@@ -220,6 +222,16 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
       if (bucket.porcentajeBp !== null) {
         expect(typeof bucket.porcentajeBp).toBe('number');
       }
+      // US-016 SC-01: each bucket has estadoSemaforo key ∈ {'verde','amarillo','rojo'} | null
+      expect('estadoSemaforo' in bucket).toBe(true);
+      if (bucket.estadoSemaforo !== null) {
+        expect(['verde', 'amarillo', 'rojo']).toContain(bucket.estadoSemaforo);
+      }
+    }
+    // US-016 SC-01: top-level estadoGlobal key ∈ {'verde','amarillo','rojo'} | null
+    expect('estadoGlobal' in res.body).toBe(true);
+    if (res.body.estadoGlobal !== null) {
+      expect(['verde', 'amarillo', 'rojo']).toContain(res.body.estadoGlobal);
     }
   });
 
@@ -237,7 +249,11 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     for (const bucket of res.body.buckets) {
       expect(bucket.porcentajeBp).toBeNull();
       expect(bucket.total).toBe('0');
+      // US-016 SC-SI-01: all estadoSemaforo null when sinIngreso=true
+      expect(bucket.estadoSemaforo).toBeNull();
     }
+    // US-016 SC-SI-01: estadoGlobal null when sinIngreso=true
+    expect(res.body.estadoGlobal).toBeNull();
   });
 
   // ── SC-09: user isolation (MANDATORY RNF-SEC-006) ─────────────────────────

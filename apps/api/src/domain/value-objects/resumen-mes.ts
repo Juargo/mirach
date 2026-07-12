@@ -1,9 +1,15 @@
 import { Bucket } from './bucket';
+import {
+  EstadoSemaforo,
+  calcularEstadoBucket,
+  calcularEstadoGlobal,
+} from './estado-semaforo';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-01: ResumenMes VO + porcentajeBasisPoints helper + TARGETS_503020
 // Money-critical (ADR-015, DR-02): pure BigInt math, no float, no Math.*, no
 // parseFloat anywhere in this file.
+// US-016 enrichment: estadoSemaforo per bucket + estadoGlobal on ResumenMes.
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -53,6 +59,8 @@ export interface BucketSlice {
   readonly bucket: Bucket;
   readonly total: bigint;
   readonly porcentajeBp: bigint | null;
+  /** Traffic-light health estado for this bucket (US-016). null for SinCategoria or sinIngreso. */
+  readonly estadoSemaforo: EstadoSemaforo | null;
 }
 
 /** Input shape for ResumenMes.crear(). */
@@ -81,14 +89,18 @@ export class ResumenMes {
   readonly totalIngreso: bigint;
   readonly sinIngreso: boolean;
   readonly buckets: ReadonlyArray<BucketSlice>;
+  /** Worst traffic-light estado across Necesidades/Deseos/Ahorro (US-016). null when sinIngreso. */
+  readonly estadoGlobal: EstadoSemaforo | null;
 
   private constructor(
     totalIngreso: bigint,
     buckets: ReadonlyArray<BucketSlice>,
+    estadoGlobal: EstadoSemaforo | null,
   ) {
     this.totalIngreso = totalIngreso;
     this.sinIngreso = totalIngreso === 0n;
     this.buckets = buckets;
+    this.estadoGlobal = estadoGlobal;
   }
 
   /**
@@ -105,13 +117,17 @@ export class ResumenMes {
 
     const buckets: BucketSlice[] = SPEND_BUCKETS.map((bucket) => {
       const total = totals[bucket];
+      const porcentajeBp = porcentajeBasisPoints(total, input.totalIngreso);
       return {
         bucket,
         total,
-        porcentajeBp: porcentajeBasisPoints(total, input.totalIngreso),
+        porcentajeBp,
+        estadoSemaforo: calcularEstadoBucket(bucket, porcentajeBp),
       };
     });
 
-    return new ResumenMes(input.totalIngreso, buckets);
+    const estadoGlobal = calcularEstadoGlobal(buckets.map((b) => b.estadoSemaforo));
+
+    return new ResumenMes(input.totalIngreso, buckets, estadoGlobal);
   }
 }

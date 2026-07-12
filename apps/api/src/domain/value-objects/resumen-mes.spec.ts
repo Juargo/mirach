@@ -1,4 +1,5 @@
 import { Bucket } from './bucket';
+import { EstadoSemaforo } from './estado-semaforo';
 import { porcentajeBasisPoints, ResumenMes, TARGETS_503020 } from './resumen-mes';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -101,6 +102,24 @@ describe('ResumenMes VO', () => {
     expect(resumen.buckets[3].porcentajeBp).toBe(600n);
   });
 
+  // US-016 lockstep: estadoSemaforo per bucket
+  it('US-016: estadoSemaforo computed for each bucket — happy path (spendBase)', () => {
+    const resumen = ResumenMes.crear(spendBase);
+    // Necesidades: 5000n bp → exactly Verde (boundary inclusive)
+    expect(resumen.buckets[0].estadoSemaforo).toBe(EstadoSemaforo.Verde);
+    // Deseos: 2400n bp → Verde (< 3000n threshold)
+    expect(resumen.buckets[1].estadoSemaforo).toBe(EstadoSemaforo.Verde);
+    // Ahorro: 2000n bp → Verde (exactly lower Verde boundary)
+    expect(resumen.buckets[2].estadoSemaforo).toBe(EstadoSemaforo.Verde);
+    // SinCategoria: no rule → null
+    expect(resumen.buckets[3].estadoSemaforo).toBeNull();
+  });
+
+  it('US-016: estadoGlobal is Verde when all measured buckets are Verde', () => {
+    const resumen = ResumenMes.crear(spendBase);
+    expect(resumen.estadoGlobal).toBe(EstadoSemaforo.Verde);
+  });
+
   it('sinIngreso === true when totalIngreso === 0n', () => {
     const resumen = ResumenMes.crear({
       totalIngreso: 0n,
@@ -125,6 +144,21 @@ describe('ResumenMes VO', () => {
     for (const slice of resumen.buckets) {
       expect(slice.porcentajeBp).toBeNull();
     }
+  });
+
+  // US-016: sinIngreso → all estadoSemaforo null + estadoGlobal null
+  it('US-016: all estadoSemaforo null when sinIngreso === true', () => {
+    const resumen = ResumenMes.crear({
+      totalIngreso: 0n,
+      necesidades: 100_000n,
+      deseos: 50_000n,
+      ahorro: 0n,
+      sinCategoria: 0n,
+    });
+    for (const slice of resumen.buckets) {
+      expect(slice.estadoSemaforo).toBeNull();
+    }
+    expect(resumen.estadoGlobal).toBeNull();
   });
 
   it('all totals are present even when sinIngreso=true', () => {
@@ -163,5 +197,33 @@ describe('ResumenMes VO', () => {
       expect(slice.total).toBe(0n);
       expect(slice.porcentajeBp).toBeNull();
     }
+  });
+
+  // US-016: Rojo scenario — necesidades > 60% → estadoGlobal Rojo
+  it('US-016: estadoGlobal is Rojo when Necesidades bp > 6000n', () => {
+    // Necesidades: 6001/10000 = 60.01% → Rojo (6001n bp)
+    const resumen = ResumenMes.crear({
+      totalIngreso: 10_000n,
+      necesidades: 6_001n,  // 6001 bp → Rojo
+      deseos: 1_000n,       // 1000 bp → Verde (< 3000)
+      ahorro: 2_000n,       // 2000 bp → Verde (boundary)
+      sinCategoria: 999n,
+    });
+    expect(resumen.buckets[0].estadoSemaforo).toBe(EstadoSemaforo.Rojo);
+    expect(resumen.estadoGlobal).toBe(EstadoSemaforo.Rojo);
+  });
+
+  // US-016: Amarillo scenario — no Rojo, at least one Amarillo
+  it('US-016: estadoGlobal is Amarillo when no Rojo but Deseos bp > 3000n', () => {
+    // Deseos: 3001/10000 = 30.01% → Amarillo
+    const resumen = ResumenMes.crear({
+      totalIngreso: 10_000n,
+      necesidades: 4_000n,  // 4000 bp → Verde (≤ 5000)
+      deseos: 3_001n,       // 3001 bp → Amarillo
+      ahorro: 2_000n,       // 2000 bp → Verde (boundary)
+      sinCategoria: 999n,
+    });
+    expect(resumen.buckets[1].estadoSemaforo).toBe(EstadoSemaforo.Amarillo);
+    expect(resumen.estadoGlobal).toBe(EstadoSemaforo.Amarillo);
   });
 });
