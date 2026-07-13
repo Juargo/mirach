@@ -81,7 +81,9 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       extension: '.xlsx',
       tamanoBytes: expect.any(Number),
     });
-    expect(response.body.totalTransacciones).toBe(response.body.transacciones.length);
+    expect(response.body.totalTransacciones).toBe(
+      response.body.transacciones.length,
+    );
     expect(response.body.transacciones.length).toBeGreaterThan(0);
     // cargo/abono viajan como STRING — JSON no serializa BigInt nativamente.
     for (const tx of response.body.transacciones) {
@@ -108,8 +110,12 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     });
     expect(filas).toHaveLength(response.body.transacciones.length);
 
-    const canon = (t: { fecha: string; descripcion: string; cargo: string; abono: string }) =>
-      `${t.fecha}|${t.descripcion}|${t.cargo}|${t.abono}`;
+    const canon = (t: {
+      fecha: string;
+      descripcion: string;
+      cargo: string;
+      abono: string;
+    }) => `${t.fecha}|${t.descripcion}|${t.cargo}|${t.abono}`;
     const enRespuesta = response.body.transacciones.map(canon).sort();
     const enBd = filas
       .map((f) =>
@@ -149,7 +155,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     // rollback de TODO el commit. La llamada real de markFailed (fuera del
     // $transaction) NO está mockeada, así que sí marca FALLIDA.
     const realUpdate = prisma.ingesta.update.bind(prisma.ingesta);
-    const spy = jest
+    const spy = vi
       .spyOn(prisma.ingesta, 'update')
       .mockImplementationOnce((args) =>
         realUpdate({

@@ -44,11 +44,10 @@ jobs:
       - name: Typecheck API
         run: pnpm api exec tsc --noEmit
 
-      # --ci hardens jest for CI (e.g. fails on new snapshots instead of
-      # writing them). pnpm forwards the flag to jest without a `--`
-      # separator; with one, jest would read it as a test-path pattern.
+      # Vitest detecta CI automáticamente vía la env var CI (la setea GitHub
+      # Actions) — no necesita un flag equivalente al `--ci` de Jest.
       - name: Unit tests API
-        run: pnpm api test --ci
+        run: pnpm api test
 
       - name: Typecheck web
         run: pnpm web typecheck

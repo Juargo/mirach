@@ -1,4 +1,7 @@
-import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { IngestaController } from './ingesta.controller';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
 import { Result } from '../../shared/result';
@@ -20,14 +23,14 @@ function controllerWithResult(
   result: Result<unknown, Error>,
 ): IngestaController {
   const useCase = {
-    execute: jest.fn().mockResolvedValue(result),
+    execute: vi.fn().mockResolvedValue(result),
   } as unknown as ProcessIngestaUseCase;
   return new IngestaController(useCase);
 }
 
 describe('IngestaController', () => {
   it('sin archivo: 400 sin invocar el orquestador', async () => {
-    const useCase = { execute: jest.fn() } as unknown as ProcessIngestaUseCase;
+    const useCase = { execute: vi.fn() } as unknown as ProcessIngestaUseCase;
     const controller = new IngestaController(useCase);
 
     await expect(
@@ -44,7 +47,7 @@ describe('IngestaController', () => {
 
     try {
       await controller.ingestar(fakeMulterFile());
-      fail('debía lanzar');
+      throw new Error('debía lanzar');
     } catch (e) {
       expect(e).toBeInstanceOf(BadRequestException);
       const message = (e as BadRequestException).message;
@@ -58,14 +61,18 @@ describe('IngestaController', () => {
     const error = new ExtensionNoPermitidaError('.xls', ['.xlsx']);
     const controller = controllerWithResult(Result.fail(error));
 
-    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(BadRequestException);
+    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('banco no reconocido: 400', async () => {
     const error = new BancoNoReconocidoError('movimientos.xlsx');
     const controller = controllerWithResult(Result.fail(error));
 
-    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(BadRequestException);
+    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('estructura inválida: 400', async () => {
@@ -74,11 +81,15 @@ describe('IngestaController', () => {
     ]);
     const controller = controllerWithResult(Result.fail(error));
 
-    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(BadRequestException);
+    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('fallo de persistencia (infraestructura): 500, no 400', async () => {
-    const error = new PersistenciaFallidaError('falló la escritura atómica de transacciones');
+    const error = new PersistenciaFallidaError(
+      'falló la escritura atómica de transacciones',
+    );
     const controller = controllerWithResult(Result.fail(error));
 
     await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(

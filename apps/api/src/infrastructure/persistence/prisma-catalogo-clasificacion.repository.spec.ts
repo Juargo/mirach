@@ -5,14 +5,16 @@ import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-f
 import { BUCKET_IDS } from './bucket-ids';
 
 /** Fila de PatronClasificacion tal como la devuelve Prisma (incluye relación bucket). */
-function makeDbRow(overrides?: Partial<{
-  id: string;
-  patron: string;
-  matchType: string;
-  prioridad: number;
-  bucketId: string;
-  bucketNombre: string;
-}>) {
+function makeDbRow(
+  overrides?: Partial<{
+    id: string;
+    patron: string;
+    matchType: string;
+    prioridad: number;
+    bucketId: string;
+    bucketNombre: string;
+  }>,
+) {
   const data = {
     id: 'pat-1',
     patron: 'lider',
@@ -28,14 +30,19 @@ function makeDbRow(overrides?: Partial<{
     matchType: data.matchType,
     prioridad: data.prioridad,
     bucketId: data.bucketId,
-    bucket: { id: data.bucketId, nombre: data.bucketNombre, patrones: [], transacciones: [] },
+    bucket: {
+      id: data.bucketId,
+      nombre: data.bucketNombre,
+      patrones: [],
+      transacciones: [],
+    },
   };
 }
 
 function makePrismaMock(rows: ReturnType<typeof makeDbRow>[], throws?: Error) {
   return {
     patronClasificacion: {
-      findMany: jest.fn(async () => {
+      findMany: vi.fn(async () => {
         if (throws) throw throws;
         return rows;
       }),
@@ -46,7 +53,12 @@ function makePrismaMock(rows: ReturnType<typeof makeDbRow>[], throws?: Error) {
 describe('PrismaCatalogoClasificacionRepository', () => {
   describe('findAll()', () => {
     it('maps a CONTAINS row to PatronClasificacion VO correctly', async () => {
-      const row = makeDbRow({ patron: 'lider', matchType: 'CONTAINS', prioridad: 10, bucketNombre: Bucket.Necesidades });
+      const row = makeDbRow({
+        patron: 'lider',
+        matchType: 'CONTAINS',
+        prioridad: 10,
+        bucketNombre: Bucket.Necesidades,
+      });
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
@@ -63,7 +75,10 @@ describe('PrismaCatalogoClasificacionRepository', () => {
     });
 
     it('maps a STARTS_WITH row correctly', async () => {
-      const row = makeDbRow({ matchType: 'STARTS_WITH', bucketNombre: Bucket.Deseos });
+      const row = makeDbRow({
+        matchType: 'STARTS_WITH',
+        bucketNombre: Bucket.Deseos,
+      });
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
@@ -75,7 +90,10 @@ describe('PrismaCatalogoClasificacionRepository', () => {
     });
 
     it('maps a REGEX row correctly', async () => {
-      const row = makeDbRow({ matchType: 'REGEX', bucketNombre: Bucket.Ahorro });
+      const row = makeDbRow({
+        matchType: 'REGEX',
+        bucketNombre: Bucket.Ahorro,
+      });
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
@@ -98,8 +116,19 @@ describe('PrismaCatalogoClasificacionRepository', () => {
 
     it('returns multiple rows mapped correctly', async () => {
       const rows = [
-        makeDbRow({ id: 'p-1', patron: 'lider', prioridad: 5, bucketNombre: Bucket.Necesidades }),
-        makeDbRow({ id: 'p-2', patron: 'netflix', matchType: 'CONTAINS', prioridad: 10, bucketNombre: Bucket.Deseos }),
+        makeDbRow({
+          id: 'p-1',
+          patron: 'lider',
+          prioridad: 5,
+          bucketNombre: Bucket.Necesidades,
+        }),
+        makeDbRow({
+          id: 'p-2',
+          patron: 'netflix',
+          matchType: 'CONTAINS',
+          prioridad: 10,
+          bucketNombre: Bucket.Deseos,
+        }),
       ];
       const prisma = makePrismaMock(rows);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
@@ -120,7 +149,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
-      expect((result.getError() as CategorizacionFallidaError).causa).toBeInstanceOf(Error);
+      expect(result.getError().causa).toBeInstanceOf(Error);
     });
 
     it('never throws even when Prisma throws (returns Result.fail)', async () => {

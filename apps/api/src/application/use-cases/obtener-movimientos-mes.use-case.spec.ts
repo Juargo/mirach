@@ -1,8 +1,14 @@
+import type { Mocked } from 'vitest';
 import { ObtenerMovimientosMesUseCase } from './obtener-movimientos-mes.use-case';
-import { IMovimientosMesReader, MovimientoMesRow } from '../ports/movimientos-mes.port';
+import {
+  IMovimientosMesReader,
+  MovimientoMesRow,
+} from '../ports/movimientos-mes.port';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 
-const makeRow = (overrides: Partial<MovimientoMesRow> = {}): MovimientoMesRow => ({
+const makeRow = (
+  overrides: Partial<MovimientoMesRow> = {},
+): MovimientoMesRow => ({
   id: 'tx-001',
   fecha: new Date('2026-07-10T00:00:00.000Z'),
   descripcion: 'Compra supermercado',
@@ -16,23 +22,26 @@ const makeRow = (overrides: Partial<MovimientoMesRow> = {}): MovimientoMesRow =>
 });
 
 describe('ObtenerMovimientosMesUseCase', () => {
-  let readerMock: jest.Mocked<IMovimientosMesReader>;
+  let readerMock: Mocked<IMovimientosMesReader>;
   let useCase: ObtenerMovimientosMesUseCase;
 
   beforeEach(() => {
     readerMock = {
-      findByPeriodo: jest.fn(),
+      findByPeriodo: vi.fn(),
     };
     useCase = new ObtenerMovimientosMesUseCase(readerMock);
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('invalid periodo string', () => {
     it('returns Result.fail(PeriodoInvalidoError) and never calls reader', async () => {
-      const result = await useCase.execute({ userId: 'user-1', periodo: '2026-13' });
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: '2026-13',
+      });
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PeriodoInvalidoError);
@@ -48,7 +57,10 @@ describe('ObtenerMovimientosMesUseCase', () => {
     });
 
     it('abc → Result.fail, reader NOT called', async () => {
-      const result = await useCase.execute({ userId: 'user-1', periodo: 'abc' });
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: 'abc',
+      });
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PeriodoInvalidoError);
@@ -58,10 +70,16 @@ describe('ObtenerMovimientosMesUseCase', () => {
 
   describe('valid periodo string', () => {
     it('returns Result.ok with periodo echoed and rows passed through', async () => {
-      const rows = [makeRow(), makeRow({ id: 'tx-002', cargo: 0n, abono: 100000n })];
+      const rows = [
+        makeRow(),
+        makeRow({ id: 'tx-002', cargo: 0n, abono: 100000n }),
+      ];
       readerMock.findByPeriodo.mockResolvedValue(rows);
 
-      const result = await useCase.execute({ userId: 'user-1', periodo: '2026-07' });
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: '2026-07',
+      });
 
       expect(result.isOk()).toBe(true);
       const data = result.getValue();
@@ -73,7 +91,10 @@ describe('ObtenerMovimientosMesUseCase', () => {
     it('reader returns empty array → Result.ok with empty transacciones (not a failure — AC-04)', async () => {
       readerMock.findByPeriodo.mockResolvedValue([]);
 
-      const result = await useCase.execute({ userId: 'user-1', periodo: '2026-05' });
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: '2026-05',
+      });
 
       expect(result.isOk()).toBe(true);
       const data = result.getValue();
@@ -88,7 +109,10 @@ describe('ObtenerMovimientosMesUseCase', () => {
       ];
       readerMock.findByPeriodo.mockResolvedValue(rows);
 
-      const result = await useCase.execute({ userId: 'user-1', periodo: '2026-07' });
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: '2026-07',
+      });
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue().transacciones[0].id).toBe('tx-z');
@@ -101,7 +125,8 @@ describe('ObtenerMovimientosMesUseCase', () => {
       await useCase.execute({ userId: 'user-42', periodo: '2026-07' });
 
       expect(readerMock.findByPeriodo).toHaveBeenCalledTimes(1);
-      const [calledUserId, calledPeriodo] = readerMock.findByPeriodo.mock.calls[0];
+      const [calledUserId, calledPeriodo] =
+        readerMock.findByPeriodo.mock.calls[0];
       expect(calledUserId).toBe('user-42');
       expect(calledPeriodo.valor).toBe('2026-07');
     });
@@ -109,12 +134,15 @@ describe('ObtenerMovimientosMesUseCase', () => {
 
   describe('absent periodo (undefined)', () => {
     it('uses PeriodoMes.actual() and calls reader with current month', async () => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
 
       readerMock.findByPeriodo.mockResolvedValue([makeRow()]);
 
-      const result = await useCase.execute({ userId: 'user-1', periodo: undefined });
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: undefined,
+      });
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue().periodo).toBe('2026-07');

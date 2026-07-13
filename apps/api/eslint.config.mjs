@@ -1,7 +1,7 @@
 // @ts-check
 import eslint from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
-import jest from 'eslint-plugin-jest';
+import vitest from '@vitest/eslint-plugin';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -16,7 +16,6 @@ export default tseslint.config(
     languageOptions: {
       globals: {
         ...globals.node,
-        ...globals.jest,
       },
       sourceType: 'commonjs',
       parserOptions: {
@@ -34,12 +33,15 @@ export default tseslint.config(
     },
   },
   {
-    // Falla si un `.only` (fit/fdescribe/it.only/describe.only) queda en un test:
-    // en CI silenciaría el resto de la suite y dejaría pasar un build en falso.
+    // Falla si un `.only` (it.only/describe.only) queda en un test: en CI
+    // silenciaría el resto de la suite y dejaría pasar un build en falso.
     files: ['**/*.spec.ts', '**/*.int-spec.ts', '**/*.e2e-spec.ts'],
-    plugins: { jest },
+    plugins: { vitest },
+    languageOptions: {
+      globals: { ...vitest.environments.env.globals },
+    },
     rules: {
-      'jest/no-focused-tests': 'error',
+      'vitest/no-focused-tests': 'error',
     },
   },
 );

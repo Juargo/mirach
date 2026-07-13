@@ -36,8 +36,12 @@ describe('Prisma persistence integration (real dev DB)', () => {
 
   afterAll(async () => {
     // Limpieza en orden FK inverso (ON DELETE RESTRICT).
-    await prisma.transaccion.deleteMany({ where: { ingestaId: { in: createdIngestaIds } } });
-    await prisma.ingesta.deleteMany({ where: { id: { in: createdIngestaIds } } });
+    await prisma.transaccion.deleteMany({
+      where: { ingestaId: { in: createdIngestaIds } },
+    });
+    await prisma.ingesta.deleteMany({
+      where: { id: { in: createdIngestaIds } },
+    });
     await prisma.account.deleteMany({ where: { userId: USER_ID } });
     await prisma.user.deleteMany({ where: { id: USER_ID } });
     await prisma.$disconnect();
@@ -72,23 +76,39 @@ describe('Prisma persistence integration (real dev DB)', () => {
       createdIngestaIds.push(ingestaId);
 
       const txs: Transaccion[] = [
-        { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 },
+        {
+          fecha: new Date('2026-05-14T00:00:00.000Z'),
+          descripcion: 'Compra',
+          cargo: 8103,
+          abono: 0,
+        },
         // abono en Number.MAX_SAFE_INTEGER: prueba round-trip BigInt sin pérdida.
-        { fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 9007199254740991 },
+        {
+          fecha: new Date('2026-05-15T00:00:00.000Z'),
+          descripcion: 'Sueldo',
+          cargo: 0,
+          abono: 9007199254740991,
+        },
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
       expect(committed.isOk()).toBe(true);
       expect(committed.getValue().total).toBe(2);
 
-      const ingesta = await prisma.ingesta.findUnique({ where: { id: ingestaId } });
+      const ingesta = await prisma.ingesta.findUnique({
+        where: { id: ingestaId },
+      });
       expect(ingesta?.estado).toBe('PROCESADA');
       expect(ingesta?.totalTransacciones).toBe(2);
       expect(ingesta?.procesadoEn).toBeInstanceOf(Date);
 
       const rows = await prisma.transaccion.findMany({ where: { ingestaId } });
       expect(rows).toHaveLength(2);
-      expect(rows.every((r) => r.accountId === accountId && r.ingestaId === ingestaId)).toBe(true);
+      expect(
+        rows.every(
+          (r) => r.accountId === accountId && r.ingestaId === ingestaId,
+        ),
+      ).toBe(true);
       expect(rows.every((r) => r.bucketId === null)).toBe(true);
 
       const leidas = await transaccionRepo.findByIngesta(ingestaId);
@@ -108,7 +128,9 @@ describe('Prisma persistence integration (real dev DB)', () => {
       expect(committed.isOk()).toBe(true);
       expect(committed.getValue().total).toBe(0);
 
-      const ingesta = await prisma.ingesta.findUnique({ where: { id: ingestaId } });
+      const ingesta = await prisma.ingesta.findUnique({
+        where: { id: ingestaId },
+      });
       expect(ingesta?.estado).toBe('PROCESADA');
       expect(ingesta?.totalTransacciones).toBe(0);
       expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(0);
@@ -127,8 +149,18 @@ describe('Prisma persistence integration (real dev DB)', () => {
 
       // La 2da fila viola CHECK (cargo >= 0) → aborta TODO el $transaction.
       const txs: Transaccion[] = [
-        { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'ok', cargo: 100, abono: 0 },
-        { fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'bad', cargo: -1, abono: 0 },
+        {
+          fecha: new Date('2026-05-14T00:00:00.000Z'),
+          descripcion: 'ok',
+          cargo: 100,
+          abono: 0,
+        },
+        {
+          fecha: new Date('2026-05-15T00:00:00.000Z'),
+          descripcion: 'bad',
+          cargo: -1,
+          abono: 0,
+        },
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
@@ -137,13 +169,20 @@ describe('Prisma persistence integration (real dev DB)', () => {
 
       // Atomicidad: 0 filas y la Ingesta sigue PENDIENTE (update revertido).
       expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(0);
-      const afterCommit = await prisma.ingesta.findUnique({ where: { id: ingestaId } });
+      const afterCommit = await prisma.ingesta.findUnique({
+        where: { id: ingestaId },
+      });
       expect(afterCommit?.estado).toBe('PENDIENTE');
 
       // El orquestador (PR3b) marcaría FALLIDA; el repo lo soporta sin lanzar.
-      const marked = await ingestaRepo.markFailed(ingestaId, 'fallo atómico de prueba');
+      const marked = await ingestaRepo.markFailed(
+        ingestaId,
+        'fallo atómico de prueba',
+      );
       expect(marked.isOk()).toBe(true);
-      const afterFail = await prisma.ingesta.findUnique({ where: { id: ingestaId } });
+      const afterFail = await prisma.ingesta.findUnique({
+        where: { id: ingestaId },
+      });
       expect(afterFail?.estado).toBe('FALLIDA');
       expect(afterFail?.motivoFallo).toBe('fallo atómico de prueba');
     });
@@ -162,7 +201,7 @@ describe('Prisma persistence integration (real dev DB)', () => {
       // apunta a un id inexistente → P2025 en ejecución → rollback de TODO.
       // Esto distingue "$transaction se usa" de "orden afortunado".
       const realUpdate = prisma.ingesta.update.bind(prisma.ingesta);
-      const spy = jest
+      const spy = vi
         .spyOn(prisma.ingesta, 'update')
         .mockImplementationOnce(() =>
           realUpdate({
@@ -173,8 +212,18 @@ describe('Prisma persistence integration (real dev DB)', () => {
 
       try {
         const txs: Transaccion[] = [
-          { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'a', cargo: 100, abono: 0 },
-          { fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'b', cargo: 200, abono: 0 },
+          {
+            fecha: new Date('2026-05-14T00:00:00.000Z'),
+            descripcion: 'a',
+            cargo: 100,
+            abono: 0,
+          },
+          {
+            fecha: new Date('2026-05-15T00:00:00.000Z'),
+            descripcion: 'b',
+            cargo: 200,
+            abono: 0,
+          },
         ];
 
         const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
@@ -183,8 +232,12 @@ describe('Prisma persistence integration (real dev DB)', () => {
 
         // Prueba REAL de atomicidad de dos sentencias: createMany insertó dentro
         // de la tx, pero el fallo del update revirtió TODO → 0 filas.
-        expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(0);
-        const ingesta = await prisma.ingesta.findUnique({ where: { id: ingestaId } });
+        expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(
+          0,
+        );
+        const ingesta = await prisma.ingesta.findUnique({
+          where: { id: ingestaId },
+        });
         expect(ingesta?.estado).toBe('PENDIENTE');
       } finally {
         spy.mockRestore();
@@ -194,7 +247,10 @@ describe('Prisma persistence integration (real dev DB)', () => {
 
   describe('R3 — mapeo de errores de infraestructura a Result.fail', () => {
     it('markFailed con ingestaId inexistente → Result.fail(PersistenciaFallidaError), sin lanzar', async () => {
-      const result = await ingestaRepo.markFailed(`inexistente-${RUN_ID}`, 'motivo');
+      const result = await ingestaRepo.markFailed(
+        `inexistente-${RUN_ID}`,
+        'motivo',
+      );
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
@@ -223,7 +279,12 @@ describe('Prisma persistence integration (real dev DB)', () => {
       createdIngestaIds.push(ingestaId);
 
       const txs: Transaccion[] = [
-        { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'neg', cargo: 0, abono: -5 },
+        {
+          fecha: new Date('2026-05-14T00:00:00.000Z'),
+          descripcion: 'neg',
+          cargo: 0,
+          abono: -5,
+        },
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
@@ -254,7 +315,9 @@ describe('Prisma persistence integration (real dev DB)', () => {
         },
       });
 
-      await expect(transaccionRepo.findByIngesta(ingestaId)).rejects.toThrow(RangeError);
+      await expect(transaccionRepo.findByIngesta(ingestaId)).rejects.toThrow(
+        RangeError,
+      );
     });
   });
 });

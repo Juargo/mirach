@@ -8,7 +8,7 @@ import { PrismaService } from './prisma.service';
  * Sin esto, cada módulo que lista `PrismaService` en sus providers (IngestaModule,
  * MovimientosModule) obtiene su PROPIA instancia module-scoped. Dos instancias
  * rompen el e2e basado en spies: `moduleFixture.get(PrismaService)` resuelve una
- * instancia distinta a la que usa el pipeline, así que un `jest.spyOn` sobre el
+ * instancia distinta a la que usa el pipeline, así que un `vi.spyOn` sobre el
  * PrismaService del test no intercepta las llamadas reales. Además abre conexiones
  * duplicadas contra el mismo pool. Una sola instancia global evita ambos problemas.
  */

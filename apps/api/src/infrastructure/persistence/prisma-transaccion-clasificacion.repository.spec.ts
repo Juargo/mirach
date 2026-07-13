@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { PrismaTransaccionClasificacionRepository } from './prisma-transaccion-clasificacion.repository';
 import { PrismaService } from './prisma.service';
 
@@ -10,10 +11,17 @@ import { PrismaService } from './prisma.service';
  *   (c) large BigInt amounts round-trip exactly without lossy Number() conversion
  *       (guards the money-type contract — 10_000_000_000_000_000n exceeds JS safe integer)
  */
-function makePrismaMock(rows: Array<{ id: string; descripcion: string; cargo: bigint; abono: bigint }>) {
+function makePrismaMock(
+  rows: Array<{
+    id: string;
+    descripcion: string;
+    cargo: bigint;
+    abono: bigint;
+  }>,
+) {
   return {
     transaccion: {
-      findMany: jest.fn().mockResolvedValue(rows),
+      findMany: vi.fn().mockResolvedValue(rows),
     },
   } as unknown as PrismaService;
 }
@@ -26,7 +34,7 @@ describe('PrismaTransaccionClasificacionRepository', () => {
 
       await repo.findParaClasificar('ingesta-abc');
 
-      expect((prisma.transaccion.findMany as jest.Mock)).toHaveBeenCalledWith(
+      expect(prisma.transaccion.findMany as Mock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { ingestaId: 'ingesta-abc' } }),
       );
     });
@@ -34,7 +42,12 @@ describe('PrismaTransaccionClasificacionRepository', () => {
     it('maps rows to correct TransaccionParaClasificar shape', async () => {
       const rows = [
         { id: 'tx-1', descripcion: 'Compra Lider', cargo: 9500n, abono: 0n },
-        { id: 'tx-2', descripcion: 'Sueldo Empresa', cargo: 0n, abono: 1500000n },
+        {
+          id: 'tx-2',
+          descripcion: 'Sueldo Empresa',
+          cargo: 0n,
+          abono: 1500000n,
+        },
       ];
       const prisma = makePrismaMock(rows);
       const repo = new PrismaTransaccionClasificacionRepository(prisma);
@@ -60,7 +73,14 @@ describe('PrismaTransaccionClasificacionRepository', () => {
       // 10_000_000_000_000_000n exceeds Number.MAX_SAFE_INTEGER (9_007_199_254_740_991)
       // so Number(x) would corrupt it. The field must stay bigint.
       const largeAmount = 10_000_000_000_000_000n;
-      const rows = [{ id: 'tx-big', descripcion: 'Monto grande', cargo: largeAmount, abono: 0n }];
+      const rows = [
+        {
+          id: 'tx-big',
+          descripcion: 'Monto grande',
+          cargo: largeAmount,
+          abono: 0n,
+        },
+      ];
       const prisma = makePrismaMock(rows);
       const repo = new PrismaTransaccionClasificacionRepository(prisma);
 

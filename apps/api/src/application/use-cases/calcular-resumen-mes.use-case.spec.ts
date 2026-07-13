@@ -10,23 +10,25 @@ import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error
 
 function makeMockReader(rows: BucketSumRow[]): IResumenMesReader {
   return {
-    sumarPorBucket: jest.fn().mockResolvedValue(rows),
+    sumarPorBucket: vi.fn().mockResolvedValue(rows),
   };
 }
 
-function allBucketRows(overrides: Partial<Record<Bucket, { cargo?: bigint; abono?: bigint }>> = {}): BucketSumRow[] {
+function allBucketRows(
+  overrides: Partial<Record<Bucket, { cargo?: bigint; abono?: bigint }>> = {},
+): BucketSumRow[] {
   const defaults: Record<Bucket, { cargo: bigint; abono: bigint }> = {
-    [Bucket.Ingreso]:      { cargo: 0n,         abono: 1_500_000n },
-    [Bucket.Necesidades]:  { cargo: 750_000n,   abono: 0n },
-    [Bucket.Deseos]:       { cargo: 360_000n,   abono: 0n },
-    [Bucket.Ahorro]:       { cargo: 300_000n,   abono: 0n },
-    [Bucket.SinCategoria]: { cargo: 90_000n,    abono: 0n },
+    [Bucket.Ingreso]: { cargo: 0n, abono: 1_500_000n },
+    [Bucket.Necesidades]: { cargo: 750_000n, abono: 0n },
+    [Bucket.Deseos]: { cargo: 360_000n, abono: 0n },
+    [Bucket.Ahorro]: { cargo: 300_000n, abono: 0n },
+    [Bucket.SinCategoria]: { cargo: 90_000n, abono: 0n },
   };
 
   return (Object.keys(defaults) as Bucket[]).map((bucket) => ({
     bucket,
-    totalCargo: (overrides[bucket]?.cargo ?? defaults[bucket].cargo),
-    totalAbono: (overrides[bucket]?.abono ?? defaults[bucket].abono),
+    totalCargo: overrides[bucket]?.cargo ?? defaults[bucket].cargo,
+    totalAbono: overrides[bucket]?.abono ?? defaults[bucket].abono,
   }));
 }
 
@@ -44,10 +46,10 @@ describe('CalcularResumenMesUseCase', () => {
       expect(resumen.sinIngreso).toBe(false);
 
       const [necesidades, deseos, ahorro, sinCat] = resumen.buckets;
-      expect(necesidades.porcentajeBp).toBe(5000n);  // 50.00%
-      expect(deseos.porcentajeBp).toBe(2400n);        // 24.00%
-      expect(ahorro.porcentajeBp).toBe(2000n);        // 20.00%
-      expect(sinCat.porcentajeBp).toBe(600n);         // 6.00%
+      expect(necesidades.porcentajeBp).toBe(5000n); // 50.00%
+      expect(deseos.porcentajeBp).toBe(2400n); // 24.00%
+      expect(ahorro.porcentajeBp).toBe(2000n); // 20.00%
+      expect(sinCat.porcentajeBp).toBe(600n); // 6.00%
     });
 
     it('returns the resolved periodo string', async () => {
@@ -66,8 +68,8 @@ describe('CalcularResumenMesUseCase', () => {
       // The use case receives already-folded rows from the reader (port contract).
       // Fold correctness is tested at the repository layer.
       const rows: BucketSumRow[] = [
-        { bucket: Bucket.Ingreso,      totalCargo: 0n,         totalAbono: 1_000_000n },
-        { bucket: Bucket.SinCategoria, totalCargo: 200_000n,   totalAbono: 0n },
+        { bucket: Bucket.Ingreso, totalCargo: 0n, totalAbono: 1_000_000n },
+        { bucket: Bucket.SinCategoria, totalCargo: 200_000n, totalAbono: 0n },
       ];
       const reader = makeMockReader(rows);
       const uc = new CalcularResumenMesUseCase(reader);
@@ -76,9 +78,11 @@ describe('CalcularResumenMesUseCase', () => {
 
       expect(result.isOk()).toBe(true);
       const { resumen } = result.getValue();
-      const sinCat = resumen.buckets.find((b) => b.bucket === Bucket.SinCategoria);
+      const sinCat = resumen.buckets.find(
+        (b) => b.bucket === Bucket.SinCategoria,
+      );
       expect(sinCat?.total).toBe(200_000n);
-      expect(sinCat?.porcentajeBp).toBe(2000n);  // 200000/1000000 = 20.00%
+      expect(sinCat?.porcentajeBp).toBe(2000n); // 200000/1000000 = 20.00%
     });
   });
 
@@ -147,7 +151,10 @@ describe('CalcularResumenMesUseCase', () => {
       const reader = makeMockReader([]);
       const uc = new CalcularResumenMesUseCase(reader);
 
-      const result = await uc.execute({ userId: 'user-a', periodo: 'not-a-date' });
+      const result = await uc.execute({
+        userId: 'user-a',
+        periodo: 'not-a-date',
+      });
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PeriodoInvalidoError);
@@ -177,8 +184,8 @@ describe('CalcularResumenMesUseCase', () => {
     it('base is computed from Ingreso totalAbono, NOT totalCargo', async () => {
       // Ingreso row has cargo=999n (should be ignored for base) and abono=1_000_000n
       const rows: BucketSumRow[] = [
-        { bucket: Bucket.Ingreso,     totalCargo: 999n,       totalAbono: 1_000_000n },
-        { bucket: Bucket.Necesidades, totalCargo: 500_000n,   totalAbono: 0n },
+        { bucket: Bucket.Ingreso, totalCargo: 999n, totalAbono: 1_000_000n },
+        { bucket: Bucket.Necesidades, totalCargo: 500_000n, totalAbono: 0n },
       ];
       const reader = makeMockReader(rows);
       const uc = new CalcularResumenMesUseCase(reader);
@@ -187,9 +194,11 @@ describe('CalcularResumenMesUseCase', () => {
 
       expect(result.isOk()).toBe(true);
       const { resumen } = result.getValue();
-      expect(resumen.totalIngreso).toBe(1_000_000n);  // from abono, not cargo
-      const necesidades = resumen.buckets.find((b) => b.bucket === Bucket.Necesidades);
-      expect(necesidades?.porcentajeBp).toBe(5000n);  // 500000/1000000 = 5000bp
+      expect(resumen.totalIngreso).toBe(1_000_000n); // from abono, not cargo
+      const necesidades = resumen.buckets.find(
+        (b) => b.bucket === Bucket.Necesidades,
+      );
+      expect(necesidades?.porcentajeBp).toBe(5000n); // 500000/1000000 = 5000bp
     });
   });
 });

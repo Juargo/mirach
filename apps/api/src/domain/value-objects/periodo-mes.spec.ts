@@ -3,7 +3,7 @@ import { PeriodoInvalidoError } from '../errors/periodo-invalido.error';
 
 describe('PeriodoMes', () => {
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   // ── PeriodoMes.crear ───────────────────────────────────────────────────────
@@ -42,8 +42,12 @@ describe('PeriodoMes', () => {
     it('2026-01 → desde=2026-01-01T00:00:00.000Z (first month of year)', () => {
       const result = PeriodoMes.crear('2026-01');
       expect(result.isOk()).toBe(true);
-      expect(result.getValue().desde.toISOString()).toBe('2026-01-01T00:00:00.000Z');
-      expect(result.getValue().hasta.toISOString()).toBe('2026-02-01T00:00:00.000Z');
+      expect(result.getValue().desde.toISOString()).toBe(
+        '2026-01-01T00:00:00.000Z',
+      );
+      expect(result.getValue().hasta.toISOString()).toBe(
+        '2026-02-01T00:00:00.000Z',
+      );
     });
 
     // ── Invalid inputs ──
@@ -120,8 +124,8 @@ describe('PeriodoMes', () => {
 
   describe('actual()', () => {
     it('with frozen clock at 2026-07-15 → valor=2026-07, desde=2026-07-01T00:00:00.000Z, hasta=2026-08-01T00:00:00.000Z', () => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
 
       const periodo = PeriodoMes.actual();
 
@@ -131,8 +135,8 @@ describe('PeriodoMes', () => {
     });
 
     it('with frozen clock at December 2026-12-01 → hasta=2027-01-01T00:00:00.000Z (year-boundary case)', () => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2026-12-01T00:00:00.000Z'));
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-12-01T00:00:00.000Z'));
 
       const periodo = PeriodoMes.actual();
 
@@ -142,8 +146,8 @@ describe('PeriodoMes', () => {
     });
 
     it('returns a PeriodoMes instance directly (never throws)', () => {
-      jest.useFakeTimers();
-      jest.setSystemTime(new Date('2026-07-15T00:00:00.000Z'));
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-07-15T00:00:00.000Z'));
 
       expect(() => PeriodoMes.actual()).not.toThrow();
       const p = PeriodoMes.actual();

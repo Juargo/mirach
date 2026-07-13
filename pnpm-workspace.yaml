@@ -1,9 +1,14 @@
 packages:
   - 'apps/*'
+  # apps/mobile es post-MVP (ADR-010/ADR-017): solo esqueleto de testing por
+  # ahora. Se excluye del workspace para NO instalar el árbol de React
+  # Native/Expo hasta scaffoldear la app real. Quitar esta línea al activarla.
+  - '!apps/mobile'
 
 allowBuilds:
   '@nestjs/core': true
   '@prisma/engines': true
+  '@swc/core': true
   prisma: true
   unrs-resolver: true
 
