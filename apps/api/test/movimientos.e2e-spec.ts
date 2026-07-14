@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
 
 const RUN_ID = `movmese2e-${Date.now()}`;
+const API_KEY = process.env.API_KEY ?? '';
 
 // Use a unique user per run to keep test data isolated from other runs/users.
 // We derive a unique userId so tests don't contaminate USER_ID_FIJO's real data.
@@ -71,30 +72,35 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   it('AC-05: GET /api/movimientos?periodo=2026-13 → 400 (invalid month)', async () => {
     await request(app.getHttpServer())
       .get('/api/movimientos?periodo=2026-13')
+      .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07a: GET /api/movimientos?periodo= (empty string) → 400', async () => {
     await request(app.getHttpServer())
       .get('/api/movimientos?periodo=')
+      .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07b: GET /api/movimientos?periodo=abc → 400', async () => {
     await request(app.getHttpServer())
       .get('/api/movimientos?periodo=abc')
+      .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07c: GET /api/movimientos?periodo=2026-7 (non-padded month) → 400', async () => {
     await request(app.getHttpServer())
       .get('/api/movimientos?periodo=2026-7')
+      .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07d: GET /api/movimientos?periodo=2026/07 (wrong separator) → 400', async () => {
     await request(app.getHttpServer())
       .get('/api/movimientos?periodo=2026%2F07')
+      .set('x-api-key', API_KEY)
       .expect(400);
   });
 
@@ -104,6 +110,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     // Use a month with no data: far past (2000-01)
     const response = await request(app.getHttpServer())
       .get('/api/movimientos?periodo=2000-01')
+      .set('x-api-key', API_KEY)
       .expect(200);
 
     expect(response.body.periodo).toBe('2000-01');
@@ -122,6 +129,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
     const response = await request(app.getHttpServer())
       .get('/api/movimientos')
+      .set('x-api-key', API_KEY)
       .expect(200);
 
     expect(response.body.periodo).toBe(expectedPeriodo);
@@ -187,6 +195,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
     const response = await request(app.getHttpServer())
       .get('/api/movimientos?periodo=2026-07')
+      .set('x-api-key', API_KEY)
       .expect(200);
 
     expect(response.body.periodo).toBe('2026-07');

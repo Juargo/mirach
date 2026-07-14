@@ -24,6 +24,7 @@ import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
+const API_KEY = process.env.API_KEY ?? '';
 
 const RUN_ID = `resumen-e2e-${Date.now()}`;
 // Use current UTC period so GET /api/resumen (no param) hits the seeded data
@@ -143,6 +144,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   it('SC-08a: GET /api/resumen?periodo=not-a-date → 400', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/resumen?periodo=not-a-date')
+      .set('x-api-key', API_KEY)
       .expect(400);
 
     // Scrubbed: raw input must NOT appear in the body
@@ -152,6 +154,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   it('SC-08b: GET /api/resumen?periodo=2026-13 → 400', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/resumen?periodo=2026-13')
+      .set('x-api-key', API_KEY)
       .expect(400);
 
     expect(JSON.stringify(res.body)).not.toContain('2026-13');
@@ -160,6 +163,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   it('SC-08c: GET /api/resumen?periodo=2026-00 → 400', async () => {
     await request(app.getHttpServer())
       .get('/api/resumen?periodo=2026-00')
+      .set('x-api-key', API_KEY)
       .expect(400);
   });
 
@@ -168,6 +172,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   it('SC-07: GET /api/resumen (no periodo) → 200 with current UTC periodo', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/resumen')
+      .set('x-api-key', API_KEY)
       .expect(200);
 
     expect(res.body.periodo).toBe(CURRENT_PERIODO);
@@ -180,6 +185,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
       // Shape can be validated with empty data (sinIngreso=true but shape is still valid)
       const res = await request(app.getHttpServer())
         .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
+        .set('x-api-key', API_KEY)
         .expect(200);
 
       // Shape assertions that don't require real data
@@ -206,6 +212,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     // The endpoint uses USER_ID_FIJO, not our seeded userId. Shape test still works.
     const res = await request(app.getHttpServer())
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
+      .set('x-api-key', API_KEY)
       .expect(200);
 
     // DTO shape invariants (SC-01)
@@ -241,6 +248,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     // A future month with no data — guaranteed empty
     const res = await request(app.getHttpServer())
       .get('/api/resumen?periodo=2099-12')
+      .set('x-api-key', API_KEY)
       .expect(200);
 
     expect(res.body.sinIngreso).toBe(true);
@@ -272,6 +280,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
 
     const res = await request(app.getHttpServer())
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
+      .set('x-api-key', API_KEY)
       .expect(200);
 
     // USER_ID_FIJO endpoint must NEVER return alien user's data

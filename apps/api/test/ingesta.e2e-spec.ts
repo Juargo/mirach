@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
 
 const RUN_ID = `e2e-${Date.now()}`;
+const API_KEY = process.env.API_KEY ?? '';
 
 /**
  * E2E de POST /api/ingestas contra una BD real de desarrollo (US-011, PR4).
@@ -65,6 +66,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
 
     const response = await request(app.getHttpServer())
       .post('/api/ingestas')
+      .set('x-api-key', API_KEY)
       .attach('file', xlsxFixture, nombreArchivo)
       .expect(200);
 
@@ -133,6 +135,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   it('rechaza un archivo .xls con 400 (falla en IngestFile, antes de crear ninguna Ingesta)', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/ingestas')
+      .set('x-api-key', API_KEY)
       .attach('file', xlsFixture)
       .expect(400);
 
@@ -142,6 +145,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   it('retorna 400 cuando no se envía archivo', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/ingestas')
+      .set('x-api-key', API_KEY)
       .expect(400);
 
     expect(response.body.message).toMatch(/archivo/i);
@@ -167,6 +171,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     try {
       const response = await request(app.getHttpServer())
         .post('/api/ingestas')
+        .set('x-api-key', API_KEY)
         .attach('file', xlsxFixture, nombreArchivo)
         .expect(500);
 

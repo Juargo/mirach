@@ -1,0 +1,45 @@
+# render.yaml — Blueprint de despliegue del backend MoneyDiary (ADR-004).
+#
+# Despliega apps/api (NestJS) como Web Service en Render, apuntando a la BD
+# Supabase (ADR-002). El frontend web/mobile NO se despliegan aquí.
+#
+# Cómo usarlo:
+#   1. En Render → New → Blueprint → conectar el repo Juargo/MoneyDiary.
+#   2. Render lee este archivo y crea el servicio.
+#   3. Setear los secretos (sync:false) en el dashboard: DATABASE_URL,
+#      DIRECT_URL, API_KEY (ver notas abajo).
+#
+# Seguridad: los 3 secretos van con `sync:false` — NO se commitean; se cargan
+# a mano en el dashboard de Render. API_KEY protege todos los endpoints salvo
+# el health check (ApiKeyGuard, fail-closed).
+
+services:
+  - type: web
+    name: moneydiary-api
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    # El repo es un monorepo pnpm; se instala y construye desde la raíz.
+    rootDir: .
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @moneydiary/api exec prisma generate &&
+      pnpm --filter @moneydiary/api build
+    startCommand: pnpm --filter @moneydiary/api start:prod
+    # Health check público (AppController @Public) — sin API key.
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22.22.3"
+      # Pooler transaction-mode (IPv4) de Supabase — la app en runtime.
+      - key: DATABASE_URL
+        sync: false
+      # Pooler session-mode — migraciones (Prisma).
+      - key: DIRECT_URL
+        sync: false
+      # API key del ApiKeyGuard. Generar con:
+      #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: API_KEY
+        sync: false
