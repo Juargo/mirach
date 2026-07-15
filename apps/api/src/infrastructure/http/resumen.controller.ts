@@ -26,7 +26,9 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  * periodo invalid → PeriodoInvalidoError → scrubbed 400 (raw input NEVER reflected).
  * sinIngreso=true → still 200 (valid data state, not an error — SC-04).
  *
- * NOTE: Intentionally unauthenticated for MVP mono-user phase (ADR-001).
+ * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) for
+ * the MVP mono-user phase. Per-user authentication (multi-user, JWT) is a
+ * post-MVP concern (ADR-001).
  */
 @Controller('api/resumen')
 export class ResumenController {

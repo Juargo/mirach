@@ -26,8 +26,9 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  * Cuando `periodo` es inválido → PeriodoInvalidoError → 400.
  * Lista vacía → 200 con envelope vacío (no es un error — REQ-06).
  *
- * NOTE: This endpoint is intentionally unauthenticated for the MVP mono-user phase.
- * Authentication (multi-user, JWT) is a post-MVP concern (ADR-001 / Sprint 3+).
+ * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) for the
+ * MVP mono-user phase. Per-user authentication (multi-user, JWT) is a post-MVP
+ * concern (ADR-001 / Sprint 3+).
  */
 @Controller('api/movimientos')
 export class MovimientosController {
