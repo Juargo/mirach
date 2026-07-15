@@ -5,6 +5,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { CalcularResumenMesUseCase } from '../../application/use-cases/calcular-resumen-mes.use-case';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
@@ -29,6 +30,8 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  */
 @Controller('api/resumen')
 export class ResumenController {
+  private readonly logger = new Logger(ResumenController.name);
+
   constructor(
     private readonly calcularResumenMesUseCase: CalcularResumenMesUseCase,
     @Inject(USER_ID_FIJO_TOKEN) private readonly userId: string,
@@ -44,7 +47,13 @@ export class ResumenController {
         periodo,
       });
     } catch (err) {
-      // Unexpected adapter/DB error — not a PeriodoInvalidoError
+      // Unexpected adapter/DB error — not a PeriodoInvalidoError. Log the real
+      // cause server-side (never reflected in the client response) so deploy/DB
+      // failures are diagnosable instead of a silent generic 500.
+      this.logger.error(
+        'Error inesperado al calcular el resumen',
+        err instanceof Error ? err.stack : String(err),
+      );
       throw new InternalServerErrorException(
         'Error inesperado al calcular el resumen. Intenta nuevamente.',
       );

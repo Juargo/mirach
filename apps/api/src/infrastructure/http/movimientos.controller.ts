@@ -5,6 +5,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { ObtenerMovimientosMesUseCase } from '../../application/use-cases/obtener-movimientos-mes.use-case';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
@@ -30,6 +31,8 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  */
 @Controller('api/movimientos')
 export class MovimientosController {
+  private readonly logger = new Logger(MovimientosController.name);
+
   constructor(
     private readonly obtenerMovimientosMesUseCase: ObtenerMovimientosMesUseCase,
     @Inject(USER_ID_FIJO_TOKEN) private readonly userId: string,
@@ -45,7 +48,13 @@ export class MovimientosController {
         periodo,
       });
     } catch (err) {
-      // Unexpected adapter/DB error — not a PeriodoInvalidoError
+      // Unexpected adapter/DB error — not a PeriodoInvalidoError. Log the real
+      // cause server-side (never reflected in the client response) so deploy/DB
+      // failures are diagnosable instead of a silent generic 500.
+      this.logger.error(
+        'Error inesperado al consultar movimientos',
+        err instanceof Error ? err.stack : String(err),
+      );
       throw new InternalServerErrorException(
         'Error inesperado al consultar movimientos. Intenta nuevamente.',
       );
