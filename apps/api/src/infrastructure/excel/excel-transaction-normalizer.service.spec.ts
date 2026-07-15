@@ -142,7 +142,7 @@ describe('ExcelTransactionNormalizerService', () => {
   describe('Fixtures reales', () => {
     it('normaliza fixture BancoEstado completo sin errores', async () => {
       const buffer = readFileSync(
-        join(FIXTURES, 'Últimos_Movimientos_CuentaRUT_1778764122306.xlsx'),
+        join(FIXTURES, 'Últimos_Movimientos_CuentaRUT_test.xlsx'),
       );
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
@@ -157,7 +157,7 @@ describe('ExcelTransactionNormalizerService', () => {
     });
 
     it('normaliza fixture BCI completo sin errores', async () => {
-      const buffer = readFileSync(join(FIXTURES, 'movimientos.xlsx'));
+      const buffer = readFileSync(join(FIXTURES, 'movimientos-test.xlsx'));
       const result = await service.normalize(buffer, BancoConocido.BCI);
       expect(result.isOk()).toBe(true);
       const tx = result.getValue();
@@ -170,7 +170,7 @@ describe('ExcelTransactionNormalizerService', () => {
 
     it('normaliza fixture Santander completo sin errores', async () => {
       const buffer = readFileSync(
-        join(FIXTURES, 'ultimos movimientos-Cuenta Corriente.xlsx'),
+        join(FIXTURES, 'ultimos movimientos-Cuenta Corriente-test.xlsx'),
       );
       const result = await service.normalize(buffer, BancoConocido.Santander);
       expect(result.isOk()).toBe(true);

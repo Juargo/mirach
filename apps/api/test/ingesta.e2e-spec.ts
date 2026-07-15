@@ -29,8 +29,8 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   let prisma: PrismaService;
 
   const fixturesDir = join(__dirname, 'fixtures');
-  const xlsxFixture = join(fixturesDir, 'movimientos.xlsx');
-  const xlsFixture = join(fixturesDir, 'cartola.xls');
+  const xlsxFixture = join(fixturesDir, 'movimientos-test.xlsx');
+  const xlsFixture = join(fixturesDir, 'cartola-test.xls');
 
   const createdIngestaIds: string[] = [];
 

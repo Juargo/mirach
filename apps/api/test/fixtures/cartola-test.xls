@@ -1,0 +1,6 @@
+Placeholder fixture — NOT a real spreadsheet and contains NO sensitive data.
+
+Its only purpose is to exist with a `.xls` extension so the ingesta e2e test
+can verify that `.xls` files are rejected by extension (ADR-007: only `.xlsx`
+is accepted). The rejection happens on the extension check in IngestFile,
+before any content is ever parsed, so the bytes here are never read as Excel.

@@ -244,7 +244,7 @@ describe('ExcelStructureValidatorService', () => {
   describe('integración con fixtures reales', () => {
     it('valida la cartola real de BancoEstado', async () => {
       const buffer = readFileSync(
-        join(FIXTURES, 'Últimos_Movimientos_CuentaRUT_1778764122306.xlsx'),
+        join(FIXTURES, 'Últimos_Movimientos_CuentaRUT_test.xlsx'),
       );
       const result = await service.validate(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
@@ -252,14 +252,14 @@ describe('ExcelStructureValidatorService', () => {
 
     it('valida la cartola real de Santander', async () => {
       const buffer = readFileSync(
-        join(FIXTURES, 'ultimos movimientos-Cuenta Corriente.xlsx'),
+        join(FIXTURES, 'ultimos movimientos-Cuenta Corriente-test.xlsx'),
       );
       const result = await service.validate(buffer, BancoConocido.Santander);
       expect(result.isOk()).toBe(true);
     });
 
     it('valida la cartola real de BCI', async () => {
-      const buffer = readFileSync(join(FIXTURES, 'movimientos.xlsx'));
+      const buffer = readFileSync(join(FIXTURES, 'movimientos-test.xlsx'));
       const result = await service.validate(buffer, BancoConocido.BCI);
       expect(result.isOk()).toBe(true);
     });
