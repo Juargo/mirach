@@ -34,7 +34,12 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     usual (PR4 deberá separar el substring de fecha del resto). Nº DCTO
  *     (x≈330) queda fuera de `rangosX` a propósito.
  *   - "Resumen de Comisiones" (sección de detalle de comisiones al pie de
- *     la tabla) se excluye vía `filasIgnoradas`.
+ *     la tabla) se excluye vía `filasIgnoradas` (la fila-encabezado en sí).
+ *     PERO Santander además repite la ÚLTIMA fila del detalle DESPUÉS de
+ *     esa sección (eco literal, con fecha/monto válidos — no matchea
+ *     ningún `filasIgnoradas`) — por eso `anclaFinTabla` usa la misma
+ *     ancla para cortar la recolección de filas ahí: todo lo que venga
+ *     después del "Resumen de Comisiones" no es un movimiento real.
  */
 export class SantanderPdfStrategy {
   private static readonly ANCLA_BANCO = 'BANCO SANTANDER CHILE';
@@ -83,6 +88,7 @@ export class SantanderPdfStrategy {
       formatoFecha: 'DD/MM',
       fuenteAnio: { kind: 'inferido', desde: 'periodo-inicio' },
       filasIgnoradas: [/Resumen de Comisiones/],
+      anclaFinTabla: /Resumen de Comisiones/,
     };
   }
 }

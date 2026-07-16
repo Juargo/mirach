@@ -63,4 +63,19 @@ export interface EstructuraPdfBanco {
   readonly fuenteAnio: FuenteAnio;
   /** Filas a excluir (ej. SALDO INICIAL/FINAL, Resumen de Comisiones, footer de navegador). */
   readonly filasIgnoradas: ReadonlyArray<RegExp>;
+  /**
+   * Ancla POSICIONAL de fin de tabla — DISTINTA de `filasIgnoradas`.
+   * `filasIgnoradas` descarta SOLO la fila que matchea y sigue procesando
+   * las siguientes (ej. "SALDO INICIAL" puede ser de las primeras filas de
+   * la tabla — truncarla ahí perdería todo el statement). `anclaFinTabla`,
+   * en cambio, es el punto donde la tabla de movimientos TERMINA: al
+   * encontrar una fila que matchea, se deja de recolectar filas (la fila
+   * misma y todo lo que venga después, en orden de lectura, se descarta).
+   *
+   * Caso de uso: Santander repite la última fila del detalle DESPUÉS de su
+   * sección "Resumen de Comisiones" (eco literal, no un movimiento real) —
+   * ver santander.strategy.ts. Opcional: los bancos sin este problema
+   * simplemente no la definen.
+   */
+  readonly anclaFinTabla?: RegExp;
 }
