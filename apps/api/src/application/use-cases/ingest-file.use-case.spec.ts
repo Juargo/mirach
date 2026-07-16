@@ -43,6 +43,22 @@ describe('IngestFileUseCase', () => {
       expect(result.getValue().extension).toBe('.xlsx');
     });
 
+    // Sprint 4 (sprint4-pdf-ingesta, PDF-00): .pdf se acepta a la par de
+    // .xlsx en el gate de extensión — el pipeline PDF completo (detectar/
+    // validar/normalizar) se agrega en slices posteriores, pero la extensión
+    // ya no lo bloquea aquí.
+    it('retorna Ok con metadata correcta para .pdf', () => {
+      const reader = makeFileReader({ originalName: 'cartola.pdf', sizeInBytes: 4096 });
+
+      const result = useCase.execute(reader);
+
+      expect(result.isOk()).toBe(true);
+      const data = result.getValue();
+      expect(data.originalName).toBe('cartola.pdf');
+      expect(data.extension).toBe('.pdf');
+      expect(data.sizeInBytes).toBe(4096);
+    });
+
     it('incluye el buffer en el resultado', () => {
       const buffer = Buffer.from('binary-content');
       const reader = makeFileReader({ buffer });
@@ -73,15 +89,6 @@ describe('IngestFileUseCase', () => {
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(InvalidFileExtensionError);
       expect(result.getError().message).toContain('.csv');
-    });
-
-    it('retorna Fail para extensión .pdf', () => {
-      const reader = makeFileReader({ originalName: 'cartola.pdf' });
-
-      const result = useCase.execute(reader);
-
-      expect(result.isFail()).toBe(true);
-      expect(result.getError()).toBeInstanceOf(InvalidFileExtensionError);
     });
 
     it('retorna Fail para archivo sin extensión', () => {

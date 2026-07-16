@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   UploadedFile,
+  UseFilters,
   UseInterceptors,
   BadRequestException,
   InternalServerErrorException,
@@ -22,6 +23,7 @@ import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-in
 import { MulterFileReaderAdapter } from './multer-file-reader.adapter';
 import { aIngestaResponseDto } from './dto/ingesta-response.dto';
 import { USER_ID_FIJO } from '../persistence/constants';
+import { UploadTooLargeFilter } from './upload-too-large.filter';
 
 /**
  * IngestaController — endpoint de ingesta de archivos bancarios.
@@ -43,6 +45,7 @@ export class IngestaController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
+  @UseFilters(UploadTooLargeFilter)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(), // buffer en memoria, sin escribir a disco

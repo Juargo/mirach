@@ -2,9 +2,10 @@ import { ExtensionNoPermitidaError } from '../errors/extension-no-permitida.erro
 
 /**
  * Extensiones aceptadas para archivos bancarios.
- * Solo .xlsx — ver ADR-007 para el razonamiento de eliminar .xls.
+ * .xlsx (ADR-007 — .xls legacy eliminado) y .pdf (Sprint 4, sprint4-pdf-ingesta —
+ * cartolas PDF, pipeline detectar/validar/normalizar dedicado, ver design.md).
  */
-const EXTENSIONES_PERMITIDAS = ['.xlsx'] as const;
+const EXTENSIONES_PERMITIDAS = ['.xlsx', '.pdf'] as const;
 
 export type ExtensionPermitida = (typeof EXTENSIONES_PERMITIDAS)[number];
 
@@ -12,7 +13,8 @@ export type ExtensionPermitida = (typeof EXTENSIONES_PERMITIDAS)[number];
  * Extension — value object de dominio.
  *
  * Encapsula la regla de negocio: un archivo bancario válido debe tener
- * extensión .xlsx (case-insensitive). Soporte .xls eliminado — ver ADR-007.
+ * extensión .xlsx o .pdf (case-insensitive). Soporte .xls eliminado — ver
+ * ADR-007.
  *
  * Invariantes garantizadas en construcción:
  *   - El valor siempre está en minúsculas.

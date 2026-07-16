@@ -264,8 +264,14 @@ describe('ProcessIngestaUseCase', () => {
   it('extensión inválida: retorna fail sin ejecutar ningún paso posterior', async () => {
     const { useCase, bankDetector, structureValidator, normalizer, accountRepository } = buildUseCase();
 
+    // .csv (no .pdf): Sprint 4 (sprint4-pdf-ingesta, PDF-00) hizo que .pdf
+    // pase el gate de extensión — el routing PDF real dentro de este
+    // orquestador llega recién en una slice posterior (Phase 6/PR5). Una
+    // extensión genuinamente no soportada sigue probando el mismo camino
+    // (el pipeline se detiene ANTES de tocar bankDetector/accountRepository/
+    // structureValidator/normalizer).
     const result = await useCase.execute({
-      fileReader: new FakeFileReader(Buffer.from('x'), 'cartola.pdf'),
+      fileReader: new FakeFileReader(Buffer.from('x'), 'cartola.csv'),
       userId: USER_ID,
     });
 
