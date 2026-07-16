@@ -45,4 +45,38 @@ describe('BciPdfStrategy', () => {
       expect(strategy.matches(tokens)).toBe(false);
     }
   });
+
+  describe('getEstructura', () => {
+    const estructura = strategy.getEstructura();
+
+    it('banco es BCI', () => {
+      expect(estructura.banco).toBe(BancoConocido.BCI);
+    });
+
+    it('trae el año explícito por fila (formato DD/MM/YYYY) — no necesita inferencia', () => {
+      expect(estructura.formatoFecha).toBe('DD/MM/YYYY');
+      expect(estructura.fuenteAnio).toEqual({ kind: 'explicito' });
+    });
+
+    it('las 4 columnas canónicas tienen xMin < xMax', () => {
+      for (const rango of estructura.rangosX) {
+        expect(rango.xMin).toBeLessThan(rango.xMax);
+      }
+    });
+
+    it('el ancla de período extrae ambas fechas del mismo token de valor (separador "-")', () => {
+      const texto = 'PERIODO 01-04-2026 al 30-04-2026';
+      expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe('01-04-2026');
+      expect(texto.match(estructura.anclasPeriodo.hasta)?.[1]).toBe('30-04-2026');
+    });
+
+    it('ignora el footer de navegador (URL, timestamp de impresión, indicador de página)', () => {
+      expect(
+        estructura.filasIgnoradas.some((r) =>
+          r.test('https://www.bci.cl/cl/bci/aplicaciones/contenido.jsf?tmp=0'),
+        ),
+      ).toBe(true);
+      expect(estructura.filasIgnoradas.some((r) => r.test('1/2'))).toBe(true);
+    });
+  });
 });

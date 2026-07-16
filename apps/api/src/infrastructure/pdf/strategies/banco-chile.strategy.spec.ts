@@ -49,4 +49,35 @@ describe('BancoChilePdfStrategy', () => {
     const tokens = await tokensPagina1('bancoestado-cartola-test.pdf');
     expect(strategy.matches(tokens)).toBe(false);
   });
+
+  describe('getEstructura', () => {
+    const estructura = strategy.getEstructura();
+
+    it('banco es BancoChile', () => {
+      expect(estructura.banco).toBe(BancoConocido.BancoChile);
+    });
+
+    it('infiere el año desde el inicio del período (formato DD/MM sin año)', () => {
+      expect(estructura.formatoFecha).toBe('DD/MM');
+      expect(estructura.fuenteAnio).toEqual({
+        kind: 'inferido',
+        desde: 'periodo-inicio',
+      });
+    });
+
+    it('las 4 columnas canónicas tienen xMin < xMax', () => {
+      for (const rango of estructura.rangosX) {
+        expect(rango.xMin).toBeLessThan(rango.xMax);
+      }
+    });
+
+    it('ignora SALDO INICIAL y SALDO FINAL', () => {
+      expect(
+        estructura.filasIgnoradas.some((r) => r.test('SALDO INICIAL')),
+      ).toBe(true);
+      expect(
+        estructura.filasIgnoradas.some((r) => r.test('SALDO FINAL')),
+      ).toBe(true);
+    });
+  });
 });

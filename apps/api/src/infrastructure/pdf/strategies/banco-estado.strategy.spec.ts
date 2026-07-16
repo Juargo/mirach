@@ -45,4 +45,30 @@ describe('BancoEstadoPdfStrategy', () => {
       expect(strategy.matches(tokens)).toBe(false);
     }
   });
+
+  describe('getEstructura', () => {
+    const estructura = strategy.getEstructura();
+
+    it('banco es BancoEstado', () => {
+      expect(estructura.banco).toBe(BancoConocido.BancoEstado);
+    });
+
+    it('infiere el año desde el inicio del período (formato DD/Mmm sin año)', () => {
+      expect(estructura.formatoFecha).toBe('DD/Mmm');
+      expect(estructura.fuenteAnio).toEqual({
+        kind: 'inferido',
+        desde: 'periodo-inicio',
+      });
+    });
+
+    it('las 4 columnas canónicas tienen xMin < xMax', () => {
+      for (const rango of estructura.rangosX) {
+        expect(rango.xMin).toBeLessThan(rango.xMax);
+      }
+    });
+
+    it('ignora la fila de Subtotales', () => {
+      expect(estructura.filasIgnoradas.some((r) => r.test('Subtotales'))).toBe(true);
+    });
+  });
 });
