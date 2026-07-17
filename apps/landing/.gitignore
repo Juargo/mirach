@@ -1,0 +1,4 @@
+# Astro-generated cache and type files
+.astro/
+
+# build output and deps are covered by the root .gitignore (dist, node_modules)

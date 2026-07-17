@@ -9,6 +9,7 @@
   "scripts": {
     "api": "pnpm --filter @moneydiary/api",
     "web": "pnpm --filter @moneydiary/web",
+    "landing": "pnpm --filter @moneydiary/landing",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"

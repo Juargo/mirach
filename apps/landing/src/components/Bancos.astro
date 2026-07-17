@@ -1,0 +1,41 @@
+---
+export interface Bank {
+  name: string;
+  icon: string;
+}
+
+const banks: Bank[] = [
+  { name: 'BancoEstado', icon: '🏦' },
+  { name: 'Banco de Chile', icon: '🏛️' },
+  { name: 'BCI', icon: '💳' },
+  { name: 'Santander', icon: '🏧' },
+];
+---
+
+<section id="bancos" class="px-6 py-16 sm:py-24">
+  <h2
+    class="text-center text-3xl font-semibold tracking-tight text-on-surface sm:text-4xl"
+  >
+    Bancos compatibles
+  </h2>
+
+  <p
+    class="mx-auto mt-4 max-w-md text-center text-on-surface-variant"
+  >
+    Trabajamos con los bancos más usados en Chile. ¿Falta el tuyo?
+    Escríbenos y lo agregamos.
+  </p>
+
+  <div
+    class="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8"
+  >
+    {banks.map((bank) => (
+      <div
+        class="flex flex-col items-center gap-3 rounded-xl bg-surface p-6 shadow-sm"
+      >
+        <span class="text-4xl" aria-hidden="true">{bank.icon}</span>
+        <span class="text-sm font-semibold text-on-surface">{bank.name}</span>
+      </div>
+    ))}
+  </div>
+</section>

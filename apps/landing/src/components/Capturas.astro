@@ -1,0 +1,36 @@
+---
+// Placeholder: swap these with real <Image /> or <img> when screenshots exist.
+// Current frame count maintains layout until actual assets land.
+const frameCount = 3;
+---
+
+<section id="capturas" class="bg-surface-dim/50 px-6 py-16 sm:py-24">
+  <h2
+    class="text-center text-3xl font-semibold tracking-tight text-on-surface sm:text-4xl"
+  >
+    Así se ve MoneyDiary
+  </h2>
+
+  <p class="mx-auto mt-4 text-center text-on-surface-variant">
+    Una interfaz limpia y moderna que te ayuda a entender tus finanzas de
+    un vistazo.
+  </p>
+
+  <div
+    class="mx-auto mt-10 grid max-w-4xl gap-6 sm:grid-cols-3"
+  >
+    {Array.from({ length: frameCount }, (_, i) => (
+      <div
+        class="flex aspect-[9/16] items-center justify-center rounded-xl bg-surface-container-highest"
+      >
+        <span class="px-4 text-center text-sm text-on-surface-variant">
+          Captura {i + 1}
+        </span>
+      </div>
+    ))}
+  </div>
+
+  <p class="mt-6 text-center text-xs text-on-surface-variant">
+    * Las capturas reales se agregarán próximamente.
+  </p>
+</section>

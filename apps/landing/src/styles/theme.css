@@ -1,0 +1,12 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: #475f85;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #8fa7d1;
+  --color-surface: #f9f9f9;
+  --color-on-surface: #1a1c1c;
+  --color-on-surface-variant: #44474e;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --radius-DEFAULT: 0.5rem;
+}

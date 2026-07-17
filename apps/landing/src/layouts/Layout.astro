@@ -1,0 +1,52 @@
+---
+import { SITE } from '../config';
+import ClientRouter from 'astro/components/ClientRouter.astro';
+import '../styles/theme.css';
+
+export interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+}
+
+const { title, description, image } = Astro.props;
+const pageTitle = title ?? SITE.title;
+const pageDescription = description ?? SITE.description;
+const pageImage = image ?? SITE.ogImage;
+const pageUrl = SITE.url;
+
+// Build absolute URL for social cards (required by OG/Twitter crawlers)
+const absoluteImage = pageImage.startsWith('http')
+  ? pageImage
+  : new URL(pageImage, pageUrl).href;
+---
+
+<!doctype html>
+<html lang="es-CL">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:image" content={absoluteImage} />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:type" content="website" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+    <meta name="twitter:image" content={absoluteImage} />
+
+    <ClientRouter />
+  </head>
+  <body class="flex min-h-screen flex-col bg-surface text-on-surface font-sans antialiased">
+    <slot />
+  </body>
+</html>
