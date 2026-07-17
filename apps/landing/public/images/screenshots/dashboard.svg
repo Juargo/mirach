@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640" fill="none">
+  <!-- Phone frame bg -->
+  <rect width="360" height="640" rx="20" fill="#f5f5f5"/>
+  <!-- Status bar -->
+  <rect x="0" y="0" width="360" height="44" fill="#475f85"/>
+  <circle cx="300" cy="22" r="6" fill="#8fa7d1"/>
+  <circle cx="320" cy="22" r="6" fill="#8fa7d1"/>
+  <circle cx="340" cy="22" r="6" fill="#8fa7d1"/>
+  <!-- Header -->
+  <text x="24" y="80" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="24">Resumen</text>
+  <text x="24" y="100" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="12">Julio 2026</text>
+  <!-- Balance card -->
+  <rect x="20" y="116" width="320" height="100" rx="12" fill="#475f85"/>
+  <text x="36" y="148" fill="#ffffff" opacity="0.8" font-family="Inter, system-ui, sans-serif" font-size="12">Saldo del mes</text>
+  <text x="36" y="182" fill="#ffffff" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="28">$1.250.000</text>
+  <text x="240" y="182" fill="#8fa7d1" font-family="Inter, system-ui, sans-serif" font-size="14">+12.5%</text>
+  <!-- 50/30/20 chart -->
+  <rect x="20" y="232" width="320" height="80" rx="12" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <!-- Bar: Needs -->
+  <rect x="36" y="254" width="44" height="44" rx="8" fill="#8fa7d1"/>
+  <text x="58" y="288" text-anchor="middle" fill="white" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="10">50%</text>
+  <!-- Bar: Wants -->
+  <rect x="96" y="254" width="44" height="44" rx="8" fill="#b1a7d1"/>
+  <text x="118" y="288" text-anchor="middle" fill="white" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="10">30%</text>
+  <!-- Bar: Savings -->
+  <rect x="156" y="254" width="44" height="44" rx="8" fill="#e6d194"/>
+  <text x="178" y="288" text-anchor="middle" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="10">20%</text>
+  <!-- Labels -->
+  <text x="46" y="302" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="9">Neces.</text>
+  <text x="104" y="302" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="9">Deseos</text>
+  <text x="164" y="302" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="9">Ahorro</text>
+  <!-- Recent transactions -->
+  <text x="24" y="340" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="16">Movimientos recientes</text>
+  <!-- Transaction 1 -->
+  <rect x="20" y="356" width="320" height="56" rx="10" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <circle cx="48" cy="384" r="14" fill="#ffdad6"/>
+  <text x="72" y="380" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="14">Supermercado</text>
+  <text x="72" y="396" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="11">Necesidad</text>
+  <text x="294" y="384" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="14">-$89.900</text>
+  <!-- Transaction 2 -->
+  <rect x="20" y="420" width="320" height="56" rx="10" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <circle cx="48" cy="448" r="14" fill="#dcd1fd"/>
+  <text x="72" y="444" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="14">Uber</text>
+  <text x="72" y="460" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="11">Deseo</text>
+  <text x="294" y="448" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="14">-$12.400</text>
+  <!-- Bottom nav -->
+  <rect x="0" y="596" width="360" height="44" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <circle cx="60" cy="618" r="4" fill="#475f85"/>
+  <circle cx="180" cy="618" r="4" fill="#e2e2e2"/>
+  <circle cx="300" cy="618" r="4" fill="#e2e2e2"/>
+</svg>
