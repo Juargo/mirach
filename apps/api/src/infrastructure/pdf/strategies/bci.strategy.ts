@@ -30,6 +30,29 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     (x≈324) quedan fuera de `rangosX` a propósito.
  *   - El footer de navegador (URL de bci.cl, timestamp de impresión,
  *     indicador de página "1/2") se excluye vía `filasIgnoradas`.
+ *   - `fusionarContinuaciones: true` (PR4b, ÚNICO banco que lo activa): BCI
+ *     divide algunas descripciones en 2-3 líneas físicas del PDF alrededor
+ *     de la fila con fecha+monto (ej. "PAGO CREDITO D00000000001" en la
+ *     línea de arriba, la fila con fecha/monto en el medio, "001/012" en la
+ *     línea de abajo — ver pdf-normalization.ts). Esas líneas sin fecha ni
+ *     monto propio se fusionan como sufijo de la transacción candidata más
+ *     reciente en vez de perderse.
+ *   - `filasIgnoradas` incluye además guardas descubiertas contra el
+ *     fixture real de 2 páginas: el encabezado de tabla completo se REPITE
+ *     al inicio de la página 2 en 3 líneas físicas — "CHEQUES Y" / "N° DE
+ *     ... OTROS ... DEPOSITOS" / "FECHA ... DESCRIPCION ... DOCUMENTO" — y
+ *     el título del documento también se reimprime por página ("CARTOLA DE
+ *     CUENTA CORRIENTE"). De las 3 líneas del encabezado de tabla, solo
+ *     "N° DE" landea dentro de `rangosX.descripcion` (verificado contra el
+ *     fixture: "CHEQUES Y" cae siempre en `tokensSinAsignar`, nunca en
+ *     ninguna columna, así que no puede contaminar una descripción aunque
+ *     no tenga un `filasIgnoradas` propio) — sin filtrar "N° DE", la
+ *     fusión de continuaciones (jd-fix-agent hardening) la pegaba como
+ *     sufijo de la ÚLTIMA transacción de la página anterior (bug
+ *     confirmado: "CARGO MANTENCION CUENTA" terminaba con "N° DE" pegado).
+ *     La línea "FECHA ... DESCRIPCION ... DOCUMENTO" ya estaba cubierta
+ *     por el filtro `/^FECHA\s+DESCRIPCION/`. Un `filasIgnoradas` normal
+ *     (per-row skip) es suficiente, no hace falta `anclaFinTabla`.
  */
 export class BciPdfStrategy {
   private static readonly ANCLA_TITULO = 'CARTOLA DE CUENTA CORRIENTE';
@@ -79,7 +102,22 @@ export class BciPdfStrategy {
         /^https:\/\/www\.bci\.cl/,
         /^\d{1,2}\/\d{2}\/\d{2},\s*\d{1,2}:\d{2}\s*[AP]M$/,
         /^\d\/\d$/,
+        // Encabezado de tabla repetido al inicio de cada página nueva
+        // (línea 3 de 3 — "FECHA ... DESCRIPCION ... DOCUMENTO").
+        /^FECHA\s+DESCRIPCION/,
+        // Encabezado de tabla repetido al inicio de cada página nueva
+        // (línea 2 de 3 — "N° DE" / "OTROS" / "DEPOSITOS"). Es la ÚNICA de
+        // las 3 líneas del encabezado que landea dentro de la columna
+        // `descripcion` (las otras dos caen fuera de `rangosX` o ya
+        // estaban cubiertas arriba) — sin este filtro contamina la
+        // descripción de la última transacción de la página anterior vía
+        // `fusionarContinuaciones`. Ancla exacta (no una substring amplia)
+        // porque ningún movimiento real del fixture contiene "N° DE".
+        /^\s*N°\s*DE\s*$/,
+        // Título del documento, reimpreso en cada página.
+        /CARTOLA DE CUENTA CORRIENTE/,
       ],
+      fusionarContinuaciones: true,
     };
   }
 }

@@ -33,6 +33,23 @@ function estructuraBase(
 
 const periodoMarzo2026 = { desde: '2026-03-01', hasta: '2026-03-31' };
 
+/** Desempaqueta un Result Ok o falla el test con un mensaje útil si es Fail. */
+function ok(
+  resultado: ReturnType<typeof normalizarTransaccionesPdf>,
+): ReturnType<typeof normalizarTransaccionesPdf> extends infer R
+  ? R extends { getValue(): infer V }
+    ? V
+    : never
+  : never {
+  if (resultado.isFail()) {
+    throw new Error(
+      `Se esperaba Result.ok pero fue Result.fail: ${resultado.getError().message}`,
+    );
+  }
+
+  return resultado.getValue();
+}
+
 describe('normalizarTransaccionesPdf', () => {
   it('reconstruye una fila con fecha+sucursal fusionadas en un solo token (caso Santander) y descripción palabra-por-palabra', () => {
     const tokens = [
@@ -43,10 +60,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('45.990', 400, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado).toEqual([
@@ -67,10 +82,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('850.000', 500, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado).toEqual([
@@ -92,10 +105,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('850.000', 500, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado).toHaveLength(1);
@@ -112,10 +123,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('850.000', 500, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado).toHaveLength(1);
@@ -140,10 +149,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('3.500', 400, 50),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado).toHaveLength(2);
@@ -166,10 +173,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('45.990', 400, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado).toHaveLength(2);
@@ -192,10 +197,12 @@ describe('normalizarTransaccionesPdf', () => {
       tok('850.000', 500, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase({ anclaFinTabla: /Resumen de Comisiones/ }),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase({ anclaFinTabla: /Resumen de Comisiones/ }),
+        periodoMarzo2026,
+      ),
     );
 
     expect(resultado).toHaveLength(1);
@@ -212,10 +219,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('9.990', 400, 50),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado).toHaveLength(2);
@@ -228,10 +233,8 @@ describe('normalizarTransaccionesPdf', () => {
       tok('1.000', 400, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase(),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
     );
 
     expect(resultado[0].fecha).toEqual(new Date(Date.UTC(2026, 2, 15)));
@@ -256,10 +259,12 @@ describe('normalizarTransaccionesPdf', () => {
       tok('1.000', 400, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(tokens, estructuraBase(), {
-      desde: '2025-11-01',
-      hasta: '2026-02-28',
-    });
+    const resultado = ok(
+      normalizarTransaccionesPdf(tokens, estructuraBase(), {
+        desde: '2025-11-01',
+        hasta: '2026-02-28',
+      }),
+    );
 
     expect(resultado.map((t) => t.fecha)).toEqual([
       new Date(Date.UTC(2025, 10, 10)),
@@ -282,16 +287,18 @@ describe('normalizarTransaccionesPdf', () => {
       tok('50.000', 350, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase({
-        banco: BancoConocido.BCI,
-        formatoFecha: 'DD/MM/YYYY',
-        fuenteAnio: { kind: 'explicito' },
-        rangosX: rangosXBci,
-        filasIgnoradas: [],
-      }),
-      undefined,
+    const resultado = ok(
+      normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase({
+          banco: BancoConocido.BCI,
+          formatoFecha: 'DD/MM/YYYY',
+          fuenteAnio: { kind: 'explicito' },
+          rangosX: rangosXBci,
+          filasIgnoradas: [],
+        }),
+        undefined,
+      ),
     );
 
     expect(resultado).toEqual([
@@ -304,20 +311,65 @@ describe('normalizarTransaccionesPdf', () => {
     ]);
   });
 
-  it('formato de fecha aún no implementado (DD/Mmm, BancoEstado — PR4b) descarta la fila sin lanzar', () => {
+  it('formato DD/Mmm (BancoEstado, mes abreviado español) parsea correctamente — implementado en PR4b', () => {
     const tokens = [
       tok('02/Abr', 30, 100),
       tok('Compra', 100, 100),
       tok('5.000', 400, 100),
     ];
 
-    const resultado = normalizarTransaccionesPdf(
-      tokens,
-      estructuraBase({ formatoFecha: 'DD/Mmm' }),
-      periodoMarzo2026,
+    const resultado = ok(
+      normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase({
+          formatoFecha: 'DD/Mmm',
+          fuenteAnio: { kind: 'inferido', desde: 'periodo-inicio' },
+        }),
+        { desde: '2026-04-01', hasta: '2026-04-30' },
+      ),
     );
 
-    expect(resultado).toEqual([]);
+    expect(resultado).toEqual([
+      {
+        fecha: new Date(Date.UTC(2026, 3, 2)),
+        descripcion: 'Compra',
+        cargo: 5000,
+        abono: 0,
+      },
+    ]);
+  });
+
+  it('DD/Mmm es case-insensitive y cubre los 12 meses en español', () => {
+    const casos: Array<[string, number]> = [
+      ['01/Ene', 0],
+      ['01/FEB', 1],
+      ['01/mar', 2],
+      ['01/Abr', 3],
+      ['01/May', 4],
+      ['01/Jun', 5],
+      ['01/Jul', 6],
+      ['01/Ago', 7],
+      ['01/Sep', 8],
+      ['01/Oct', 9],
+      ['01/Nov', 10],
+      ['01/Dic', 11],
+    ];
+
+    for (const [texto, mesIndex0] of casos) {
+      const tokens = [
+        tok(texto, 30, 100),
+        tok('X', 100, 100),
+        tok('1.000', 400, 100),
+      ];
+      const resultado = ok(
+        normalizarTransaccionesPdf(
+          tokens,
+          estructuraBase({ formatoFecha: 'DD/Mmm' }),
+          periodoMarzo2026,
+        ),
+      );
+      expect(resultado[0].fecha.getUTCMonth()).toBe(mesIndex0);
+    }
   });
 
   it('sin período y formato que requiere inferencia → usa el año actual como fallback defensivo (nunca lanza)', () => {
@@ -330,5 +382,319 @@ describe('normalizarTransaccionesPdf', () => {
     expect(() =>
       normalizarTransaccionesPdf(tokens, estructuraBase(), undefined),
     ).not.toThrow();
+  });
+
+  describe('hardening PR4b — monto malformado nunca se vuelve 0 en silencio (ADR-015)', () => {
+    it.each([
+      ['15.000-', 'signo negativo al final'],
+      ['1.500,50', 'coma decimal'],
+      ['12.34', 'grupo separador mal formado'],
+      ['abc', 'texto no numérico'],
+    ])(
+      'cargo malformado ("%s" — %s) → Result.fail con MontoIleeible, NO una transacción con cargo=0',
+      (valorMalformado) => {
+        const tokens = [
+          tok('05/03 OPER.', 30, 100),
+          tok('Pago', 100, 100),
+          tok(valorMalformado, 400, 100),
+        ];
+
+        const resultado = normalizarTransaccionesPdf(
+          tokens,
+          estructuraBase(),
+          periodoMarzo2026,
+        );
+
+        expect(resultado.isFail()).toBe(true);
+        const error = resultado.getError();
+        expect(error.problemas).toEqual([
+          { tipo: 'MontoIleeible', fila: 1, columna: 'cargo' },
+        ]);
+        // El mensaje nunca interpola el valor crudo (podría ser un monto real).
+        expect(error.message).not.toContain(valorMalformado);
+      },
+    );
+
+    it('abono malformado también se reporta (misma taxonomía, columna "abono")', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 100),
+        tok('Abono', 100, 100),
+        tok('9,90', 500, 100),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase(),
+        periodoMarzo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'MontoIleeible', fila: 1, columna: 'abono' },
+      ]);
+    });
+
+    it('columna vacía (sin ningún token) sigue siendo 0 legítimo — NO es un problema', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 100),
+        tok('Pago', 100, 100),
+        tok('9.990', 400, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
+      );
+
+      expect(resultado).toEqual([
+        {
+          fecha: new Date(Date.UTC(2026, 2, 5)),
+          descripcion: 'Pago',
+          cargo: 9990,
+          abono: 0,
+        },
+      ]);
+    });
+
+    it('agrupa VARIOS problemas de distintas filas en una sola pasada (mismo criterio UX que EstructuraPdfInvalidaError/NormalizacionInvalidaError)', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 200),
+        tok('Pago uno', 100, 200),
+        tok('12.34', 400, 200),
+        tok('06/03 OPER.', 30, 100),
+        tok('Pago dos', 100, 100),
+        tok('9,90', 400, 100),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase(),
+        periodoMarzo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'MontoIleeible', fila: 1, columna: 'cargo' },
+        { tipo: 'MontoIleeible', fila: 2, columna: 'cargo' },
+      ]);
+    });
+  });
+
+  describe('hardening PR4b — tokensSinAsignar money-safe (deriva geométrica)', () => {
+    it('fila reconocida como transacción con cargo y abono AMBOS vacíos, pero con un token con forma de monto fuera de rangosX → Result.fail con TokenSinAsignarSospechoso (no se pierde en silencio)', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 100),
+        tok('Pago', 100, 100),
+        // "$99.990" cae fuera de TODOS los rangos configurados (rangosXSantander
+        // termina en x=520) — simula una columna de monto desplazada por
+        // deriva geométrica que ninguna rangosX capturó.
+        tok('$99.990', 600, 100),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase(),
+        periodoMarzo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'TokenSinAsignarSospechoso', fila: 1 },
+      ]);
+    });
+
+    it('un token sin asignar que NO tiene forma de monto (ej. un número de operación sin separador de miles) NO dispara la señal — evita falsos positivos contra los 4 fixtures reales', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 100),
+        tok('Pago', 100, 100),
+        tok('9.990', 400, 100),
+        // Token fuera de rangosX pero SIN forma de monto (dígitos planos, sin
+        // separador de miles ni "$") — simula un N° de operación/documento
+        // deliberadamente excluido de rangosX (ver banco-estado.strategy.ts).
+        tok('1001234', 600, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
+      );
+
+      expect(resultado).toHaveLength(1);
+      expect(resultado[0].cargo).toBe(9990);
+    });
+
+    it('un token con forma de monto fuera de rangosX en una fila que SÍ tiene cargo/abono asignado NO dispara la señal (ej. columna Saldo, siempre presente y siempre fuera de rangosX)', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 100),
+        tok('Pago', 100, 100),
+        tok('9.990', 400, 100),
+        // Simula la columna "Saldo" (deliberadamente fuera de rangosX en los
+        // 4 bancos) — con forma de monto, pero esta fila YA tiene su cargo
+        // asignado, así que no es una señal de deriva.
+        tok('$1.234.567', 600, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
+      );
+
+      expect(resultado).toHaveLength(1);
+      expect(resultado[0].cargo).toBe(9990);
+    });
+  });
+
+  describe('hardening PR4b — fusionarContinuaciones (opt-in, caso BCI)', () => {
+    it('una fila sin fecha, sin cargo/abono propios, con descripción, se fusiona como sufijo de la candidata más reciente cuando fusionarContinuaciones está activo', () => {
+      const rangosXBci = [
+        { col: 'fecha' as const, xMin: 0, xMax: 100 },
+        { col: 'descripcion' as const, xMin: 100, xMax: 300 },
+        { col: 'cargo' as const, xMin: 300, xMax: 400 },
+        { col: 'abono' as const, xMin: 400, xMax: 500 },
+      ];
+      const tokens = [
+        tok('02/04/2026', 30, 200),
+        tok('Pago Credito D001', 150, 200),
+        tok('50.000', 350, 200),
+        // Continuación multilínea (sin fecha, sin monto propio).
+        tok('001/012', 150, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(
+          tokens,
+          estructuraBase({
+            banco: BancoConocido.BCI,
+            formatoFecha: 'DD/MM/YYYY',
+            fuenteAnio: { kind: 'explicito' },
+            rangosX: rangosXBci,
+            filasIgnoradas: [],
+            fusionarContinuaciones: true,
+          }),
+          undefined,
+        ),
+      );
+
+      expect(resultado).toEqual([
+        {
+          fecha: new Date(Date.UTC(2026, 3, 2)),
+          descripcion: 'Pago Credito D001 001/012',
+          cargo: 50000,
+          abono: 0,
+        },
+      ]);
+    });
+
+    it('sin fusionarContinuaciones (default), la misma fila de continuación se descarta en silencio — comportamiento previo a PR4b, sin cambios para los otros 3 bancos', () => {
+      const tokens = [
+        tok('07/03 Providencia', 30, 200),
+        tok('Compra', 100, 200),
+        tok('Super', 140, 200),
+        tok('45.990', 400, 200),
+        tok('continuacion huerfana', 100, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBase(), periodoMarzo2026),
+      );
+
+      expect(resultado).toHaveLength(1);
+      expect(resultado[0].descripcion).toBe('Compra Super');
+    });
+
+    it('una fila de continuación SIN candidata previa (aparece antes de cualquier transacción) se descarta sin lanzar, aunque fusionarContinuaciones esté activo', () => {
+      const rangosXBci = [
+        { col: 'fecha' as const, xMin: 0, xMax: 100 },
+        { col: 'descripcion' as const, xMin: 100, xMax: 300 },
+        { col: 'cargo' as const, xMin: 300, xMax: 400 },
+        { col: 'abono' as const, xMin: 400, xMax: 500 },
+      ];
+      const tokens = [
+        // Encabezado repetido de página, sin candidata previa que la absorba.
+        tok('CARTOLA DE CUENTA CORRIENTE', 150, 200),
+        tok('02/04/2026', 30, 100),
+        tok('Pago', 150, 100),
+        tok('50.000', 350, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(
+          tokens,
+          estructuraBase({
+            banco: BancoConocido.BCI,
+            formatoFecha: 'DD/MM/YYYY',
+            fuenteAnio: { kind: 'explicito' },
+            rangosX: rangosXBci,
+            filasIgnoradas: [],
+            fusionarContinuaciones: true,
+          }),
+          undefined,
+        ),
+      );
+
+      expect(resultado).toHaveLength(1);
+      expect(resultado[0].descripcion).toBe('Pago');
+    });
+
+    it('hardening jd-fix-agent — una fila de continuación que aparece ANTES de la fila fechada (ordering real del fixture BCI) se fusiona como PREFIJO de la fila fechada siguiente cuando esa fila trae descripción vacía o solo dígitos (fragmento), y NO contamina la fila fechada anterior con descripción completa', () => {
+      const rangosXBci = [
+        { col: 'fecha' as const, xMin: 0, xMax: 100 },
+        { col: 'descripcion' as const, xMin: 100, xMax: 300 },
+        { col: 'cargo' as const, xMin: 300, xMax: 400 },
+        { col: 'abono' as const, xMin: 400, xMax: 500 },
+      ];
+      const tokens = [
+        // Transacción #1: descripción completa en una sola línea — NO debe
+        // recibir como sufijo la línea huérfana que viene justo debajo (esa
+        // huérfana es en realidad el PREFIJO de la transacción #2, ver
+        // ordering real de bci-cartola-test.pdf: la etiqueta de continuación
+        // aparece ARRIBA de la fila fechada a la que pertenece).
+        tok('02/04/2026', 30, 200),
+        tok('Alguna Descripcion Completa', 150, 200),
+        tok('700.000', 350, 200),
+        // Huérfana — sin fecha, sin cargo/abono propios. Aparece ANTES
+        // (Y mayor a) la transacción #2, con la MISMA distancia a ambas
+        // filas fechadas vecinas (geometría equidistante, igual que en el
+        // fixture real) — el desempate NO es por distancia Y, sino porque
+        // la transacción #2 trae su propia descripción vacía/fragmentaria.
+        tok('Pago Credito D001', 150, 190),
+        // Transacción #2: descripción propia son solo dígitos (número de
+        // documento largo desbordado dentro de la columna descripción) —
+        // señal de fragmento, ver calcularPrefijosContinuacion.
+        tok('02/04/2026', 30, 180),
+        tok('4800000001', 150, 180),
+        tok('250.213', 350, 180),
+        // Huérfana — sufijo clásico de la transacción #2 (comportamiento
+        // sin cambios respecto al fusionarContinuaciones original).
+        tok('001/012', 150, 170),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(
+          tokens,
+          estructuraBase({
+            banco: BancoConocido.BCI,
+            formatoFecha: 'DD/MM/YYYY',
+            fuenteAnio: { kind: 'explicito' },
+            rangosX: rangosXBci,
+            filasIgnoradas: [],
+            fusionarContinuaciones: true,
+          }),
+          undefined,
+        ),
+      );
+
+      expect(resultado).toEqual([
+        {
+          fecha: new Date(Date.UTC(2026, 3, 2)),
+          descripcion: 'Alguna Descripcion Completa',
+          cargo: 700000,
+          abono: 0,
+        },
+        {
+          fecha: new Date(Date.UTC(2026, 3, 2)),
+          descripcion: 'Pago Credito D001 4800000001 001/012',
+          cargo: 250213,
+          abono: 0,
+        },
+      ]);
+    });
   });
 });

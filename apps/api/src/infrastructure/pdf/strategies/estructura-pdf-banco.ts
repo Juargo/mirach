@@ -78,4 +78,22 @@ export interface EstructuraPdfBanco {
    * simplemente no la definen.
    */
   readonly anclaFinTabla?: RegExp;
+  /**
+   * Opt-in — SOLO BCI (PR4b) lo activa. Cuando es `true`, una fila SIN fecha
+   * interpretable, SIN cargo ni abono propios, pero con texto de
+   * descripción, se trata como CONTINUACIÓN MULTILÍNEA de la transacción
+   * candidata más reciente (se fusiona como sufijo de su descripción) en vez
+   * de descartarse en silencio. Caso real: BCI divide algunas descripciones
+   * en 2-3 líneas físicas del PDF (ej. "PAGO CREDITO D00000000001" en una
+   * línea, la fila con fecha+monto en la siguiente, "001/012" en la
+   * siguiente — ver bci.strategy.ts).
+   *
+   * Deliberadamente OPT-IN (no el comportamiento por defecto de los otros 3
+   * bancos): Santander ya resuelve su merge palabra-por-palabra DENTRO de la
+   * misma fila vía `rangosX` (design.md decisión #4, no hay filas
+   * multilínea separadas que fusionar); activar esto para BancoEstado/Chile
+   * sin necesidad introduciría riesgo de regresión sin beneficio — viola el
+   * constraint "un cambio a un banco no debe afectar a los otros".
+   */
+  readonly fusionarContinuaciones?: boolean;
 }

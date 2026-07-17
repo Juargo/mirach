@@ -9,6 +9,9 @@ import { evaluarEstructura } from './pdf-structure-extraction';
 import { normalizarTransaccionesPdf } from './pdf-normalization';
 import { EstructuraPdfBanco } from './strategies/estructura-pdf-banco';
 import { SantanderPdfStrategy } from './strategies/santander.strategy';
+import { BancoEstadoPdfStrategy } from './strategies/banco-estado.strategy';
+import { BancoChilePdfStrategy } from './strategies/banco-chile.strategy';
+import { BciPdfStrategy } from './strategies/bci.strategy';
 
 /**
  * PdfjsTransactionNormalizerService — implementación de IPdfTransactionNormalizer.
@@ -22,11 +25,10 @@ import { SantanderPdfStrategy } from './strategies/santander.strategy';
  * acepta 3× parse ENTRE etapas (detectar/validar/normalizar), no una 4ª
  * interna.
  *
- * PR4a: solo Santander está en el mapa — PR4b agrega BancoEstado/Chile/BCI
- * (sus quirks de footer/multilínea/mes-abreviado no están cubiertos por el
- * núcleo puro genérico todavía, ver pdf-normalization.ts). Pedir
- * normalización de un banco no registrado retorna el mismo
- * `EstructuraPdfInvalidaError` "sin configuración" que
+ * PR4b: los 4 bancos están registrados (Santander desde PR4a; BancoEstado,
+ * Banco de Chile y BCI se agregan acá — mismo orden que Excel, design.md
+ * decisión #6). Pedir normalización de un banco no registrado retorna el
+ * mismo `EstructuraPdfInvalidaError` "sin configuración" que
  * `PdfjsStructureValidatorService` usa para el caso análogo.
  */
 export class PdfjsTransactionNormalizerService implements IPdfTransactionNormalizer {
@@ -34,7 +36,12 @@ export class PdfjsTransactionNormalizerService implements IPdfTransactionNormali
   private readonly estructurasPorBanco: Map<BancoConocido, EstructuraPdfBanco>;
 
   constructor() {
-    const strategies = [new SantanderPdfStrategy()];
+    const strategies = [
+      new BancoEstadoPdfStrategy(),
+      new BancoChilePdfStrategy(),
+      new SantanderPdfStrategy(),
+      new BciPdfStrategy(),
+    ];
     this.estructurasPorBanco = new Map(
       strategies.map((s) => {
         const e = s.getEstructura();
@@ -77,11 +84,14 @@ export class PdfjsTransactionNormalizerService implements IPdfTransactionNormali
       return Result.fail(validado.getError());
     }
 
-    const transacciones = normalizarTransaccionesPdf(
+    const resultado = normalizarTransaccionesPdf(
       tokens,
       estructura,
       validado.getValue().periodo,
     );
-    return Result.ok(transacciones);
+    if (resultado.isFail()) {
+      return Result.fail(resultado.getError());
+    }
+    return Result.ok(resultado.getValue());
   }
 }

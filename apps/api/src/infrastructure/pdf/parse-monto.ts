@@ -6,28 +6,42 @@
  * Acepta:
  *   - Prefijo "$" opcional, con o sin espacio interno ("$850.000", "$ 850.000").
  *   - Separador de miles "." (convención chilena, ej. "1.580.000").
- *   - Signo negativo opcional — se descarta y el valor vuelve positivo (misma
+ *   - Signo negativo AL INICIO — se descarta y el valor vuelve positivo (misma
  *     convención que CA-08 del normalizador Excel: BancoEstado expresa
  *     cargos como negativos, se guardan en valor absoluto).
  *
- * NUNCA lanza y NUNCA propaga NaN: texto vacío o ininterpretable → 0. Esto
- * difiere a propósito de `parseMontoEntero` (Excel), que retorna `null` para
- * que el caller reporte `MontoIninterpretable` — el pipeline PDF (US-010) no
- * tiene esa taxonomía de error por fila; una celda de monto vacía o corrupta
- * simplemente no contribuye money al canónico (ver pdf-normalization.ts).
+ * Retorna `null` cuando el texto es ININTERPRETABLE (coma decimal
+ * "1.500,50", signo al FINAL "15.000-", grupos que no son de 3 dígitos
+ * "12.34", texto no numérico) O cuando está vacío/solo espacios — mismo
+ * contrato que `parseMontoEntero` (normalizador Excel), que también retorna
+ * `null` para que el CALLER decida qué hacer con cada caso:
  *
- * Reutilizable por los 4 bancos (PR4a Santander, PR4b BancoEstado/Chile/BCI)
- * — la representación del monto es la misma en los fixtures reales.
+ *   - Columna vacía (ninguna celda de monto en esa columna de esa fila) → el
+ *     caller NUNCA llama a esta función con texto vacío (chequea `!== ''`
+ *     antes, ver pdf-normalization.ts) y usa 0 directamente — una columna
+ *     vacía NO es un error, es la convención "sin cargo"/"sin abono" en esa
+ *     fila (CA-06 del normalizador Excel, misma semántica acá).
+ *   - Texto NO vacío que retorna `null` → MALFORMADO. El caller NUNCA debe
+ *     tratar esto como 0 en silencio (ADR-015: perder un monto real porque
+ *     no calzó el formato esperado corrompería el total consolidado sin
+ *     ninguna señal) — debe reportarlo como problema (`ProblemaEstructuraPdf`
+ *     tipo `MontoIleeible`, ver pdf-normalization.ts).
+ *
+ * Este contrato es un cambio DELIBERADO respecto a la primera versión (PR4a),
+ * que retornaba 0 tanto para vacío como para malformado sin distinguir
+ * ambos casos — distinguirlos es el hardening de PR4b (deferred de PR4a).
+ *
+ * NUNCA lanza y NUNCA propaga NaN.
  */
-export function parsearMontoPdf(valor: string): number {
+export function parsearMontoPdf(valor: string): number | null {
   const limpio = valor.trim().replace(/\$/g, '').replace(/\s/g, '');
-  if (limpio === '') return 0;
+  if (limpio === '') return null;
 
   const sinSigno = limpio.replace(/^-/, '');
   const formatoValido = /^\d{1,3}(\.\d{3})*$|^\d+$/.test(sinSigno);
-  if (!formatoValido) return 0;
+  if (!formatoValido) return null;
 
   const sinSeparadores = sinSigno.replace(/\./g, '');
   const n = parseInt(sinSeparadores, 10);
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : null;
 }
