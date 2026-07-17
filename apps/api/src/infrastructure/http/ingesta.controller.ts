@@ -20,6 +20,10 @@ import { ExtensionNoPermitidaError } from '../../domain/errors/extension-no-perm
 import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
 import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida.error';
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
+import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
+import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
+import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { MulterFileReaderAdapter } from './multer-file-reader.adapter';
 import { aIngestaResponseDto } from './dto/ingesta-response.dto';
 import { USER_ID_FIJO } from '../persistence/constants';
@@ -82,7 +86,10 @@ export class IngestaController {
    * Todos los mensajes son seguros: ningún error de este pipeline interpola
    * montos u otros datos sensibles (ver PersistenciaFallidaError y los
    * errores de dominio de extensión/banco/estructura/normalización — sus
-   * mensajes reportan solo fila/columna/campo, nunca el valor crudo).
+   * mensajes reportan solo fila/columna/campo, nunca el valor crudo). Los 4
+   * errores PDF (Sprint 4, sprint4-pdf-ingesta) siguen la misma convención —
+   * ver pdf-invalido.error.ts, pdf-sin-texto.error.ts,
+   * estructura-pdf-invalida.error.ts, rango-fechas-invalido.error.ts.
    */
   private aHttpException(
     error: ProcessIngestaError,
@@ -95,7 +102,11 @@ export class IngestaController {
       error instanceof ExtensionNoPermitidaError ||
       error instanceof BancoNoReconocidoError ||
       error instanceof EstructuraInvalidaError ||
-      error instanceof NormalizacionInvalidaError
+      error instanceof NormalizacionInvalidaError ||
+      error instanceof PdfInvalidoError ||
+      error instanceof PdfSinTextoError ||
+      error instanceof EstructuraPdfInvalidaError ||
+      error instanceof RangoFechasInvalidoError
     ) {
       // Errores de validación del archivo enviado por el cliente.
       return new BadRequestException(error.message);

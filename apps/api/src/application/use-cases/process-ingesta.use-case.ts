@@ -5,6 +5,10 @@ import { ExtensionNoPermitidaError } from '../../domain/errors/extension-no-perm
 import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
 import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida.error';
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
+import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
+import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
+import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
 import { IAccountRepository } from '../ports/account-repository.port';
@@ -13,8 +17,11 @@ import { ITransaccionBucketWriter } from '../ports/transaccion-bucket-writer.por
 import { ITransaccionParaClasificarReader } from '../ports/transaccion-para-clasificar.port';
 import { IngestFileUseCase } from './ingest-file.use-case';
 import { DetectBankUseCase } from './detect-bank.use-case';
+import { DetectPdfBankUseCase } from './detect-pdf-bank.use-case';
 import { ValidateStructureUseCase } from './validate-structure.use-case';
+import { ValidatePdfStructureUseCase } from './validate-pdf-structure.use-case';
 import { NormalizeTransactionsUseCase } from './normalize-transactions.use-case';
+import { NormalizePdfTransactionsUseCase } from './normalize-pdf-transactions.use-case';
 import { PersistTransactionsUseCase } from './persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -49,7 +56,11 @@ export type ProcessIngestaError =
   | BancoNoReconocidoError
   | PersistenciaFallidaError
   | EstructuraInvalidaError
-  | NormalizacionInvalidaError;
+  | NormalizacionInvalidaError
+  | PdfInvalidoError
+  | PdfSinTextoError
+  | EstructuraPdfInvalidaError
+  | RangoFechasInvalidoError;
 
 /**
  * ProcessIngestaUseCase — orquesta el pipeline completo de ingesta:
@@ -68,14 +79,28 @@ export type ProcessIngestaError =
  *
  * NUNCA lanza — cualquier excepción de un colaborador se captura y se traduce
  * a Result.fail (pasos hard) o se registra y degrada (paso de categorización).
+ *
+ * Routing PDF vs Excel (Sprint 4, sprint4-pdf-ingesta, design.md decisión #1
+ * "Option B, fixed"): un único branch en `archivo.extension` DENTRO de este
+ * orquestador selecciona el trio detect/validate/normalize (PDF o Excel) una
+ * sola vez por ejecución — `AccountRepository.ensure` y todo lo posterior
+ * (persistir → categorizar) es IDÉNTICO para ambos formatos, porque ambos
+ * trios emiten la misma forma canónica (`DetectedBank`, `Transaccion[]`). Se
+ * eligió branchear acá — y no en `IngestFileUseCase` (Option A) ni con un
+ * adapter compuesto detrás de los ports existentes — porque los ports
+ * `validate`/`normalize` no reciben el nombre del archivo: un router
+ * compuesto no tendría de dónde leer la extensión.
  */
 export class ProcessIngestaUseCase {
   constructor(
     private readonly ingestFileUseCase: IngestFileUseCase,
     private readonly detectBankUseCase: DetectBankUseCase,
+    private readonly detectPdfBankUseCase: DetectPdfBankUseCase,
     private readonly accountRepository: IAccountRepository,
     private readonly validateStructureUseCase: ValidateStructureUseCase,
+    private readonly validatePdfStructureUseCase: ValidatePdfStructureUseCase,
     private readonly normalizeTransactionsUseCase: NormalizeTransactionsUseCase,
+    private readonly normalizePdfTransactionsUseCase: NormalizePdfTransactionsUseCase,
     private readonly persistTransactionsUseCase: PersistTransactionsUseCase,
     private readonly catalogoClasificacion: ICatalogoClasificacion,
     private readonly transaccionBucketWriter: ITransaccionBucketWriter,
@@ -112,34 +137,57 @@ export class ProcessIngestaUseCase {
     }
     const archivo = ingestResult.getValue();
 
-    const detectResult = await this.detectBankUseCase.execute(
-      archivo.buffer,
-      archivo.originalName,
-    );
+    // Routing (design.md decisión #1): un único branch de extensión elige el
+    // trio PDF o Excel. A partir de acá el pipeline es idéntico para ambos —
+    // ambos trios emiten la misma forma canónica (DetectedBank, Transaccion[]).
+    const esPdf = archivo.extension === '.pdf';
+
+    const detectResult = esPdf
+      ? await this.detectPdfBankUseCase.execute(
+          archivo.buffer,
+          archivo.originalName,
+        )
+      : await this.detectBankUseCase.execute(
+          archivo.buffer,
+          archivo.originalName,
+        );
     if (detectResult.isFail()) {
       return Result.fail(detectResult.getError());
     }
     const banco = detectResult.getValue();
 
-    const accountResult = await this.accountRepository.ensure(input.userId, banco);
+    const accountResult = await this.accountRepository.ensure(
+      input.userId,
+      banco,
+    );
     if (accountResult.isFail()) {
       return Result.fail(accountResult.getError());
     }
     const { accountId } = accountResult.getValue();
 
-    const validateResult = await this.validateStructureUseCase.execute(
-      archivo.buffer,
-      banco.banco,
-    );
+    const validateResult = esPdf
+      ? await this.validatePdfStructureUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        )
+      : await this.validateStructureUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        );
     if (validateResult.isFail()) {
       return Result.fail(validateResult.getError());
     }
     const estructura = validateResult.getValue();
 
-    const normalizeResult = await this.normalizeTransactionsUseCase.execute(
-      archivo.buffer,
-      banco.banco,
-    );
+    const normalizeResult = esPdf
+      ? await this.normalizePdfTransactionsUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        )
+      : await this.normalizeTransactionsUseCase.execute(
+          archivo.buffer,
+          banco.banco,
+        );
     if (normalizeResult.isFail()) {
       return Result.fail(normalizeResult.getError());
     }
@@ -159,6 +207,24 @@ export class ProcessIngestaUseCase {
     // --- Paso de categorización (try/catch island — nunca falla la ingesta) ---
     const categorizacion = await this.runCategorizacion(ingestaId);
 
+    // `estructura` trae campos distintos por trio (Excel: filas de hoja de
+    // cálculo; PDF: página + rangos X, sin conteo de filas propio — ese
+    // conteo solo existe post-normalize). Se discrimina en runtime vía `in`
+    // (sin `as`) para no perder chequeo de tipos: reporta el mismo par
+    // {filaEncabezados, totalFilasDatos} en ambos casos, campo CLI-cosmético
+    // (no viaja en el DTO HTTP — ver aIngestaResponseDto), reinterpretando
+    // "filaEncabezados" como "página de inicio de tabla" para PDF.
+    const estructuraResumen =
+      'paginaInicioTabla' in estructura
+        ? {
+            filaEncabezados: estructura.paginaInicioTabla,
+            totalFilasDatos: transacciones.length,
+          }
+        : {
+            filaEncabezados: estructura.filaEncabezados,
+            totalFilasDatos: estructura.totalFilasDatos,
+          };
+
     return Result.ok({
       archivo: {
         originalName: archivo.originalName,
@@ -166,10 +232,7 @@ export class ProcessIngestaUseCase {
         extension: archivo.extension,
       },
       banco,
-      estructura: {
-        filaEncabezados: estructura.filaEncabezados,
-        totalFilasDatos: estructura.totalFilasDatos,
-      },
+      estructura: estructuraResumen,
       ingestaId,
       total,
       transacciones,
@@ -210,7 +273,8 @@ export class ProcessIngestaUseCase {
       }
 
       // 2. Leer transacciones persistidas de ESTA ingesta (scope isolation R-07)
-      const txsParaClasificar = await this.txParaClasificarReader.findParaClasificar(ingestaId);
+      const txsParaClasificar =
+        await this.txParaClasificarReader.findParaClasificar(ingestaId);
 
       if (txsParaClasificar.length === 0) {
         return { asignadas: 0, sinCategoria: 0 };
@@ -242,7 +306,10 @@ export class ProcessIngestaUseCase {
 
       // 5. Escribir buckets en BD (fallo → deja null, log + continúa)
       // ingestaId threads through for structural scope isolation (RNF-SEC-006).
-      const writeResult = await this.transaccionBucketWriter.asignarBuckets(ingestaId, asignaciones);
+      const writeResult = await this.transaccionBucketWriter.asignarBuckets(
+        ingestaId,
+        asignaciones,
+      );
       if (writeResult.isFail()) {
         console.error(
           '[ProcessIngestaUseCase] No se pudieron escribir los buckets (degradando):',

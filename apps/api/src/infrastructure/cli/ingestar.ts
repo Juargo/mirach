@@ -4,25 +4,34 @@
  * Uso:
  *   pnpm cli -- ./cartola.xlsx
  *   pnpm cli -- /ruta/absoluta/movimientos.xlsx
+ *   pnpm cli -- ./cartola.pdf
  *
  * Ejecuta el pipeline completo vía ProcessIngestaUseCase (detectar → asegurar
  * cuenta → validar → normalizar → persistir) — el mismo orquestador que usa
  * el endpoint HTTP (IngestaController), así que ambas entradas comparten
- * genuinamente un único pipeline.
+ * genuinamente un único pipeline. ProcessIngestaUseCase decide internamente,
+ * por extensión, si usa el trio Excel o el trio PDF (design.md decisión #1) —
+ * el CLI solo necesita construir ambos trios, igual que IngestaModule.
  */
 
 import 'dotenv/config';
 import 'reflect-metadata';
 import { IngestFileUseCase } from '../../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-case';
+import { DetectPdfBankUseCase } from '../../application/use-cases/detect-pdf-bank.use-case';
 import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
+import { ValidatePdfStructureUseCase } from '../../application/use-cases/validate-pdf-structure.use-case';
 import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
+import { NormalizePdfTransactionsUseCase } from '../../application/use-cases/normalize-pdf-transactions.use-case';
 import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from '../../application/use-cases/categorizar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
 import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
+import { PdfjsBankDetectorService } from '../pdf/pdfjs-bank-detector.service';
+import { PdfjsStructureValidatorService } from '../pdf/pdfjs-structure-validator.service';
+import { PdfjsTransactionNormalizerService } from '../pdf/pdfjs-transaction-normalizer.service';
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
@@ -72,17 +81,27 @@ async function main(): Promise<void> {
     const processIngesta = new ProcessIngestaUseCase(
       new IngestFileUseCase(),
       new DetectBankUseCase(new ExcelBankDetectorService()),
+      new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
       new PrismaAccountRepository(prisma),
       new ValidateStructureUseCase(new ExcelStructureValidatorService()),
+      new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
       new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
-      new PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto)),
+      new NormalizePdfTransactionsUseCase(
+        new PdfjsTransactionNormalizerService(),
+      ),
+      new PersistTransactionsUseCase(
+        new PrismaIngestaRepository(prisma, crypto),
+      ),
       new PrismaCatalogoClasificacionRepository(prisma),
       new PrismaTransaccionBucketRepository(prisma),
       new CategorizarTransaccionUseCase(),
       new PrismaTransaccionClasificacionRepository(prisma),
     );
 
-    const result = await processIngesta.execute({ fileReader, userId: USER_ID_FIJO });
+    const result = await processIngesta.execute({
+      fileReader,
+      userId: USER_ID_FIJO,
+    });
 
     if (result.isFail()) {
       console.error(`\n❌  ${result.getError().message}\n`);
@@ -103,15 +122,21 @@ async function main(): Promise<void> {
     console.log('  ─────────────────────────────────');
     console.log(`  Banco        : ${data.banco.banco}`);
     console.log(`  Tipo cuenta  : ${data.banco.tipoCuenta}`);
-    console.log(`  N° cuenta    : ${data.banco.numeroCuenta || '(no disponible)'}`);
+    console.log(
+      `  N° cuenta    : ${data.banco.numeroCuenta || '(no disponible)'}`,
+    );
     console.log('  ─────────────────────────────────');
     console.log(`  Encabezados  : fila ${data.estructura.filaEncabezados}`);
     console.log(`  Filas datos  : ${data.estructura.totalFilasDatos}`);
     console.log('  ─────────────────────────────────');
     console.log(`  Ingesta ID   : ${data.ingestaId}`);
     console.log(`  Transacciones: ${data.total}`);
-    console.log(`  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`);
-    console.log(`  Abonos       : ${cantAbonos}  ($ ${formatCLP(totalAbonos)})`);
+    console.log(
+      `  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`,
+    );
+    console.log(
+      `  Abonos       : ${cantAbonos}  ($ ${formatCLP(totalAbonos)})`,
+    );
     console.log('─────────────────────────────────────\n');
   } finally {
     await prisma.onModuleDestroy();
