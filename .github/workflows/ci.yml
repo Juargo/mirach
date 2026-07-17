@@ -52,6 +52,27 @@ jobs:
       - name: Typecheck web
         run: pnpm web typecheck
 
+      - name: Unit tests web
+        run: pnpm web test
+
+      # Needed so `apps/web/dist/` exists for the secret-scan step below.
+      - name: Build web
+        run: pnpm web build
+
+      # Fail-closed guard for the `apps/web` secret boundary (Tarea 0-W):
+      # the API key must be injected server-side only (Vite dev proxy /
+      # Vercel function), never bundled into client code.
+      - name: Web secret-scan (fail on bundled API key)
+        run: |
+          ! grep -rEni 'VITE_.*(KEY|SECRET|TOKEN)' apps/web/src
+          test -d apps/web/dist
+          ! grep -rEn 'x-api-key' apps/web/dist
+
+      # NOT run in CI (manual/local gate for now):
+      #   pnpm api test:integration — requires a real Supabase database and
+      #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
+      #   persistence changes.
+
   landing:
     name: Typecheck & build landing
     runs-on: ubuntu-latest
@@ -93,8 +114,3 @@ jobs:
       # These require a Vercel preview URL and LHCI token configured in GitHub
       # secrets. Enable when the deployment pipeline is in place.
       # Relevant env vars: LHCI_GITHUB_APP_TOKEN, VERCEL_PREVIEW_URL
-
-      # NOT run in CI (manual/local gate for now):
-      #   pnpm api test:integration — requires a real Supabase database and
-      #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
-      #   persistence changes.
