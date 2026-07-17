@@ -1,4 +1,5 @@
 ---
+import { PRIVACY } from '../config';
 const year = new Date().getFullYear();
 ---
 
@@ -6,7 +7,7 @@ const year = new Date().getFullYear();
   <div
     class="mx-auto flex max-w-5xl flex-col items-center gap-4 sm:flex-row sm:justify-between"
   >
-    <nav class="flex gap-6 text-sm text-on-surface-variant" aria-label="Legal">
+    <nav class="flex gap-6 text-body-sm text-on-surface-variant" aria-label="Legal">
       <a
         href="mailto:beta@moneydiary.cl"
         class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -14,13 +15,13 @@ const year = new Date().getFullYear();
         Contacto
       </a>
       <a
-        href="#"
+        href={PRIVACY.url}
         class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        Política de privacidad
+        {PRIVACY.label}
       </a>
     </nav>
-    <p class="text-sm text-on-surface-variant">
+    <p class="text-body-sm text-on-surface-variant">
       &copy; {year} MoneyDiary. Todos los derechos reservados.
     </p>
   </div>

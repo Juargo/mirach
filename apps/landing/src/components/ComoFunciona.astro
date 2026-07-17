@@ -29,7 +29,7 @@ const steps: Step[] = [
 
 <section id="como-funciona" class="bg-surface-dim/50 px-6 py-16 sm:py-24">
   <h2
-    class="text-center text-3xl font-semibold tracking-tight text-on-surface sm:text-4xl"
+    class="text-center text-headline-lg font-semibold tracking-tight text-on-surface sm:text-4xl"
   >
     ¿Cómo funciona?
   </h2>
@@ -40,14 +40,16 @@ const steps: Step[] = [
     {steps.map((step) => (
       <article class="flex flex-col items-center text-center">
         <span
-          class="flex size-12 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-primary-container text-lg font-bold text-on-primary"
+          class="flex size-12 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-primary-container text-title-md font-bold text-on-primary-container"
         >
           {step.num}
         </span>
-        <h3 class="mt-4 text-lg font-semibold text-on-surface">
+        <h3 class="mt-4 text-title-md font-semibold text-on-surface">
           {step.title}
         </h3>
-        <p class="mt-2 max-w-xs text-sm leading-relaxed text-on-surface-variant">
+        <p
+          class="mt-2 max-w-xs text-body-sm leading-relaxed text-on-surface-variant"
+        >
           {step.description}
         </p>
       </article>

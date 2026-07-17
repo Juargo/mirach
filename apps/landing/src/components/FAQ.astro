@@ -1,0 +1,32 @@
+---
+import { FAQ_ITEMS } from '../config';
+---
+
+<section id="faq" class="bg-surface-dim/50 px-6 py-16 sm:py-24">
+  <h2
+    class="text-center text-headline-lg font-semibold tracking-tight text-on-surface sm:text-4xl"
+  >
+    Preguntas frecuentes
+  </h2>
+
+  <div class="mx-auto mt-10 max-w-2xl divide-y divide-outline-variant">
+    {FAQ_ITEMS.map((item) => (
+      <details class="group py-3">
+        <summary
+          class="flex cursor-pointer items-center justify-between gap-4 py-2 text-title-md font-medium text-on-surface transition-colors hover:text-primary [&::-webkit-details-marker]:hidden list-none"
+        >
+          {item.q}
+          <span
+            class="shrink-0 text-2xl text-on-surface-variant transition-transform duration-200 group-open:rotate-180"
+            aria-hidden="true"
+          >
+            ▾
+          </span>
+        </summary>
+        <div class="pb-2 text-body-sm leading-relaxed text-on-surface-variant">
+          {item.a}
+        </div>
+      </details>
+    ))}
+  </div>
+</section>
