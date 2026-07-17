@@ -72,3 +72,45 @@ jobs:
       #   pnpm api test:integration — requires a real Supabase database and
       #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
       #   persistence changes.
+
+  landing:
+    name: Typecheck & build landing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck landing
+        run: pnpm landing exec astro check
+      - name: Build landing
+        run: pnpm landing build
+
+      # Scan the production bundle for leaked secrets. If any of these patterns
+      # appear in the static output, the build is compromised — fail the job.
+      - name: Secret grep
+        run: '! grep -rE "(API_KEY|DATABASE_URL|-----BEGIN)" apps/landing/dist/ -q || { echo "Secret found in bundle!"; exit 1; }'
+
+      # Smoke test: serve the built dist/ locally and verify 200.
+      # Header-specific assertions (CSP, HSTS, nosniff) are NOT tested here —
+      # Vercel applies those at the edge from vercel.json, so they only appear
+      # on a real Vercel deployment (preview or production).
+      - name: Smoke test
+        run: |
+          cd apps/landing/dist/ && python3 -m http.server 8787 &
+          SERVER_PID=$!
+          sleep 2
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8787/)
+          kill $SERVER_PID 2>/dev/null || true
+          [ "$STATUS" = "200" ] || { echo "Smoke test failed: got $STATUS"; exit 1; }
+
+      # DEPLOYED (deferred — requires LHCI token setup):
+      #   - Lighthouse CI (perf >=90, a11y >=95) via @lhci/cli
+      #   - axe-core a11y audit via @axe-core/cli
+      # These require a Vercel preview URL and LHCI token configured in GitHub
+      # secrets. Enable when the deployment pipeline is in place.
+      # Relevant env vars: LHCI_GITHUB_APP_TOKEN, VERCEL_PREVIEW_URL

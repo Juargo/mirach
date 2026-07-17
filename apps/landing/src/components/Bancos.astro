@@ -1,0 +1,48 @@
+---
+export interface Bank {
+  name: string;
+  svg: string;
+}
+
+const banks: Bank[] = [
+  { name: 'BancoEstado', svg: '/images/banks/bancoestado.svg' },
+  { name: 'Banco de Chile', svg: '/images/banks/chile.svg' },
+  { name: 'BCI', svg: '/images/banks/bci.svg' },
+  { name: 'Santander', svg: '/images/banks/santander.svg' },
+];
+---
+
+<section id="bancos" class="px-6 py-16 sm:py-24">
+  <h2
+    class="text-center text-headline-lg font-semibold tracking-tight text-on-surface sm:text-4xl"
+  >
+    Bancos compatibles
+  </h2>
+
+  <p
+    class="mx-auto mt-4 max-w-md text-center text-body-sm text-on-surface-variant"
+  >
+    Trabajamos con los bancos más usados en Chile. ¿Falta el tuyo?
+    Escríbenos y lo agregamos.
+  </p>
+
+  <div
+    class="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8"
+  >
+    {banks.map((bank) => (
+      <div
+        class="flex flex-col items-center gap-4 rounded-xl bg-surface p-6 shadow-sm"
+      >
+        <img
+          src={bank.svg}
+          alt={bank.name}
+          width="80"
+          height="80"
+          class="h-20 w-20 object-contain"
+          loading="lazy"
+        />
+        <span class="text-sm font-semibold text-on-surface">{bank.name}</span>
+      </div>
+    ))}
+  </div>
+</section>

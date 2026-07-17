@@ -1,0 +1,58 @@
+---
+export interface Step {
+  num: string;
+  title: string;
+  description: string;
+}
+
+const steps: Step[] = [
+  {
+    num: '1',
+    title: 'Subes tu cartola',
+    description:
+      'Descarga tu estado de cuenta desde tu banco y súbelo a MoneyDiary. Solo te toma 30 segundos.',
+  },
+  {
+    num: '2',
+    title: 'Categorizamos automáticamente',
+    description:
+      'Nuestro motor clasifica cada gasto en Necesidades, Deseos o Ahorro siguiendo la regla 50/30/20.',
+  },
+  {
+    num: '3',
+    title: 'Ves tu semáforo mensual',
+    description:
+      'De un vistazo sabes si vas bien o necesitas ajustar. Verde, amarillo o rojo: simple como un semáforo.',
+  },
+];
+---
+
+<section id="como-funciona" class="bg-surface-dim/50 px-6 py-16 sm:py-24">
+  <h2
+    class="text-center text-headline-lg font-semibold tracking-tight text-on-surface sm:text-4xl"
+  >
+    ¿Cómo funciona?
+  </h2>
+
+  <div
+    class="mx-auto mt-12 grid max-w-5xl gap-8 sm:grid-cols-3 sm:gap-6"
+  >
+    {steps.map((step) => (
+      <article class="flex flex-col items-center text-center">
+        <span
+          class="flex size-12 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-primary-container text-title-md font-bold text-on-primary-container"
+        >
+          {step.num}
+        </span>
+        <h3 class="mt-4 text-title-md font-semibold text-on-surface">
+          {step.title}
+        </h3>
+        <p
+          class="mt-2 max-w-xs text-body-sm leading-relaxed text-on-surface-variant"
+        >
+          {step.description}
+        </p>
+      </article>
+    ))}
+  </div>
+</section>

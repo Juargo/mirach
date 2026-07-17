@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 640" fill="none">
+  <!-- Phone frame bg -->
+  <rect width="360" height="640" rx="20" fill="#f5f5f5"/>
+  <!-- Status bar -->
+  <rect x="0" y="0" width="360" height="44" fill="#475f85"/>
+  <circle cx="300" cy="22" r="6" fill="#8fa7d1"/>
+  <circle cx="320" cy="22" r="6" fill="#8fa7d1"/>
+  <circle cx="340" cy="22" r="6" fill="#8fa7d1"/>
+  <!-- Header -->
+  <text x="24" y="80" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="24">Categorías</text>
+  <!-- Summary chips -->
+  <rect x="20" y="100" width="100" height="36" rx="18" fill="#8fa7d1" opacity="0.15"/>
+  <text x="45" y="122" text-anchor="middle" fill="#475f85" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="12">Necesidades</text>
+  <rect x="130" y="100" width="100" height="36" rx="18" fill="#b1a7d1" opacity="0.15"/>
+  <text x="180" y="122" text-anchor="middle" fill="#61597f" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="12">Deseos</text>
+  <rect x="240" y="100" width="100" height="36" rx="18" fill="#e6d194" opacity="0.15"/>
+  <text x="290" y="122" text-anchor="middle" fill="#6c5d2b" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="12">Ahorro</text>
+  <!-- Needs card -->
+  <rect x="20" y="154" width="320" height="140" rx="12" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <text x="36" y="180" fill="#475f85" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="16">Necesidades</text>
+  <text x="280" y="180" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="16">$625.000</text>
+  <!-- Progress bar -->
+  <rect x="36" y="196" width="288" height="8" rx="4" fill="#eeeeee"/>
+  <rect x="36" y="196" width="230" height="8" rx="4" fill="#8fa7d1"/>
+  <text x="36" y="220" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="11">Usado: $450.000 / $625.000</text>
+  <!-- Items -->
+  <rect x="36" y="236" width="144" height="44" rx="8" fill="#8fa7d1" opacity="0.08"/>
+  <text x="48" y="260" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="13">Vivienda</text>
+  <text x="148" y="260" text-anchor="end" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="13">$200.000</text>
+  <rect x="188" y="236" width="144" height="44" rx="8" fill="#8fa7d1" opacity="0.08"/>
+  <text x="200" y="260" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="13">Supermercado</text>
+  <text x="300" y="260" text-anchor="end" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="13">$150.000</text>
+  <!-- Wants card -->
+  <rect x="20" y="308" width="320" height="140" rx="12" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <text x="36" y="334" fill="#61597f" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="16">Deseos</text>
+  <text x="280" y="334" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="16">$375.000</text>
+  <!-- Progress bar -->
+  <rect x="36" y="350" width="288" height="8" rx="4" fill="#eeeeee"/>
+  <rect x="36" y="350" width="202" height="8" rx="4" fill="#b1a7d1"/>
+  <text x="36" y="374" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="11">Usado: $280.000 / $375.000</text>
+  <!-- Items -->
+  <rect x="36" y="390" width="144" height="44" rx="8" fill="#b1a7d1" opacity="0.08"/>
+  <text x="48" y="414" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="13">Restaurantes</text>
+  <text x="148" y="414" text-anchor="end" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="13">$120.000</text>
+  <rect x="188" y="390" width="144" height="44" rx="8" fill="#b1a7d1" opacity="0.08"/>
+  <text x="200" y="414" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="13">Streaming</text>
+  <text x="300" y="414" text-anchor="end" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="13">$45.000</text>
+  <!-- Savings card -->
+  <rect x="20" y="462" width="320" height="120" rx="12" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <text x="36" y="488" fill="#6c5d2b" font-family="Inter, system-ui, sans-serif" font-weight="600" font-size="16">Ahorro</text>
+  <text x="280" y="488" fill="#1a1c1c" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="16">$250.000</text>
+  <text x="36" y="514" fill="#74777f" font-family="Inter, system-ui, sans-serif" font-size="12">Meta mensual: $250.000</text>
+  <rect x="36" y="530" width="288" height="8" rx="4" fill="#eeeeee"/>
+  <rect x="36" y="530" width="173" height="8" rx="4" fill="#e6d194"/>
+  <!-- Bottom nav -->
+  <rect x="0" y="596" width="360" height="44" fill="white" stroke="#e2e2e2" stroke-width="1"/>
+  <circle cx="60" cy="618" r="4" fill="#e2e2e2"/>
+  <circle cx="180" cy="618" r="4" fill="#475f85"/>
+  <circle cx="300" cy="618" r="4" fill="#e2e2e2"/>
+</svg>

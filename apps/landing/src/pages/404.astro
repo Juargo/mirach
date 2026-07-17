@@ -1,0 +1,22 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { SITE } from '../config';
+---
+
+<Layout title={`404 — ${SITE.title}`}>
+  <main
+    class="flex flex-1 flex-col items-center justify-center px-6 text-center"
+  >
+    <h1 class="text-7xl font-bold text-primary">404</h1>
+    <p class="mt-4 text-xl text-on-surface">Página no encontrada</p>
+    <p class="mt-2 text-on-surface-variant">
+      La página que buscas no existe o fue movida.
+    </p>
+    <a
+      href="/"
+      class="mt-8 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary-container px-8 py-3 text-base font-semibold text-on-primary-container shadow-sm transition-colors hover:bg-primary hover:text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      Volver al inicio
+    </a>
+  </main>
+</Layout>

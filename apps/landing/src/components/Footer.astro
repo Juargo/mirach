@@ -1,0 +1,28 @@
+---
+import { PRIVACY } from '../config';
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-auto border-t border-surface-container-high bg-surface px-6 py-10">
+  <div
+    class="mx-auto flex max-w-5xl flex-col items-center gap-4 sm:flex-row sm:justify-between"
+  >
+    <nav class="flex gap-6 text-body-sm text-on-surface-variant" aria-label="Legal">
+      <a
+        href="mailto:beta@moneydiary.cl"
+        class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        Contacto
+      </a>
+      <a
+        href={PRIVACY.url}
+        class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        {PRIVACY.label}
+      </a>
+    </nav>
+    <p class="text-body-sm text-on-surface-variant">
+      &copy; {year} MoneyDiary. Todos los derechos reservados.
+    </p>
+  </div>
+</footer>
