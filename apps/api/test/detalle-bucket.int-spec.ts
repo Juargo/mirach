@@ -162,4 +162,30 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     const necesidadesIds = necesidadesRows.map((r) => r.id);
     expect(necesidadesIds).not.toContain(nullTx.id);
   });
+
+  it('isolation on the null-fold path: a user B transaction with bucketId=null NEVER leaks into user A SinCategoria results', async () => {
+    // Regression guard for the highest-risk path: the SinCategoria OR-fold
+    // (bucketId IS NULL OR bucketId = 'bucket-sincategoria') must stay ANDed
+    // under account.userId. A future refactor that floats the OR to the top
+    // of the `where` would leak another user's null-bucket rows — this case
+    // fails loudly if that happens.
+    const userBNullTx = await createTx(
+      accountIdB,
+      ingestaIdB,
+      new Date('2026-07-18T00:00:00.000Z'),
+      null,
+      55000n,
+      0n,
+      'UserB sin bucket',
+    );
+
+    const sinCategoriaRows = await repo.findByPeriodoYBucket(
+      TEST_USER_ID_A,
+      periodoJulio,
+      Bucket.SinCategoria,
+    );
+
+    const returnedIds = sinCategoriaRows.map((r) => r.id);
+    expect(returnedIds).not.toContain(userBNullTx.id);
+  });
 });
