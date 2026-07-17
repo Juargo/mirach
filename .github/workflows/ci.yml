@@ -64,8 +64,9 @@ jobs:
       # Vercel function), never bundled into client code.
       - name: Web secret-scan (fail on bundled API key)
         run: |
-          ! grep -rEn 'VITE_API_KEY' apps/web/src
-          ! grep -rEn 'x-api-key'    apps/web/dist
+          ! grep -rEni 'VITE_.*(KEY|SECRET|TOKEN)' apps/web/src
+          test -d apps/web/dist
+          ! grep -rEn 'x-api-key' apps/web/dist
 
       # NOT run in CI (manual/local gate for now):
       #   pnpm api test:integration — requires a real Supabase database and
