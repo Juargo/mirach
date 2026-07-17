@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <rect width="80" height="80" rx="16" fill="#003087"/>
+  <circle cx="40" cy="40" r="20" fill="none" stroke="white" stroke-width="2.5"/>
+  <text x="40" y="46" text-anchor="middle" fill="white" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="22">BCI</text>
+  <path d="M16 62l48-4" stroke="white" stroke-width="1.5" opacity="0.4"/>
+</svg>
