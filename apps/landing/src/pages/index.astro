@@ -1,19 +1,24 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import Hero from '../components/Hero.astro';
+import SocialProof from '../components/SocialProof.astro';
 import ComoFunciona from '../components/ComoFunciona.astro';
 import Bancos from '../components/Bancos.astro';
 import Capturas from '../components/Capturas.astro';
+import FAQ from '../components/FAQ.astro';
 import CtaBeta from '../components/CtaBeta.astro';
+import Newsletter from '../components/Newsletter.astro';
 import Footer from '../components/Footer.astro';
 ---
 
 <Layout>
   <main>
     <Hero />
+    <SocialProof />
     <ComoFunciona />
     <Bancos />
     <Capturas />
+    <FAQ />
 
     <!-- Final CTA section -->
     <section class="px-6 py-16 text-center sm:py-24">
@@ -30,6 +35,8 @@ import Footer from '../components/Footer.astro';
         <CtaBeta />
       </div>
     </section>
+
+    <Newsletter />
   </main>
 
   <Footer />
