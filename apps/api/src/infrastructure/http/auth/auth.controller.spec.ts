@@ -15,13 +15,21 @@ import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-
 import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.error';
 
 function requestMock(
-  opts: { cookie?: string; authorization?: string; path?: string } = {},
+  opts: {
+    cookie?: string;
+    authorization?: string;
+    path?: string;
+    secFetchDest?: string;
+    secFetchMode?: string;
+  } = {},
 ): Request {
   return {
     headers: {
       cookie: opts.cookie,
       authorization: opts.authorization,
       'x-forwarded-for': undefined,
+      'sec-fetch-dest': opts.secFetchDest,
+      'sec-fetch-mode': opts.secFetchMode,
     },
     socket: { remoteAddress: '127.0.0.1' },
     path: opts.path ?? '/api/auth/login',
@@ -456,15 +464,85 @@ describe('AuthController', () => {
       expect(deps.crearDemoUseCase.execute).not.toHaveBeenCalled();
     });
 
-    it('sin cookie/token → limpia expirados, crea el demo, setea cookie y redirige 302 a /', async () => {
+    it('sin cookie/token → limpia expirados ANTES de crear el demo (orden probado, no solo conteo), setea cookie y redirige 302 a /', async () => {
       const deps = makeDemoDeps();
+      const controller = makeDemoController(deps);
+      const res = responseMock();
+
+      const llamadas: string[] = [];
+      (deps.demoCleanupService.borrarExpirados as Mock).mockImplementation(async () => {
+        llamadas.push('borrarExpirados');
+        return 0;
+      });
+      (deps.crearDemoUseCase.execute as Mock).mockImplementation(async () => {
+        llamadas.push('crearDemoUseCase.execute');
+        return {
+          token: 'demo-token-abc',
+          userId: 'user-demo-1',
+          expiresAt: new Date('2026-07-25T00:00:00.000Z'),
+        };
+      });
+
+      await controller.demo(requestMock(), res);
+
+      // Prueba el ORDEN real (no solo toHaveBeenCalledTimes) — un futuro
+      // Promise.all no podría violar silenciosamente DEMO-CLN-02.
+      expect(llamadas).toEqual(['borrarExpirados', 'crearDemoUseCase.execute']);
+      expect(deps.demoRateLimiter.recordFailure).toHaveBeenCalledWith('127.0.0.1');
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        expect.stringContaining('md_session=demo-token-abc'),
+      );
+      expect(res.redirect).toHaveBeenCalledWith(302, '/');
+    });
+
+    it('Sec-Fetch-Dest: image (embebido vía <img>, amplificación anti-rate-limit) → 403, no limpia ni crea nada', async () => {
+      const deps = makeDemoDeps();
+      const controller = makeDemoController(deps);
+
+      await expect(
+        controller.demo(requestMock({ secFetchDest: 'image' }), responseMock()),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(deps.demoCleanupService.borrarExpirados).not.toHaveBeenCalled();
+      expect(deps.crearDemoUseCase.execute).not.toHaveBeenCalled();
+      expect(deps.demoRateLimiter.isBlocked).not.toHaveBeenCalled();
+    });
+
+    it('Sec-Fetch-Mode: cors (no es navigate) → 403, no limpia ni crea nada', async () => {
+      const deps = makeDemoDeps();
+      const controller = makeDemoController(deps);
+
+      await expect(
+        controller.demo(requestMock({ secFetchMode: 'cors' }), responseMock()),
+      ).rejects.toMatchObject({ status: 403 });
+      expect(deps.crearDemoUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it('Sec-Fetch-Dest: document + Sec-Fetch-Mode: navigate (navegación top-level real) → continúa normalmente', async () => {
+      const deps = makeDemoDeps();
+      const controller = makeDemoController(deps);
+      const res = responseMock();
+
+      await controller.demo(
+        requestMock({ secFetchDest: 'document', secFetchMode: 'navigate' }),
+        res,
+      );
+
+      expect(deps.crearDemoUseCase.execute).toHaveBeenCalledTimes(1);
+      expect(res.redirect).toHaveBeenCalledWith(302, '/');
+    });
+
+    it('borrarExpirados() rechaza (fallo transitorio de DB) → igual crea el demo, la request no se bloquea (isla degradable)', async () => {
+      const deps = makeDemoDeps({
+        demoCleanupService: {
+          borrarExpirados: vi.fn().mockRejectedValue(new Error('DB connection lost')),
+        },
+      });
       const controller = makeDemoController(deps);
       const res = responseMock();
 
       await controller.demo(requestMock(), res);
 
-      expect(deps.demoRateLimiter.recordFailure).toHaveBeenCalledWith('127.0.0.1');
-      expect(deps.demoCleanupService.borrarExpirados).toHaveBeenCalledTimes(1);
       expect(deps.crearDemoUseCase.execute).toHaveBeenCalledTimes(1);
       expect(res.setHeader).toHaveBeenCalledWith(
         'Set-Cookie',
@@ -495,7 +573,7 @@ describe('AuthController', () => {
       expect(res.redirect).toHaveBeenCalledWith(302, '/');
     });
 
-    it('cookie de sesión válida pero de un usuario NO demo → cae al flujo de creación normal', async () => {
+    it('cookie de sesión válida de un usuario REAL (no demo) → 302, NO crea demo, NO sobrescribe la cookie (FIX crítico anti session-clobber)', async () => {
       const deps = makeDemoDeps({
         validarSesionUseCase: {
           execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-real-1' })),
@@ -511,7 +589,13 @@ describe('AuthController', () => {
 
       await controller.demo(requestMock({ cookie: 'md_session=token-usuario-real' }), res);
 
-      expect(deps.crearDemoUseCase.execute).toHaveBeenCalledTimes(1);
+      // ANTES del fix: una sesión real válida caía al flujo de creación y su
+      // cookie era pisada por una nueva sesión demo. Cualquier sesión VÁLIDA
+      // (real o demo) debe cortar acá — solo la ausencia de sesión válida
+      // dispara la creación de un demo nuevo.
+      expect(deps.crearDemoUseCase.execute).not.toHaveBeenCalled();
+      expect(deps.demoCleanupService.borrarExpirados).not.toHaveBeenCalled();
+      expect(res.setHeader).not.toHaveBeenCalled();
       expect(res.redirect).toHaveBeenCalledWith(302, '/');
     });
 
