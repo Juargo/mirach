@@ -16,9 +16,13 @@ import type { Request, Response } from 'express';
 import { LoginUseCase } from '../../../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../../../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../../../application/use-cases/obtener-identidad.use-case';
+import { CrearDemoUseCase } from '../../../application/use-cases/crear-demo.use-case';
+import { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
 import { PublicSession } from './session-public.decorator';
 import { CurrentUser } from './current-user.decorator';
 import { LoginRateLimiter } from './login-rate-limiter';
+import { DemoRateLimiter } from './demo-rate-limiter';
+import { DemoCleanupService } from './demo-cleanup.service';
 import { getClientIp } from './client-ip';
 import { extractToken } from './extraer-token';
 import { serializeSessionCookie, clearSessionCookie } from './cookie';
@@ -30,10 +34,14 @@ export interface LoginResponseDto {
   readonly expiresAt: string;
 }
 
-/** MeDto — body de éxito de GET /me (AUTH-09). Sin hash, sin token. */
+/**
+ * MeDto — body de éxito de GET /me (AUTH-09). Sin hash, sin token.
+ * `esDemo` distingue una cuenta demo (`email: null`) de una real (DEMO-AUTH-05).
+ */
 export interface MeDto {
   readonly userId: string;
-  readonly email: string;
+  readonly email: string | null;
+  readonly esDemo: boolean;
 }
 
 /**
@@ -53,6 +61,10 @@ export class AuthController {
     private readonly logoutUseCase: LogoutUseCase,
     private readonly obtenerIdentidadUseCase: ObtenerIdentidadUseCase,
     private readonly rateLimiter: LoginRateLimiter,
+    private readonly demoRateLimiter: DemoRateLimiter,
+    private readonly crearDemoUseCase: CrearDemoUseCase,
+    private readonly demoCleanupService: DemoCleanupService,
+    private readonly validarSesionUseCase: ValidarSesionUseCase,
   ) {}
 
   @PublicSession()
@@ -138,7 +150,74 @@ export class AuthController {
     }
 
     const identidad = result.getValue();
-    return { userId: identidad.userId, email: identidad.email };
+    return { userId: identidad.userId, email: identidad.email, esDemo: identidad.esDemo };
+  }
+
+  /**
+   * GET /api/auth/demo — crea (o reutiliza) una cuenta demo (DEMO-AUTH-01).
+   *
+   * `@PublicSession()`: sigue exigiendo `x-api-key` pero no una sesión ya
+   * validada — el visitante llega anónimo.
+   *
+   * Orden (design.md §Data Flow):
+   *   1. DEMO-AUTH-03/04: si ya trae un token de sesión demo válido, lo
+   *      reutiliza y redirige sin crear nada nuevo. Un token inválido/
+   *      expirado, o de un usuario NO demo, cae al flujo normal (abajo).
+   *   2. Rate limit por IP (DEMO-AUTH-02) → 429 si excede 3/hora.
+   *   3. Limpieza perezosa de demos expirados (DEMO-CLN-02), ANTES de crear.
+   *   4. `CrearDemoUseCase` → cookie de sesión → 302 a `/`.
+   *
+   * Redirige a un path relativo (`/`), no a un dominio absoluto — así
+   * funciona igual en cualquier entorno (local/staging/producción) sin
+   * hardcodear `app.moneydiary.cl`.
+   */
+  @PublicSession()
+  @Get('demo')
+  async demo(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const tokenExistente = extractToken(req);
+
+    if (tokenExistente !== undefined && (await this.esSesionDemoValida(tokenExistente))) {
+      res.redirect(HttpStatus.FOUND, '/');
+      return;
+    }
+
+    const ip = getClientIp(req);
+
+    if (this.demoRateLimiter.isBlocked(ip)) {
+      this.logger.warn(`Demo rechazado (rate-limited) — path=${req.path}`);
+      throw new HttpException(
+        'Demasiadas solicitudes de demo. Intenta más tarde.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    this.demoRateLimiter.recordFailure(ip);
+
+    await this.runUseCase(
+      () => this.demoCleanupService.borrarExpirados(),
+      'Error al limpiar cuentas demo expiradas',
+    );
+
+    const { token, expiresAt } = await this.runUseCase(
+      () => this.crearDemoUseCase.execute(),
+      'Error inesperado al crear la cuenta demo',
+    );
+
+    res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt));
+    res.redirect(HttpStatus.FOUND, '/');
+  }
+
+  /** DEMO-AUTH-03/04 — true solo si el token es válido Y pertenece a un usuario demo. */
+  private async esSesionDemoValida(token: string): Promise<boolean> {
+    const validado = await this.validarSesionUseCase.execute({ token });
+    if (validado.isFail()) {
+      return false;
+    }
+
+    const identidad = await this.obtenerIdentidadUseCase.execute({
+      userId: validado.getValue().userId,
+    });
+
+    return identidad.isOk() && identidad.getValue().esDemo;
   }
 
   /**
