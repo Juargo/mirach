@@ -1,26 +1,39 @@
 ---
-import CtaBeta from './CtaBeta.astro';
 ---
 
 <section
   id="hero"
-  class="flex min-h-[80dvh] flex-col items-center justify-center px-6 pb-16 pt-44 text-center sm:pt-48"
+  class="flex min-h-[80dvh] flex-col items-center justify-center px-6 pb-16 pt-44 sm:pt-48"
 >
-  <h1
-    class="max-w-4xl text-display-lg font-bold leading-tight tracking-tight text-on-surface sm:text-5xl lg:text-6xl"
+  <div
+    class="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 lg:flex-row lg:gap-20"
   >
-    Visualiza tus gastos<br />
-    <span class="text-primary">y empieza a ahorrar</span>
-  </h1>
-  <p
-    class="mt-6 max-w-xl text-body-lg leading-relaxed text-on-surface-variant sm:text-lg"
-  >
-    MoneyDiary aplica la metodología 50/30/20 a tus gastos reales para
-    que visualices claramente a dónde va tu dinero. Entiende tus
-    finanzas, identifica oportunidades de ahorro y comienza a generar
-    resultados con solo subir tu cartola bancaria.
-  </p>
-  <div class="mt-10">
-    <CtaBeta />
+    <div
+      class="flex max-w-xl flex-col items-center text-center lg:items-start lg:text-left"
+    >
+      <h1
+        class="text-display-lg font-bold leading-tight tracking-tight text-on-surface sm:text-5xl lg:text-6xl"
+      >
+        Visualiza tus gastos<br />
+        <span class="text-primary">y empieza a ahorrar</span>
+      </h1>
+      <p
+        class="mt-6 text-body-lg leading-relaxed text-on-surface-variant sm:text-lg"
+      >
+        MoneyDiary aplica la metodología 50/30/20 a tus gastos reales para
+        que visualices claramente a dónde va tu dinero. Entiende tus
+        finanzas, identifica oportunidades de ahorro y comienza a generar
+        resultados con solo subir tu cartola bancaria.
+      </p>
+    </div>
+    <div class="shrink-0">
+      <img
+        src="/images/banner-image.png"
+        alt="MoneyDiary app dashboard"
+        width={1002}
+        height={616}
+        class="w-full max-w-[500px] lg:max-w-[600px]"
+      />
+    </div>
   </div>
 </section>
