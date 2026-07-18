@@ -1,4 +1,4 @@
-import { hash, verify, Algorithm, type Options } from '@node-rs/argon2';
+import { hash, verify, type Options } from '@node-rs/argon2';
 import { IPasswordHasher } from '../../../application/ports/password-hasher.port';
 
 /**
@@ -10,12 +10,17 @@ import { IPasswordHasher } from '../../../application/ports/password-hasher.port
  * m=19456) y "contraseña incorrecta" (hash real, m=4096), reabriendo el
  * oráculo de enumeración AUTH-02. Ambos deben usar EXACTAMENTE los mismos
  * parámetros — si cambian aquí, actualizar también `HASH_DUMMY_PARA_TIMING`.
+ *
+ * `algorithm: 2` es `Algorithm.Argon2id` — se usa el literal numérico en vez
+ * de importar el `const enum` porque `isolatedModules` (requerido por el
+ * transformador single-file de SWC/esbuild) no permite acceder const enums
+ * ambientales de otro paquete. Es también el default de la librería.
  */
 export const ARGON2_OPTIONS: Options = {
   memoryCost: 19456,
   timeCost: 2,
   parallelism: 1,
-  algorithm: Algorithm.Argon2id,
+  algorithm: 2,
 };
 
 /**
