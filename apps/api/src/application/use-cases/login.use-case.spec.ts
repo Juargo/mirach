@@ -1,4 +1,4 @@
-import { LoginUseCase } from './login.use-case';
+import { LoginUseCase, HASH_DUMMY_PARA_TIMING } from './login.use-case';
 import {
   IUserCredentialRepository,
   CredencialUsuario,
@@ -156,6 +156,17 @@ describe('LoginUseCase', () => {
       expect(creds.buscarPorEmail).not.toHaveBeenCalled();
       expect(hasher.verificar).toHaveBeenCalledTimes(1);
       expect(sessions.crear).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('HASH_DUMMY_PARA_TIMING (AUTH-02 timing equalization)', () => {
+    // Application layer never imports infra (Clean Architecture), so this
+    // asserts the hardcoded params directly rather than importing
+    // Argon2PasswordHasher's ARGON2_OPTIONS — the infra-side test
+    // (argon2-password-hasher.spec.ts) is the one that pins the real hasher's
+    // output to the SAME literal. Keep both in sync if either changes.
+    it('codifica m=19456,t=2,p=1 — deben coincidir con ARGON2_OPTIONS del hasher real', () => {
+      expect(HASH_DUMMY_PARA_TIMING).toContain('m=19456,t=2,p=1');
     });
   });
 });

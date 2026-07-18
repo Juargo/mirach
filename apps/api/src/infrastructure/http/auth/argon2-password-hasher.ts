@@ -1,20 +1,36 @@
-import { hash, verify } from '@node-rs/argon2';
+import { hash, verify, Algorithm, type Options } from '@node-rs/argon2';
 import { IPasswordHasher } from '../../../application/ports/password-hasher.port';
+
+/**
+ * ARGON2_OPTIONS — parámetros de costo OWASP para argon2id (AUTH-02/AUTH-03).
+ *
+ * `@node-rs/argon2`'s defaults (memoryCost=4096, timeCost=3) son más débiles
+ * que `HASH_DUMMY_PARA_TIMING` en `login.use-case.ts` (m=19456,t=2) — ese
+ * desajuste hacía el timing distinguible entre "email desconocido" (dummy,
+ * m=19456) y "contraseña incorrecta" (hash real, m=4096), reabriendo el
+ * oráculo de enumeración AUTH-02. Ambos deben usar EXACTAMENTE los mismos
+ * parámetros — si cambian aquí, actualizar también `HASH_DUMMY_PARA_TIMING`.
+ */
+export const ARGON2_OPTIONS: Options = {
+  memoryCost: 19456,
+  timeCost: 2,
+  parallelism: 1,
+  algorithm: Algorithm.Argon2id,
+};
 
 /**
  * Argon2PasswordHasher — implementación de `IPasswordHasher` con `@node-rs/argon2`.
  *
- * Usa la variante argon2id (default de la librería — resistente a side-channel
- * y GPU cracking) con los parámetros de costo por defecto de `@node-rs/argon2`
- * (memoryCost 4096 KB, timeCost 3, parallelism 1). `verify` es en tiempo
- * constante frente al hash provisto (AUTH-03).
+ * Usa la variante argon2id con `ARGON2_OPTIONS` (parámetros OWASP, no los
+ * defaults de la librería). `verify` es en tiempo constante frente al hash
+ * provisto (AUTH-03).
  *
  * Solo esta clase importa `@node-rs/argon2` — application nunca toca la
  * librería de hashing directamente (DIP).
  */
 export class Argon2PasswordHasher implements IPasswordHasher {
   async hash(plano: string): Promise<string> {
-    return hash(plano);
+    return hash(plano, ARGON2_OPTIONS);
   }
 
   async verificar(plano: string, hashed: string): Promise<boolean> {

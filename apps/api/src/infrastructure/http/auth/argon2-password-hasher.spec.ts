@@ -1,4 +1,4 @@
-import { Argon2PasswordHasher } from './argon2-password-hasher';
+import { Argon2PasswordHasher, ARGON2_OPTIONS } from './argon2-password-hasher';
 
 /**
  * Real argon2id roundtrip — no mocking (verificar low-cost params).
@@ -29,5 +29,13 @@ describe('Argon2PasswordHasher', () => {
     const hash = await hasher.hash('otra-contraseña');
 
     expect(hash.startsWith('$argon2id$')).toBe(true);
+  });
+
+  it('produce un hash que codifica los mismos parámetros de costo que ARGON2_OPTIONS (AUTH-02 timing)', async () => {
+    const hash = await hasher.hash('otra-contraseña');
+
+    expect(hash).toContain(
+      `m=${ARGON2_OPTIONS.memoryCost},t=${ARGON2_OPTIONS.timeCost},p=${ARGON2_OPTIONS.parallelism}`,
+    );
   });
 });

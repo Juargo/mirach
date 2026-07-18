@@ -20,7 +20,7 @@ export interface LoginUseCaseResult {
  * Never a real user's hash — just a plausible-shaped opaque string so the
  * hasher's real comparison work runs on every failure branch.
  */
-const HASH_DUMMY_PARA_TIMING =
+export const HASH_DUMMY_PARA_TIMING =
   '$argon2id$v=19$m=19456,t=2,p=1$ZHVtbXlzYWx0ZHVtbXk$ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWR1bW15ZHU';
 
 /**
