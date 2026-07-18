@@ -38,11 +38,17 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
       select: { id: true, email: true, esDemo: true },
     });
 
+    if (user === null) {
+      return null;
+    }
+
     // A diferencia de un usuario real (que siempre tiene email), un usuario
     // demo NUNCA tiene email (`esDemo=true, email=null`) — eso es válido, no
-    // "identidad incompleta". Solo `user === null` (id inexistente) es "no
-    // encontrado"; `email: null` se propaga tal cual (DEMO-AUTH-05).
-    if (user === null) {
+    // "identidad incompleta" (DEMO-AUTH-05). Pero un usuario REAL
+    // (`esDemo=false`) sin email es un estado inconsistente (todo usuario
+    // real se crea con email) — falla cerrado (`null`, "no encontrado") en
+    // vez de exponer una identidad rota, en lugar de propagarla tal cual.
+    if (!user.esDemo && user.email === null) {
       return null;
     }
 
