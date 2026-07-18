@@ -4,14 +4,12 @@ import {
   Query,
   BadRequestException,
   InternalServerErrorException,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { ObtenerMovimientosMesUseCase } from '../../application/use-cases/obtener-movimientos-mes.use-case';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { aMovimientosMesDto } from './dto/movimiento-mes.dto';
-import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
-import { PublicSession } from './auth/session-public.decorator';
+import { CurrentUser } from './auth/current-user.decorator';
 
 /**
  * MovimientosController — endpoint de consulta de movimientos mensuales.
@@ -20,35 +18,35 @@ import { PublicSession } from './auth/session-public.decorator';
  *
  * Responsabilidades:
  *   1. Extraer el query param opcional `periodo`.
- *   2. Delegar en ObtenerMovimientosMesUseCase (mismo userId fijo que el pipeline de ingesta).
+ *   2. Delegar en ObtenerMovimientosMesUseCase con el userId autenticado.
  *   3. Traducir el Result<T,E> a respuesta HTTP.
  *
  * Cuando `periodo` está ausente → use case usa PeriodoMes.actual() → 200.
  * Cuando `periodo` es inválido → PeriodoInvalidoError → 400.
  * Lista vacía → 200 con envelope vacío (no es un error — REQ-06).
  *
- * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) for the
- * MVP mono-user phase. Per-user authentication (multi-user, JWT) is a post-MVP
- * concern (ADR-001 / Sprint 3+).
+ * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) AND
+ * SessionGuard (per-user session, ISO-01/02) — userId viene de la sesión
+ * autenticada vía @CurrentUser(), nunca de una constante fija.
  */
-// TRANSITIONAL (Slice 1): keep api-key mono-user access; Slice 2 removes this + wires @CurrentUser().
-@PublicSession()
 @Controller('api/movimientos')
 export class MovimientosController {
   private readonly logger = new Logger(MovimientosController.name);
 
   constructor(
     private readonly obtenerMovimientosMesUseCase: ObtenerMovimientosMesUseCase,
-    @Inject(USER_ID_FIJO_TOKEN) private readonly userId: string,
   ) {}
 
   @Get()
-  async listar(@Query('periodo') periodo?: string) {
+  async listar(
+    @Query('periodo') periodo: string | undefined,
+    @CurrentUser() userId: string,
+  ) {
     let result: Awaited<ReturnType<ObtenerMovimientosMesUseCase['execute']>>;
 
     try {
       result = await this.obtenerMovimientosMesUseCase.execute({
-        userId: this.userId,
+        userId,
         periodo,
       });
     } catch (err) {

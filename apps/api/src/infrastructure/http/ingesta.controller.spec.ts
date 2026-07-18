@@ -34,9 +34,33 @@ describe('IngestaController', () => {
     const controller = new IngestaController(useCase);
 
     await expect(
-      controller.ingestar(undefined as unknown as Express.Multer.File),
+      controller.ingestar(
+        undefined as unknown as Express.Multer.File,
+        'user-fijo-test',
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(useCase.execute).not.toHaveBeenCalled();
+  });
+
+  it('deriva userId de @CurrentUser(): lo pasa al orquestador en vez de USER_ID_FIJO (ISO-01/02)', async () => {
+    const result = Result.ok({
+      ingestaId: 'ing-1',
+      banco: { banco: 'BCI', tipoCuenta: 'Cuenta Corriente', numeroCuenta: '123' },
+      archivo: { originalName: 'movimientos.xlsx', extension: '.xlsx', sizeInBytes: 100 },
+      total: 0,
+      transacciones: [],
+    });
+    const useCase = {
+      execute: vi.fn().mockResolvedValue(result),
+    } as unknown as ProcessIngestaUseCase;
+    const controller = new IngestaController(useCase);
+
+    await controller.ingestar(fakeMulterFile(), 'user-autenticado-1');
+
+    expect(useCase.execute).toHaveBeenCalledWith({
+      fileReader: expect.anything(),
+      userId: 'user-autenticado-1',
+    });
   });
 
   it('monto ininterpretable: 400 y el mensaje NUNCA filtra el valor crudo de la celda (podría ser dinero)', async () => {
@@ -46,7 +70,7 @@ describe('IngestaController', () => {
     const controller = controllerWithResult(Result.fail(error));
 
     try {
-      await controller.ingestar(fakeMulterFile());
+      await controller.ingestar(fakeMulterFile(), 'user-fijo-test');
       throw new Error('debía lanzar');
     } catch (e) {
       expect(e).toBeInstanceOf(BadRequestException);
@@ -61,7 +85,7 @@ describe('IngestaController', () => {
     const error = new ExtensionNoPermitidaError('.xls', ['.xlsx']);
     const controller = controllerWithResult(Result.fail(error));
 
-    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(
+    await expect(controller.ingestar(fakeMulterFile(), 'user-fijo-test')).rejects.toThrow(
       BadRequestException,
     );
   });
@@ -70,7 +94,7 @@ describe('IngestaController', () => {
     const error = new BancoNoReconocidoError('movimientos.xlsx');
     const controller = controllerWithResult(Result.fail(error));
 
-    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(
+    await expect(controller.ingestar(fakeMulterFile(), 'user-fijo-test')).rejects.toThrow(
       BadRequestException,
     );
   });
@@ -81,7 +105,7 @@ describe('IngestaController', () => {
     ]);
     const controller = controllerWithResult(Result.fail(error));
 
-    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(
+    await expect(controller.ingestar(fakeMulterFile(), 'user-fijo-test')).rejects.toThrow(
       BadRequestException,
     );
   });
@@ -92,7 +116,7 @@ describe('IngestaController', () => {
     );
     const controller = controllerWithResult(Result.fail(error));
 
-    await expect(controller.ingestar(fakeMulterFile())).rejects.toThrow(
+    await expect(controller.ingestar(fakeMulterFile(), 'user-fijo-test')).rejects.toThrow(
       InternalServerErrorException,
     );
   });
