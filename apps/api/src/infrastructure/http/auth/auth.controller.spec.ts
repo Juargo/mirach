@@ -122,6 +122,84 @@ describe('AuthController', () => {
         expiresAt: expiresAt.toISOString(),
       });
     });
+
+    it('concurrencia (race check-then-act): registrarFallo se llama de forma optimista ANTES de esperar el use case', async () => {
+      let resolveExecute!: (value: Awaited<ReturnType<LoginUseCase['execute']>>) => void;
+      const executePromise = new Promise<Awaited<ReturnType<LoginUseCase['execute']>>>(
+        (resolve) => {
+          resolveExecute = resolve;
+        },
+      );
+      const loginUseCase = {
+        execute: vi.fn().mockReturnValue(executePromise),
+      } as unknown as LoginUseCase;
+      const rateLimiter = {
+        estaBloqueado: vi.fn().mockReturnValue(false),
+        registrarFallo: vi.fn(),
+        resetear: vi.fn(),
+      } as unknown as LoginRateLimiter;
+      const controller = new AuthController(
+        loginUseCase,
+        {} as LogoutUseCase,
+        {} as ObtenerIdentidadUseCase,
+        rateLimiter,
+      );
+
+      const loginCall = controller.login(
+        { email: 'user@example.com', password: 'x' },
+        requestMock(),
+        responseMock(),
+      );
+
+      // Before the use case resolves, the attempt must already be recorded —
+      // otherwise N concurrent requests all pass estaBloqueado() before any
+      // of them calls registrarFallo (check-then-act race).
+      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledWith(
+        '127.0.0.1',
+        'user@example.com',
+      );
+      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledTimes(1);
+
+      resolveExecute(Result.fail(new CredencialesInvalidasError()));
+      await expect(loginCall).rejects.toBeInstanceOf(UnauthorizedException);
+      // Still only ONE registrarFallo call for this one request (no double count).
+      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledTimes(1);
+    });
+
+    it('éxito: el conteo registrado de forma optimista se limpia con resetear (no queda contado)', async () => {
+      const expiresAt = new Date('2026-07-25T00:00:00.000Z');
+      const loginUseCase = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(Result.ok({ token: 'token-abc', userId: 'user-1', expiresAt })),
+      } as unknown as LoginUseCase;
+      const rateLimiter = {
+        estaBloqueado: vi.fn().mockReturnValue(false),
+        registrarFallo: vi.fn(),
+        resetear: vi.fn(),
+      } as unknown as LoginRateLimiter;
+      const controller = new AuthController(
+        loginUseCase,
+        {} as LogoutUseCase,
+        {} as ObtenerIdentidadUseCase,
+        rateLimiter,
+      );
+
+      await controller.login(
+        { email: 'user@example.com', password: 'correcto' },
+        requestMock(),
+        responseMock(),
+      );
+
+      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledWith(
+        '127.0.0.1',
+        'user@example.com',
+      );
+      expect(rateLimiter.resetear as Mock).toHaveBeenCalledWith(
+        '127.0.0.1',
+        'user@example.com',
+      );
+    });
   });
 
   describe('POST /logout', () => {

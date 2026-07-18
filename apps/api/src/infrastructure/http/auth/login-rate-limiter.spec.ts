@@ -122,6 +122,28 @@ describe('LoginRateLimiter', () => {
     expect(limiter.estaBloqueado(ip, email)).toBe(false);
   });
 
+  it('el mapa no crece sin límite: al superar maxEntries se evictan las entradas más antiguas', () => {
+    const configSensible = { maxPorEmail: 1, maxPorIp: 1000, ventanaMs: 900_000 };
+    // maxEntries=4 (constructor param) para un test rápido — cada registrarFallo
+    // agrega 2 claves (email + ip), así que 2 llamadas llenan la capacidad.
+    const limiter = new LoginRateLimiter(configSensible, Date.now, 4);
+
+    limiter.registrarFallo('1.1.1.1', 'a@example.com');
+    expect(limiter.estaBloqueado('1.1.1.1', 'a@example.com')).toBe(true);
+
+    limiter.registrarFallo('2.2.2.2', 'b@example.com');
+    expect(limiter.estaBloqueado('2.2.2.2', 'b@example.com')).toBe(true);
+
+    // Un tercer fallo agrega 2 claves nuevas y supera maxEntries=4 — debe
+    // evictar las entradas MÁS ANTIGUAS (las de 'a@example.com'/'1.1.1.1'),
+    // no las recién insertadas.
+    limiter.registrarFallo('3.3.3.3', 'c@example.com');
+
+    expect(limiter.estaBloqueado('1.1.1.1', 'a@example.com')).toBe(false);
+    expect(limiter.estaBloqueado('2.2.2.2', 'b@example.com')).toBe(true);
+    expect(limiter.estaBloqueado('3.3.3.3', 'c@example.com')).toBe(true);
+  });
+
   it('normaliza el email (trim + lowercase) para la clave de conteo', () => {
     const limiter = new LoginRateLimiter(CONFIG);
     const ip = '1.2.3.4';

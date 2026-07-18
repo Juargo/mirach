@@ -74,6 +74,14 @@ export class AuthController {
       );
     }
 
+    // Record the attempt OPTIMISTICALLY, before awaiting the use case — not
+    // after. Recording only on failure (post-await) is a check-then-act race:
+    // N concurrent requests would all pass estaBloqueado() before any of them
+    // calls registrarFallo(), letting all N through regardless of the budget.
+    // A successful login clears this pre-recorded attempt via resetear()
+    // below, so it never ends up double-counted or left counted.
+    this.rateLimiter.registrarFallo(ip, email);
+
     let result: Awaited<ReturnType<LoginUseCase['execute']>>;
     try {
       result = await this.loginUseCase.execute({ emailRaw: email, password });
@@ -86,7 +94,6 @@ export class AuthController {
     }
 
     if (result.isFail()) {
-      this.rateLimiter.registrarFallo(ip, email);
       throw new UnauthorizedException(result.getError().message);
     }
 

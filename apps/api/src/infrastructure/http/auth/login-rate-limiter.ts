@@ -40,6 +40,14 @@ interface Contador {
 }
 
 /**
+ * Cota dura del `Map` en memoria — sin ella, un atacante que rote emails/IPs
+ * indefinidamente (o simplemente tráfico orgánico a escala) haría crecer el
+ * mapa sin límite (memory-exhaustion DoS). 10k entradas es generoso para una
+ * sola instancia Render mono-usuario/pocos-usuarios (design.md §1).
+ */
+export const MAX_ENTRIES = 10_000;
+
+/**
  * LoginRateLimiter — limitador de intentos de login en memoria, por IP y por
  * email (AUTH-08). Cuenta SOLO fallos — el controller llama `registrarFallo`
  * cuando `LoginUseCase` falla, y `resetear` cuando tiene éxito. Un login
@@ -47,7 +55,11 @@ interface Contador {
  *
  * Storage: `Map` en proceso, ventana fija (no deslizante) — correcto para una
  * sola instancia Render (KISS/YAGNI, ver design.md §1). Evicción perezosa: en
- * cada acceso, las entradas vencidas se tratan como ausentes.
+ * cada acceso, las entradas vencidas se tratan como ausentes. Además, antes de
+ * insertar una clave nueva se purgan todas las entradas vencidas y, si el
+ * mapa sigue en (o sobre) `maxEntries`, se evictan las entradas más antiguas
+ * (orden de inserción de `Map`) hasta volver a estar bajo la cota — el mapa
+ * nunca crece sin límite (memory-exhaustion DoS).
  */
 export class LoginRateLimiter {
   private readonly contadores = new Map<string, Contador>();
@@ -55,6 +67,7 @@ export class LoginRateLimiter {
   constructor(
     private readonly config: RateLimitConfig,
     private readonly ahora: () => number = Date.now,
+    private readonly maxEntries: number = MAX_ENTRIES,
   ) {}
 
   estaBloqueado(ip: string, email: string): boolean {
@@ -81,11 +94,32 @@ export class LoginRateLimiter {
     const vigente = this.leerVigente(key);
 
     if (vigente === undefined) {
+      this.purgarExpiradas();
+      this.evictarSiExcedeCapacidad();
       this.contadores.set(key, { conteo: 1, expiraEn: this.ahora() + this.config.ventanaMs });
       return;
     }
 
     vigente.conteo += 1;
+  }
+
+  /** Barrido completo: elimina toda entrada cuya ventana ya venció. */
+  private purgarExpiradas(): void {
+    const ahora = this.ahora();
+    for (const [key, entrada] of this.contadores) {
+      if (entrada.expiraEn <= ahora) {
+        this.contadores.delete(key);
+      }
+    }
+  }
+
+  /** Evicta las entradas más antiguas (orden de inserción) hasta volver a estar bajo `maxEntries`. */
+  private evictarSiExcedeCapacidad(): void {
+    while (this.contadores.size >= this.maxEntries) {
+      const masAntigua = this.contadores.keys().next();
+      if (masAntigua.done) break;
+      this.contadores.delete(masAntigua.value);
+    }
   }
 
   /** Lee la entrada solo si sigue vigente; una entrada vencida se trata como ausente. */
