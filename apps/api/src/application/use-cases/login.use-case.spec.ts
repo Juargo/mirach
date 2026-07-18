@@ -1,0 +1,161 @@
+import { LoginUseCase } from './login.use-case';
+import {
+  IUserCredentialRepository,
+  CredencialUsuario,
+} from '../ports/user-credential-repository.port';
+import { IPasswordHasher } from '../ports/password-hasher.port';
+import { ISessionRepository } from '../ports/session-repository.port';
+import { ISessionTokenService, TokenGenerado } from '../ports/session-token.port';
+import { IReloj } from '../ports/reloj.port';
+import { CredencialesInvalidasError } from '../../domain/errors/credenciales-invalidas.error';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Unit tests — LoginUseCase (mocked ports, fake clock). No infra, no DB.
+// ──────────────────────────────────────────────────────────────────────────────
+
+function makeMockCreds(row: CredencialUsuario | null): IUserCredentialRepository {
+  return {
+    buscarPorEmail: vi.fn().mockResolvedValue(row),
+    buscarIdentidad: vi.fn(),
+  };
+}
+
+function makeMockHasher(verificarResult: boolean): IPasswordHasher {
+  return {
+    hash: vi.fn(),
+    verificar: vi.fn().mockResolvedValue(verificarResult),
+  };
+}
+
+function makeMockSessions(): ISessionRepository {
+  return {
+    crear: vi.fn().mockResolvedValue(undefined),
+    buscarPorTokenHash: vi.fn(),
+    revocarPorTokenHash: vi.fn(),
+  };
+}
+
+function makeMockTokens(generado: TokenGenerado): ISessionTokenService {
+  return {
+    generar: vi.fn().mockReturnValue(generado),
+    hashToken: vi.fn(),
+  };
+}
+
+function makeFakeReloj(ahora: Date): IReloj {
+  return { ahora: () => ahora };
+}
+
+const AHORA = new Date('2026-07-15T00:00:00.000Z');
+const TOKEN_GENERADO: TokenGenerado = {
+  token: 'raw-token-abc',
+  tokenHash: 'hashed-token-abc',
+};
+
+describe('LoginUseCase', () => {
+  describe('success', () => {
+    it('persists a session and returns { token, userId, expiresAt }', async () => {
+      const cred: CredencialUsuario = {
+        userId: 'user-1',
+        passwordHash: 'stored-hash',
+      };
+      const creds = makeMockCreds(cred);
+      const hasher = makeMockHasher(true);
+      const sessions = makeMockSessions();
+      const tokens = makeMockTokens(TOKEN_GENERADO);
+      const reloj = makeFakeReloj(AHORA);
+      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+
+      const result = await uc.execute({
+        emailRaw: 'jorge@example.com',
+        password: 'correct-password',
+      });
+
+      expect(result.isOk()).toBe(true);
+      const value = result.getValue();
+      expect(value.token).toBe('raw-token-abc');
+      expect(value.userId).toBe('user-1');
+      expect(value.expiresAt.toISOString()).toBe('2026-07-22T00:00:00.000Z');
+
+      expect(sessions.crear).toHaveBeenCalledWith({
+        userId: 'user-1',
+        tokenHash: 'hashed-token-abc',
+        expiresAt: value.expiresAt,
+      });
+      expect(hasher.verificar).toHaveBeenCalledWith(
+        'correct-password',
+        'stored-hash',
+      );
+    });
+  });
+
+  describe('unknown email (AUTH-02 no-enumeration)', () => {
+    it('returns CredencialesInvalidasError AND still invokes a dummy verificar', async () => {
+      const creds = makeMockCreds(null);
+      const hasher = makeMockHasher(false);
+      const sessions = makeMockSessions();
+      const tokens = makeMockTokens(TOKEN_GENERADO);
+      const reloj = makeFakeReloj(AHORA);
+      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+
+      const result = await uc.execute({
+        emailRaw: 'nobody@example.com',
+        password: 'whatever',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CredencialesInvalidasError);
+      // Timing equalization: verificar runs on the unknown-email path too.
+      expect(hasher.verificar).toHaveBeenCalledTimes(1);
+      expect(hasher.verificar).toHaveBeenCalledWith('whatever', expect.any(String));
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('wrong password', () => {
+    it('returns the identical CredencialesInvalidasError as the unknown-email case', async () => {
+      const cred: CredencialUsuario = {
+        userId: 'user-1',
+        passwordHash: 'stored-hash',
+      };
+      const creds = makeMockCreds(cred);
+      const hasher = makeMockHasher(false);
+      const sessions = makeMockSessions();
+      const tokens = makeMockTokens(TOKEN_GENERADO);
+      const reloj = makeFakeReloj(AHORA);
+      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+
+      const result = await uc.execute({
+        emailRaw: 'jorge@example.com',
+        password: 'wrong-password',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CredencialesInvalidasError);
+      expect(result.getError().message).toBe('Credenciales inválidas.');
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('invalid email format', () => {
+    it('returns the identical error AND still invokes a dummy verificar (no distinct code path)', async () => {
+      const creds = makeMockCreds(null);
+      const hasher = makeMockHasher(false);
+      const sessions = makeMockSessions();
+      const tokens = makeMockTokens(TOKEN_GENERADO);
+      const reloj = makeFakeReloj(AHORA);
+      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+
+      const result = await uc.execute({
+        emailRaw: 'not-an-email',
+        password: 'whatever',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CredencialesInvalidasError);
+      expect(creds.buscarPorEmail).not.toHaveBeenCalled();
+      expect(hasher.verificar).toHaveBeenCalledTimes(1);
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+  });
+});
