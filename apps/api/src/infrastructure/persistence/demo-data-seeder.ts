@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
-import { Bucket } from '../../../domain/value-objects/bucket';
-import { DemoTransaccionDef } from '../../../../prisma/demo-data';
+import { Bucket } from '../../domain/value-objects/bucket';
+import { DemoTransaccionDef } from '../../../prisma/demo-data';
 
 /**
  * seedDemoTransacciones — mapea las definiciones estáticas de `demo-data.ts`

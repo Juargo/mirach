@@ -1,7 +1,7 @@
 import { seedDemoTransacciones } from './demo-data-seeder';
-import { DEMO_TRANSACCIONES } from '../../../../prisma/demo-data';
-import { BUCKET_IDS } from '../../persistence/bucket-ids';
-import { Bucket } from '../../../domain/value-objects/bucket';
+import { DEMO_TRANSACCIONES } from '../../../prisma/demo-data';
+import { BUCKET_IDS } from './bucket-ids';
+import { Bucket } from '../../domain/value-objects/bucket';
 
 const ACCOUNT_ID = 'account-demo-1';
 const INGESTA_ID = 'ingesta-demo-1';
@@ -14,7 +14,9 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
   });
 
   it('cubre los 5 buckets existentes con al menos 1 transacción cada uno (DEMO-DATA-01)', () => {
-    const bucketsCubiertos = new Set(DEMO_TRANSACCIONES.map((def) => def.bucketKey));
+    const bucketsCubiertos = new Set(
+      DEMO_TRANSACCIONES.map((def) => def.bucketKey),
+    );
 
     for (const bucket of Object.values(Bucket)) {
       expect(bucketsCubiertos.has(bucket)).toBe(true);
@@ -22,11 +24,13 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
   });
 
   it('incluye exactamente 1 transacción de ingreso (abono) ~$1.200.000 (DEMO-DATA-02)', () => {
-    const ingresos = DEMO_TRANSACCIONES.filter((def) => def.bucketKey === Bucket.Ingreso);
+    const ingresos = DEMO_TRANSACCIONES.filter(
+      (def) => def.bucketKey === Bucket.Ingreso,
+    );
 
     expect(ingresos).toHaveLength(1);
-    expect(ingresos[0]!.abono).toBe(1_200_000n);
-    expect(ingresos[0]!.cargo).toBe(0n);
+    expect(ingresos[0].abono).toBe(1_200_000n);
+    expect(ingresos[0].cargo).toBe(0n);
   });
 
   it('ninguna transacción tiene cargo o abono cero-y-cero, ni montos negativos (DEMO-DATA-03)', () => {
@@ -63,7 +67,9 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     expect(porcentaje).toBeLessThanOrEqual(0.15);
     expect(
       DEMO_TRANSACCIONES.some(
-        (def) => def.bucketKey === Bucket.Ahorro && def.descripcion === 'Transferencia a cuenta de ahorro',
+        (def) =>
+          def.bucketKey === Bucket.Ahorro &&
+          def.descripcion === 'Transferencia a cuenta de ahorro',
       ),
     ).toBe(true);
   });
@@ -82,7 +88,10 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     }
 
     const totalGastos =
-      sums[Bucket.Necesidades] + sums[Bucket.Deseos] + sums[Bucket.Ahorro] + sums[Bucket.SinCategoria];
+      sums[Bucket.Necesidades] +
+      sums[Bucket.Deseos] +
+      sums[Bucket.Ahorro] +
+      sums[Bucket.SinCategoria];
 
     return {
       necesidades: sums[Bucket.Necesidades],
@@ -95,12 +104,18 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
 
 describe('seedDemoTransacciones()', () => {
   it('mapea cada definición a un TransaccionCreateManyInput con bucketId resuelto vía BUCKET_IDS (DEMO-DATA-05)', () => {
-    const rows = seedDemoTransacciones(DEMO_TRANSACCIONES, BUCKET_IDS, ACCOUNT_ID, INGESTA_ID, AHORA);
+    const rows = seedDemoTransacciones(
+      DEMO_TRANSACCIONES,
+      BUCKET_IDS,
+      ACCOUNT_ID,
+      INGESTA_ID,
+      AHORA,
+    );
 
     expect(rows).toHaveLength(DEMO_TRANSACCIONES.length);
 
     rows.forEach((row, i) => {
-      const def = DEMO_TRANSACCIONES[i]!;
+      const def = DEMO_TRANSACCIONES[i];
       expect(row.accountId).toBe(ACCOUNT_ID);
       expect(row.ingestaId).toBe(INGESTA_ID);
       expect(row.descripcion).toBe(def.descripcion);
@@ -112,16 +127,36 @@ describe('seedDemoTransacciones()', () => {
 
   it('resuelve daysAgo a una fecha absoluta relativa a `ahora`', () => {
     const defs = [
-      { descripcion: 'x', cargo: 1_000n, abono: 0n, bucketKey: Bucket.Necesidades, daysAgo: 5 },
+      {
+        descripcion: 'x',
+        cargo: 1_000n,
+        abono: 0n,
+        bucketKey: Bucket.Necesidades,
+        daysAgo: 5,
+      },
     ];
 
-    const [row] = seedDemoTransacciones(defs, BUCKET_IDS, ACCOUNT_ID, INGESTA_ID, AHORA);
+    const [row] = seedDemoTransacciones(
+      defs,
+      BUCKET_IDS,
+      ACCOUNT_ID,
+      INGESTA_ID,
+      AHORA,
+    );
 
-    expect((row!.fecha as Date).getTime()).toBe(AHORA.getTime() - 5 * 24 * 60 * 60 * 1000);
+    expect((row.fecha as Date).getTime()).toBe(
+      AHORA.getTime() - 5 * 24 * 60 * 60 * 1000,
+    );
   });
 
   it('todos los bucketId resueltos son valores conocidos de BUCKET_IDS', () => {
-    const rows = seedDemoTransacciones(DEMO_TRANSACCIONES, BUCKET_IDS, ACCOUNT_ID, INGESTA_ID, AHORA);
+    const rows = seedDemoTransacciones(
+      DEMO_TRANSACCIONES,
+      BUCKET_IDS,
+      ACCOUNT_ID,
+      INGESTA_ID,
+      AHORA,
+    );
     const idsValidos = new Set(Object.values(BUCKET_IDS));
 
     for (const row of rows) {
