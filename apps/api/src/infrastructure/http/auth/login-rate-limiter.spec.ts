@@ -1,6 +1,62 @@
-import { LoginRateLimiter } from './login-rate-limiter';
+import { LoginRateLimiter, leerRateLimitConfigDesdeEnv } from './login-rate-limiter';
 
 const CONFIG = { maxPorEmail: 3, maxPorIp: 5, ventanaMs: 900_000 };
+
+describe('leerRateLimitConfigDesdeEnv (fail-closed, AUTH-08)', () => {
+  const envOriginal = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...envOriginal };
+  });
+
+  it('usa los defaults cuando las 3 env vars están ausentes', () => {
+    delete process.env.LOGIN_RATELIMIT_MAX_EMAIL;
+    delete process.env.LOGIN_RATELIMIT_MAX_IP;
+    delete process.env.LOGIN_RATELIMIT_WINDOW_MS;
+
+    expect(leerRateLimitConfigDesdeEnv()).toEqual({
+      maxPorEmail: 5,
+      maxPorIp: 20,
+      ventanaMs: 900_000,
+    });
+  });
+
+  it('lanza (fail-closed) si una env var es string vacío — Number("")=0 causaría auto-bloqueo', () => {
+    process.env.LOGIN_RATELIMIT_MAX_EMAIL = '';
+
+    expect(() => leerRateLimitConfigDesdeEnv()).toThrow();
+  });
+
+  it('lanza (fail-closed) si una env var no es numérica — NaN desactivaría el limiter en silencio', () => {
+    process.env.LOGIN_RATELIMIT_MAX_IP = 'abc';
+
+    expect(() => leerRateLimitConfigDesdeEnv()).toThrow();
+  });
+
+  it('lanza (fail-closed) si una env var es 0', () => {
+    process.env.LOGIN_RATELIMIT_WINDOW_MS = '0';
+
+    expect(() => leerRateLimitConfigDesdeEnv()).toThrow();
+  });
+
+  it('lanza (fail-closed) si una env var es negativa', () => {
+    process.env.LOGIN_RATELIMIT_MAX_EMAIL = '-5';
+
+    expect(() => leerRateLimitConfigDesdeEnv()).toThrow();
+  });
+
+  it('acepta una config válida provista por env', () => {
+    process.env.LOGIN_RATELIMIT_MAX_EMAIL = '10';
+    process.env.LOGIN_RATELIMIT_MAX_IP = '40';
+    process.env.LOGIN_RATELIMIT_WINDOW_MS = '600000';
+
+    expect(leerRateLimitConfigDesdeEnv()).toEqual({
+      maxPorEmail: 10,
+      maxPorIp: 40,
+      ventanaMs: 600_000,
+    });
+  });
+});
 
 describe('LoginRateLimiter', () => {
   it('no bloquea antes de alcanzar ningún umbral', () => {

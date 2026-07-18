@@ -5,13 +5,33 @@ export interface RateLimitConfig {
   readonly ventanaMs: number;
 }
 
-/** Lee los defaults desde env (mirrors ApiKeyGuard's env-driven config). */
+/**
+ * Lee los defaults desde env (mirrors ApiKeyGuard's env-driven config).
+ *
+ * Fail-closed (mirrors ApiKeyGuard): `Number(process.env.X ?? default)` deja
+ * pasar en silencio dos casos peligrosos que `??` no atrapa porque `""` NO es
+ * `null`/`undefined` — `Number("")` da `0` (auto-bloqueo/DoS: cualquier
+ * fallo bloquea inmediatamente) y `Number("abc")` da `NaN` (el limiter queda
+ * desactivado sin que nadie lo note, ya que toda comparación con `NaN` es
+ * `false`). Cada valor se valida como finito y estrictamente positivo; si
+ * alguno no lo es, se lanza en el arranque en vez de operar mal configurado.
+ */
 export function leerRateLimitConfigDesdeEnv(): RateLimitConfig {
-  return {
+  const config = {
     maxPorEmail: Number(process.env.LOGIN_RATELIMIT_MAX_EMAIL ?? 5),
     maxPorIp: Number(process.env.LOGIN_RATELIMIT_MAX_IP ?? 20),
     ventanaMs: Number(process.env.LOGIN_RATELIMIT_WINDOW_MS ?? 900_000),
   };
+
+  for (const [nombre, valor] of Object.entries(config)) {
+    if (!Number.isFinite(valor) || valor <= 0) {
+      throw new Error(
+        `Configuración de rate-limit de login inválida: "${nombre}" debe ser un número finito > 0 (recibido: ${valor}).`,
+      );
+    }
+  }
+
+  return config;
 }
 
 interface Contador {
