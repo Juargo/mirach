@@ -1,5 +1,5 @@
 import type { Mock } from 'vitest';
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { LoginUseCase } from '../../../application/use-cases/login.use-case';
@@ -10,7 +10,9 @@ import { Result } from '../../../shared/result';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
 import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.error';
 
-function requestMock(opts: { cookie?: string; authorization?: string } = {}): Request {
+function requestMock(
+  opts: { cookie?: string; authorization?: string; path?: string } = {},
+): Request {
   return {
     headers: {
       cookie: opts.cookie,
@@ -18,6 +20,7 @@ function requestMock(opts: { cookie?: string; authorization?: string } = {}): Re
       'x-forwarded-for': undefined,
     },
     socket: { remoteAddress: '127.0.0.1' },
+    path: opts.path ?? '/api/auth/login',
   } as unknown as Request;
 }
 
@@ -199,6 +202,73 @@ describe('AuthController', () => {
         '127.0.0.1',
         'user@example.com',
       );
+    });
+  });
+
+  describe('POST /login — observabilidad (scrubbed, sin PII/secretos, B3)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('loguea un warn (path + motivo) en la rama 401 de credenciales inválidas, sin email/password', async () => {
+      const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const loginUseCase = {
+        execute: vi.fn().mockResolvedValue(Result.fail(new CredencialesInvalidasError())),
+      } as unknown as LoginUseCase;
+      const rateLimiter = {
+        isBlocked: vi.fn().mockReturnValue(false),
+        recordFailure: vi.fn(),
+        reset: vi.fn(),
+      } as unknown as LoginRateLimiter;
+      const controller = new AuthController(
+        loginUseCase,
+        {} as LogoutUseCase,
+        {} as ObtenerIdentidadUseCase,
+        rateLimiter,
+      );
+
+      await expect(
+        controller.login(
+          { email: 'secreto@example.com', password: 'contraseña-secreta' },
+          requestMock({ path: '/api/auth/login' }),
+          responseMock(),
+        ),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const [message] = warnSpy.mock.calls[0]!;
+      expect(String(message)).toContain('/api/auth/login');
+      expect(String(message)).not.toContain('secreto@example.com');
+      expect(String(message)).not.toContain('contraseña-secreta');
+    });
+
+    it('loguea un warn (path + marcador de rate-limit) en la rama 429, sin email/password', async () => {
+      const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const loginUseCase = { execute: vi.fn() } as unknown as LoginUseCase;
+      const rateLimiter = {
+        isBlocked: vi.fn().mockReturnValue(true),
+        recordFailure: vi.fn(),
+        reset: vi.fn(),
+      } as unknown as LoginRateLimiter;
+      const controller = new AuthController(
+        loginUseCase,
+        {} as LogoutUseCase,
+        {} as ObtenerIdentidadUseCase,
+        rateLimiter,
+      );
+
+      await expect(
+        controller.login(
+          { email: 'secreto@example.com', password: 'x' },
+          requestMock({ path: '/api/auth/login' }),
+          responseMock(),
+        ),
+      ).rejects.toMatchObject({ status: 429 });
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const [message] = warnSpy.mock.calls[0]!;
+      expect(String(message)).toContain('/api/auth/login');
+      expect(String(message)).not.toContain('secreto@example.com');
     });
   });
 

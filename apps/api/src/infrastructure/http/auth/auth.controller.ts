@@ -68,6 +68,8 @@ export class AuthController {
     const ip = getClientIp(req);
 
     if (this.rateLimiter.isBlocked(ip, email)) {
+      // Scrubbed: path + a coarse marker only — NEVER the email/password.
+      this.logger.warn(`Login rechazado (rate-limited) — path=${req.path}`);
       throw new HttpException(
         'Demasiados intentos. Espera unos minutos.',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -88,6 +90,8 @@ export class AuthController {
     );
 
     if (result.isFail()) {
+      // Scrubbed: path only — NEVER the email/password.
+      this.logger.warn(`Login rechazado (credenciales inválidas) — path=${req.path}`);
       throw new UnauthorizedException(result.getError().message);
     }
 

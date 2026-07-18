@@ -1,5 +1,5 @@
 import { Reflector } from '@nestjs/core';
-import { UnauthorizedException, ExecutionContext } from '@nestjs/common';
+import { Logger, UnauthorizedException, ExecutionContext } from '@nestjs/common';
 import { SessionGuard } from './session.guard';
 import { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
 import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.error';
@@ -15,6 +15,7 @@ function contextMock(opts: {
   authorization?: string;
   isPublic?: boolean;
   isSessionPublic?: boolean;
+  path?: string;
 }): { ctx: ExecutionContext; reflector: Reflector; request: Record<string, unknown> } {
   const reflector = {
     getAllAndOverride: (key: string) => {
@@ -26,6 +27,7 @@ function contextMock(opts: {
 
   const request: Record<string, unknown> = {
     headers: { cookie: opts.cookie, authorization: opts.authorization },
+    path: opts.path ?? '/api/resumen',
   };
 
   const ctx = {
@@ -127,5 +129,61 @@ describe('SessionGuard', () => {
     const guard = new SessionGuard(reflector, validarSesion);
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+  });
+
+  describe('observabilidad (deny path, sin PII/secretos)', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('loguea un warn con el path cuando ambos transportes están ausentes', async () => {
+      const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const { ctx, reflector } = contextMock({ path: '/api/movimientos' });
+      const validarSesion = validarSesionMock(
+        Promise.resolve(Result.ok({ userId: 'no-debería-llamarse' })),
+      );
+      const guard = new SessionGuard(reflector, validarSesion);
+
+      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const [message] = warnSpy.mock.calls[0]!;
+      expect(String(message)).toContain('/api/movimientos');
+    });
+
+    it('loguea un warn con el path pero NUNCA el valor del token', async () => {
+      const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const { ctx, reflector } = contextMock({
+        cookie: 'md_session=token-secreto-no-debe-aparecer',
+        path: '/api/buckets/Necesidades',
+      });
+      const validarSesion = validarSesionMock(
+        Promise.resolve(Result.fail(new SesionInvalidaError())),
+      );
+      const guard = new SessionGuard(reflector, validarSesion);
+
+      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const [message] = warnSpy.mock.calls[0]!;
+      expect(String(message)).toContain('/api/buckets/Necesidades');
+      expect(String(message)).not.toContain('token-secreto-no-debe-aparecer');
+    });
+  });
+
+  describe('fail-closed cuando ValidarSesionUseCase.execute rechaza (B5)', () => {
+    it('deniega (nunca resuelve a true) si la validación de sesión rechaza por un error de infra (ej: DB)', async () => {
+      const { ctx, reflector } = contextMock({ cookie: 'md_session=token-cookie' });
+      const validarSesion = {
+        execute: vi.fn().mockRejectedValue(new Error('DB connection lost')),
+      } as unknown as ValidarSesionUseCase;
+      const guard = new SessionGuard(reflector, validarSesion);
+
+      // Fail-closed: la promesa rechazada de validarSesion se propaga —
+      // canActivate() nunca resuelve a `true`, así que el acceso queda
+      // denegado (Nest traduce la excepción no controlada a una respuesta
+      // de error, no a un 200 pasando por el guard).
+      await expect(guard.canActivate(ctx)).rejects.toThrow('DB connection lost');
+    });
   });
 });

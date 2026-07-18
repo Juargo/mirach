@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -25,6 +26,8 @@ import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.erro
  */
 @Injectable()
 export class SessionGuard implements CanActivate {
+  private readonly logger = new Logger(SessionGuard.name);
+
   constructor(
     private readonly reflector: Reflector,
     private readonly validarSesion: ValidarSesionUseCase,
@@ -47,12 +50,18 @@ export class SessionGuard implements CanActivate {
     const token = extractToken(request);
 
     if (token === undefined) {
+      // Scrubbed: path only — NEVER the token/cookie/Authorization header.
+      this.logger.warn(`Sesión rechazada (sin token) — path=${request.path ?? 'unknown'}`);
       throw new UnauthorizedException(new SesionInvalidaError().message);
     }
 
     const result = await this.validarSesion.execute({ token });
 
     if (result.isFail()) {
+      // Scrubbed: path only — NEVER the token/cookie/Authorization header.
+      this.logger.warn(
+        `Sesión rechazada (token inválido/expirado) — path=${request.path ?? 'unknown'}`,
+      );
       throw new UnauthorizedException(new SesionInvalidaError().message);
     }
 
