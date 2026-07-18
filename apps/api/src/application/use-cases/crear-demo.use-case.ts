@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { calcularExpiracion } from '../../domain/value-objects/duracion-sesion';
 import { IDemoRepository } from '../ports/demo-repository.port';
-import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 
@@ -30,23 +29,28 @@ export function generarNombreDemo(sufijo: string = randomBytes(6).toString('hex'
  * input de negocio que pueda ser inválido); las fallas de infraestructura
  * propagan como excepción, igual que `LoginUseCase`/`LogoutUseCase` — el
  * controller las traduce a 500.
+ *
+ * La sesión NO se crea acá con un `ISessionRepository` separado — el
+ * `tokenHash`/`expiresAt` se pre-computan y se pasan a `IDemoRepository.crear`,
+ * que la persiste DENTRO de la misma `$transaction` que User/Account/
+ * Ingesta/Transacciones (fix crítico judgment-day, DEMO-DATA-04 extendido).
+ * Antes, `sessions.crear()` corría como una escritura separada sin envolver
+ * — si fallaba, el usuario demo quedaba huérfano (creado pero sin sesión)
+ * hasta que la limpieza lo alcanzara.
  */
 export class CrearDemoUseCase {
   constructor(
     private readonly demoRepo: IDemoRepository,
-    private readonly sessions: ISessionRepository,
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
   ) {}
 
   async execute(): Promise<CrearDemoUseCaseResult> {
     const nombre = generarNombreDemo();
-    const { userId } = await this.demoRepo.crear({ nombre });
-
     const { token, tokenHash } = this.tokens.generar();
     const expiresAt = calcularExpiracion(this.reloj.ahora());
 
-    await this.sessions.crear({ userId, tokenHash, expiresAt });
+    const { userId } = await this.demoRepo.crear({ nombre, tokenHash, expiresAt });
 
     return { token, userId, expiresAt };
   }

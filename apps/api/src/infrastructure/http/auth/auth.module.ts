@@ -111,13 +111,9 @@ import { PrismaService } from '../../persistence/prisma.service';
     },
     {
       provide: CrearDemoUseCase,
-      useFactory: (
-        demoRepo: IDemoRepository,
-        sessions: ISessionRepository,
-        tokens: ISessionTokenService,
-        reloj: IReloj,
-      ) => new CrearDemoUseCase(demoRepo, sessions, tokens, reloj),
-      inject: [DEMO_REPOSITORY, SESSION_REPOSITORY, SESSION_TOKEN_SERVICE, RELOJ],
+      useFactory: (demoRepo: IDemoRepository, tokens: ISessionTokenService, reloj: IReloj) =>
+        new CrearDemoUseCase(demoRepo, tokens, reloj),
+      inject: [DEMO_REPOSITORY, SESSION_TOKEN_SERVICE, RELOJ],
     },
     {
       provide: SessionGuard,
