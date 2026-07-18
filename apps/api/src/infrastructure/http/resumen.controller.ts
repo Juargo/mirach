@@ -11,6 +11,7 @@ import { CalcularResumenMesUseCase } from '../../application/use-cases/calcular-
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { aResumenMesDto } from './dto/resumen-mes.dto';
 import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
+import { PublicSession } from './auth/session-public.decorator';
 
 /**
  * ResumenController — endpoint for the 50/30/20 monthly breakdown.
@@ -30,6 +31,8 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  * the MVP mono-user phase. Per-user authentication (multi-user, JWT) is a
  * post-MVP concern (ADR-001).
  */
+// TRANSITIONAL (Slice 1): keep api-key mono-user access; Slice 2 removes this + wires @CurrentUser().
+@PublicSession()
 @Controller('api/resumen')
 export class ResumenController {
   private readonly logger = new Logger(ResumenController.name);
