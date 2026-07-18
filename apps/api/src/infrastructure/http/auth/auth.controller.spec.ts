@@ -32,9 +32,9 @@ describe('AuthController', () => {
       const logoutUseCase = {} as LogoutUseCase;
       const identidadUseCase = {} as ObtenerIdentidadUseCase;
       const rateLimiter = {
-        estaBloqueado: vi.fn().mockReturnValue(true),
-        registrarFallo: vi.fn(),
-        resetear: vi.fn(),
+        isBlocked: vi.fn().mockReturnValue(true),
+        recordFailure: vi.fn(),
+        reset: vi.fn(),
       } as unknown as LoginRateLimiter;
       const controller = new AuthController(
         loginUseCase,
@@ -53,14 +53,14 @@ describe('AuthController', () => {
       expect(loginUseCase.execute as Mock).not.toHaveBeenCalled();
     });
 
-    it('LoginUseCase falla → 401 y registrarFallo llamado', async () => {
+    it('LoginUseCase falla → 401 y recordFailure llamado', async () => {
       const loginUseCase = {
         execute: vi.fn().mockResolvedValue(Result.fail(new CredencialesInvalidasError())),
       } as unknown as LoginUseCase;
       const rateLimiter = {
-        estaBloqueado: vi.fn().mockReturnValue(false),
-        registrarFallo: vi.fn(),
-        resetear: vi.fn(),
+        isBlocked: vi.fn().mockReturnValue(false),
+        recordFailure: vi.fn(),
+        reset: vi.fn(),
       } as unknown as LoginRateLimiter;
       const controller = new AuthController(
         loginUseCase,
@@ -76,13 +76,13 @@ describe('AuthController', () => {
           responseMock(),
         ),
       ).rejects.toBeInstanceOf(UnauthorizedException);
-      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledWith(
+      expect(rateLimiter.recordFailure as Mock).toHaveBeenCalledWith(
         '127.0.0.1',
         'user@example.com',
       );
     });
 
-    it('éxito → resetear llamado, Set-Cookie seteado, body {token,userId,expiresAt}', async () => {
+    it('éxito → reset llamado, Set-Cookie seteado, body {token,userId,expiresAt}', async () => {
       const expiresAt = new Date('2026-07-25T00:00:00.000Z');
       const loginUseCase = {
         execute: vi.fn().mockResolvedValue(
@@ -90,9 +90,9 @@ describe('AuthController', () => {
         ),
       } as unknown as LoginUseCase;
       const rateLimiter = {
-        estaBloqueado: vi.fn().mockReturnValue(false),
-        registrarFallo: vi.fn(),
-        resetear: vi.fn(),
+        isBlocked: vi.fn().mockReturnValue(false),
+        recordFailure: vi.fn(),
+        reset: vi.fn(),
       } as unknown as LoginRateLimiter;
       const res = responseMock();
       const controller = new AuthController(
@@ -108,7 +108,7 @@ describe('AuthController', () => {
         res,
       );
 
-      expect(rateLimiter.resetear as Mock).toHaveBeenCalledWith(
+      expect(rateLimiter.reset as Mock).toHaveBeenCalledWith(
         '127.0.0.1',
         'user@example.com',
       );
@@ -123,7 +123,7 @@ describe('AuthController', () => {
       });
     });
 
-    it('concurrencia (race check-then-act): registrarFallo se llama de forma optimista ANTES de esperar el use case', async () => {
+    it('concurrencia (race check-then-act): recordFailure se llama de forma optimista ANTES de esperar el use case', async () => {
       let resolveExecute!: (value: Awaited<ReturnType<LoginUseCase['execute']>>) => void;
       const executePromise = new Promise<Awaited<ReturnType<LoginUseCase['execute']>>>(
         (resolve) => {
@@ -134,9 +134,9 @@ describe('AuthController', () => {
         execute: vi.fn().mockReturnValue(executePromise),
       } as unknown as LoginUseCase;
       const rateLimiter = {
-        estaBloqueado: vi.fn().mockReturnValue(false),
-        registrarFallo: vi.fn(),
-        resetear: vi.fn(),
+        isBlocked: vi.fn().mockReturnValue(false),
+        recordFailure: vi.fn(),
+        reset: vi.fn(),
       } as unknown as LoginRateLimiter;
       const controller = new AuthController(
         loginUseCase,
@@ -152,21 +152,21 @@ describe('AuthController', () => {
       );
 
       // Before the use case resolves, the attempt must already be recorded —
-      // otherwise N concurrent requests all pass estaBloqueado() before any
-      // of them calls registrarFallo (check-then-act race).
-      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledWith(
+      // otherwise N concurrent requests all pass isBlocked() before any
+      // of them calls recordFailure (check-then-act race).
+      expect(rateLimiter.recordFailure as Mock).toHaveBeenCalledWith(
         '127.0.0.1',
         'user@example.com',
       );
-      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledTimes(1);
+      expect(rateLimiter.recordFailure as Mock).toHaveBeenCalledTimes(1);
 
       resolveExecute(Result.fail(new CredencialesInvalidasError()));
       await expect(loginCall).rejects.toBeInstanceOf(UnauthorizedException);
-      // Still only ONE registrarFallo call for this one request (no double count).
-      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledTimes(1);
+      // Still only ONE recordFailure call for this one request (no double count).
+      expect(rateLimiter.recordFailure as Mock).toHaveBeenCalledTimes(1);
     });
 
-    it('éxito: el conteo registrado de forma optimista se limpia con resetear (no queda contado)', async () => {
+    it('éxito: el conteo registrado de forma optimista se limpia con reset (no queda contado)', async () => {
       const expiresAt = new Date('2026-07-25T00:00:00.000Z');
       const loginUseCase = {
         execute: vi
@@ -174,9 +174,9 @@ describe('AuthController', () => {
           .mockResolvedValue(Result.ok({ token: 'token-abc', userId: 'user-1', expiresAt })),
       } as unknown as LoginUseCase;
       const rateLimiter = {
-        estaBloqueado: vi.fn().mockReturnValue(false),
-        registrarFallo: vi.fn(),
-        resetear: vi.fn(),
+        isBlocked: vi.fn().mockReturnValue(false),
+        recordFailure: vi.fn(),
+        reset: vi.fn(),
       } as unknown as LoginRateLimiter;
       const controller = new AuthController(
         loginUseCase,
@@ -191,11 +191,11 @@ describe('AuthController', () => {
         responseMock(),
       );
 
-      expect(rateLimiter.registrarFallo as Mock).toHaveBeenCalledWith(
+      expect(rateLimiter.recordFailure as Mock).toHaveBeenCalledWith(
         '127.0.0.1',
         'user@example.com',
       );
-      expect(rateLimiter.resetear as Mock).toHaveBeenCalledWith(
+      expect(rateLimiter.reset as Mock).toHaveBeenCalledWith(
         '127.0.0.1',
         'user@example.com',
       );

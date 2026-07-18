@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthController } from './auth.controller';
 import { SessionGuard } from './session.guard';
-import { LoginRateLimiter, leerRateLimitConfigDesdeEnv } from './login-rate-limiter';
+import { LoginRateLimiter, readRateLimitConfigFromEnv } from './login-rate-limiter';
 import { Argon2PasswordHasher } from './argon2-password-hasher';
 import { Sha256SessionTokenService } from './sha256-session-token.service';
 import { SystemReloj } from './system-reloj';
@@ -89,7 +89,7 @@ import { PrismaService } from '../../persistence/prisma.service';
     },
     {
       provide: LoginRateLimiter,
-      useFactory: () => new LoginRateLimiter(leerRateLimitConfigDesdeEnv()),
+      useFactory: () => new LoginRateLimiter(readRateLimitConfigFromEnv()),
     },
     {
       provide: SessionGuard,

@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { IS_SESSION_PUBLIC_KEY } from './session-public.decorator';
-import { extraerToken } from './extraer-token';
+import { extractToken } from './extraer-token';
 import { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
 
 /**
@@ -43,7 +43,7 @@ export class SessionGuard implements CanActivate {
     if (isSessionPublic) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
-    const token = extraerToken(request);
+    const token = extractToken(request);
 
     if (token === undefined) {
       throw new UnauthorizedException('Sesión inválida o expirada.');

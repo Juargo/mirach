@@ -1,11 +1,11 @@
 const COOKIE_NAME = 'md_session';
 
 /** Secure env-condicional — mirrors ApiKeyGuard's env-driven config style. */
-function debeSerSecure(): boolean {
+function shouldBeSecure(): boolean {
   return process.env.NODE_ENV === 'production' || process.env.COOKIE_SECURE === 'true';
 }
 
-function construirCookie(valor: string, maxAgeSegundos: number): string {
+function buildCookie(valor: string, maxAgeSegundos: number): string {
   const atributos = [
     `${COOKIE_NAME}=${valor}`,
     `Max-Age=${maxAgeSegundos}`,
@@ -14,7 +14,7 @@ function construirCookie(valor: string, maxAgeSegundos: number): string {
     'SameSite=Strict',
   ];
 
-  if (debeSerSecure()) {
+  if (shouldBeSecure()) {
     atributos.push('Secure');
   }
 
@@ -24,7 +24,7 @@ function construirCookie(valor: string, maxAgeSegundos: number): string {
 }
 
 /**
- * serializarCookieSesion — cabecera `Set-Cookie` para la sesión (AUTH-01).
+ * serializeSessionCookie — cabecera `Set-Cookie` para la sesión (AUTH-01).
  *
  * `Max-Age` se calcula como los segundos entre `ahora` y `expiresAt` — para
  * una sesión recién creada (`expiresAt = calcularExpiracion(ahora)`) esto da
@@ -32,7 +32,7 @@ function construirCookie(valor: string, maxAgeSegundos: number): string {
  * aquí (DRY — `duracion-sesion.ts` sigue siendo la única fuente del TTL).
  * `ahora` es inyectable para tests deterministas; por defecto usa el reloj real.
  */
-export function serializarCookieSesion(
+export function serializeSessionCookie(
   token: string,
   expiresAt: Date,
   ahora: Date = new Date(),
@@ -41,10 +41,10 @@ export function serializarCookieSesion(
     0,
     Math.round((expiresAt.getTime() - ahora.getTime()) / 1000),
   );
-  return construirCookie(token, maxAgeSegundos);
+  return buildCookie(token, maxAgeSegundos);
 }
 
-/** limpiarCookieSesion — mismos atributos, `Max-Age=0` para borrar la cookie en el cliente. */
-export function limpiarCookieSesion(): string {
-  return construirCookie('', 0);
+/** clearSessionCookie — mismos atributos, `Max-Age=0` para borrar la cookie en el cliente. */
+export function clearSessionCookie(): string {
+  return buildCookie('', 0);
 }

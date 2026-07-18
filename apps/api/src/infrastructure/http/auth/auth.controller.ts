@@ -19,9 +19,9 @@ import { ObtenerIdentidadUseCase } from '../../../application/use-cases/obtener-
 import { PublicSession } from './session-public.decorator';
 import { CurrentUser } from './current-user.decorator';
 import { LoginRateLimiter } from './login-rate-limiter';
-import { obtenerIpCliente } from './client-ip';
-import { extraerToken } from './extraer-token';
-import { serializarCookieSesion, limpiarCookieSesion } from './cookie';
+import { getClientIp } from './client-ip';
+import { extractToken } from './extraer-token';
+import { serializeSessionCookie, clearSessionCookie } from './cookie';
 
 /** LoginResponseDto — body de éxito de POST /login (AUTH-01 revised). */
 export interface LoginResponseDto {
@@ -65,9 +65,9 @@ export class AuthController {
   ): Promise<LoginResponseDto> {
     const email = typeof body?.email === 'string' ? body.email : '';
     const password = typeof body?.password === 'string' ? body.password : '';
-    const ip = obtenerIpCliente(req);
+    const ip = getClientIp(req);
 
-    if (this.rateLimiter.estaBloqueado(ip, email)) {
+    if (this.rateLimiter.isBlocked(ip, email)) {
       throw new HttpException(
         'Demasiados intentos. Espera unos minutos.',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -76,11 +76,11 @@ export class AuthController {
 
     // Record the attempt OPTIMISTICALLY, before awaiting the use case — not
     // after. Recording only on failure (post-await) is a check-then-act race:
-    // N concurrent requests would all pass estaBloqueado() before any of them
-    // calls registrarFallo(), letting all N through regardless of the budget.
-    // A successful login clears this pre-recorded attempt via resetear()
+    // N concurrent requests would all pass isBlocked() before any of them
+    // calls recordFailure(), letting all N through regardless of the budget.
+    // A successful login clears this pre-recorded attempt via reset()
     // below, so it never ends up double-counted or left counted.
-    this.rateLimiter.registrarFallo(ip, email);
+    this.rateLimiter.recordFailure(ip, email);
 
     let result: Awaited<ReturnType<LoginUseCase['execute']>>;
     try {
@@ -97,9 +97,9 @@ export class AuthController {
       throw new UnauthorizedException(result.getError().message);
     }
 
-    this.rateLimiter.resetear(ip, email);
+    this.rateLimiter.reset(ip, email);
     const { token, userId, expiresAt } = result.getValue();
-    res.setHeader('Set-Cookie', serializarCookieSesion(token, expiresAt));
+    res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt));
 
     return { token, userId, expiresAt: expiresAt.toISOString() };
   }
@@ -111,7 +111,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    const token = extraerToken(req);
+    const token = extractToken(req);
 
     try {
       await this.logoutUseCase.execute({ token });
@@ -125,7 +125,7 @@ export class AuthController {
       );
     }
 
-    res.setHeader('Set-Cookie', limpiarCookieSesion());
+    res.setHeader('Set-Cookie', clearSessionCookie());
   }
 
   @Get('me')

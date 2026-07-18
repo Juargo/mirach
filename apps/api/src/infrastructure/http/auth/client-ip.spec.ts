@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { obtenerIpCliente } from './client-ip';
+import { getClientIp } from './client-ip';
 
 /**
  * Pure helper — no session/guard involved. `request.ip` is what Express
@@ -16,22 +16,22 @@ function requestMock(opts: { ip?: string; socketIp?: string }): Request {
   } as unknown as Request;
 }
 
-describe('obtenerIpCliente', () => {
+describe('getClientIp', () => {
   it('retorna request.ip cuando está presente (ya resuelto por Express vía trust proxy)', () => {
     const request = requestMock({ ip: '203.0.113.1' });
 
-    expect(obtenerIpCliente(request)).toBe('203.0.113.1');
+    expect(getClientIp(request)).toBe('203.0.113.1');
   });
 
   it('cae a socket.remoteAddress cuando request.ip no está presente', () => {
     const request = requestMock({ socketIp: '127.0.0.1' });
 
-    expect(obtenerIpCliente(request)).toBe('127.0.0.1');
+    expect(getClientIp(request)).toBe('127.0.0.1');
   });
 
   it('retorna "unknown" cuando ninguno está presente', () => {
     const request = requestMock({});
 
-    expect(obtenerIpCliente(request)).toBe('unknown');
+    expect(getClientIp(request)).toBe('unknown');
   });
 });

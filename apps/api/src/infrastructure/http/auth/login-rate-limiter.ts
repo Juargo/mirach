@@ -1,8 +1,8 @@
 /** RateLimitConfig — umbrales y ventana del rate limiter de login (AUTH-08). */
 export interface RateLimitConfig {
-  readonly maxPorEmail: number;
-  readonly maxPorIp: number;
-  readonly ventanaMs: number;
+  readonly maxAttemptsPerEmail: number;
+  readonly maxAttemptsPerIp: number;
+  readonly windowMs: number;
 }
 
 /**
@@ -16,11 +16,11 @@ export interface RateLimitConfig {
  * `false`). Cada valor se valida como finito y estrictamente positivo; si
  * alguno no lo es, se lanza en el arranque en vez de operar mal configurado.
  */
-export function leerRateLimitConfigDesdeEnv(): RateLimitConfig {
+export function readRateLimitConfigFromEnv(): RateLimitConfig {
   const config = {
-    maxPorEmail: Number(process.env.LOGIN_RATELIMIT_MAX_EMAIL ?? 5),
-    maxPorIp: Number(process.env.LOGIN_RATELIMIT_MAX_IP ?? 20),
-    ventanaMs: Number(process.env.LOGIN_RATELIMIT_WINDOW_MS ?? 900_000),
+    maxAttemptsPerEmail: Number(process.env.LOGIN_RATELIMIT_MAX_EMAIL ?? 5),
+    maxAttemptsPerIp: Number(process.env.LOGIN_RATELIMIT_MAX_IP ?? 20),
+    windowMs: Number(process.env.LOGIN_RATELIMIT_WINDOW_MS ?? 900_000),
   };
 
   for (const [nombre, valor] of Object.entries(config)) {
@@ -49,8 +49,8 @@ export const MAX_ENTRIES = 10_000;
 
 /**
  * LoginRateLimiter — limitador de intentos de login en memoria, por IP y por
- * email (AUTH-08). Cuenta SOLO fallos — el controller llama `registrarFallo`
- * cuando `LoginUseCase` falla, y `resetear` cuando tiene éxito. Un login
+ * email (AUTH-08). Cuenta SOLO fallos — el controller llama `recordFailure`
+ * cuando `LoginUseCase` falla, y `reset` cuando tiene éxito. Un login
  * correcto nunca es throttled por este mecanismo.
  *
  * Storage: `Map` en proceso, ventana fija (no deslizante) — correcto para una
@@ -70,33 +70,33 @@ export class LoginRateLimiter {
     private readonly maxEntries: number = MAX_ENTRIES,
   ) {}
 
-  estaBloqueado(ip: string, email: string): boolean {
-    const porEmail = this.leerVigente(this.claveEmail(email));
-    const porIp = this.leerVigente(this.claveIp(ip));
+  isBlocked(ip: string, email: string): boolean {
+    const porEmail = this.readCurrent(this.emailKey(email));
+    const porIp = this.readCurrent(this.ipKey(ip));
 
     return (
-      (porEmail !== undefined && porEmail.conteo >= this.config.maxPorEmail) ||
-      (porIp !== undefined && porIp.conteo >= this.config.maxPorIp)
+      (porEmail !== undefined && porEmail.conteo >= this.config.maxAttemptsPerEmail) ||
+      (porIp !== undefined && porIp.conteo >= this.config.maxAttemptsPerIp)
     );
   }
 
-  registrarFallo(ip: string, email: string): void {
-    this.incrementar(this.claveEmail(email));
-    this.incrementar(this.claveIp(ip));
+  recordFailure(ip: string, email: string): void {
+    this.incrementar(this.emailKey(email));
+    this.incrementar(this.ipKey(ip));
   }
 
-  resetear(ip: string, email: string): void {
-    this.contadores.delete(this.claveEmail(email));
-    this.contadores.delete(this.claveIp(ip));
+  reset(ip: string, email: string): void {
+    this.contadores.delete(this.emailKey(email));
+    this.contadores.delete(this.ipKey(ip));
   }
 
   private incrementar(key: string): void {
-    const vigente = this.leerVigente(key);
+    const vigente = this.readCurrent(key);
 
     if (vigente === undefined) {
       this.purgarExpiradas();
       this.evictarSiExcedeCapacidad();
-      this.contadores.set(key, { conteo: 1, expiraEn: this.ahora() + this.config.ventanaMs });
+      this.contadores.set(key, { conteo: 1, expiraEn: this.ahora() + this.config.windowMs });
       return;
     }
 
@@ -123,7 +123,7 @@ export class LoginRateLimiter {
   }
 
   /** Lee la entrada solo si sigue vigente; una entrada vencida se trata como ausente. */
-  private leerVigente(key: string): Contador | undefined {
+  private readCurrent(key: string): Contador | undefined {
     const entrada = this.contadores.get(key);
     if (entrada === undefined) return undefined;
 
@@ -135,11 +135,11 @@ export class LoginRateLimiter {
     return entrada;
   }
 
-  private claveEmail(email: string): string {
+  private emailKey(email: string): string {
     return `email:${email.trim().toLowerCase()}`;
   }
 
-  private claveIp(ip: string): string {
+  private ipKey(ip: string): string {
     return `ip:${ip}`;
   }
 }

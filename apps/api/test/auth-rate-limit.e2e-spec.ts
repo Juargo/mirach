@@ -75,7 +75,7 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
         .expect(401);
     }
 
-    // El intento (maxPorEmail + 1) queda bloqueado — 429, distinto del 401 anterior
+    // El intento (maxAttemptsPerEmail + 1) queda bloqueado — 429, distinto del 401 anterior
     await request(app.getHttpServer())
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)

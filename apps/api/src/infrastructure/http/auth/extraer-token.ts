@@ -4,7 +4,7 @@ const COOKIE_NAME = 'md_session';
 const BEARER_PATTERN = /^Bearer\s+(.+)$/i;
 
 /**
- * extraerToken — resuelve el token de sesión desde cookie O Bearer (AUTH-05).
+ * extractToken — resuelve el token de sesión desde cookie O Bearer (AUTH-05).
  *
  * Única fuente de la regla de precedencia (DRY): cookie `md_session` primero;
  * si está presente y no vacía, el header `Authorization` se IGNORA por
@@ -14,17 +14,17 @@ const BEARER_PATTERN = /^Bearer\s+(.+)$/i;
  * Función pura (`request → string | undefined`, sin I/O) — se testea sin
  * levantar una sesión real y la reutiliza `SessionGuard`.
  */
-export function extraerToken(request: Request): string | undefined {
-  const desdeCookie = leerCookieSesion(request.headers.cookie);
+export function extractToken(request: Request): string | undefined {
+  const desdeCookie = readSessionCookie(request.headers.cookie);
   if (desdeCookie !== undefined) {
     return desdeCookie;
   }
 
-  return leerBearer(request.headers.authorization);
+  return readBearer(request.headers.authorization);
 }
 
 /** Parseo hand-rolled de UNA cookie conocida — no se usa `cookie-parser` (decisión locked). */
-function leerCookieSesion(cookieHeader: string | undefined): string | undefined {
+function readSessionCookie(cookieHeader: string | undefined): string | undefined {
   if (!cookieHeader) {
     return undefined;
   }
@@ -43,7 +43,7 @@ function leerCookieSesion(cookieHeader: string | undefined): string | undefined 
   return undefined;
 }
 
-function leerBearer(authorizationHeader: string | undefined): string | undefined {
+function readBearer(authorizationHeader: string | undefined): string | undefined {
   if (!authorizationHeader) {
     return undefined;
   }

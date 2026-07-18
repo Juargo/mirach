@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { extraerToken } from './extraer-token';
+import { extractToken } from './extraer-token';
 
 /**
  * Pure helper — no session/guard involved. Isolates the cookie-vs-Bearer
@@ -17,17 +17,17 @@ function requestMock(opts: {
   } as unknown as Request;
 }
 
-describe('extraerToken', () => {
+describe('extractToken', () => {
   it('cookie-only → retorna el token de la cookie md_session', () => {
     const request = requestMock({ cookie: 'md_session=token-abc' });
 
-    expect(extraerToken(request)).toBe('token-abc');
+    expect(extractToken(request)).toBe('token-abc');
   });
 
   it('Bearer-only → retorna el token del header Authorization', () => {
     const request = requestMock({ authorization: 'Bearer token-xyz' });
 
-    expect(extraerToken(request)).toBe('token-xyz');
+    expect(extractToken(request)).toBe('token-xyz');
   });
 
   it('ambos presentes → retorna el token de la cookie (precedencia)', () => {
@@ -36,19 +36,19 @@ describe('extraerToken', () => {
       authorization: 'Bearer token-bearer-garbage',
     });
 
-    expect(extraerToken(request)).toBe('token-cookie');
+    expect(extractToken(request)).toBe('token-cookie');
   });
 
   it('Authorization malformado (sin esquema Bearer) → undefined', () => {
     const request = requestMock({ authorization: 'Basic dXNlcjpwYXNz' });
 
-    expect(extraerToken(request)).toBeUndefined();
+    expect(extractToken(request)).toBeUndefined();
   });
 
   it('ninguno presente → undefined', () => {
     const request = requestMock({});
 
-    expect(extraerToken(request)).toBeUndefined();
+    expect(extractToken(request)).toBeUndefined();
   });
 
   it('cookie header con múltiples cookies → extrae solo md_session', () => {
@@ -56,13 +56,13 @@ describe('extraerToken', () => {
       cookie: 'otra=valor; md_session=token-entre-otras; masOtra=x',
     });
 
-    expect(extraerToken(request)).toBe('token-entre-otras');
+    expect(extractToken(request)).toBe('token-entre-otras');
   });
 
   it('esquema Bearer es case-insensitive', () => {
     const request = requestMock({ authorization: 'bearer token-lower' });
 
-    expect(extraerToken(request)).toBe('token-lower');
+    expect(extractToken(request)).toBe('token-lower');
   });
 
   it('cookie header presente pero sin md_session → cae a Bearer', () => {
@@ -71,6 +71,6 @@ describe('extraerToken', () => {
       authorization: 'Bearer token-fallback',
     });
 
-    expect(extraerToken(request)).toBe('token-fallback');
+    expect(extractToken(request)).toBe('token-fallback');
   });
 });
