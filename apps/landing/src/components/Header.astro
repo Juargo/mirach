@@ -1,0 +1,25 @@
+---
+import { APP, PROBAR } from '../config';
+---
+
+<header class="absolute inset-x-0 top-0 z-10 px-6 py-4">
+  <nav
+    class="mx-auto flex max-w-5xl items-center justify-end gap-4"
+    aria-label="Acceso"
+  >
+    <a
+      href={PROBAR.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary-container px-5 py-2 text-body-md font-semibold text-on-primary-container shadow-sm transition-colors hover:bg-primary hover:text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      {PROBAR.label}
+    </a>
+    <a
+      href={APP.url}
+      class="inline-flex min-h-[44px] items-center justify-center rounded-xl px-5 py-2 text-body-md font-semibold text-on-surface transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      {APP.label}
+    </a>
+  </nav>
+</header>
