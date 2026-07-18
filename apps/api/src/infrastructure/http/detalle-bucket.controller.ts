@@ -14,6 +14,7 @@ import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error
 import { Bucket } from '../../domain/value-objects/bucket';
 import { aDetalleBucketDto } from './dto/detalle-bucket.dto';
 import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
+import { PublicSession } from './auth/session-public.decorator';
 
 /**
  * DetalleBucketController — endpoint for the bucket-detail drill-down (US-017).
@@ -34,6 +35,8 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  * the MVP mono-user phase. Per-user authentication (multi-user, JWT) is a
  * post-MVP concern (ADR-001).
  */
+// TRANSITIONAL (Slice 1): keep api-key mono-user access; Slice 2 removes this + wires @CurrentUser().
+@PublicSession()
 @Controller('api/buckets')
 export class DetalleBucketController {
   private readonly logger = new Logger(DetalleBucketController.name);

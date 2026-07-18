@@ -28,6 +28,7 @@ import { MulterFileReaderAdapter } from './multer-file-reader.adapter';
 import { aIngestaResponseDto } from './dto/ingesta-response.dto';
 import { USER_ID_FIJO } from '../persistence/constants';
 import { UploadTooLargeFilter } from './upload-too-large.filter';
+import { PublicSession } from './auth/session-public.decorator';
 
 /**
  * IngestaController — endpoint de ingesta de archivos bancarios.
@@ -43,6 +44,8 @@ import { UploadTooLargeFilter } from './upload-too-large.filter';
  * No contiene lógica de negocio. USER_ID_FIJO es la constante de
  * infraestructura del MVP mono-usuario (US-011) — nunca viene del request.
  */
+// TRANSITIONAL (Slice 1): keep api-key mono-user access; Slice 2 removes this + wires @CurrentUser().
+@PublicSession()
 @Controller('api/ingestas')
 export class IngestaController {
   constructor(private readonly processIngestaUseCase: ProcessIngestaUseCase) {}

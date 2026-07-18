@@ -1,4 +1,4 @@
-import { LoginUseCase } from './login.use-case';
+import { LoginUseCase, HASH_DUMMY_PARA_TIMING } from './login.use-case';
 import {
   IUserCredentialRepository,
   CredencialUsuario,
@@ -156,6 +156,78 @@ describe('LoginUseCase', () => {
       expect(creds.buscarPorEmail).not.toHaveBeenCalled();
       expect(hasher.verificar).toHaveBeenCalledTimes(1);
       expect(sessions.crear).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('AUTH-02 no-enumeration: las 3 ramas de fallo son indistinguibles', () => {
+    it('email desconocido / email inválido / contraseña incorrecta retornan el MISMO error (message + name)', async () => {
+      const sessions = makeMockSessions();
+      const tokens = makeMockTokens(TOKEN_GENERADO);
+      const reloj = makeFakeReloj(AHORA);
+
+      // Rama 1: email con formato inválido (no llega al repo).
+      const ucInvalido = new LoginUseCase(
+        makeMockCreds(null),
+        makeMockHasher(false),
+        sessions,
+        tokens,
+        reloj,
+      );
+      const rInvalido = await ucInvalido.execute({
+        emailRaw: 'no-es-un-email',
+        password: 'x',
+      });
+
+      // Rama 2: email bien formado pero desconocido (repo retorna null).
+      const ucDesconocido = new LoginUseCase(
+        makeMockCreds(null),
+        makeMockHasher(false),
+        sessions,
+        tokens,
+        reloj,
+      );
+      const rDesconocido = await ucDesconocido.execute({
+        emailRaw: 'nadie@example.com',
+        password: 'x',
+      });
+
+      // Rama 3: email conocido, contraseña incorrecta (hasher retorna false).
+      const ucPassMala = new LoginUseCase(
+        makeMockCreds({ userId: 'user-1', passwordHash: 'stored-hash' }),
+        makeMockHasher(false),
+        sessions,
+        tokens,
+        reloj,
+      );
+      const rPassMala = await ucPassMala.execute({
+        emailRaw: 'user@example.com',
+        password: 'incorrecta',
+      });
+
+      expect(rInvalido.isFail()).toBe(true);
+      expect(rDesconocido.isFail()).toBe(true);
+      expect(rPassMala.isFail()).toBe(true);
+
+      const eInvalido = rInvalido.getError();
+      const eDesconocido = rDesconocido.getError();
+      const ePassMala = rPassMala.getError();
+
+      // Indistinguibilidad total: mismo name y mismo message en las 3 ramas.
+      expect(eDesconocido.name).toBe(eInvalido.name);
+      expect(ePassMala.name).toBe(eInvalido.name);
+      expect(eDesconocido.message).toBe(eInvalido.message);
+      expect(ePassMala.message).toBe(eInvalido.message);
+    });
+  });
+
+  describe('HASH_DUMMY_PARA_TIMING (AUTH-02 timing equalization)', () => {
+    // Application layer never imports infra (Clean Architecture), so this
+    // asserts the hardcoded params directly rather than importing
+    // Argon2PasswordHasher's ARGON2_OPTIONS — the infra-side test
+    // (argon2-password-hasher.spec.ts) is the one that pins the real hasher's
+    // output to the SAME literal. Keep both in sync if either changes.
+    it('codifica m=19456,t=2,p=1 — deben coincidir con ARGON2_OPTIONS del hasher real', () => {
+      expect(HASH_DUMMY_PARA_TIMING).toContain('m=19456,t=2,p=1');
     });
   });
 });

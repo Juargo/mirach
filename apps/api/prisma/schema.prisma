@@ -13,10 +13,24 @@ enum EstadoIngesta {
 }
 
 model User {
-  id       String    @id @default(cuid())
-  nombre   String
-  creadoEn DateTime  @default(now())
-  accounts Account[]
+  id           String    @id @default(cuid())
+  nombre       String
+  email        String?   @unique
+  passwordHash String?
+  creadoEn     DateTime  @default(now())
+  accounts     Account[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  expiresAt DateTime
+  creadoEn  DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Account {

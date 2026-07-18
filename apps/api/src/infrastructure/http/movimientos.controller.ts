@@ -11,6 +11,7 @@ import { ObtenerMovimientosMesUseCase } from '../../application/use-cases/obtene
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { aMovimientosMesDto } from './dto/movimiento-mes.dto';
 import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
+import { PublicSession } from './auth/session-public.decorator';
 
 /**
  * MovimientosController — endpoint de consulta de movimientos mensuales.
@@ -30,6 +31,8 @@ import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
  * MVP mono-user phase. Per-user authentication (multi-user, JWT) is a post-MVP
  * concern (ADR-001 / Sprint 3+).
  */
+// TRANSITIONAL (Slice 1): keep api-key mono-user access; Slice 2 removes this + wires @CurrentUser().
+@PublicSession()
 @Controller('api/movimientos')
 export class MovimientosController {
   private readonly logger = new Logger(MovimientosController.name);

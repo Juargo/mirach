@@ -8,6 +8,7 @@ import {
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
+import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 
 /**
  * Seed mono-usuario (US-011, tareas 0.1-0.3) + Buckets de categorización (US-012).
@@ -85,6 +86,21 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
     create: { id: USER_ID_FIJO, nombre: 'Usuario MoneyDiary' },
     update: {},
   });
+
+  // ── auth-login-session: backfill de credenciales de login (Slice 1) ──
+  // Las credenciales vienen SIEMPRE de env, nunca hardcodeadas. Si el env no
+  // está presente, se omite solo este backfill — el seed sigue siendo
+  // ejecutable para el resto del estado (usuarios sin auth aún funcionan
+  // igual que antes de este change).
+  const seedEmail = process.env.SEED_USER_EMAIL;
+  const seedPassword = process.env.SEED_USER_PASSWORD;
+  if (seedEmail && seedPassword) {
+    const passwordHash = await new Argon2PasswordHasher().hash(seedPassword);
+    await prisma.user.update({
+      where: { id: USER_ID_FIJO },
+      data: { email: seedEmail.trim().toLowerCase(), passwordHash },
+    });
+  }
 
   await prisma.account.upsert({
     where: { id: ACCOUNT_ID_FIJO },

@@ -43,3 +43,17 @@ services:
       #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
       - key: API_KEY
         sync: false
+      # Fuerza el flag `Secure` en la cookie de sesión en producción sin
+      # depender de que Render setee NODE_ENV=production implícitamente
+      # (ver cookie.ts → shouldBeSecure). Es un valor no secreto.
+      - key: COOKIE_SECURE
+        value: "true"
+      # Rate limiter de login (AUTH-08) — valores por defecto explícitos.
+      # El parseo es fail-closed: si alguno queda vacío/no-numérico/≤0, la
+      # API no arranca (ver login-rate-limiter.ts → readRateLimitConfigFromEnv).
+      - key: LOGIN_RATELIMIT_MAX_EMAIL
+        value: "5"
+      - key: LOGIN_RATELIMIT_MAX_IP
+        value: "20"
+      - key: LOGIN_RATELIMIT_WINDOW_MS
+        value: "900000"
