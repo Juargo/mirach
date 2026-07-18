@@ -20,7 +20,25 @@ describe('SessionGuard enforcement — data endpoints no longer carve out @Publi
     ['MovimientosController', MovimientosController],
     ['DetalleBucketController', DetalleBucketController],
     ['IngestaController', IngestaController],
-  ])('%s does NOT carry IS_SESSION_PUBLIC_KEY metadata', (_name, controllerClass) => {
+  ])('%s does NOT carry IS_SESSION_PUBLIC_KEY metadata (class-level)', (_name, controllerClass) => {
     expect(Reflect.getMetadata(IS_SESSION_PUBLIC_KEY, controllerClass)).toBeUndefined();
+  });
+
+  // SessionGuard reads the marker via getAllAndOverride([handler, class]), so a
+  // method-level @PublicSession() on a single route would also skip the guard —
+  // the class-level check above would not catch it. Assert no route handler
+  // carries the marker either.
+  it.each([
+    ['ResumenController', ResumenController],
+    ['MovimientosController', MovimientosController],
+    ['DetalleBucketController', DetalleBucketController],
+    ['IngestaController', IngestaController],
+  ])('%s does NOT carry IS_SESSION_PUBLIC_KEY metadata on any handler', (_name, controllerClass) => {
+    const handlerNames = Object.getOwnPropertyNames(controllerClass.prototype).filter(
+      (name) => name !== 'constructor' && typeof controllerClass.prototype[name] === 'function',
+    );
+    for (const name of handlerNames) {
+      expect(Reflect.getMetadata(IS_SESSION_PUBLIC_KEY, controllerClass.prototype[name])).toBeUndefined();
+    }
   });
 });
