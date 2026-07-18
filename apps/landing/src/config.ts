@@ -13,6 +13,17 @@ export const CTA = {
   label: 'Solicitar acceso beta',
 } as const;
 
+export const APP = {
+  /** Web app URL — local dev server (`pnpm web dev`); replace with the Vercel URL when deployed */
+  url: 'http://localhost:5173',
+  label: 'Ingresar',
+} as const;
+
+export const PROBAR = {
+  url: APP.url,
+  label: 'Probar',
+} as const;
+
 // !!! PLACEHOLDER — Replace with verified metrics before public launch !!!
 export const SOCIAL_PROOF = {
   users: '+11.000',

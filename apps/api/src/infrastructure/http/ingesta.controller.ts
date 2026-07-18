@@ -26,8 +26,8 @@ import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-i
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { MulterFileReaderAdapter } from './multer-file-reader.adapter';
 import { aIngestaResponseDto } from './dto/ingesta-response.dto';
-import { USER_ID_FIJO } from '../persistence/constants';
 import { UploadTooLargeFilter } from './upload-too-large.filter';
+import { CurrentUser } from './auth/current-user.decorator';
 
 /**
  * IngestaController — endpoint de ingesta de archivos bancarios.
@@ -40,8 +40,8 @@ import { UploadTooLargeFilter } from './upload-too-large.filter';
  *      normalizar → persistir; CLI y HTTP comparten un único pipeline)
  *   3. Traducir el Result<T,E> a respuesta HTTP
  *
- * No contiene lógica de negocio. USER_ID_FIJO es la constante de
- * infraestructura del MVP mono-usuario (US-011) — nunca viene del request.
+ * No contiene lógica de negocio. userId viene de la sesión autenticada vía
+ * @CurrentUser() (ISO-01/02) — nunca de una constante fija.
  */
 @Controller('api/ingestas')
 export class IngestaController {
@@ -56,7 +56,10 @@ export class IngestaController {
       limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB máximo
     }),
   )
-  async ingestar(@UploadedFile() file: Express.Multer.File) {
+  async ingestar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() userId: string,
+  ) {
     if (!file) {
       throw new BadRequestException(
         'No se recibió ningún archivo. Envía el archivo en el campo "file".',
@@ -66,7 +69,7 @@ export class IngestaController {
     const fileReader = new MulterFileReaderAdapter(file);
     const result = await this.processIngestaUseCase.execute({
       fileReader,
-      userId: USER_ID_FIJO,
+      userId,
     });
 
     if (result.isFail()) {
