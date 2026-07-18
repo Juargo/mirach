@@ -5,7 +5,6 @@ import {
   Query,
   BadRequestException,
   InternalServerErrorException,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { ObtenerDetalleBucketUseCase } from '../../application/use-cases/obtener-detalle-bucket.use-case';
@@ -13,8 +12,7 @@ import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { aDetalleBucketDto } from './dto/detalle-bucket.dto';
-import { USER_ID_FIJO_TOKEN } from '../persistence/constants';
-import { PublicSession } from './auth/session-public.decorator';
+import { CurrentUser } from './auth/current-user.decorator';
 
 /**
  * DetalleBucketController — endpoint for the bucket-detail drill-down (US-017).
@@ -23,7 +21,7 @@ import { PublicSession } from './auth/session-public.decorator';
  *
  * Mirrors ResumenController exactly:
  *   1. Extract path param `:bucket` (raw string) + optional `periodo` query param.
- *   2. Delegate to ObtenerDetalleBucketUseCase with fixed userId.
+ *   2. Delegate to ObtenerDetalleBucketUseCase with the authenticated userId.
  *   3. Translate Result<T,E> to HTTP response.
  *
  * :bucket invalid   → BucketInvalidoError  → scrubbed 400 (raw input NEVER reflected).
@@ -31,31 +29,29 @@ import { PublicSession } from './auth/session-public.decorator';
  * periodo absent    → use case resolves to PeriodoMes.actual() → 200.
  * empty transaction list → still 200 (valid data state, not an error).
  *
- * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) for
- * the MVP mono-user phase. Per-user authentication (multi-user, JWT) is a
- * post-MVP concern (ADR-001).
+ * NOTE: Protected by the global ApiKeyGuard (shared API key, fail-closed) AND
+ * SessionGuard (per-user session, ISO-01/02) — userId comes from the
+ * authenticated session via @CurrentUser(), never from a fixed constant.
  */
-// TRANSITIONAL (Slice 1): keep api-key mono-user access; Slice 2 removes this + wires @CurrentUser().
-@PublicSession()
 @Controller('api/buckets')
 export class DetalleBucketController {
   private readonly logger = new Logger(DetalleBucketController.name);
 
   constructor(
     private readonly obtenerDetalleBucketUseCase: ObtenerDetalleBucketUseCase,
-    @Inject(USER_ID_FIJO_TOKEN) private readonly userId: string,
   ) {}
 
   @Get(':bucket')
   async obtener(
     @Param('bucket') bucket: Bucket,
-    @Query('periodo') periodo?: string,
+    @Query('periodo') periodo: string | undefined,
+    @CurrentUser() userId: string,
   ) {
     let result: Awaited<ReturnType<ObtenerDetalleBucketUseCase['execute']>>;
 
     try {
       result = await this.obtenerDetalleBucketUseCase.execute({
-        userId: this.userId,
+        userId,
         bucket,
         periodo,
       });

@@ -7,7 +7,6 @@ import {
 } from '../../application/ports/resumen-mes.port';
 import { PrismaResumenMesRepository } from '../persistence/prisma-resumen-mes.repository';
 import { PrismaService } from '../persistence/prisma.service';
-import { USER_ID_FIJO, USER_ID_FIJO_TOKEN } from '../persistence/constants';
 
 /**
  * ResumenModule — NestJS module for the 50/30/20 monthly breakdown (US-015).
@@ -33,10 +32,6 @@ import { USER_ID_FIJO, USER_ID_FIJO_TOKEN } from '../persistence/constants';
       useFactory: (reader: IResumenMesReader) =>
         new CalcularResumenMesUseCase(reader),
       inject: [RESUMEN_MES_READER],
-    },
-    {
-      provide: USER_ID_FIJO_TOKEN,
-      useValue: USER_ID_FIJO,
     },
   ],
 })

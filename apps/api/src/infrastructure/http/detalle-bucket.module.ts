@@ -7,7 +7,6 @@ import {
 } from '../../application/ports/detalle-bucket.port';
 import { PrismaDetalleBucketRepository } from '../persistence/prisma-detalle-bucket.repository';
 import { PrismaService } from '../persistence/prisma.service';
-import { USER_ID_FIJO, USER_ID_FIJO_TOKEN } from '../persistence/constants';
 
 /**
  * DetalleBucketModule — NestJS module for the bucket-detail drill-down (US-017).
@@ -33,10 +32,6 @@ import { USER_ID_FIJO, USER_ID_FIJO_TOKEN } from '../persistence/constants';
       useFactory: (reader: IDetalleBucketReader) =>
         new ObtenerDetalleBucketUseCase(reader),
       inject: [DETALLE_BUCKET_READER],
-    },
-    {
-      provide: USER_ID_FIJO_TOKEN,
-      useValue: USER_ID_FIJO,
     },
   ],
 })

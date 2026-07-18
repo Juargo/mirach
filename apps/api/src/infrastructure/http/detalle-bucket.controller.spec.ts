@@ -15,7 +15,7 @@ function controllerWithResult(
   const useCase = {
     execute: vi.fn().mockResolvedValue(result),
   } as unknown as ObtenerDetalleBucketUseCase;
-  return new DetalleBucketController(useCase, 'user-fijo-test');
+  return new DetalleBucketController(useCase);
 }
 
 describe('DetalleBucketController', () => {
@@ -38,7 +38,11 @@ describe('DetalleBucketController', () => {
     });
     const controller = controllerWithResult(result);
 
-    const dto = await controller.obtener(Bucket.Necesidades, '2026-07');
+    const dto = await controller.obtener(
+      Bucket.Necesidades,
+      '2026-07',
+      'user-fijo-test',
+    );
 
     expect(dto.periodo).toBe('2026-07');
     expect(dto.bucket).toBe(Bucket.Necesidades);
@@ -50,7 +54,11 @@ describe('DetalleBucketController', () => {
     const controller = controllerWithResult(Result.fail(error));
 
     try {
-      await controller.obtener('nope-invalido' as Bucket, '2026-07');
+      await controller.obtener(
+        'nope-invalido' as Bucket,
+        '2026-07',
+        'user-fijo-test',
+      );
       throw new Error('debía lanzar');
     } catch (e) {
       expect(e).toBeInstanceOf(BadRequestException);
@@ -64,7 +72,11 @@ describe('DetalleBucketController', () => {
     const controller = controllerWithResult(Result.fail(error));
 
     try {
-      await controller.obtener(Bucket.Necesidades, 'not-a-date');
+      await controller.obtener(
+        Bucket.Necesidades,
+        'not-a-date',
+        'user-fijo-test',
+      );
       throw new Error('debía lanzar');
     } catch (e) {
       expect(e).toBeInstanceOf(BadRequestException);
@@ -77,10 +89,10 @@ describe('DetalleBucketController', () => {
     const useCase = {
       execute: vi.fn().mockRejectedValue(new Error('DB connection lost')),
     } as unknown as ObtenerDetalleBucketUseCase;
-    const controller = new DetalleBucketController(useCase, 'user-fijo-test');
+    const controller = new DetalleBucketController(useCase);
 
     await expect(
-      controller.obtener(Bucket.Necesidades, '2026-07'),
+      controller.obtener(Bucket.Necesidades, '2026-07', 'user-fijo-test'),
     ).rejects.toThrow(InternalServerErrorException);
   });
 
@@ -93,14 +105,40 @@ describe('DetalleBucketController', () => {
     const useCase = {
       execute: vi.fn().mockResolvedValue(result),
     } as unknown as ObtenerDetalleBucketUseCase;
-    const controller = new DetalleBucketController(useCase, 'user-fijo-test');
+    const controller = new DetalleBucketController(useCase);
 
-    await controller.obtener(Bucket.Necesidades, undefined);
+    await controller.obtener(Bucket.Necesidades, undefined, 'user-fijo-test');
 
     expect(useCase.execute).toHaveBeenCalledWith({
       userId: 'user-fijo-test',
       bucket: Bucket.Necesidades,
       periodo: undefined,
+    });
+  });
+
+  it('deriva userId de @CurrentUser(): dos requests con userId distinto pasan userIds distintos al use case (ISO-02)', async () => {
+    const result = Result.ok({
+      periodo: '2026-07',
+      bucket: Bucket.Necesidades,
+      transacciones: [],
+    });
+    const useCase = {
+      execute: vi.fn().mockResolvedValue(result),
+    } as unknown as ObtenerDetalleBucketUseCase;
+    const controller = new DetalleBucketController(useCase);
+
+    await controller.obtener(Bucket.Necesidades, '2026-07', 'user-a');
+    await controller.obtener(Bucket.Necesidades, '2026-07', 'user-b');
+
+    expect(useCase.execute).toHaveBeenNthCalledWith(1, {
+      userId: 'user-a',
+      bucket: Bucket.Necesidades,
+      periodo: '2026-07',
+    });
+    expect(useCase.execute).toHaveBeenNthCalledWith(2, {
+      userId: 'user-b',
+      bucket: Bucket.Necesidades,
+      periodo: '2026-07',
     });
   });
 });
