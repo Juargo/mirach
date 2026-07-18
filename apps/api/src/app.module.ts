@@ -8,6 +8,8 @@ import { MovimientosModule } from './infrastructure/http/movimientos.module';
 import { ResumenModule } from './infrastructure/http/resumen.module';
 import { DetalleBucketModule } from './infrastructure/http/detalle-bucket.module';
 import { ApiKeyGuard } from './infrastructure/http/auth/api-key.guard';
+import { AuthModule } from './infrastructure/http/auth/auth.module';
+import { SessionGuard } from './infrastructure/http/auth/session.guard';
 
 @Module({
   imports: [
@@ -16,13 +18,18 @@ import { ApiKeyGuard } from './infrastructure/http/auth/api-key.guard';
     MovimientosModule,
     ResumenModule,
     DetalleBucketModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    // Guard global fail-closed: exige x-api-key en todos los endpoints salvo
-    // los marcados @Public(). Protege los datos financieros al exponer la API.
+    // Dos guards globales, en orden (AC-06 — el orden de registro importa):
+    //   1. ApiKeyGuard  — exige x-api-key salvo @Public(). Protege el acceso
+    //      a nivel de app (admisión, no identidad).
+    //   2. SessionGuard — exige una sesión válida (cookie o Bearer) salvo
+    //      @Public() o @PublicSession(). Identidad real del usuario.
     { provide: APP_GUARD, useClass: ApiKeyGuard },
+    { provide: APP_GUARD, useExisting: SessionGuard },
   ],
 })
 export class AppModule {}
