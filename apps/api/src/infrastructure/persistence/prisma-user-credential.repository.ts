@@ -35,13 +35,17 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
   async buscarIdentidad(userId: string): Promise<IdentidadUsuario | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true },
+      select: { id: true, email: true, esDemo: true },
     });
 
-    if (user === null || user.email === null) {
+    // A diferencia de un usuario real (que siempre tiene email), un usuario
+    // demo NUNCA tiene email (`esDemo=true, email=null`) — eso es válido, no
+    // "identidad incompleta". Solo `user === null` (id inexistente) es "no
+    // encontrado"; `email: null` se propaga tal cual (DEMO-AUTH-05).
+    if (user === null) {
       return null;
     }
 
-    return { userId: user.id, email: user.email };
+    return { userId: user.id, email: user.email, esDemo: user.esDemo };
   }
 }

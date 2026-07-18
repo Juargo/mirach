@@ -9,10 +9,16 @@ export interface CredencialUsuario {
   readonly passwordHash: string;
 }
 
-/** IdentidadUsuario — identidad mínima para `GET /api/auth/me` (AUTH-09). Sin hash, sin token. */
+/**
+ * IdentidadUsuario — identidad mínima para `GET /api/auth/me` (AUTH-09).
+ * Sin hash, sin token. `email` es nullable porque los usuarios demo se crean
+ * sin email (`esDemo=true`, DEMO-AUTH-05); `esDemo` distingue ambos casos en
+ * la UI sin depender de que `email` sea `null`.
+ */
 export interface IdentidadUsuario {
   readonly userId: string;
-  readonly email: string;
+  readonly email: string | null;
+  readonly esDemo: boolean;
 }
 
 /**
