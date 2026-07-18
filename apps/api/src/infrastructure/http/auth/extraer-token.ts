@@ -1,6 +1,6 @@
 import type { Request } from 'express';
+import { COOKIE_NAME } from './cookie';
 
-const COOKIE_NAME = 'md_session';
 const BEARER_PATTERN = /^Bearer\s+(.+)$/i;
 
 /**

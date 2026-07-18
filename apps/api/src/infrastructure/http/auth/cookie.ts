@@ -1,4 +1,5 @@
-const COOKIE_NAME = 'md_session';
+/** Nombre de la cookie de sesión — única fuente (DRY), reusado por `extraer-token.ts`. */
+export const COOKIE_NAME = 'md_session';
 
 /** Secure env-condicional — mirrors ApiKeyGuard's env-driven config style. */
 function shouldBeSecure(): boolean {

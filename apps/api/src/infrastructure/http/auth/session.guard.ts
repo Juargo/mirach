@@ -10,6 +10,7 @@ import { IS_PUBLIC_KEY } from './public.decorator';
 import { IS_SESSION_PUBLIC_KEY } from './session-public.decorator';
 import { extractToken } from './extraer-token';
 import { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
+import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.error';
 
 /**
  * SessionGuard — segundo guard global (AC-06), corre DESPUÉS de `ApiKeyGuard`.
@@ -46,13 +47,13 @@ export class SessionGuard implements CanActivate {
     const token = extractToken(request);
 
     if (token === undefined) {
-      throw new UnauthorizedException('Sesión inválida o expirada.');
+      throw new UnauthorizedException(new SesionInvalidaError().message);
     }
 
     const result = await this.validarSesion.execute({ token });
 
     if (result.isFail()) {
-      throw new UnauthorizedException('Sesión inválida o expirada.');
+      throw new UnauthorizedException(new SesionInvalidaError().message);
     }
 
     request.userId = result.getValue().userId;

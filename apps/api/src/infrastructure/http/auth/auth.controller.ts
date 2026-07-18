@@ -82,16 +82,10 @@ export class AuthController {
     // below, so it never ends up double-counted or left counted.
     this.rateLimiter.recordFailure(ip, email);
 
-    let result: Awaited<ReturnType<LoginUseCase['execute']>>;
-    try {
-      result = await this.loginUseCase.execute({ emailRaw: email, password });
-    } catch (err) {
-      this.logger.error(
-        'Error inesperado durante el login',
-        err instanceof Error ? err.stack : String(err),
-      );
-      throw new InternalServerErrorException('Error inesperado. Intenta nuevamente.');
-    }
+    const result = await this.runUseCase(
+      () => this.loginUseCase.execute({ emailRaw: email, password }),
+      'Error inesperado durante el login',
+    );
 
     if (result.isFail()) {
       throw new UnauthorizedException(result.getError().message);
@@ -130,16 +124,10 @@ export class AuthController {
 
   @Get('me')
   async me(@CurrentUser() userId: string): Promise<MeDto> {
-    let result: Awaited<ReturnType<ObtenerIdentidadUseCase['execute']>>;
-    try {
-      result = await this.obtenerIdentidadUseCase.execute({ userId });
-    } catch (err) {
-      this.logger.error(
-        'Error inesperado al obtener la identidad',
-        err instanceof Error ? err.stack : String(err),
-      );
-      throw new InternalServerErrorException('Error inesperado. Intenta nuevamente.');
-    }
+    const result = await this.runUseCase(
+      () => this.obtenerIdentidadUseCase.execute({ userId }),
+      'Error inesperado al obtener la identidad',
+    );
 
     if (result.isFail()) {
       throw new UnauthorizedException(result.getError().message);
@@ -147,5 +135,22 @@ export class AuthController {
 
     const identidad = result.getValue();
     return { userId: identidad.userId, email: identidad.email };
+  }
+
+  /**
+   * runUseCase — DRY: envuelve la llamada a un use case, logueando y
+   * traduciendo a 500 cualquier excepción NO controlada (fallo de
+   * infraestructura), sin ocultar el `Result<T,E>` de negocio que el propio
+   * use case retorna. `login` y `me` comparten este wrapper; `logout` NO lo
+   * usa porque debe seguir siendo robusto (nunca relanzar, la cookie se
+   * limpia igual).
+   */
+  private async runUseCase<T>(fn: () => Promise<T>, context: string): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      this.logger.error(context, err instanceof Error ? err.stack : String(err));
+      throw new InternalServerErrorException('Error inesperado. Intenta nuevamente.');
+    }
   }
 }
