@@ -5,6 +5,7 @@ import {
   MovimientoMesRow,
 } from '../ports/movimientos-mes.port';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
+import { Bucket } from '../../domain/value-objects/bucket';
 
 const makeRow = (
   overrides: Partial<MovimientoMesRow> = {},
@@ -17,7 +18,7 @@ const makeRow = (
   banco: 'BCI',
   tipoCuenta: 'Cuenta Corriente',
   numeroCuenta: '12345678',
-  bucketId: null,
+  bucket: Bucket.SinCategoria,
   ...overrides,
 });
 
