@@ -64,19 +64,40 @@ model Ingesta {
 }
 
 model BucketPresupuesto {
-  id            String               @id
-  nombre        String               @unique
+  id            String                @id
+  nombre        String                @unique
   patrones      PatronClasificacion[]
   transacciones Transaccion[]
+  categorias    Categoria[]
+}
+
+// Categoria (US-013) — nivel más fino que Bucket; cada categoría pertenece a
+// exactamente un bucket (invariante CAT-01, dueño real en domain/value-objects
+// /categoria.ts vía CATEGORIA_BUCKET). Catálogo fijo, seed-only (sin
+// categorías creadas por el usuario en MVP).
+model Categoria {
+  id            String                @id
+  nombre        String                @unique
+  bucketId      String
+  bucket        BucketPresupuesto     @relation(fields: [bucketId], references: [id])
+  patrones      PatronClasificacion[]
+  transacciones Transaccion[]
+
+  @@index([bucketId])
 }
 
 model PatronClasificacion {
-  id        String            @id @default(cuid())
-  patron    String
-  matchType String
-  bucketId  String
-  bucket    BucketPresupuesto @relation(fields: [bucketId], references: [id])
-  prioridad Int
+  id          String            @id @default(cuid())
+  patron      String
+  matchType   String
+  bucketId    String
+  bucket      BucketPresupuesto @relation(fields: [bucketId], references: [id])
+  // Slice S1 (dual-write window): nullable por ahora — bucketId se mantiene
+  // como fuente de verdad hasta S2, que hace categoriaId NOT NULL y DROPea
+  // bucketId (ver design.md §1.3). No behavior change en S1.
+  categoriaId String?
+  categoria   Categoria?        @relation(fields: [categoriaId], references: [id])
+  prioridad   Int
 }
 
 model Transaccion {
@@ -91,5 +112,11 @@ model Transaccion {
   abono       BigInt
   bucketId    String?
   bucket      BucketPresupuesto? @relation(fields: [bucketId], references: [id])
+  // Nullable para siempre (Ingreso/SinCategoria/no-match no tienen
+  // categoría). onDelete SetNull: borrar una categoría NUNCA debe
+  // cascade-borrar transacciones (dato de dinero). bucketId sigue siendo la
+  // fuente de verdad del 50/30/20 (ver design.md §1.1).
+  categoriaId String?
+  categoria   Categoria?         @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
   creadoEn    DateTime           @default(now())
 }
