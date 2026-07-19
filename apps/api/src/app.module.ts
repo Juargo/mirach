@@ -7,6 +7,7 @@ import { IngestaModule } from './infrastructure/http/ingesta.module';
 import { MovimientosModule } from './infrastructure/http/movimientos.module';
 import { ResumenModule } from './infrastructure/http/resumen.module';
 import { DetalleBucketModule } from './infrastructure/http/detalle-bucket.module';
+import { TransaccionesModule } from './infrastructure/http/transacciones.module';
 import { ApiKeyGuard } from './infrastructure/http/auth/api-key.guard';
 import { AuthModule } from './infrastructure/http/auth/auth.module';
 import { SessionGuard } from './infrastructure/http/auth/session.guard';
@@ -18,6 +19,7 @@ import { SessionGuard } from './infrastructure/http/auth/session.guard';
     MovimientosModule,
     ResumenModule,
     DetalleBucketModule,
+    TransaccionesModule,
     AuthModule,
   ],
   controllers: [AppController],
