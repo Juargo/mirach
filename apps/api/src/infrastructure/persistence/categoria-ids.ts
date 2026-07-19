@@ -36,3 +36,24 @@ export const CATEGORIA_ID_TO_CATEGORIA: ReadonlyMap<string, Categoria> = new Map
     ([categoria, id]) => [id, categoria] as [string, Categoria],
   ),
 );
+
+/**
+ * foldCategoriaId — pliega un `categoriaId` físico crudo de Prisma a la forma
+ * de dominio `{ id, nombre }` (US-013 CATAPI-05).
+ *
+ * `null` → `null` (Ingreso/SinCategoria). Un id no-null no reconocido en
+ * `CATEGORIA_ID_TO_CATEGORIA` también pliega a `null` (defensive — mismo
+ * criterio que el fold de bucket en prisma-movimientos-mes.repository.ts).
+ *
+ * Extraído como función compartida (no duplicada inline) porque exactamente
+ * dos repos (movimientos, detalle-bucket) necesitan el mismo fold
+ * correctness-critical: una divergencia entre ambos rompería CATAPI-05 de
+ * forma silenciosa (DRY — ver .claude/skills/dry/SKILL.md).
+ */
+export function foldCategoriaId(
+  categoriaId: string | null,
+): { id: string; nombre: Categoria } | null {
+  if (categoriaId === null) return null;
+  const nombre = CATEGORIA_ID_TO_CATEGORIA.get(categoriaId);
+  return nombre === undefined ? null : { id: categoriaId, nombre };
+}

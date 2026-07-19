@@ -19,6 +19,7 @@ const makeRow = (
   tipoCuenta: 'Cuenta Corriente',
   numeroCuenta: '12345678',
   bucket: Bucket.SinCategoria,
+  categoria: null,
   ...overrides,
 });
 

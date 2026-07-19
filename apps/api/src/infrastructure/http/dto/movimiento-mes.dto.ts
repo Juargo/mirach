@@ -10,6 +10,10 @@ import { ObtenerMovimientosMesResult } from '../../../application/use-cases/obte
  * `bucket` es el valor del Bucket de dominio ya foldeado (ej: `'Necesidades'`,
  * `'SinCategoria'`) — NUNCA el bucketId físico crudo (MOV-01). El fold ocurre
  * en el repositorio; este mapper es un pass-through.
+ *
+ * `categoria` (US-013 CATAPI-05) es `{ id, nombre } | null` ya foldeado —
+ * `null` para filas Ingreso/SinCategoria. Campo aditivo, no rompe contrato
+ * existente.
  */
 export interface MovimientoMesItemDto {
   id: string;
@@ -21,6 +25,7 @@ export interface MovimientoMesItemDto {
   tipoCuenta: string;
   numeroCuenta: string;
   bucket: string;
+  categoria: { id: string; nombre: string } | null;
 }
 
 /**
@@ -54,6 +59,7 @@ export function aMovimientosMesDto(data: ObtenerMovimientosMesResult): Movimient
       tipoCuenta: tx.tipoCuenta,
       numeroCuenta: tx.numeroCuenta,
       bucket: tx.bucket,
+      categoria: tx.categoria,
     })),
   };
 }
