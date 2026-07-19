@@ -7,8 +7,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { CalcularResumenMesUseCase } from '../../application/use-cases/calcular-resumen-mes.use-case';
+import { CalcularResumenAnualUseCase } from '../../application/use-cases/calcular-resumen-anual.use-case';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
+import { AnioInvalidoError } from '../../domain/errors/anio-invalido.error';
+import { ResumenAnualInvalidoError } from '../../domain/errors/resumen-anual-invalido.error';
 import { aResumenMesDto } from './dto/resumen-mes.dto';
+import { aResumenAnualDto } from './dto/resumen-anual.dto';
 import { CurrentUser } from './auth/current-user.decorator';
 
 /**
@@ -35,6 +39,7 @@ export class ResumenController {
 
   constructor(
     private readonly calcularResumenMesUseCase: CalcularResumenMesUseCase,
+    private readonly calcularResumenAnualUseCase: CalcularResumenAnualUseCase,
   ) {}
 
   @Get()
@@ -78,5 +83,67 @@ export class ResumenController {
 
     const { periodo: periodoStr, resumen } = result.getValue();
     return aResumenMesDto(periodoStr, resumen);
+  }
+
+  /**
+   * GET /api/resumen/anual?anio=YYYY — 50/30/20 annual breakdown (US-030 Slice A).
+   *
+   * anio absent  → use case resolves to PeriodoAnio.actual() → 200.
+   * anio invalid → AnioInvalidoError → scrubbed 400 (raw input NEVER reflected).
+   *
+   * Mirrors obtener() exactly — same Result-to-HTTP translation, same
+   * @CurrentUser() isolation.
+   */
+  @Get('anual')
+  async obtenerAnual(
+    @Query('anio') anio: string | undefined,
+    @CurrentUser() userId: string,
+  ) {
+    let result: Awaited<ReturnType<CalcularResumenAnualUseCase['execute']>>;
+
+    try {
+      result = await this.calcularResumenAnualUseCase.execute({
+        userId,
+        anio,
+      });
+    } catch (err) {
+      this.logger.error(
+        'Error inesperado al calcular el resumen anual',
+        err instanceof Error ? err.stack : String(err),
+      );
+      throw new InternalServerErrorException(
+        'Error inesperado al calcular el resumen anual. Intenta nuevamente.',
+      );
+    }
+
+    if (result.isFail()) {
+      const error = result.getError();
+      if (error instanceof AnioInvalidoError) {
+        // Scrubbed 400 — raw anio value NEVER reflected in the HTTP response.
+        throw new BadRequestException(
+          'El año no es válido. Debe ser un entero entre 2000 y 2100.',
+        );
+      }
+      if (error instanceof ResumenAnualInvalidoError) {
+        // Invariant violation, not a user input problem (should never happen
+        // in practice — PeriodoAnio.meses() always yields exactly 12 entries).
+        // Fail-closed as a 500; log server-side for diagnosis, never reflect
+        // internal details in the HTTP response.
+        this.logger.error(
+          'Invariante de ResumenAnual violada al ensamblar el resumen anual',
+          error.stack,
+        );
+        throw new InternalServerErrorException(
+          'Error inesperado al calcular el resumen anual. Intenta nuevamente.',
+        );
+      }
+      // Exhaustiveness guard — future error types will fail to compile here
+      const _exhaustive: never = error;
+      void _exhaustive;
+      throw new InternalServerErrorException('Error inesperado');
+    }
+
+    const { resumenAnual } = result.getValue();
+    return aResumenAnualDto(resumenAnual);
   }
 }
