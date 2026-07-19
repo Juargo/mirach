@@ -49,6 +49,14 @@ jobs:
       - name: Unit tests API
         run: pnpm api test
 
+      # Exercises the PRODUCTION build. `nest build` uses tsconfig.build.json
+      # (rootDir: ./src); the `tsc --noEmit` above uses tsconfig.json (no
+      # rootDir), so it does NOT catch rootDir violations (TS6059) — e.g. a
+      # src/ file importing a .ts outside src/. This step does. Without it, a
+      # build that only Render runs can fail after merge.
+      - name: Build API
+        run: pnpm api build
+
       - name: Typecheck web
         run: pnpm web typecheck
 

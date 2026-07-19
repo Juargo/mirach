@@ -22,9 +22,15 @@ services:
     branch: main
     # El repo es un monorepo pnpm; se instala y construye desde la raíz.
     rootDir: .
+    # `rm -rf apps/api/dist` runs after Render restores its build cache and
+    # before nest build: it guarantees the deployed dist is exactly what THIS
+    # build compiled, never a stale/partial dist left in the cache by a prior
+    # (possibly failed) build. A cached dist once shipped without a new route
+    # despite the source being correct — this makes the output cache-proof.
     buildCommand: >-
       corepack enable &&
       pnpm install --frozen-lockfile &&
+      rm -rf apps/api/dist &&
       pnpm --filter @moneydiary/api exec prisma generate &&
       pnpm --filter @moneydiary/api build
     startCommand: pnpm --filter @moneydiary/api start:prod
