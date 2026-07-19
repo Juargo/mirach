@@ -1,5 +1,6 @@
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Categoria } from '../../domain/value-objects/categoria';
 
 /**
  * DetalleBucketRow — proyección de una transacción para el detalle de un
@@ -8,6 +9,11 @@ import { Bucket } from '../../domain/value-objects/bucket';
  * Sin `bucketId`: el bucket es el input de la consulta, no un campo de
  * salida (KISS — ver design.md). Los montos son BigInt — la serialización a
  * string ocurre solo en el DTO HTTP.
+ *
+ * `categoria` (US-013 CATAPI-05) es la Categoria de dominio ya foldeada —
+ * `null` para filas Ingreso/SinCategoria o con un id no reconocido
+ * (defensive), vía el mismo `foldCategoriaId` compartido con
+ * PrismaMovimientosMesRepository.
  */
 export interface DetalleBucketRow {
   readonly id: string;
@@ -18,6 +24,7 @@ export interface DetalleBucketRow {
   readonly banco: string;
   readonly tipoCuenta: string;
   readonly numeroCuenta: string;
+  readonly categoria: { readonly id: string; readonly nombre: Categoria } | null;
 }
 
 /**

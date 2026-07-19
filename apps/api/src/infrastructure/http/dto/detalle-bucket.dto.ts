@@ -7,6 +7,10 @@ import { ObtenerDetalleBucketResult } from '../../../application/use-cases/obten
  * cargo/abono son STRING (String(bigint)) — nunca number, evita pérdida de
  * precisión para valores > Number.MAX_SAFE_INTEGER. fecha como ISO-8601 UTC
  * completo via toISOString() — convención bloqueada (ver movimiento-mes.dto.ts).
+ *
+ * `categoria` (US-013 CATAPI-05) es `{ id, nombre } | null` ya foldeado —
+ * `null` para filas Ingreso/SinCategoria. Campo aditivo, no rompe contrato
+ * existente.
  */
 export interface DetalleBucketTransaccionDto {
   readonly id: string;
@@ -17,6 +21,7 @@ export interface DetalleBucketTransaccionDto {
   readonly banco: string;
   readonly tipoCuenta: string;
   readonly numeroCuenta: string;
+  readonly categoria: { readonly id: string; readonly nombre: string } | null;
 }
 
 /**
@@ -49,6 +54,7 @@ export function aDetalleBucketDto(data: ObtenerDetalleBucketResult): DetalleBuck
       banco: tx.banco,
       tipoCuenta: tx.tipoCuenta,
       numeroCuenta: tx.numeroCuenta,
+      categoria: tx.categoria,
     })),
   };
 }

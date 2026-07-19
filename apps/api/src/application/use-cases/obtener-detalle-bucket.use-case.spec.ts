@@ -19,6 +19,7 @@ const makeRow = (
   banco: 'BCI',
   tipoCuenta: 'Cuenta Corriente',
   numeroCuenta: '12345678',
+  categoria: null,
   ...overrides,
 });
 
