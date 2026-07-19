@@ -5,9 +5,13 @@ import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
-import { agruparPorCategoriaBucket } from '../src/application/services/agrupar-por-categoria-bucket';
+import {
+  agruparPorCategoriaBucket,
+  type AsignacionCategoriaBucket,
+} from '../src/application/services/agrupar-por-categoria-bucket';
 import { PatronClasificacion, MatchType } from '../src/domain/value-objects/patron-clasificacion';
 import { Categoria } from '../src/domain/value-objects/categoria';
+import { Bucket } from '../src/domain/value-objects/bucket';
 
 /**
  * backfill-categorias.ts (US-013 S3, CAT-05).
@@ -69,10 +73,55 @@ export interface BackfillClient {
 export interface BackfillSummary {
   /** Total de filas evaluadas (scope categoriaId IS NULL en esta corrida). */
   readonly totalRows: number;
-  /** Conteo por categoría resultante; la clave 'null' agrupa Ingreso/SinCategoria. */
+  /** Conteo por categoría resultante de la clasificación; la clave 'null' agrupa Ingreso/SinCategoria. Incluye filas no escritas (ver decisión por fila). */
   readonly porCategoria: Record<string, number>;
-  /** Filas cuyo bucketId efectivamente cambiaría respecto al valor actual (preview de movimiento de dinero). */
+  /**
+   * Filas YA bucketeadas (bucketId no nulo) a las que se les agrega
+   * categoriaId porque el match es consistente con su bucket actual —
+   * el bucket NUNCA cambia en estas filas.
+   */
+  readonly categoriaAgregadaBucketPreservado: number;
+  /**
+   * Filas SIN bucket previo (bucketId null) que reciben clasificación
+   * completa (categoriaId + bucketId).
+   */
+  readonly bucketAsignadoDesdeNulo: number;
+  /**
+   * Filas cuyo bucketId efectivamente cambiaría (preview de movimiento de
+   * dinero). Invariante: bajo la regla de preservación, esto SOLO puede
+   * contar filas sin bucket previo — una fila ya bucketeada nunca cambia
+   * de bucket, así que nunca aparece aquí.
+   */
   readonly bucketChanges: number;
+}
+
+/**
+ * Decide, para UNA fila ya clasificada, si corresponde escribir algo y qué.
+ *
+ * Regla de preservación (fix/backfill-preserve-bucket):
+ *  - `bucketIdAnterior === null` (fila nunca bucketeada): clasificación
+ *    completa de siempre — se escriben categoriaId Y bucketId.
+ *  - `bucketIdAnterior !== null` (fila YA bucketeada — incluye
+ *    SinCategoria/Necesidades/Deseos/Ahorro/Ingreso): el bucket NUNCA se
+ *    toca. Solo se agrega categoriaId si el match tiene categoría (no
+ *    null) Y el bucket que esa categoría deriva (CATEGORIA_BUCKET) es
+ *    EXACTAMENTE el bucket que la fila ya tiene. En cualquier otro caso
+ *    (sin match, o match a un bucket distinto) la fila queda intacta —
+ *    nunca se mueve una fila ya bucketeada a otro bucket.
+ */
+function decidirEscritura(c: {
+  id: string;
+  categoria: Categoria | null;
+  bucket: Bucket;
+  bucketIdAnterior: string | null;
+}): AsignacionCategoriaBucket | null {
+  if (c.bucketIdAnterior === null) {
+    return { id: c.id, categoria: c.categoria, bucket: c.bucket };
+  }
+  if (c.categoria !== null && BUCKET_IDS[c.bucket] === c.bucketIdAnterior) {
+    return { id: c.id, categoria: c.categoria, bucket: c.bucket };
+  }
+  return null;
 }
 
 export async function runBackfill(
@@ -95,7 +144,10 @@ export async function runBackfill(
       }),
   );
 
-  // 2. Scope: solo filas nunca tocadas (ni por ingesta ni manualmente, S4).
+  // 2. Scope: solo filas nunca tocadas manualmente (categoriaId IS NULL, S4).
+  // OJO: dentro de este scope el bucketId puede ya ser NO nulo (filas
+  // categorizadas por bucket antes de US-013) — de ahí la regla de
+  // preservación de abajo.
   const rows = await prisma.transaccion.findMany({ where: { categoriaId: null } });
 
   const useCase = new CategorizarTransaccionUseCase();
@@ -106,13 +158,28 @@ export async function runBackfill(
     return { id: row.id, categoria, bucket, bucketIdAnterior: row.bucketId };
   });
 
-  // 3. Resumen (siempre calculado — dry-run y run real lo comparten).
+  // 3. Resumen + decisión de escritura por fila (siempre calculado — dry-run
+  // y run real comparten esta pasada).
   const porCategoria: Record<string, number> = {};
+  let categoriaAgregadaBucketPreservado = 0;
+  let bucketAsignadoDesdeNulo = 0;
   let bucketChanges = 0;
+  const aEscribir: AsignacionCategoriaBucket[] = [];
+
   for (const c of clasificadas) {
     const key = c.categoria ?? 'null';
     porCategoria[key] = (porCategoria[key] ?? 0) + 1;
-    if (BUCKET_IDS[c.bucket] !== c.bucketIdAnterior) bucketChanges++;
+
+    const asignacion = decidirEscritura(c);
+    if (asignacion === null) continue;
+    aEscribir.push(asignacion);
+
+    if (c.bucketIdAnterior === null) {
+      bucketAsignadoDesdeNulo++;
+      bucketChanges++; // invariante: solo filas sin bucket previo cuentan aquí
+    } else {
+      categoriaAgregadaBucketPreservado++;
+    }
   }
 
   // 4. Escritura (omitida en dry-run) — agrupada por (categoria,bucket) igual
@@ -120,8 +187,10 @@ export async function runBackfill(
   // derivan al mismo bucket deben seguir siendo grupos separados. Grouping
   // es lógica pura compartida (DRY, ver agrupar-por-categoria-bucket.ts);
   // el WHERE (id IN, sin ingestaId — scope global del backfill) es propio.
-  if (!options.dryRun && clasificadas.length > 0) {
-    const grupos = agruparPorCategoriaBucket(clasificadas);
+  // Solo entran `aEscribir` — filas sin decisión (ver decidirEscritura)
+  // quedan completamente fuera de este paso, nunca se les escribe nada.
+  if (!options.dryRun && aEscribir.length > 0) {
+    const grupos = agruparPorCategoriaBucket(aEscribir);
 
     const operaciones = grupos.map(({ categoria, bucket, ids }) =>
       prisma.transaccion.updateMany({
@@ -136,14 +205,28 @@ export async function runBackfill(
     await prisma.$transaction(operaciones);
   }
 
-  return { totalRows: rows.length, porCategoria, bucketChanges };
+  return {
+    totalRows: rows.length,
+    porCategoria,
+    categoriaAgregadaBucketPreservado,
+    bucketAsignadoDesdeNulo,
+    bucketChanges,
+  };
 }
 
 function printSummary(summary: BackfillSummary, dryRun: boolean): void {
   console.log(`Backfill de categorías${dryRun ? ' (--dry-run, nada se escribió)' : ''}:`);
   console.log(`  Filas evaluadas (categoriaId IS NULL): ${summary.totalRows}`);
-  console.log('  Por categoría:', summary.porCategoria);
-  console.log(`  Filas cuyo bucket cambiaría: ${summary.bucketChanges}`);
+  console.log('  Por categoría (clasificación, incluye filas no escritas):', summary.porCategoria);
+  console.log(
+    `  Filas ya bucketeadas que ganan categoría (bucket preservado): ${summary.categoriaAgregadaBucketPreservado}`,
+  );
+  console.log(
+    `  Filas sin bucket previo que reciben bucket (clasificación completa): ${summary.bucketAsignadoDesdeNulo}`,
+  );
+  console.log(
+    `  Filas cuyo bucket cambiaría (solo filas sin bucket previo — nunca una ya bucketeada): ${summary.bucketChanges}`,
+  );
 }
 
 /**
