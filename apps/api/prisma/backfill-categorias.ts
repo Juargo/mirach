@@ -5,9 +5,9 @@ import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
+import { agruparPorCategoriaBucket } from '../src/application/services/agrupar-por-categoria-bucket';
 import { PatronClasificacion, MatchType } from '../src/domain/value-objects/patron-clasificacion';
 import { Categoria } from '../src/domain/value-objects/categoria';
-import { Bucket } from '../src/domain/value-objects/bucket';
 
 /**
  * backfill-categorias.ts (US-013 S3, CAT-05).
@@ -75,11 +75,6 @@ export interface BackfillSummary {
   readonly bucketChanges: number;
 }
 
-/** Clave de agrupación estable: `categoria` puede ser null (Ingreso/SinCategoria). */
-function groupKey(categoria: Categoria | null, bucket: Bucket): string {
-  return `${categoria ?? ' '}::${bucket}`;
-}
-
 export async function runBackfill(
   prisma: BackfillClient,
   options: { dryRun: boolean },
@@ -122,20 +117,13 @@ export async function runBackfill(
 
   // 4. Escritura (omitida en dry-run) — agrupada por (categoria,bucket) igual
   // que PrismaTransaccionBucketRepository: dos categorías distintas que
-  // derivan al mismo bucket deben seguir siendo grupos separados.
+  // derivan al mismo bucket deben seguir siendo grupos separados. Grouping
+  // es lógica pura compartida (DRY, ver agrupar-por-categoria-bucket.ts);
+  // el WHERE (id IN, sin ingestaId — scope global del backfill) es propio.
   if (!options.dryRun && clasificadas.length > 0) {
-    const porGrupo = new Map<
-      string,
-      { categoria: Categoria | null; bucket: Bucket; ids: string[] }
-    >();
-    for (const { id, categoria, bucket } of clasificadas) {
-      const key = groupKey(categoria, bucket);
-      const grupo = porGrupo.get(key) ?? { categoria, bucket, ids: [] };
-      grupo.ids.push(id);
-      porGrupo.set(key, grupo);
-    }
+    const grupos = agruparPorCategoriaBucket(clasificadas);
 
-    const operaciones = Array.from(porGrupo.values()).map(({ categoria, bucket, ids }) =>
+    const operaciones = grupos.map(({ categoria, bucket, ids }) =>
       prisma.transaccion.updateMany({
         where: { id: { in: ids } },
         data: {
