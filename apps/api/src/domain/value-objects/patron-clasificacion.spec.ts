@@ -1,12 +1,13 @@
 import { PatronClasificacion } from './patron-clasificacion';
 import { Bucket } from './bucket';
+import { Categoria, CATEGORIA_BUCKET } from './categoria';
 
 function makePatron(
   patron: string,
   matchType: PatronClasificacion['matchType'],
-  bucket: Bucket = Bucket.Necesidades,
+  categoria: Categoria = Categoria.Supermercado,
 ): PatronClasificacion {
-  return new PatronClasificacion({ id: 'p1', patron, matchType, bucket, prioridad: 10 });
+  return new PatronClasificacion({ id: 'p1', patron, matchType, categoria, prioridad: 10 });
 }
 
 describe('PatronClasificacion — CONTAINS', () => {
@@ -16,7 +17,7 @@ describe('PatronClasificacion — CONTAINS', () => {
   });
 
   it('es insensible a mayúsculas: descripción en MAYÚSCULAS, patrón en minúsculas', () => {
-    const p = makePatron('netflix', 'CONTAINS');
+    const p = makePatron('netflix', 'CONTAINS', Categoria.Streaming);
     expect(p.coincide('SUSCRIPCION NETFLIX')).toBe(true);
   });
 
@@ -79,13 +80,46 @@ describe('PatronClasificacion — expone campos inmutables', () => {
       id: 'abc',
       patron: 'netflix',
       matchType: 'CONTAINS',
-      bucket: Bucket.Deseos,
+      categoria: Categoria.Streaming,
       prioridad: 20,
     });
     expect(p.id).toBe('abc');
     expect(p.patron).toBe('netflix');
     expect(p.matchType).toBe('CONTAINS');
+    expect(p.categoria).toBe(Categoria.Streaming);
     expect(p.bucket).toBe(Bucket.Deseos);
     expect(p.prioridad).toBe(20);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CAT-02 — `bucket` is DERIVED from `categoria`, never independently settable.
+// ---------------------------------------------------------------------------
+describe('PatronClasificacion — bucket derivado (CAT-02)', () => {
+  it.each(Object.values(Categoria))(
+    'get bucket() deriva %s → CATEGORIA_BUCKET[%s] para cada categoría del enum',
+    (categoria) => {
+      const p = new PatronClasificacion({
+        id: 'p-derive',
+        patron: 'x',
+        matchType: 'CONTAINS',
+        categoria,
+        prioridad: 1,
+      });
+      expect(p.bucket).toBe(CATEGORIA_BUCKET[categoria]);
+    },
+  );
+
+  it('no expone un setter/constructor param independiente para bucket (solo se deriva de categoria)', () => {
+    const p = new PatronClasificacion({
+      id: 'p-1',
+      patron: 'x',
+      matchType: 'CONTAINS',
+      categoria: Categoria.Ahorro,
+      prioridad: 1,
+    });
+    // TypeScript ya impide pasar `bucket` al constructor (ver PatronClasificacionProps);
+    // este test documenta en runtime que `bucket` sigue siendo un getter derivado.
+    expect(p.bucket).toBe(Bucket.Ahorro);
   });
 });

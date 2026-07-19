@@ -20,9 +20,78 @@ import { PrismaService } from './prisma.service';
 import { PrismaDetalleBucketRepository } from './prisma-detalle-bucket.repository';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Categoria } from '../../domain/value-objects/categoria';
 import { BUCKET_IDS } from './bucket-ids';
+import { CATEGORIA_IDS } from './categoria-ids';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
+
+/**
+ * Unit tests (mocked PrismaService) for the CATAPI-05 categoria fold —
+ * mirrors the mocked pattern in prisma-movimientos-mes.repository.spec.ts.
+ * The rest of this file is gated integration coverage for the pre-existing
+ * bucket-scoped read path (see the file-level docstring below); this block
+ * covers only the new `categoria` field's fold logic, which does not need a
+ * real DB.
+ */
+describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
+  const periodo = PeriodoMes.crear('2026-07').getValue() as PeriodoMes;
+
+  function makeRow(overrides: { id: string; categoriaId: string | null }) {
+    return {
+      id: overrides.id,
+      fecha: new Date('2026-07-10T00:00:00.000Z'),
+      descripcion: 'Test tx',
+      cargo: 1000n,
+      abono: 0n,
+      categoriaId: overrides.categoriaId,
+      account: { banco: 'BCI', tipoCuenta: 'Cuenta Corriente', numeroCuenta: 'acc-1' },
+    };
+  }
+
+  it('CATAPI-05: classified categoriaId folds to { id, nombre }', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        makeRow({ id: 'tx-super', categoriaId: CATEGORIA_IDS[Categoria.Supermercado] }),
+      ]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const repo = new PrismaDetalleBucketRepository(prisma);
+
+    const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
+
+    expect(rows[0]!.categoria).toEqual({
+      id: CATEGORIA_IDS[Categoria.Supermercado],
+      nombre: Categoria.Supermercado,
+    });
+  });
+
+  it('CATAPI-05: null categoriaId (Ingreso/SinCategoria row) folds to null', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([makeRow({ id: 'tx-null', categoriaId: null })]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const repo = new PrismaDetalleBucketRepository(prisma);
+
+    const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.SinCategoria);
+
+    expect(rows[0]!.categoria).toBeNull();
+  });
+
+  it('CATAPI-05: unrecognized non-null categoriaId folds to null (defensive)', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        makeRow({ id: 'tx-unknown', categoriaId: 'not-a-real-categoria-id' }),
+      ]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const repo = new PrismaDetalleBucketRepository(prisma);
+
+    const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
+
+    expect(rows[0]!.categoria).toBeNull();
+  });
+});
 
 const RUN_ID = `detalle-bucket-repo-${Date.now()}`;
 const PERIODO = '2026-07';

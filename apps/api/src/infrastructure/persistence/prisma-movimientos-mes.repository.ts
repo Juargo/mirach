@@ -6,6 +6,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PrismaService } from './prisma.service';
 import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
+import { foldCategoriaId } from './categoria-ids';
 
 /**
  * PrismaMovimientosMesRepository — implementación del port de lectura mensual
@@ -21,6 +22,9 @@ import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
  * Este es un `map` por fila, no un `groupBy` acumulador — foldear una fila a
  * SinCategoria nunca reclasifica otra fila (SC-03 aplicado por fila, no hay
  * "add vs overwrite" porque no hay merge).
+ *
+ * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
+ * (categoria-ids.ts) — compartido con PrismaDetalleBucketRepository.
  */
 export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
   constructor(private readonly prisma: PrismaService) {}
@@ -41,6 +45,7 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
         cargo: true,
         abono: true,
         bucketId: true,
+        categoriaId: true,
         account: {
           select: {
             banco: true,
@@ -68,6 +73,7 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
         cargo: row.cargo,
         abono: row.abono,
         bucket,
+        categoria: foldCategoriaId(row.categoriaId),
         banco: row.account.banco,
         tipoCuenta: row.account.tipoCuenta,
         numeroCuenta: row.account.numeroCuenta,

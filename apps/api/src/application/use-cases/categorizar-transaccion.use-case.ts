@@ -1,5 +1,6 @@
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Categoria } from '../../domain/value-objects/categoria';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 
 /** Datos mínimos de una transacción necesarios para la clasificación. */
@@ -9,21 +10,32 @@ export interface TransaccionInput {
   readonly cargo: bigint;
 }
 
-/** Resultado de la clasificación: siempre ok (nunca falla por transacción). */
+/**
+ * Resultado de la clasificación: siempre ok (nunca falla por transacción).
+ *
+ * US-013 (CAT-03): `categoria` es `null` para Ingreso y para SinCategoria
+ * (no hay categoría que asignar en ninguno de esos dos casos); cuando un
+ * patrón matchea, `categoria` es la del patrón y `bucket` es SIEMPRE el
+ * derivado de esa categoría (`patron.bucket`, getter de PatronClasificacion)
+ * — nunca un bucket independiente.
+ */
 export interface CategorizarTransaccionResult {
+  readonly categoria: Categoria | null;
   readonly bucket: Bucket;
 }
 
 /**
- * CategorizarTransaccionUseCase — clasifica UNA transacción en su bucket.
+ * CategorizarTransaccionUseCase — clasifica UNA transacción en su categoría/bucket.
  *
- * Algoritmo (R-02, R-03, R-04):
- *   1. Ingreso rule: abono > 0 AND cargo === 0 → Bucket.Ingreso (sin consultar patrones).
+ * Algoritmo (R-02, R-03, R-04, CAT-03):
+ *   1. Ingreso rule: abono > 0 AND cargo === 0 → { categoria: null, bucket: Ingreso }
+ *      (sin consultar patrones).
  *   2. Ordenar patrones por prioridad asc, luego id asc (tiebreak determinístico).
- *   3. Primera coincidencia (PatronClasificacion.coincide) → ese bucket.
- *   4. Fallback: Bucket.SinCategoria.
+ *   3. Primera coincidencia (PatronClasificacion.coincide) → { categoria: patron.categoria,
+ *      bucket: patron.bucket } (bucket derivado, nunca aceptado independientemente).
+ *   4. Fallback: { categoria: null, bucket: SinCategoria }.
  *
- * Contrato: retorna Result<{bucket},never> — SIEMPRE ok. Nunca lanza.
+ * Contrato: retorna Result<{categoria,bucket},never> — SIEMPRE ok. Nunca lanza.
  * La degradación a SinCategoria ocurre aquí, no en el orquestador.
  */
 export class CategorizarTransaccionUseCase {
@@ -33,7 +45,7 @@ export class CategorizarTransaccionUseCase {
   ): Result<CategorizarTransaccionResult, never> {
     // 1. Ingreso rule — tiene prioridad sobre todo el catálogo.
     if (transaccion.abono > 0n && transaccion.cargo === 0n) {
-      return Result.ok({ bucket: Bucket.Ingreso });
+      return Result.ok({ categoria: null, bucket: Bucket.Ingreso });
     }
 
     // 2. Ordenar por prioridad asc, luego id asc como tiebreak.
@@ -45,11 +57,11 @@ export class CategorizarTransaccionUseCase {
     // 3. Primera coincidencia gana.
     for (const patron of ordenados) {
       if (patron.coincide(transaccion.descripcion)) {
-        return Result.ok({ bucket: patron.bucket });
+        return Result.ok({ categoria: patron.categoria, bucket: patron.bucket });
       }
     }
 
     // 4. Fallback.
-    return Result.ok({ bucket: Bucket.SinCategoria });
+    return Result.ok({ categoria: null, bucket: Bucket.SinCategoria });
   }
 }

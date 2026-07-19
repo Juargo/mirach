@@ -7,6 +7,8 @@ import {
 } from '../src/infrastructure/persistence/constants';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
+import { Categoria, CATEGORIA_BUCKET } from '../src/domain/value-objects/categoria';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 
@@ -29,47 +31,74 @@ export const SEED_ACCOUNT = {
 } as const;
 
 /** Cliente mínimo requerido por el seed (facilita el test de idempotencia). */
-type SeedClient = Pick<PrismaClient, 'user' | 'account' | 'bucketPresupuesto' | 'patronClasificacion'>;
+type SeedClient = Pick<
+  PrismaClient,
+  'user' | 'account' | 'bucketPresupuesto' | 'patronClasificacion' | 'categoria'
+>;
 
-// ── US-012: Catálogo de patrones chilenos (module-level so PATRON_CATALOG_SIZE derives from it) ──
-// Prefer CONTAINS (sin superficie ReDoS). REGEX solo para casos que lo requieren
-// explícitamente — siempre anclado/acotado. Todos los ids son fijos (idempotencia).
-// prioridad: valor más bajo = más prioritario. Dentro de la misma prioridad, el
-// tiebreak es por id lexicográfico.
+// ── US-013 S1: Catálogo de Categoria (module-level so CATEGORIA_CATALOG_SIZE
+// derives from it — mismo patrón que PATRON_CATALOG_SIZE). Cada fila deriva
+// su bucketId de CATEGORIA_BUCKET (invariante CAT-01) — single-sourced, no
+// puede quedar desincronizada del mapa de dominio.
+const CATEGORIA_CATALOG: Array<{ id: string; nombre: Categoria; bucketId: string }> =
+  Object.values(Categoria).map((categoria) => ({
+    id: CATEGORIA_IDS[categoria],
+    nombre: categoria,
+    bucketId: BUCKET_IDS[CATEGORIA_BUCKET[categoria]],
+  }));
+
+/**
+ * Número total de categorías del catálogo — derivado del array real (mirror
+ * de PATRON_CATALOG_SIZE: seed count y test expectation comparten la misma
+ * fuente de verdad, no pueden desincronizarse en silencio).
+ */
+export const CATEGORIA_CATALOG_SIZE = CATEGORIA_CATALOG.length;
+
+// ── US-012/US-013 S2: Catálogo de patrones chilenos (module-level so
+// PATRON_CATALOG_SIZE derives from it) ── Prefer CONTAINS (sin superficie
+// ReDoS). REGEX solo para casos que lo requieren explícitamente — siempre
+// anclado/acotado. Todos los ids son fijos (idempotencia). prioridad: valor
+// más bajo = más prioritario. Dentro de la misma prioridad, el tiebreak es
+// por id lexicográfico.
+//
+// S2: bucketId ya NO se escribe aquí — PatronClasificacion.bucketId fue
+// DROPeado de la BD (ver migración drop_patron_bucketid); el bucket de cada
+// patrón se deriva SIEMPRE de su categoriaId (CATEGORIA_BUCKET), nunca se
+// almacena independientemente (CAT-02).
 const PATRON_CATALOG: Array<{
   id: string;
   patron: string;
   matchType: string;
-  bucketId: string;
+  categoriaId: string;
   prioridad: number;
 }> = [
   // ── Necesidades (alimentos, transporte, salud, servicios básicos) ──
-  { id: 'pat-lider',         patron: 'lider',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-  { id: 'pat-jumbo',         patron: 'jumbo',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-  { id: 'pat-unimarc',       patron: 'unimarc',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-  { id: 'pat-santa-isabel',  patron: 'santa isabel',   matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-  { id: 'pat-tottus',        patron: 'tottus',         matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 10 },
-  { id: 'pat-copec',         patron: 'copec',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 15 },
-  { id: 'pat-shell',         patron: 'shell',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 15 },
-  { id: 'pat-farmacia',      patron: 'farmacia',       matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
-  { id: 'pat-isapre',        patron: 'isapre',         matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
-  { id: 'pat-transantiago',  patron: 'transantiago',   matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 20 },
-  { id: 'pat-bip',           patron: 'bip',            matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Necesidades], prioridad: 25 },
+  { id: 'pat-lider',         patron: 'lider',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
+  { id: 'pat-jumbo',         patron: 'jumbo',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
+  { id: 'pat-unimarc',       patron: 'unimarc',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
+  { id: 'pat-santa-isabel',  patron: 'santa isabel',   matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
+  { id: 'pat-tottus',        patron: 'tottus',         matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
+  { id: 'pat-copec',         patron: 'copec',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Combustible], prioridad: 15 },
+  { id: 'pat-shell',         patron: 'shell',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Combustible], prioridad: 15 },
+  { id: 'pat-farmacia',      patron: 'farmacia',       matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Farmacia], prioridad: 20 },
+  { id: 'pat-isapre',        patron: 'isapre',         matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Salud], prioridad: 20 },
+  { id: 'pat-transantiago',  patron: 'transantiago',   matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Transporte], prioridad: 20 },
+  { id: 'pat-bip',           patron: 'bip',            matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Transporte], prioridad: 25 },
 
   // ── Deseos (entretenimiento, restaurantes, suscripciones) ──
-  { id: 'pat-netflix',       patron: 'netflix',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
-  { id: 'pat-spotify',       patron: 'spotify',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
-  { id: 'pat-amazon-prime',  patron: 'prime video',    matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 10 },
-  { id: 'pat-uber-eats',     patron: 'uber eats',      matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 15 },
-  { id: 'pat-rappi',         patron: 'rappi',          matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Deseos], prioridad: 15 },
+  { id: 'pat-netflix',       patron: 'netflix',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Streaming], prioridad: 10 },
+  { id: 'pat-spotify',       patron: 'spotify',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Streaming], prioridad: 10 },
+  { id: 'pat-amazon-prime',  patron: 'prime video',    matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Streaming], prioridad: 10 },
+  { id: 'pat-uber-eats',     patron: 'uber eats',      matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Delivery], prioridad: 15 },
+  { id: 'pat-rappi',         patron: 'rappi',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Delivery], prioridad: 15 },
 
   // ── Ahorro (transferencias a fintech / ahorro / inversión) ──
-  { id: 'pat-fintual',       patron: 'fintual',        matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 10 },
-  { id: 'pat-bci-ahorro',    patron: 'cuenta ahorro',  matchType: 'CONTAINS',    bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 20 },
+  { id: 'pat-fintual',       patron: 'fintual',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 10 },
+  { id: 'pat-bci-ahorro',    patron: 'cuenta ahorro',  matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 20 },
   // AFP abreviada en cartola: "AFP ..." — STARTS_WITH para anclar y evitar false positives
-  { id: 'pat-afp',           patron: 'afp ',           matchType: 'STARTS_WITH', bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 15 },
+  { id: 'pat-afp',           patron: 'afp ',           matchType: 'STARTS_WITH', categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 15 },
   // Transferencia a cuenta propia o de ahorro: REGEX acotado
-  { id: 'pat-transferencia-ahorro', patron: '^transf(?:erencia)?.*ahorro', matchType: 'REGEX', bucketId: BUCKET_IDS[Bucket.Ahorro], prioridad: 25 },
+  { id: 'pat-transferencia-ahorro', patron: '^transf(?:erencia)?.*ahorro', matchType: 'REGEX', categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 25 },
 ];
 
 /**
@@ -125,7 +154,18 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
     });
   }
 
-  // ── US-012: Catálogo de patrones chilenos (from module-level PATRON_CATALOG) ──
+  // ── US-013 S1: 8 Categoria con ids fijos (single-sourced via CATEGORIA_IDS) ──
+  for (const categoria of CATEGORIA_CATALOG) {
+    await prisma.categoria.upsert({
+      where: { id: categoria.id },
+      create: { id: categoria.id, nombre: categoria.nombre, bucketId: categoria.bucketId },
+      update: { nombre: categoria.nombre, bucketId: categoria.bucketId },
+    });
+  }
+
+  // ── US-012 + US-013 S2: Catálogo de patrones chilenos (from module-level
+  // PATRON_CATALOG). Solo categoriaId — bucketId fue DROPeado de la BD, el
+  // bucket se deriva siempre vía categoria.bucket (CAT-02). ──
   for (const patron of PATRON_CATALOG) {
     await prisma.patronClasificacion.upsert({
       where: { id: patron.id },
@@ -133,13 +173,13 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
         id: patron.id,
         patron: patron.patron,
         matchType: patron.matchType,
-        bucketId: patron.bucketId,
+        categoriaId: patron.categoriaId,
         prioridad: patron.prioridad,
       },
       update: {
         patron: patron.patron,
         matchType: patron.matchType,
-        bucketId: patron.bucketId,
+        categoriaId: patron.categoriaId,
         prioridad: patron.prioridad,
       },
     });
