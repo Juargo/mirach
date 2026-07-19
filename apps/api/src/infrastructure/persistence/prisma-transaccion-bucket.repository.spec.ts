@@ -2,8 +2,10 @@ import type { Mock } from 'vitest';
 import { PrismaTransaccionBucketRepository } from './prisma-transaccion-bucket.repository';
 import { PrismaService } from './prisma.service';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Categoria } from '../../domain/value-objects/categoria';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { BUCKET_IDS } from './bucket-ids';
+import { CATEGORIA_IDS } from './categoria-ids';
 
 /**
  * When `throws` is set, `$transaction` rejects — simulating a DB-level error.
@@ -23,19 +25,19 @@ function makePrismaMock(throws?: Error) {
 }
 
 describe('PrismaTransaccionBucketRepository', () => {
-  describe('asignarBuckets()', () => {
+  describe('asignarCategorizacion()', () => {
     it('returns Result.ok({ actualizadas: 0 }) for empty array (edge case)', async () => {
       const prisma = makePrismaMock();
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
-      const result = await repo.asignarBuckets('ingesta-1', []);
+      const result = await repo.asignarCategorizacion('ingesta-1', []);
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue().actualizadas).toBe(0);
       expect((prisma.$transaction as Mock).mock.calls.length).toBe(0);
     });
 
-    it('calls $transaction with updateMany calls grouped by bucket, with ingestaId scope lock', async () => {
+    it('calls $transaction with updateMany calls grouped by (categoria, bucket), with ingestaId scope lock', async () => {
       const updateMany = vi.fn().mockResolvedValue({ count: 2 });
       const txFn = vi.fn(async (promises: Promise<unknown>[]) => {
         return Promise.all(promises);
@@ -48,32 +50,36 @@ describe('PrismaTransaccionBucketRepository', () => {
 
       const ingestaId = 'ingesta-abc-123';
       const asignaciones = [
-        { transaccionId: 'tx-1', bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-2', bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-3', bucket: Bucket.Ingreso },
+        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        { transaccionId: 'tx-2', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        { transaccionId: 'tx-3', categoria: null, bucket: Bucket.Ingreso },
       ];
 
-      const result = await repo.asignarBuckets(ingestaId, asignaciones);
+      const result = await repo.asignarCategorizacion(ingestaId, asignaciones);
 
       expect(result.isOk()).toBe(true);
       // Should have called $transaction once
       expect(txFn).toHaveBeenCalledTimes(1);
-      // updateMany should have been called twice (one per unique bucket)
+      // updateMany should have been called twice (one per unique (categoria,bucket) group)
       expect(updateMany).toHaveBeenCalledTimes(2);
-      // Check updateMany called with correct args for Necesidades group
-      const necesidadesCall = updateMany.mock.calls.find(
+      // Check updateMany called with correct args for the Supermercado/Necesidades group
+      const supermercadoCall = updateMany.mock.calls.find(
         (call) => call[0].data.bucketId === BUCKET_IDS[Bucket.Necesidades],
       );
-      expect(necesidadesCall).toBeDefined();
-      expect(necesidadesCall![0].where.id.in).toEqual(['tx-1', 'tx-2']);
+      expect(supermercadoCall).toBeDefined();
+      expect(supermercadoCall![0].where.id.in).toEqual(['tx-1', 'tx-2']);
+      expect(supermercadoCall![0].data.categoriaId).toBe(
+        CATEGORIA_IDS[Categoria.Supermercado],
+      );
       // SCOPE ISOLATION: ingestaId must be in the WHERE clause (double-lock)
-      expect(necesidadesCall![0].where.ingestaId).toBe(ingestaId);
-      // Check updateMany called with correct args for Ingreso group
+      expect(supermercadoCall![0].where.ingestaId).toBe(ingestaId);
+      // Check updateMany called with correct args for the null-categoria/Ingreso group
       const ingresoCall = updateMany.mock.calls.find(
         (call) => call[0].data.bucketId === BUCKET_IDS[Bucket.Ingreso],
       );
       expect(ingresoCall).toBeDefined();
       expect(ingresoCall![0].where.id.in).toEqual(['tx-3']);
+      expect(ingresoCall![0].data.categoriaId).toBeNull();
       expect(ingresoCall![0].where.ingestaId).toBe(ingestaId);
     });
 
@@ -92,17 +98,49 @@ describe('PrismaTransaccionBucketRepository', () => {
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [
-        { transaccionId: 'tx-1', bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-2', bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-3', bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-4', bucket: Bucket.Deseos },
-        { transaccionId: 'tx-5', bucket: Bucket.Deseos },
+        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        { transaccionId: 'tx-2', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        { transaccionId: 'tx-3', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        { transaccionId: 'tx-4', categoria: Categoria.Streaming, bucket: Bucket.Deseos },
+        { transaccionId: 'tx-5', categoria: Categoria.Streaming, bucket: Bucket.Deseos },
       ];
 
-      const result = await repo.asignarBuckets('ingesta-xyz', asignaciones);
+      const result = await repo.asignarCategorizacion('ingesta-xyz', asignaciones);
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue().actualizadas).toBe(5);
+    });
+
+    it('two DIFFERENT categorías in the SAME bucket produce two separate groups (categoria drives grouping, not just bucket)', async () => {
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const txFn = vi.fn(async (promises: Promise<unknown>[]) =>
+        Promise.all(promises),
+      );
+      const prisma = {
+        transaccion: { updateMany },
+        $transaction: txFn,
+      } as unknown as PrismaService;
+      const repo = new PrismaTransaccionBucketRepository(prisma);
+
+      // Supermercado and Combustible both derive to Necesidades — but they are
+      // DIFFERENT categorías and must be written as separate groups (distinct
+      // categoriaId), even though bucketId is identical for both.
+      const asignaciones = [
+        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        { transaccionId: 'tx-2', categoria: Categoria.Combustible, bucket: Bucket.Necesidades },
+      ];
+
+      await repo.asignarCategorizacion('ingesta-1', asignaciones);
+
+      expect(updateMany).toHaveBeenCalledTimes(2);
+      const supermercadoCall = updateMany.mock.calls.find(
+        (call) => call[0].data.categoriaId === CATEGORIA_IDS[Categoria.Supermercado],
+      );
+      const combustibleCall = updateMany.mock.calls.find(
+        (call) => call[0].data.categoriaId === CATEGORIA_IDS[Categoria.Combustible],
+      );
+      expect(supermercadoCall![0].where.id.in).toEqual(['tx-1']);
+      expect(combustibleCall![0].where.id.in).toEqual(['tx-2']);
     });
 
     it('returns Result.fail(CategorizacionFallidaError) when $transaction throws', async () => {
@@ -110,10 +148,10 @@ describe('PrismaTransaccionBucketRepository', () => {
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [
-        { transaccionId: 'tx-1', bucket: Bucket.Necesidades },
+        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
       ];
 
-      const result = await repo.asignarBuckets('ingesta-1', asignaciones);
+      const result = await repo.asignarCategorizacion('ingesta-1', asignaciones);
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
@@ -125,16 +163,16 @@ describe('PrismaTransaccionBucketRepository', () => {
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [
-        { transaccionId: 'tx-1', bucket: Bucket.SinCategoria },
+        { transaccionId: 'tx-1', categoria: null, bucket: Bucket.SinCategoria },
       ];
       await expect(
-        repo.asignarBuckets('ingesta-1', asignaciones),
+        repo.asignarCategorizacion('ingesta-1', asignaciones),
       ).resolves.toBeDefined();
-      const result = await repo.asignarBuckets('ingesta-1', asignaciones);
+      const result = await repo.asignarCategorizacion('ingesta-1', asignaciones);
       expect(result.isFail()).toBe(true);
     });
 
-    it('maps Bucket enum to correct BUCKET_IDS string in updateMany call, with ingestaId scope lock', async () => {
+    it('maps Categoria/Bucket enums to correct physical ids in updateMany call, with ingestaId scope lock', async () => {
       const updateMany = vi.fn().mockResolvedValue({ count: 1 });
       const txFn = vi.fn(async (promises: Promise<unknown>[]) =>
         Promise.all(promises),
@@ -145,13 +183,40 @@ describe('PrismaTransaccionBucketRepository', () => {
       } as unknown as PrismaService;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
-      await repo.asignarBuckets('ingesta-scope-test', [
-        { transaccionId: 'tx-1', bucket: Bucket.Ahorro },
+      await repo.asignarCategorizacion('ingesta-scope-test', [
+        { transaccionId: 'tx-1', categoria: Categoria.Ahorro, bucket: Bucket.Ahorro },
       ]);
 
       expect(updateMany).toHaveBeenCalledWith({
         where: { id: { in: ['tx-1'] }, ingestaId: 'ingesta-scope-test' },
-        data: { bucketId: BUCKET_IDS[Bucket.Ahorro] },
+        data: {
+          categoriaId: CATEGORIA_IDS[Categoria.Ahorro],
+          bucketId: BUCKET_IDS[Bucket.Ahorro],
+        },
+      });
+    });
+
+    it('maps a null categoria to a null categoriaId (Ingreso / SinCategoria rows)', async () => {
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const txFn = vi.fn(async (promises: Promise<unknown>[]) =>
+        Promise.all(promises),
+      );
+      const prisma = {
+        transaccion: { updateMany },
+        $transaction: txFn,
+      } as unknown as PrismaService;
+      const repo = new PrismaTransaccionBucketRepository(prisma);
+
+      await repo.asignarCategorizacion('ingesta-1', [
+        { transaccionId: 'tx-1', categoria: null, bucket: Bucket.SinCategoria },
+      ]);
+
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['tx-1'] }, ingestaId: 'ingesta-1' },
+        data: {
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+        },
       });
     });
   });
