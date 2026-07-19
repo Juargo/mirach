@@ -6,6 +6,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PrismaService } from './prisma.service';
 import { BUCKET_IDS } from './bucket-ids';
+import { foldCategoriaId } from './categoria-ids';
 
 /**
  * PrismaDetalleBucketRepository — implementación del port de lectura para el
@@ -22,6 +23,9 @@ import { BUCKET_IDS } from './bucket-ids';
  * para cualquier otro bucket, `bucketId: BUCKET_IDS[bucket]`.
  *
  * Constructor takes PrismaService directly (no NestJS decorators — clean arch).
+ *
+ * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
+ * (categoria-ids.ts) — compartido con PrismaMovimientosMesRepository.
  */
 export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
   constructor(private readonly prisma: PrismaService) {}
@@ -48,6 +52,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
         descripcion: true,
         cargo: true,
         abono: true,
+        categoriaId: true,
         account: {
           select: {
             banco: true,
@@ -65,6 +70,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
       descripcion: row.descripcion,
       cargo: row.cargo,
       abono: row.abono,
+      categoria: foldCategoriaId(row.categoriaId),
       banco: row.account.banco,
       tipoCuenta: row.account.tipoCuenta,
       numeroCuenta: row.account.numeroCuenta,

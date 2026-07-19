@@ -12,6 +12,7 @@ const makeRow = (overrides: Partial<DetalleBucketRow> = {}): DetalleBucketRow =>
   banco: 'BCI',
   tipoCuenta: 'Cuenta Corriente',
   numeroCuenta: '12345678',
+  categoria: null,
   ...overrides,
 });
 
