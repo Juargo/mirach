@@ -20,7 +20,11 @@ export const APP = {
 } as const;
 
 export const PROBAR = {
-  url: APP.url,
+  /** demo-trial-mode (DEMO-UI-01): plain top-level navigation to
+   * `GET /api/auth/demo` — the backend's Sec-Fetch guard requires a
+   * top-level document navigation, so this MUST stay an `<a href>`, never a
+   * button/fetch call. */
+  url: `${APP.url}/api/auth/demo`,
   label: 'Probar',
 } as const;
 
