@@ -161,7 +161,20 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   // El backfill lee y (salvo --dry-run) muta la BD: exige opt-in explícito y
   // rechaza cadenas de producción, incluso en modo dry-run (misma postura
   // que seed.ts — nunca conectar a producción sin la misma fricción).
-  assertDestructiveDbAllowed({ connectionString });
+  //
+  // Única excepción angosta: este backfill (y SOLO este) puede correr una
+  // vez, supervisado, contra producción — para eso el operador debe setear
+  // AMBOS ALLOW_DESTRUCTIVE_DB=1 y CONFIRM_PROD_BACKFILL con el valor exacto
+  // de abajo. seed.ts y los int-specs NO pasan este opt-in y siguen
+  // rechazando producción sin excepción.
+  assertDestructiveDbAllowed({
+    connectionString,
+    allowProductionAck: {
+      envVar: 'CONFIRM_PROD_BACKFILL',
+      expected: 'us-013-transaccion-categorias',
+      operation: 'US-013 transaccion categoria backfill',
+    },
+  });
 
   const prisma = new PrismaClient({ adapter: new PrismaPg(connectionString) });
   try {

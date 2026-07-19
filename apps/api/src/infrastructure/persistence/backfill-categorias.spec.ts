@@ -320,11 +320,13 @@ describe('backfill-categorias — gate ALLOW_DESTRUCTIVE_DB (T3.4, unit, sin BD)
   const originalAllow = process.env.ALLOW_DESTRUCTIVE_DB;
   const originalDbUrl = process.env.DATABASE_URL;
   const originalDirectUrl = process.env.DIRECT_URL;
+  const originalConfirmProdBackfill = process.env.CONFIRM_PROD_BACKFILL;
 
   afterEach(() => {
     process.env.ALLOW_DESTRUCTIVE_DB = originalAllow;
     process.env.DATABASE_URL = originalDbUrl;
     process.env.DIRECT_URL = originalDirectUrl;
+    process.env.CONFIRM_PROD_BACKFILL = originalConfirmProdBackfill;
   });
 
   it('se rehúsa a correr sin ALLOW_DESTRUCTIVE_DB=1 (no llega a conectar a Prisma)', async () => {
@@ -339,6 +341,25 @@ describe('backfill-categorias — gate ALLOW_DESTRUCTIVE_DB (T3.4, unit, sin BD)
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
     process.env.DATABASE_URL = 'postgres://x@prod-db.example.com/production';
     delete process.env.DIRECT_URL;
+    delete process.env.CONFIRM_PROD_BACKFILL;
+
+    await expect(main([])).rejects.toThrow(/producción/);
+  });
+
+  it('rechaza producción aun con el flag activo si CONFIRM_PROD_BACKFILL no está seteado', async () => {
+    process.env.ALLOW_DESTRUCTIVE_DB = '1';
+    process.env.DATABASE_URL = 'postgres://x@prod-db.example.com/production';
+    delete process.env.DIRECT_URL;
+    delete process.env.CONFIRM_PROD_BACKFILL;
+
+    await expect(main([])).rejects.toThrow(/producción/);
+  });
+
+  it('rechaza producción si CONFIRM_PROD_BACKFILL tiene un valor distinto al esperado', async () => {
+    process.env.ALLOW_DESTRUCTIVE_DB = '1';
+    process.env.DATABASE_URL = 'postgres://x@prod-db.example.com/production';
+    delete process.env.DIRECT_URL;
+    process.env.CONFIRM_PROD_BACKFILL = 'algo-distinto';
 
     await expect(main([])).rejects.toThrow(/producción/);
   });
