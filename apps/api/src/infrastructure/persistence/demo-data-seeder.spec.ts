@@ -1,5 +1,5 @@
 import { seedDemoTransacciones } from './demo-data-seeder';
-import { DEMO_TRANSACCIONES } from '../../../prisma/demo-data';
+import { DEMO_TRANSACCIONES } from './demo-data';
 import { BUCKET_IDS } from './bucket-ids';
 import { Bucket } from '../../domain/value-objects/bucket';
 

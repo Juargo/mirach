@@ -2,7 +2,7 @@ import { EstadoIngesta } from '@prisma/client';
 import { PrismaDemoRepository } from './prisma-demo.repository';
 import { PrismaService } from './prisma.service';
 import { IReloj } from '../../application/ports/reloj.port';
-import { DEMO_TRANSACCIONES } from '../../../prisma/demo-data';
+import { DEMO_TRANSACCIONES } from './demo-data';
 
 const AHORA = new Date('2026-07-18T12:00:00.000Z');
 const TOKEN_HASH = 'hash-demo-abc';

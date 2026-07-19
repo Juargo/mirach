@@ -5,7 +5,7 @@ import {
   IDemoRepository,
 } from '../../application/ports/demo-repository.port';
 import { IReloj } from '../../application/ports/reloj.port';
-import { DEMO_TRANSACCIONES } from '../../../prisma/demo-data';
+import { DEMO_TRANSACCIONES } from './demo-data';
 import { seedDemoTransacciones } from './demo-data-seeder';
 import { PrismaService } from './prisma.service';
 import { BUCKET_IDS } from './bucket-ids';

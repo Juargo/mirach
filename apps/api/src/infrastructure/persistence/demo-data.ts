@@ -1,4 +1,4 @@
-import { Bucket } from '../src/domain/value-objects/bucket';
+import { Bucket } from '../../domain/value-objects/bucket';
 
 /**
  * DemoTransaccionDef — definición estática de una transacción demo.
