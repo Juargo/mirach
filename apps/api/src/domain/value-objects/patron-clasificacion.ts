@@ -1,4 +1,5 @@
 import { Bucket } from './bucket';
+import { Categoria, CATEGORIA_BUCKET } from './categoria';
 
 /** Tipos de coincidencia disponibles para un patrón de clasificación. */
 export type MatchType = 'CONTAINS' | 'STARTS_WITH' | 'REGEX';
@@ -7,7 +8,7 @@ export interface PatronClasificacionProps {
   readonly id: string;
   readonly patron: string;
   readonly matchType: MatchType;
-  readonly bucket: Bucket;
+  readonly categoria: Categoria;
   readonly prioridad: number;
 }
 
@@ -16,6 +17,11 @@ export interface PatronClasificacionProps {
  *
  * Representa una regla de clasificación del catálogo. El método `coincide()`
  * evalúa si una descripción de transacción cumple el patrón.
+ *
+ * US-013 (CAT-02): el patrón carga su `categoria`; `bucket` es un getter
+ * DERIVADO vía CATEGORIA_BUCKET — nunca se acepta ni se guarda de forma
+ * independiente, así el invariante "categoría↔bucket" se sostiene por
+ * construcción (ver design.md §2).
  *
  * Garantías:
  *   - CONTAINS / STARTS_WITH: normalización a minúsculas + trim en ambos lados.
@@ -26,15 +32,20 @@ export class PatronClasificacion {
   readonly id: string;
   readonly patron: string;
   readonly matchType: MatchType;
-  readonly bucket: Bucket;
+  readonly categoria: Categoria;
   readonly prioridad: number;
 
   constructor(props: PatronClasificacionProps) {
     this.id = props.id;
     this.patron = props.patron;
     this.matchType = props.matchType;
-    this.bucket = props.bucket;
+    this.categoria = props.categoria;
     this.prioridad = props.prioridad;
+  }
+
+  /** Bucket DERIVADO de la categoría — nunca almacenado independientemente. */
+  get bucket(): Bucket {
+    return CATEGORIA_BUCKET[this.categoria];
   }
 
   /**

@@ -282,13 +282,13 @@ export class ProcessIngestaUseCase {
 
       // 3. Clasificar cada transacción (nunca lanza, siempre retorna Result.ok)
       const clasificadas = txsParaClasificar.map((tx) => {
-        const { bucket } = this.categorizarTransaccionUseCase
+        const { categoria, bucket } = this.categorizarTransaccionUseCase
           .execute(
             { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
             patrones,
           )
           .getValue();
-        return { transaccionId: tx.id, bucket };
+        return { transaccionId: tx.id, categoria, bucket };
       });
 
       // 4. Elegir qué escribir:
@@ -304,9 +304,10 @@ export class ProcessIngestaUseCase {
         ? clasificadas.filter((a) => a.bucket === Bucket.SinCategoria).length
         : 0;
 
-      // 5. Escribir buckets en BD (fallo → deja null, log + continúa)
-      // ingestaId threads through for structural scope isolation (RNF-SEC-006).
-      const writeResult = await this.transaccionBucketWriter.asignarBuckets(
+      // 5. Escribir categoría+bucket en BD, atómico por fila (fallo → deja
+      // null, log + continúa). ingestaId threads through for structural
+      // scope isolation (RNF-SEC-006).
+      const writeResult = await this.transaccionBucketWriter.asignarCategorizacion(
         ingestaId,
         asignaciones,
       );

@@ -21,6 +21,7 @@ import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-i
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Categoria } from '../../domain/value-objects/categoria';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { IFileReader } from '../ports/file-reader.port';
 import { IBankDetector, DetectedBank } from '../ports/bank-detector.port';
@@ -267,13 +268,19 @@ class FakeCatalogo implements ICatalogoClasificacion {
 }
 
 class FakeBucketWriter implements ITransaccionBucketWriter {
-  calls: Array<ReadonlyArray<{ transaccionId: string; bucket: Bucket }>> = [];
+  calls: Array<
+    ReadonlyArray<{ transaccionId: string; categoria: Categoria | null; bucket: Bucket }>
+  > = [];
   receivedIngestaIds: string[] = [];
   failWith?: CategorizacionFallidaError;
 
-  async asignarBuckets(
+  async asignarCategorizacion(
     ingestaId: string,
-    asignaciones: ReadonlyArray<{ transaccionId: string; bucket: Bucket }>,
+    asignaciones: ReadonlyArray<{
+      transaccionId: string;
+      categoria: Categoria | null;
+      bucket: Bucket;
+    }>,
   ): Promise<Result<{ actualizadas: number }, CategorizacionFallidaError>> {
     this.receivedIngestaIds.push(ingestaId);
     this.calls.push(asignaciones);
@@ -607,7 +614,7 @@ describe('ProcessIngestaUseCase', () => {
       expect(ingresoAsignacion!.bucket).toBe(Bucket.Ingreso);
     });
 
-    it('SC-15 (scope isolation): asignarBuckets solo se llama con ids de la ingesta actual', async () => {
+    it('SC-15 (scope isolation): asignarCategorizacion solo se llama con ids de la ingesta actual', async () => {
       const bucketWriter = new FakeBucketWriter();
       const txReader = new FakeTxParaClasificarReader();
       // Solo 2 ids de la ingesta actual
@@ -654,14 +661,14 @@ describe('ProcessIngestaUseCase', () => {
       expect(record.estado).toBe('PROCESADA');
     });
 
-    it('happy path con catálogo: asignarBuckets llamado con el mapeo correcto por tx', async () => {
+    it('happy path con catálogo: asignarCategorizacion llamado con el mapeo {categoria,bucket} correcto por tx', async () => {
       const catalogo = new FakeCatalogo();
       catalogo.patrones = [
         new PatronClasificacion({
           id: 'p-1',
           patron: 'compra',
           matchType: 'CONTAINS',
-          bucket: Bucket.Necesidades,
+          categoria: Categoria.Supermercado,
           prioridad: 10,
         }),
       ];
@@ -676,19 +683,21 @@ describe('ProcessIngestaUseCase', () => {
       expect(result.isOk()).toBe(true);
       expect(bucketWriter.calls.length).toBeGreaterThan(0);
       const allAsignaciones = bucketWriter.calls.flat();
-      // tx-persisted-1 (Compra, cargo>0) → Necesidades via patron CONTAINS 'compra'
+      // tx-persisted-1 (Compra, cargo>0) → Supermercado/Necesidades via patron CONTAINS 'compra'
       const compraAsig = allAsignaciones.find(
         (a) => a.transaccionId === 'tx-persisted-1',
       );
+      expect(compraAsig?.categoria).toBe(Categoria.Supermercado);
       expect(compraAsig?.bucket).toBe(Bucket.Necesidades);
-      // tx-persisted-2 (Sueldo, abono>0 cargo=0) → Ingreso rule
+      // tx-persisted-2 (Sueldo, abono>0 cargo=0) → Ingreso rule, sin categoría
       const sueldoAsig = allAsignaciones.find(
         (a) => a.transaccionId === 'tx-persisted-2',
       );
+      expect(sueldoAsig?.categoria).toBeNull();
       expect(sueldoAsig?.bucket).toBe(Bucket.Ingreso);
     });
 
-    it('ingestaId thread-through: findParaClasificar and asignarBuckets receive the SAME ingestaId from persist', async () => {
+    it('ingestaId thread-through: findParaClasificar and asignarCategorizacion receive the SAME ingestaId from persist', async () => {
       // Verifies that the ingestaId produced by PersistTransactions is correctly
       // threaded all the way through the categorization step to both the reader
       // and the writer (proves end-to-end scope correctness, not just local wiring).
