@@ -239,6 +239,193 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
   });
 });
 
+const PAT_NETFLIX: FakePatron = {
+  id: 'pat-netflix',
+  patron: 'netflix',
+  matchType: 'CONTAINS',
+  prioridad: 20,
+  categoria: { nombre: Categoria.Streaming },
+};
+
+describe('runBackfill — preservación de bucket existente (fix/backfill-preserve-bucket)', () => {
+  it('fila ya bucketeada (Necesidades) cuyo match deriva al MISMO bucket: agrega categoriaId, bucket sin cambios', async () => {
+    const { client, updateManyCalls, transacciones } = makeFakeClient(
+      [PAT_LIDER],
+      [
+        {
+          id: 'tx-consistente',
+          descripcion: 'Compra Lider',
+          cargo: 9500n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.Necesidades],
+        },
+      ],
+    );
+
+    const summary = await runBackfill(client, { dryRun: false });
+
+    expect(updateManyCalls).toHaveLength(1);
+    expect(updateManyCalls[0]).toMatchObject({
+      ids: ['tx-consistente'],
+      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+    });
+    expect(transacciones[0].categoriaId).toBe(CATEGORIA_IDS[Categoria.Supermercado]);
+    // Bucket unchanged — same value it already had.
+    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
+    expect(summary.categoriaAgregadaBucketPreservado).toBe(1);
+    expect(summary.bucketAsignadoDesdeNulo).toBe(0);
+    // Invariant: an already-bucketed row never counts as a bucket change.
+    expect(summary.bucketChanges).toBe(0);
+  });
+
+  it('fila ya bucketeada (Necesidades) cuyo match deriva a OTRO bucket (Deseos): NO se mueve, categoriaId queda null', async () => {
+    const { client, updateManyCalls, transacciones } = makeFakeClient(
+      [PAT_NETFLIX],
+      [
+        {
+          id: 'tx-inconsistente',
+          descripcion: 'Pago Netflix',
+          cargo: 8000n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.Necesidades],
+        },
+      ],
+    );
+
+    const summary = await runBackfill(client, { dryRun: false });
+
+    // Row is never moved — no write at all for this row.
+    expect(updateManyCalls).toHaveLength(0);
+    expect(transacciones[0].categoriaId).toBeNull();
+    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
+    expect(summary.categoriaAgregadaBucketPreservado).toBe(0);
+    expect(summary.bucketAsignadoDesdeNulo).toBe(0);
+    expect(summary.bucketChanges).toBe(0);
+    // Classification outcome is still reported for visibility, even though unwritten.
+    expect(summary.porCategoria[Categoria.Streaming]).toBe(1);
+  });
+
+  it('fila ya bucketeada como SinCategoria con cualquier match: se queda en SinCategoria, categoriaId null', async () => {
+    const { client, updateManyCalls, transacciones } = makeFakeClient(
+      [PAT_LIDER],
+      [
+        {
+          id: 'tx-sincategoria',
+          descripcion: 'Compra Lider',
+          cargo: 9500n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+        },
+      ],
+    );
+
+    const summary = await runBackfill(client, { dryRun: false });
+
+    expect(updateManyCalls).toHaveLength(0);
+    expect(transacciones[0].categoriaId).toBeNull();
+    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.SinCategoria]);
+    expect(summary.categoriaAgregadaBucketPreservado).toBe(0);
+    expect(summary.bucketChanges).toBe(0);
+  });
+
+  it('fila ya bucketeada sin ningún match: queda completamente intacta', async () => {
+    const { client, updateManyCalls, transacciones } = makeFakeClient(
+      [PAT_LIDER],
+      [
+        {
+          id: 'tx-sin-match',
+          descripcion: 'Compra en un local desconocido',
+          cargo: 3000n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.Necesidades],
+        },
+      ],
+    );
+
+    const summary = await runBackfill(client, { dryRun: false });
+
+    expect(updateManyCalls).toHaveLength(0);
+    expect(transacciones[0]).toEqual({
+      id: 'tx-sin-match',
+      descripcion: 'Compra en un local desconocido',
+      cargo: 3000n,
+      abono: 0n,
+      categoriaId: null,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+    });
+    expect(summary.categoriaAgregadaBucketPreservado).toBe(0);
+    expect(summary.bucketAsignadoDesdeNulo).toBe(0);
+    expect(summary.bucketChanges).toBe(0);
+  });
+
+  it('invariante: en un dataset mixto ninguna fila ya bucketeada cambia de bucket y el dinero (cargo/abono) nunca se toca', async () => {
+    const { client, transacciones } = makeFakeClient(
+      [PAT_LIDER, PAT_NETFLIX],
+      [
+        // Already-bucketed, consistent match → categoriaId added, bucket preserved.
+        {
+          id: 'tx-a',
+          descripcion: 'Compra Lider',
+          cargo: 9500n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.Necesidades],
+        },
+        // Already-bucketed, inconsistent match → untouched.
+        {
+          id: 'tx-b',
+          descripcion: 'Pago Netflix',
+          cargo: 8000n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.Ahorro],
+        },
+        // Never-bucketed → full classification.
+        {
+          id: 'tx-c',
+          descripcion: 'Compra Lider',
+          cargo: 5000n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: null,
+        },
+      ],
+    );
+
+    const bucketsAntes = new Map(transacciones.map((t) => [t.id, t.bucketId]));
+    const dineroAntes = new Map(transacciones.map((t) => [t.id, { cargo: t.cargo, abono: t.abono }]));
+
+    await runBackfill(client, { dryRun: false });
+
+    for (const t of transacciones) {
+      expect(t.cargo).toEqual(dineroAntes.get(t.id)!.cargo);
+      expect(t.abono).toEqual(dineroAntes.get(t.id)!.abono);
+      // Rows that already had a bucket before the run must keep that exact bucket.
+      const bucketAntes = bucketsAntes.get(t.id);
+      if (bucketAntes !== null) {
+        expect(t.bucketId).toBe(bucketAntes);
+      }
+    }
+
+    // tx-a gains a categoria, bucket unchanged.
+    expect(transacciones.find((t) => t.id === 'tx-a')?.categoriaId).toBe(
+      CATEGORIA_IDS[Categoria.Supermercado],
+    );
+    // tx-b untouched.
+    expect(transacciones.find((t) => t.id === 'tx-b')?.categoriaId).toBeNull();
+    // tx-c gets full classification (bucket previously null).
+    expect(transacciones.find((t) => t.id === 'tx-c')?.categoriaId).toBe(
+      CATEGORIA_IDS[Categoria.Supermercado],
+    );
+    expect(transacciones.find((t) => t.id === 'tx-c')?.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
+  });
+});
+
 describe('runBackfill — idempotencia (CAT-05, unit, sin BD)', () => {
   it('re-ejecutar sobre el mismo dataset produce el mismo estado (no-op la segunda vez)', async () => {
     const { client, transacciones } = makeFakeClient(
@@ -293,7 +480,7 @@ describe('runBackfill — dry-run (CAT-05, unit, sin BD)', () => {
     expect(transacciones[0].bucketId).toBeNull();
   });
 
-  it('el bucketChanges preview solo cuenta filas cuyo bucketId efectivamente cambiaría', async () => {
+  it('el bucketChanges preview solo cuenta filas SIN bucket previo (invariante: nunca una fila ya bucketeada)', async () => {
     const { client } = makeFakeClient(
       [PAT_LIDER],
       [
@@ -313,6 +500,39 @@ describe('runBackfill — dry-run (CAT-05, unit, sin BD)', () => {
 
     expect(summary.totalRows).toBe(1);
     expect(summary.bucketChanges).toBe(0);
+    expect(summary.categoriaAgregadaBucketPreservado).toBe(1);
+    expect(summary.bucketAsignadoDesdeNulo).toBe(0);
+  });
+
+  it('reporta por separado: categoría agregada con bucket preservado vs. bucket asignado desde nulo', async () => {
+    const { client } = makeFakeClient(
+      [PAT_LIDER],
+      [
+        {
+          id: 'tx-preservado',
+          descripcion: 'Compra Lider',
+          cargo: 9500n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: BUCKET_IDS[Bucket.Necesidades],
+        },
+        {
+          id: 'tx-desde-nulo',
+          descripcion: 'Compra Lider',
+          cargo: 4000n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: null,
+        },
+      ],
+    );
+
+    const summary = await runBackfill(client, { dryRun: true });
+
+    expect(summary.categoriaAgregadaBucketPreservado).toBe(1);
+    expect(summary.bucketAsignadoDesdeNulo).toBe(1);
+    // Invariant: bucketChanges only reflects the null-bucket row.
+    expect(summary.bucketChanges).toBe(1);
   });
 });
 
