@@ -2,8 +2,10 @@ import {
   IMovimientosMesReader,
   MovimientoMesRow,
 } from '../../application/ports/movimientos-mes.port';
+import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PrismaService } from './prisma.service';
+import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
 
 /**
  * PrismaMovimientosMesRepository — implementación del port de lectura mensual
@@ -14,6 +16,11 @@ import { PrismaService } from './prisma.service';
  * devuelven sin conversión (la serialización a string ocurre solo en el DTO HTTP).
  *
  * Orden determinista: fecha asc, id asc como tiebreak para same-date rows.
+ *
+ * Fold bucketId → Bucket (MOV-01): mirroring prisma-resumen-mes.repository.ts.
+ * Este es un `map` por fila, no un `groupBy` acumulador — foldear una fila a
+ * SinCategoria nunca reclasifica otra fila (SC-03 aplicado por fila, no hay
+ * "add vs overwrite" porque no hay merge).
  */
 export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
   constructor(private readonly prisma: PrismaService) {}
@@ -45,16 +52,26 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
       orderBy: [{ fecha: 'asc' }, { id: 'asc' }],
     });
 
-    return rows.map((row) => ({
-      id: row.id,
-      fecha: row.fecha,
-      descripcion: row.descripcion,
-      cargo: row.cargo,
-      abono: row.abono,
-      bucketId: row.bucketId,
-      banco: row.account.banco,
-      tipoCuenta: row.account.tipoCuenta,
-      numeroCuenta: row.account.numeroCuenta,
-    }));
+    return rows.map((row) => {
+      // Resolve physical bucketId → domain Bucket enum.
+      // null bucketId → SinCategoria (degradation from US-012).
+      // Unrecognized non-null bucketId → also SinCategoria (defensive).
+      const bucket: Bucket =
+        row.bucketId === null
+          ? Bucket.SinCategoria
+          : (BUCKET_ID_TO_BUCKET.get(row.bucketId) ?? Bucket.SinCategoria);
+
+      return {
+        id: row.id,
+        fecha: row.fecha,
+        descripcion: row.descripcion,
+        cargo: row.cargo,
+        abono: row.abono,
+        bucket,
+        banco: row.account.banco,
+        tipoCuenta: row.account.tipoCuenta,
+        numeroCuenta: row.account.numeroCuenta,
+      };
+    });
   }
 }

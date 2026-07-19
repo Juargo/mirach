@@ -3,6 +3,8 @@ import { PrismaService } from '../src/infrastructure/persistence/prisma.service'
 import { PrismaMovimientosMesRepository } from '../src/infrastructure/persistence/prisma-movimientos-mes.repository';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
+import { Bucket } from '../src/domain/value-objects/bucket';
+import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 
 /**
  * Integration tests for PrismaMovimientosMesRepository (US-014).
@@ -285,12 +287,31 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     expect(returnedIds).not.toContain(userBTx.id);
   });
 
-  it('bucketId is null when transaction has no bucket assigned', async () => {
+  it('MOV-01: bucketId=null folds to Bucket.SinCategoria when transaction has no bucket assigned', async () => {
     const tx = await createTx(accountIdA1, ingestaIdA1, new Date('2026-07-28T00:00:00.000Z'), 5000n, 0n, 'No bucket');
 
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
     const found = rows.find((r) => r.id === tx.id);
     expect(found).toBeDefined();
-    expect(found!.bucketId).toBeNull();
+    expect(found!.bucket).toBe(Bucket.SinCategoria);
+  });
+
+  it('MOV-01: a recognized physical bucketId folds to its domain Bucket (e.g. Necesidades)', async () => {
+    const tx = await prisma.transaccion.create({
+      data: {
+        accountId: accountIdA1,
+        ingestaId: ingestaIdA1,
+        fecha: new Date('2026-07-29T00:00:00.000Z'),
+        cargo: 12000n,
+        abono: 0n,
+        descripcion: 'Categorized tx',
+        bucketId: BUCKET_IDS[Bucket.Necesidades],
+      },
+    });
+
+    const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
+    const found = rows.find((r) => r.id === tx.id);
+    expect(found).toBeDefined();
+    expect(found!.bucket).toBe(Bucket.Necesidades);
   });
 });

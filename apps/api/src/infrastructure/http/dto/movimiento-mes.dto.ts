@@ -6,6 +6,10 @@ import { ObtenerMovimientosMesResult } from '../../../application/use-cases/obte
  * cargo/abono son STRING (String(bigint)) — nunca number. La serialización
  * aquí evita la pérdida de precisión para valores > Number.MAX_SAFE_INTEGER
  * (REQ-07 / AC-08). fecha como ISO 8601 UTC string.
+ *
+ * `bucket` es el valor del Bucket de dominio ya foldeado (ej: `'Necesidades'`,
+ * `'SinCategoria'`) — NUNCA el bucketId físico crudo (MOV-01). El fold ocurre
+ * en el repositorio; este mapper es un pass-through.
  */
 export interface MovimientoMesItemDto {
   id: string;
@@ -16,7 +20,7 @@ export interface MovimientoMesItemDto {
   banco: string;
   tipoCuenta: string;
   numeroCuenta: string;
-  bucketId: string | null;
+  bucket: string;
 }
 
 /**
@@ -49,7 +53,7 @@ export function aMovimientosMesDto(data: ObtenerMovimientosMesResult): Movimient
       banco: tx.banco,
       tipoCuenta: tx.tipoCuenta,
       numeroCuenta: tx.numeroCuenta,
-      bucketId: tx.bucketId,
+      bucket: tx.bucket,
     })),
   };
 }

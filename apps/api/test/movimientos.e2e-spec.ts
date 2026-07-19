@@ -4,6 +4,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { Bucket } from '../src/domain/value-objects/bucket';
+import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 
 const RUN_ID = `movmese2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
@@ -27,6 +29,8 @@ const TEST_USER_ID = `movmese2e-user-${RUN_ID}`;
  *   - 200 with empty envelope for valid pero empty month
  *   - 200 with rows: cargo/abono as strings, fecha ISO, shape matches DTO
  *   - 200 for absent periodo → current UTC month (AC-12)
+ *   - MOV-01: category field is the folded domain Bucket ('SinCategoria' /
+ *     'Necesidades'), never the raw physical bucketId
  */
 describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   let app: INestApplication<App>;
@@ -139,7 +143,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
   // ── Happy path with seeded rows ──────────────────────────────────────────
 
-  it('AC-08/AC-09/AC-11: seeded rows → 200, cargo/abono as strings, fecha ISO, bucketId null, shape matches DTO', async () => {
+  it('AC-08/AC-09/AC-11/MOV-01: seeded rows → 200, cargo/abono as strings, fecha ISO, bucket folded (SinCategoria + Necesidades), shape matches DTO', async () => {
     // Seed data under USER_ID_FIJO so the controller can find them
     // Use upsert for the account (idempotent) and create ingesta
     const account = await prisma.account.upsert({
@@ -190,6 +194,15 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
           cargo: 0n,
           abono: 150000n,
         },
+        {
+          ingestaId: ingesta.id,
+          accountId: account.id,
+          fecha: new Date('2026-07-18T00:00:00.000Z'),
+          descripcion: `Categorizado e2e ${RUN_ID}`,
+          cargo: 25000n,
+          abono: 0n,
+          bucketId: BUCKET_IDS[Bucket.Necesidades],
+        },
       ],
     });
 
@@ -206,7 +219,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     const ourRows = (response.body.transacciones as Array<Record<string, unknown>>).filter(
       (tx) => typeof tx.descripcion === 'string' && (tx.descripcion as string).includes(RUN_ID),
     );
-    expect(ourRows.length).toBe(2);
+    expect(ourRows.length).toBe(3);
 
     for (const tx of ourRows) {
       // cargo and abono MUST be strings, never numbers (AC-08/AC-09)
@@ -215,8 +228,8 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
       // fecha MUST be an ISO string
       expect(typeof tx.fecha).toBe('string');
       expect(() => new Date(tx.fecha as string)).not.toThrow();
-      // bucketId is null (uncategorized — AC-11)
-      expect(tx.bucketId).toBeNull();
+      // no raw bucketId leaks through the DTO (MOV-01)
+      expect(tx.bucketId).toBeUndefined();
       // banco/tipoCuenta/numeroCuenta present
       expect(tx.banco).toBe('BCI');
       expect(tx.tipoCuenta).toBe('Cuenta Corriente');
@@ -227,11 +240,19 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     expect(bigRow).toBeDefined();
     expect(bigRow!.cargo).toBe('9007199254740993');
     expect(bigRow!.abono).toBe('0');
+    // Uncategorized row folds to SinCategoria (MOV-01)
+    expect(bigRow!.bucket).toBe('SinCategoria');
 
     // Zero-cargo row
     const abonoRow = ourRows.find((tx) => (tx.descripcion as string).includes('Abono'));
     expect(abonoRow).toBeDefined();
     expect(abonoRow!.cargo).toBe('0');
     expect(abonoRow!.abono).toBe('150000');
+    expect(abonoRow!.bucket).toBe('SinCategoria');
+
+    // Categorized row folds to its domain Bucket, not the raw physical id (MOV-01)
+    const categorizadoRow = ourRows.find((tx) => (tx.descripcion as string).includes('Categorizado'));
+    expect(categorizadoRow).toBeDefined();
+    expect(categorizadoRow!.bucket).toBe('Necesidades');
   });
 });
