@@ -23,6 +23,7 @@ describe('ObtenerIdentidadUseCase', () => {
     const identidad: IdentidadUsuario = {
       userId: 'user-1',
       email: 'jorge@example.com',
+      esDemo: false,
     };
     const creds = makeMockCreds(identidad);
     const uc = new ObtenerIdentidadUseCase(creds);
@@ -42,5 +43,20 @@ describe('ObtenerIdentidadUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(SesionInvalidaError);
+  });
+
+  it('found (usuario demo) → pasa esDemo=true y email=null tal cual del repositorio (DEMO-AUTH-05)', async () => {
+    const identidad: IdentidadUsuario = {
+      userId: 'user-demo-1',
+      email: null,
+      esDemo: true,
+    };
+    const creds = makeMockCreds(identidad);
+    const uc = new ObtenerIdentidadUseCase(creds);
+
+    const result = await uc.execute({ userId: 'user-demo-1' });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.getValue()).toEqual(identidad);
   });
 });

@@ -57,19 +57,19 @@ describe('PrismaUserCredentialRepository', () => {
   });
 
   describe('buscarIdentidad()', () => {
-    it('retorna IdentidadUsuario cuando el userId existe con email', async () => {
+    it('retorna IdentidadUsuario cuando el userId existe con email (usuario real)', async () => {
       const prisma = {
         user: {
           findUnique: vi
             .fn()
-            .mockResolvedValue({ id: 'user-1', email: 'user@example.com' }),
+            .mockResolvedValue({ id: 'user-1', email: 'user@example.com', esDemo: false }),
         },
       } as unknown as PrismaService;
       const repo = new PrismaUserCredentialRepository(prisma);
 
       const result = await repo.buscarIdentidad('user-1');
 
-      expect(result).toEqual({ userId: 'user-1', email: 'user@example.com' });
+      expect(result).toEqual({ userId: 'user-1', email: 'user@example.com', esDemo: false });
     });
 
     it('retorna null cuando el userId no existe', async () => {
@@ -83,17 +83,30 @@ describe('PrismaUserCredentialRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('retorna null cuando el userId existe pero no tiene email (defensivo)', async () => {
+    it('retorna null cuando el userId existe pero no tiene email y NO es demo (defensivo)', async () => {
       const prisma = {
         user: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'user-3', email: null }),
+          findUnique: vi.fn().mockResolvedValue({ id: 'user-inconsistente', email: null, esDemo: false }),
         },
       } as unknown as PrismaService;
       const repo = new PrismaUserCredentialRepository(prisma);
 
-      const result = await repo.buscarIdentidad('user-3');
+      const result = await repo.buscarIdentidad('user-inconsistente');
 
       expect(result).toBeNull();
+    });
+
+    it('retorna IdentidadUsuario con email=null y esDemo=true para un usuario demo (DEMO-AUTH-05)', async () => {
+      const prisma = {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'user-demo-1', email: null, esDemo: true }),
+        },
+      } as unknown as PrismaService;
+      const repo = new PrismaUserCredentialRepository(prisma);
+
+      const result = await repo.buscarIdentidad('user-demo-1');
+
+      expect(result).toEqual({ userId: 'user-demo-1', email: null, esDemo: true });
     });
   });
 });

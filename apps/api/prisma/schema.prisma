@@ -13,13 +13,15 @@ enum EstadoIngesta {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  nombre       String
-  email        String?   @unique
-  passwordHash String?
-  creadoEn     DateTime  @default(now())
-  accounts     Account[]
-  sessions     Session[]
+  id            String    @id @default(cuid())
+  nombre        String
+  email         String?   @unique
+  passwordHash  String?
+  esDemo        Boolean   @default(false)
+  demoCreatedAt DateTime?
+  creadoEn      DateTime  @default(now())
+  accounts      Account[]
+  sessions      Session[]
 }
 
 model Session {
