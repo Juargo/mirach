@@ -35,13 +35,23 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
   async buscarIdentidad(userId: string): Promise<IdentidadUsuario | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true },
+      select: { id: true, email: true, esDemo: true },
     });
 
-    if (user === null || user.email === null) {
+    if (user === null) {
       return null;
     }
 
-    return { userId: user.id, email: user.email };
+    // A diferencia de un usuario real (que siempre tiene email), un usuario
+    // demo NUNCA tiene email (`esDemo=true, email=null`) — eso es válido, no
+    // "identidad incompleta" (DEMO-AUTH-05). Pero un usuario REAL
+    // (`esDemo=false`) sin email es un estado inconsistente (todo usuario
+    // real se crea con email) — falla cerrado (`null`, "no encontrado") en
+    // vez de exponer una identidad rota, en lugar de propagarla tal cual.
+    if (!user.esDemo && user.email === null) {
+      return null;
+    }
+
+    return { userId: user.id, email: user.email, esDemo: user.esDemo };
   }
 }
