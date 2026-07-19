@@ -5,19 +5,7 @@ import {
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PrismaService } from './prisma.service';
-import { BUCKET_IDS } from './bucket-ids';
-
-/**
- * Inverse map: physical bucketId string → domain Bucket enum.
- * Built once at module load from BUCKET_IDS (single source of truth).
- * Unrecognized non-null bucketId (FK-constrained, should never happen)
- * folds defensively into SinCategoria.
- */
-const BUCKET_ID_TO_BUCKET: ReadonlyMap<string, Bucket> = new Map(
-  (Object.entries(BUCKET_IDS) as [Bucket, string][]).map(
-    ([bucket, id]) => [id, bucket] as [string, Bucket],
-  ),
-);
+import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
 
 /**
  * PrismaResumenMesRepository — aggregation repository for the 50/30/20 breakdown.

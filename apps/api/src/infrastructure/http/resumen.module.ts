@@ -1,11 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ResumenController } from './resumen.controller';
 import { CalcularResumenMesUseCase } from '../../application/use-cases/calcular-resumen-mes.use-case';
+import { CalcularResumenAnualUseCase } from '../../application/use-cases/calcular-resumen-anual.use-case';
 import {
   RESUMEN_MES_READER,
   IResumenMesReader,
 } from '../../application/ports/resumen-mes.port';
+import {
+  RESUMEN_ANUAL_READER,
+  IResumenAnualReader,
+} from '../../application/ports/resumen-anual.port';
 import { PrismaResumenMesRepository } from '../persistence/prisma-resumen-mes.repository';
+import { PrismaResumenAnualRepository } from '../persistence/prisma-resumen-anual.repository';
 import { PrismaService } from '../persistence/prisma.service';
 
 /**
@@ -32,6 +38,18 @@ import { PrismaService } from '../persistence/prisma.service';
       useFactory: (reader: IResumenMesReader) =>
         new CalcularResumenMesUseCase(reader),
       inject: [RESUMEN_MES_READER],
+    },
+    {
+      provide: RESUMEN_ANUAL_READER,
+      useFactory: (prisma: PrismaService) =>
+        new PrismaResumenAnualRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: CalcularResumenAnualUseCase,
+      useFactory: (reader: IResumenAnualReader) =>
+        new CalcularResumenAnualUseCase(reader),
+      inject: [RESUMEN_ANUAL_READER],
     },
   ],
 })

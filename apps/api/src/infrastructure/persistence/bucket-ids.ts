@@ -18,3 +18,16 @@ export const BUCKET_IDS: Record<Bucket, string> = {
   [Bucket.Ingreso]: 'bucket-ingreso',
   [Bucket.SinCategoria]: 'bucket-sincategoria',
 };
+
+/**
+ * BUCKET_ID_TO_BUCKET — inverse map: physical bucketId string → domain Bucket enum.
+ *
+ * Built once at module load from BUCKET_IDS (single source of truth, DRY).
+ * Shared by every repository that needs to fold a raw Prisma bucketId back
+ * into the domain Bucket enum (prisma-resumen-mes / prisma-resumen-anual).
+ */
+export const BUCKET_ID_TO_BUCKET: ReadonlyMap<string, Bucket> = new Map(
+  (Object.entries(BUCKET_IDS) as [Bucket, string][]).map(
+    ([bucket, id]) => [id, bucket] as [string, Bucket],
+  ),
+);

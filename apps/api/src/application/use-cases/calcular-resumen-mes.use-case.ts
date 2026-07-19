@@ -2,11 +2,8 @@ import { Result } from '../../shared/result';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { ResumenMes } from '../../domain/value-objects/resumen-mes';
-import { Bucket } from '../../domain/value-objects/bucket';
-import {
-  IResumenMesReader,
-  BucketSumRow,
-} from '../ports/resumen-mes.port';
+import { IResumenMesReader } from '../ports/resumen-mes.port';
+import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
 
 /** Tipo de retorno del use case en caso de éxito — mirrors US-014 pattern. */
 export interface CalcularResumenMesResult {
@@ -52,29 +49,7 @@ export class CalcularResumenMesUseCase {
     }
 
     const rows = await this.reader.sumarPorBucket(input.userId, periodoVO);
-
-    // Index rows by Bucket for O(1) lookup
-    const rowMap = new Map<Bucket, BucketSumRow>();
-    for (const row of rows) {
-      rowMap.set(row.bucket, row);
-    }
-
-    // Income base = Ingreso bucket's totalAbono (0n if month has no income rows)
-    const totalIngreso = rowMap.get(Bucket.Ingreso)?.totalAbono ?? 0n;
-
-    // Spend sums: use totalCargo for each spend bucket (0n if row absent)
-    const necesidades = rowMap.get(Bucket.Necesidades)?.totalCargo ?? 0n;
-    const deseos = rowMap.get(Bucket.Deseos)?.totalCargo ?? 0n;
-    const ahorro = rowMap.get(Bucket.Ahorro)?.totalCargo ?? 0n;
-    const sinCategoria = rowMap.get(Bucket.SinCategoria)?.totalCargo ?? 0n;
-
-    const resumen = ResumenMes.crear({
-      totalIngreso,
-      necesidades,
-      deseos,
-      ahorro,
-      sinCategoria,
-    });
+    const resumen = construirResumenMesDesdeFilas(rows);
 
     return Result.ok({
       periodo: periodoVO.valor,
