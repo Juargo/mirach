@@ -22,7 +22,9 @@ import { Result } from '../src/shared/result';
 import { PatronClasificacion } from '../src/domain/value-objects/patron-clasificacion';
 import { ICatalogoClasificacion } from '../src/application/ports/catalogo-clasificacion.port';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
+import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
 import { USER_ID_FIJO, ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
 /**
@@ -60,12 +62,12 @@ async function runCategorizacionStep(
     const txs = await txReader.findParaClasificar(ingestaId);
     if (txs.length === 0) return { asignadas: 0, sinCategoria: 0 };
 
-    const clasificadas = txs.map((tx) => ({
-      transaccionId: tx.id,
-      bucket: categorizarUseCase
+    const clasificadas = txs.map((tx) => {
+      const { categoria, bucket } = categorizarUseCase
         .execute({ descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono }, patrones)
-        .getValue().bucket,
-    }));
+        .getValue();
+      return { transaccionId: tx.id, categoria, bucket };
+    });
 
     // Espeja runCategorizacion: catálogo caído → solo se escriben filas de Ingreso;
     // el resto queda null (pendiente). Catálogo disponible → se escribe todo.
@@ -77,7 +79,7 @@ async function runCategorizacionStep(
       ? clasificadas.filter((a) => a.bucket === Bucket.SinCategoria).length
       : 0;
 
-    const writeResult = await bucketWriter.asignarBuckets(ingestaId, asignaciones);
+    const writeResult = await bucketWriter.asignarCategorizacion(ingestaId, asignaciones);
     if (writeResult.isFail()) return undefined;
 
     return { asignadas: writeResult.getValue().actualizadas, sinCategoria };
@@ -198,14 +200,14 @@ describe('Categorización — integración (real dev DB)', () => {
     const catalogResult = await catalogoRepo.findAll();
     const patrones = catalogResult.isOk() ? catalogResult.getValue() : [];
     const txParaClasificar = await txClasificacionReader.findParaClasificar(testIngestaBId);
-    const asignaciones = txParaClasificar.map((tx) => ({
-      transaccionId: tx.id,
-      bucket: categorizarUseCase.execute(
+    const asignaciones = txParaClasificar.map((tx) => {
+      const { categoria, bucket } = categorizarUseCase.execute(
         { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
         patrones,
-      ).getValue().bucket,
-    }));
-    await bucketWriter.asignarBuckets(testIngestaBId, asignaciones);
+      ).getValue();
+      return { transaccionId: tx.id, categoria, bucket };
+    });
+    await bucketWriter.asignarCategorizacion(testIngestaBId, asignaciones);
 
     // Verify ingesta B rows were updated
     const updatedB = await prisma.transaccion.findMany({
@@ -277,8 +279,8 @@ describe('Categorización — integración (real dev DB)', () => {
     expect(ingesta?.estado).toBe('PROCESADA');
   });
 
-  // T21 — FK integrity: assigned bucketId resolves to BucketPresupuesto; null rows remain valid
-  it('T21: asignarBuckets persiste FK válida; filas con bucketId null pre-existentes siguen siendo válidas', async () => {
+  // T21 — FK integrity: assigned categoriaId/bucketId resolve to Categoria/BucketPresupuesto; null rows remain valid
+  it('T21: asignarCategorizacion persiste FKs válidas (categoriaId+bucketId); filas con bucketId null pre-existentes siguen siendo válidas', async () => {
     // Insert tx with null bucket
     const txNull = await prisma.transaccion.create({
       data: {
@@ -292,19 +294,21 @@ describe('Categorización — integración (real dev DB)', () => {
     });
     expect(txNull.bucketId).toBeNull(); // pre-existing null is valid
 
-    // Assign a real bucket (ingestaId for structural scope isolation)
-    const writeResult = await bucketWriter.asignarBuckets(testIngestaBId, [
-      { transaccionId: txNull.id, bucket: Bucket.Necesidades },
+    // Assign a real categoría+bucket (ingestaId for structural scope isolation)
+    const writeResult = await bucketWriter.asignarCategorizacion(testIngestaBId, [
+      { transaccionId: txNull.id, categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
     ]);
     expect(writeResult.isOk()).toBe(true);
 
-    // Verify FK resolves correctly
+    // Verify FKs resolve correctly
     const updated = await prisma.transaccion.findUnique({
       where: { id: txNull.id },
-      include: { bucket: true },
+      include: { bucket: true, categoria: true },
     });
     expect(updated?.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
     expect(updated?.bucket?.nombre).toBe(Bucket.Necesidades);
+    expect(updated?.categoriaId).toBe(CATEGORIA_IDS[Categoria.Supermercado]);
+    expect(updated?.categoria?.nombre).toBe(Categoria.Supermercado);
 
     // Verify a different null-bucket row (from ingesta A setup if any) is still valid
     const anotherNull = await prisma.transaccion.create({

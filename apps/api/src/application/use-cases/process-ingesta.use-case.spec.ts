@@ -614,7 +614,7 @@ describe('ProcessIngestaUseCase', () => {
       expect(ingresoAsignacion!.bucket).toBe(Bucket.Ingreso);
     });
 
-    it('SC-15 (scope isolation): asignarBuckets solo se llama con ids de la ingesta actual', async () => {
+    it('SC-15 (scope isolation): asignarCategorizacion solo se llama con ids de la ingesta actual', async () => {
       const bucketWriter = new FakeBucketWriter();
       const txReader = new FakeTxParaClasificarReader();
       // Solo 2 ids de la ingesta actual
@@ -697,7 +697,7 @@ describe('ProcessIngestaUseCase', () => {
       expect(sueldoAsig?.bucket).toBe(Bucket.Ingreso);
     });
 
-    it('ingestaId thread-through: findParaClasificar and asignarBuckets receive the SAME ingestaId from persist', async () => {
+    it('ingestaId thread-through: findParaClasificar and asignarCategorizacion receive the SAME ingestaId from persist', async () => {
       // Verifies that the ingestaId produced by PersistTransactions is correctly
       // threaded all the way through the categorization step to both the reader
       // and the writer (proves end-to-end scope correctness, not just local wiring).

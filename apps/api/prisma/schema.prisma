@@ -64,9 +64,11 @@ model Ingesta {
 }
 
 model BucketPresupuesto {
-  id            String                @id
-  nombre        String                @unique
-  patrones      PatronClasificacion[]
+  id            String        @id
+  nombre        String        @unique
+  // patrones (PatronClasificacion[]) DROPeado en S2: PatronClasificacion ya
+  // no tiene relación directa con BucketPresupuesto — su bucket se deriva
+  // vía categoria.bucket (ver design.md §1.1/§1.3).
   transacciones Transaccion[]
   categorias    Categoria[]
 }
@@ -87,16 +89,15 @@ model Categoria {
 }
 
 model PatronClasificacion {
-  id          String            @id @default(cuid())
+  id          String    @id @default(cuid())
   patron      String
   matchType   String
-  bucketId    String
-  bucket      BucketPresupuesto @relation(fields: [bucketId], references: [id])
-  // Slice S1 (dual-write window): nullable por ahora — bucketId se mantiene
-  // como fuente de verdad hasta S2, que hace categoriaId NOT NULL y DROPea
-  // bucketId (ver design.md §1.3). No behavior change en S1.
-  categoriaId String?
-  categoria   Categoria?        @relation(fields: [categoriaId], references: [id])
+  // Slice S2: bucketId DROPeado (era redundante; el bucket ahora se DERIVA
+  // vía categoria.bucket en el VO de dominio — ver design.md §1.1/§1.3).
+  // categoriaId es NOT NULL desde S2: el seed de S1 pobló categoriaId en
+  // todas las filas, así que la tightening es segura.
+  categoriaId String
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
   prioridad   Int
 }
 

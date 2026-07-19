@@ -46,8 +46,7 @@ function makeFakeSeedClient() {
     id: string;
     patron: string;
     matchType: string;
-    bucketId: string;
-    categoriaId: string | null;
+    categoriaId: string;
     prioridad: number;
   }>();
   const categoria = makeUpsertableStore<{ id: string; nombre: string; bucketId: string }>();
@@ -90,19 +89,21 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
     }
   });
 
-  it('cada PATRON_CATALOG entry referencia una Categoria válida (dual-write consistente con su bucketId actual)', async () => {
+  it('cada PATRON_CATALOG entry referencia una Categoria válida y esa Categoria pertenece a un bucket real (CAT-02, S2)', async () => {
     const { prisma, stores } = makeFakeSeedClient();
     await runSeed(prisma);
 
     expect(stores.patronClasificacion.rows.size).toBe(PATRON_CATALOG_SIZE);
     for (const patron of stores.patronClasificacion.rows.values()) {
-      expect(patron.categoriaId).not.toBeNull();
-      const categoriaRow = stores.categoria.rows.get(patron.categoriaId as string);
+      expect(patron.categoriaId).toBeTruthy();
+      const categoriaRow = stores.categoria.rows.get(patron.categoriaId);
+      // S2: PatronClasificacion ya no tiene bucketId propio — el bucket se
+      // deriva SIEMPRE de categoria.bucket. Basta con que la Categoria
+      // referenciada exista y ya tenga su propio bucketId consistente
+      // (verificado por el test anterior, "sembrar produce cada
+      // Categoria.bucketId === ...").
       expect(categoriaRow).toBeDefined();
-      // Dual-write window (S1): categoriaId y bucketId deben describir el
-      // mismo bucket — si no, el catálogo quedaría inconsistente entre las
-      // dos columnas mientras ambas siguen siendo leídas/escritas.
-      expect(categoriaRow?.bucketId).toBe(patron.bucketId);
+      expect(typeof categoriaRow?.bucketId).toBe('string');
     }
   });
 
