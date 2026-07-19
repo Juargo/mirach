@@ -34,6 +34,26 @@ export interface DestructiveDbOptions {
 
 const PROD_PATTERN = /\bprod\b|production/i;
 
+/**
+ * MoneyDiary tiene un único proyecto Supabase (`cpudmeahqjiuvpqvvizg`), y ESE
+ * proyecto ES producción — no existe un Supabase de dev/staging separado.
+ * La cadena de conexión real (pooler `*.pooler.supabase.com` o directa
+ * `db.<ref>.supabase.co`) no contiene "prod" ni "production", así que
+ * `PROD_PATTERN` por sí solo nunca la detecta. Tratamos CUALQUIER host
+ * Supabase como producción (belt-and-suspenders junto a `PROD_PATTERN`).
+ * Local/test sigue siendo un Postgres desechable en localhost, no Supabase,
+ * así que esta regla no lo afecta. Si algún día se introduce un proyecto
+ * Supabase de dev/branch separado, esta regla debe revisarse.
+ */
+const SUPABASE_HOST_PATTERN = /supabase\.co(m)?/i;
+
+function looksLikeProduction(connectionString: string): boolean {
+  return (
+    PROD_PATTERN.test(connectionString) ||
+    SUPABASE_HOST_PATTERN.test(connectionString)
+  );
+}
+
 export function assertDestructiveDbAllowed(
   options?: DestructiveDbOptions,
 ): void {
@@ -51,7 +71,7 @@ export function assertDestructiveDbAllowed(
     process.env.DATABASE_URL ??
     '';
 
-  if (PROD_PATTERN.test(connectionString)) {
+  if (looksLikeProduction(connectionString)) {
     const ack = options?.allowProductionAck;
     if (ack && process.env[ack.envVar] === ack.expected) {
       console.warn(
