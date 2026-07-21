@@ -17,9 +17,23 @@ const DATA: ProcessIngestaResult = {
   estructura: { filaEncabezados: 8, totalFilasDatos: 50 },
   ingestaId: 'ingesta-1',
   total: 2,
+  // US-005 (Slice 2): campo requerido en ProcessIngestaResult; el DTO HTTP
+  // en sí (aIngestaResponseDto/IngestaResponseDto) NO lo expone todavía —
+  // eso es Slice 3, fuera de alcance de este cambio.
+  duplicadosOmitidos: 0,
   transacciones: [
-    { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 },
-    { fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 },
+    {
+      fecha: new Date('2026-05-14T00:00:00.000Z'),
+      descripcion: 'Compra',
+      cargo: 8103,
+      abono: 0,
+    },
+    {
+      fecha: new Date('2026-05-15T00:00:00.000Z'),
+      descripcion: 'Sueldo',
+      cargo: 0,
+      abono: 1500000,
+    },
   ],
 };
 
@@ -39,8 +53,18 @@ describe('aIngestaResponseDto', () => {
       },
       totalTransacciones: 2,
       transacciones: [
-        { fecha: '2026-05-14T00:00:00.000Z', descripcion: 'Compra', cargo: '8103', abono: '0' },
-        { fecha: '2026-05-15T00:00:00.000Z', descripcion: 'Sueldo', cargo: '0', abono: '1500000' },
+        {
+          fecha: '2026-05-14T00:00:00.000Z',
+          descripcion: 'Compra',
+          cargo: '8103',
+          abono: '0',
+        },
+        {
+          fecha: '2026-05-15T00:00:00.000Z',
+          descripcion: 'Sueldo',
+          cargo: '0',
+          abono: '1500000',
+        },
       ],
     });
   });
