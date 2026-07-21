@@ -74,13 +74,17 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
     return Result.ok({ ingestaId: id });
   }
 
+  readonly commitDuplicadosOmitidosCalls: number[] = [];
+
   async commit(
     ingestaId: string,
     accountId: string,
     transacciones: ReadonlyArray<Transaccion>,
+    duplicadosOmitidos: number,
   ): Promise<Result<{ total: number }, PersistenciaFallidaError>> {
     this.calls.push('commit');
     this.commitCalls++;
+    this.commitDuplicadosOmitidosCalls.push(duplicadosOmitidos);
     if (this.failCommitWith) {
       // Atómico: nada se persiste; el estado NO se toca aquí (lo hace markFailed).
       return Result.fail(this.failCommitWith);
@@ -135,14 +139,25 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
 }
 
 const TXS: Transaccion[] = [
-  { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 },
-  { fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 },
+  {
+    fecha: new Date('2026-05-14T00:00:00.000Z'),
+    descripcion: 'Compra',
+    cargo: 8103,
+    abono: 0,
+  },
+  {
+    fecha: new Date('2026-05-15T00:00:00.000Z'),
+    descripcion: 'Sueldo',
+    cargo: 0,
+    abono: 1500000,
+  },
 ];
 
 const baseInput = {
   accountId: 'acc-1',
   banco: 'BancoEstado',
   nombreArchivo: 'movimientos.xlsx',
+  duplicadosOmitidos: 0,
 };
 
 describe('PersistTransactionsUseCase', () => {
@@ -230,9 +245,13 @@ describe('PersistTransactionsUseCase', () => {
 
   it('markFailed RECHAZA (DB caída): execute NO lanza, resuelve al error ORIGINAL del commit', async () => {
     const store = new FakeIngestaStore();
-    const commitError = new PersistenciaFallidaError('base de datos no disponible');
+    const commitError = new PersistenciaFallidaError(
+      'base de datos no disponible',
+    );
     store.failCommitWith = commitError;
-    store.throwOnMarkFailed = new Error('connection refused durante markFailed');
+    store.throwOnMarkFailed = new Error(
+      'connection refused durante markFailed',
+    );
     const useCase = new PersistTransactionsUseCase(store);
 
     // No debe rechazar aunque markFailed lance.
@@ -251,7 +270,9 @@ describe('PersistTransactionsUseCase', () => {
     const store = new FakeIngestaStore();
     const commitError = new PersistenciaFallidaError('rollback');
     store.failCommitWith = commitError;
-    store.failMarkFailedWith = new PersistenciaFallidaError('markFailed también falló');
+    store.failMarkFailedWith = new PersistenciaFallidaError(
+      'markFailed también falló',
+    );
     const useCase = new PersistTransactionsUseCase(store);
 
     const result = await useCase.execute({ ...baseInput, transacciones: TXS });
@@ -268,5 +289,35 @@ describe('PersistTransactionsUseCase', () => {
     await useCase.execute({ ...baseInput, transacciones: TXS });
 
     expect(store.calls).toEqual(['createPending', 'commit']);
+  });
+
+  // US-005 (Slice 2) — duplicadosOmitidos threading
+  it('pasa duplicadosOmitidos a commit() y lo ECHOA (sin releerlo del retorno de commit)', async () => {
+    const store = new FakeIngestaStore();
+    const useCase = new PersistTransactionsUseCase(store);
+
+    const result = await useCase.execute({
+      ...baseInput,
+      transacciones: TXS,
+      duplicadosOmitidos: 3,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.getValue().duplicadosOmitidos).toBe(3);
+    expect(store.commitDuplicadosOmitidosCalls).toEqual([3]);
+  });
+
+  it('duplicadosOmitidos: 0 (sin duplicados) se ecoa igual', async () => {
+    const store = new FakeIngestaStore();
+    const useCase = new PersistTransactionsUseCase(store);
+
+    const result = await useCase.execute({
+      ...baseInput,
+      transacciones: TXS,
+      duplicadosOmitidos: 0,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.getValue().duplicadosOmitidos).toBe(0);
   });
 });
