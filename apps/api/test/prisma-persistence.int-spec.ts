@@ -91,7 +91,7 @@ describe('Prisma persistence integration (real dev DB)', () => {
         },
       ];
 
-      const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
+      const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 0);
       expect(committed.isOk()).toBe(true);
       expect(committed.getValue().total).toBe(2);
 
@@ -100,6 +100,7 @@ describe('Prisma persistence integration (real dev DB)', () => {
       });
       expect(ingesta?.estado).toBe('PROCESADA');
       expect(ingesta?.totalTransacciones).toBe(2);
+      expect(ingesta?.duplicadosOmitidos).toBe(0);
       expect(ingesta?.procesadoEn).toBeInstanceOf(Date);
 
       const rows = await prisma.transaccion.findMany({ where: { ingestaId } });
@@ -115,6 +116,43 @@ describe('Prisma persistence integration (real dev DB)', () => {
       expect(leidas).toEqual(txs);
     });
 
+    // US-005 (Slice 2, task 8.3) — commit() escribe duplicadosOmitidos en el
+    // MISMO $transaction que ya transiciona la Ingesta a PROCESADA (no una
+    // segunda escritura no-atómica). Solo las `nuevas` (aquí, 1 fila) llegan
+    // al createMany; duplicadosOmitidos es un conteo aparte.
+    it('US-005: duplicadosOmitidos no-cero se escribe atómicamente junto con la transición a PROCESADA', async () => {
+      const pending = await ingestaRepo.createPending({
+        accountId,
+        banco: 'BancoEstado',
+        nombreArchivo: 'condups.xlsx',
+      });
+      const ingestaId = pending.getValue().ingestaId;
+      createdIngestaIds.push(ingestaId);
+
+      const txs: Transaccion[] = [
+        {
+          fecha: new Date('2026-05-16T00:00:00.000Z'),
+          descripcion: 'Nueva',
+          cargo: 100,
+          abono: 0,
+        },
+      ];
+
+      const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 5);
+      expect(committed.isOk()).toBe(true);
+      expect(committed.getValue().total).toBe(1);
+
+      const ingesta = await prisma.ingesta.findUnique({
+        where: { id: ingestaId },
+      });
+      expect(ingesta?.estado).toBe('PROCESADA');
+      expect(ingesta?.totalTransacciones).toBe(1);
+      expect(ingesta?.duplicadosOmitidos).toBe(5);
+      // Solo la fila "nueva" fue insertada — duplicadosOmitidos es un conteo,
+      // no filas reales.
+      expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(1);
+    });
+
     it('lista vacía → PROCESADA total 0, cero filas', async () => {
       const pending = await ingestaRepo.createPending({
         accountId,
@@ -124,7 +162,7 @@ describe('Prisma persistence integration (real dev DB)', () => {
       const ingestaId = pending.getValue().ingestaId;
       createdIngestaIds.push(ingestaId);
 
-      const committed = await ingestaRepo.commit(ingestaId, accountId, []);
+      const committed = await ingestaRepo.commit(ingestaId, accountId, [], 0);
       expect(committed.isOk()).toBe(true);
       expect(committed.getValue().total).toBe(0);
 
@@ -163,7 +201,7 @@ describe('Prisma persistence integration (real dev DB)', () => {
         },
       ];
 
-      const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
+      const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 0);
       expect(committed.isFail()).toBe(true);
       expect(committed.getError()).toBeInstanceOf(PersistenciaFallidaError);
 
@@ -226,7 +264,12 @@ describe('Prisma persistence integration (real dev DB)', () => {
           },
         ];
 
-        const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
+        const committed = await ingestaRepo.commit(
+          ingestaId,
+          accountId,
+          txs,
+          0,
+        );
         expect(committed.isFail()).toBe(true);
         expect(committed.getError()).toBeInstanceOf(PersistenciaFallidaError);
 
@@ -287,7 +330,7 @@ describe('Prisma persistence integration (real dev DB)', () => {
         },
       ];
 
-      const committed = await ingestaRepo.commit(ingestaId, accountId, txs);
+      const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 0);
       expect(committed.isFail()).toBe(true);
       expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(0);
     });
