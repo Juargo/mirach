@@ -31,6 +31,14 @@ export interface IngestaResponseDto {
   numeroCuenta: string;
   archivo: { nombre: string; extension: string; tamanoBytes: number };
   totalTransacciones: number;
+  /**
+   * Conteo de filas detectadas como duplicadas contra la BD y NO persistidas
+   * (US-005, design.md §5.1 — refinamiento respecto al literal de spec.md:
+   * NO se agrega `transaccionesImportadas`, sería redundante con
+   * `totalTransacciones`, que ya refleja solo lo importado). `0` cuando no
+   * hubo duplicados — nunca omitido/undefined (CA-04).
+   */
+  duplicadosOmitidos: number;
   transacciones: ReadonlyArray<TransaccionResponseDto>;
 }
 
@@ -51,6 +59,7 @@ export function aIngestaResponseDto(data: ProcessIngestaResult): IngestaResponse
       tamanoBytes: data.archivo.sizeInBytes,
     },
     totalTransacciones: data.total,
+    duplicadosOmitidos: data.duplicadosOmitidos,
     transacciones: data.transacciones.map((tx) => ({
       fecha: tx.fecha.toISOString(),
       descripcion: tx.descripcion,

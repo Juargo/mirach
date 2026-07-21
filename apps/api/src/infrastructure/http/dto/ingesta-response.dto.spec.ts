@@ -17,10 +17,8 @@ const DATA: ProcessIngestaResult = {
   estructura: { filaEncabezados: 8, totalFilasDatos: 50 },
   ingestaId: 'ingesta-1',
   total: 2,
-  // US-005 (Slice 2): campo requerido en ProcessIngestaResult; el DTO HTTP
-  // en sí (aIngestaResponseDto/IngestaResponseDto) NO lo expone todavía —
-  // eso es Slice 3, fuera de alcance de este cambio.
-  duplicadosOmitidos: 0,
+  // US-005 (Slice 3): el DTO HTTP ahora sí expone este conteo.
+  duplicadosOmitidos: 3,
   transacciones: [
     {
       fecha: new Date('2026-05-14T00:00:00.000Z'),
@@ -52,6 +50,7 @@ describe('aIngestaResponseDto', () => {
         tamanoBytes: 7800,
       },
       totalTransacciones: 2,
+      duplicadosOmitidos: 3,
       transacciones: [
         {
           fecha: '2026-05-14T00:00:00.000Z',
@@ -74,5 +73,13 @@ describe('aIngestaResponseDto', () => {
 
     expect(dto.totalTransacciones).toBe(0);
     expect(dto.transacciones).toEqual([]);
+  });
+
+  // US-005 (Slice 3): con cero duplicados detectados, el DTO refleja 0 (no
+  // undefined, no omitido) — CA-04 regression guard a nivel de contrato HTTP.
+  it('sin duplicados: duplicadosOmitidos mapea a 0', () => {
+    const dto = aIngestaResponseDto({ ...DATA, duplicadosOmitidos: 0 });
+
+    expect(dto.duplicadosOmitidos).toBe(0);
   });
 });
