@@ -24,6 +24,7 @@ import { NormalizeTransactionsUseCase } from './normalize-transactions.use-case'
 import { NormalizePdfTransactionsUseCase } from './normalize-pdf-transactions.use-case';
 import { PersistTransactionsUseCase } from './persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
+import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 
@@ -47,6 +48,8 @@ export interface ProcessIngestaResult {
   ingestaId: string;
   total: number;
   transacciones: ReadonlyArray<Transaccion>;
+  /** Conteo de duplicados detectados y omitidos (no persistidos) — US-005. */
+  duplicadosOmitidos: number;
   categorizacion?: CategorizacionResumen;
 }
 
@@ -106,6 +109,7 @@ export class ProcessIngestaUseCase {
     private readonly transaccionBucketWriter: ITransaccionBucketWriter,
     private readonly categorizarTransaccionUseCase: CategorizarTransaccionUseCase,
     private readonly txParaClasificarReader: ITransaccionParaClasificarReader,
+    private readonly detectarDuplicadosUseCase: DetectarDuplicadosUseCase,
   ) {}
 
   async execute(
@@ -193,16 +197,31 @@ export class ProcessIngestaUseCase {
     }
     const transacciones = normalizeResult.getValue();
 
+    // US-005: detecta duplicados contra la BD ANTES de persistir — solo
+    // `nuevas` llegan a PersistTransactionsUseCase; `duplicadas` se cuenta
+    // pero NUNCA se persiste. Un fallo del detector corta el pipeline
+    // (conservador: si no podemos verificar, no persistimos un batch
+    // potencialmente duplicado) — nada se crea, ni siquiera la Ingesta PENDIENTE.
+    const dedupeResult = await this.detectarDuplicadosUseCase.execute({
+      accountId,
+      transacciones,
+    });
+    if (dedupeResult.isFail()) {
+      return Result.fail(dedupeResult.getError());
+    }
+    const { nuevas, duplicadas } = dedupeResult.getValue();
+
     const persistResult = await this.persistTransactionsUseCase.execute({
       accountId,
       banco: banco.banco,
       nombreArchivo: archivo.originalName,
-      transacciones,
+      transacciones: nuevas,
+      duplicadosOmitidos: duplicadas,
     });
     if (persistResult.isFail()) {
       return Result.fail(persistResult.getError());
     }
-    const { ingestaId, total } = persistResult.getValue();
+    const { ingestaId, total, duplicadosOmitidos } = persistResult.getValue();
 
     // --- Paso de categorización (try/catch island — nunca falla la ingesta) ---
     const categorizacion = await this.runCategorizacion(ingestaId);
@@ -235,7 +254,12 @@ export class ProcessIngestaUseCase {
       estructura: estructuraResumen,
       ingestaId,
       total,
-      transacciones,
+      // `nuevas` (no el `transacciones` crudo pre-dedup): total/transacciones
+      // reflejan lo REALMENTE importado (US-005) — `estructuraResumen` arriba
+      // sí usa el batch crudo porque describe la estructura del ARCHIVO, no
+      // lo persistido.
+      transacciones: nuevas,
+      duplicadosOmitidos,
       categorizacion,
     });
   }

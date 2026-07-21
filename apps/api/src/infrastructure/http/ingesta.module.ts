@@ -30,6 +30,11 @@ import {
   TRANSACCION_PARA_CLASIFICAR_READER,
   ITransaccionParaClasificarReader,
 } from '../../application/ports/transaccion-para-clasificar.port';
+import {
+  TRANSACCION_EXISTENTE_READER,
+  ITransaccionExistenteReader,
+} from '../../application/ports/transaccion-existente-reader.port';
+import { DetectarDuplicadosUseCase } from '../../application/use-cases/detectar-duplicados.use-case';
 import { CRYPTO_SERVICE } from '../../application/ports/crypto-service.port';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
@@ -40,6 +45,7 @@ import { PdfjsTransactionNormalizerService } from '../pdf/pdfjs-transaction-norm
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
+import { PrismaTransaccionExistenteReader } from '../persistence/prisma-transaccion-existente.reader';
 import { PrismaCatalogoClasificacionRepository } from '../persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../persistence/prisma-transaccion-bucket.repository';
 import { PrismaTransaccionClasificacionRepository } from '../persistence/prisma-transaccion-clasificacion.repository';
@@ -92,6 +98,18 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
       useFactory: (prisma: PrismaService) =>
         new PrismaTransaccionClasificacionRepository(prisma),
       inject: [PrismaService],
+    },
+    {
+      provide: TRANSACCION_EXISTENTE_READER,
+      useFactory: (prisma: PrismaService, crypto: NoOpCryptoService) =>
+        new PrismaTransaccionExistenteReader(prisma, crypto),
+      inject: [PrismaService, CRYPTO_SERVICE],
+    },
+    {
+      provide: DetectarDuplicadosUseCase,
+      useFactory: (reader: ITransaccionExistenteReader) =>
+        new DetectarDuplicadosUseCase(reader),
+      inject: [TRANSACCION_EXISTENTE_READER],
     },
     IngestFileUseCase,
     CategorizarTransaccionUseCase,
@@ -150,6 +168,7 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
         transaccionBucketWriter: ITransaccionBucketWriter,
         categorizarTransaccionUseCase: CategorizarTransaccionUseCase,
         txParaClasificarReader: ITransaccionParaClasificarReader,
+        detectarDuplicadosUseCase: DetectarDuplicadosUseCase,
       ) =>
         new ProcessIngestaUseCase(
           ingestFileUseCase,
@@ -165,6 +184,7 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
           transaccionBucketWriter,
           categorizarTransaccionUseCase,
           txParaClasificarReader,
+          detectarDuplicadosUseCase,
         ),
       inject: [
         IngestFileUseCase,
@@ -180,6 +200,7 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
         TRANSACCION_BUCKET_WRITER,
         CategorizarTransaccionUseCase,
         TRANSACCION_PARA_CLASIFICAR_READER,
+        DetectarDuplicadosUseCase,
       ],
     },
   ],

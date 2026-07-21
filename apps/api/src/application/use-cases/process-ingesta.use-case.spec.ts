@@ -48,6 +48,8 @@ import {
   ITransaccionParaClasificarReader,
   TransaccionParaClasificar,
 } from '../ports/transaccion-para-clasificar.port';
+import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
+import { ITransaccionExistenteReader } from '../ports/transaccion-existente-reader.port';
 
 class FakeFileReader implements IFileReader {
   constructor(
@@ -201,6 +203,7 @@ interface IngestaRecord {
   id: string;
   estado: 'PENDIENTE' | 'PROCESADA' | 'FALLIDA';
   motivoFallo: string | null;
+  duplicadosOmitidos?: number;
 }
 
 /** Fake mínimo: implementa ambos ports que consume PersistTransactionsUseCase. */
@@ -208,6 +211,8 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
   private seq = 0;
   readonly ingestas = new Map<string, IngestaRecord>();
   failCommitWith?: PersistenciaFallidaError;
+  /** Transacciones REALMENTE recibidas por commit() (para probar que solo `nuevas` llegan). */
+  readonly commitTransacciones: Array<ReadonlyArray<Transaccion>> = [];
 
   async createPending(
     input: CrearIngestaInput,
@@ -222,13 +227,18 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
     ingestaId: string,
     accountId: string,
     transacciones: ReadonlyArray<Transaccion>,
+    duplicadosOmitidos: number,
   ): Promise<Result<{ total: number }, PersistenciaFallidaError>> {
     void accountId;
+    this.commitTransacciones.push(transacciones);
     if (this.failCommitWith) {
       return Result.fail(this.failCommitWith);
     }
     const rec = this.ingestas.get(ingestaId);
-    if (rec) rec.estado = 'PROCESADA';
+    if (rec) {
+      rec.estado = 'PROCESADA';
+      rec.duplicadosOmitidos = duplicadosOmitidos;
+    }
     return Result.ok({ total: transacciones.length });
   }
 
@@ -269,7 +279,11 @@ class FakeCatalogo implements ICatalogoClasificacion {
 
 class FakeBucketWriter implements ITransaccionBucketWriter {
   calls: Array<
-    ReadonlyArray<{ transaccionId: string; categoria: Categoria | null; bucket: Bucket }>
+    ReadonlyArray<{
+      transaccionId: string;
+      categoria: Categoria | null;
+      bucket: Bucket;
+    }>
   > = [];
   receivedIngestaIds: string[] = [];
   failWith?: CategorizacionFallidaError;
@@ -301,6 +315,24 @@ class FakeTxParaClasificarReader implements ITransaccionParaClasificarReader {
   }
 }
 
+/** Fake del reader de US-005 — controla qué "existentes" ve DetectarDuplicadosUseCase. */
+class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
+  existentes: Array<{
+    fecha: Date;
+    descripcion: string;
+    cargo: bigint;
+    abono: bigint;
+  }> = [];
+  failWith?: PersistenciaFallidaError;
+  called = false;
+
+  async buscarPorCuentaYRango() {
+    this.called = true;
+    if (this.failWith) return Result.fail(this.failWith);
+    return Result.ok(this.existentes);
+  }
+}
+
 interface BuildOptions {
   catalogo?: FakeCatalogo;
   bucketWriter?: FakeBucketWriter;
@@ -308,6 +340,7 @@ interface BuildOptions {
   pdfBankDetector?: FakePdfBankDetector;
   pdfStructureValidator?: FakePdfStructureValidator;
   pdfNormalizer?: FakePdfTransactionNormalizer;
+  txExistenteReader?: FakeTransaccionExistenteReader;
 }
 
 function buildUseCase(opts?: BuildOptions) {
@@ -324,6 +357,11 @@ function buildUseCase(opts?: BuildOptions) {
   const catalogo = opts?.catalogo ?? new FakeCatalogo();
   const bucketWriter = opts?.bucketWriter ?? new FakeBucketWriter();
   const txReader = opts?.txReader ?? new FakeTxParaClasificarReader();
+  const txExistenteReader =
+    opts?.txExistenteReader ?? new FakeTransaccionExistenteReader();
+  const detectarDuplicadosUseCase = new DetectarDuplicadosUseCase(
+    txExistenteReader,
+  );
 
   const useCase = new ProcessIngestaUseCase(
     new IngestFileUseCase(),
@@ -339,6 +377,7 @@ function buildUseCase(opts?: BuildOptions) {
     bucketWriter,
     new CategorizarTransaccionUseCase(),
     txReader,
+    detectarDuplicadosUseCase,
   );
 
   return {
@@ -354,6 +393,7 @@ function buildUseCase(opts?: BuildOptions) {
     catalogo,
     bucketWriter,
     txReader,
+    txExistenteReader,
   };
 }
 
@@ -385,6 +425,7 @@ describe('ProcessIngestaUseCase', () => {
     expect(value.total).toBe(2);
     expect(value.transacciones).toEqual(TXS);
     expect(value.ingestaId).toBeDefined();
+    expect(value.duplicadosOmitidos).toBe(0);
 
     expect(bankDetector.called).toBe(true);
     expect(accountRepository.called).toBe(true);
@@ -739,6 +780,82 @@ describe('ProcessIngestaUseCase', () => {
       expect(categorizacion).toEqual({ asignadas: 0, sinCategoria: 0 });
       // Writer must NOT be called when there are no transactions to classify
       expect(bucketWriter.calls.length).toBe(0);
+    });
+  });
+
+  // US-005 (Slice 2) — dedupe detection wired before persist.
+  describe('detección de duplicados (US-005)', () => {
+    it('overlap parcial: solo las nuevas llegan a commit(); duplicadosOmitidos threaded al resultado', async () => {
+      // TXS[0] = Compra (cargo 8103), TXS[1] = Sueldo (abono 1500000).
+      const txExistenteReader = new FakeTransaccionExistenteReader();
+      txExistenteReader.existentes = [
+        {
+          fecha: TXS[0].fecha,
+          descripcion: TXS[0].descripcion,
+          cargo: 8103n,
+          abono: 0n,
+        },
+      ];
+      const { useCase, ingestaStore } = buildUseCase({ txExistenteReader });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const value = result.getValue();
+      expect(value.duplicadosOmitidos).toBe(1);
+      expect(value.total).toBe(1);
+      expect(value.transacciones).toEqual([TXS[1]]);
+      // commit() solo recibe la transacción NUEVA (Sueldo), no la duplicada (Compra).
+      expect(ingestaStore.commitTransacciones[0]).toEqual([TXS[1]]);
+      const [record] = Array.from(ingestaStore.ingestas.values());
+      expect(record.duplicadosOmitidos).toBe(1);
+    });
+
+    it('overlap total: nuevas=[] llega a commit(), duplicadosOmitidos = N, Ingesta igual queda PROCESADA', async () => {
+      const txExistenteReader = new FakeTransaccionExistenteReader();
+      txExistenteReader.existentes = TXS.map((tx) => ({
+        fecha: tx.fecha,
+        descripcion: tx.descripcion,
+        cargo: BigInt(tx.cargo),
+        abono: BigInt(tx.abono),
+      }));
+      const { useCase, ingestaStore } = buildUseCase({ txExistenteReader });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const value = result.getValue();
+      expect(value.duplicadosOmitidos).toBe(2);
+      expect(value.total).toBe(0);
+      expect(value.transacciones).toEqual([]);
+      expect(ingestaStore.commitTransacciones[0]).toEqual([]);
+      const [record] = Array.from(ingestaStore.ingestas.values());
+      expect(record.estado).toBe('PROCESADA');
+    });
+
+    it('el reader de duplicados falla: la ingesta NUNCA se crea (persist jamás se llama), retorna fail', async () => {
+      const txExistenteReader = new FakeTransaccionExistenteReader();
+      const error = new PersistenciaFallidaError(
+        'no se pudo consultar transacciones existentes para deduplicación',
+      );
+      txExistenteReader.failWith = error;
+      const { useCase, ingestaStore } = buildUseCase({ txExistenteReader });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBe(error);
+      // Nada se persiste: ni siquiera se creó una Ingesta PENDIENTE.
+      expect(ingestaStore.ingestas.size).toBe(0);
     });
   });
 
