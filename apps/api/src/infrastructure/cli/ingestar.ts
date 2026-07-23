@@ -25,6 +25,7 @@ import { NormalizeTransactionsUseCase } from '../../application/use-cases/normal
 import { NormalizePdfTransactionsUseCase } from '../../application/use-cases/normalize-pdf-transactions.use-case';
 import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from '../../application/use-cases/categorizar-transaccion.use-case';
+import { DetectarDuplicadosUseCase } from '../../application/use-cases/detectar-duplicados.use-case';
 import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
 import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
@@ -35,6 +36,7 @@ import { PdfjsTransactionNormalizerService } from '../pdf/pdfjs-transaction-norm
 import { PrismaService } from '../persistence/prisma.service';
 import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
+import { PrismaTransaccionExistenteReader } from '../persistence/prisma-transaccion-existente.reader';
 import { PrismaCatalogoClasificacionRepository } from '../persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../persistence/prisma-transaccion-bucket.repository';
 import { PrismaTransaccionClasificacionRepository } from '../persistence/prisma-transaccion-clasificacion.repository';
@@ -96,6 +98,9 @@ async function main(): Promise<void> {
       new PrismaTransaccionBucketRepository(prisma),
       new CategorizarTransaccionUseCase(),
       new PrismaTransaccionClasificacionRepository(prisma),
+      new DetectarDuplicadosUseCase(
+        new PrismaTransaccionExistenteReader(prisma, crypto),
+      ),
     );
 
     const result = await processIngesta.execute({
@@ -131,6 +136,7 @@ async function main(): Promise<void> {
     console.log('  ─────────────────────────────────');
     console.log(`  Ingesta ID   : ${data.ingestaId}`);
     console.log(`  Transacciones: ${data.total}`);
+    console.log(`  Duplicados   : ${data.duplicadosOmitidos} (omitidos)`);
     console.log(
       `  Cargos       : ${cantCargos}  ($ ${formatCLP(totalCargos)})`,
     );

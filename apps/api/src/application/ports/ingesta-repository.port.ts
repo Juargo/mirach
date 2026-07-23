@@ -30,13 +30,18 @@ export interface IIngestaRepository {
 
   /**
    * Escritura atómica: inserta todas las transacciones y transiciona la
-   * Ingesta a PROCESADA (totalTransacciones, procesadoEn) en una sola
-   * transacción. Un fallo NO debe dejar filas parciales.
+   * Ingesta a PROCESADA (totalTransacciones, procesadoEn,
+   * duplicadosOmitidos) en una sola transacción. Un fallo NO debe dejar
+   * filas parciales. `duplicadosOmitidos` (US-005) es el conteo de filas
+   * detectadas como duplicado y NO incluidas en `transacciones` — se
+   * escribe en el mismo `$transaction` que ya existía, no en una escritura
+   * separada no-atómica.
    */
   commit(
     ingestaId: string,
     accountId: string,
     transacciones: ReadonlyArray<Transaccion>,
+    duplicadosOmitidos: number,
   ): Promise<Result<{ total: number }, PersistenciaFallidaError>>;
 
   /**

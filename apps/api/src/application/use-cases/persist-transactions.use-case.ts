@@ -9,12 +9,16 @@ export interface PersistTransactionsInput {
   banco: string;
   nombreArchivo: string;
   transacciones: ReadonlyArray<Transaccion>;
+  /** Conteo de duplicados detectados y omitidos ANTES de persistir (US-005). */
+  duplicadosOmitidos: number;
 }
 
 /** Salida del use case en caso de éxito. */
 export interface PersistTransactionsResult {
   ingestaId: string;
   total: number;
+  /** Ecoado desde el input — commit() solo retorna {total} (US-005). */
+  duplicadosOmitidos: number;
 }
 
 /**
@@ -51,6 +55,7 @@ export class PersistTransactionsUseCase {
       ingestaId,
       input.accountId,
       input.transacciones,
+      input.duplicadosOmitidos,
     );
     if (committed.isFail()) {
       const error = committed.getError();
@@ -68,6 +73,10 @@ export class PersistTransactionsUseCase {
       return Result.fail(error);
     }
 
-    return Result.ok({ ingestaId, total: committed.getValue().total });
+    return Result.ok({
+      ingestaId,
+      total: committed.getValue().total,
+      duplicadosOmitidos: input.duplicadosOmitidos,
+    });
   }
 }

@@ -57,6 +57,11 @@ model Ingesta {
   nombreArchivo      String
   estado             EstadoIngesta @default(PENDIENTE)
   totalTransacciones Int?
+  // US-005: conteo de filas detectadas como duplicado y NO persistidas.
+  // Default 0 — histórico backfillea a 0 (semánticamente correcto: no se
+  // omitió nada antes de que existiera esta detección). Additive, sin
+  // backfill de datos.
+  duplicadosOmitidos Int           @default(0)
   motivoFallo        String?
   creadoEn           DateTime      @default(now())
   procesadoEn        DateTime?
@@ -120,4 +125,12 @@ model Transaccion {
   categoriaId String?
   categoria   Categoria?         @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
   creadoEn    DateTime           @default(now())
+
+  // US-005: acota la lectura de detección de duplicados por (accountId,
+  // fecha ∈ [min,max] del batch entrante) — nunca un full-history scan.
+  // Non-unique deliberadamente: un índice único abortaría el createMany
+  // atómico en la primera colisión (lo OPUESTO al auto-skip de CA-03). Sin
+  // índice sobre `descripcion` (rompería bajo cifrado real + filtraría
+  // texto plano-adyacente en un índice, ADR-013).
+  @@index([accountId, fecha])
 }

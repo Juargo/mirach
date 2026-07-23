@@ -18,6 +18,8 @@ const DATA: ProcessIngestaResult = {
   estructura: { filaEncabezados: 8, totalFilasDatos: 50 },
   ingestaId: 'ingesta-1',
   total: 2,
+  // US-005 (Slice 3): el DTO HTTP ahora sí expone este conteo.
+  duplicadosOmitidos: 3,
   transacciones: [
     Transaccion.crear({ fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 }).getValue(),
     Transaccion.crear({ fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 }).getValue(),
@@ -39,9 +41,20 @@ describe('aIngestaResponseDto', () => {
         tamanoBytes: 7800,
       },
       totalTransacciones: 2,
+      duplicadosOmitidos: 3,
       transacciones: [
-        { fecha: '2026-05-14T00:00:00.000Z', descripcion: 'Compra', cargo: '8103', abono: '0' },
-        { fecha: '2026-05-15T00:00:00.000Z', descripcion: 'Sueldo', cargo: '0', abono: '1500000' },
+        {
+          fecha: '2026-05-14T00:00:00.000Z',
+          descripcion: 'Compra',
+          cargo: '8103',
+          abono: '0',
+        },
+        {
+          fecha: '2026-05-15T00:00:00.000Z',
+          descripcion: 'Sueldo',
+          cargo: '0',
+          abono: '1500000',
+        },
       ],
     });
   });
@@ -51,5 +64,13 @@ describe('aIngestaResponseDto', () => {
 
     expect(dto.totalTransacciones).toBe(0);
     expect(dto.transacciones).toEqual([]);
+  });
+
+  // US-005 (Slice 3): con cero duplicados detectados, el DTO refleja 0 (no
+  // undefined, no omitido) — CA-04 regression guard a nivel de contrato HTTP.
+  it('sin duplicados: duplicadosOmitidos mapea a 0', () => {
+    const dto = aIngestaResponseDto({ ...DATA, duplicadosOmitidos: 0 });
+
+    expect(dto.duplicadosOmitidos).toBe(0);
   });
 });

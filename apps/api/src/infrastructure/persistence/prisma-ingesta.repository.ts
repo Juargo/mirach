@@ -51,6 +51,7 @@ export class PrismaIngestaRepository implements IIngestaRepository {
     ingestaId: string,
     accountId: string,
     transacciones: ReadonlyArray<Transaccion>,
+    duplicadosOmitidos: number,
   ): Promise<Result<{ total: number }, PersistenciaFallidaError>> {
     try {
       const data = transacciones.map((tx) => ({
@@ -59,9 +60,10 @@ export class PrismaIngestaRepository implements IIngestaRepository {
         accountId,
       }));
 
-      // Atómico: inserción masiva + transición a PROCESADA en una sola tx.
-      // Si el createMany falla (p. ej. viola una CHECK), TODO se revierte:
-      // 0 filas y la Ingesta permanece PENDIENTE.
+      // Atómico: inserción masiva + transición a PROCESADA (incluyendo el
+      // conteo de duplicados omitidos, US-005) en una sola tx. Si el
+      // createMany falla (p. ej. viola una CHECK), TODO se revierte: 0 filas
+      // y la Ingesta permanece PENDIENTE.
       await this.prisma.$transaction([
         this.prisma.transaccion.createMany({ data }),
         this.prisma.ingesta.update({
@@ -69,6 +71,7 @@ export class PrismaIngestaRepository implements IIngestaRepository {
           data: {
             estado: EstadoIngesta.PROCESADA,
             totalTransacciones: transacciones.length,
+            duplicadosOmitidos,
             procesadoEn: new Date(),
           },
         }),
