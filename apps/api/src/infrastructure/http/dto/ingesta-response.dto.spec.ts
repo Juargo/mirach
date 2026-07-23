@@ -2,6 +2,7 @@ import { aIngestaResponseDto } from './ingesta-response.dto';
 import { ProcessIngestaResult } from '../../../application/use-cases/process-ingesta.use-case';
 import { BancoConocido } from '../../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../../domain/value-objects/tipo-cuenta';
+import { Transaccion } from '../../../domain/value-objects/transaccion';
 
 const DATA: ProcessIngestaResult = {
   archivo: {
@@ -18,8 +19,8 @@ const DATA: ProcessIngestaResult = {
   ingestaId: 'ingesta-1',
   total: 2,
   transacciones: [
-    { fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 },
-    { fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 },
+    Transaccion.crear({ fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 }).getValue(),
+    Transaccion.crear({ fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 }).getValue(),
   ],
 };
 

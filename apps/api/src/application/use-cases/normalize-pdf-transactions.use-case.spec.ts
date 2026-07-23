@@ -9,12 +9,12 @@ import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-inval
 describe('NormalizePdfTransactionsUseCase', () => {
   it('delega al port y retorna su Result.ok tal cual', async () => {
     const transacciones: ReadonlyArray<Transaccion> = [
-      {
+      Transaccion.crear({
         fecha: new Date(Date.UTC(2026, 2, 5)),
         descripcion: 'x',
         cargo: 0,
         abono: 1000,
-      },
+      }).getValue(),
     ];
     const normalizer: IPdfTransactionNormalizer = {
       normalize: vi.fn().mockResolvedValue(Result.ok(transacciones)),

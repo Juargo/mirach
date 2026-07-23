@@ -103,18 +103,18 @@ class FakeStructureValidator implements IStructureValidator {
 }
 
 const TXS: Transaccion[] = [
-  {
+  Transaccion.crear({
     fecha: new Date('2026-05-14T00:00:00.000Z'),
     descripcion: 'Compra',
     cargo: 8103,
     abono: 0,
-  },
-  {
+  }).getValue(),
+  Transaccion.crear({
     fecha: new Date('2026-05-15T00:00:00.000Z'),
     descripcion: 'Sueldo',
     cargo: 0,
     abono: 1500000,
-  },
+  }).getValue(),
 ];
 
 class FakeTransactionNormalizer implements ITransactionNormalizer {
@@ -165,12 +165,12 @@ class FakePdfStructureValidator implements IPdfStructureValidator {
 }
 
 const TXS_PDF: Transaccion[] = [
-  {
+  Transaccion.crear({
     fecha: new Date('2026-04-20T00:00:00.000Z'),
     descripcion: 'Compra PDF',
     cargo: 9000,
     abono: 0,
-  },
+  }).getValue(),
 ];
 
 class FakePdfTransactionNormalizer implements IPdfTransactionNormalizer {

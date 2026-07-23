@@ -185,7 +185,16 @@ export class ExcelTransactionNormalizerService implements ITransactionNormalizer
         continue;
       }
 
-      transacciones.push({ fecha, descripcion, cargo, abono });
+      // El VO Transaccion protege el invariante en un único lugar (cargo XOR
+      // abono, montos enteros ≥ 0). El flujo previo ya filtró fechas/celdas
+      // vacías y no-enteros; un fail aquí implica montos en AMBAS columnas o
+      // un negativo residual → se reporta como problema de la fila.
+      const tx = Transaccion.crear({ fecha, descripcion, cargo, abono });
+      if (tx.isFail()) {
+        problemas.push({ tipo: 'MontoIninterpretable', fila, columna: mapeo.cargo });
+        continue;
+      }
+      transacciones.push(tx.getValue());
     }
 
     if (problemas.length > 0) {

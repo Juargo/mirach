@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { PdfjsTransactionNormalizerService } from './pdfjs-transaction-normalizer.service';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
+import { Transaccion } from '../../domain/value-objects/transaccion';
 
 const fixturesDir = join(__dirname, '../../../test/fixtures/pdf');
 
@@ -64,22 +65,26 @@ describe('PdfjsTransactionNormalizerService', () => {
       const transferencia = result
         .getValue()
         .find((t) => t.descripcion === 'Transf a Tercero Maria Ejemplo');
-      expect(transferencia).toEqual({
-        fecha: new Date(Date.UTC(2026, 2, 20)),
-        descripcion: 'Transf a Tercero Maria Ejemplo',
-        cargo: 120000,
-        abono: 0,
-      });
+      expect(transferencia).toEqual(
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 2, 20)),
+          descripcion: 'Transf a Tercero Maria Ejemplo',
+          cargo: 120000,
+          abono: 0,
+        }).getValue(),
+      );
 
       const sueldo = result
         .getValue()
         .find((t) => t.descripcion === 'Abono Sueldo Empresa Generica');
-      expect(sueldo).toEqual({
-        fecha: new Date(Date.UTC(2026, 2, 5)),
-        descripcion: 'Abono Sueldo Empresa Generica',
-        cargo: 0,
-        abono: 850000,
-      });
+      expect(sueldo).toEqual(
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 2, 5)),
+          descripcion: 'Abono Sueldo Empresa Generica',
+          cargo: 0,
+          abono: 850000,
+        }).getValue(),
+      );
     });
   });
 

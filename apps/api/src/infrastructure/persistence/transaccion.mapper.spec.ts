@@ -17,12 +17,12 @@ function mensajeLanzado(fn: () => unknown): string {
 describe('transaccion.mapper', () => {
   describe('aPersistencia', () => {
     it('convierte cargo/abono numéricos a BigInt y deja bucketId nulo', () => {
-      const tx: Transaccion = {
+      const tx: Transaccion = Transaccion.crear({
         fecha: new Date('2026-05-14T00:00:00.000Z'),
         descripcion: 'Compra',
         cargo: 8103,
         abono: 0,
-      };
+      }).getValue();
 
       const row = aPersistencia(tx, crypto);
 
@@ -35,12 +35,12 @@ describe('transaccion.mapper', () => {
     });
 
     it('cifra la descripción usando el crypto service', () => {
-      const tx: Transaccion = {
+      const tx: Transaccion = Transaccion.crear({
         fecha: new Date('2026-05-15T00:00:00.000Z'),
         descripcion: 'Sueldo',
         cargo: 0,
         abono: 1500000,
-      };
+      }).getValue();
 
       const row = aPersistencia(tx, crypto);
 
@@ -52,12 +52,12 @@ describe('transaccion.mapper', () => {
 
   describe('round-trip integrity', () => {
     it('preserva cargo positivo/abono cero sin pérdida (< 2^53)', () => {
-      const tx: Transaccion = {
+      const tx: Transaccion = Transaccion.crear({
         fecha: new Date('2026-05-14T00:00:00.000Z'),
         descripcion: 'Retiro cajero',
         cargo: 1234567,
         abono: 0,
-      };
+      }).getValue();
 
       const roundTripped = aDominio(aPersistencia(tx, crypto), crypto);
 
@@ -67,12 +67,12 @@ describe('transaccion.mapper', () => {
     });
 
     it('preserva abono positivo/cargo cero sin pérdida (< 2^53)', () => {
-      const tx: Transaccion = {
+      const tx: Transaccion = Transaccion.crear({
         fecha: new Date('2026-06-01T00:00:00.000Z'),
         descripcion: 'Transferencia',
         cargo: 0,
         abono: 999999999,
-      };
+      }).getValue();
 
       const roundTripped = aDominio(aPersistencia(tx, crypto), crypto);
 
@@ -102,32 +102,32 @@ describe('transaccion.mapper', () => {
   });
 
   describe('sign/zero contract', () => {
-    it('preserva cargo y abono en cero (fila neutra)', () => {
-      const tx: Transaccion = {
+    // Una fila "neutra" (cargo=0, abono=0) viola el invariante SIN_MONTOS del
+    // VO (CA-06/07/08). El pipeline de ingesta ya la descarta (FilaSinMontos),
+    // así que NO debería existir en la DB. Si por corrupción existiera,
+    // `aDominio` la trata como frontera de confianza rota → fail-fast (lanza),
+    // en vez de devolver en silencio una transacción imposible.
+    it('aDominio lanza ante una fila neutra corrupta (cargo=0 y abono=0)', () => {
+      const row = {
         fecha: new Date('2026-08-01T00:00:00.000Z'),
         descripcion: 'Ajuste',
-        cargo: 0,
-        abono: 0,
+        cargo: 0n,
+        abono: 0n,
+        bucketId: null,
       };
 
-      const row = aPersistencia(tx, crypto);
-      expect(row.cargo).toBe(0n);
-      expect(row.abono).toBe(0n);
-
-      const roundTripped = aDominio(row, crypto);
-      expect(roundTripped.cargo).toBe(0);
-      expect(roundTripped.abono).toBe(0);
+      expect(() => aDominio(row, crypto)).toThrow();
     });
   });
 
   describe('BigInt→number read-path overflow guard', () => {
     it('round-trip exacto en Number.MAX_SAFE_INTEGER no pierde precisión', () => {
-      const tx: Transaccion = {
+      const tx: Transaccion = Transaccion.crear({
         fecha: new Date('2026-09-01T00:00:00.000Z'),
         descripcion: 'Monto máximo seguro',
         cargo: Number.MAX_SAFE_INTEGER,
         abono: 0,
-      };
+      }).getValue();
 
       const roundTripped = aDominio(aPersistencia(tx, crypto), crypto);
 
@@ -165,32 +165,4 @@ describe('transaccion.mapper', () => {
     });
   });
 
-  describe('aPersistencia integer precondition', () => {
-    it('lanza un error claro para cargo no entero (no usa Math.trunc silencioso)', () => {
-      const tx: Transaccion = {
-        fecha: new Date('2026-10-01T00:00:00.000Z'),
-        descripcion: 'Float',
-        cargo: 1234.56,
-        abono: 0,
-      };
-
-      expect(() => aPersistencia(tx, crypto)).toThrow(TypeError);
-      expect(() => aPersistencia(tx, crypto)).toThrow(/cargo/);
-      expect(() => aPersistencia(tx, crypto)).toThrow(/entero/);
-      // El mensaje NO debe filtrar el monto crudo (dato sensible).
-      expect(mensajeLanzado(() => aPersistencia(tx, crypto))).not.toContain('1234.56');
-    });
-
-    it('lanza un error claro para abono NaN', () => {
-      const tx: Transaccion = {
-        fecha: new Date('2026-10-02T00:00:00.000Z'),
-        descripcion: 'NaN',
-        cargo: 0,
-        abono: Number.NaN,
-      };
-
-      expect(() => aPersistencia(tx, crypto)).toThrow(TypeError);
-      expect(() => aPersistencia(tx, crypto)).toThrow(/abono/);
-    });
-  });
 });
