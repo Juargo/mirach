@@ -17,8 +17,8 @@ function makeNormalizer(
 describe('NormalizeTransactionsUseCase', () => {
   it('delega en el port y retorna las transacciones normalizadas', async () => {
     const transacciones: Transaccion[] = [
-      Transaccion.crear({ fecha: new Date('2026-05-14'), descripcion: 'Compra', cargo: 8103, abono: 0 }).getValue(),
-      Transaccion.crear({ fecha: new Date('2026-05-15'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 }).getValue(),
+      Transaccion.crear({ fecha: new Date('2026-05-14'), descripcion: 'Compra', cargo: 8103n, abono: 0n }).getValue(),
+      Transaccion.crear({ fecha: new Date('2026-05-15'), descripcion: 'Sueldo', cargo: 0n, abono: 1500000n }).getValue(),
     ];
     const normalizer = makeNormalizer(async () => Result.ok(transacciones));
     const useCase = new NormalizeTransactionsUseCase(normalizer);

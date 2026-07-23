@@ -301,8 +301,8 @@ export function normalizarTransaccionesPdf(
     const tx = Transaccion.crear({
       fecha: new Date(Date.UTC(anios[i], c.mes - 1, c.dia)),
       descripcion: c.descripcion,
-      cargo: c.cargo,
-      abono: c.abono,
+      cargo: BigInt(c.cargo),
+      abono: BigInt(c.abono),
     });
     if (tx.isFail()) {
       return Result.fail(

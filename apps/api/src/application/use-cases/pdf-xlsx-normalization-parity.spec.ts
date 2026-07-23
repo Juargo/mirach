@@ -80,8 +80,8 @@ async function buildBancoEstadoWorkbook(
 const MOVIMIENTO_ESPERADO: Transaccion = Transaccion.crear({
   fecha: new Date(Date.UTC(2026, 3, 20)),
   descripcion: 'PAGO QR SUPERMERCADO',
-  cargo: 15000,
-  abono: 0,
+  cargo: 15000n,
+  abono: 0n,
 }).getValue();
 
 function esperarShapeCanonica(txs: ReadonlyArray<Transaccion>): void {
@@ -90,10 +90,10 @@ function esperarShapeCanonica(txs: ReadonlyArray<Transaccion>): void {
     expect(tx.fecha).toBeInstanceOf(Date);
     expect(Number.isNaN(tx.fecha.getTime())).toBe(false);
     expect(typeof tx.descripcion).toBe('string');
-    expect(Number.isInteger(tx.cargo)).toBe(true);
-    expect(tx.cargo).toBeGreaterThanOrEqual(0);
-    expect(Number.isInteger(tx.abono)).toBe(true);
-    expect(tx.abono).toBeGreaterThanOrEqual(0);
+    expect(typeof tx.cargo).toBe('bigint');
+    expect(tx.cargo).toBeGreaterThanOrEqual(0n);
+    expect(typeof tx.abono).toBe('bigint');
+    expect(tx.abono).toBeGreaterThanOrEqual(0n);
   }
 }
 

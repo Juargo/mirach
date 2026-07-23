@@ -69,8 +69,8 @@ describe('normalizarTransaccionesPdf', () => {
       Transaccion.crear({
         fecha: new Date(Date.UTC(2026, 2, 7)),
         descripcion: 'Compra Supermercado Generico',
-        cargo: 45990,
-        abono: 0,
+        cargo: 45990n,
+        abono: 0n,
       }).getValue(),
     ]);
   });
@@ -91,8 +91,8 @@ describe('normalizarTransaccionesPdf', () => {
       Transaccion.crear({
         fecha: new Date(Date.UTC(2026, 2, 5)),
         descripcion: 'Abono Sueldo',
-        cargo: 0,
-        abono: 850000,
+        cargo: 0n,
+        abono: 850000n,
       }).getValue(),
     ]);
   });
@@ -306,8 +306,8 @@ describe('normalizarTransaccionesPdf', () => {
       Transaccion.crear({
         fecha: new Date(Date.UTC(2026, 3, 1)),
         descripcion: 'Pago Credito',
-        cargo: 50000,
-        abono: 0,
+        cargo: 50000n,
+        abono: 0n,
       }).getValue(),
     ]);
   });
@@ -334,8 +334,8 @@ describe('normalizarTransaccionesPdf', () => {
       Transaccion.crear({
         fecha: new Date(Date.UTC(2026, 3, 2)),
         descripcion: 'Compra',
-        cargo: 5000,
-        abono: 0,
+        cargo: 5000n,
+        abono: 0n,
       }).getValue(),
     ]);
   });
@@ -450,8 +450,8 @@ describe('normalizarTransaccionesPdf', () => {
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 2, 5)),
           descripcion: 'Pago',
-          cargo: 9990,
-          abono: 0,
+          cargo: 9990n,
+          abono: 0n,
         }).getValue(),
       ]);
     });
@@ -519,7 +519,7 @@ describe('normalizarTransaccionesPdf', () => {
       );
 
       expect(resultado).toHaveLength(1);
-      expect(resultado[0].cargo).toBe(9990);
+      expect(resultado[0].cargo).toBe(9990n);
     });
 
     it('un token con forma de monto fuera de rangosX en una fila que SÍ tiene cargo/abono asignado NO dispara la señal (ej. columna Saldo, siempre presente y siempre fuera de rangosX)', () => {
@@ -538,7 +538,7 @@ describe('normalizarTransaccionesPdf', () => {
       );
 
       expect(resultado).toHaveLength(1);
-      expect(resultado[0].cargo).toBe(9990);
+      expect(resultado[0].cargo).toBe(9990n);
     });
   });
 
@@ -577,8 +577,8 @@ describe('normalizarTransaccionesPdf', () => {
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 3, 2)),
           descripcion: 'Pago Credito D001 001/012',
-          cargo: 50000,
-          abono: 0,
+          cargo: 50000n,
+          abono: 0n,
         }).getValue(),
       ]);
     });
@@ -686,14 +686,14 @@ describe('normalizarTransaccionesPdf', () => {
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 3, 2)),
           descripcion: 'Alguna Descripcion Completa',
-          cargo: 700000,
-          abono: 0,
+          cargo: 700000n,
+          abono: 0n,
         }).getValue(),
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 3, 2)),
           descripcion: 'Pago Credito D001 4800000001 001/012',
-          cargo: 250213,
-          abono: 0,
+          cargo: 250213n,
+          abono: 0n,
         }).getValue(),
       ]);
     });

@@ -7,12 +7,16 @@ import { TransaccionInvalidaError } from '../errors/transaccion-invalida.error';
  *
  *   fecha        → Date en UTC, normalizada desde DD/MM/YYYY, YYYY-MM-DD o DD-MM-YYYY.
  *   descripcion  → texto descriptivo tal cual aparece en el archivo original.
- *   cargo        → monto debitado, entero ≥ 0. 0 si la fila es un abono.
- *   abono        → monto acreditado, entero ≥ 0. 0 si la fila es un cargo.
+ *   cargo        → monto debitado en pesos exactos (BigInt), ≥ 0. 0n si es abono.
+ *   abono        → monto acreditado en pesos exactos (BigInt), ≥ 0. 0n si es cargo.
+ *
+ * El dinero es `BigInt` en TODO el dominio (representación exacta única): no hay
+ * `number` intermedio, así que no existe riesgo de overflow 2^53 ni conversiones
+ * de ida y vuelta. La persistencia usa el mismo BigInt (mapeo 1:1).
  *
  * Invariante (CA-06, CA-07, CA-08) — garantizado por `crear`, imposible de violar:
- *   - cargo y abono son enteros ≥ 0 (celdas vacías → 0; negativos de BancoEstado
- *     ya vienen en valor absoluto desde el normalizer).
+ *   - cargo y abono son ≥ 0 (celdas vacías → 0n; negativos de BancoEstado ya
+ *     vienen en valor absoluto desde el normalizer).
  *   - una línea es débito XOR crédito: exactamente uno de {cargo, abono} es > 0.
  *
  * El constructor es privado: la ÚNICA forma de obtener una Transaccion es
@@ -28,31 +32,42 @@ export class Transaccion {
   private constructor(
     readonly fecha: Date,
     readonly descripcion: string,
-    readonly cargo: number,
-    readonly abono: number,
+    readonly cargo: bigint,
+    readonly abono: bigint,
   ) {}
 
   static crear(props: {
     fecha: Date;
     descripcion: string;
-    cargo: number;
-    abono: number;
+    cargo: bigint;
+    abono: bigint;
   }): Result<Transaccion, TransaccionInvalidaError> {
     const { fecha, descripcion, cargo, abono } = props;
 
-    if (!Number.isInteger(cargo) || !Number.isInteger(abono)) {
-      return Result.fail(new TransaccionInvalidaError('MONTO_NO_ENTERO'));
-    }
-    if (cargo < 0 || abono < 0) {
+    if (cargo < 0n || abono < 0n) {
       return Result.fail(new TransaccionInvalidaError('MONTO_NEGATIVO'));
     }
-    if (cargo === 0 && abono === 0) {
+    if (cargo === 0n && abono === 0n) {
       return Result.fail(new TransaccionInvalidaError('SIN_MONTOS'));
     }
-    if (cargo > 0 && abono > 0) {
+    if (cargo > 0n && abono > 0n) {
       return Result.fail(new TransaccionInvalidaError('CARGO_Y_ABONO'));
     }
 
     return Result.ok(new Transaccion(fecha, descripcion, cargo, abono));
+  }
+
+  /**
+   * Regla de negocio "es ingreso": abono > 0 y cargo = 0 (RF-VIS-001).
+   * Estático para que el read model de categorización (bigint, post-persistencia,
+   * sin fecha) la evalúe sin reconstruir una instancia completa del VO. La regla
+   * vive en un único lugar; el método de instancia solo delega.
+   */
+  static esIngreso(cargo: bigint, abono: bigint): boolean {
+    return abono > 0n && cargo === 0n;
+  }
+
+  esIngreso(): boolean {
+    return Transaccion.esIngreso(this.cargo, this.abono);
   }
 }

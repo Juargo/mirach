@@ -36,8 +36,8 @@ interface IngestaRecord {
 interface FilaPersistida {
   fecha: Date;
   descripcion: string;
-  cargo: number;
-  abono: number;
+  cargo: bigint;
+  abono: bigint;
   ingestaId: string;
   accountId: string;
 }
@@ -146,8 +146,8 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
 }
 
 const TXS: Transaccion[] = [
-  Transaccion.crear({ fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 }).getValue(),
-  Transaccion.crear({ fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 }).getValue(),
+  Transaccion.crear({ fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103n, abono: 0n }).getValue(),
+  Transaccion.crear({ fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0n, abono: 1500000n }).getValue(),
 ];
 
 const baseInput = {

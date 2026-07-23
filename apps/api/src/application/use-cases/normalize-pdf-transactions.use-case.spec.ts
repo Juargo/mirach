@@ -12,8 +12,8 @@ describe('NormalizePdfTransactionsUseCase', () => {
       Transaccion.crear({
         fecha: new Date(Date.UTC(2026, 2, 5)),
         descripcion: 'x',
-        cargo: 0,
-        abono: 1000,
+        cargo: 0n,
+        abono: 1000n,
       }).getValue(),
     ];
     const normalizer: IPdfTransactionNormalizer = {

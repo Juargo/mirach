@@ -44,7 +44,7 @@ import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
 import { USER_ID_FIJO } from '../persistence/constants';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
 
-function formatCLP(n: number): string {
+function formatCLP(n: bigint): string {
   return n.toLocaleString('es-CL');
 }
 
@@ -114,10 +114,10 @@ async function main(): Promise<void> {
     }
 
     const data = result.getValue();
-    const totalCargos = data.transacciones.reduce((s, t) => s + t.cargo, 0);
-    const totalAbonos = data.transacciones.reduce((s, t) => s + t.abono, 0);
-    const cantCargos = data.transacciones.filter((t) => t.cargo > 0).length;
-    const cantAbonos = data.transacciones.filter((t) => t.abono > 0).length;
+    const totalCargos = data.transacciones.reduce((s, t) => s + t.cargo, 0n);
+    const totalAbonos = data.transacciones.reduce((s, t) => s + t.abono, 0n);
+    const cantCargos = data.transacciones.filter((t) => t.cargo > 0n).length;
+    const cantAbonos = data.transacciones.filter((t) => t.abono > 0n).length;
 
     console.log('\n✅  Archivo procesado y persistido correctamente');
     console.log('─────────────────────────────────────');

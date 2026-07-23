@@ -2,6 +2,7 @@ import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
+import { Transaccion } from '../../domain/value-objects/transaccion';
 
 /** Datos mínimos de una transacción necesarios para la clasificación. */
 export interface TransaccionInput {
@@ -43,8 +44,9 @@ export class CategorizarTransaccionUseCase {
     transaccion: TransaccionInput,
     patrones: ReadonlyArray<PatronClasificacion>,
   ): Result<CategorizarTransaccionResult, never> {
-    // 1. Ingreso rule — tiene prioridad sobre todo el catálogo.
-    if (transaccion.abono > 0n && transaccion.cargo === 0n) {
+    // 1. Ingreso rule — tiene prioridad sobre todo el catálogo. La regla vive
+    //    en el VO (única fuente); aquí se evalúa sobre el read model bigint.
+    if (Transaccion.esIngreso(transaccion.cargo, transaccion.abono)) {
       return Result.ok({ categoria: null, bucket: Bucket.Ingreso });
     }
 
