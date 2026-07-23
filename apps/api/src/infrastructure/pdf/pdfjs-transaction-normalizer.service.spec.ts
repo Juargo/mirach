@@ -24,8 +24,8 @@ describe('PdfjsTransactionNormalizerService', () => {
       for (const t of transacciones) {
         expect(t.fecha.getUTCFullYear()).toBe(2026);
         expect(t.fecha.getUTCMonth()).toBe(2); // marzo, 0-indexed
-        expect(Number.isInteger(t.cargo)).toBe(true);
-        expect(Number.isInteger(t.abono)).toBe(true);
+        expect(typeof t.cargo).toBe('bigint');
+        expect(typeof t.abono).toBe('bigint');
       }
     });
 
@@ -69,8 +69,8 @@ describe('PdfjsTransactionNormalizerService', () => {
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 2, 20)),
           descripcion: 'Transf a Tercero Maria Ejemplo',
-          cargo: 120000,
-          abono: 0,
+          cargo: 120000n,
+          abono: 0n,
         }).getValue(),
       );
 
@@ -81,8 +81,8 @@ describe('PdfjsTransactionNormalizerService', () => {
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 2, 5)),
           descripcion: 'Abono Sueldo Empresa Generica',
-          cargo: 0,
-          abono: 850000,
+          cargo: 0n,
+          abono: 850000n,
         }).getValue(),
       );
     });
@@ -102,8 +102,8 @@ describe('PdfjsTransactionNormalizerService', () => {
       for (const t of transacciones) {
         expect(t.fecha.getUTCFullYear()).toBe(2026);
         expect(t.fecha.getUTCMonth()).toBe(3); // abril, 0-indexed
-        expect(Number.isInteger(t.cargo)).toBe(true);
-        expect(Number.isInteger(t.abono)).toBe(true);
+        expect(typeof t.cargo).toBe('bigint');
+        expect(typeof t.abono).toBe('bigint');
       }
     });
 
@@ -150,13 +150,13 @@ describe('PdfjsTransactionNormalizerService', () => {
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
 
       const transacciones = result.getValue();
-      const totalCargos = transacciones.reduce((acc, t) => acc + t.cargo, 0);
-      const totalAbonos = transacciones.reduce((acc, t) => acc + t.abono, 0);
+      const totalCargos = transacciones.reduce((acc, t) => acc + t.cargo, 0n);
+      const totalAbonos = transacciones.reduce((acc, t) => acc + t.abono, 0n);
 
-      expect(totalCargos).toBe(125000);
-      expect(totalAbonos).toBe(130000);
-      expect(Number.isInteger(totalCargos)).toBe(true);
-      expect(Number.isInteger(totalAbonos)).toBe(true);
+      expect(totalCargos).toBe(125000n);
+      expect(totalAbonos).toBe(130000n);
+      expect(typeof totalCargos).toBe('bigint');
+      expect(typeof totalAbonos).toBe('bigint');
     });
   });
 
@@ -174,8 +174,8 @@ describe('PdfjsTransactionNormalizerService', () => {
       for (const t of transacciones) {
         expect(t.fecha.getUTCFullYear()).toBe(2026);
         expect(t.fecha.getUTCMonth()).toBe(3); // abril, 0-indexed
-        expect(Number.isInteger(t.cargo)).toBe(true);
-        expect(Number.isInteger(t.abono)).toBe(true);
+        expect(typeof t.cargo).toBe('bigint');
+        expect(typeof t.abono).toBe('bigint');
       }
       expect(transacciones.some((t) => t.descripcion.includes('SALDO'))).toBe(
         false,
@@ -193,14 +193,14 @@ describe('PdfjsTransactionNormalizerService', () => {
       const compra = transacciones.find((t) =>
         t.descripcion.includes('COMPRA COMERCIO GENERICO'),
       );
-      expect(compra?.cargo).toBe(15990);
-      expect(compra?.abono).toBe(0);
+      expect(compra?.cargo).toBe(15990n);
+      expect(compra?.abono).toBe(0n);
 
       const abono = transacciones.find((t) =>
         t.descripcion.includes('ABONO TRANSFERENCIA'),
       );
-      expect(abono?.abono).toBe(250000);
-      expect(abono?.cargo).toBe(0);
+      expect(abono?.abono).toBe(250000n);
+      expect(abono?.cargo).toBe(0n);
     });
   });
 
@@ -216,8 +216,8 @@ describe('PdfjsTransactionNormalizerService', () => {
       for (const t of transacciones) {
         expect(t.fecha.getUTCFullYear()).toBe(2026);
         expect(t.fecha.getUTCMonth()).toBe(3); // abril, 0-indexed
-        expect(Number.isInteger(t.cargo)).toBe(true);
-        expect(Number.isInteger(t.abono)).toBe(true);
+        expect(typeof t.cargo).toBe('bigint');
+        expect(typeof t.abono).toBe('bigint');
       }
     });
 
@@ -265,7 +265,7 @@ describe('PdfjsTransactionNormalizerService', () => {
       // ambos en 0 si la fusión hubiera fallado en crear una fila nueva
       // espuria — no debería ocurrir, pero se verifica explícitamente).
       for (const t of transacciones) {
-        expect(t.cargo > 0 || t.abono > 0).toBe(true);
+        expect(t.cargo > 0n || t.abono > 0n).toBe(true);
       }
       // El fragmento "001/012" (cuota de un pago de crédito) debe aparecer
       // fusionado en la descripción de alguna transacción real, no perdido.
@@ -283,7 +283,7 @@ describe('PdfjsTransactionNormalizerService', () => {
       // [3] cargo=700000 — NO debe absorber la etiqueta "PAGO CREDITO..."
       // que pertenece a la transacción SIGUIENTE (250213).
       const transferTercero = transacciones.find(
-        (t) => t.cargo === 700000 && t.abono === 0,
+        (t) => t.cargo === 700000n && t.abono === 0n,
       );
       expect(transferTercero?.descripcion).toBe('TRANSFER A TERCERO EJEMPLO');
 
@@ -291,7 +291,7 @@ describe('PdfjsTransactionNormalizerService', () => {
       // CREDITO D00000000001"), el número de documento propio
       // ("4800000001") y la cuota de abajo ("001/012"), en ese orden.
       const pagoCredito = transacciones.find(
-        (t) => t.cargo === 250213 && t.abono === 0,
+        (t) => t.cargo === 250213n && t.abono === 0n,
       );
       expect(pagoCredito?.descripcion).toBe(
         'PAGO CREDITO D00000000001 4800000001 001/012',
@@ -301,7 +301,7 @@ describe('PdfjsTransactionNormalizerService', () => {
       // "COMISION POR COMPRA", que pertenece a la transacción SIGUIENTE
       // (5375).
       const suscripcionDigital = transacciones.find(
-        (t) => t.cargo === 9990 && t.fecha.getUTCDate() === 3,
+        (t) => t.cargo === 9990n && t.fecha.getUTCDate() === 3,
       );
       expect(suscripcionDigital?.descripcion).toBe(
         'SUSCRIPCION SERVICIO DIGITAL',
@@ -309,25 +309,25 @@ describe('PdfjsTransactionNormalizerService', () => {
 
       // [6] cargo=5375 — descripción propia vacía en el PDF: debe
       // reconstruirse enteramente desde las 2 líneas huérfanas vecinas.
-      const comisionCompra = transacciones.find((t) => t.cargo === 5375);
+      const comisionCompra = transacciones.find((t) => t.cargo === 5375n);
       expect(comisionCompra?.descripcion).toBe(
         'COMISION POR COMPRA INTERNACIONAL',
       );
 
       // [10] cargo=3500 — NO debe absorber el fragmento de encabezado
       // "N° DE" de la página 2 (Fix 2).
-      const cargoMantencion = transacciones.find((t) => t.cargo === 3500);
+      const cargoMantencion = transacciones.find((t) => t.cargo === 3500n);
       expect(cargoMantencion?.descripcion).toBe('CARGO MANTENCION CUENTA');
       expect(cargoMantencion?.descripcion).not.toContain('N° DE');
 
       // [12] abono=300000 — NO debe absorber "TRASPASO DE FONDOS A
       // TERCERO", que pertenece a la transacción SIGUIENTE (cargo=50000).
-      const depositoEfectivo = transacciones.find((t) => t.abono === 300000);
+      const depositoEfectivo = transacciones.find((t) => t.abono === 300000n);
       expect(depositoEfectivo?.descripcion).toBe('DEPOSITO EN EFECTIVO');
 
       // [13] cargo=50000 — descripción propia vacía en el PDF: debe
       // reconstruirse enteramente desde las 2 líneas huérfanas vecinas.
-      const traspasoFondos = transacciones.find((t) => t.cargo === 50000);
+      const traspasoFondos = transacciones.find((t) => t.cargo === 50000n);
       expect(traspasoFondos?.descripcion).toBe(
         'TRASPASO DE FONDOS A TERCERO EJEMPLO GENERICO',
       );

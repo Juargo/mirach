@@ -189,7 +189,12 @@ export class ExcelTransactionNormalizerService implements ITransactionNormalizer
       // abono, montos enteros ≥ 0). El flujo previo ya filtró fechas/celdas
       // vacías y no-enteros; un fail aquí implica montos en AMBAS columnas o
       // un negativo residual → se reporta como problema de la fila.
-      const tx = Transaccion.crear({ fecha, descripcion, cargo, abono });
+      const tx = Transaccion.crear({
+        fecha,
+        descripcion,
+        cargo: BigInt(cargo),
+        abono: BigInt(abono),
+      });
       if (tx.isFail()) {
         problemas.push({ tipo: 'MontoIninterpretable', fila, columna: mapeo.cargo });
         continue;

@@ -58,16 +58,16 @@ describe('ExcelTransactionNormalizerService', () => {
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 3, 20)),
           descripcion: 'PAGO QR',
-          cargo: 815,
-          abono: 0,
+          cargo: 815n,
+          abono: 0n,
         }).getValue(),
       );
       expect(tx[1]).toEqual(
         Transaccion.crear({
           fecha: new Date(Date.UTC(2026, 3, 19)),
           descripcion: 'TRANSF RECIBIDA',
-          cargo: 0,
-          abono: 1500,
+          cargo: 0n,
+          abono: 1500n,
         }).getValue(),
       );
     });
@@ -80,8 +80,8 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(0);
-      expect(result.getValue()[0].abono).toBe(1000);
+      expect(result.getValue()[0].cargo).toBe(0n);
+      expect(result.getValue()[0].abono).toBe(1000n);
     });
 
     it('asigna 0 cuando el abono está vacío', async () => {
@@ -90,8 +90,8 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(500);
-      expect(result.getValue()[0].abono).toBe(0);
+      expect(result.getValue()[0].cargo).toBe(500n);
+      expect(result.getValue()[0].abono).toBe(0n);
     });
   });
 
@@ -102,7 +102,7 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(8103);
+      expect(result.getValue()[0].cargo).toBe(8103n);
     });
   });
 
@@ -113,7 +113,7 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(815);
+      expect(result.getValue()[0].cargo).toBe(815n);
     });
   });
 
@@ -154,10 +154,10 @@ describe('ExcelTransactionNormalizerService', () => {
       const tx = result.getValue();
       expect(tx.length).toBeGreaterThan(0);
       for (const t of tx) {
-        expect(t.cargo).toBeGreaterThanOrEqual(0);
-        expect(t.abono).toBeGreaterThanOrEqual(0);
+        expect(t.cargo).toBeGreaterThanOrEqual(0n);
+        expect(t.abono).toBeGreaterThanOrEqual(0n);
         // Cargo y abono son mutuamente excluyentes
-        expect(t.cargo === 0 || t.abono === 0).toBe(true);
+        expect(t.cargo === 0n || t.abono === 0n).toBe(true);
       }
     });
 
@@ -168,8 +168,8 @@ describe('ExcelTransactionNormalizerService', () => {
       const tx = result.getValue();
       expect(tx.length).toBeGreaterThan(0);
       for (const t of tx) {
-        expect(t.cargo).toBeGreaterThanOrEqual(0);
-        expect(t.abono).toBeGreaterThanOrEqual(0);
+        expect(t.cargo).toBeGreaterThanOrEqual(0n);
+        expect(t.abono).toBeGreaterThanOrEqual(0n);
       }
     });
 

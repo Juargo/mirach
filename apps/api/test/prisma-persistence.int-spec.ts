@@ -79,15 +79,15 @@ describe('Prisma persistence integration (real dev DB)', () => {
         Transaccion.crear({
           fecha: new Date('2026-05-14T00:00:00.000Z'),
           descripcion: 'Compra',
-          cargo: 8103,
-          abono: 0,
+          cargo: 8103n,
+          abono: 0n,
         }).getValue(),
         // abono en Number.MAX_SAFE_INTEGER: prueba round-trip BigInt sin pérdida.
         Transaccion.crear({
           fecha: new Date('2026-05-15T00:00:00.000Z'),
           descripcion: 'Sueldo',
-          cargo: 0,
-          abono: 9007199254740991,
+          cargo: 0n,
+          abono: 9007199254740991n,
         }).getValue(),
       ];
 
@@ -133,8 +133,8 @@ describe('Prisma persistence integration (real dev DB)', () => {
         Transaccion.crear({
           fecha: new Date('2026-05-16T00:00:00.000Z'),
           descripcion: 'Nueva',
-          cargo: 100,
-          abono: 0,
+          cargo: 100n,
+          abono: 0n,
         }).getValue(),
       ];
 
@@ -197,14 +197,14 @@ describe('Prisma persistence integration (real dev DB)', () => {
         Transaccion.crear({
           fecha: new Date('2026-05-14T00:00:00.000Z'),
           descripcion: 'ok',
-          cargo: 100,
-          abono: 0,
+          cargo: 100n,
+          abono: 0n,
         }).getValue(),
         {
           fecha: new Date('2026-05-15T00:00:00.000Z'),
           descripcion: 'bad',
-          cargo: -1,
-          abono: 0,
+          cargo: -1n,
+          abono: 0n,
         } as unknown as Transaccion,
       ];
 
@@ -260,14 +260,14 @@ describe('Prisma persistence integration (real dev DB)', () => {
           Transaccion.crear({
             fecha: new Date('2026-05-14T00:00:00.000Z'),
             descripcion: 'a',
-            cargo: 100,
-            abono: 0,
+            cargo: 100n,
+            abono: 0n,
           }).getValue(),
           Transaccion.crear({
             fecha: new Date('2026-05-15T00:00:00.000Z'),
             descripcion: 'b',
-            cargo: 200,
-            abono: 0,
+            cargo: 200n,
+            abono: 0n,
           }).getValue(),
         ];
 
@@ -335,42 +335,14 @@ describe('Prisma persistence integration (real dev DB)', () => {
         {
           fecha: new Date('2026-05-14T00:00:00.000Z'),
           descripcion: 'neg',
-          cargo: 0,
-          abono: -5,
+          cargo: 0n,
+          abono: -5n,
         } as unknown as Transaccion,
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 0);
       expect(committed.isFail()).toBe(true);
       expect(await prisma.transaccion.count({ where: { ingestaId } })).toBe(0);
-    });
-  });
-
-  describe('read-path BigInt overflow guard (DB boundary)', () => {
-    it('un valor > 2^53-1 insertado por SQL crudo hace que findByIngesta lance RangeError', async () => {
-      const pending = await ingestaRepo.createPending({
-        accountId,
-        banco: 'BancoEstado',
-        nombreArchivo: 'overflow.xlsx',
-      });
-      const ingestaId = pending.getValue().ingestaId;
-      createdIngestaIds.push(ingestaId);
-
-      // Inserta directamente (sin el mapper) un cargo por encima de MAX_SAFE_INTEGER.
-      await prisma.transaccion.create({
-        data: {
-          ingestaId,
-          accountId,
-          fecha: new Date('2026-05-14T00:00:00.000Z'),
-          descripcion: 'overflow',
-          cargo: BigInt('9007199254740993'), // 2^53 + 1
-          abono: 0n,
-        },
-      });
-
-      await expect(transaccionRepo.findByIngesta(ingestaId)).rejects.toThrow(
-        RangeError,
-      );
     });
   });
 });

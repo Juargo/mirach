@@ -29,8 +29,8 @@ function makeTx(overrides: Partial<Transaccion> = {}): Transaccion {
   return Transaccion.crear({
     fecha: new Date('2026-07-01T00:00:00.000Z'),
     descripcion: 'COMPRA LIDER',
-    cargo: 5000,
-    abono: 0,
+    cargo: 5000n,
+    abono: 0n,
     ...overrides,
   }).getValue();
 }
@@ -62,7 +62,7 @@ describe('DetectarDuplicadosUseCase — sin existentes', () => {
   it('reader retorna [] → todas nuevas, duplicadas: 0 (CA-04)', async () => {
     const reader = new FakeTransaccionExistenteReader(Result.ok([]));
     const useCase = new DetectarDuplicadosUseCase(reader);
-    const transacciones = [makeTx(), makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000 })];
+    const transacciones = [makeTx(), makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n })];
 
     const result = await useCase.execute({ accountId: 'A1', transacciones });
 
@@ -79,8 +79,8 @@ describe('DetectarDuplicadosUseCase — solapamiento parcial (N de M)', () => {
     const useCase = new DetectarDuplicadosUseCase(reader);
 
     const duplicada = makeTx(); // matchea `existente`
-    const nueva1 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000 });
-    const nueva2 = makeTx({ descripcion: 'COMPRA UNIMARC', cargo: 7000 });
+    const nueva1 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n });
+    const nueva2 = makeTx({ descripcion: 'COMPRA UNIMARC', cargo: 7000n });
     const transacciones = [duplicada, nueva1, nueva2];
 
     const result = await useCase.execute({ accountId: 'A1', transacciones });
@@ -94,7 +94,7 @@ describe('DetectarDuplicadosUseCase — solapamiento parcial (N de M)', () => {
 describe('DetectarDuplicadosUseCase — solapamiento total', () => {
   it('todas las M ya existen → nuevas: [], duplicadas: M', async () => {
     const tx1 = makeTx();
-    const tx2 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000 });
+    const tx2 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n });
     const reader = new FakeTransaccionExistenteReader(
       Result.ok([makeExistente(), makeExistente({ descripcion: 'COMPRA JUMBO', cargo: 3000n })]),
     );
@@ -144,7 +144,7 @@ describe('DetectarDuplicadosUseCase — exactitud BigInt del dinero', () => {
     const reader = new FakeTransaccionExistenteReader(Result.ok([makeExistente({ cargo: 5000n })]));
     const useCase = new DetectarDuplicadosUseCase(reader);
 
-    const casiIgual = makeTx({ cargo: 5001 });
+    const casiIgual = makeTx({ cargo: 5001n });
 
     const result = await useCase.execute({ accountId: 'A1', transacciones: [casiIgual] });
 

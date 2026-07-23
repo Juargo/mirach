@@ -20,31 +20,11 @@ export interface TransaccionPersistencia {
   bucketId: string | null;
 }
 
-const MAX_BIGINT_SEGURO = BigInt(Number.MAX_SAFE_INTEGER);
-
-/**
- * Convierte un BigInt de vuelta a number sin coerción silenciosa.
- * Números por encima de Number.MAX_SAFE_INTEGER (2^53-1) perderían precisión
- * al pasar a number, lo que anularía la razón de usar columnas BigInt; por
- * eso se lanza un error explícito en lugar de truncar en silencio.
- */
-function aNumberSeguro(valor: bigint, campo: string): number {
-  if (valor > MAX_BIGINT_SEGURO || valor < -MAX_BIGINT_SEGURO) {
-    // No se interpola el monto crudo (dato sensible); solo campo y el límite.
-    throw new RangeError(
-      `El campo "${campo}" excede Number.MAX_SAFE_INTEGER y no puede ` +
-        `convertirse a number sin pérdida de precisión.`,
-    );
-  }
-  return Number(valor);
-}
-
 /**
  * Mapea una Transaccion de dominio a su forma de persistencia.
  *
- * Confía en el invariante del VO: `Transaccion.crear` ya garantiza que cargo y
- * abono son enteros ≥ 0, así que `BigInt(...)` nunca recibe un no-entero. No se
- * revalida aquí (single source of truth — el invariante vive solo en el VO).
+ * Mapeo 1:1: el dinero ya es `BigInt` en el dominio, igual que en la columna.
+ * No hay conversión de tipo (ni riesgo de overflow), solo se cifra la descripción.
  */
 export function aPersistencia(
   tx: Transaccion,
@@ -53,16 +33,15 @@ export function aPersistencia(
   return {
     fecha: tx.fecha,
     descripcion: crypto.encrypt(tx.descripcion),
-    cargo: BigInt(tx.cargo),
-    abono: BigInt(tx.abono),
+    cargo: tx.cargo,
+    abono: tx.abono,
     bucketId: null,
   };
 }
 
 /**
  * Mapea una fila de persistencia de vuelta al dominio.
- * Conversión fina BigInt→number con guardas de overflow explícitas;
- * pasa la descripción por crypto (identidad por defecto).
+ * Mapeo 1:1 del dinero (BigInt↔BigInt); pasa la descripción por crypto.
  */
 export function aDominio(
   row: TransaccionPersistencia,
@@ -75,7 +54,7 @@ export function aDominio(
   return Transaccion.crear({
     fecha: row.fecha,
     descripcion: crypto.decrypt(row.descripcion),
-    cargo: aNumberSeguro(row.cargo, 'cargo'),
-    abono: aNumberSeguro(row.abono, 'abono'),
+    cargo: row.cargo,
+    abono: row.abono,
   }).getValue();
 }

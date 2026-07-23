@@ -23,8 +23,8 @@ describe('PrismaIngestaRepository.commit — duplicadosOmitidos (US-005)', () =>
     Transaccion.crear({
       fecha: new Date('2026-07-10T00:00:00.000Z'),
       descripcion: 'Compra',
-      cargo: 5000,
-      abono: 0,
+      cargo: 5000n,
+      abono: 0n,
     }).getValue(),
   ];
 
