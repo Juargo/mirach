@@ -23,20 +23,6 @@ export interface TransaccionPersistencia {
 const MAX_BIGINT_SEGURO = BigInt(Number.MAX_SAFE_INTEGER);
 
 /**
- * Convierte un number a BigInt exigiendo que sea un entero.
- * El dominio garantiza enteros positivos; esta precondición hace explícito
- * el contrato entre capas y evita ocultar bugs upstream con Math.trunc.
- */
-function aBigIntEntero(valor: number, campo: string): bigint {
-  if (!Number.isInteger(valor)) {
-    // No se interpola el monto crudo: es un dato sensible que termina en
-    // PersistenciaFallidaError.causa. Solo se reporta el campo.
-    throw new TypeError(`El campo "${campo}" debe ser un entero.`);
-  }
-  return BigInt(valor);
-}
-
-/**
  * Convierte un BigInt de vuelta a number sin coerción silenciosa.
  * Números por encima de Number.MAX_SAFE_INTEGER (2^53-1) perderían precisión
  * al pasar a number, lo que anularía la razón de usar columnas BigInt; por
@@ -55,7 +41,10 @@ function aNumberSeguro(valor: bigint, campo: string): number {
 
 /**
  * Mapea una Transaccion de dominio a su forma de persistencia.
- * Conversión fina number→BigInt (exige enteros); pasa la descripción por crypto.
+ *
+ * Confía en el invariante del VO: `Transaccion.crear` ya garantiza que cargo y
+ * abono son enteros ≥ 0, así que `BigInt(...)` nunca recibe un no-entero. No se
+ * revalida aquí (single source of truth — el invariante vive solo en el VO).
  */
 export function aPersistencia(
   tx: Transaccion,
@@ -64,8 +53,8 @@ export function aPersistencia(
   return {
     fecha: tx.fecha,
     descripcion: crypto.encrypt(tx.descripcion),
-    cargo: aBigIntEntero(tx.cargo, 'cargo'),
-    abono: aBigIntEntero(tx.abono, 'abono'),
+    cargo: BigInt(tx.cargo),
+    abono: BigInt(tx.abono),
     bucketId: null,
   };
 }
@@ -79,10 +68,14 @@ export function aDominio(
   row: TransaccionPersistencia,
   crypto: ICryptoService,
 ): Transaccion {
-  return {
+  // Frontera de confianza: la fila viene de NUESTRA propia DB, escrita por
+  // `aPersistencia` desde Transacciones ya validadas. Un fail de `crear` aquí
+  // NO es un error de negocio esperable sino corrupción de datos → fail-fast
+  // (getValue lanza), en lugar de propagar Result a todos los lectores.
+  return Transaccion.crear({
     fecha: row.fecha,
     descripcion: crypto.decrypt(row.descripcion),
     cargo: aNumberSeguro(row.cargo, 'cargo'),
     abono: aNumberSeguro(row.abono, 'abono'),
-  };
+  }).getValue();
 }

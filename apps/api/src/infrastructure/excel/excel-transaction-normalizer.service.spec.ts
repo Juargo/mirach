@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ExcelTransactionNormalizerService } from './excel-transaction-normalizer.service';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
+import { Transaccion } from '../../domain/value-objects/transaccion';
 
 const FIXTURES = join(__dirname, '..', '..', '..', 'test', 'fixtures');
 
@@ -53,18 +54,22 @@ describe('ExcelTransactionNormalizerService', () => {
       expect(result.isOk()).toBe(true);
       const tx = result.getValue();
       expect(tx).toHaveLength(2);
-      expect(tx[0]).toEqual({
-        fecha: new Date(Date.UTC(2026, 3, 20)),
-        descripcion: 'PAGO QR',
-        cargo: 815,
-        abono: 0,
-      });
-      expect(tx[1]).toEqual({
-        fecha: new Date(Date.UTC(2026, 3, 19)),
-        descripcion: 'TRANSF RECIBIDA',
-        cargo: 0,
-        abono: 1500,
-      });
+      expect(tx[0]).toEqual(
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 3, 20)),
+          descripcion: 'PAGO QR',
+          cargo: 815,
+          abono: 0,
+        }).getValue(),
+      );
+      expect(tx[1]).toEqual(
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 3, 19)),
+          descripcion: 'TRANSF RECIBIDA',
+          cargo: 0,
+          abono: 1500,
+        }).getValue(),
+      );
     });
   });
 

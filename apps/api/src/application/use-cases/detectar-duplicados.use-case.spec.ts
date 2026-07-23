@@ -26,13 +26,13 @@ class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
 }
 
 function makeTx(overrides: Partial<Transaccion> = {}): Transaccion {
-  return {
+  return Transaccion.crear({
     fecha: new Date('2026-07-01T00:00:00.000Z'),
     descripcion: 'COMPRA LIDER',
     cargo: 5000,
     abono: 0,
     ...overrides,
-  };
+  }).getValue();
 }
 
 function makeExistente(overrides: Partial<TransaccionExistente> = {}): TransaccionExistente {

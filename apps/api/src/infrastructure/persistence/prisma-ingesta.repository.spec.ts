@@ -20,12 +20,12 @@ describe('PrismaIngestaRepository.commit — duplicadosOmitidos (US-005)', () =>
   }
 
   const TXS: Transaccion[] = [
-    {
+    Transaccion.crear({
       fecha: new Date('2026-07-10T00:00:00.000Z'),
       descripcion: 'Compra',
       cargo: 5000,
       abono: 0,
-    },
+    }).getValue(),
   ];
 
   it('escribe duplicadosOmitidos en el data del ingesta.update dentro del MISMO $transaction([...])', async () => {

@@ -27,7 +27,17 @@ interface IngestaRecord {
   procesadoEn: Date | null;
 }
 
-interface FilaPersistida extends Transaccion {
+/**
+ * Forma plana de fila persistida usada solo por este fake in-memory. NO
+ * extiende la clase `Transaccion` (brand nominal `_tag` privado) porque este
+ * fake solo necesita los 4 campos públicos + las FK — no una instancia real
+ * protegida por el invariante del dominio.
+ */
+interface FilaPersistida {
+  fecha: Date;
+  descripcion: string;
+  cargo: number;
+  abono: number;
   ingestaId: string;
   accountId: string;
 }
@@ -125,12 +135,9 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
   async findByIngesta(ingestaId: string): Promise<ReadonlyArray<Transaccion>> {
     return this.filas
       .filter((f) => f.ingestaId === ingestaId)
-      .map(({ fecha, descripcion, cargo, abono }) => ({
-        fecha,
-        descripcion,
-        cargo,
-        abono,
-      }));
+      .map(({ fecha, descripcion, cargo, abono }) =>
+        Transaccion.crear({ fecha, descripcion, cargo, abono }).getValue(),
+      );
   }
 
   filasFor(ingestaId: string): FilaPersistida[] {
@@ -139,18 +146,8 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
 }
 
 const TXS: Transaccion[] = [
-  {
-    fecha: new Date('2026-05-14T00:00:00.000Z'),
-    descripcion: 'Compra',
-    cargo: 8103,
-    abono: 0,
-  },
-  {
-    fecha: new Date('2026-05-15T00:00:00.000Z'),
-    descripcion: 'Sueldo',
-    cargo: 0,
-    abono: 1500000,
-  },
+  Transaccion.crear({ fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103, abono: 0 }).getValue(),
+  Transaccion.crear({ fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 }).getValue(),
 ];
 
 const baseInput = {

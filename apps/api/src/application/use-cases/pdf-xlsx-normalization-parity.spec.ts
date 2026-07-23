@@ -77,12 +77,12 @@ async function buildBancoEstadoWorkbook(
 }
 
 /** El MISMO movimiento lógico expresado en cada formato. */
-const MOVIMIENTO_ESPERADO: Transaccion = {
+const MOVIMIENTO_ESPERADO: Transaccion = Transaccion.crear({
   fecha: new Date(Date.UTC(2026, 3, 20)),
   descripcion: 'PAGO QR SUPERMERCADO',
   cargo: 15000,
   abono: 0,
-};
+}).getValue();
 
 function esperarShapeCanonica(txs: ReadonlyArray<Transaccion>): void {
   expect(txs.length).toBeGreaterThan(0);

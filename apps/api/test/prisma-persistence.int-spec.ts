@@ -76,19 +76,19 @@ describe('Prisma persistence integration (real dev DB)', () => {
       createdIngestaIds.push(ingestaId);
 
       const txs: Transaccion[] = [
-        {
+        Transaccion.crear({
           fecha: new Date('2026-05-14T00:00:00.000Z'),
           descripcion: 'Compra',
           cargo: 8103,
           abono: 0,
-        },
+        }).getValue(),
         // abono en Number.MAX_SAFE_INTEGER: prueba round-trip BigInt sin pérdida.
-        {
+        Transaccion.crear({
           fecha: new Date('2026-05-15T00:00:00.000Z'),
           descripcion: 'Sueldo',
           cargo: 0,
           abono: 9007199254740991,
-        },
+        }).getValue(),
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 0);
@@ -130,12 +130,12 @@ describe('Prisma persistence integration (real dev DB)', () => {
       createdIngestaIds.push(ingestaId);
 
       const txs: Transaccion[] = [
-        {
+        Transaccion.crear({
           fecha: new Date('2026-05-16T00:00:00.000Z'),
           descripcion: 'Nueva',
           cargo: 100,
           abono: 0,
-        },
+        }).getValue(),
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 5);
@@ -186,19 +186,26 @@ describe('Prisma persistence integration (real dev DB)', () => {
       createdIngestaIds.push(ingestaId);
 
       // La 2da fila viola CHECK (cargo >= 0) → aborta TODO el $transaction.
+      // El cast `as unknown as Transaccion` es DELIBERADO: evade el invariante
+      // del dominio a propósito para probar la defensa de ÚLTIMA línea (CHECK
+      // de Postgres), que protege una frontera física distinta — datos que
+      // llegan a la DB SIN pasar por `Transaccion.crear` (SQL directo,
+      // migraciones, otro cliente). Esa defensa se conserva por decisión
+      // explícita, aunque el dominio ya bloquee este dato en su único punto
+      // de construcción.
       const txs: Transaccion[] = [
-        {
+        Transaccion.crear({
           fecha: new Date('2026-05-14T00:00:00.000Z'),
           descripcion: 'ok',
           cargo: 100,
           abono: 0,
-        },
+        }).getValue(),
         {
           fecha: new Date('2026-05-15T00:00:00.000Z'),
           descripcion: 'bad',
           cargo: -1,
           abono: 0,
-        },
+        } as unknown as Transaccion,
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 0);
@@ -250,18 +257,18 @@ describe('Prisma persistence integration (real dev DB)', () => {
 
       try {
         const txs: Transaccion[] = [
-          {
+          Transaccion.crear({
             fecha: new Date('2026-05-14T00:00:00.000Z'),
             descripcion: 'a',
             cargo: 100,
             abono: 0,
-          },
-          {
+          }).getValue(),
+          Transaccion.crear({
             fecha: new Date('2026-05-15T00:00:00.000Z'),
             descripcion: 'b',
             cargo: 200,
             abono: 0,
-          },
+          }).getValue(),
         ];
 
         const committed = await ingestaRepo.commit(
@@ -321,13 +328,16 @@ describe('Prisma persistence integration (real dev DB)', () => {
       const ingestaId = pending.getValue().ingestaId;
       createdIngestaIds.push(ingestaId);
 
+      // Cast DELIBERADO (ver caso cargo=-1 arriba): evade el invariante del
+      // dominio para probar la CHECK de Postgres como defensa física de última
+      // línea. Conservado por decisión explícita.
       const txs: Transaccion[] = [
         {
           fecha: new Date('2026-05-14T00:00:00.000Z'),
           descripcion: 'neg',
           cargo: 0,
           abono: -5,
-        },
+        } as unknown as Transaccion,
       ];
 
       const committed = await ingestaRepo.commit(ingestaId, accountId, txs, 0);
