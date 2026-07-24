@@ -3,9 +3,11 @@ import { createPrismaClient } from '../infrastructure/persistence/create-prisma-
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
 import { CalcularResumenMesUseCase } from '../application/use-cases/calcular-resumen-mes.use-case';
 import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-resumen-anual.use-case';
+import { ObtenerDetalleBucketUseCase } from '../application/use-cases/obtener-detalle-bucket.use-case';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
+import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
 import { Sha256SessionTokenService } from '../infrastructure/http/auth/sha256-session-token.service';
 import { SystemReloj } from '../infrastructure/http/auth/system-reloj';
 
@@ -29,6 +31,8 @@ export interface Container {
   readonly calcularResumenMes: CalcularResumenMesUseCase;
   /** 50/30/20 anual — GET /api/resumen/anual. */
   readonly calcularResumenAnual: CalcularResumenAnualUseCase;
+  /** Detalle de un bucket — GET /api/buckets/:bucket. */
+  readonly obtenerDetalleBucket: ObtenerDetalleBucketUseCase;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
   readonly shutdown: () => Promise<void>;
 }
@@ -48,11 +52,15 @@ export function createContainer(
   const calcularResumenAnual = new CalcularResumenAnualUseCase(
     new PrismaResumenAnualRepository(prisma),
   );
+  const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
+    new PrismaDetalleBucketRepository(prisma),
+  );
 
   return {
     validarSesion,
     calcularResumenMes,
     calcularResumenAnual,
+    obtenerDetalleBucket,
     shutdown: () => prisma.$disconnect(),
   };
 }
