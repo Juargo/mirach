@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { IReloj } from '../../../application/ports/reloj.port';
 import { TTL_SESION_MS } from '../../../domain/value-objects/duracion-sesion';
-import { PrismaService } from '../../persistence/prisma.service';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * DemoCleanupService — borra usuarios demo expirados (demo-cleanup.md).
@@ -26,7 +26,7 @@ export class DemoCleanupService {
   private readonly logger = new Logger(DemoCleanupService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly reloj: IReloj,
   ) {}
 
