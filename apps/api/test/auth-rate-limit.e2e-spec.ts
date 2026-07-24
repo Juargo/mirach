@@ -12,12 +12,12 @@
  * other within the same LoginRateLimiter instance (one AuthModule → one
  * limiter for the whole app.getHttpServer() lifetime of this file).
  */
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
@@ -28,20 +28,16 @@ const RUN_ID = `auth-ratelimit-e2e-${Date.now()}`;
 const PASSWORD = 'correcto-123-clave';
 
 describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
   const createdUserIds: string[] = [];
 
   beforeAll(async () => {
     if (!ALLOW) return;
 
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    prisma = createPrismaClient();
+    await prisma.$connect();
+    app = createApp(createContainer(prisma));
   });
 
   afterAll(async () => {
@@ -49,7 +45,7 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
 
     await prisma.session.deleteMany({ where: { userId: { in: createdUserIds } } });
     await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
-    await app.close();
+    await prisma.$disconnect();
   });
 
   async function seedUsuario(suffix: string): Promise<{ userId: string; email: string }> {
@@ -68,7 +64,7 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
     const { email } = await seedUsuario('exhaustion');
 
     for (let i = 0; i < MAX_POR_EMAIL; i++) {
-      await request(app.getHttpServer())
+      await request(app)
         .post('/api/auth/login')
         .set('x-api-key', API_KEY)
         .send({ email, password: 'password-incorrecto' })
@@ -76,7 +72,7 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
     }
 
     // El intento (maxAttemptsPerEmail + 1) queda bloqueado — 429, distinto del 401 anterior
-    await request(app.getHttpServer())
+    await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email, password: 'password-incorrecto' })
@@ -84,7 +80,7 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
 
     // Incluso con la contraseña CORRECTA, sigue bloqueado (cuenta fallos, pero
     // el bloqueo en sí no distingue — el check corre antes de LoginUseCase)
-    await request(app.getHttpServer())
+    await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email, password: PASSWORD })
@@ -98,7 +94,7 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
 
     // Menos fallos que el umbral
     for (let i = 0; i < MAX_POR_EMAIL - 1; i++) {
-      await request(app.getHttpServer())
+      await request(app)
         .post('/api/auth/login')
         .set('x-api-key', API_KEY)
         .send({ email, password: 'password-incorrecto' })
@@ -106,7 +102,7 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
     }
 
     // El login correcto sigue funcionando — nunca throttled por éxito (AUTH-08)
-    await request(app.getHttpServer())
+    await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email, password: PASSWORD })

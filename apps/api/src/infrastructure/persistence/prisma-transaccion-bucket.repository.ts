@@ -4,7 +4,7 @@ import { ITransaccionBucketWriter } from '../../application/ports/transaccion-bu
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { agruparPorCategoriaBucket } from '../../application/services/agrupar-por-categoria-bucket';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 import { CATEGORIA_IDS } from './categoria-ids';
 
@@ -22,7 +22,7 @@ import { CATEGORIA_IDS } from './categoria-ids';
  * sin tocar la BD.
  */
 export class PrismaTransaccionBucketRepository implements ITransaccionBucketWriter {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async asignarCategorizacion(
     ingestaId: string,

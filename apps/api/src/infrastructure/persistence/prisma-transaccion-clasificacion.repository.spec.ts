@@ -1,6 +1,6 @@
 import type { Mock } from 'vitest';
 import { PrismaTransaccionClasificacionRepository } from './prisma-transaccion-clasificacion.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Unit tests for PrismaTransaccionClasificacionRepository.
@@ -23,7 +23,7 @@ function makePrismaMock(
     transaccion: {
       findMany: vi.fn().mockResolvedValue(rows),
     },
-  } as unknown as PrismaService;
+  } as unknown as PrismaClient;
 }
 
 describe('PrismaTransaccionClasificacionRepository', () => {

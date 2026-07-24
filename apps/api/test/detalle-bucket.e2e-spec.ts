@@ -11,12 +11,12 @@
  *   - W3-02b: invalid periodo → 400, scrubbed (raw value not echoed)
  *   - periodo absent → defaults to current UTC month, HTTP 200
  */
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 
@@ -30,20 +30,15 @@ const CURRENT_PERIODO = `${CURRENT_YEAR}-${CURRENT_MONTH}`;
 const MID_MONTH_DATE = new Date(Date.UTC(CURRENT_YEAR, NOW.getUTCMonth(), 10));
 
 describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
 
   const createdAccountIds: string[] = [];
 
   beforeAll(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    prisma = createPrismaClient();
+    await prisma.$connect();
+    app = createApp(createContainer(prisma));
   });
 
   afterAll(async () => {
@@ -61,7 +56,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     await prisma.user.deleteMany({
       where: { id: { startsWith: RUN_ID } },
     });
-    await app.close();
+    await prisma.$disconnect();
   });
 
   async function seedUser(suffix: string): Promise<string> {
@@ -130,7 +125,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   // ── W3-02a: invalid :bucket → scrubbed 400 ─────────────────────────────────
 
   it('W3-02a: GET /api/buckets/invalido → 400, raw value not echoed', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/buckets/invalido?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -141,7 +136,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   // ── W3-02b: invalid periodo → scrubbed 400 ─────────────────────────────────
 
   it('W3-02b: GET /api/buckets/Necesidades?periodo=not-a-date → 400, raw value not echoed', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/buckets/Necesidades?periodo=not-a-date')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -150,7 +145,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   });
 
   it('W3-02b: GET /api/buckets/Necesidades?periodo=2026-13 → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/buckets/Necesidades?periodo=2026-13')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -159,7 +154,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   // ── periodo absent → current month default ─────────────────────────────────
 
   it('GET /api/buckets/Necesidades (no periodo) → 200 with current UTC periodo', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/buckets/Necesidades')
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -185,7 +180,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
 
     // The endpoint uses USER_ID_FIJO, not our seeded userId — this verifies
     // response SHAPE (mirrors resumen.e2e-spec.ts's SC-01 approach).
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/buckets/Necesidades?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -204,7 +199,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   });
 
   it('empty bucket/period combination → 200 with empty transacciones (not an error)', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/buckets/Ahorro?periodo=2099-12')
       .set('x-api-key', API_KEY)
       .expect(200);

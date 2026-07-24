@@ -4,7 +4,7 @@ import {
 } from '../../application/ports/movimientos-mes.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
 import { foldCategoriaId } from './categoria-ids';
 
@@ -27,7 +27,7 @@ import { foldCategoriaId } from './categoria-ids';
  * (categoria-ids.ts) — compartido con PrismaDetalleBucketRepository.
  */
 export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async findByPeriodo(
     userId: string,

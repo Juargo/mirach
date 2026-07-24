@@ -13,7 +13,7 @@
  *   - No-income month (SC-04): spends present but Ingreso row absent
  *   - User isolation (SC-09, RNF-SEC-006): user B's data must NOT bleed into user A
  */
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { PrismaResumenMesRepository } from './prisma-resumen-mes.repository';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -25,7 +25,7 @@ const RUN_ID = `resumen-repo-${Date.now()}`;
 const PERIODO = '2026-07';
 
 describe('PrismaResumenMesRepository (integration)', () => {
-  let prisma: PrismaService;
+  let prisma: PrismaClient;
   let repo: PrismaResumenMesRepository;
   let periodoVO: PeriodoMes;
 
@@ -33,7 +33,7 @@ describe('PrismaResumenMesRepository (integration)', () => {
 
   beforeAll(async () => {
     if (!ALLOW) return;
-    prisma = new PrismaService();
+    prisma = new PrismaClient();
     await prisma.$connect();
     repo = new PrismaResumenMesRepository(prisma);
     periodoVO = PeriodoMes.crear(PERIODO).getValue() as PeriodoMes;

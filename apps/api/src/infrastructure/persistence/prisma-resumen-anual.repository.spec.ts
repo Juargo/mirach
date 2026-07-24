@@ -14,7 +14,7 @@
  *   - User isolation (SC-09, RNF-SEC-006): user B's data must NOT bleed into
  *     user A's annual query.
  */
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { PrismaResumenAnualRepository } from './prisma-resumen-anual.repository';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -26,7 +26,7 @@ const RUN_ID = `resumen-anual-repo-${Date.now()}`;
 const ANIO = 2026;
 
 describe('PrismaResumenAnualRepository (integration)', () => {
-  let prisma: PrismaService;
+  let prisma: PrismaClient;
   let repo: PrismaResumenAnualRepository;
   let anioVO: PeriodoAnio;
 
@@ -34,7 +34,7 @@ describe('PrismaResumenAnualRepository (integration)', () => {
 
   beforeAll(async () => {
     if (!ALLOW) return;
-    prisma = new PrismaService();
+    prisma = new PrismaClient();
     await prisma.$connect();
     repo = new PrismaResumenAnualRepository(prisma);
     anioVO = PeriodoAnio.crear(ANIO).getValue() as PeriodoAnio;

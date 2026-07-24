@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
 import { join } from 'path';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 
 const RUN_ID = `e2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
@@ -24,9 +24,8 @@ const API_KEY = process.env.API_KEY ?? '';
  * ambigüedad (en vez de "la más reciente con este nombre").
  */
 describe('IngestaController (e2e) — POST /api/ingestas', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
 
   const fixturesDir = join(__dirname, 'fixtures');
   const xlsxFixture = join(fixturesDir, 'movimientos-test.xlsx');
@@ -35,22 +34,18 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   const createdIngestaIds: string[] = [];
 
   beforeEach(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    prisma = createPrismaClient();
+    await prisma.$connect();
+    app = createApp(createContainer(prisma));
   });
 
   afterEach(async () => {
-    await app.close();
+    await prisma.$disconnect();
   });
 
   afterAll(async () => {
     if (createdIngestaIds.length === 0) return;
-    const cleanupPrisma = new PrismaService();
+    const cleanupPrisma = createPrismaClient();
     await cleanupPrisma.$connect();
     await cleanupPrisma.transaccion.deleteMany({
       where: { ingestaId: { in: createdIngestaIds } },
@@ -64,7 +59,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   it('acepta un archivo .xlsx válido, lo persiste vía ProcessIngestaUseCase y retorna el contrato HTTP completo', async () => {
     const nombreArchivo = `movimientos-${RUN_ID}-ok.xlsx`;
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
       .attach('file', xlsxFixture, nombreArchivo)
@@ -133,7 +128,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   });
 
   it('rechaza un archivo .xls con 400 (falla en IngestFile, antes de crear ninguna Ingesta)', async () => {
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
       .attach('file', xlsFixture)
@@ -143,7 +138,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   });
 
   it('retorna 400 cuando no se envía archivo', async () => {
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -169,7 +164,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       );
 
     try {
-      const response = await request(app.getHttpServer())
+      const response = await request(app)
         .post('/api/ingestas')
         .set('x-api-key', API_KEY)
         .attach('file', xlsxFixture, nombreArchivo)

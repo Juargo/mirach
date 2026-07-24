@@ -4,7 +4,7 @@ import {
 } from '../../application/ports/resumen-anual.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
 
 /** "YYYY-MM" label for a UTC date, matching PeriodoMes.valor format. */
@@ -33,7 +33,7 @@ function mesLabel(fecha: Date): string {
  * Amounts stay BigInt; no number, no float here.
  */
 export class PrismaResumenAnualRepository implements IResumenAnualReader {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async sumarPorBucketAnual(
     userId: string,

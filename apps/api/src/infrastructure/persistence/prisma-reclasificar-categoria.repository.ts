@@ -6,7 +6,7 @@ import {
   IReclasificarCategoriaWriter,
   ReclasificarCategoriaResult,
 } from '../../application/ports/reclasificar-categoria.port';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 import { CATEGORIA_IDS } from './categoria-ids';
 
@@ -27,7 +27,7 @@ import { CATEGORIA_IDS } from './categoria-ids';
  * desincronizado de la categoría (design.md §2).
  */
 export class PrismaReclasificarCategoriaRepository implements IReclasificarCategoriaWriter {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async reasignar(
     userId: string,

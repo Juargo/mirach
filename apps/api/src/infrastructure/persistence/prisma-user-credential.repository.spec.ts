@@ -1,10 +1,10 @@
 import type { Mock } from 'vitest';
 import { PrismaUserCredentialRepository } from './prisma-user-credential.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { Email } from '../../domain/value-objects/email';
 
 /**
- * Unit tests for PrismaUserCredentialRepository — mocked PrismaService
+ * Unit tests for PrismaUserCredentialRepository — mocked PrismaClient
  * (mirrors PrismaTransaccionClasificacionRepository's convention). The
  * DB-backed behavior (real unique constraints, real null handling) is
  * covered by the deferred e2e/integration suite, not here.
@@ -14,7 +14,7 @@ function makePrismaMock(userFindUniqueResult: unknown) {
     user: {
       findUnique: vi.fn().mockResolvedValue(userFindUniqueResult),
     },
-  } as unknown as PrismaService;
+  } as unknown as PrismaClient;
 }
 
 describe('PrismaUserCredentialRepository', () => {
@@ -64,7 +64,7 @@ describe('PrismaUserCredentialRepository', () => {
             .fn()
             .mockResolvedValue({ id: 'user-1', email: 'user@example.com', esDemo: false }),
         },
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(prisma);
 
       const result = await repo.buscarIdentidad('user-1');
@@ -75,7 +75,7 @@ describe('PrismaUserCredentialRepository', () => {
     it('retorna null cuando el userId no existe', async () => {
       const prisma = {
         user: { findUnique: vi.fn().mockResolvedValue(null) },
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(prisma);
 
       const result = await repo.buscarIdentidad('inexistente');
@@ -88,7 +88,7 @@ describe('PrismaUserCredentialRepository', () => {
         user: {
           findUnique: vi.fn().mockResolvedValue({ id: 'user-inconsistente', email: null, esDemo: false }),
         },
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(prisma);
 
       const result = await repo.buscarIdentidad('user-inconsistente');
@@ -101,7 +101,7 @@ describe('PrismaUserCredentialRepository', () => {
         user: {
           findUnique: vi.fn().mockResolvedValue({ id: 'user-demo-1', email: null, esDemo: true }),
         },
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(prisma);
 
       const result = await repo.buscarIdentidad('user-demo-1');

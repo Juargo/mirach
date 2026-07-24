@@ -1,7 +1,6 @@
-import { Logger } from '@nestjs/common';
 import type { Mock } from 'vitest';
+import type { PrismaClient } from '@prisma/client';
 import { DemoCleanupService } from './demo-cleanup.service';
-import { PrismaService } from '../../persistence/prisma.service';
 import { IReloj } from '../../../application/ports/reloj.port';
 import { TTL_SESION_MS } from '../../../domain/value-objects/duracion-sesion';
 
@@ -24,7 +23,7 @@ function makePrismaMock(
   return {
     user: { findMany: vi.fn().mockResolvedValue(findManyResult) },
     $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(tx)),
-  } as unknown as PrismaService;
+  } as unknown as PrismaClient;
 }
 
 function makeReloj(): IReloj {
@@ -99,7 +98,7 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
   });
 
   it('sin demos expirados → loguea "0 expired demo accounts cleaned"', async () => {
-    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const prisma = makePrismaMock([]);
     const service = new DemoCleanupService(prisma, makeReloj());
 
@@ -109,7 +108,7 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
   });
 
   it('con demos expirados → loguea la cantidad borrada', async () => {
-    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const tx = makeTxMock();
     tx.user.deleteMany.mockResolvedValue({ count: 1 });
     const prisma = makePrismaMock([{ id: 'user-demo-1' }], tx);
@@ -121,11 +120,11 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
   });
 
   it('nunca lanza: un fallo de infraestructura se loguea como error, no se propaga', async () => {
-    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const prisma = {
       user: { findMany: vi.fn().mockRejectedValue(new Error('DB connection lost')) },
       $transaction: vi.fn(),
-    } as unknown as PrismaService;
+    } as unknown as PrismaClient;
     const service = new DemoCleanupService(prisma, makeReloj());
 
     await expect(service.limpiarDiario()).resolves.toBeUndefined();

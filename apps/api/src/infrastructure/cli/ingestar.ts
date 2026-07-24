@@ -7,40 +7,14 @@
  *   pnpm cli -- ./cartola.pdf
  *
  * Ejecuta el pipeline completo vía ProcessIngestaUseCase (detectar → asegurar
- * cuenta → validar → normalizar → persistir) — el mismo orquestador que usa
- * el endpoint HTTP (IngestaController), así que ambas entradas comparten
- * genuinamente un único pipeline. ProcessIngestaUseCase decide internamente,
- * por extensión, si usa el trio Excel o el trio PDF (design.md decisión #1) —
- * el CLI solo necesita construir ambos trios, igual que IngestaModule.
+ * cuenta → validar → normalizar → persistir) — el mismo orquestador que usa el
+ * endpoint HTTP. Desde ADR-028, CLI y HTTP comparten LITERALMENTE el mismo
+ * composition root: `createPrismaClient` + `crearProcessIngesta`.
  */
 
 import 'dotenv/config';
-import 'reflect-metadata';
-import { IngestFileUseCase } from '../../application/use-cases/ingest-file.use-case';
-import { DetectBankUseCase } from '../../application/use-cases/detect-bank.use-case';
-import { DetectPdfBankUseCase } from '../../application/use-cases/detect-pdf-bank.use-case';
-import { ValidateStructureUseCase } from '../../application/use-cases/validate-structure.use-case';
-import { ValidatePdfStructureUseCase } from '../../application/use-cases/validate-pdf-structure.use-case';
-import { NormalizeTransactionsUseCase } from '../../application/use-cases/normalize-transactions.use-case';
-import { NormalizePdfTransactionsUseCase } from '../../application/use-cases/normalize-pdf-transactions.use-case';
-import { PersistTransactionsUseCase } from '../../application/use-cases/persist-transactions.use-case';
-import { CategorizarTransaccionUseCase } from '../../application/use-cases/categorizar-transaccion.use-case';
-import { DetectarDuplicadosUseCase } from '../../application/use-cases/detectar-duplicados.use-case';
-import { ProcessIngestaUseCase } from '../../application/use-cases/process-ingesta.use-case';
-import { ExcelBankDetectorService } from '../excel/excel-bank-detector.service';
-import { ExcelStructureValidatorService } from '../excel/excel-structure-validator.service';
-import { ExcelTransactionNormalizerService } from '../excel/excel-transaction-normalizer.service';
-import { PdfjsBankDetectorService } from '../pdf/pdfjs-bank-detector.service';
-import { PdfjsStructureValidatorService } from '../pdf/pdfjs-structure-validator.service';
-import { PdfjsTransactionNormalizerService } from '../pdf/pdfjs-transaction-normalizer.service';
-import { PrismaService } from '../persistence/prisma.service';
-import { PrismaAccountRepository } from '../persistence/prisma-account.repository';
-import { PrismaIngestaRepository } from '../persistence/prisma-ingesta.repository';
-import { PrismaTransaccionExistenteReader } from '../persistence/prisma-transaccion-existente.reader';
-import { PrismaCatalogoClasificacionRepository } from '../persistence/prisma-catalogo-clasificacion.repository';
-import { PrismaTransaccionBucketRepository } from '../persistence/prisma-transaccion-bucket.repository';
-import { PrismaTransaccionClasificacionRepository } from '../persistence/prisma-transaccion-clasificacion.repository';
-import { NoOpCryptoService } from '../persistence/no-op-crypto.service';
+import { crearProcessIngesta } from '../../composition/crear-process-ingesta';
+import { createPrismaClient } from '../persistence/create-prisma-client';
 import { USER_ID_FIJO } from '../persistence/constants';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
 
@@ -74,34 +48,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Composition root del CLI: construye el orquestador con adapters concretos.
-  const prisma = new PrismaService();
-  await prisma.onModuleInit();
-  const crypto = new NoOpCryptoService();
+  // Composition root: el MISMO que usa el HTTP (ADR-028).
+  const prisma = createPrismaClient();
+  await prisma.$connect();
 
   try {
-    const processIngesta = new ProcessIngestaUseCase(
-      new IngestFileUseCase(),
-      new DetectBankUseCase(new ExcelBankDetectorService()),
-      new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
-      new PrismaAccountRepository(prisma),
-      new ValidateStructureUseCase(new ExcelStructureValidatorService()),
-      new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
-      new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
-      new NormalizePdfTransactionsUseCase(
-        new PdfjsTransactionNormalizerService(),
-      ),
-      new PersistTransactionsUseCase(
-        new PrismaIngestaRepository(prisma, crypto),
-      ),
-      new PrismaCatalogoClasificacionRepository(prisma),
-      new PrismaTransaccionBucketRepository(prisma),
-      new CategorizarTransaccionUseCase(),
-      new PrismaTransaccionClasificacionRepository(prisma),
-      new DetectarDuplicadosUseCase(
-        new PrismaTransaccionExistenteReader(prisma, crypto),
-      ),
-    );
+    const processIngesta = crearProcessIngesta(prisma);
 
     const result = await processIngesta.execute({
       fileReader,
@@ -145,7 +97,7 @@ async function main(): Promise<void> {
     );
     console.log('─────────────────────────────────────\n');
   } finally {
-    await prisma.onModuleDestroy();
+    await prisma.$disconnect();
   }
 }
 

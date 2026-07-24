@@ -4,7 +4,7 @@ import {
   IdentidadUsuario,
 } from '../../application/ports/user-credential-repository.port';
 import { Email } from '../../domain/value-objects/email';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * PrismaUserCredentialRepository — implementación de `IUserCredentialRepository`.
@@ -17,7 +17,7 @@ import { PrismaService } from './prisma.service';
  * Constructor takes PrismaService directly (no NestJS decorators — clean arch).
  */
 export class PrismaUserCredentialRepository implements IUserCredentialRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async buscarPorEmail(email: Email): Promise<CredencialUsuario | null> {
     const user = await this.prisma.user.findUnique({

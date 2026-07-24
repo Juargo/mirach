@@ -1,7 +1,7 @@
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
+import type { PrismaClient } from '@prisma/client';
 import { ITransaccionRepository } from '../../application/ports/transaccion-repository.port';
-import { PrismaService } from './prisma.service';
 import { aDominio } from './transaccion.mapper';
 
 /**
@@ -13,7 +13,7 @@ import { aDominio } from './transaccion.mapper';
  */
 export class PrismaTransaccionRepository implements ITransaccionRepository {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly crypto: ICryptoService,
   ) {}
 

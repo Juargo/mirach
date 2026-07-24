@@ -1,8 +1,8 @@
+import type { PrismaClient } from '@prisma/client';
 import {
   ISessionRepository,
   SesionPersistida,
 } from '../../application/ports/session-repository.port';
-import { PrismaService } from './prisma.service';
 
 /**
  * PrismaSessionRepository — implementación de `ISessionRepository`.
@@ -12,10 +12,13 @@ import { PrismaService } from './prisma.service';
  * por `LogoutUseCase` (AUTH-07 — revocar dos veces, o un hash inexistente,
  * nunca debe fallar).
  *
- * Constructor takes PrismaService directly (no NestJS decorators — clean arch).
+ * Depende de `PrismaClient` (la base), no de `PrismaService` (el artefacto Nest
+ * con lifecycle hooks): así el composition root de Express (ADR-028) puede
+ * pasarle un cliente plano, y el wiring Nest actual sigue válido porque
+ * `PrismaService extends PrismaClient`.
  */
 export class PrismaSessionRepository implements ISessionRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async crear(input: {
     userId: string;

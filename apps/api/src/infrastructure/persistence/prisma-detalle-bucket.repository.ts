@@ -4,7 +4,7 @@ import {
 } from '../../application/ports/detalle-bucket.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 import { foldCategoriaId } from './categoria-ids';
 
@@ -22,13 +22,14 @@ import { foldCategoriaId } from './categoria-ids';
  * Bucket.SinCategoria, el filtro es `OR: [{bucketId: null}, {bucketId: 'bucket-sincategoria'}]`;
  * para cualquier otro bucket, `bucketId: BUCKET_IDS[bucket]`.
  *
- * Constructor takes PrismaService directly (no NestJS decorators — clean arch).
+ * Depende de `PrismaClient` (base), no de `PrismaService` (artefacto Nest) —
+ * así el composition root de Express le pasa un cliente plano (ADR-028).
  *
  * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
  * (categoria-ids.ts) — compartido con PrismaMovimientosMesRepository.
  */
 export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async findByPeriodoYBucket(
     userId: string,

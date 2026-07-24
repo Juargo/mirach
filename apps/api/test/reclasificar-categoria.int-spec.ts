@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { PrismaReclasificarCategoriaRepository } from '../src/infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaResumenMesRepository } from '../src/infrastructure/persistence/prisma-resumen-mes.repository';
 import { CalcularResumenMesUseCase } from '../src/application/use-cases/calcular-resumen-mes.use-case';
@@ -31,7 +31,7 @@ const TEST_USER_ID_A = `${USER_ID_FIJO}-${RUN_ID}`;
 const TEST_USER_ID_B = `user-b-${RUN_ID}`;
 
 describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient();
   const repo = new PrismaReclasificarCategoriaRepository(prisma);
   const resumenReader = new PrismaResumenMesRepository(prisma);
   const calcularResumen = new CalcularResumenMesUseCase(resumenReader);

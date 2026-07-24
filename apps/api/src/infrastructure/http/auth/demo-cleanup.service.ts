@@ -1,8 +1,6 @@
-import { Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { IReloj } from '../../../application/ports/reloj.port';
 import { TTL_SESION_MS } from '../../../domain/value-objects/duracion-sesion';
-import { PrismaService } from '../../persistence/prisma.service';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * DemoCleanupService — borra usuarios demo expirados (demo-cleanup.md).
@@ -12,10 +10,13 @@ import { PrismaService } from '../../persistence/prisma.service';
  * días por diseño, no una coincidencia que deba duplicarse.
  *
  * Se invoca de dos formas (design.md — "cleanup dual"):
- *   - Lazy: `AuthController.demo()` llama `borrarExpirados()` ANTES de crear
- *     cada usuario demo nuevo (DEMO-CLN-02).
- *   - Cron: `limpiarDiario()` corre a las 3:00 AM todos los días como red de
- *     seguridad (DEMO-CLN-03), vía `@nestjs/schedule`.
+ *   - Lazy: la ruta `GET /api/auth/demo` llama `borrarExpirados()` ANTES de
+ *     crear cada usuario demo nuevo (DEMO-CLN-02).
+ *   - Diaria: `limpiarDiario()` es la red de seguridad (DEMO-CLN-03).
+ *
+ * NOTA (ADR-028): antes se agendaba con un cron del framework. Tras el cutover
+ * a Express, `limpiarDiario()` la agenda `programarLimpiezaDemo` (node-cron) en
+ * el bootstrap (server.ts). La limpieza lazy en la ruta demo también corre.
  *
  * No es un port — es un servicio de infraestructura concreto (design.md
  * "DemoCleanupService — infra service, no port needed"), igual que
@@ -23,10 +24,8 @@ import { PrismaService } from '../../persistence/prisma.service';
  * detrás de una interfaz (YAGNI).
  */
 export class DemoCleanupService {
-  private readonly logger = new Logger(DemoCleanupService.name);
-
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly reloj: IReloj,
   ) {}
 
@@ -60,16 +59,15 @@ export class DemoCleanupService {
     });
   }
 
-  /** DEMO-CLN-03 — red de seguridad diaria, 3:00 AM. Nunca lanza ni bloquea el arranque. */
-  @Cron('0 3 * * *')
+  /** DEMO-CLN-03 — red de seguridad diaria. Nunca lanza. Falta agendarla (ver nota de clase). */
   async limpiarDiario(): Promise<void> {
     try {
       const count = await this.borrarExpirados();
-      this.logger.log(
+      console.log(
         count === 0 ? '0 expired demo accounts cleaned' : `${count} expired demo accounts cleaned`,
       );
     } catch (err) {
-      this.logger.error(
+      console.error(
         'Error inesperado durante la limpieza diaria de cuentas demo',
         err instanceof Error ? err.stack : String(err),
       );
