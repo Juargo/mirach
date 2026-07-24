@@ -1,10 +1,10 @@
 import { PrismaTransaccionExistenteReader } from './prisma-transaccion-existente.reader';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 
 /**
- * Unit tests for PrismaTransaccionExistenteReader — mocked PrismaService +
+ * Unit tests for PrismaTransaccionExistenteReader — mocked PrismaClient +
  * ICryptoService (US-005, Slice 2). DB-backed scenarios (range boundary,
  * real decrypt round-trip, userId isolation) are covered by the deferred
  * int-spec suite (Group 8).
@@ -28,7 +28,7 @@ describe('PrismaTransaccionExistenteReader', () => {
 
   it('llama findMany con where acotado por accountId + fecha en [gte,lte] y el select esperado', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const reader = new PrismaTransaccionExistenteReader(prisma, makeCrypto());
 
     const desde = new Date('2026-07-01T00:00:00.000Z');
@@ -49,7 +49,7 @@ describe('PrismaTransaccionExistenteReader', () => {
       abono: 0n,
     });
     const findMany = vi.fn().mockResolvedValue([row]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const crypto = makeCrypto((v) => `plano:${v}`);
     const reader = new PrismaTransaccionExistenteReader(prisma, crypto);
 
@@ -72,7 +72,7 @@ describe('PrismaTransaccionExistenteReader', () => {
 
   it('lista vacía: retorna Result.ok([]) sin lanzar', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const reader = new PrismaTransaccionExistenteReader(prisma, makeCrypto());
 
     const result = await reader.buscarPorCuentaYRango(
@@ -87,7 +87,7 @@ describe('PrismaTransaccionExistenteReader', () => {
 
   it('Prisma lanza: NUNCA propaga, retorna Result.fail(PersistenciaFallidaError)', async () => {
     const findMany = vi.fn().mockRejectedValue(new Error('connection refused'));
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const reader = new PrismaTransaccionExistenteReader(prisma, makeCrypto());
 
     const result = await reader.buscarPorCuentaYRango(
@@ -103,7 +103,7 @@ describe('PrismaTransaccionExistenteReader', () => {
 
   it('hardening note 2 (PR1 review): NO muta los Date de fechaDesde/fechaHasta recibidos', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const reader = new PrismaTransaccionExistenteReader(prisma, makeCrypto());
 
     const desde = new Date('2026-07-01T00:00:00.000Z');

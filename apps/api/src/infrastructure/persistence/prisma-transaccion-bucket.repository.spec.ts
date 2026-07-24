@@ -1,6 +1,6 @@
 import type { Mock } from 'vitest';
 import { PrismaTransaccionBucketRepository } from './prisma-transaccion-bucket.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
@@ -21,7 +21,7 @@ function makePrismaMock(throws?: Error) {
   return {
     transaccion: { updateMany },
     $transaction: transaction,
-  } as unknown as PrismaService;
+  } as unknown as PrismaClient;
 }
 
 describe('PrismaTransaccionBucketRepository', () => {
@@ -45,7 +45,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const ingestaId = 'ingesta-abc-123';
@@ -94,7 +94,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [
@@ -119,7 +119,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       // Supermercado and Combustible both derive to Necesidades — but they are
@@ -180,7 +180,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       await repo.asignarCategorizacion('ingesta-scope-test', [
@@ -204,7 +204,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       await repo.asignarCategorizacion('ingesta-1', [

@@ -1,6 +1,6 @@
 import type { Mock } from 'vitest';
 import { PrismaMovimientosMesRepository } from './prisma-movimientos-mes.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
@@ -8,7 +8,7 @@ import { BUCKET_IDS } from './bucket-ids';
 import { CATEGORIA_IDS } from './categoria-ids';
 
 /**
- * Unit tests for PrismaMovimientosMesRepository — mocked PrismaService.
+ * Unit tests for PrismaMovimientosMesRepository — mocked PrismaClient.
  *
  * Covers the physical bucketId → domain Bucket fold (MOV-01), mirroring the
  * fold already proven in prisma-resumen-mes.repository.ts: recognized id →
@@ -42,7 +42,7 @@ describe('PrismaMovimientosMesRepository', () => {
     const findMany = vi
       .fn()
       .mockResolvedValue([makeRow({ id: 'tx-nec', bucketId: BUCKET_IDS[Bucket.Necesidades] })]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     const rows = await repo.findByPeriodo('user-1', periodo);
@@ -52,7 +52,7 @@ describe('PrismaMovimientosMesRepository', () => {
 
   it('MOV-01: null bucketId folds to SinCategoria', async () => {
     const findMany = vi.fn().mockResolvedValue([makeRow({ id: 'tx-null', bucketId: null })]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     const rows = await repo.findByPeriodo('user-1', periodo);
@@ -64,7 +64,7 @@ describe('PrismaMovimientosMesRepository', () => {
     const findMany = vi
       .fn()
       .mockResolvedValue([makeRow({ id: 'tx-unknown', bucketId: 'not-a-real-bucket-id' })]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     const rows = await repo.findByPeriodo('user-1', periodo);
@@ -77,7 +77,7 @@ describe('PrismaMovimientosMesRepository', () => {
       makeRow({ id: 'tx-nec', bucketId: BUCKET_IDS[Bucket.Necesidades] }),
       makeRow({ id: 'tx-null', bucketId: null }),
     ]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     const rows = await repo.findByPeriodo('user-1', periodo);
@@ -95,7 +95,7 @@ describe('PrismaMovimientosMesRepository', () => {
         categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
       }),
     ]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     const rows = await repo.findByPeriodo('user-1', periodo);
@@ -112,7 +112,7 @@ describe('PrismaMovimientosMesRepository', () => {
       .mockResolvedValue([
         makeRow({ id: 'tx-ingreso', bucketId: BUCKET_IDS[Bucket.Ingreso], categoriaId: null }),
       ]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     const rows = await repo.findByPeriodo('user-1', periodo);
@@ -128,7 +128,7 @@ describe('PrismaMovimientosMesRepository', () => {
         categoriaId: 'not-a-real-categoria-id',
       }),
     ]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     const rows = await repo.findByPeriodo('user-1', periodo);
@@ -138,7 +138,7 @@ describe('PrismaMovimientosMesRepository', () => {
 
   it('user isolation: findByPeriodo filters structurally by account.userId (RNF-SEC-006)', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaMovimientosMesRepository(prisma);
 
     await repo.findByPeriodo('user-abc', periodo);

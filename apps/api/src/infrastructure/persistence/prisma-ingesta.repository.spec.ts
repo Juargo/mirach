@@ -1,12 +1,12 @@
 import type { Mock } from 'vitest';
 import { PrismaIngestaRepository } from './prisma-ingesta.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 
 /**
- * Unit tests for PrismaIngestaRepository.commit — mocked PrismaService
+ * Unit tests for PrismaIngestaRepository.commit — mocked PrismaClient
  * (US-005, Slice 2). Verifica que `duplicadosOmitidos` se escriba dentro del
  * MISMO `$transaction([...])` que ya transiciona la Ingesta a PROCESADA (no
  * una segunda escritura no-atómica). El resto del ciclo de vida
@@ -36,7 +36,7 @@ describe('PrismaIngestaRepository.commit — duplicadosOmitidos (US-005)', () =>
       transaccion: { createMany },
       ingesta: { update },
       $transaction: transaction,
-    } as unknown as PrismaService;
+    } as unknown as PrismaClient;
     const repo = new PrismaIngestaRepository(prisma, makeCrypto());
 
     await repo.commit('ingesta-1', 'acc-1', TXS, 3);
@@ -62,7 +62,7 @@ describe('PrismaIngestaRepository.commit — duplicadosOmitidos (US-005)', () =>
       transaccion: { createMany: vi.fn() },
       ingesta: { update },
       $transaction: transaction,
-    } as unknown as PrismaService;
+    } as unknown as PrismaClient;
     const repo = new PrismaIngestaRepository(prisma, makeCrypto());
 
     await repo.commit('ingesta-1', 'acc-1', TXS, 0);
@@ -80,7 +80,7 @@ describe('PrismaIngestaRepository.commit — duplicadosOmitidos (US-005)', () =>
       transaccion: { createMany: vi.fn() },
       ingesta: { update: vi.fn() },
       $transaction: transaction,
-    } as unknown as PrismaService;
+    } as unknown as PrismaClient;
     const repo = new PrismaIngestaRepository(prisma, makeCrypto());
 
     const result = await repo.commit('ingesta-1', 'acc-1', TXS, 3);

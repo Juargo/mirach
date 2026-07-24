@@ -39,9 +39,9 @@ export interface AuthGraph {
  * sessions/tokens/reloj que antes estaba dispersa. `validarSesion` sale de acá
  * (una sola vez) para el session middleware.
  *
- * Nota (cutover, Slice 8): `DemoCleanupService` trae un método `@Cron`
- * (limpieza diaria) que NO corre sin `@nestjs/schedule` — habrá que reemplazar
- * ese scheduler post-cutover. La limpieza lazy en `GET /demo` sí funciona.
+ * Nota (ADR-028): la limpieza DIARIA de demos (`DemoCleanupService.limpiarDiario`)
+ * quedó SIN agendar tras el cutover — falta un scheduler (p. ej. node-cron). La
+ * limpieza lazy en `GET /demo` sí funciona.
  */
 export function crearAuth(prisma: PrismaClient): AuthGraph {
   const reloj = new SystemReloj();

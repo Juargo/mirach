@@ -1,5 +1,5 @@
 import { PrismaCatalogoClasificacionRepository } from './prisma-catalogo-clasificacion.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
@@ -46,7 +46,7 @@ function makePrismaMock(rows: ReturnType<typeof makeDbRow>[], throws?: Error) {
         return rows;
       }),
     },
-  } as unknown as PrismaService;
+  } as unknown as PrismaClient;
 }
 
 describe('PrismaCatalogoClasificacionRepository', () => {

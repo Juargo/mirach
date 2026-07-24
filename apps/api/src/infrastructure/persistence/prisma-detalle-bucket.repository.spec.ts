@@ -16,7 +16,7 @@
  *   - User isolation (RNF-SEC-006): user B's data must NOT bleed into user A
  *   - Ordering: fecha asc, id asc tiebreak
  */
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { PrismaDetalleBucketRepository } from './prisma-detalle-bucket.repository';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -27,7 +27,7 @@ import { CATEGORIA_IDS } from './categoria-ids';
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 
 /**
- * Unit tests (mocked PrismaService) for the CATAPI-05 categoria fold —
+ * Unit tests (mocked PrismaClient) for the CATAPI-05 categoria fold —
  * mirrors the mocked pattern in prisma-movimientos-mes.repository.spec.ts.
  * The rest of this file is gated integration coverage for the pre-existing
  * bucket-scoped read path (see the file-level docstring below); this block
@@ -55,7 +55,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
       .mockResolvedValue([
         makeRow({ id: 'tx-super', categoriaId: CATEGORIA_IDS[Categoria.Supermercado] }),
       ]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma);
 
     const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
@@ -70,7 +70,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     const findMany = vi
       .fn()
       .mockResolvedValue([makeRow({ id: 'tx-null', categoriaId: null })]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma);
 
     const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.SinCategoria);
@@ -84,7 +84,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
       .mockResolvedValue([
         makeRow({ id: 'tx-unknown', categoriaId: 'not-a-real-categoria-id' }),
       ]);
-    const prisma = { transaccion: { findMany } } as unknown as PrismaService;
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma);
 
     const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
@@ -97,7 +97,7 @@ const RUN_ID = `detalle-bucket-repo-${Date.now()}`;
 const PERIODO = '2026-07';
 
 describe('PrismaDetalleBucketRepository (integration)', () => {
-  let prisma: PrismaService;
+  let prisma: PrismaClient;
   let repo: PrismaDetalleBucketRepository;
   let periodoVO: PeriodoMes;
 
@@ -105,7 +105,7 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
 
   beforeAll(async () => {
     if (!ALLOW) return;
-    prisma = new PrismaService();
+    prisma = new PrismaClient();
     await prisma.$connect();
     repo = new PrismaDetalleBucketRepository(prisma);
     periodoVO = PeriodoMes.crear(PERIODO).getValue() as PeriodoMes;

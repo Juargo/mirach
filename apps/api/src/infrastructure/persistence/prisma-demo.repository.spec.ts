@@ -1,6 +1,6 @@
 import { EstadoIngesta } from '@prisma/client';
 import { PrismaDemoRepository } from './prisma-demo.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { IReloj } from '../../application/ports/reloj.port';
 import { DEMO_TRANSACCIONES } from './demo-data';
 
@@ -21,7 +21,7 @@ function makeTxMock() {
 function makePrismaMock(tx: ReturnType<typeof makeTxMock>) {
   return {
     $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(tx)),
-  } as unknown as PrismaService;
+  } as unknown as PrismaClient;
 }
 
 function makeReloj(): IReloj {

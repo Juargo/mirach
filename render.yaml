@@ -1,7 +1,7 @@
 # render.yaml — Blueprint de despliegue del backend MoneyDiary (ADR-004).
 #
-# Despliega apps/api (NestJS) como Web Service en Render, apuntando a la BD
-# Supabase (ADR-002). El frontend web/mobile NO se despliegan aquí.
+# Despliega apps/api (Express — ADR-028) como Web Service en Render, apuntando
+# a la BD Supabase (ADR-002). El frontend web/mobile NO se despliegan aquí.
 #
 # Cómo usarlo:
 #   1. En Render → New → Blueprint → conectar el repo Juargo/MoneyDiary.
@@ -11,7 +11,7 @@
 #
 # Seguridad: los 3 secretos van con `sync:false` — NO se commitean; se cargan
 # a mano en el dashboard de Render. API_KEY protege todos los endpoints salvo
-# el health check (ApiKeyGuard, fail-closed).
+# el health check (apiKeyMiddleware, fail-closed).
 
 services:
   - type: web
@@ -23,7 +23,7 @@ services:
     # El repo es un monorepo pnpm; se instala y construye desde la raíz.
     rootDir: .
     # `rm -rf apps/api/dist` runs after Render restores its build cache and
-    # before nest build: it guarantees the deployed dist is exactly what THIS
+    # before the TypeScript build: it guarantees the deployed dist is exactly what THIS
     # build compiled, never a stale/partial dist left in the cache by a prior
     # (possibly failed) build. A cached dist once shipped without a new route
     # despite the source being correct — this makes the output cache-proof.
@@ -34,7 +34,7 @@ services:
       pnpm --filter @moneydiary/api exec prisma generate &&
       pnpm --filter @moneydiary/api build
     startCommand: pnpm --filter @moneydiary/api start:prod
-    # Health check público (AppController @Public) — sin API key.
+    # Health check público (ruta Express `GET /`, fuera de /api) — sin API key.
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
