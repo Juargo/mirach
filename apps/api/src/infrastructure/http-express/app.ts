@@ -5,6 +5,7 @@ import { apiKeyMiddleware } from './middleware/api-key.middleware';
 import { sessionMiddleware } from './middleware/session.middleware';
 import { registrarResumen } from './routes/resumen.routes';
 import { registrarBuckets } from './routes/buckets.routes';
+import { registrarMovimientos } from './routes/movimientos.routes';
 
 /**
  * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028).
@@ -37,6 +38,7 @@ export function createApp(container: Container): Express {
   protectedApi.use(sessionMiddleware(container.validarSesion));
   registrarResumen(protectedApi, container.calcularResumenMes, container.calcularResumenAnual);
   registrarBuckets(protectedApi, container.obtenerDetalleBucket);
+  registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
   app.use('/api', protectedApi);
 
   app.use(errorMiddleware);

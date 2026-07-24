@@ -4,10 +4,12 @@ import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.us
 import { CalcularResumenMesUseCase } from '../application/use-cases/calcular-resumen-mes.use-case';
 import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-resumen-anual.use-case';
 import { ObtenerDetalleBucketUseCase } from '../application/use-cases/obtener-detalle-bucket.use-case';
+import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-movimientos-mes.use-case';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
+import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/prisma-movimientos-mes.repository';
 import { Sha256SessionTokenService } from '../infrastructure/http/auth/sha256-session-token.service';
 import { SystemReloj } from '../infrastructure/http/auth/system-reloj';
 
@@ -33,6 +35,8 @@ export interface Container {
   readonly calcularResumenAnual: CalcularResumenAnualUseCase;
   /** Detalle de un bucket — GET /api/buckets/:bucket. */
   readonly obtenerDetalleBucket: ObtenerDetalleBucketUseCase;
+  /** Lista mensual consolidada — GET /api/movimientos. */
+  readonly obtenerMovimientosMes: ObtenerMovimientosMesUseCase;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
   readonly shutdown: () => Promise<void>;
 }
@@ -55,12 +59,16 @@ export function createContainer(
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
     new PrismaDetalleBucketRepository(prisma),
   );
+  const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
+    new PrismaMovimientosMesRepository(prisma),
+  );
 
   return {
     validarSesion,
     calcularResumenMes,
     calcularResumenAnual,
     obtenerDetalleBucket,
+    obtenerMovimientosMes,
     shutdown: () => prisma.$disconnect(),
   };
 }
