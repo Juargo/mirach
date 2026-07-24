@@ -11,12 +11,12 @@
  *   - DTO shape — 12 months, Jan→Dec periodo labels, reused ResumenMesDto shape
  *   - CA-08 (MANDATORY, RNF-SEC-006): user isolation — user B's data excluded
  */
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 
@@ -28,20 +28,15 @@ const NOW = new Date();
 const CURRENT_YEAR = NOW.getUTCFullYear();
 
 describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
 
   const createdAccountIds: string[] = [];
 
   beforeAll(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    prisma = createPrismaClient();
+    await prisma.$connect();
+    app = createApp(createContainer(prisma));
   });
 
   afterAll(async () => {
@@ -59,7 +54,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     await prisma.user.deleteMany({
       where: { id: { startsWith: RUN_ID } },
     });
-    await app.close();
+    await prisma.$disconnect();
   });
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -131,7 +126,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   // ── invalid anio → 400 ──────────────────────────────────────────────────────
 
   it('anio=not-a-year → 400, scrubbed body', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/resumen/anual?anio=not-a-year')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -140,7 +135,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   });
 
   it('anio=1999 (out of range) → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/resumen/anual?anio=1999')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -149,7 +144,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   // ── anio absent → current year default ─────────────────────────────────────
 
   it('GET /api/resumen/anual (no anio) → 200 with current UTC year', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/resumen/anual')
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -160,7 +155,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   // ── DTO shape ────────────────────────────────────────────────────────────
 
   it('DTO shape — 12 months, Jan→Dec periodo labels, reused ResumenMesDto shape', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -217,7 +212,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     // a fixed constant) is covered by fast unit tests in
     // calcular-resumen-anual.use-case.spec.ts and resumen.controller.spec.ts,
     // and by prisma-resumen-anual.repository.spec.ts SC-09 (gated, ALLOW=1).
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)
       .set('x-api-key', API_KEY)
       .expect(200);

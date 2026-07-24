@@ -11,7 +11,7 @@
  * Gate: assertDestructiveDbAllowed() runs in integration.setup.ts (setupFiles).
  */
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { runSeed } from '../prisma/seed';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persistence/prisma-transaccion-bucket.repository';
@@ -89,7 +89,7 @@ async function runCategorizacionStep(
 }
 
 describe('Categorización — integración (real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient();
   const catalogoRepo = new PrismaCatalogoClasificacionRepository(prisma);
   const bucketWriter = new PrismaTransaccionBucketRepository(prisma);
   const txClasificacionReader = new PrismaTransaccionClasificacionRepository(prisma);

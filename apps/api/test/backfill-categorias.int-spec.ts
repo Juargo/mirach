@@ -14,7 +14,7 @@
  * manually with `pnpm api test:integration` against a disposable dev DB.
  */
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { runSeed } from '../prisma/seed';
 import { runBackfill, main } from '../prisma/backfill-categorias';
 import { Categoria } from '../src/domain/value-objects/categoria';
@@ -24,7 +24,7 @@ import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
 import { ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
 describe('Backfill de categorías — integración (real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient();
 
   let testIngestaId: string;
 

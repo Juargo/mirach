@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { PrismaMovimientosMesRepository } from '../src/infrastructure/persistence/prisma-movimientos-mes.repository';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
@@ -30,7 +30,7 @@ const TEST_USER_ID = `${USER_ID_FIJO}-${RUN_ID}`;
 const TEST_USER_ID_B = `user-b-${RUN_ID}`;
 
 describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient();
   const repo = new PrismaMovimientosMesRepository(prisma);
 
   let accountIdA1: string;   // user A, bank 1 (BancoEstado)

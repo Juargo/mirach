@@ -14,12 +14,12 @@
  *            all estadoSemaforo null, estadoGlobal null (US-016 SC-SI-01)
  *   - SC-09: user isolation (MANDATORY RNF-SEC-006) — user B data excluded
  */
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 
@@ -37,20 +37,15 @@ const MID_MONTH_DATE = new Date(
 );
 
 describe('ResumenController (e2e) — GET /api/resumen', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
 
   const createdAccountIds: string[] = [];
 
   beforeAll(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    prisma = createPrismaClient();
+    await prisma.$connect();
+    app = createApp(createContainer(prisma));
   });
 
   afterAll(async () => {
@@ -71,7 +66,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     await prisma.user.deleteMany({
       where: { id: { startsWith: RUN_ID } },
     });
-    await app.close();
+    await prisma.$disconnect();
   });
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -142,7 +137,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   // ── SC-08: invalid periodo → HTTP 400, scrubbed ────────────────────────────
 
   it('SC-08a: GET /api/resumen?periodo=not-a-date → 400', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/resumen?periodo=not-a-date')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -152,7 +147,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   });
 
   it('SC-08b: GET /api/resumen?periodo=2026-13 → 400', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/resumen?periodo=2026-13')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -161,7 +156,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   });
 
   it('SC-08c: GET /api/resumen?periodo=2026-00 → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/resumen?periodo=2026-00')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -170,7 +165,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   // ── SC-07: current month default ───────────────────────────────────────────
 
   it('SC-07: GET /api/resumen (no periodo) → 200 with current UTC periodo', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/resumen')
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -183,7 +178,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   it('SC-01: DTO shape — 4 buckets, string totals, number porcentajeBp, targets 50/30/20', async () => {
     if (!ALLOW) {
       // Shape can be validated with empty data (sinIngreso=true but shape is still valid)
-      const res = await request(app.getHttpServer())
+      const res = await request(app)
         .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
         .set('x-api-key', API_KEY)
         .expect(200);
@@ -210,7 +205,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
 
     // Note: fixed user (USER_ID_FIJO) gets the seeded data; this verifies shape
     // The endpoint uses USER_ID_FIJO, not our seeded userId. Shape test still works.
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -246,7 +241,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
 
   it('SC-04: empty period → 200, sinIngreso=true, all porcentajeBp null', async () => {
     // A future month with no data — guaranteed empty
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get('/api/resumen?periodo=2099-12')
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -278,7 +273,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     await seedTx({ accountId: alienAccountId, ingestaId: alienIngestaId, bucketId: BUCKET_IDS[Bucket.Ingreso],     cargo: 0n,           abono: 9_000_000n });
     await seedTx({ accountId: alienAccountId, ingestaId: alienIngestaId, bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 4_500_000n,   abono: 0n });
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .expect(200);

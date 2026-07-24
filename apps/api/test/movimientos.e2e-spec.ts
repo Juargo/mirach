@@ -1,9 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 
@@ -33,9 +33,8 @@ const TEST_USER_ID = `movmese2e-user-${RUN_ID}`;
  *     'Necesidades'), never the raw physical bucketId
  */
 describe('MovimientosController (e2e) — GET /api/movimientos', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
 
   // Track seeded IDs for cleanup
   const seededIngestaIds: string[] = [];
@@ -44,13 +43,9 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   const FIXED_USER_ID = 'usuario-fijo-moneydiary';
 
   beforeAll(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    prisma = createPrismaClient();
+    await prisma.$connect();
+    app = createApp(createContainer(prisma));
   });
 
   afterAll(async () => {
@@ -68,41 +63,41 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
         where: { id: { in: seededAccountIds } },
       });
     }
-    await app.close();
+    await prisma.$disconnect();
   });
 
   // ── Validation errors ────────────────────────────────────────────────────
 
   it('AC-05: GET /api/movimientos?periodo=2026-13 → 400 (invalid month)', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=2026-13')
       .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07a: GET /api/movimientos?periodo= (empty string) → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=')
       .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07b: GET /api/movimientos?periodo=abc → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=abc')
       .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07c: GET /api/movimientos?periodo=2026-7 (non-padded month) → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=2026-7')
       .set('x-api-key', API_KEY)
       .expect(400);
   });
 
   it('AC-07d: GET /api/movimientos?periodo=2026/07 (wrong separator) → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=2026%2F07')
       .set('x-api-key', API_KEY)
       .expect(400);
@@ -112,7 +107,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
   it('AC-04: valid periodo with no data → 200 with empty envelope', async () => {
     // Use a month with no data: far past (2000-01)
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .get('/api/movimientos?periodo=2000-01')
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -131,7 +126,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     const now = new Date();
     const expectedPeriodo = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .get('/api/movimientos')
       .set('x-api-key', API_KEY)
       .expect(200);
@@ -206,7 +201,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
       ],
     });
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .get('/api/movimientos?periodo=2026-07')
       .set('x-api-key', API_KEY)
       .expect(200);
