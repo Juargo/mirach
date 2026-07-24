@@ -1,0 +1,32 @@
+# docker-compose.yml — Postgres LOCAL desechable para los tests e2e/integración.
+#
+# Estos tests son destructivos (deleteMany, seed, pipeline completo) y el gate
+# `db-safety` (assertDestructiveDbAllowed) los BLOQUEA contra Supabase/prod. Esta
+# es la DB de dev/test separada que necesitan: un Postgres en localhost, sin
+# "prod"/"supabase" en la URL, así el gate la acepta.
+#
+#   docker compose up -d      → levanta la DB (localhost:5432)
+#   docker compose down       → la apaga (conserva los datos)
+#   docker compose down -v     → la apaga y BORRA los datos (reset limpio)
+#
+# Alternativa sin Docker: ver docs/local-test-db.md (Homebrew Postgres).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: moneydiary-test-db
+    environment:
+      POSTGRES_USER: moneydiary
+      POSTGRES_PASSWORD: moneydiary
+      POSTGRES_DB: moneydiary_test
+    ports:
+      - '5432:5432'
+    volumes:
+      - moneydiary_test_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U moneydiary -d moneydiary_test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  moneydiary_test_pg:

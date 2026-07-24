@@ -17,6 +17,11 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.e2e.config.ts",
     "test:integration": "ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.int.config.ts",
+    "test:db:migrate": "DOTENV_CONFIG_PATH=.env.test prisma migrate deploy",
+    "test:db:seed": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 ts-node prisma/seed.ts",
+    "test:db:setup": "pnpm test:db:migrate && pnpm test:db:seed",
+    "test:integration:local": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.int.config.ts",
+    "test:e2e:local": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.e2e.config.ts",
     "cli": "ts-node -r tsconfig-paths/register src/infrastructure/cli/ingestar.ts"
   },
   "dependencies": {
