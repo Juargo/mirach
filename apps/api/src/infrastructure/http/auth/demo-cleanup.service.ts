@@ -15,9 +15,8 @@ import type { PrismaClient } from '@prisma/client';
  *   - Diaria: `limpiarDiario()` es la red de seguridad (DEMO-CLN-03).
  *
  * NOTA (ADR-028): antes se agendaba con un cron del framework. Tras el cutover
- * a Express, `limpiarDiario()` queda como método plano SIN scheduler — falta
- * agregar uno (p. ej. `node-cron`) para restaurar la red de seguridad diaria.
- * La limpieza lazy en la ruta demo sigue funcionando.
+ * a Express, `limpiarDiario()` la agenda `programarLimpiezaDemo` (node-cron) en
+ * el bootstrap (server.ts). La limpieza lazy en la ruta demo también corre.
  *
  * No es un port — es un servicio de infraestructura concreto (design.md
  * "DemoCleanupService — infra service, no port needed"), igual que

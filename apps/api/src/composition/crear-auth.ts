@@ -40,8 +40,8 @@ export interface AuthGraph {
  * (una sola vez) para el session middleware.
  *
  * Nota (ADR-028): la limpieza DIARIA de demos (`DemoCleanupService.limpiarDiario`)
- * quedó SIN agendar tras el cutover — falta un scheduler (p. ej. node-cron). La
- * limpieza lazy en `GET /demo` sí funciona.
+ * la agenda `programarLimpiezaDemo` (node-cron) en el bootstrap. La limpieza
+ * lazy en `GET /demo` también corre.
  */
 export function crearAuth(prisma: PrismaClient): AuthGraph {
   const reloj = new SystemReloj();
