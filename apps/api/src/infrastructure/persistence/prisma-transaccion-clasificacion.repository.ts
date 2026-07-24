@@ -1,5 +1,5 @@
 import { ITransaccionParaClasificarReader, TransaccionParaClasificar } from '../../application/ports/transaccion-para-clasificar.port';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * PrismaTransaccionClasificacionRepository — implementación del port de lectura
@@ -13,7 +13,7 @@ import { PrismaService } from './prisma.service';
  * dentro de su try/catch island de categorización.
  */
 export class PrismaTransaccionClasificacionRepository implements ITransaccionParaClasificarReader {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async findParaClasificar(
     ingestaId: string,

@@ -6,6 +6,8 @@ import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-r
 import { ObtenerDetalleBucketUseCase } from '../application/use-cases/obtener-detalle-bucket.use-case';
 import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-movimientos-mes.use-case';
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
+import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
+import { crearProcessIngesta } from './crear-process-ingesta';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
@@ -41,6 +43,8 @@ export interface Container {
   readonly obtenerMovimientosMes: ObtenerMovimientosMesUseCase;
   /** Reclasificación manual — PATCH /api/transacciones/:id/categoria. */
   readonly reclasificarTransaccion: ReclasificarTransaccionUseCase;
+  /** Pipeline de ingesta xlsx/pdf — POST /api/ingestas. */
+  readonly processIngesta: ProcessIngestaUseCase;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
   readonly shutdown: () => Promise<void>;
 }
@@ -69,6 +73,7 @@ export function createContainer(
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(
     new PrismaReclasificarCategoriaRepository(prisma),
   );
+  const processIngesta = crearProcessIngesta(prisma);
 
   return {
     validarSesion,
@@ -77,6 +82,7 @@ export function createContainer(
     obtenerDetalleBucket,
     obtenerMovimientosMes,
     reclasificarTransaccion,
+    processIngesta,
     shutdown: () => prisma.$disconnect(),
   };
 }

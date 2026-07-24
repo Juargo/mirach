@@ -3,7 +3,7 @@ import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-f
 import { ICatalogoClasificacion } from '../../application/ports/catalogo-clasificacion.port';
 import { PatronClasificacion, MatchType } from '../../domain/value-objects/patron-clasificacion';
 import { Categoria } from '../../domain/value-objects/categoria';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * PrismaCatalogoClasificacionRepository — implementación del port ICatalogoClasificacion.
@@ -17,7 +17,7 @@ import { PrismaService } from './prisma.service';
  * los cambios de seed se reflejen sin reiniciar.
  */
 export class PrismaCatalogoClasificacionRepository implements ICatalogoClasificacion {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async findAll(): Promise<Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>> {
     try {

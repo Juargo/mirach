@@ -5,7 +5,7 @@ import {
   ITransaccionExistenteReader,
   TransaccionExistente,
 } from '../../application/ports/transaccion-existente-reader.port';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * PrismaTransaccionExistenteReader — implementación Prisma del port de
@@ -28,7 +28,7 @@ import { PrismaService } from './prisma.service';
  */
 export class PrismaTransaccionExistenteReader implements ITransaccionExistenteReader {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly crypto: ICryptoService,
   ) {}
 

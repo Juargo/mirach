@@ -7,6 +7,7 @@ import { registrarResumen } from './routes/resumen.routes';
 import { registrarBuckets } from './routes/buckets.routes';
 import { registrarMovimientos } from './routes/movimientos.routes';
 import { registrarTransacciones } from './routes/transacciones.routes';
+import { registrarIngestas } from './routes/ingesta.routes';
 
 /**
  * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028).
@@ -41,6 +42,7 @@ export function createApp(container: Container): Express {
   registrarBuckets(protectedApi, container.obtenerDetalleBucket);
   registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
   registrarTransacciones(protectedApi, container.reclasificarTransaccion);
+  registrarIngestas(protectedApi, container.processIngesta);
   app.use('/api', protectedApi);
 
   app.use(errorMiddleware);
