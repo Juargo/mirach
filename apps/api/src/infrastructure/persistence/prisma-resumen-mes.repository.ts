@@ -4,7 +4,7 @@ import {
 } from '../../application/ports/resumen-mes.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
 
 /**
@@ -18,10 +18,11 @@ import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
  * User isolation is structural: `account: { userId }` in the WHERE clause.
  * Amounts stay BigInt; no number, no float here.
  *
- * Constructor takes PrismaService directly (no NestJS decorators — clean arch).
+ * Depende de `PrismaClient` (base), no de `PrismaService` (artefacto Nest) — así
+ * el composition root de Express le pasa un cliente plano (ADR-028).
  */
 export class PrismaResumenMesRepository implements IResumenMesReader {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async sumarPorBucket(
     userId: string,

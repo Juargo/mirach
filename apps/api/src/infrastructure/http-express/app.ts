@@ -1,6 +1,9 @@
 import express, { type Express } from 'express';
 import type { Container } from '../../composition/container';
 import { errorMiddleware } from './middleware/error.middleware';
+import { apiKeyMiddleware } from './middleware/api-key.middleware';
+import { sessionMiddleware } from './middleware/session.middleware';
+import { registrarResumen } from './routes/resumen.routes';
 
 /**
  * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028).
@@ -8,21 +11,31 @@ import { errorMiddleware } from './middleware/error.middleware';
  * Separar el armado del `listen()` permite que los tests la ejerzan con
  * supertest de forma hermética. El bootstrap (server.ts) es quien escucha.
  *
- * Orden de middleware (Slice 0): json → rutas → error (siempre último). La
- * cadena de auth (api-key → session → sec-fetch) y los routers de cada endpoint
- * se inyectan en las slices siguientes; por eso `container` ya está en la firma
- * aunque el health no lo use todavía.
+ * Orden de middleware:
+ *   1. express.json()
+ *   2. health `GET /` público (fuera de /api → sin auth)
+ *   3. router `/api` protegido: apiKey → session → routers de datos.
+ *      "Público" = la ruta no monta el middleware (no hay @Public() en Express).
+ *      Las rutas session-public (login/demo) montarán en OTRO router (solo
+ *      api-key) en Slice 7.
+ *   4. errorMiddleware (SIEMPRE último, 4 args).
  */
-export function createApp(_container: Container): Express {
+export function createApp(container: Container): Express {
   const app = express();
 
   app.use(express.json());
 
-  // Health público — sin API key. Lo usa Render para verificar liveness.
-  // Preserva el contrato actual (string 'Hello World!', ver app.service.ts).
+  // Health público — sin API key. Lo usa Render. Preserva el contrato actual.
   app.get('/', (_req, res) => {
     res.status(200).send('Hello World!');
   });
+
+  // API de datos: toda ruta acá exige api-key + sesión válida.
+  const protectedApi = express.Router();
+  protectedApi.use(apiKeyMiddleware);
+  protectedApi.use(sessionMiddleware(container.validarSesion));
+  registrarResumen(protectedApi, container.calcularResumenMes, container.calcularResumenAnual);
+  app.use('/api', protectedApi);
 
   app.use(errorMiddleware);
 
