@@ -20,6 +20,7 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -31,6 +32,7 @@ const CURRENT_YEAR = NOW.getUTCFullYear();
 describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   let app: Express;
   let prisma: PrismaClient;
+  let sesion: Sesion;
 
   const createdAccountIds: string[] = [];
 
@@ -39,6 +41,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
+    sesion = await loginAsSeededUser(app);
   });
 
   afterAll(async () => {
@@ -131,6 +134,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     const res = await request(app)
       .get('/api/resumen/anual?anio=not-a-year')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
 
     expect(JSON.stringify(res.body)).not.toContain('not-a-year');
@@ -140,6 +144,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     await request(app)
       .get('/api/resumen/anual?anio=1999')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -149,6 +154,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     const res = await request(app)
       .get('/api/resumen/anual')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(res.body.anio).toBe(CURRENT_YEAR);
@@ -160,6 +166,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     const res = await request(app)
       .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(res.body.anio).toBe(CURRENT_YEAR);
@@ -217,6 +224,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     const res = await request(app)
       .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     const marzo = res.body.meses[2];

@@ -23,6 +23,7 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -40,6 +41,7 @@ const MID_MONTH_DATE = new Date(
 describe('ResumenController (e2e) — GET /api/resumen', () => {
   let app: Express;
   let prisma: PrismaClient;
+  let sesion: Sesion;
 
   const createdAccountIds: string[] = [];
 
@@ -48,6 +50,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
+    sesion = await loginAsSeededUser(app);
   });
 
   afterAll(async () => {
@@ -142,6 +145,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const res = await request(app)
       .get('/api/resumen?periodo=not-a-date')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
 
     // Scrubbed: raw input must NOT appear in the body
@@ -152,6 +156,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const res = await request(app)
       .get('/api/resumen?periodo=2026-13')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
 
     expect(JSON.stringify(res.body)).not.toContain('2026-13');
@@ -161,6 +166,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     await request(app)
       .get('/api/resumen?periodo=2026-00')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -170,6 +176,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const res = await request(app)
       .get('/api/resumen')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(res.body.periodo).toBe(CURRENT_PERIODO);
@@ -183,6 +190,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
       const res = await request(app)
         .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
         .set('x-api-key', API_KEY)
+        .set('Cookie', sesion.cookie)
         .expect(200);
 
       // Shape assertions that don't require real data
@@ -210,6 +218,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const res = await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     // DTO shape invariants (SC-01)
@@ -246,6 +255,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const res = await request(app)
       .get('/api/resumen?periodo=2099-12')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(res.body.sinIngreso).toBe(true);
@@ -278,6 +288,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const res = await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     // USER_ID_FIJO endpoint must NEVER return alien user's data

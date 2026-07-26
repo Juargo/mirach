@@ -7,6 +7,7 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const RUN_ID = `movmese2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
@@ -36,6 +37,7 @@ const TEST_USER_ID = `movmese2e-user-${RUN_ID}`;
 describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   let app: Express;
   let prisma: PrismaClient;
+  let sesion: Sesion;
 
   // Track seeded IDs for cleanup
   const seededIngestaIds: string[] = [];
@@ -48,6 +50,11 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
+    // Session-protected endpoint: log in as USER_ID_FIJO (= FIXED_USER_ID)
+    // so req.userId matches the seeded rows below — otherwise every
+    // happy-path assertion would silently degrade to an empty-response
+    // false-positive (aislamiento por userId, RNF-SEC-006).
+    sesion = await loginAsSeededUser(app);
   });
 
   afterAll(async () => {
@@ -74,6 +81,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     await request(app)
       .get('/api/movimientos?periodo=2026-13')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -81,6 +89,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     await request(app)
       .get('/api/movimientos?periodo=')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -88,6 +97,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     await request(app)
       .get('/api/movimientos?periodo=abc')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -95,6 +105,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     await request(app)
       .get('/api/movimientos?periodo=2026-7')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -102,6 +113,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     await request(app)
       .get('/api/movimientos?periodo=2026%2F07')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -112,6 +124,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     const response = await request(app)
       .get('/api/movimientos?periodo=2000-01')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(response.body.periodo).toBe('2000-01');
@@ -131,6 +144,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     const response = await request(app)
       .get('/api/movimientos')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(response.body.periodo).toBe(expectedPeriodo);
@@ -206,6 +220,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     const response = await request(app)
       .get('/api/movimientos?periodo=2026-07')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(response.body.periodo).toBe('2026-07');

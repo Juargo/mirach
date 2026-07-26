@@ -135,7 +135,7 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       .set('Cookie', cookie)
       .expect(200);
 
-    expect(meRes.body).toEqual({ userId, email: EMAIL });
+    expect(meRes.body).toEqual({ userId, email: EMAIL, esDemo: false });
   });
 
   it('transporte Bearer: mismo endpoint 200 con Authorization: Bearer <body.token>, sin cookie (AUTH-05)', async () => {
@@ -153,7 +153,7 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       .set('Authorization', `Bearer ${loginRes.body.token}`)
       .expect(200);
 
-    expect(meRes.body).toEqual({ userId, email: EMAIL });
+    expect(meRes.body).toEqual({ userId, email: EMAIL, esDemo: false });
   });
 
   it('precedencia de cookie: cookie válida + Bearer basura → sigue funcionando (usa la cookie, AUTH-05)', async () => {

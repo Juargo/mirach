@@ -6,6 +6,7 @@ import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const RUN_ID = `e2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
@@ -27,6 +28,7 @@ const API_KEY = process.env.API_KEY ?? '';
 describe('IngestaController (e2e) — POST /api/ingestas', () => {
   let app: Express;
   let prisma: PrismaClient;
+  let sesion: Sesion;
 
   const fixturesDir = join(__dirname, 'fixtures');
   const xlsxFixture = join(fixturesDir, 'movimientos-test.xlsx');
@@ -39,6 +41,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
+    sesion = await loginAsSeededUser(app);
   });
 
   afterEach(async () => {
@@ -64,6 +67,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', xlsxFixture, nombreArchivo)
       .expect(200);
 
@@ -133,6 +137,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', xlsFixture)
       .expect(400);
 
@@ -143,6 +148,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
 
     expect(response.body.message).toMatch(/archivo/i);
@@ -169,6 +175,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       const response = await request(app)
         .post('/api/ingestas')
         .set('x-api-key', API_KEY)
+        .set('Cookie', sesion.cookie)
         .attach('file', xlsxFixture, nombreArchivo)
         .expect(500);
 
