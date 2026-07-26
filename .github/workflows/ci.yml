@@ -53,11 +53,14 @@ jobs:
         run: pnpm api env:example:check
 
       # Vitest detecta CI automáticamente vía la env var CI (la setea GitHub
-      # Actions) — no necesita un flag equivalente al `--ci` de Jest.
+      # Actions) — no necesita un flag equivalente al `--ci` de Jest. En CI eso
+      # pone `allowOnly: false` (default de Vitest = `!isCI`), así que un
+      # `it.only`/`describe.only` olvidado hace FALLAR el run en vez de reducir
+      # el suite en silencio. Localmente `.only` se permite a propósito (debug).
       - name: Unit tests API
         run: pnpm api test
 
-      # Exercises the PRODUCTION build. `nest build` uses tsconfig.build.json
+      # Exercises the PRODUCTION build. `tsc -p tsconfig.build.json` uses
       # (rootDir: ./src); the `tsc --noEmit` above uses tsconfig.json (no
       # rootDir), so it does NOT catch rootDir violations (TS6059) — e.g. a
       # src/ file importing a .ts outside src/. This step does. Without it, a
