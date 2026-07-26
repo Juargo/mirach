@@ -39,6 +39,13 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22.22.3"
+      # ADR-029: env.ts's superRefine only enforces the production rules
+      # (COOKIE_SECURE=true, Supabase host, ALLOW_DESTRUCTIVE_DB absent) when
+      # NODE_ENV === 'production'. Render does NOT set this implicitly, so it
+      # must be explicit here — otherwise the loose 'development' defaults
+      # apply in prod (localhost fail-fast off, destructive-DB rule off).
+      - key: NODE_ENV
+        value: "production"
       # Pooler transaction-mode (IPv4) de Supabase — la app en runtime.
       - key: DATABASE_URL
         sync: false
@@ -49,14 +56,16 @@ services:
       #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
       - key: API_KEY
         sync: false
-      # Fuerza el flag `Secure` en la cookie de sesión en producción sin
-      # depender de que Render setee NODE_ENV=production implícitamente
-      # (ver cookie.ts → shouldBeSecure). Es un valor no secreto.
+      # Fuerza el flag `Secure` en la cookie de sesión. Con NODE_ENV=production
+      # ya seteado arriba, app.ts la deriva igual (cookieSecure = NODE_ENV
+      # === 'production' || COOKIE_SECURE) — queda explícita acá como
+      # belt-and-suspenders y porque env.ts (ADR-029) exige COOKIE_SECURE=true
+      # en producción vía superRefine. Es un valor no secreto.
       - key: COOKIE_SECURE
         value: "true"
       # Rate limiter de login (AUTH-08) — valores por defecto explícitos.
-      # El parseo es fail-closed: si alguno queda vacío/no-numérico/≤0, la
-      # API no arranca (ver login-rate-limiter.ts → readRateLimitConfigFromEnv).
+      # El parseo es fail-closed vía env.ts (ADR-029): si alguno queda
+      # vacío/no-numérico/≤0, la API no arranca (Zod coerce + superRefine).
       - key: LOGIN_RATELIMIT_MAX_EMAIL
         value: "5"
       - key: LOGIN_RATELIMIT_MAX_IP
