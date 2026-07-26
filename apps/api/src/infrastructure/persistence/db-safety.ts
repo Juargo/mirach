@@ -45,7 +45,7 @@ const PROD_PATTERN = /\bprod\b|production/i;
  * así que esta regla no lo afecta. Si algún día se introduce un proyecto
  * Supabase de dev/branch separado, esta regla debe revisarse.
  */
-const SUPABASE_HOST_PATTERN = /supabase\.co(m)?/i;
+export const SUPABASE_HOST_PATTERN = /supabase\.co(m)?/i;
 
 function looksLikeProduction(connectionString: string): boolean {
   return (
