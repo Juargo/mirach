@@ -44,4 +44,26 @@ export default tseslint.config(
       'vitest/no-focused-tests': 'error',
     },
   },
+  {
+    // ADR-005 boundary tripwire: domain/application must stay framework- and
+    // env-agnostic. `config/env` is infrastructure-adjacent (parses
+    // process.env, ADR-029) — only composition/infrastructure may import it.
+    // Needed values must be injected as parameters (see createPrismaClient,
+    // crearAuth, createApiKeyMiddleware for the established pattern).
+    files: ['src/domain/**/*.ts', 'src/application/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/config/env', '**/config/env.js', '**/config/env.ts'],
+              message:
+                'domain/application must not import config/env (ADR-005 boundary). Inject the needed Env values as parameters instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );
