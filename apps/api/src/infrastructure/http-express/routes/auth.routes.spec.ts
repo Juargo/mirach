@@ -21,6 +21,7 @@ function deps(over: Partial<AuthPublicDeps> = {}): AuthPublicDeps {
     validarSesion: { execute: vi.fn().mockResolvedValue(Result.fail(new Error('sin sesión'))) },
     loginRateLimiter: { isBlocked: vi.fn().mockReturnValue(false), recordFailure: vi.fn(), reset: vi.fn() },
     demoRateLimiter: { isBlocked: vi.fn().mockReturnValue(false), recordFailure: vi.fn() },
+    cookieSecure: false,
     ...over,
   } as unknown as AuthPublicDeps;
 }
@@ -48,6 +49,26 @@ describe('registrarAuthPublic', () => {
       expect(res.body).toEqual({ token: 'tok', userId: 'u1', expiresAt: EXPIRA.toISOString() });
       expect(d.login.execute).toHaveBeenCalledWith({ emailRaw: 'a@b.cl', password: 'secreta' });
       expect(d.loginRateLimiter.reset).toHaveBeenCalled();
+    });
+
+    it('cookie con Secure cuando cookieSecure=true (ADR-029, deriva de env)', async () => {
+      const d = deps({ cookieSecure: true });
+      const res = await request(publicApp(d))
+        .post('/api/auth/login')
+        .send({ email: 'a@b.cl', password: 'secreta' });
+
+      expect(res.status).toBe(200);
+      expect(res.headers['set-cookie']?.[0]).toContain('Secure');
+    });
+
+    it('cookie sin Secure cuando cookieSecure=false', async () => {
+      const d = deps({ cookieSecure: false });
+      const res = await request(publicApp(d))
+        .post('/api/auth/login')
+        .send({ email: 'a@b.cl', password: 'secreta' });
+
+      expect(res.status).toBe(200);
+      expect(res.headers['set-cookie']?.[0]).not.toContain('Secure');
     });
 
     it('429 si el rate limiter bloquea (no llama al use case)', async () => {

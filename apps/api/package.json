@@ -15,14 +15,16 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.e2e.config.ts",
-    "test:integration": "ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.int.config.ts",
+    "test:e2e": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.e2e.config.ts",
+    "test:integration": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.int.config.ts",
     "test:db:migrate": "DOTENV_CONFIG_PATH=.env.test prisma migrate deploy",
     "test:db:seed": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 ts-node prisma/seed.ts",
     "test:db:setup": "pnpm test:db:migrate && pnpm test:db:seed",
-    "test:integration:local": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.int.config.ts",
-    "test:e2e:local": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.e2e.config.ts",
-    "cli": "ts-node -r tsconfig-paths/register src/infrastructure/cli/ingestar.ts"
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "cli": "ts-node -r tsconfig-paths/register src/infrastructure/cli/ingestar.ts",
+    "env:example": "ts-node scripts/gen-env-example.ts",
+    "env:example:check": "ts-node scripts/gen-env-example.ts --check"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
@@ -34,7 +36,8 @@
     "multer": "^2.1.1",
     "node-cron": "^4.6.0",
     "pdfjs-dist": "^6.1.200",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

@@ -13,6 +13,7 @@
  */
 
 import 'dotenv/config';
+import { loadEnv } from '../../config/env';
 import { crearProcessIngesta } from '../../composition/crear-process-ingesta';
 import { createPrismaClient } from '../persistence/create-prisma-client';
 import { USER_ID_FIJO } from '../persistence/constants';
@@ -48,8 +49,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Composition root: el MISMO que usa el HTTP (ADR-028).
-  const prisma = createPrismaClient();
+  // Composition root: el MISMO que usa el HTTP (ADR-028/029).
+  const env = loadEnv();
+  const prisma = createPrismaClient(env);
   await prisma.$connect();
 
   try {

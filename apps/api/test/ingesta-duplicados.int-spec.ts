@@ -2,6 +2,7 @@ import 'dotenv/config';
 import * as fs from 'fs';
 import { join } from 'path';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { PrismaAccountRepository } from '../src/infrastructure/persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../src/infrastructure/persistence/prisma-ingesta.repository';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
@@ -55,7 +56,7 @@ class BufferFileReader implements IFileReader {
  * detecta y omite los duplicados en vez de re-insertarlos.
  */
 describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
-  const prisma = createPrismaClient();
+  const prisma = createPrismaClient(loadEnv());
   const crypto = new NoOpCryptoService();
 
   const processIngesta = new ProcessIngestaUseCase(

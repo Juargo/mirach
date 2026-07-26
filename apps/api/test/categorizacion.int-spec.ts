@@ -12,6 +12,7 @@
  */
 import 'dotenv/config';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { runSeed } from '../prisma/seed';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persistence/prisma-transaccion-bucket.repository';
@@ -89,7 +90,7 @@ async function runCategorizacionStep(
 }
 
 describe('Categorización — integración (real dev DB)', () => {
-  const prisma = createPrismaClient();
+  const prisma = createPrismaClient(loadEnv());
   const catalogoRepo = new PrismaCatalogoClasificacionRepository(prisma);
   const bucketWriter = new PrismaTransaccionBucketRepository(prisma);
   const txClasificacionReader = new PrismaTransaccionClasificacionRepository(prisma);

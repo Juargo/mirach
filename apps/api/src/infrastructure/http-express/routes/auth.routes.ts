@@ -21,6 +21,8 @@ export interface AuthPublicDeps {
   readonly validarSesion: ValidarSesionUseCase;
   readonly loginRateLimiter: LoginRateLimiter;
   readonly demoRateLimiter: DemoRateLimiter;
+  /** Atributo Secure de la cookie de sesión (ADR-029) — derivado una única vez en app.ts a partir de `env`. */
+  readonly cookieSecure: boolean;
 }
 
 /**
@@ -30,8 +32,16 @@ export interface AuthPublicDeps {
  * middleware — el equivalente Express de `@PublicSession()`.
  */
 export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void {
-  const { login, logout, crearDemo, demoCleanup, validarSesion, loginRateLimiter, demoRateLimiter } =
-    deps;
+  const {
+    login,
+    logout,
+    crearDemo,
+    demoCleanup,
+    validarSesion,
+    loginRateLimiter,
+    demoRateLimiter,
+    cookieSecure,
+  } = deps;
 
   // POST /api/auth/login
   router.post('/auth/login', async (req, res, next) => {
@@ -63,7 +73,7 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
 
       loginRateLimiter.reset(ip, email);
       const { token, userId, expiresAt } = result.getValue();
-      res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt));
+      res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt, cookieSecure));
       res.status(200).json({ token, userId, expiresAt: expiresAt.toISOString() });
     } catch (err) {
       next(err);
@@ -85,7 +95,7 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
         );
       }
 
-      res.setHeader('Set-Cookie', clearSessionCookie());
+      res.setHeader('Set-Cookie', clearSessionCookie(cookieSecure));
       res.status(204).end();
     } catch (err) {
       next(err);
@@ -130,7 +140,7 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
       }
 
       const { token, expiresAt } = await crearDemo.execute();
-      res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt));
+      res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt, cookieSecure));
       res.redirect(302, '/');
     } catch (err) {
       next(err);

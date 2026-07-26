@@ -33,19 +33,29 @@ SEED_USER_EMAIL=test@moneydiary.local
 SEED_USER_PASSWORD=local-test-password-123
 ```
 
-`.env.test` está gitignored (`.env.*`). Los scripts `test:*:local` lo cargan vía
-`DOTENV_CONFIG_PATH=.env.test`; `dotenv` no pisa vars ya seteadas, así que solo aplica
-lo de este archivo.
+`.env.test` está gitignored (`.env.*`). Los scripts `test:e2e`/`test:integration` lo
+cargan vía `DOTENV_CONFIG_PATH=.env.test`; `dotenv` no pisa vars ya seteadas, así que
+solo aplica lo de este archivo.
+
+> **Nota — `.env` de desarrollo (`pnpm api start`):** desde ADR-029, `env.ts` exige
+> `DATABASE_URL`/`DIRECT_URL` en `localhost` cuando `NODE_ENV` es `development` o
+> `test` (fail-fast: si tu `.env` de dev sigue apuntando al pooler de Supabase, la API
+> ya NO arranca). Para desarrollar contra este mismo Postgres local, tu `apps/api/.env`
+> necesita las mismas `DATABASE_URL`/`DIRECT_URL` de `localhost` que `.env.test` (podés
+> copiar esas dos líneas). Si preferís seguir contra Supabase en dev, no hay vuelta:
+> el gate lo bloquea — usá una DB local o corré con `NODE_ENV=production` (no
+> recomendado fuera de Render).
 
 ## 2. Levantar el Postgres local — elegí UN camino
 
 ### Opción A — Docker (recomendado, aislado y desechable)
 Requiere Docker instalado (`brew install --cask docker` y abrir Docker Desktop una vez).
+Corré esto desde la raíz del repo (los scripts `pnpm api` ya resuelven el cwd a `apps/api`,
+donde vive `docker-compose.yml`):
 ```bash
-cd apps/api
-docker compose up -d          # Postgres en localhost:5432
-docker compose down           # apagar (conserva datos)
-docker compose down -v        # apagar + BORRAR datos (reset limpio)
+pnpm api db:up                 # = docker compose up -d — Postgres en localhost:5432
+pnpm api db:down               # = docker compose down — apaga (conserva datos)
+(cd apps/api && docker compose down -v)   # apagar + BORRAR datos (reset limpio; sin atajo pnpm)
 ```
 
 ### Opción B — Homebrew (sin Docker)
@@ -71,9 +81,12 @@ categorías + patrones). Ambos usan el gate → exigen que la URL sea local, no 
 ## 4. Correr los tests
 
 ```bash
-pnpm api test:integration:local   # repos Prisma contra la DB local
-pnpm api test:e2e:local           # HTTP (createApp) contra la DB local
+pnpm api test:integration   # repos Prisma contra la DB local
+pnpm api test:e2e           # HTTP (createApp) contra la DB local
 ```
+Ambos scripts ya cargan `DOTENV_CONFIG_PATH=.env.test` — no hay variantes `:local`
+separadas (folded, ADR-029): al ser `test`/`development` fail-fast a `localhost`
+(env.ts), correrlos sin `.env.test` no puede apuntar a Supabase por accidente.
 
 ## Cómo leer los resultados
 

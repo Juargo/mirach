@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
+import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
  * Gate de aislamiento para buckets (ADR-015, RNF-SEC-006). `buckets` expone
@@ -27,17 +28,10 @@ function fakeContainer(): Container {
 
 describe('GET /api/buckets/:bucket — cadena de auth + aislamiento', () => {
   const KEY = 'k'.repeat(64);
-  const original = process.env.API_KEY;
-
-  beforeEach(() => {
-    process.env.API_KEY = KEY;
-  });
-  afterEach(() => {
-    process.env.API_KEY = original;
-  });
+  const testEnv = buildTestEnv({ API_KEY: KEY });
 
   it('401 con api-key pero sin sesión (queda detrás del session middleware)', async () => {
-    const res = await request(createApp(fakeContainer()))
+    const res = await request(createApp(fakeContainer(), testEnv))
       .get('/api/buckets/Necesidades')
       .set('x-api-key', KEY);
     expect(res.status).toBe(401);
@@ -45,7 +39,7 @@ describe('GET /api/buckets/:bucket — cadena de auth + aislamiento', () => {
 
   it('200 con api-key + sesión; el userId de la sesión fluye al use case', async () => {
     const c = fakeContainer();
-    const res = await request(createApp(c))
+    const res = await request(createApp(c, testEnv))
       .get('/api/buckets/Necesidades')
       .set('x-api-key', KEY)
       .set('Authorization', 'Bearer token-valido');

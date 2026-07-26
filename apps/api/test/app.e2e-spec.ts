@@ -4,15 +4,17 @@ import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 
 describe('AppController (e2e)', () => {
   let app: Express;
   let prisma: PrismaClient;
 
   beforeEach(async () => {
-    prisma = createPrismaClient();
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(prisma));
+    app = createApp(createContainer(env, prisma), env);
   });
 
   it('/ (GET)', () => {
