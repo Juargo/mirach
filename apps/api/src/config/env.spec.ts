@@ -215,4 +215,23 @@ describe('loadEnv — coerción de rate-limit falla cerrado (ENV-01)', () => {
       loadEnv({ ...baseDevSource, LOGIN_RATELIMIT_MAX_IP: '' }),
     ).toThrow();
   });
+
+  it('un número negativo rechaza (.positive())', () => {
+    expect(() =>
+      loadEnv({ ...baseDevSource, LOGIN_RATELIMIT_MAX_EMAIL: '-5' }),
+    ).toThrow();
+  });
+
+  it('un override válido no-default parsea a los 3 valores exactos (round-trip)', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      LOGIN_RATELIMIT_MAX_EMAIL: '10',
+      LOGIN_RATELIMIT_MAX_IP: '40',
+      LOGIN_RATELIMIT_WINDOW_MS: '600000',
+    });
+
+    expect(env.LOGIN_RATELIMIT_MAX_EMAIL).toBe(10);
+    expect(env.LOGIN_RATELIMIT_MAX_IP).toBe(40);
+    expect(env.LOGIN_RATELIMIT_WINDOW_MS).toBe(600000);
+  });
 });
