@@ -1,10 +1,18 @@
 import 'dotenv/config';
+import { loadEnv } from '../../config/env';
 import { createContainer } from '../../composition/container';
 import { createApp } from './app';
 import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
 
 /**
- * Bootstrap del server Express (ADR-028) — el entrypoint desplegado en Render.
+ * Bootstrap del server Express (ADR-028/029) — el entrypoint desplegado en Render.
+ *
+ * `loadEnv()` corre UNA VEZ acá, después de `dotenv/config` — es el único
+ * read point de `process.env` para todo el grafo de boot. `env` se inyecta
+ * hacia abajo: `createContainer(env)` → `createPrismaClient(env)` /
+ * `crearAuth(prisma, env)`; `createApp(container, env)`. Si `loadEnv()` lanza
+ * (config inválida), el proceso nunca llega a levantar el server —
+ * fail-fast, fail-loud, antes de conectar a nada.
  *
  * El container es dueño del ciclo de vida de Prisma: se conecta al arrancar y
  * se desconecta en el apagado ordenado (SIGTERM en Render / SIGINT en local).
@@ -12,9 +20,10 @@ import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
  * al `@Cron` de Nest.
  */
 async function bootstrap(): Promise<void> {
-  const container = createContainer();
-  const app = createApp(container);
-  const port = Number(process.env.PORT ?? 3000);
+  const env = loadEnv();
+  const container = createContainer(env);
+  const app = createApp(container, env);
+  const port = env.PORT;
 
   const tareaLimpiezaDemo = programarLimpiezaDemo(container.demoCleanup);
 

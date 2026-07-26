@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { PrismaIngestaRepository } from '../src/infrastructure/persistence/prisma-ingesta.repository';
 import { PrismaTransaccionRepository } from '../src/infrastructure/persistence/prisma-transaccion.repository';
 import { PrismaAccountRepository } from '../src/infrastructure/persistence/prisma-account.repository';
@@ -14,7 +15,7 @@ const RUN_ID = `it3a-${Date.now()}`;
 const USER_ID = `user-${RUN_ID}`;
 
 describe('Prisma persistence integration (real dev DB)', () => {
-  const prisma = createPrismaClient();
+  const prisma = createPrismaClient(loadEnv());
   const crypto = new NoOpCryptoService();
   const ingestaRepo = new PrismaIngestaRepository(prisma, crypto);
   const transaccionRepo = new PrismaTransaccionRepository(prisma, crypto);

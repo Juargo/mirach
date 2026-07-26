@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
+import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
  * Gate de aislamiento para la ingesta (ADR-015, RNF-SEC-006). Upload autenticado:
@@ -34,17 +35,10 @@ function fakeContainer(): Container {
 
 describe('POST /api/ingestas — cadena de auth + aislamiento', () => {
   const KEY = 'k'.repeat(64);
-  const original = process.env.API_KEY;
-
-  beforeEach(() => {
-    process.env.API_KEY = KEY;
-  });
-  afterEach(() => {
-    process.env.API_KEY = original;
-  });
+  const testEnv = buildTestEnv({ API_KEY: KEY });
 
   it('401 con api-key pero sin sesión (auth corre antes de parsear el archivo)', async () => {
-    const res = await request(createApp(fakeContainer()))
+    const res = await request(createApp(fakeContainer(), testEnv))
       .post('/api/ingestas')
       .set('x-api-key', KEY)
       .attach('file', Buffer.from('x'), 'cartola.xlsx');
@@ -53,7 +47,7 @@ describe('POST /api/ingestas — cadena de auth + aislamiento', () => {
 
   it('200 con api-key + sesión; el userId de la sesión fluye al pipeline', async () => {
     const c = fakeContainer();
-    const res = await request(createApp(c))
+    const res = await request(createApp(c, testEnv))
       .post('/api/ingestas')
       .set('x-api-key', KEY)
       .set('Authorization', 'Bearer token-valido')

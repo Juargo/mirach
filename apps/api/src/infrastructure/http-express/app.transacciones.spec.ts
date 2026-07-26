@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { Result } from '../../shared/result';
 import { Categoria } from '../../domain/value-objects/categoria';
 import type { Container } from '../../composition/container';
+import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
  * Gate de aislamiento para la reclasificación (ADR-015, RNF-SEC-006). Escritura:
@@ -30,17 +31,10 @@ function fakeContainer(): Container {
 
 describe('PATCH /api/transacciones/:id/categoria — cadena de auth + aislamiento', () => {
   const KEY = 'k'.repeat(64);
-  const original = process.env.API_KEY;
-
-  beforeEach(() => {
-    process.env.API_KEY = KEY;
-  });
-  afterEach(() => {
-    process.env.API_KEY = original;
-  });
+  const testEnv = buildTestEnv({ API_KEY: KEY });
 
   it('401 con api-key pero sin sesión (queda detrás del session middleware)', async () => {
-    const res = await request(createApp(fakeContainer()))
+    const res = await request(createApp(fakeContainer(), testEnv))
       .patch('/api/transacciones/tx-1/categoria')
       .set('x-api-key', KEY)
       .send({ categoria: 'Supermercado' });
@@ -49,7 +43,7 @@ describe('PATCH /api/transacciones/:id/categoria — cadena de auth + aislamient
 
   it('200 con api-key + sesión; el userId de la sesión fluye al use case', async () => {
     const c = fakeContainer();
-    const res = await request(createApp(c))
+    const res = await request(createApp(c, testEnv))
       .patch('/api/transacciones/tx-1/categoria')
       .set('x-api-key', KEY)
       .set('Authorization', 'Bearer token-valido')

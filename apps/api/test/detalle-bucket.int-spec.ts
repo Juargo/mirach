@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { PrismaDetalleBucketRepository } from '../src/infrastructure/persistence/prisma-detalle-bucket.repository';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { Bucket } from '../src/domain/value-objects/bucket';
@@ -32,7 +33,7 @@ const TEST_USER_ID_A = `${USER_ID_FIJO}-${RUN_ID}`;
 const TEST_USER_ID_B = `user-b-${RUN_ID}`;
 
 describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
-  const prisma = createPrismaClient();
+  const prisma = createPrismaClient(loadEnv());
   const repo = new PrismaDetalleBucketRepository(prisma);
 
   let accountIdA: string;

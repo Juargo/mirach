@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
+import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
  * GATE de Slice 1+2 (ADR-015, RNF-SEC-006): la cadena de auth completa montada
@@ -32,30 +33,23 @@ function fakeContainer(): Container {
 
 describe('GET /api/resumen — cadena de auth + aislamiento', () => {
   const KEY = 'k'.repeat(64);
-  const original = process.env.API_KEY;
-
-  beforeEach(() => {
-    process.env.API_KEY = KEY;
-  });
-  afterEach(() => {
-    process.env.API_KEY = original;
-  });
+  const testEnv = buildTestEnv({ API_KEY: KEY });
 
   it('401 sin x-api-key (api-key middleware corta primero)', async () => {
-    const res = await request(createApp(fakeContainer()))
+    const res = await request(createApp(fakeContainer(), testEnv))
       .get('/api/resumen')
       .set('Authorization', 'Bearer t');
     expect(res.status).toBe(401);
   });
 
   it('401 con api-key pero sin sesión (session middleware)', async () => {
-    const res = await request(createApp(fakeContainer())).get('/api/resumen').set('x-api-key', KEY);
+    const res = await request(createApp(fakeContainer(), testEnv)).get('/api/resumen').set('x-api-key', KEY);
     expect(res.status).toBe(401);
   });
 
   it('200 con api-key + sesión; el userId de la SESIÓN fluye al use case (aislamiento)', async () => {
     const c = fakeContainer();
-    const res = await request(createApp(c))
+    const res = await request(createApp(c, testEnv))
       .get('/api/resumen')
       .set('x-api-key', KEY)
       .set('Authorization', 'Bearer token-valido');
@@ -69,7 +63,7 @@ describe('GET /api/resumen — cadena de auth + aislamiento', () => {
   });
 
   it('health GET / sigue público (sin api-key ni sesión)', async () => {
-    const res = await request(createApp(fakeContainer())).get('/');
+    const res = await request(createApp(fakeContainer(), testEnv)).get('/');
     expect(res.status).toBe(200);
     expect(res.text).toBe('Hello World!');
   });

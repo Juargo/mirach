@@ -17,6 +17,7 @@ import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 
@@ -36,9 +37,10 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   const createdAccountIds: string[] = [];
 
   beforeAll(async () => {
-    prisma = createPrismaClient();
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(prisma));
+    app = createApp(createContainer(env, prisma), env);
   });
 
   afterAll(async () => {

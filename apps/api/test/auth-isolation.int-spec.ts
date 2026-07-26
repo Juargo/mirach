@@ -39,6 +39,7 @@ import { join } from 'path';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
@@ -77,9 +78,10 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
   beforeAll(async () => {
     if (!ALLOW) return;
 
-    prisma = createPrismaClient();
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(prisma));
+    app = createApp(createContainer(env, prisma), env);
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     const userA = await prisma.user.create({

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { runSeed, PATRON_CATALOG_SIZE } from '../prisma/seed';
 import {
   USER_ID_FIJO,
@@ -7,7 +8,7 @@ import {
 } from '../src/infrastructure/persistence/constants';
 
 describe('seed idempotency integration (real dev DB)', () => {
-  const prisma = createPrismaClient();
+  const prisma = createPrismaClient(loadEnv());
 
   // Se siembra DOS veces una sola vez para TODA la suite y luego cada test
   // asserta sobre el estado ya doble-sembrado. Antes cada test corría el seed
