@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
+import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
  * Gate arquitectónico de Slice 7: el montaje session-public vs protegido.
@@ -36,24 +37,17 @@ function fakeContainer(): Container {
 
 describe('/api/auth — session-public vs protegido', () => {
   const KEY = 'k'.repeat(64);
-  const original = process.env.API_KEY;
-
-  beforeEach(() => {
-    process.env.API_KEY = KEY;
-  });
-  afterEach(() => {
-    process.env.API_KEY = original;
-  });
+  const testEnv = buildTestEnv({ API_KEY: KEY });
 
   it('POST /api/auth/login: 401 sin x-api-key (api-key global)', async () => {
-    const res = await request(createApp(fakeContainer()))
+    const res = await request(createApp(fakeContainer(), testEnv))
       .post('/api/auth/login')
       .send({ email: 'a@b.cl', password: 'x' });
     expect(res.status).toBe(401);
   });
 
   it('POST /api/auth/login: 200 con api-key SIN sesión (session-public)', async () => {
-    const res = await request(createApp(fakeContainer()))
+    const res = await request(createApp(fakeContainer(), testEnv))
       .post('/api/auth/login')
       .set('x-api-key', KEY)
       .send({ email: 'a@b.cl', password: 'secreta' });
@@ -61,13 +55,13 @@ describe('/api/auth — session-public vs protegido', () => {
   });
 
   it('GET /api/auth/me: 401 con api-key pero SIN sesión (protegido)', async () => {
-    const res = await request(createApp(fakeContainer())).get('/api/auth/me').set('x-api-key', KEY);
+    const res = await request(createApp(fakeContainer(), testEnv)).get('/api/auth/me').set('x-api-key', KEY);
     expect(res.status).toBe(401);
   });
 
   it('GET /api/auth/me: 200 con api-key + sesión; el userId sale de la sesión', async () => {
     const c = fakeContainer();
-    const res = await request(createApp(c))
+    const res = await request(createApp(c, testEnv))
       .get('/api/auth/me')
       .set('x-api-key', KEY)
       .set('Authorization', 'Bearer token-valido');

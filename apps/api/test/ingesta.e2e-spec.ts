@@ -5,6 +5,7 @@ import { join } from 'path';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 
 const RUN_ID = `e2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
@@ -34,9 +35,10 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   const createdIngestaIds: string[] = [];
 
   beforeEach(async () => {
-    prisma = createPrismaClient();
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(prisma));
+    app = createApp(createContainer(env, prisma), env);
   });
 
   afterEach(async () => {
@@ -45,7 +47,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
 
   afterAll(async () => {
     if (createdIngestaIds.length === 0) return;
-    const cleanupPrisma = createPrismaClient();
+    const cleanupPrisma = createPrismaClient(loadEnv());
     await cleanupPrisma.$connect();
     await cleanupPrisma.transaccion.deleteMany({
       where: { ingestaId: { in: createdIngestaIds } },

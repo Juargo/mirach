@@ -33,6 +33,7 @@ import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
@@ -50,9 +51,10 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
   beforeAll(async () => {
     if (!ALLOW) return;
 
-    prisma = createPrismaClient();
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(prisma));
+    app = createApp(createContainer(env, prisma), env);
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     const user = await prisma.user.create({

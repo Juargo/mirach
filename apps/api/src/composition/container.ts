@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import type { Env } from '../config/env';
 import { createPrismaClient } from '../infrastructure/persistence/create-prisma-client';
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
@@ -23,12 +24,16 @@ import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/pr
 import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persistence/prisma-reclasificar-categoria.repository';
 
 /**
- * Composition Root — ensamblado del grafo de dependencias (ADR-028).
+ * Composition Root — ensamblado del grafo de dependencias (ADR-028/029).
  *
  * Es el ÚNICO lugar donde todas las capas se tocan: infrastructure implementa
  * los puertos de application, application usa el dominio. Sin framework de DI:
  * el grafo se arma a mano con `new` y se lee de arriba a abajo. Los sub-grafos
  * grandes (ingesta, auth) viven en helpers `crear*` para mantener esto legible.
+ *
+ * ADR-029: `env` es el primer parámetro — `createPrismaClient(env)` y
+ * `crearAuth(prisma, env)` lo reciben inyectado, sin leer `process.env` en
+ * ningún punto de este grafo.
  */
 export interface Container {
   /** Valida el token de sesión (cookie/Bearer). Lo usa el session middleware. */
@@ -64,9 +69,10 @@ export interface Container {
 }
 
 export function createContainer(
-  prisma: PrismaClient = createPrismaClient(),
+  env: Env,
+  prisma: PrismaClient = createPrismaClient(env),
 ): Container {
-  const auth = crearAuth(prisma);
+  const auth = crearAuth(prisma, env);
 
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),

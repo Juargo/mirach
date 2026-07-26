@@ -1,7 +1,8 @@
 import express, { type Express } from 'express';
 import type { Container } from '../../composition/container';
+import type { Env } from '../../config/env';
 import { errorMiddleware } from './middleware/error.middleware';
-import { apiKeyMiddleware } from './middleware/api-key.middleware';
+import { createApiKeyMiddleware } from './middleware/api-key.middleware';
 import { sessionMiddleware } from './middleware/session.middleware';
 import { registrarResumen } from './routes/resumen.routes';
 import { registrarBuckets } from './routes/buckets.routes';
@@ -11,22 +12,27 @@ import { registrarIngestas } from './routes/ingesta.routes';
 import { registrarAuthPublic, registrarAuthMe } from './routes/auth.routes';
 
 /**
- * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028).
+ * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028/029).
  *
  * Separar el armado del `listen()` permite que los tests la ejerzan con
  * supertest de forma hermética. El bootstrap (server.ts) es quien escucha.
  *
+ * ADR-029: recibe `env` inyectado (ya validado por `loadEnv()` en server.ts).
+ * `createApiKeyMiddleware(env.API_KEY)` se llama UNA VEZ acá — no hay más
+ * lectura de `process.env.API_KEY` por request. `cookieSecure` se deriva acá
+ * también, una única vez, y fluye a `registrarAuthPublic` vía `AuthPublicDeps`.
+ *
  * Estructura de auth/rutas:
  *   1. express.json()
  *   2. health `GET /` público (fuera de /api → sin auth)
- *   3. `apiKeyMiddleware` para TODO `/api` (fail-closed).
+ *   3. `createApiKeyMiddleware(env.API_KEY)` para TODO `/api` (fail-closed).
  *   4. router session-public (`/auth/login|logout|demo`): api-key SÍ, sesión NO
  *      — el equivalente Express de `@PublicSession()`. Va ANTES del protegido
  *      para que el session middleware no lo intercepte.
  *   5. router protegido (`sessionMiddleware` → routers de datos + `/auth/me`).
  *   6. errorMiddleware (SIEMPRE último, 4 args).
  */
-export function createApp(container: Container): Express {
+export function createApp(container: Container, env: Env): Express {
   const app = express();
 
   app.use(express.json());
@@ -37,7 +43,11 @@ export function createApp(container: Container): Express {
   });
 
   // API key para todo /api (health, en '/', queda fuera).
-  app.use('/api', apiKeyMiddleware);
+  app.use('/api', createApiKeyMiddleware(env.API_KEY));
+
+  // Secure de la cookie de sesión (ADR-029, mirrors la extinta shouldBeSecure()):
+  // producción SIEMPRE segura; fuera de prod, sigue el flag explícito de env.
+  const cookieSecure = env.NODE_ENV === 'production' || env.COOKIE_SECURE;
 
   // Rutas session-public: api-key ya aplicado, sin sesión.
   const authPublicApi = express.Router();
@@ -49,6 +59,7 @@ export function createApp(container: Container): Express {
     validarSesion: container.validarSesion,
     loginRateLimiter: container.loginRateLimiter,
     demoRateLimiter: container.demoRateLimiter,
+    cookieSecure,
   });
   app.use('/api', authPublicApi);
 
