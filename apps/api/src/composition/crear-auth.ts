@@ -45,11 +45,22 @@ export interface AuthGraph {
  * directamente desde `env.LOGIN_RATELIMIT_*` (ya validados por `loadEnv()`),
  * sin la validación ad-hoc de la extinta `readRateLimitConfigFromEnv()`.
  *
+ * `env` se acota a `Pick<Env, 'LOGIN_RATELIMIT_*'>` — defensa en profundidad,
+ * consistente con el scoping de `createPrismaClient(env: Pick<Env,
+ * 'DATABASE_URL'|'DIRECT_URL'>)`: `crearAuth` no lee ni necesita
+ * `API_KEY`/`DATABASE_URL`/etc., así que su firma no debe poder tocarlos.
+ *
  * Nota (ADR-028): la limpieza DIARIA de demos (`DemoCleanupService.limpiarDiario`)
  * la agenda `programarLimpiezaDemo` (node-cron) en el bootstrap. La limpieza
  * lazy en `GET /demo` también corre.
  */
-export function crearAuth(prisma: PrismaClient, env: Env): AuthGraph {
+export function crearAuth(
+  prisma: PrismaClient,
+  env: Pick<
+    Env,
+    'LOGIN_RATELIMIT_MAX_EMAIL' | 'LOGIN_RATELIMIT_MAX_IP' | 'LOGIN_RATELIMIT_WINDOW_MS'
+  >,
+): AuthGraph {
   const reloj = new SystemReloj();
   const tokens = new Sha256SessionTokenService();
   const hasher = new Argon2PasswordHasher();
