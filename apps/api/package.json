@@ -22,7 +22,9 @@
     "test:db:setup": "pnpm test:db:migrate && pnpm test:db:seed",
     "test:integration:local": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.int.config.ts",
     "test:e2e:local": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 vitest run --config ./vitest.e2e.config.ts",
-    "cli": "ts-node -r tsconfig-paths/register src/infrastructure/cli/ingestar.ts"
+    "cli": "ts-node -r tsconfig-paths/register src/infrastructure/cli/ingestar.ts",
+    "env:example": "ts-node scripts/gen-env-example.ts",
+    "env:example:check": "ts-node scripts/gen-env-example.ts --check"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
