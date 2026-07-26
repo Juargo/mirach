@@ -9,7 +9,8 @@
  *   - anio absent → defaults to current UTC year, HTTP 200
  *   - invalid anio → HTTP 400, scrubbed body (raw input not echoed)
  *   - DTO shape — 12 months, Jan→Dec periodo labels, reused ResumenMesDto shape
- *   - CA-08 (MANDATORY, RNF-SEC-006): user isolation — user B's data excluded
+ *   - CA-08 (MANDATORY, RNF-SEC-006): user isolation — authenticates AS user A
+ *     and asserts user A's annual resumen excludes user B's data
  */
 import request from 'supertest';
 import type { Express } from 'express';
@@ -21,6 +22,7 @@ import { loadEnv } from '../src/config/env';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
+import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -56,6 +58,11 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
         where: { id: { in: createdAccountIds } },
       });
     }
+    // CA-08 logs in as a seeded user (userA), which creates a real Session
+    // row — must be deleted before the user (FK is Restrict, not Cascade).
+    await prisma.session.deleteMany({
+      where: { userId: { startsWith: RUN_ID } },
+    });
     await prisma.user.deleteMany({
       where: { id: { startsWith: RUN_ID } },
     });
@@ -72,6 +79,27 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
       create: { id: userId, nombre: `E2E User ${suffix}` },
     });
     return userId;
+  }
+
+  /**
+   * Same as seedUser, but also gives the user real login credentials
+   * (email + argon2id passwordHash) so CA-08 can authenticate AS this user
+   * instead of piggybacking on the shared USER_ID_FIJO session — mirrors
+   * the seeding pattern in auth-login.e2e-spec.ts.
+   */
+  async function seedUserWithCredentials(
+    suffix: string,
+    password: string,
+  ): Promise<{ userId: string; email: string }> {
+    const userId = `${RUN_ID}-${suffix}`;
+    const email = `${userId}@example.com`;
+    const passwordHash = await new Argon2PasswordHasher().hash(password);
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: { email, passwordHash },
+      create: { id: userId, nombre: `E2E User ${suffix}`, email, passwordHash },
+    });
+    return { userId, email };
   }
 
   async function seedAccount(userId: string, suffix: string): Promise<string> {
@@ -187,7 +215,9 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   it('CA-08: user A does NOT see user B annual data', async () => {
     if (!ALLOW) return; // Skip if no real DB
 
-    const userA = await seedUser('ca08-a');
+    const PASSWORD_A = 'ca08-userA-password-123';
+    const { email: emailA } = await seedUserWithCredentials('ca08-a', PASSWORD_A);
+    const userA = `${RUN_ID}-ca08-a`;
     const accountA = await seedAccount(userA, 'ca08-a');
     const ingestaA = await seedIngesta(accountA, 'ca08-a');
 
@@ -214,20 +244,27 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
       fecha,
     });
 
-    // NOTE: this endpoint is protected by SessionGuard — this e2e suite does
-    // not authenticate as userA/userB specifically (mirrors resumen.e2e-spec.ts
-    // pattern: shape + defaults are verified via API key only). Structural
-    // isolation itself (repo receives the correct userId; use case never uses
-    // a fixed constant) is covered by fast unit tests in
-    // calcular-resumen-anual.use-case.spec.ts and resumen.controller.spec.ts,
-    // and by prisma-resumen-anual.repository.spec.ts SC-09 (gated, ALLOW=1).
+    // Authenticate AS user A (not the shared USER_ID_FIJO session) so this
+    // is a real cross-user isolation check: user A's own session must never
+    // see user B's data, even though both have March income rows.
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .set('x-api-key', API_KEY)
+      .send({ email: emailA, password: PASSWORD_A })
+      .expect(200);
+    const setCookie = loginRes.headers['set-cookie'] as unknown as string[];
+    const cookieA = setCookie[0]!.split(';')[0]!; // "md_session=<token>"
+
     const res = await request(app)
       .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)
       .set('x-api-key', API_KEY)
-      .set('Cookie', sesion.cookie)
+      .set('Cookie', cookieA)
       .expect(200);
 
     const marzo = res.body.meses[2];
-    expect(BigInt(marzo.totalIngreso)).toBeLessThan(9_000_000n);
+    // User A's March total must be exactly user A's own income (1M) — if
+    // isolation were broken, user B's 9M would leak in, either replacing or
+    // summing with A's total, so an exact match rules out both failure modes.
+    expect(BigInt(marzo.totalIngreso)).toBe(1_000_000n);
   });
 });
