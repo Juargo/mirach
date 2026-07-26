@@ -20,6 +20,7 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const API_KEY = process.env.API_KEY ?? '';
 
@@ -33,6 +34,7 @@ const MID_MONTH_DATE = new Date(Date.UTC(CURRENT_YEAR, NOW.getUTCMonth(), 10));
 describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   let app: Express;
   let prisma: PrismaClient;
+  let sesion: Sesion;
 
   const createdAccountIds: string[] = [];
 
@@ -41,6 +43,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
+    sesion = await loginAsSeededUser(app);
   });
 
   afterAll(async () => {
@@ -130,6 +133,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     const res = await request(app)
       .get(`/api/buckets/invalido?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
 
     expect(JSON.stringify(res.body)).not.toContain('invalido');
@@ -141,6 +145,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     const res = await request(app)
       .get('/api/buckets/Necesidades?periodo=not-a-date')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
 
     expect(JSON.stringify(res.body)).not.toContain('not-a-date');
@@ -150,6 +155,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     await request(app)
       .get('/api/buckets/Necesidades?periodo=2026-13')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -159,6 +165,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     const res = await request(app)
       .get('/api/buckets/Necesidades')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(res.body.periodo).toBe(CURRENT_PERIODO);
@@ -185,6 +192,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     const res = await request(app)
       .get(`/api/buckets/Necesidades?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(res.body.bucket).toBe(Bucket.Necesidades);
@@ -204,6 +212,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     const res = await request(app)
       .get('/api/buckets/Ahorro?periodo=2099-12')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(res.body.transacciones).toEqual([]);
