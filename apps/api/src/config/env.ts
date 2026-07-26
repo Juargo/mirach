@@ -21,7 +21,7 @@ import { SUPABASE_HOST_PATTERN } from '../infrastructure/persistence/db-safety';
  * `SUPABASE_HOST_PATTERN` en db-safety.ts), así que la única forma segura de
  * no mutar producción por accidente en esos entornos es exigir localhost.
  */
-const LOCALHOST_PATTERN = /(localhost|127\.0\.0\.1)/i;
+const LOCALHOST_PATTERN = /(^|@|\/\/)(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i;
 
 export const EnvObjectSchema = z.object({
   NODE_ENV: z

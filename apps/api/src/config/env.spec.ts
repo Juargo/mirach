@@ -128,7 +128,44 @@ describe('loadEnv — reglas superRefine por entorno (ENV-02/03/04)', () => {
   });
 });
 
+describe('loadEnv — LOCALHOST_PATTERN anclado, no substring (design.md §3)', () => {
+  it('development rechaza un host remoto que contiene la substring "localhost"', () => {
+    expect(() =>
+      loadEnv({
+        ...baseDevSource,
+        DATABASE_URL:
+          'postgres://user:pass@my-localhost-mirror.attacker.example.com:5432/db',
+      }),
+    ).toThrow(/localhost/);
+  });
+
+  it('test rechaza un host remoto que contiene la substring "localhost"', () => {
+    expect(() =>
+      loadEnv({
+        ...baseTestSource,
+        DATABASE_URL:
+          'postgres://user:pass@my-localhost-mirror.attacker.example.com:5432/db',
+      }),
+    ).toThrow(/localhost/);
+  });
+
+  it('development acepta loopback IPv6 [::1]', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      DATABASE_URL: 'postgres://user:pass@[::1]:5432/db',
+    });
+
+    expect(env.DATABASE_URL).toBe('postgres://user:pass@[::1]:5432/db');
+  });
+});
+
 describe('loadEnv — COOKIE_SECURE vía enum, no coerción (ENV-05)', () => {
+  it('COOKIE_SECURE ausente aplica el default "false" (boolean false)', () => {
+    const env = loadEnv(omit(baseDevSource, 'COOKIE_SECURE'));
+
+    expect(env.COOKIE_SECURE).toBe(false);
+  });
+
   it('"false" parsea a boolean false', () => {
     const env = loadEnv({ ...baseDevSource, COOKIE_SECURE: 'false' });
 
