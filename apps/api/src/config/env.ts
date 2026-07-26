@@ -104,7 +104,15 @@ export function resolveConnectionString(
   return env.DIRECT_URL ?? env.DATABASE_URL;
 }
 
-export const EnvSchema = EnvObjectSchema.superRefine((env, ctx) => {
+/**
+ * Reglas de negocio por `NODE_ENV` (ENV-02/03/04) — separado de
+ * `EnvSchema` como función nombrada para que cada regla sea legible sola,
+ * sin tener que leerla dentro de la llamada a `superRefine`.
+ */
+function refineByEnvironment(
+  env: EnvSource,
+  ctx: z.RefinementCtx<EnvSource>,
+): void {
   const conn = resolveConnectionString(env);
 
   if (env.NODE_ENV === 'production') {
@@ -138,7 +146,9 @@ export const EnvSchema = EnvObjectSchema.superRefine((env, ctx) => {
       message: `En ${env.NODE_ENV} la cadena de conexión debe apuntar a localhost.`,
     });
   }
-});
+}
+
+export const EnvSchema = EnvObjectSchema.superRefine(refineByEnvironment);
 
 export type Env = Readonly<z.infer<typeof EnvSchema>>;
 
