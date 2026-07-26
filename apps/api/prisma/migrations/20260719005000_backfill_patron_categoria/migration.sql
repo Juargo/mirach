@@ -19,12 +19,31 @@
 -- seed-owned, never user-created, see categorias-model spec Non-Goals) so
 -- S2's NOT NULL succeeds unconditionally.
 --
--- Safe on a fresh/empty database too: the Categoria insert is
+-- Safe on a fresh/empty database too: this migration self-provisions the
+-- BucketPresupuesto rows its own Categoria catalog FK's against (a fresh DB
+-- has no BucketPresupuesto yet — `prisma migrate deploy` never runs
+-- prisma/seed.ts, which is the only other writer of that table — so without
+-- this insert the Categoria insert below fails FK 23503). Both inserts are
 -- ON CONFLICT DO NOTHING (seed.ts upserts the same rows afterward with
 -- identical values), and the PatronClasificacion UPDATE's WHERE clause only
 -- touches existing rows with a matching id, so it is a 0-row no-op there.
 -- Idempotent: re-running (or running after seed already populated newer
--- rows) never overwrites an already-set value.
+-- rows) never overwrites an already-set value. On prod, where
+-- BucketPresupuesto/Categoria are already seeded, both inserts are pure
+-- no-ops (ids already exist) — this edit does not change prod behavior,
+-- since `prisma migrate deploy` never re-applies an already-applied
+-- migration.
+
+-- Self-provision the BucketPresupuesto rows the Categoria catalog below
+-- references (mirrors seed.ts BUCKET_IDS / `buckets` — id/nombre only, no
+-- other NOT NULL columns on BucketPresupuesto).
+INSERT INTO "BucketPresupuesto" ("id", "nombre") VALUES
+  ('bucket-necesidades',  'Necesidades'),
+  ('bucket-deseos',       'Deseos'),
+  ('bucket-ahorro',       'Ahorro'),
+  ('bucket-ingreso',      'Ingreso'),
+  ('bucket-sincategoria', 'SinCategoria')
+ON CONFLICT ("id") DO NOTHING;
 
 -- Seed the fixed Categoria catalog (mirrors seed.ts CATEGORIA_CATALOG).
 INSERT INTO "Categoria" ("id", "nombre", "bucketId") VALUES
