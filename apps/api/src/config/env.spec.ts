@@ -190,6 +190,10 @@ describe('loadEnv — fail-fast, nunca un Env parcial (ENV-01)', () => {
     expect(() => loadEnv(omit(baseDevSource, 'API_KEY'))).toThrow();
   });
 
+  it('API_KEY demasiado corta (<16 chars) lanza antes de boot — el chequeo de longitud vive acá, no por request (ADR-029)', () => {
+    expect(() => loadEnv({ ...baseDevSource, API_KEY: 'corta' })).toThrow();
+  });
+
   it('DATABASE_URL ausente lanza antes de boot', () => {
     expect(() => loadEnv(omit(baseDevSource, 'DATABASE_URL'))).toThrow();
   });
