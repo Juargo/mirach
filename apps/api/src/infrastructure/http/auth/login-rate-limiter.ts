@@ -50,6 +50,16 @@ export class LoginRateLimiter {
     private readonly maxEntries: number = MAX_ENTRIES,
   ) {}
 
+  /**
+   * Expone el `RateLimitConfig` con el que se construyó (solo lectura). Lo
+   * usa `crear-auth.spec.ts` (ADR-029) para probar el mapeo `env.LOGIN_RATELIMIT_*
+   * -> RateLimitConfig` de `crearAuth` sin duplicar la validación de umbrales
+   * en un test de comportamiento (`isBlocked`/`recordFailure`).
+   */
+  get configuracion(): RateLimitConfig {
+    return this.config;
+  }
+
   isBlocked(ip: string, email: string): boolean {
     const porEmail = this.readCurrent(this.emailKey(email));
     const porIp = this.readCurrent(this.ipKey(ip));
