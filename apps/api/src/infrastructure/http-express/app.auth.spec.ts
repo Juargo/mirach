@@ -70,3 +70,52 @@ describe('/api/auth — session-public vs protegido', () => {
     expect(c.obtenerIdentidad.execute).toHaveBeenCalledWith({ userId: 'user-de-sesion' });
   });
 });
+
+/**
+ * Gate de seguridad (ADR-013/029): `createApp` deriva `cookieSecure` de
+ * `env.NODE_ENV === 'production' || env.COOKIE_SECURE`. Este derive no tenía
+ * cobertura propia tras el refactor de Slice 5 — solo se probaba el flujo de
+ * la cookie a partir de un `cookieSecure: boolean` ya resuelto
+ * (`auth.routes.spec.ts`), nunca la regla que lo calcula desde `env`.
+ *
+ * `buildTestEnv` construye un `Env` real vía `loadEnv()` y luego aplica los
+ * overrides SIN volver a pasar por `superRefine` — por eso puede construir el
+ * estado `production + COOKIE_SECURE=false`, que `loadEnv()` real rechazaría
+ * en boot (ver env.fixture.ts). Es exactamente el estado que este test
+ * necesita para probar la rama `NODE_ENV === 'production'` del `||`.
+ */
+describe('createApp — derivación de cookieSecure (env.NODE_ENV || env.COOKIE_SECURE)', () => {
+  const KEY = 'k'.repeat(64);
+
+  async function loginSetCookie(env: ReturnType<typeof buildTestEnv>): Promise<string | undefined> {
+    const res = await request(createApp(fakeContainer(), env))
+      .post('/api/auth/login')
+      .set('x-api-key', KEY)
+      .send({ email: 'a@b.cl', password: 'secreta' });
+    return res.headers['set-cookie']?.[0];
+  }
+
+  it('NODE_ENV=production fuerza Secure incluso con COOKIE_SECURE=false', async () => {
+    const env = buildTestEnv({ API_KEY: KEY, NODE_ENV: 'production', COOKIE_SECURE: false });
+
+    const cookie = await loginSetCookie(env);
+
+    expect(cookie).toContain('Secure');
+  });
+
+  it('NODE_ENV=development con COOKIE_SECURE=true también resulta en Secure (rama || COOKIE_SECURE)', async () => {
+    const env = buildTestEnv({ API_KEY: KEY, NODE_ENV: 'development', COOKIE_SECURE: true });
+
+    const cookie = await loginSetCookie(env);
+
+    expect(cookie).toContain('Secure');
+  });
+
+  it('NODE_ENV=development con COOKIE_SECURE=false NO agrega Secure', async () => {
+    const env = buildTestEnv({ API_KEY: KEY, NODE_ENV: 'development', COOKIE_SECURE: false });
+
+    const cookie = await loginSetCookie(env);
+
+    expect(cookie).not.toContain('Secure');
+  });
+});
