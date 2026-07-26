@@ -44,6 +44,14 @@ jobs:
       - name: Typecheck API
         run: pnpm api exec tsc --noEmit
 
+      # Fail-closed guard (ADR-029, Slice 6): `.env.example` is DERIVED from
+      # src/config/env.ts (EnvObjectSchema). If someone adds/removes/renames a
+      # schema field without regenerating, this catches the drift before
+      # merge — a stale .env.example silently misleads whoever sets up a new
+      # environment.
+      - name: Check .env.example is up to date
+        run: pnpm api env:example:check
+
       # Vitest detecta CI automáticamente vía la env var CI (la setea GitHub
       # Actions) — no necesita un flag equivalente al `--ci` de Jest.
       - name: Unit tests API
