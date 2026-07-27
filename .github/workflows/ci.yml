@@ -9,12 +9,56 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege: paths-filter + checkout only need read. No job in this
+# file writes to the repo or opens PRs (that's release-please.yml).
+permissions:
+  contents: read
+
 jobs:
+  # Slice C: path-scoped booleans consumed by every workspace job below, so
+  # a PR touching only one workspace doesn't pay for the others. Pinned to a
+  # commit SHA (not the mutable @v4 tag) to match the repo's supply-chain
+  # posture (ADR-021) — same convention as release-please.yml.
+  changes:
+    name: Detect changed workspaces
+    runs-on: ubuntu-latest
+    # dorny/paths-filter lists a PR's changed files via the GitHub API on
+    # pull_request events → it needs pull-requests: read. The workflow-level
+    # `permissions: contents: read` block sets every unlisted scope to `none`,
+    # so this job must re-grant it explicitly (contents: read stays for checkout).
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      api: ${{ steps.f.outputs.api }}
+      web: ${{ steps.f.outputs.web }}
+      mobile: ${{ steps.f.outputs.mobile }}
+      landing: ${{ steps.f.outputs.landing }}
+      shared: ${{ steps.f.outputs.shared }}
+      release-please-config: ${{ steps.f.outputs.release-please-config }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: f
+        with:
+          filters: |
+            api:     ['apps/api/**']
+            web:     ['apps/web/**']
+            mobile:  ['apps/mobile/**']
+            landing: ['apps/landing/**']
+            # Fail-safe: security/build-relevant ROOT files must trigger the
+            # workspace jobs, so a change to them can never skip the secret-scans
+            # (fail-open on unlisted root files was the original bug). Listed
+            # literally — NOT a `*` catch-all — because picomatch doesn't match
+            # dotfiles (e.g. .npmrc) reliably. Only root docs (*.md, LICENSE) may
+            # skip; they can't affect build or security.
+            shared:  ['pnpm-lock.yaml', 'package.json', 'pnpm-workspace.yaml', '.node-version', '.npmrc', '.lintstagedrc.json', 'commitlint.config.js', 'render.yaml', '.github/workflows/**']
+            release-please-config: ['release-please-config.json', '.release-please-manifest.json']
+
   # ADR-020: the REAL commit-message enforcement (local husky hooks are
-  # --no-verify-skippable, this is not). Minimal, standalone job added to
-  # the CURRENT 2-job file — the full path-filtered CI restructure (node
-  # pin, changes/paths-filter, ci-success aggregate, mobile job) is a
-  # separate later slice, not part of this addition.
+  # --no-verify-skippable, this is not). Runs on every PR/push — NOT
+  # path-filtered — commit-message validity is a repo-wide rule, unrelated
+  # to which workspace's files changed.
   commitlint:
     name: Commitlint
     runs-on: ubuntu-latest
@@ -27,7 +71,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
 
       - name: Install dependencies
@@ -45,8 +89,41 @@ jobs:
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         run: pnpm exec commitlint --from ${{ github.event.before }} --to ${{ github.sha }}
 
-  ci:
-    name: Typecheck & unit tests
+  # NEW (Slice C follow-up from Slice B's review): release-please's own
+  # documented failure mode is `release-please-config.json`'s `packages` map
+  # drifting out of sync with `.release-please-manifest.json`'s keys — that
+  # errors the release-please workflow at run time, not at review time. This
+  # job catches the drift in CI instead, on the exact 2 files that can cause
+  # it. Deliberately NOT using `release-please debug-config --local` here —
+  # that subcommand runs `git reset --hard origin/<default-branch>` against
+  # its `--local-path` checkout (see apply-progress topic
+  # sdd/versioning-release-automation/apply-progress for the incident this
+  # caused during Slice B) — destructive and unnecessary for a key-set check.
+  # A plain `jq` comparison is simple (KISS), safe, and sufficient.
+  release-please-config-check:
+    name: Validate release-please config/manifest key parity
+    needs: changes
+    if: ${{ needs.changes.outputs.release-please-config == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assert packages keys match manifest keys
+        run: |
+          config_keys=$(jq -r '.packages | keys | sort | join(",")' release-please-config.json)
+          manifest_keys=$(jq -r 'keys | sort | join(",")' .release-please-manifest.json)
+          echo "release-please-config.json packages keys: $config_keys"
+          echo ".release-please-manifest.json keys:        $manifest_keys"
+          if [ "$config_keys" != "$manifest_keys" ]; then
+            echo "::error::release-please-config.json > packages keys and .release-please-manifest.json keys diverge. This is release-please's documented failure mode (a mismatch errors the release-please workflow at run time). Keep both files' key sets identical."
+            exit 1
+          fi
+          echo "OK: key sets match."
+
+  api:
+    name: Typecheck & unit tests (api)
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     env:
       # Dummy URLs so prisma.config.ts loads without a real database — its
@@ -62,7 +139,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
 
       # Build scripts run only for packages allowlisted in
@@ -103,6 +180,27 @@ jobs:
       - name: Build API
         run: pnpm api build
 
+      # NOT run in CI (manual/local gate for now):
+      #   pnpm api test:integration — requires a real Supabase database and
+      #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
+      #   persistence changes.
+
+  web:
+    name: Typecheck & unit tests (web)
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Typecheck web
         run: pnpm web typecheck
 
@@ -122,20 +220,40 @@ jobs:
           test -d apps/web/dist
           ! grep -rEn 'x-api-key' apps/web/dist
 
-      # NOT run in CI (manual/local gate for now):
-      #   pnpm api test:integration — requires a real Supabase database and
-      #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
-      #   persistence changes.
-
-  landing:
-    name: Typecheck & build landing
+  # NEW job (ADR-017) — jest-expo/RNTL had no CI job before this slice.
+  mobile:
+    name: Typecheck & unit tests (mobile)
+    needs: changes
+    if: ${{ needs.changes.outputs.mobile == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck mobile
+        run: pnpm --filter @moneydiary/mobile exec tsc --noEmit
+
+      - name: Unit tests mobile
+        run: pnpm --filter @moneydiary/mobile test
+
+  landing:
+    name: Typecheck & build landing
+    needs: changes
+    if: ${{ needs.changes.outputs.landing == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -168,3 +286,24 @@ jobs:
       # These require a Vercel preview URL and LHCI token configured in GitHub
       # secrets. Enable when the deployment pipeline is in place.
       # Relevant env vars: LHCI_GITHUB_APP_TOKEN, VERCEL_PREVIEW_URL
+
+  # Single stable required check (Slice C). Path-filtered jobs above can be
+  # SKIPPED depending on which workspace changed — a branch-protection rule
+  # that requires one of THOSE job names directly would hang forever on a PR
+  # where that job never runs. This job always runs (`if: always()`) and
+  # fails only if a needed job actually FAILED or was CANCELLED — a SKIPPED
+  # job (correctly gated off by paths-filter) does not fail the gate.
+  ci-success:
+    name: CI success
+    if: always()
+    needs: [changes, commitlint, release-please-config-check, api, web, mobile, landing]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no required job failed
+        run: |
+          results='${{ join(needs.*.result, ',') }}'
+          echo "job results: $results"
+          case "$results" in
+            *failure*|*cancelled*) echo "A required job failed"; exit 1 ;;
+            *) echo "All required jobs passed or were skipped" ;;
+          esac
