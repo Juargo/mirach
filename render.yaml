@@ -36,6 +36,26 @@ services:
     startCommand: pnpm --filter @moneydiary/api start:prod
     # Health check público (ruta Express `GET /`, fuera de /api) — sin API key.
     healthCheckPath: /
+    # Hybrid CD (versioning-release-automation, Slice D): rebuild only when
+    # something that can affect this service actually changed — a web/landing/
+    # mobile-only commit no longer triggers an api deploy. Glob paths are
+    # ALWAYS relative to the repo root (monorepo), never to `rootDir` above —
+    # verified against Render's live Blueprint spec docs (CONFIRM-AT-APPLY
+    # resolved, see apply-progress). `pnpm-lock.yaml`/`pnpm-workspace.yaml`/
+    # this file itself stay in `paths` because they can change api's runtime
+    # even without touching `apps/api/**`. `ignoredPaths` narrows within an
+    # already-matched path (e.g. a `.spec.ts`-only change under `apps/api/`
+    # still skips the rebuild).
+    buildFilter:
+      paths:
+        - apps/api/**
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - render.yaml
+      ignoredPaths:
+        - apps/api/**/*.spec.ts
+        - apps/api/test/**
+        - apps/api/**/*.md
     envVars:
       - key: NODE_VERSION
         value: "22.22.3"
