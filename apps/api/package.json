@@ -1,6 +1,6 @@
 {
   "name": "@moneydiary/api",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "MoneyDiary backend — Express + Clean Architecture, pipeline de ingesta de movimientos bancarios.",
   "author": "Juargo",
   "private": true,
