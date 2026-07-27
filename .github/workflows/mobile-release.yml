@@ -1,0 +1,58 @@
+name: mobile-release
+
+# Slice D4 of versioning-release-automation (ADR-030): the ONLY platform
+# driven from GitHub Actions in this change's hybrid-CD design — web/api/
+# landing keep platform-native auto-deploy (see render.yaml, apps/web/
+# vercel.json, apps/landing/vercel.json). A `mobile-v*` tag is the CD
+# trigger; release-please cuts that tag when a mobile release PR merges
+# (release-please-config.json > apps/mobile > release-type: expo).
+on:
+  push:
+    tags:
+      - 'mobile-v*'
+
+# Least-privilege: this workflow only needs to read the repo to build. It
+# does not open PRs or write releases (that is release-please.yml).
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  eas-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Pinned to a commit SHA (not the mutable @v9 tag): this step holds
+      # secrets.EXPO_TOKEN, so it matches the repo's supply-chain posture
+      # (ADR-021) — same convention as release-please.yml (Slice B) and
+      # dorny/paths-filter in ci.yml (Slice C). CONFIRM-AT-APPLY resolved:
+      # v9.0.0 is the current major (v8's last release was 2024); the only
+      # action.yml difference vs v8 is the runtime bumping to node24 — same
+      # input/output surface (token, eas-version, etc.), no breaking change
+      # for our usage, same pattern Slice C found for dorny/paths-filter
+      # v3→v4.
+      - uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9.0.0
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # --no-wait returns as soon as the build is enqueued (no Actions
+      # minutes burned waiting on the EAS queue). Submission to the stores
+      # stays a manual step (ADR-022) — out of scope here.
+      - name: EAS build (production)
+        working-directory: apps/mobile
+        run: eas build --platform all --profile production --non-interactive --no-wait
