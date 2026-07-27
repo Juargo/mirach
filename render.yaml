@@ -51,6 +51,13 @@ services:
         - apps/api/**
         - pnpm-lock.yaml
         - pnpm-workspace.yaml
+        # Root files that change how the API is built/secured but live outside
+        # apps/api: package.json pins packageManager (the pnpm version corepack
+        # resolves in buildCommand); .npmrc holds the supply-chain knobs
+        # (minimum-release-age, audit-level — ADR-006/021). A change to either
+        # must redeploy, or prod silently keeps running a stale build.
+        - package.json
+        - .npmrc
         - render.yaml
       ignoredPaths:
         - apps/api/**/*.spec.ts
