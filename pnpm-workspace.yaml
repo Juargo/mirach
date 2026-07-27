@@ -11,5 +11,9 @@ allowBuilds:
   unrs-resolver: true
 
 # Forzar versión parcheada de uuid (CVE en exceljs → uuid < 11.1.1)
+# js-yaml/fast-uri: CVEs de alta severidad en transitivas de
+# @commitlint/cli (ADR-020) — cosmiconfig→js-yaml y config-validator→ajv→fast-uri
 overrides:
   uuid: '>=11.1.1'
+  js-yaml: '>=4.3.0'
+  fast-uri: '>=3.1.4'
