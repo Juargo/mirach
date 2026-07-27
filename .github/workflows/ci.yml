@@ -22,6 +22,13 @@ jobs:
   changes:
     name: Detect changed workspaces
     runs-on: ubuntu-latest
+    # dorny/paths-filter lists a PR's changed files via the GitHub API on
+    # pull_request events → it needs pull-requests: read. The workflow-level
+    # `permissions: contents: read` block sets every unlisted scope to `none`,
+    # so this job must re-grant it explicitly (contents: read stays for checkout).
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       api: ${{ steps.f.outputs.api }}
       web: ${{ steps.f.outputs.web }}
@@ -39,7 +46,13 @@ jobs:
             web:     ['apps/web/**']
             mobile:  ['apps/mobile/**']
             landing: ['apps/landing/**']
-            shared:  ['pnpm-lock.yaml', 'package.json', 'pnpm-workspace.yaml', '.node-version', '.github/workflows/**']
+            # Fail-safe: security/build-relevant ROOT files must trigger the
+            # workspace jobs, so a change to them can never skip the secret-scans
+            # (fail-open on unlisted root files was the original bug). Listed
+            # literally — NOT a `*` catch-all — because picomatch doesn't match
+            # dotfiles (e.g. .npmrc) reliably. Only root docs (*.md, LICENSE) may
+            # skip; they can't affect build or security.
+            shared:  ['pnpm-lock.yaml', 'package.json', 'pnpm-workspace.yaml', '.node-version', '.npmrc', '.lintstagedrc.json', 'commitlint.config.js', 'render.yaml', '.github/workflows/**']
             release-please-config: ['release-please-config.json', '.release-please-manifest.json']
 
   # ADR-020: the REAL commit-message enforcement (local husky hooks are
