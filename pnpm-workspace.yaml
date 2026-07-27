@@ -15,5 +15,5 @@ allowBuilds:
 # @commitlint/cli (ADR-020) — cosmiconfig→js-yaml y config-validator→ajv→fast-uri
 overrides:
   uuid: '>=11.1.1'
-  js-yaml: '>=4.3.0'
-  fast-uri: '>=3.1.4'
+  js-yaml: '>=4.3.0 <5.0.0'
+  fast-uri: '>=3.1.4 <4.0.0'
