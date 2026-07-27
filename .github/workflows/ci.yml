@@ -38,7 +38,11 @@ jobs:
         run: pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
 
       - name: Validate push commits with commitlint
-        if: github.event_name == 'push'
+        # Skip when `before` is the all-zero SHA (new branch / force-push): the
+        # range `--from <all-zero>` would fail with a raw git "bad revision"
+        # error instead of a clear commit-message failure. On normal pushes to
+        # main `before` is the prior tip, so the gate still runs.
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         run: pnpm exec commitlint --from ${{ github.event.before }} --to ${{ github.sha }}
 
   ci:
