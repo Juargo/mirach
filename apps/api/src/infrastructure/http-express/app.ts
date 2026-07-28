@@ -10,6 +10,7 @@ import { registrarMovimientos } from './routes/movimientos.routes';
 import { registrarTransacciones } from './routes/transacciones.routes';
 import { registrarIngestas } from './routes/ingesta.routes';
 import { registrarAuthPublic, registrarAuthMe } from './routes/auth.routes';
+import { registrarVersion } from './routes/version.routes';
 
 /**
  * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028/029).
@@ -42,6 +43,9 @@ export function createApp(container: Container, env: Env): Express {
     res.status(200).send('Hello World!');
   });
 
+  // Versión del build desplegado — público (fuera de /api), sin API key.
+  registrarVersion(app);
+
   // API key para todo /api (health, en '/', queda fuera).
   app.use('/api', createApiKeyMiddleware(env.API_KEY));
 
@@ -66,7 +70,11 @@ export function createApp(container: Container, env: Env): Express {
   // Rutas protegidas: exigen sesión válida (además de la api-key global).
   const protectedApi = express.Router();
   protectedApi.use(sessionMiddleware(container.validarSesion));
-  registrarResumen(protectedApi, container.calcularResumenMes, container.calcularResumenAnual);
+  registrarResumen(
+    protectedApi,
+    container.calcularResumenMes,
+    container.calcularResumenAnual,
+  );
   registrarBuckets(protectedApi, container.obtenerDetalleBucket);
   registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
   registrarTransacciones(protectedApi, container.reclasificarTransaccion);
