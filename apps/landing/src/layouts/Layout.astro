@@ -1,5 +1,6 @@
 ---
 import { SITE } from '../config';
+import { buildInfo } from '../lib/build-info';
 import '../styles/theme.css';
 
 export interface Props {
@@ -26,6 +27,10 @@ const absoluteImage = pageImage.startsWith('http')
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+    <!-- Deployed build (see /version.json) -->
+    <meta name="app-version" content={buildInfo.version} />
+    <meta name="app-commit" content={buildInfo.commit} />
 
     <title>{pageTitle}</title>
     <meta name="description" content={pageDescription} />
