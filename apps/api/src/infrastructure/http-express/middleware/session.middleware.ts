@@ -33,7 +33,9 @@ export function sessionMiddleware(
     const result = await validarSesion.execute({ token });
 
     if (result.isFail()) {
-      console.warn(`Sesión rechazada (token inválido/expirado) — path=${req.path}`);
+      console.warn(
+        `Sesión rechazada (token inválido/expirado) — path=${req.path}`,
+      );
       res.status(401).json({ message: new SesionInvalidaError().message });
       return;
     }

@@ -15,21 +15,46 @@ const EXPIRA = new Date('2026-08-01T00:00:00.000Z');
 function fakeContainer(): Container {
   const stub = { execute: vi.fn() };
   return {
-    validarSesion: { execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })) },
+    validarSesion: {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
+    },
     calcularResumenMes: stub,
     calcularResumenAnual: stub,
     obtenerDetalleBucket: stub,
     obtenerMovimientosMes: stub,
     reclasificarTransaccion: stub,
     processIngesta: stub,
-    login: { execute: vi.fn().mockResolvedValue(Result.ok({ token: 'tok', userId: 'u1', expiresAt: EXPIRA })) },
+    login: {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.ok({ token: 'tok', userId: 'u1', expiresAt: EXPIRA }),
+        ),
+    },
     logout: { execute: vi.fn().mockResolvedValue(Result.ok(undefined)) },
     obtenerIdentidad: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-de-sesion', email: 'a@b.cl', esDemo: false })),
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'user-de-sesion',
+          email: 'a@b.cl',
+          esDemo: false,
+        }),
+      ),
     },
-    crearDemo: { execute: vi.fn().mockResolvedValue({ token: 'd', expiresAt: EXPIRA }) },
-    loginRateLimiter: { isBlocked: vi.fn().mockReturnValue(false), recordFailure: vi.fn(), reset: vi.fn() },
-    demoRateLimiter: { isBlocked: vi.fn().mockReturnValue(false), recordFailure: vi.fn() },
+    crearDemo: {
+      execute: vi.fn().mockResolvedValue({ token: 'd', expiresAt: EXPIRA }),
+    },
+    loginRateLimiter: {
+      isBlocked: vi.fn().mockReturnValue(false),
+      recordFailure: vi.fn(),
+      reset: vi.fn(),
+    },
+    demoRateLimiter: {
+      isBlocked: vi.fn().mockReturnValue(false),
+      recordFailure: vi.fn(),
+    },
     demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
     shutdown: async () => {},
   } as unknown as Container;
@@ -55,7 +80,9 @@ describe('/api/auth — session-public vs protegido', () => {
   });
 
   it('GET /api/auth/me: 401 con api-key pero SIN sesión (protegido)', async () => {
-    const res = await request(createApp(fakeContainer(), testEnv)).get('/api/auth/me').set('x-api-key', KEY);
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/auth/me')
+      .set('x-api-key', KEY);
     expect(res.status).toBe(401);
   });
 
@@ -67,7 +94,9 @@ describe('/api/auth — session-public vs protegido', () => {
       .set('Authorization', 'Bearer token-valido');
 
     expect(res.status).toBe(200);
-    expect(c.obtenerIdentidad.execute).toHaveBeenCalledWith({ userId: 'user-de-sesion' });
+    expect(c.obtenerIdentidad.execute).toHaveBeenCalledWith({
+      userId: 'user-de-sesion',
+    });
   });
 });
 
@@ -87,7 +116,9 @@ describe('/api/auth — session-public vs protegido', () => {
 describe('createApp — derivación de cookieSecure (env.NODE_ENV || env.COOKIE_SECURE)', () => {
   const KEY = 'k'.repeat(64);
 
-  async function loginSetCookie(env: ReturnType<typeof buildTestEnv>): Promise<string | undefined> {
+  async function loginSetCookie(
+    env: ReturnType<typeof buildTestEnv>,
+  ): Promise<string | undefined> {
     const res = await request(createApp(fakeContainer(), env))
       .post('/api/auth/login')
       .set('x-api-key', KEY)
@@ -96,7 +127,11 @@ describe('createApp — derivación de cookieSecure (env.NODE_ENV || env.COOKIE_
   }
 
   it('NODE_ENV=production fuerza Secure incluso con COOKIE_SECURE=false', async () => {
-    const env = buildTestEnv({ API_KEY: KEY, NODE_ENV: 'production', COOKIE_SECURE: false });
+    const env = buildTestEnv({
+      API_KEY: KEY,
+      NODE_ENV: 'production',
+      COOKIE_SECURE: false,
+    });
 
     const cookie = await loginSetCookie(env);
 
@@ -104,7 +139,11 @@ describe('createApp — derivación de cookieSecure (env.NODE_ENV || env.COOKIE_
   });
 
   it('NODE_ENV=development con COOKIE_SECURE=true también resulta en Secure (rama || COOKIE_SECURE)', async () => {
-    const env = buildTestEnv({ API_KEY: KEY, NODE_ENV: 'development', COOKIE_SECURE: true });
+    const env = buildTestEnv({
+      API_KEY: KEY,
+      NODE_ENV: 'development',
+      COOKIE_SECURE: true,
+    });
 
     const cookie = await loginSetCookie(env);
 
@@ -112,7 +151,11 @@ describe('createApp — derivación de cookieSecure (env.NODE_ENV || env.COOKIE_
   });
 
   it('NODE_ENV=development con COOKIE_SECURE=false NO agrega Secure', async () => {
-    const env = buildTestEnv({ API_KEY: KEY, NODE_ENV: 'development', COOKIE_SECURE: false });
+    const env = buildTestEnv({
+      API_KEY: KEY,
+      NODE_ENV: 'development',
+      COOKIE_SECURE: false,
+    });
 
     const cookie = await loginSetCookie(env);
 

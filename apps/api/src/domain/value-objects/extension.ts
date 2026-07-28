@@ -32,10 +32,14 @@ export class Extension {
    */
   static desdeNombreArchivo(nombreArchivo: string): Extension {
     const ultimoPunto = nombreArchivo.lastIndexOf('.');
-    const raw = ultimoPunto === -1 ? '' : nombreArchivo.slice(ultimoPunto).toLowerCase();
+    const raw =
+      ultimoPunto === -1 ? '' : nombreArchivo.slice(ultimoPunto).toLowerCase();
 
     if (!(EXTENSIONES_PERMITIDAS as readonly string[]).includes(raw)) {
-      throw new ExtensionNoPermitidaError(raw || nombreArchivo, EXTENSIONES_PERMITIDAS);
+      throw new ExtensionNoPermitidaError(
+        raw || nombreArchivo,
+        EXTENSIONES_PERMITIDAS,
+      );
     }
 
     return new Extension(raw as ExtensionPermitida);

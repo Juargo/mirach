@@ -29,7 +29,10 @@ describe('PrismaUserCredentialRepository', () => {
 
       const result = await repo.buscarPorEmail(email);
 
-      expect(result).toEqual({ userId: 'user-1', passwordHash: '$argon2id$hash' });
+      expect(result).toEqual({
+        userId: 'user-1',
+        passwordHash: '$argon2id$hash',
+      });
       expect(prisma.user.findUnique as Mock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { email: 'user@example.com' } }),
       );
@@ -60,16 +63,22 @@ describe('PrismaUserCredentialRepository', () => {
     it('retorna IdentidadUsuario cuando el userId existe con email (usuario real)', async () => {
       const prisma = {
         user: {
-          findUnique: vi
-            .fn()
-            .mockResolvedValue({ id: 'user-1', email: 'user@example.com', esDemo: false }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            esDemo: false,
+          }),
         },
       } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(prisma);
 
       const result = await repo.buscarIdentidad('user-1');
 
-      expect(result).toEqual({ userId: 'user-1', email: 'user@example.com', esDemo: false });
+      expect(result).toEqual({
+        userId: 'user-1',
+        email: 'user@example.com',
+        esDemo: false,
+      });
     });
 
     it('retorna null cuando el userId no existe', async () => {
@@ -86,7 +95,11 @@ describe('PrismaUserCredentialRepository', () => {
     it('retorna null cuando el userId existe pero no tiene email y NO es demo (defensivo)', async () => {
       const prisma = {
         user: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'user-inconsistente', email: null, esDemo: false }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'user-inconsistente',
+            email: null,
+            esDemo: false,
+          }),
         },
       } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(prisma);
@@ -99,14 +112,22 @@ describe('PrismaUserCredentialRepository', () => {
     it('retorna IdentidadUsuario con email=null y esDemo=true para un usuario demo (DEMO-AUTH-05)', async () => {
       const prisma = {
         user: {
-          findUnique: vi.fn().mockResolvedValue({ id: 'user-demo-1', email: null, esDemo: true }),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'user-demo-1',
+            email: null,
+            esDemo: true,
+          }),
         },
       } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(prisma);
 
       const result = await repo.buscarIdentidad('user-demo-1');
 
-      expect(result).toEqual({ userId: 'user-demo-1', email: null, esDemo: true });
+      expect(result).toEqual({
+        userId: 'user-demo-1',
+        email: null,
+        esDemo: true,
+      });
     });
   });
 });

@@ -34,7 +34,9 @@ export class PrismaSessionRepository implements ISessionRepository {
     });
   }
 
-  async buscarPorTokenHash(tokenHash: string): Promise<SesionPersistida | null> {
+  async buscarPorTokenHash(
+    tokenHash: string,
+  ): Promise<SesionPersistida | null> {
     const sesion = await this.prisma.session.findUnique({
       where: { tokenHash },
       select: { userId: true, expiresAt: true },

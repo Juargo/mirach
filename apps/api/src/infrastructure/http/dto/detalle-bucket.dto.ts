@@ -41,7 +41,9 @@ export interface DetalleBucketDto {
  * Vive en infrastructure/http porque conoce la forma exacta del JSON de respuesta.
  * Application no sabe nada de HTTP ni de DTOs.
  */
-export function aDetalleBucketDto(data: ObtenerDetalleBucketResult): DetalleBucketDto {
+export function aDetalleBucketDto(
+  data: ObtenerDetalleBucketResult,
+): DetalleBucketDto {
   return {
     periodo: data.periodo,
     bucket: data.bucket,

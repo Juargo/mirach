@@ -12,13 +12,19 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
 function fakeContainer(): Container {
   return {
     validarSesion: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: { execute: vi.fn() },
     calcularResumenAnual: { execute: vi.fn() },
     obtenerDetalleBucket: { execute: vi.fn() },
     obtenerMovimientosMes: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ periodo: '2026-07', transacciones: [] })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.ok({ periodo: '2026-07', transacciones: [] }),
+        ),
     },
     shutdown: async () => {},
   } as unknown as Container;
@@ -29,7 +35,9 @@ describe('GET /api/movimientos — cadena de auth + aislamiento', () => {
   const testEnv = buildTestEnv({ API_KEY: KEY });
 
   it('401 con api-key pero sin sesión (queda detrás del session middleware)', async () => {
-    const res = await request(createApp(fakeContainer(), testEnv)).get('/api/movimientos').set('x-api-key', KEY);
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/movimientos')
+      .set('x-api-key', KEY);
     expect(res.status).toBe(401);
   });
 

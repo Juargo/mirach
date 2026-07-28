@@ -13,7 +13,12 @@ describe('cookie', () => {
       const ahora = new Date('2026-07-18T00:00:00.000Z');
       const expiresAt = new Date('2026-07-25T00:00:00.000Z');
 
-      const cookie = serializeSessionCookie('token-abc', expiresAt, false, ahora);
+      const cookie = serializeSessionCookie(
+        'token-abc',
+        expiresAt,
+        false,
+        ahora,
+      );
 
       expect(cookie).toContain('md_session=token-abc');
       expect(cookie).toContain('HttpOnly');
@@ -26,7 +31,12 @@ describe('cookie', () => {
       const ahora = new Date('2026-07-18T00:00:00.000Z');
       const expiresAt = new Date('2026-07-25T00:00:00.000Z'); // +7d exacto
 
-      const cookie = serializeSessionCookie('token-abc', expiresAt, false, ahora);
+      const cookie = serializeSessionCookie(
+        'token-abc',
+        expiresAt,
+        false,
+        ahora,
+      );
 
       expect(cookie).toContain('Max-Age=604800');
     });

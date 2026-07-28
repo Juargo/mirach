@@ -9,7 +9,9 @@ describe('NoOpCryptoService', () => {
   });
 
   it('decrypt devuelve el texto plano sin modificarlo', () => {
-    expect(service.decrypt('Transferencia recibida')).toBe('Transferencia recibida');
+    expect(service.decrypt('Transferencia recibida')).toBe(
+      'Transferencia recibida',
+    );
   });
 
   it('encrypt seguido de decrypt preserva el valor original (round-trip)', () => {

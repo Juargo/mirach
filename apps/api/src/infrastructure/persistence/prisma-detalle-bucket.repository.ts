@@ -38,7 +38,12 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
   ): Promise<ReadonlyArray<DetalleBucketRow>> {
     const bucketFilter =
       bucket === Bucket.SinCategoria
-        ? { OR: [{ bucketId: null }, { bucketId: BUCKET_IDS[Bucket.SinCategoria] }] }
+        ? {
+            OR: [
+              { bucketId: null },
+              { bucketId: BUCKET_IDS[Bucket.SinCategoria] },
+            ],
+          }
         : { bucketId: BUCKET_IDS[bucket] };
 
     const rows = await this.prisma.transaccion.findMany({

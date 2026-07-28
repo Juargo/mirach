@@ -1,7 +1,10 @@
 import { Result } from '../../shared/result';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
-import { IMovimientosMesReader, MovimientoMesRow } from '../ports/movimientos-mes.port';
+import {
+  IMovimientosMesReader,
+  MovimientoMesRow,
+} from '../ports/movimientos-mes.port';
 
 /** Tipo de retorno del use case en caso de éxito. */
 export interface ObtenerMovimientosMesResult {
@@ -39,7 +42,10 @@ export class ObtenerMovimientosMesUseCase {
       periodoVO = resultado.getValue();
     }
 
-    const transacciones = await this.reader.findByPeriodo(input.userId, periodoVO);
+    const transacciones = await this.reader.findByPeriodo(
+      input.userId,
+      periodoVO,
+    );
 
     return Result.ok({
       periodo: periodoVO.valor,

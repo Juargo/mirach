@@ -48,7 +48,9 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
 
   afterEach(async () => {
     if (testIngestaId) {
-      await prisma.transaccion.deleteMany({ where: { ingestaId: testIngestaId } });
+      await prisma.transaccion.deleteMany({
+        where: { ingestaId: testIngestaId },
+      });
       await prisma.ingesta.deleteMany({ where: { id: testIngestaId } });
     }
   });
@@ -103,10 +105,14 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     const summary = await runBackfill(prisma, { dryRun: true });
 
     expect(summary.totalRows).toBeGreaterThanOrEqual(1);
-    expect(summary.porCategoria[Categoria.Supermercado]).toBeGreaterThanOrEqual(1);
+    expect(summary.porCategoria[Categoria.Supermercado]).toBeGreaterThanOrEqual(
+      1,
+    );
     expect(summary.bucketChanges).toBeGreaterThanOrEqual(1);
 
-    const untouched = await prisma.transaccion.findUnique({ where: { id: tx.id } });
+    const untouched = await prisma.transaccion.findUnique({
+      where: { id: tx.id },
+    });
     expect(untouched?.categoriaId).toBeNull();
     expect(untouched?.bucketId).toBeNull();
   });
@@ -130,7 +136,9 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
 
     const summary = await runBackfill(prisma, { dryRun: false });
 
-    const afterRun = await prisma.transaccion.findUnique({ where: { id: tx.id } });
+    const afterRun = await prisma.transaccion.findUnique({
+      where: { id: tx.id },
+    });
     expect(afterRun?.categoriaId).toBe(CATEGORIA_IDS[Categoria.Ahorro]);
     expect(afterRun?.bucketId).toBe(BUCKET_IDS[Bucket.Ahorro]);
     // This row was never in the totalRows scope for this run.

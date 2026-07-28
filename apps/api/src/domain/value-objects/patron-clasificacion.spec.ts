@@ -7,7 +7,13 @@ function makePatron(
   matchType: PatronClasificacion['matchType'],
   categoria: Categoria = Categoria.Supermercado,
 ): PatronClasificacion {
-  return new PatronClasificacion({ id: 'p1', patron, matchType, categoria, prioridad: 10 });
+  return new PatronClasificacion({
+    id: 'p1',
+    patron,
+    matchType,
+    categoria,
+    prioridad: 10,
+  });
 }
 
 describe('PatronClasificacion — CONTAINS', () => {

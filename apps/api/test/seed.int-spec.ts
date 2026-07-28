@@ -29,7 +29,9 @@ describe('seed idempotency integration (real dev DB)', () => {
 
   it('el seed no duplica User/Account fijos (upsert idempotente)', async () => {
     expect(await prisma.user.count({ where: { id: USER_ID_FIJO } })).toBe(1);
-    expect(await prisma.account.count({ where: { id: ACCOUNT_ID_FIJO } })).toBe(1);
+    expect(await prisma.account.count({ where: { id: ACCOUNT_ID_FIJO } })).toBe(
+      1,
+    );
   });
 
   // T20 — seed idempotency: exactamente 5 BucketPresupuesto, sin duplicados

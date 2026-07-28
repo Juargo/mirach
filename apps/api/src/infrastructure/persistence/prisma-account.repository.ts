@@ -1,8 +1,6 @@
 import { Result } from '../../shared/result';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
-import {
-  DetectedBank,
-} from '../../application/ports/bank-detector.port';
+import { DetectedBank } from '../../application/ports/bank-detector.port';
 import { IAccountRepository } from '../../application/ports/account-repository.port';
 import type { PrismaClient } from '@prisma/client';
 

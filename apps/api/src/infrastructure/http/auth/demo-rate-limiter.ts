@@ -55,7 +55,10 @@ export class DemoRateLimiter {
     if (vigente === undefined) {
       this.purgarExpiradas();
       this.evictarSiExcedeCapacidad();
-      this.contadores.set(key, { conteo: 1, expiraEn: this.ahora() + this.windowMs });
+      this.contadores.set(key, {
+        conteo: 1,
+        expiraEn: this.ahora() + this.windowMs,
+      });
       return;
     }
 

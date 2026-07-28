@@ -190,7 +190,9 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL_A, password: PASSWORD })
       .expect(200);
-    const rawCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0]!;
+    const rawCookie = (
+      loginRes.headers['set-cookie'] as unknown as string[]
+    )[0];
     cookieA = rawCookie.split(';')[0]!;
     tokenA = loginRes.body.token;
   });
@@ -241,7 +243,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     expect(necesidades.total).toBe('200000');
   });
 
-  it("GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)", async () => {
+  it('GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)', async () => {
     if (!ALLOW) return;
 
     const res = await request(app)

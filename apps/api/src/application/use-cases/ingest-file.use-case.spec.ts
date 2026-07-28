@@ -1,12 +1,17 @@
-import { IngestFileUseCase, InvalidFileExtensionError } from './ingest-file.use-case';
+import {
+  IngestFileUseCase,
+  InvalidFileExtensionError,
+} from './ingest-file.use-case';
 import { IFileReader } from '../ports/file-reader.port';
 
 /** Fake (doble de prueba) de IFileReader — no depende de Multer ni HTTP. */
-function makeFileReader(overrides: Partial<{
-  buffer: Buffer;
-  originalName: string;
-  sizeInBytes: number;
-}> = {}): IFileReader {
+function makeFileReader(
+  overrides: Partial<{
+    buffer: Buffer;
+    originalName: string;
+    sizeInBytes: number;
+  }> = {},
+): IFileReader {
   return {
     getBuffer: () => overrides.buffer ?? Buffer.from('fake-content'),
     getOriginalName: () => overrides.originalName ?? 'archivo.xlsx',
@@ -23,7 +28,10 @@ describe('IngestFileUseCase', () => {
 
   describe('cuando el archivo es válido', () => {
     it('retorna Ok con metadata correcta para .xlsx', () => {
-      const reader = makeFileReader({ originalName: 'cartola.xlsx', sizeInBytes: 2048 });
+      const reader = makeFileReader({
+        originalName: 'cartola.xlsx',
+        sizeInBytes: 2048,
+      });
 
       const result = useCase.execute(reader);
 
@@ -48,7 +56,10 @@ describe('IngestFileUseCase', () => {
     // validar/normalizar) se agrega en slices posteriores, pero la extensión
     // ya no lo bloquea aquí.
     it('retorna Ok con metadata correcta para .pdf', () => {
-      const reader = makeFileReader({ originalName: 'cartola.pdf', sizeInBytes: 4096 });
+      const reader = makeFileReader({
+        originalName: 'cartola.pdf',
+        sizeInBytes: 4096,
+      });
 
       const result = useCase.execute(reader);
 

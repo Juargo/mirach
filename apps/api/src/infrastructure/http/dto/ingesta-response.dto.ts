@@ -47,7 +47,9 @@ export interface IngestaResponseDto {
  * contrato HTTP. Vive en infrastructure/http porque conoce la forma exacta
  * de la respuesta JSON; application no sabe nada de HTTP ni de DTOs.
  */
-export function aIngestaResponseDto(data: ProcessIngestaResult): IngestaResponseDto {
+export function aIngestaResponseDto(
+  data: ProcessIngestaResult,
+): IngestaResponseDto {
   return {
     ingestaId: data.ingestaId,
     banco: data.banco.banco,

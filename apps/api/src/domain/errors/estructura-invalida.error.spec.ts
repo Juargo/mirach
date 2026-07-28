@@ -3,7 +3,12 @@ import { EstructuraInvalidaError } from './estructura-invalida.error';
 describe('EstructuraInvalidaError', () => {
   it('ColumnaFaltante: incluye columna y encabezado esperado/encontrado', () => {
     const error = new EstructuraInvalidaError('BancoEstado', [
-      { tipo: 'ColumnaFaltante', columna: 'A1', esperado: 'Fecha', encontrado: 'Otra cosa' },
+      {
+        tipo: 'ColumnaFaltante',
+        columna: 'A1',
+        esperado: 'Fecha',
+        encontrado: 'Otra cosa',
+      },
     ]);
 
     expect(error.message).toContain('A1');

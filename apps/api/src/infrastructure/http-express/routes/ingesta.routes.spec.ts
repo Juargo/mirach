@@ -16,8 +16,16 @@ type Doble = Pick<ProcessIngestaUseCase, 'execute'>;
 
 const INGESTA_OK = {
   ingestaId: 'ing-1',
-  banco: { banco: 'BancoEstado', tipoCuenta: 'CuentaRUT', numeroCuenta: '****' },
-  archivo: { originalName: 'cartola.xlsx', extension: '.xlsx', sizeInBytes: 1234 },
+  banco: {
+    banco: 'BancoEstado',
+    tipoCuenta: 'CuentaRUT',
+    numeroCuenta: '****',
+  },
+  archivo: {
+    originalName: 'cartola.xlsx',
+    extension: '.xlsx',
+    sizeInBytes: 1234,
+  },
   total: 10,
   duplicadosOmitidos: 2,
   transacciones: [],
@@ -46,7 +54,10 @@ describe('registrarIngestas — POST /api/ingestas', () => {
     expect(res.status).toBe(200);
     expect(res.body.ingestaId).toBe('ing-1');
     expect(uc.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'user-x', fileReader: expect.anything() }),
+      expect.objectContaining({
+        userId: 'user-x',
+        fileReader: expect.anything(),
+      }),
     );
   });
 
@@ -60,7 +71,11 @@ describe('registrarIngestas — POST /api/ingestas', () => {
 
   it('400 ante error de validación del archivo (ExtensionNoPermitidaError)', async () => {
     const uc = {
-      execute: vi.fn().mockResolvedValue(Result.fail(new ExtensionNoPermitidaError('.txt', ['.xlsx', '.pdf']))),
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new ExtensionNoPermitidaError('.txt', ['.xlsx', '.pdf'])),
+        ),
     };
     const res = await request(probeApp(uc))
       .post('/api/ingestas')
@@ -71,7 +86,11 @@ describe('registrarIngestas — POST /api/ingestas', () => {
 
   it('500 ante fallo de infraestructura (PersistenciaFallidaError)', async () => {
     const uc = {
-      execute: vi.fn().mockResolvedValue(Result.fail(new PersistenciaFallidaError('DB caída'))),
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new PersistenciaFallidaError('DB caída')),
+        ),
     };
     const res = await request(probeApp(uc))
       .post('/api/ingestas')

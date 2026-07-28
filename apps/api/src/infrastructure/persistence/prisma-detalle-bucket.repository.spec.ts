@@ -35,7 +35,7 @@ const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
  * real DB.
  */
 describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
-  const periodo = PeriodoMes.crear('2026-07').getValue() as PeriodoMes;
+  const periodo = PeriodoMes.crear('2026-07').getValue();
 
   function makeRow(overrides: { id: string; categoriaId: string | null }) {
     return {
@@ -45,22 +45,31 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
       cargo: 1000n,
       abono: 0n,
       categoriaId: overrides.categoriaId,
-      account: { banco: 'BCI', tipoCuenta: 'Cuenta Corriente', numeroCuenta: 'acc-1' },
+      account: {
+        banco: 'BCI',
+        tipoCuenta: 'Cuenta Corriente',
+        numeroCuenta: 'acc-1',
+      },
     };
   }
 
   it('CATAPI-05: classified categoriaId folds to { id, nombre }', async () => {
-    const findMany = vi
-      .fn()
-      .mockResolvedValue([
-        makeRow({ id: 'tx-super', categoriaId: CATEGORIA_IDS[Categoria.Supermercado] }),
-      ]);
+    const findMany = vi.fn().mockResolvedValue([
+      makeRow({
+        id: 'tx-super',
+        categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      }),
+    ]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma);
 
-    const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Necesidades,
+    );
 
-    expect(rows[0]!.categoria).toEqual({
+    expect(rows[0].categoria).toEqual({
       id: CATEGORIA_IDS[Categoria.Supermercado],
       nombre: Categoria.Supermercado,
     });
@@ -73,9 +82,13 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma);
 
-    const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.SinCategoria);
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.SinCategoria,
+    );
 
-    expect(rows[0]!.categoria).toBeNull();
+    expect(rows[0].categoria).toBeNull();
   });
 
   it('CATAPI-05: unrecognized non-null categoriaId folds to null (defensive)', async () => {
@@ -87,9 +100,13 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma);
 
-    const rows = await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Necesidades,
+    );
 
-    expect(rows[0]!.categoria).toBeNull();
+    expect(rows[0].categoria).toBeNull();
   });
 });
 
@@ -108,7 +125,7 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
     prisma = new PrismaClient();
     await prisma.$connect();
     repo = new PrismaDetalleBucketRepository(prisma);
-    periodoVO = PeriodoMes.crear(PERIODO).getValue() as PeriodoMes;
+    periodoVO = PeriodoMes.crear(PERIODO).getValue();
   });
 
   afterAll(async () => {
@@ -125,7 +142,10 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
   });
 
   /** Helper: seed an ingesta row (required FK for transacciones). */
-  async function seedIngesta(accountId: string, suffix: string): Promise<string> {
+  async function seedIngesta(
+    accountId: string,
+    suffix: string,
+  ): Promise<string> {
     const ingestaId = `${RUN_ID}-ingesta-${suffix}`;
     await prisma.ingesta.upsert({
       where: { id: ingestaId },
@@ -205,13 +225,17 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       abono: 0n,
     });
 
-    const rows = await repo.findByPeriodoYBucket(userId, periodoVO, Bucket.Necesidades);
+    const rows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.Necesidades,
+    );
 
     expect(rows.length).toBe(1);
-    expect(rows[0]!.id).toBe(necId);
-    expect(rows[0]!.banco).toBe('TestBank');
-    expect(rows[0]!.tipoCuenta).toBe('CuentaCorriente');
-    expect(rows[0]!.numeroCuenta).toBe('ACC-sc01');
+    expect(rows[0].id).toBe(necId);
+    expect(rows[0].banco).toBe('TestBank');
+    expect(rows[0].tipoCuenta).toBe('CuentaCorriente');
+    expect(rows[0].numeroCuenta).toBe('ACC-sc01');
   });
 
   // ─── SC-03: SinCategoria null-fold (HIGHEST RISK) ─────────────────────────
@@ -262,7 +286,11 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       abono: 0n,
     });
 
-    const rows = await repo.findByPeriodoYBucket(userId, periodoVO, Bucket.SinCategoria);
+    const rows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.SinCategoria,
+    );
     const ids = rows.map((r) => r.id);
 
     expect(ids).toContain(nullId);
@@ -270,7 +298,11 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
     expect(ids).not.toContain(necId);
 
     // Querying a DIFFERENT bucket must NOT include the null-fold rows.
-    const necRows = await repo.findByPeriodoYBucket(userId, periodoVO, Bucket.Necesidades);
+    const necRows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.Necesidades,
+    );
     const necIds = necRows.map((r) => r.id);
     expect(necIds).not.toContain(nullId);
     expect(necIds).not.toContain(sinCategoriaId);
@@ -319,7 +351,11 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       fecha: new Date('2026-08-01T00:00:00.000Z'),
     });
 
-    const rows = await repo.findByPeriodoYBucket(userId, periodoVO, Bucket.Necesidades);
+    const rows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.Necesidades,
+    );
     const ids = rows.map((r) => r.id);
     expect(ids).toContain(firstId);
     expect(ids).not.toContain(augId);
@@ -385,7 +421,11 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       abono: 0n,
     });
 
-    const rows = await repo.findByPeriodoYBucket(userIdA, periodoVO, Bucket.Necesidades);
+    const rows = await repo.findByPeriodoYBucket(
+      userIdA,
+      periodoVO,
+      Bucket.Necesidades,
+    );
     const ids = rows.map((r) => r.id);
     expect(ids).not.toContain(userBTxId);
   });
@@ -441,7 +481,11 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       fecha: new Date('2026-07-20T00:00:00.000Z'),
     });
 
-    const rows = await repo.findByPeriodoYBucket(userId, periodoVO, Bucket.Deseos);
+    const rows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.Deseos,
+    );
 
     const earlierIdx = rows.findIndex((r) => r.id === earlierId);
     const sameDateIdx = rows.findIndex((r) => r.id === sameDateId);

@@ -51,10 +51,16 @@ export class DemoCleanupService {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.session.deleteMany({ where: { userId: { in: ids } } });
-      await tx.transaccion.deleteMany({ where: { account: { userId: { in: ids } } } });
-      await tx.ingesta.deleteMany({ where: { account: { userId: { in: ids } } } });
+      await tx.transaccion.deleteMany({
+        where: { account: { userId: { in: ids } } },
+      });
+      await tx.ingesta.deleteMany({
+        where: { account: { userId: { in: ids } } },
+      });
       await tx.account.deleteMany({ where: { userId: { in: ids } } });
-      const { count } = await tx.user.deleteMany({ where: { id: { in: ids } } });
+      const { count } = await tx.user.deleteMany({
+        where: { id: { in: ids } },
+      });
       return count;
     });
   }
@@ -64,7 +70,9 @@ export class DemoCleanupService {
     try {
       const count = await this.borrarExpirados();
       console.log(
-        count === 0 ? '0 expired demo accounts cleaned' : `${count} expired demo accounts cleaned`,
+        count === 0
+          ? '0 expired demo accounts cleaned'
+          : `${count} expired demo accounts cleaned`,
       );
     } catch (err) {
       console.error(

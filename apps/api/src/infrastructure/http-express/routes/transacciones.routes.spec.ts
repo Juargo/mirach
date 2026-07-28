@@ -15,7 +15,11 @@ import type { ReclasificarTransaccionUseCase } from '../../../application/use-ca
  */
 type Doble = Pick<ReclasificarTransaccionUseCase, 'execute'>;
 
-const RECLASIF_OK = { id: 'tx-1', categoria: Categoria.Supermercado, bucket: 'Necesidades' };
+const RECLASIF_OK = {
+  id: 'tx-1',
+  categoria: Categoria.Supermercado,
+  bucket: 'Necesidades',
+};
 
 function probeApp(uc: Doble): Express {
   const app = express();
@@ -49,8 +53,14 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
   });
 
   it('body con categoria no-string → se coacciona a "" (rechazo uniforme en el use case)', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.fail(new CategoriaInvalidaError(''))) };
-    await request(probeApp(uc)).patch('/api/transacciones/tx-1/categoria').send({ categoria: 123 });
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new CategoriaInvalidaError(''))),
+    };
+    await request(probeApp(uc))
+      .patch('/api/transacciones/tx-1/categoria')
+      .send({ categoria: 123 });
 
     expect(uc.execute).toHaveBeenCalledWith({
       userId: 'user-x',
@@ -60,7 +70,11 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
   });
 
   it('400 scrubbeado si la categoria es inválida (no refleja el input)', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.fail(new CategoriaInvalidaError('HackCat'))) };
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new CategoriaInvalidaError('HackCat'))),
+    };
     const res = await request(probeApp(uc))
       .patch('/api/transacciones/tx-1/categoria')
       .send({ categoria: 'HackCat' });
@@ -71,7 +85,11 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
 
   it('404 si la transacción no existe o no es del usuario (anti-enumeración)', async () => {
     const uc = {
-      execute: vi.fn().mockResolvedValue(Result.fail(new TransaccionNoEncontradaError('tx-otro'))),
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new TransaccionNoEncontradaError('tx-otro')),
+        ),
     };
     const res = await request(probeApp(uc))
       .patch('/api/transacciones/tx-otro/categoria')

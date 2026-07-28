@@ -14,7 +14,9 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
 function fakeContainer(): Container {
   return {
     validarSesion: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: { execute: vi.fn() },
     calcularResumenAnual: { execute: vi.fn() },
@@ -22,7 +24,11 @@ function fakeContainer(): Container {
     obtenerMovimientosMes: { execute: vi.fn() },
     reclasificarTransaccion: {
       execute: vi.fn().mockResolvedValue(
-        Result.ok({ id: 'tx-1', categoria: Categoria.Supermercado, bucket: 'Necesidades' }),
+        Result.ok({
+          id: 'tx-1',
+          categoria: Categoria.Supermercado,
+          bucket: 'Necesidades',
+        }),
       ),
     },
     shutdown: async () => {},

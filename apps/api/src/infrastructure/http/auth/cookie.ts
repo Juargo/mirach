@@ -1,7 +1,11 @@
 /** Nombre de la cookie de sesión — única fuente (DRY), reusado por `extraer-token.ts`. */
 export const COOKIE_NAME = 'md_session';
 
-function buildCookie(valor: string, maxAgeSegundos: number, secure: boolean): string {
+function buildCookie(
+  valor: string,
+  maxAgeSegundos: number,
+  secure: boolean,
+): string {
   const atributos = [
     `${COOKIE_NAME}=${valor}`,
     `Max-Age=${maxAgeSegundos}`,

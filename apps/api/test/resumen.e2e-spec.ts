@@ -34,9 +34,7 @@ const NOW = new Date();
 const CURRENT_YEAR = NOW.getUTCFullYear();
 const CURRENT_MONTH = String(NOW.getUTCMonth() + 1).padStart(2, '0');
 const CURRENT_PERIODO = `${CURRENT_YEAR}-${CURRENT_MONTH}`;
-const MID_MONTH_DATE = new Date(
-  Date.UTC(CURRENT_YEAR, NOW.getUTCMonth(), 10),
-);
+const MID_MONTH_DATE = new Date(Date.UTC(CURRENT_YEAR, NOW.getUTCMonth(), 10));
 
 describe('ResumenController (e2e) — GET /api/resumen', () => {
   let app: Express;
@@ -103,7 +101,10 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     return accountId;
   }
 
-  async function seedIngesta(accountId: string, suffix: string): Promise<string> {
+  async function seedIngesta(
+    accountId: string,
+    suffix: string,
+  ): Promise<string> {
     const ingestaId = `${RUN_ID}-ing-${suffix}`;
     await prisma.ingesta.upsert({
       where: { id: ingestaId },
@@ -198,7 +199,11 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
       expect(typeof res.body.totalIngreso).toBe('string');
       expect(typeof res.body.sinIngreso).toBe('boolean');
       expect(Array.isArray(res.body.buckets)).toBe(true);
-      expect(res.body.targets).toEqual({ Necesidades: 50, Deseos: 30, Ahorro: 20 });
+      expect(res.body.targets).toEqual({
+        Necesidades: 50,
+        Deseos: 30,
+        Ahorro: 20,
+      });
       return;
     }
 
@@ -207,11 +212,41 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const accountId = await seedAccount(userId, 'sc01');
     const ingestaId = await seedIngesta(accountId, 'sc01');
 
-    await seedTx({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Ingreso],      cargo: 0n,         abono: 1_500_000n });
-    await seedTx({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Necesidades],  cargo: 750_000n,   abono: 0n });
-    await seedTx({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Deseos],       cargo: 360_000n,   abono: 0n });
-    await seedTx({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Ahorro],       cargo: 300_000n,   abono: 0n });
-    await seedTx({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.SinCategoria], cargo: 90_000n,    abono: 0n });
+    await seedTx({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Ingreso],
+      cargo: 0n,
+      abono: 1_500_000n,
+    });
+    await seedTx({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      cargo: 750_000n,
+      abono: 0n,
+    });
+    await seedTx({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Deseos],
+      cargo: 360_000n,
+      abono: 0n,
+    });
+    await seedTx({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Ahorro],
+      cargo: 300_000n,
+      abono: 0n,
+    });
+    await seedTx({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      cargo: 90_000n,
+      abono: 0n,
+    });
 
     // Note: fixed user (USER_ID_FIJO) gets the seeded data; this verifies shape
     // The endpoint uses USER_ID_FIJO, not our seeded userId. Shape test still works.
@@ -225,7 +260,11 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     expect(res.body.buckets).toHaveLength(4);
     expect(typeof res.body.totalIngreso).toBe('string');
     expect(typeof res.body.sinIngreso).toBe('boolean');
-    expect(res.body.targets).toEqual({ Necesidades: 50, Deseos: 30, Ahorro: 20 });
+    expect(res.body.targets).toEqual({
+      Necesidades: 50,
+      Deseos: 30,
+      Ahorro: 20,
+    });
 
     // porcentajeBp must be number|null, NOT a string
     for (const bucket of res.body.buckets) {
@@ -282,8 +321,20 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     const alienIngestaId = await seedIngesta(alienAccountId, 'sc09-alien');
 
     // Alien user's transactions — must NOT appear in /api/resumen response
-    await seedTx({ accountId: alienAccountId, ingestaId: alienIngestaId, bucketId: BUCKET_IDS[Bucket.Ingreso],     cargo: 0n,           abono: 9_000_000n });
-    await seedTx({ accountId: alienAccountId, ingestaId: alienIngestaId, bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 4_500_000n,   abono: 0n });
+    await seedTx({
+      accountId: alienAccountId,
+      ingestaId: alienIngestaId,
+      bucketId: BUCKET_IDS[Bucket.Ingreso],
+      cargo: 0n,
+      abono: 9_000_000n,
+    });
+    await seedTx({
+      accountId: alienAccountId,
+      ingestaId: alienIngestaId,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      cargo: 4_500_000n,
+      abono: 0n,
+    });
 
     const res = await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
@@ -293,7 +344,9 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
 
     // USER_ID_FIJO endpoint must NEVER return alien user's data
     expect(BigInt(res.body.totalIngreso)).toBeLessThan(9_000_000n);
-    const nec = res.body.buckets.find((b: { bucket: string }) => b.bucket === Bucket.Necesidades);
+    const nec = res.body.buckets.find(
+      (b: { bucket: string }) => b.bucket === Bucket.Necesidades,
+    );
     expect(BigInt(nec.total)).toBeLessThan(4_500_000n);
   });
 });

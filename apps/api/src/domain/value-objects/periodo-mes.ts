@@ -20,9 +20,9 @@ export class PeriodoMes {
   private static readonly FORMATO = /^(\d{4})-(\d{2})$/;
 
   private constructor(
-    readonly valor: string,   // "YYYY-MM"
-    readonly desde: Date,     // primer instante del mes, UTC (inclusive)
-    readonly hasta: Date,     // primer instante del mes siguiente, UTC (exclusive)
+    readonly valor: string, // "YYYY-MM"
+    readonly desde: Date, // primer instante del mes, UTC (inclusive)
+    readonly hasta: Date, // primer instante del mes siguiente, UTC (exclusive)
   ) {}
 
   /**

@@ -45,12 +45,16 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
   afterAll(async () => {
     if (!ALLOW) return;
 
-    await prisma.session.deleteMany({ where: { userId: { in: createdUserIds } } });
+    await prisma.session.deleteMany({
+      where: { userId: { in: createdUserIds } },
+    });
     await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     await prisma.$disconnect();
   });
 
-  async function seedUsuario(suffix: string): Promise<{ userId: string; email: string }> {
+  async function seedUsuario(
+    suffix: string,
+  ): Promise<{ userId: string; email: string }> {
     const email = `${RUN_ID}-${suffix}@example.com`;
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     const user = await prisma.user.create({

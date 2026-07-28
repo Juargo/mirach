@@ -39,7 +39,7 @@ export async function loginAsSeededUser(app: Express): Promise<Sesion> {
     .expect(200);
 
   const setCookie = res.headers['set-cookie'] as unknown as string[];
-  const cookie = setCookie[0]!.split(';')[0]!; // "md_session=<token>"
+  const cookie = setCookie[0].split(';')[0]; // "md_session=<token>"
 
   return {
     cookie,

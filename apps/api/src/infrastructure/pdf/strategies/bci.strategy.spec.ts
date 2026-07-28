@@ -66,8 +66,12 @@ describe('BciPdfStrategy', () => {
 
     it('el ancla de período extrae ambas fechas del mismo token de valor (separador "-")', () => {
       const texto = 'PERIODO 01-04-2026 al 30-04-2026';
-      expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe('01-04-2026');
-      expect(texto.match(estructura.anclasPeriodo.hasta)?.[1]).toBe('30-04-2026');
+      expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe(
+        '01-04-2026',
+      );
+      expect(texto.match(estructura.anclasPeriodo.hasta)?.[1]).toBe(
+        '30-04-2026',
+      );
     });
 
     it('ignora el footer de navegador (URL, timestamp de impresión, indicador de página)', () => {

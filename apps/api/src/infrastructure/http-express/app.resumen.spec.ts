@@ -14,18 +14,33 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
  * integración del repo (sin cambios). Acá se prueba que el stack Express pasa el
  * userId correcto por la cadena.
  */
-const RESUMEN_MES_OK = { totalIngreso: 0n, sinIngreso: true, buckets: [], estadoGlobal: null };
+const RESUMEN_MES_OK = {
+  totalIngreso: 0n,
+  sinIngreso: true,
+  buckets: [],
+  estadoGlobal: null,
+};
 
 function fakeContainer(): Container {
   return {
     validarSesion: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ periodo: '2026-07', resumen: RESUMEN_MES_OK })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.ok({ periodo: '2026-07', resumen: RESUMEN_MES_OK }),
+        ),
     },
     calcularResumenAnual: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ resumenAnual: { anio: 2026, meses: [] } })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.ok({ resumenAnual: { anio: 2026, meses: [] } }),
+        ),
     },
     shutdown: async () => {},
   } as unknown as Container;
@@ -43,7 +58,9 @@ describe('GET /api/resumen — cadena de auth + aislamiento', () => {
   });
 
   it('401 con api-key pero sin sesión (session middleware)', async () => {
-    const res = await request(createApp(fakeContainer(), testEnv)).get('/api/resumen').set('x-api-key', KEY);
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/resumen')
+      .set('x-api-key', KEY);
     expect(res.status).toBe(401);
   });
 

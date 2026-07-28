@@ -5,7 +5,10 @@ import {
 } from '../ports/user-credential-repository.port';
 import { IPasswordHasher } from '../ports/password-hasher.port';
 import { ISessionRepository } from '../ports/session-repository.port';
-import { ISessionTokenService, TokenGenerado } from '../ports/session-token.port';
+import {
+  ISessionTokenService,
+  TokenGenerado,
+} from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { CredencialesInvalidasError } from '../../domain/errors/credenciales-invalidas.error';
 
@@ -13,7 +16,9 @@ import { CredencialesInvalidasError } from '../../domain/errors/credenciales-inv
 // Unit tests — LoginUseCase (mocked ports, fake clock). No infra, no DB.
 // ──────────────────────────────────────────────────────────────────────────────
 
-function makeMockCreds(row: CredencialUsuario | null): IUserCredentialRepository {
+function makeMockCreds(
+  row: CredencialUsuario | null,
+): IUserCredentialRepository {
   return {
     buscarPorEmail: vi.fn().mockResolvedValue(row),
     buscarIdentidad: vi.fn(),
@@ -107,7 +112,10 @@ describe('LoginUseCase', () => {
       expect(result.getError()).toBeInstanceOf(CredencialesInvalidasError);
       // Timing equalization: verificar runs on the unknown-email path too.
       expect(hasher.verificar).toHaveBeenCalledTimes(1);
-      expect(hasher.verificar).toHaveBeenCalledWith('whatever', expect.any(String));
+      expect(hasher.verificar).toHaveBeenCalledWith(
+        'whatever',
+        expect.any(String),
+      );
       expect(sessions.crear).not.toHaveBeenCalled();
     });
   });

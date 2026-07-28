@@ -6,7 +6,12 @@
  *   SinEncabezados    → la fila de encabezados está completamente vacía.
  */
 export type ProblemaEstructura =
-  | { tipo: 'ColumnaFaltante'; columna: string; esperado: string; encontrado: string }
+  | {
+      tipo: 'ColumnaFaltante';
+      columna: string;
+      esperado: string;
+      encontrado: string;
+    }
   | {
       tipo: 'TipoIncorrecto';
       columna: string;

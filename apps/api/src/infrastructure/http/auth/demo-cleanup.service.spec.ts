@@ -22,7 +22,9 @@ function makePrismaMock(
 ) {
   return {
     user: { findMany: vi.fn().mockResolvedValue(findManyResult) },
-    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(tx)),
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback(tx),
+    ),
   } as unknown as PrismaClient;
 }
 
@@ -56,7 +58,10 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
 
   it('con demos expirados → borra en cascada Session→Transaccion→Ingesta→Account→User, en ese orden', async () => {
     const tx = makeTxMock();
-    const prisma = makePrismaMock([{ id: 'user-demo-1' }, { id: 'user-demo-2' }], tx);
+    const prisma = makePrismaMock(
+      [{ id: 'user-demo-1' }, { id: 'user-demo-2' }],
+      tx,
+    );
     const service = new DemoCleanupService(prisma, makeReloj());
 
     const llamadas: string[] = [];
@@ -83,12 +88,24 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
 
     const count = await service.borrarExpirados();
 
-    expect(llamadas).toEqual(['session', 'transaccion', 'ingesta', 'account', 'user']);
+    expect(llamadas).toEqual([
+      'session',
+      'transaccion',
+      'ingesta',
+      'account',
+      'user',
+    ]);
     expect(count).toBe(2);
     const ids = ['user-demo-1', 'user-demo-2'];
-    expect(tx.session.deleteMany).toHaveBeenCalledWith({ where: { userId: { in: ids } } });
-    expect(tx.account.deleteMany).toHaveBeenCalledWith({ where: { userId: { in: ids } } });
-    expect(tx.user.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ids } } });
+    expect(tx.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: { in: ids } },
+    });
+    expect(tx.account.deleteMany).toHaveBeenCalledWith({
+      where: { userId: { in: ids } },
+    });
+    expect(tx.user.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ids } },
+    });
   });
 });
 
@@ -120,9 +137,13 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
   });
 
   it('nunca lanza: un fallo de infraestructura se loguea como error, no se propaga', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const prisma = {
-      user: { findMany: vi.fn().mockRejectedValue(new Error('DB connection lost')) },
+      user: {
+        findMany: vi.fn().mockRejectedValue(new Error('DB connection lost')),
+      },
       $transaction: vi.fn(),
     } as unknown as PrismaClient;
     const service = new DemoCleanupService(prisma, makeReloj());

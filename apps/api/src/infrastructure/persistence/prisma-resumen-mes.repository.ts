@@ -31,7 +31,7 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
     const grupos = await this.prisma.transaccion.groupBy({
       by: ['bucketId'],
       where: {
-        account: { userId },                              // USER ISOLATION — structural
+        account: { userId }, // USER ISOLATION — structural
         fecha: { gte: periodo.desde, lt: periodo.hasta }, // half-open [desde, hasta)
       },
       _sum: { cargo: true, abono: true },

@@ -11,8 +11,16 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
  */
 const INGESTA_OK = {
   ingestaId: 'ing-1',
-  banco: { banco: 'BancoEstado', tipoCuenta: 'CuentaRUT', numeroCuenta: '****' },
-  archivo: { originalName: 'cartola.xlsx', extension: '.xlsx', sizeInBytes: 1234 },
+  banco: {
+    banco: 'BancoEstado',
+    tipoCuenta: 'CuentaRUT',
+    numeroCuenta: '****',
+  },
+  archivo: {
+    originalName: 'cartola.xlsx',
+    extension: '.xlsx',
+    sizeInBytes: 1234,
+  },
   total: 0,
   duplicadosOmitidos: 0,
   transacciones: [],
@@ -21,14 +29,18 @@ const INGESTA_OK = {
 function fakeContainer(): Container {
   return {
     validarSesion: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: { execute: vi.fn() },
     calcularResumenAnual: { execute: vi.fn() },
     obtenerDetalleBucket: { execute: vi.fn() },
     obtenerMovimientosMes: { execute: vi.fn() },
     reclasificarTransaccion: { execute: vi.fn() },
-    processIngesta: { execute: vi.fn().mockResolvedValue(Result.ok(INGESTA_OK)) },
+    processIngesta: {
+      execute: vi.fn().mockResolvedValue(Result.ok(INGESTA_OK)),
+    },
     shutdown: async () => {},
   } as unknown as Container;
 }

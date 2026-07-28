@@ -1,5 +1,8 @@
 import { Result } from '../../shared/result';
-import { Categoria, CATEGORIA_BUCKET } from '../../domain/value-objects/categoria';
+import {
+  Categoria,
+  CATEGORIA_BUCKET,
+} from '../../domain/value-objects/categoria';
 import { CategoriaInvalidaError } from '../../domain/errors/categoria-invalida.error';
 import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no-encontrada.error';
 import {
@@ -7,7 +10,9 @@ import {
   ReclasificarCategoriaResult,
 } from '../ports/reclasificar-categoria.port';
 
-const CATEGORIAS_VALIDAS: ReadonlySet<string> = new Set(Object.values(Categoria));
+const CATEGORIAS_VALIDAS: ReadonlySet<string> = new Set(
+  Object.values(Categoria),
+);
 
 /**
  * ReclasificarTransaccionUseCase — use case de escritura para la
@@ -27,7 +32,10 @@ export class ReclasificarTransaccionUseCase {
     transaccionId: string;
     categoria: string; // raw body field
   }): Promise<
-    Result<ReclasificarCategoriaResult, CategoriaInvalidaError | TransaccionNoEncontradaError>
+    Result<
+      ReclasificarCategoriaResult,
+      CategoriaInvalidaError | TransaccionNoEncontradaError
+    >
   > {
     // 1. Validate categoría against the enum first — writer is never invoked
     //    with an unknown value.
@@ -40,6 +48,11 @@ export class ReclasificarTransaccionUseCase {
     const bucket = CATEGORIA_BUCKET[categoria];
 
     // 3. userId-isolated single-row write; not-found/not-owned merged 404.
-    return this.writer.reasignar(input.userId, input.transaccionId, categoria, bucket);
+    return this.writer.reasignar(
+      input.userId,
+      input.transaccionId,
+      categoria,
+      bucket,
+    );
   }
 }

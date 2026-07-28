@@ -71,7 +71,9 @@ describe('aResumenAnualDto', () => {
 
     expect(dto.meses[0].totalIngreso).toBe('1000000');
     expect(dto.meses[0].sinIngreso).toBe(false);
-    const nec = dto.meses[0].buckets.find((b) => b.bucket === Bucket.Necesidades);
+    const nec = dto.meses[0].buckets.find(
+      (b) => b.bucket === Bucket.Necesidades,
+    );
     expect(nec?.total).toBe('500000');
     expect(nec?.porcentajeBp).toBe(5000);
 

@@ -2,7 +2,9 @@ import { PersistenciaFallidaError } from './persistencia-fallida.error';
 
 describe('PersistenciaFallidaError', () => {
   it('expone el motivo en el mensaje y fija el nombre del error', () => {
-    const error = new PersistenciaFallidaError('no se pudo escribir la ingesta');
+    const error = new PersistenciaFallidaError(
+      'no se pudo escribir la ingesta',
+    );
 
     expect(error).toBeInstanceOf(Error);
     expect(error.name).toBe('PersistenciaFallidaError');
@@ -13,7 +15,10 @@ describe('PersistenciaFallidaError', () => {
 
   it('conserva la causa original cuando se provee', () => {
     const causa = new Error('connection refused');
-    const error = new PersistenciaFallidaError('fallo la transacción atómica', causa);
+    const error = new PersistenciaFallidaError(
+      'fallo la transacción atómica',
+      causa,
+    );
 
     expect(error.motivo).toBe('fallo la transacción atómica');
     expect(error.causa).toBe(causa);

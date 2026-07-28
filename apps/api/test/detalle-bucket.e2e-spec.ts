@@ -91,7 +91,10 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
     return accountId;
   }
 
-  async function seedIngesta(accountId: string, suffix: string): Promise<string> {
+  async function seedIngesta(
+    accountId: string,
+    suffix: string,
+  ): Promise<string> {
     const ingestaId = `${RUN_ID}-ing-${suffix}`;
     await prisma.ingesta.upsert({
       where: { id: ingestaId },

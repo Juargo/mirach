@@ -36,7 +36,8 @@ export function registrarBuckets(
         }
         if (error instanceof PeriodoInvalidoError) {
           res.status(400).json({
-            message: 'El período no es válido. Formato esperado: YYYY-MM (ej: 2026-07).',
+            message:
+              'El período no es válido. Formato esperado: YYYY-MM (ej: 2026-07).',
           });
           return;
         }

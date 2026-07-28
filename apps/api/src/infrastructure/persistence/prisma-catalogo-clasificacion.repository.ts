@@ -1,7 +1,10 @@
 import { Result } from '../../shared/result';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { ICatalogoClasificacion } from '../../application/ports/catalogo-clasificacion.port';
-import { PatronClasificacion, MatchType } from '../../domain/value-objects/patron-clasificacion';
+import {
+  PatronClasificacion,
+  MatchType,
+} from '../../domain/value-objects/patron-clasificacion';
 import { Categoria } from '../../domain/value-objects/categoria';
 import type { PrismaClient } from '@prisma/client';
 
@@ -19,7 +22,9 @@ import type { PrismaClient } from '@prisma/client';
 export class PrismaCatalogoClasificacionRepository implements ICatalogoClasificacion {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findAll(): Promise<Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>> {
+  async findAll(): Promise<
+    Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
+  > {
     try {
       const rows = await this.prisma.patronClasificacion.findMany({
         include: { categoria: true },

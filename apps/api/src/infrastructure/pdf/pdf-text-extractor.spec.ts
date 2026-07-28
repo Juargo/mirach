@@ -76,9 +76,8 @@ describe('PdfTextExtractor', () => {
       // un bug real del código bajo prueba.
       const { PdfTextExtractor: PdfTextExtractorConImportRoto } =
         await import('./pdf-text-extractor.js');
-      const { PdfInvalidoError: PdfInvalidoErrorFresco } = await import(
-        '../../domain/errors/pdf-invalido.error.js'
-      );
+      const { PdfInvalidoError: PdfInvalidoErrorFresco } =
+        await import('../../domain/errors/pdf-invalido.error.js');
       const extractor = new PdfTextExtractorConImportRoto();
       const buffer = Buffer.from('no llega a leerse: el import falla antes');
 
