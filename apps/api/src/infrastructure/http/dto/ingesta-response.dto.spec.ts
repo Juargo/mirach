@@ -21,8 +21,18 @@ const DATA: ProcessIngestaResult = {
   // US-005 (Slice 3): el DTO HTTP ahora sí expone este conteo.
   duplicadosOmitidos: 3,
   transacciones: [
-    Transaccion.crear({ fecha: new Date('2026-05-14T00:00:00.000Z'), descripcion: 'Compra', cargo: 8103n, abono: 0n }).getValue(),
-    Transaccion.crear({ fecha: new Date('2026-05-15T00:00:00.000Z'), descripcion: 'Sueldo', cargo: 0n, abono: 1500000n }).getValue(),
+    Transaccion.crear({
+      fecha: new Date('2026-05-14T00:00:00.000Z'),
+      descripcion: 'Compra',
+      cargo: 8103n,
+      abono: 0n,
+    }).getValue(),
+    Transaccion.crear({
+      fecha: new Date('2026-05-15T00:00:00.000Z'),
+      descripcion: 'Sueldo',
+      cargo: 0n,
+      abono: 1500000n,
+    }).getValue(),
   ],
 };
 

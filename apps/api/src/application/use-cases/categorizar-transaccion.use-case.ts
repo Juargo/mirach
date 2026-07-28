@@ -59,7 +59,10 @@ export class CategorizarTransaccionUseCase {
     // 3. Primera coincidencia gana.
     for (const patron of ordenados) {
       if (patron.coincide(transaccion.descripcion)) {
-        return Result.ok({ categoria: patron.categoria, bucket: patron.bucket });
+        return Result.ok({
+          categoria: patron.categoria,
+          bucket: patron.bucket,
+        });
       }
     }
 

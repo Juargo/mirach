@@ -12,12 +12,12 @@ describe('BUCKET_IDS', () => {
   it('each id is a non-empty string', () => {
     for (const [, id] of Object.entries(BUCKET_IDS)) {
       expect(typeof id).toBe('string');
-      expect((id as string).length).toBeGreaterThan(0);
+      expect(id.length).toBeGreaterThan(0);
     }
   });
 
   it('all ids are unique (no duplicates)', () => {
-    const ids = Object.values(BUCKET_IDS) as string[];
+    const ids = Object.values(BUCKET_IDS);
     const unique = new Set(ids);
     expect(unique.size).toBe(ids.length);
   });

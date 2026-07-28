@@ -65,7 +65,8 @@ export class LoginRateLimiter {
     const porIp = this.readCurrent(this.ipKey(ip));
 
     return (
-      (porEmail !== undefined && porEmail.conteo >= this.config.maxAttemptsPerEmail) ||
+      (porEmail !== undefined &&
+        porEmail.conteo >= this.config.maxAttemptsPerEmail) ||
       (porIp !== undefined && porIp.conteo >= this.config.maxAttemptsPerIp)
     );
   }
@@ -86,7 +87,10 @@ export class LoginRateLimiter {
     if (vigente === undefined) {
       this.purgarExpiradas();
       this.evictarSiExcedeCapacidad();
-      this.contadores.set(key, { conteo: 1, expiraEn: this.ahora() + this.config.windowMs });
+      this.contadores.set(key, {
+        conteo: 1,
+        expiraEn: this.ahora() + this.config.windowMs,
+      });
       return;
     }
 

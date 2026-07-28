@@ -1,4 +1,7 @@
-import { programarLimpiezaDemo, EXPRESION_LIMPIEZA_DIARIA } from './demo-cleanup-scheduler';
+import {
+  programarLimpiezaDemo,
+  EXPRESION_LIMPIEZA_DIARIA,
+} from './demo-cleanup-scheduler';
 import type { DemoCleanupService } from '../http/auth/demo-cleanup.service';
 
 /**
@@ -9,7 +12,9 @@ import type { DemoCleanupService } from '../http/auth/demo-cleanup.service';
 describe('programarLimpiezaDemo', () => {
   it('agenda limpiarDiario con la expresión diaria (3 AM), sin solapamiento', () => {
     const scheduleFn = vi.fn();
-    const demoCleanup = { limpiarDiario: vi.fn() } as unknown as DemoCleanupService;
+    const demoCleanup = {
+      limpiarDiario: vi.fn(),
+    } as unknown as DemoCleanupService;
 
     programarLimpiezaDemo(demoCleanup, scheduleFn as never);
 

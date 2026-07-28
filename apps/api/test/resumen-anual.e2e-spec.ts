@@ -119,7 +119,10 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     return accountId;
   }
 
-  async function seedIngesta(accountId: string, suffix: string): Promise<string> {
+  async function seedIngesta(
+    accountId: string,
+    suffix: string,
+  ): Promise<string> {
     const ingestaId = `${RUN_ID}-ing-${suffix}`;
     await prisma.ingesta.upsert({
       where: { id: ingestaId },
@@ -216,7 +219,10 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     if (!ALLOW) return; // Skip if no real DB
 
     const PASSWORD_A = 'ca08-userA-password-123';
-    const { email: emailA } = await seedUserWithCredentials('ca08-a', PASSWORD_A);
+    const { email: emailA } = await seedUserWithCredentials(
+      'ca08-a',
+      PASSWORD_A,
+    );
     const userA = `${RUN_ID}-ca08-a`;
     const accountA = await seedAccount(userA, 'ca08-a');
     const ingestaA = await seedIngesta(accountA, 'ca08-a');
@@ -253,7 +259,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
       .send({ email: emailA, password: PASSWORD_A })
       .expect(200);
     const setCookie = loginRes.headers['set-cookie'] as unknown as string[];
-    const cookieA = setCookie[0]!.split(';')[0]!; // "md_session=<token>"
+    const cookieA = setCookie[0].split(';')[0]; // "md_session=<token>"
 
     const res = await request(app)
       .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)

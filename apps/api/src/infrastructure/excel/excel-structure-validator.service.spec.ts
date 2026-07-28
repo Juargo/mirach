@@ -9,11 +9,13 @@ const FIXTURES = join(__dirname, '..', '..', '..', 'test', 'fixtures');
 
 async function workbookABuffer(wb: ExcelJS.Workbook): Promise<Buffer> {
   const arr = await wb.xlsx.writeBuffer();
-  return Buffer.from(arr as ArrayBuffer);
+  return Buffer.from(arr);
 }
 
 /** Crea un workbook BancoEstado mínimo con encabezados en fila 14 y filas de datos opcionales. */
-async function buildBancoEstadoWorkbook(filasDatos: Array<Array<string | number>> = []): Promise<Buffer> {
+async function buildBancoEstadoWorkbook(
+  filasDatos: Array<Array<string | number>> = [],
+): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('hoja');
   ws.getCell('A1').value = 'Últimos Movimientos CuentaRUT N° 00017046102';
@@ -80,7 +82,13 @@ describe('ExcelStructureValidatorService', () => {
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('hoja');
       ws.getCell('A2').value = 'Cuenta Corriente: 0-000-83-03862-4';
-      const headers = ['Fecha', 'Detalle', 'Monto cargo ($)', 'Monto abono ($)', 'Saldo ($)'];
+      const headers = [
+        'Fecha',
+        'Detalle',
+        'Monto cargo ($)',
+        'Monto abono ($)',
+        'Saldo ($)',
+      ];
       headers.forEach((h, i) => (ws.getRow(3).getCell(i + 1).value = h));
       ws.getRow(4).getCell(1).value = '17-04-2026';
       ws.getRow(4).getCell(2).value = 'RECUP COM';

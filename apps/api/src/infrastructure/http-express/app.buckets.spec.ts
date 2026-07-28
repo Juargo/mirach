@@ -13,13 +13,19 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
 function fakeContainer(): Container {
   return {
     validarSesion: {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: { execute: vi.fn() },
     calcularResumenAnual: { execute: vi.fn() },
     obtenerDetalleBucket: {
       execute: vi.fn().mockResolvedValue(
-        Result.ok({ periodo: '2026-07', bucket: 'Necesidades', transacciones: [] }),
+        Result.ok({
+          periodo: '2026-07',
+          bucket: 'Necesidades',
+          transacciones: [],
+        }),
       ),
     },
     shutdown: async () => {},

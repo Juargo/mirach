@@ -45,7 +45,9 @@ export interface MovimientosMesDto {
  * Vive en infrastructure/http porque conoce la forma exacta del JSON de respuesta.
  * Application no sabe nada de HTTP ni de DTOs.
  */
-export function aMovimientosMesDto(data: ObtenerMovimientosMesResult): MovimientosMesDto {
+export function aMovimientosMesDto(
+  data: ObtenerMovimientosMesResult,
+): MovimientosMesDto {
   return {
     periodo: data.periodo,
     totalTransacciones: data.transacciones.length,

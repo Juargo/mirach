@@ -68,7 +68,9 @@ describe('BancoEstadoPdfStrategy', () => {
     });
 
     it('ignora la fila de Subtotales', () => {
-      expect(estructura.filasIgnoradas.some((r) => r.test('Subtotales'))).toBe(true);
+      expect(estructura.filasIgnoradas.some((r) => r.test('Subtotales'))).toBe(
+        true,
+      );
     });
   });
 });

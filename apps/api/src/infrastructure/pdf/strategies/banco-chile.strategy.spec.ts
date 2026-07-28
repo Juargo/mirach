@@ -75,9 +75,9 @@ describe('BancoChilePdfStrategy', () => {
       expect(
         estructura.filasIgnoradas.some((r) => r.test('SALDO INICIAL')),
       ).toBe(true);
-      expect(
-        estructura.filasIgnoradas.some((r) => r.test('SALDO FINAL')),
-      ).toBe(true);
+      expect(estructura.filasIgnoradas.some((r) => r.test('SALDO FINAL'))).toBe(
+        true,
+      );
     });
   });
 });

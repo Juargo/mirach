@@ -58,7 +58,9 @@ export function crearAuth(
   prisma: PrismaClient,
   env: Pick<
     Env,
-    'LOGIN_RATELIMIT_MAX_EMAIL' | 'LOGIN_RATELIMIT_MAX_IP' | 'LOGIN_RATELIMIT_WINDOW_MS'
+    | 'LOGIN_RATELIMIT_MAX_EMAIL'
+    | 'LOGIN_RATELIMIT_MAX_IP'
+    | 'LOGIN_RATELIMIT_WINDOW_MS'
   >,
 ): AuthGraph {
   const reloj = new SystemReloj();

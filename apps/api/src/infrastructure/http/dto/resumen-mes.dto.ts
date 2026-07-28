@@ -71,7 +71,10 @@ function aWire(estado: EstadoSemaforo | null): string | null {
  *   - No float, no Math.*, no parseFloat at any step.
  * US-016: estadoSemaforo per bucket + estadoGlobal at top level via aWire().
  */
-export function aResumenMesDto(periodo: string, resumen: ResumenMes): ResumenMesDto {
+export function aResumenMesDto(
+  periodo: string,
+  resumen: ResumenMes,
+): ResumenMesDto {
   return {
     periodo,
     totalIngreso: String(resumen.totalIngreso),

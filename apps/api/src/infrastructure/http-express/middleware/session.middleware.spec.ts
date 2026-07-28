@@ -33,7 +33,9 @@ describe('sessionMiddleware', () => {
 
   it('401 si el token es inválido/expirado', async () => {
     const validar = {
-      execute: vi.fn().mockResolvedValue(Result.fail(new SesionInvalidaError())),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new SesionInvalidaError())),
     };
     const res = await request(probeApp(validar))
       .get('/probe')

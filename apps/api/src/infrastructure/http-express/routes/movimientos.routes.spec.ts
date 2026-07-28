@@ -29,25 +29,45 @@ function probeApp(uc: Doble): Express {
 
 describe('registrarMovimientos — GET /api/movimientos', () => {
   it('200 con el DTO y llama con userId + periodo', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(MOVIMIENTOS_OK)) };
-    const res = await request(probeApp(uc)).get('/api/movimientos?periodo=2026-07');
+    const uc = {
+      execute: vi.fn().mockResolvedValue(Result.ok(MOVIMIENTOS_OK)),
+    };
+    const res = await request(probeApp(uc)).get(
+      '/api/movimientos?periodo=2026-07',
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.periodo).toBe('2026-07');
     expect(res.body.totalTransacciones).toBe(0);
-    expect(uc.execute).toHaveBeenCalledWith({ userId: 'user-x', periodo: '2026-07' });
+    expect(uc.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      periodo: '2026-07',
+    });
   });
 
   it('sin periodo → periodo undefined', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(MOVIMIENTOS_OK)) };
+    const uc = {
+      execute: vi.fn().mockResolvedValue(Result.ok(MOVIMIENTOS_OK)),
+    };
     await request(probeApp(uc)).get('/api/movimientos');
 
-    expect(uc.execute).toHaveBeenCalledWith({ userId: 'user-x', periodo: undefined });
+    expect(uc.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      periodo: undefined,
+    });
   });
 
   it('400 scrubbeado si el periodo es inválido', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.fail(new PeriodoInvalidoError('periodo-malo'))) };
-    const res = await request(probeApp(uc)).get('/api/movimientos?periodo=periodo-malo');
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new PeriodoInvalidoError('periodo-malo')),
+        ),
+    };
+    const res = await request(probeApp(uc)).get(
+      '/api/movimientos?periodo=periodo-malo',
+    );
 
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).not.toContain('periodo-malo');

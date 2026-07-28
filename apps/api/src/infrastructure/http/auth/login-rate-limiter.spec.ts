@@ -1,6 +1,10 @@
 import { LoginRateLimiter } from './login-rate-limiter';
 
-const CONFIG = { maxAttemptsPerEmail: 3, maxAttemptsPerIp: 5, windowMs: 900_000 };
+const CONFIG = {
+  maxAttemptsPerEmail: 3,
+  maxAttemptsPerIp: 5,
+  windowMs: 900_000,
+};
 
 /**
  * ADR-029: `readRateLimitConfigFromEnv` se eliminó — su validación fail-closed
@@ -75,7 +79,11 @@ describe('LoginRateLimiter', () => {
   });
 
   it('el mapa no crece sin límite: al superar maxEntries se evictan las entradas más antiguas', () => {
-    const configSensible = { maxAttemptsPerEmail: 1, maxAttemptsPerIp: 1000, windowMs: 900_000 };
+    const configSensible = {
+      maxAttemptsPerEmail: 1,
+      maxAttemptsPerIp: 1000,
+      windowMs: 900_000,
+    };
     // maxEntries=4 (constructor param) para un test rápido — cada recordFailure
     // agrega 2 claves (email + ip), así que 2 llamadas llenan la capacidad.
     const limiter = new LoginRateLimiter(configSensible, Date.now, 4);

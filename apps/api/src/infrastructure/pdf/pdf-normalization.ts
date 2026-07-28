@@ -200,7 +200,10 @@ export function normalizarTransaccionesPdf(
   const { prefijoParaFila, filasConsumidasComoPrefijo } =
     estructura.fusionarContinuaciones
       ? calcularPrefijosContinuacion(filasRelevantes, estructura.formatoFecha)
-      : { prefijoParaFila: new Map<number, string>(), filasConsumidasComoPrefijo: new Set<number>() };
+      : {
+          prefijoParaFila: new Map<number, string>(),
+          filasConsumidasComoPrefijo: new Set<number>(),
+        };
 
   const problemas: ProblemaEstructuraPdf[] = [];
   const candidatas: FilaCandidata[] = [];
@@ -395,7 +398,10 @@ function calcularPrefijosContinuacion(
     if (!esFragmento) continue; // fila fechada siguiente ya trae descripción completa
 
     const previo = prefijoParaFila.get(i + 1);
-    prefijoParaFila.set(i + 1, previo !== undefined ? `${previo} ${descTxt}` : descTxt);
+    prefijoParaFila.set(
+      i + 1,
+      previo !== undefined ? `${previo} ${descTxt}` : descTxt,
+    );
     filasConsumidasComoPrefijo.add(i);
   }
 

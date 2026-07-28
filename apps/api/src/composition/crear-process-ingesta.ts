@@ -37,15 +37,24 @@ import { PrismaTransaccionExistenteReader } from '../infrastructure/persistence/
  * El orden de argumentos de `ProcessIngestaUseCase` es significativo — se
  * mantiene idéntico al del módulo Nest original.
  */
-export function crearProcessIngesta(prisma: PrismaClient): ProcessIngestaUseCase {
+export function crearProcessIngesta(
+  prisma: PrismaClient,
+): ProcessIngestaUseCase {
   const crypto = new NoOpCryptoService();
 
   const accountRepository = new PrismaAccountRepository(prisma);
   const ingestaRepository = new PrismaIngestaRepository(prisma, crypto);
-  const catalogoClasificacion = new PrismaCatalogoClasificacionRepository(prisma);
+  const catalogoClasificacion = new PrismaCatalogoClasificacionRepository(
+    prisma,
+  );
   const transaccionBucketWriter = new PrismaTransaccionBucketRepository(prisma);
-  const txParaClasificarReader = new PrismaTransaccionClasificacionRepository(prisma);
-  const txExistenteReader = new PrismaTransaccionExistenteReader(prisma, crypto);
+  const txParaClasificarReader = new PrismaTransaccionClasificacionRepository(
+    prisma,
+  );
+  const txExistenteReader = new PrismaTransaccionExistenteReader(
+    prisma,
+    crypto,
+  );
 
   return new ProcessIngestaUseCase(
     new IngestFileUseCase(),
@@ -55,7 +64,9 @@ export function crearProcessIngesta(prisma: PrismaClient): ProcessIngestaUseCase
     new ValidateStructureUseCase(new ExcelStructureValidatorService()),
     new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
     new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
-    new NormalizePdfTransactionsUseCase(new PdfjsTransactionNormalizerService()),
+    new NormalizePdfTransactionsUseCase(
+      new PdfjsTransactionNormalizerService(),
+    ),
     new PersistTransactionsUseCase(ingestaRepository),
     catalogoClasificacion,
     transaccionBucketWriter,

@@ -80,8 +80,12 @@ describe('SantanderPdfStrategy', () => {
     it('el ancla de período resuelve etiqueta y valor en filas distintas (DESDE/HASTA vs 1ª/2ª fecha)', () => {
       const texto =
         'CARTOLA DESDE HASTA PAGINA 0262-M-C-00 54 01/03/2026 31/03/2026 1 de 1';
-      expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe('01/03/2026');
-      expect(texto.match(estructura.anclasPeriodo.hasta)?.[1]).toBe('31/03/2026');
+      expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe(
+        '01/03/2026',
+      );
+      expect(texto.match(estructura.anclasPeriodo.hasta)?.[1]).toBe(
+        '31/03/2026',
+      );
     });
   });
 });

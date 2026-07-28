@@ -14,7 +14,11 @@ import type { ObtenerDetalleBucketUseCase } from '../../../application/use-cases
  */
 type Doble = Pick<ObtenerDetalleBucketUseCase, 'execute'>;
 
-const DETALLE_OK = { periodo: '2026-07', bucket: 'Necesidades', transacciones: [] };
+const DETALLE_OK = {
+  periodo: '2026-07',
+  bucket: 'Necesidades',
+  transacciones: [],
+};
 
 function probeApp(uc: Doble): Express {
   const app = express();
@@ -32,7 +36,9 @@ function probeApp(uc: Doble): Express {
 describe('registrarBuckets — GET /api/buckets/:bucket', () => {
   it('200 con el DTO y llama con userId + bucket + periodo', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(DETALLE_OK)) };
-    const res = await request(probeApp(uc)).get('/api/buckets/Necesidades?periodo=2026-07');
+    const res = await request(probeApp(uc)).get(
+      '/api/buckets/Necesidades?periodo=2026-07',
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.bucket).toBe('Necesidades');
@@ -47,11 +53,21 @@ describe('registrarBuckets — GET /api/buckets/:bucket', () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(DETALLE_OK)) };
     await request(probeApp(uc)).get('/api/buckets/Deseos');
 
-    expect(uc.execute).toHaveBeenCalledWith({ userId: 'user-x', bucket: 'Deseos', periodo: undefined });
+    expect(uc.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      bucket: 'Deseos',
+      periodo: undefined,
+    });
   });
 
   it('400 scrubbeado si el bucket es inválido (nunca refleja el input crudo)', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.fail(new BucketInvalidoError('HackerBucket'))) };
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new BucketInvalidoError('HackerBucket')),
+        ),
+    };
     const res = await request(probeApp(uc)).get('/api/buckets/HackerBucket');
 
     expect(res.status).toBe(400);
@@ -59,8 +75,16 @@ describe('registrarBuckets — GET /api/buckets/:bucket', () => {
   });
 
   it('400 scrubbeado si el periodo es inválido', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.fail(new PeriodoInvalidoError('periodo-malo'))) };
-    const res = await request(probeApp(uc)).get('/api/buckets/Necesidades?periodo=periodo-malo');
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new PeriodoInvalidoError('periodo-malo')),
+        ),
+    };
+    const res = await request(probeApp(uc)).get(
+      '/api/buckets/Necesidades?periodo=periodo-malo',
+    );
 
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).not.toContain('periodo-malo');

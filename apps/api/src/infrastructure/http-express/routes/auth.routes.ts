@@ -9,7 +9,10 @@ import { DemoRateLimiter } from '../../http/auth/demo-rate-limiter';
 import { DemoCleanupService } from '../../http/auth/demo-cleanup.service';
 import { getClientIp } from '../../http/auth/client-ip';
 import { extractToken } from '../../http/auth/extraer-token';
-import { serializeSessionCookie, clearSessionCookie } from '../../http/auth/cookie';
+import {
+  serializeSessionCookie,
+  clearSessionCookie,
+} from '../../http/auth/cookie';
 import { esNavegacionDeNivelSuperior } from '../../http/auth/sec-fetch-guard';
 
 /** Dependencias de las rutas session-public (login/logout/demo). */
@@ -31,7 +34,10 @@ export interface AuthPublicDeps {
  * pero NO una sesión ya validada. Por eso montan en un router SIN el session
  * middleware — el equivalente Express de `@PublicSession()`.
  */
-export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void {
+export function registrarAuthPublic(
+  router: Router,
+  deps: AuthPublicDeps,
+): void {
   const {
     login,
     logout,
@@ -46,7 +52,9 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
   // POST /api/auth/login
   router.post('/auth/login', async (req, res, next) => {
     try {
-      const body = req.body as { email?: unknown; password?: unknown } | undefined;
+      const body = req.body as
+        | { email?: unknown; password?: unknown }
+        | undefined;
       const email = typeof body?.email === 'string' ? body.email : '';
       const password = typeof body?.password === 'string' ? body.password : '';
       const ip = getClientIp(req);
@@ -54,7 +62,9 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
       if (loginRateLimiter.isBlocked(ip, email)) {
         // Scrubbed: path only — NUNCA el email/password.
         console.warn(`Login rechazado (rate-limited) — path=${req.path}`);
-        res.status(429).json({ message: 'Demasiados intentos. Espera unos minutos.' });
+        res
+          .status(429)
+          .json({ message: 'Demasiados intentos. Espera unos minutos.' });
         return;
       }
 
@@ -66,15 +76,22 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
       const result = await login.execute({ emailRaw: email, password });
 
       if (result.isFail()) {
-        console.warn(`Login rechazado (credenciales inválidas) — path=${req.path}`);
+        console.warn(
+          `Login rechazado (credenciales inválidas) — path=${req.path}`,
+        );
         res.status(401).json({ message: result.getError().message });
         return;
       }
 
       loginRateLimiter.reset(ip, email);
       const { token, userId, expiresAt } = result.getValue();
-      res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt, cookieSecure));
-      res.status(200).json({ token, userId, expiresAt: expiresAt.toISOString() });
+      res.setHeader(
+        'Set-Cookie',
+        serializeSessionCookie(token, expiresAt, cookieSecure),
+      );
+      res
+        .status(200)
+        .json({ token, userId, expiresAt: expiresAt.toISOString() });
     } catch (err) {
       next(err);
     }
@@ -106,8 +123,12 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
   router.get('/auth/demo', async (req, res, next) => {
     try {
       if (!esNavegacionDeNivelSuperior(req)) {
-        console.warn(`Demo rechazado (no es navegación top-level) — path=${req.path}`);
-        res.status(403).json({ message: 'Solicitud rechazada: se requiere navegación directa.' });
+        console.warn(
+          `Demo rechazado (no es navegación top-level) — path=${req.path}`,
+        );
+        res.status(403).json({
+          message: 'Solicitud rechazada: se requiere navegación directa.',
+        });
         return;
       }
 
@@ -124,7 +145,9 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
       const ip = getClientIp(req);
       if (demoRateLimiter.isBlocked(ip)) {
         console.warn(`Demo rechazado (rate-limited) — path=${req.path}`);
-        res.status(429).json({ message: 'Demasiadas solicitudes de demo. Intenta más tarde.' });
+        res.status(429).json({
+          message: 'Demasiadas solicitudes de demo. Intenta más tarde.',
+        });
         return;
       }
       demoRateLimiter.recordFailure(ip);
@@ -140,7 +163,10 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
       }
 
       const { token, expiresAt } = await crearDemo.execute();
-      res.setHeader('Set-Cookie', serializeSessionCookie(token, expiresAt, cookieSecure));
+      res.setHeader(
+        'Set-Cookie',
+        serializeSessionCookie(token, expiresAt, cookieSecure),
+      );
       res.redirect(302, '/');
     } catch (err) {
       next(err);
@@ -153,7 +179,10 @@ export function registrarAuthPublic(router: Router, deps: AuthPublicDeps): void 
  * session middleware como cualquier endpoint de datos, así que monta en el
  * router protegido. `userId` viene de `req.userId`.
  */
-export function registrarAuthMe(router: Router, obtenerIdentidad: ObtenerIdentidadUseCase): void {
+export function registrarAuthMe(
+  router: Router,
+  obtenerIdentidad: ObtenerIdentidadUseCase,
+): void {
   router.get('/auth/me', async (req, res, next) => {
     try {
       const result = await obtenerIdentidad.execute({ userId: req.userId! });

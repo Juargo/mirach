@@ -1,4 +1,7 @@
-import { ITransaccionParaClasificarReader, TransaccionParaClasificar } from '../../application/ports/transaccion-para-clasificar.port';
+import {
+  ITransaccionParaClasificarReader,
+  TransaccionParaClasificar,
+} from '../../application/ports/transaccion-para-clasificar.port';
 import type { PrismaClient } from '@prisma/client';
 
 /**

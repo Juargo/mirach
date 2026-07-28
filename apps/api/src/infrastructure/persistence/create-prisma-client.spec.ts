@@ -51,7 +51,10 @@ describe('createPrismaClient', () => {
   });
 
   it('usa DATABASE_URL cuando DIRECT_URL está ausente', () => {
-    createPrismaClient({ DATABASE_URL: 'postgres://pooler-host/db', DIRECT_URL: undefined });
+    createPrismaClient({
+      DATABASE_URL: 'postgres://pooler-host/db',
+      DIRECT_URL: undefined,
+    });
 
     expect(prismaPgCtor).toHaveBeenCalledWith('postgres://pooler-host/db');
   });

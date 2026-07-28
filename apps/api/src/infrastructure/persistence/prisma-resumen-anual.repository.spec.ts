@@ -37,7 +37,7 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     prisma = new PrismaClient();
     await prisma.$connect();
     repo = new PrismaResumenAnualRepository(prisma);
-    anioVO = PeriodoAnio.crear(ANIO).getValue() as PeriodoAnio;
+    anioVO = PeriodoAnio.crear(ANIO).getValue();
   });
 
   afterAll(async () => {
@@ -76,7 +76,10 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     return accountId;
   }
 
-  async function seedIngesta(accountId: string, suffix: string): Promise<string> {
+  async function seedIngesta(
+    accountId: string,
+    suffix: string,
+  ): Promise<string> {
     const ingestaId = `${RUN_ID}-ingesta-${suffix}`;
     await prisma.ingesta.upsert({
       where: { id: ingestaId },

@@ -1,6 +1,10 @@
 import express, { type Express } from 'express';
 import request from 'supertest';
-import { registrarAuthPublic, registrarAuthMe, type AuthPublicDeps } from './auth.routes';
+import {
+  registrarAuthPublic,
+  registrarAuthMe,
+  type AuthPublicDeps,
+} from './auth.routes';
 import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
 import type { ObtenerIdentidadUseCase } from '../../../application/use-cases/obtener-identidad.use-case';
@@ -14,13 +18,32 @@ const EXPIRA = new Date('2026-08-01T00:00:00.000Z');
 
 function deps(over: Partial<AuthPublicDeps> = {}): AuthPublicDeps {
   return {
-    login: { execute: vi.fn().mockResolvedValue(Result.ok({ token: 'tok', userId: 'u1', expiresAt: EXPIRA })) },
+    login: {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.ok({ token: 'tok', userId: 'u1', expiresAt: EXPIRA }),
+        ),
+    },
     logout: { execute: vi.fn().mockResolvedValue(Result.ok(undefined)) },
-    crearDemo: { execute: vi.fn().mockResolvedValue({ token: 'demo-tok', expiresAt: EXPIRA }) },
+    crearDemo: {
+      execute: vi
+        .fn()
+        .mockResolvedValue({ token: 'demo-tok', expiresAt: EXPIRA }),
+    },
     demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
-    validarSesion: { execute: vi.fn().mockResolvedValue(Result.fail(new Error('sin sesión'))) },
-    loginRateLimiter: { isBlocked: vi.fn().mockReturnValue(false), recordFailure: vi.fn(), reset: vi.fn() },
-    demoRateLimiter: { isBlocked: vi.fn().mockReturnValue(false), recordFailure: vi.fn() },
+    validarSesion: {
+      execute: vi.fn().mockResolvedValue(Result.fail(new Error('sin sesión'))),
+    },
+    loginRateLimiter: {
+      isBlocked: vi.fn().mockReturnValue(false),
+      recordFailure: vi.fn(),
+      reset: vi.fn(),
+    },
+    demoRateLimiter: {
+      isBlocked: vi.fn().mockReturnValue(false),
+      recordFailure: vi.fn(),
+    },
     cookieSecure: false,
     ...over,
   } as unknown as AuthPublicDeps;
@@ -46,8 +69,15 @@ describe('registrarAuthPublic', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers['set-cookie']).toBeDefined();
-      expect(res.body).toEqual({ token: 'tok', userId: 'u1', expiresAt: EXPIRA.toISOString() });
-      expect(d.login.execute).toHaveBeenCalledWith({ emailRaw: 'a@b.cl', password: 'secreta' });
+      expect(res.body).toEqual({
+        token: 'tok',
+        userId: 'u1',
+        expiresAt: EXPIRA.toISOString(),
+      });
+      expect(d.login.execute).toHaveBeenCalledWith({
+        emailRaw: 'a@b.cl',
+        password: 'secreta',
+      });
       expect(d.loginRateLimiter.reset).toHaveBeenCalled();
     });
 
@@ -73,9 +103,15 @@ describe('registrarAuthPublic', () => {
 
     it('429 si el rate limiter bloquea (no llama al use case)', async () => {
       const d = deps({
-        loginRateLimiter: { isBlocked: vi.fn().mockReturnValue(true), recordFailure: vi.fn(), reset: vi.fn() } as never,
+        loginRateLimiter: {
+          isBlocked: vi.fn().mockReturnValue(true),
+          recordFailure: vi.fn(),
+          reset: vi.fn(),
+        } as never,
       });
-      const res = await request(publicApp(d)).post('/api/auth/login').send({ email: 'a@b.cl', password: 'x' });
+      const res = await request(publicApp(d))
+        .post('/api/auth/login')
+        .send({ email: 'a@b.cl', password: 'x' });
 
       expect(res.status).toBe(429);
       expect(d.login.execute).not.toHaveBeenCalled();
@@ -83,9 +119,17 @@ describe('registrarAuthPublic', () => {
 
     it('401 con credenciales inválidas', async () => {
       const d = deps({
-        login: { execute: vi.fn().mockResolvedValue(Result.fail(new Error('Credenciales inválidas'))) } as never,
+        login: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new Error('Credenciales inválidas')),
+            ),
+        } as never,
       });
-      const res = await request(publicApp(d)).post('/api/auth/login').send({ email: 'a@b.cl', password: 'mala' });
+      const res = await request(publicApp(d))
+        .post('/api/auth/login')
+        .send({ email: 'a@b.cl', password: 'mala' });
 
       expect(res.status).toBe(401);
     });
@@ -101,7 +145,9 @@ describe('registrarAuthPublic', () => {
 
   describe('GET /api/auth/demo', () => {
     it('403 si no es navegación top-level (Sec-Fetch-Dest: image)', async () => {
-      const res = await request(publicApp(deps())).get('/api/auth/demo').set('Sec-Fetch-Dest', 'image');
+      const res = await request(publicApp(deps()))
+        .get('/api/auth/demo')
+        .set('Sec-Fetch-Dest', 'image');
       expect(res.status).toBe(403);
     });
 
@@ -117,7 +163,10 @@ describe('registrarAuthPublic', () => {
 
     it('429 si el rate limiter de demo bloquea', async () => {
       const d = deps({
-        demoRateLimiter: { isBlocked: vi.fn().mockReturnValue(true), recordFailure: vi.fn() } as never,
+        demoRateLimiter: {
+          isBlocked: vi.fn().mockReturnValue(true),
+          recordFailure: vi.fn(),
+        } as never,
       });
       const res = await request(publicApp(d)).get('/api/auth/demo');
       expect(res.status).toBe(429);
@@ -141,12 +190,20 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
 
   it('200 con la identidad del usuario autenticado', async () => {
     const uc = {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-x', email: 'a@b.cl', esDemo: false })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.ok({ userId: 'user-x', email: 'a@b.cl', esDemo: false }),
+        ),
     };
     const res = await request(meApp(uc)).get('/api/auth/me');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ userId: 'user-x', email: 'a@b.cl', esDemo: false });
+    expect(res.body).toEqual({
+      userId: 'user-x',
+      email: 'a@b.cl',
+      esDemo: false,
+    });
     expect(uc.execute).toHaveBeenCalledWith({ userId: 'user-x' });
   });
 });

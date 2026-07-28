@@ -37,9 +37,12 @@ describe('inferirAnios', () => {
     ]);
   });
 
-  it('documenta el contrato: el helper asume orden cronológico ascendente en la entrada — ' +
-    'una entrada que lo viola (ej. un decremento a mitad de año, [6, 3]) igual sigue la ' +
-    'regla "cualquier decremento = cruce de año" y produce un resultado indefinido-pero-documentado', () => {
-    expect(inferirAnios([6, 3], 2026)).toEqual([2026, 2027]);
-  });
+  it(
+    'documenta el contrato: el helper asume orden cronológico ascendente en la entrada — ' +
+      'una entrada que lo viola (ej. un decremento a mitad de año, [6, 3]) igual sigue la ' +
+      'regla "cualquier decremento = cruce de año" y produce un resultado indefinido-pero-documentado',
+    () => {
+      expect(inferirAnios([6, 3], 2026)).toEqual([2026, 2027]);
+    },
+  );
 });

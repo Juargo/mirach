@@ -38,9 +38,15 @@ interface FakeTransaccion {
   bucketId: string | null;
 }
 
-function makeFakeClient(patrones: FakePatron[], transacciones: FakeTransaccion[]) {
-  const updateManyCalls: Array<{ ids: string[]; categoriaId: string | null; bucketId: string }> =
-    [];
+function makeFakeClient(
+  patrones: FakePatron[],
+  transacciones: FakeTransaccion[],
+) {
+  const updateManyCalls: Array<{
+    ids: string[];
+    categoriaId: string | null;
+    bucketId: string;
+  }> = [];
 
   const client: BackfillClient = {
     patronClasificacion: {
@@ -119,7 +125,9 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
       categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
       bucketId: BUCKET_IDS[Bucket.Necesidades],
     });
-    expect(transacciones[0].categoriaId).toBe(CATEGORIA_IDS[Categoria.Supermercado]);
+    expect(transacciones[0].categoriaId).toBe(
+      CATEGORIA_IDS[Categoria.Supermercado],
+    );
     expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
   });
 
@@ -234,7 +242,10 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
     expect(updateManyCalls).toHaveLength(2);
     const categoriaIds = updateManyCalls.map((c) => c.categoriaId).sort();
     expect(categoriaIds).toEqual(
-      [CATEGORIA_IDS[Categoria.Combustible], CATEGORIA_IDS[Categoria.Supermercado]].sort(),
+      [
+        CATEGORIA_IDS[Categoria.Combustible],
+        CATEGORIA_IDS[Categoria.Supermercado],
+      ].sort(),
     );
   });
 });
@@ -271,7 +282,9 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
       categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
       bucketId: BUCKET_IDS[Bucket.Necesidades],
     });
-    expect(transacciones[0].categoriaId).toBe(CATEGORIA_IDS[Categoria.Supermercado]);
+    expect(transacciones[0].categoriaId).toBe(
+      CATEGORIA_IDS[Categoria.Supermercado],
+    );
     // Bucket unchanged — same value it already had.
     expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
     expect(summary.categoriaAgregadaBucketPreservado).toBe(1);
@@ -398,7 +411,9 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
     );
 
     const bucketsAntes = new Map(transacciones.map((t) => [t.id, t.bucketId]));
-    const dineroAntes = new Map(transacciones.map((t) => [t.id, { cargo: t.cargo, abono: t.abono }]));
+    const dineroAntes = new Map(
+      transacciones.map((t) => [t.id, { cargo: t.cargo, abono: t.abono }]),
+    );
 
     await runBackfill(client, { dryRun: false });
 
@@ -422,7 +437,9 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
     expect(transacciones.find((t) => t.id === 'tx-c')?.categoriaId).toBe(
       CATEGORIA_IDS[Categoria.Supermercado],
     );
-    expect(transacciones.find((t) => t.id === 'tx-c')?.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
+    expect(transacciones.find((t) => t.id === 'tx-c')?.bucketId).toBe(
+      BUCKET_IDS[Bucket.Necesidades],
+    );
   });
 });
 

@@ -22,7 +22,9 @@ export function registrarTransacciones(
 ): void {
   router.patch('/transacciones/:id/categoria', async (req, res, next) => {
     try {
-      const rawCategoria: unknown = (req.body as { categoria?: unknown } | undefined)?.categoria;
+      const rawCategoria: unknown = (
+        req.body as { categoria?: unknown } | undefined
+      )?.categoria;
       const categoria = typeof rawCategoria === 'string' ? rawCategoria : '';
 
       const result = await reclasificarTransaccion.execute({
@@ -42,7 +44,8 @@ export function registrarTransacciones(
         }
         if (error instanceof TransaccionNoEncontradaError) {
           res.status(404).json({
-            message: 'La transacción no existe o no pertenece al usuario autenticado.',
+            message:
+              'La transacción no existe o no pertenece al usuario autenticado.',
           });
           return;
         }

@@ -31,11 +31,12 @@ export const CATEGORIA_IDS: Record<Categoria, string> = {
  * plegar un categoriaId crudo de Prisma de vuelta al enum de dominio (US-013
  * S5: movimientos / detalle-bucket read paths).
  */
-export const CATEGORIA_ID_TO_CATEGORIA: ReadonlyMap<string, Categoria> = new Map(
-  (Object.entries(CATEGORIA_IDS) as [Categoria, string][]).map(
-    ([categoria, id]) => [id, categoria] as [string, Categoria],
-  ),
-);
+export const CATEGORIA_ID_TO_CATEGORIA: ReadonlyMap<string, Categoria> =
+  new Map(
+    (Object.entries(CATEGORIA_IDS) as [Categoria, string][]).map(
+      ([categoria, id]) => [id, categoria] as [string, Categoria],
+    ),
+  );
 
 /**
  * foldCategoriaId — pliega un `categoriaId` físico crudo de Prisma a la forma

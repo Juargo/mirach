@@ -39,13 +39,17 @@ export function registrarIngestas(
       const file = req.file;
       if (!file) {
         res.status(400).json({
-          message: 'No se recibió ningún archivo. Envía el archivo en el campo "file".',
+          message:
+            'No se recibió ningún archivo. Envía el archivo en el campo "file".',
         });
         return;
       }
 
       const fileReader = new MulterFileReaderAdapter(file);
-      const result = await processIngesta.execute({ fileReader, userId: req.userId! });
+      const result = await processIngesta.execute({
+        fileReader,
+        userId: req.userId!,
+      });
 
       if (result.isFail()) {
         const { status, message } = aHttpError(result.getError());
@@ -94,7 +98,10 @@ function subirArchivo(): RequestHandler {
  * con guarda de exhaustividad: una variante nueva sin mapear deja de compilar
  * en vez de caer a un status equivocado.
  */
-function aHttpError(error: ProcessIngestaError): { status: number; message: string } {
+function aHttpError(error: ProcessIngestaError): {
+  status: number;
+  message: string;
+} {
   if (error instanceof PersistenciaFallidaError) {
     // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
     return { status: 500, message: error.message };

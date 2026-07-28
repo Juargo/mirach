@@ -34,7 +34,8 @@ export function registrarResumen(
         const error = result.getError();
         if (error instanceof PeriodoInvalidoError) {
           res.status(400).json({
-            message: 'El período no es válido. Formato esperado: YYYY-MM (ej: 2026-07).',
+            message:
+              'El período no es válido. Formato esperado: YYYY-MM (ej: 2026-07).',
           });
           return;
         }
@@ -62,7 +63,8 @@ export function registrarResumen(
         const error = result.getError();
         if (error instanceof AnioInvalidoError) {
           res.status(400).json({
-            message: 'El año no es válido. Debe ser un entero entre 2000 y 2100.',
+            message:
+              'El año no es válido. Debe ser un entero entre 2000 y 2100.',
           });
           return;
         }
@@ -73,7 +75,8 @@ export function registrarResumen(
             error.stack,
           );
           res.status(500).json({
-            message: 'Error inesperado al calcular el resumen anual. Intenta nuevamente.',
+            message:
+              'Error inesperado al calcular el resumen anual. Intenta nuevamente.',
           });
           return;
         }

@@ -34,7 +34,9 @@ export class PrismaReclasificarCategoriaRepository implements IReclasificarCateg
     transaccionId: string,
     categoria: Categoria,
     bucket: Bucket,
-  ): Promise<Result<ReclasificarCategoriaResult, TransaccionNoEncontradaError>> {
+  ): Promise<
+    Result<ReclasificarCategoriaResult, TransaccionNoEncontradaError>
+  > {
     const { count } = await this.prisma.transaccion.updateMany({
       where: { id: transaccionId, account: { userId } }, // STRUCTURAL isolation (RNF-SEC-006)
       data: {

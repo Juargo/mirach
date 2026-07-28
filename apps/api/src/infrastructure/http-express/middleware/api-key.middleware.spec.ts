@@ -31,12 +31,16 @@ describe('createApiKeyMiddleware', () => {
   });
 
   it('401 con key incorrecta', async () => {
-    const res = await request(probeApp(KEY_VALIDA)).get('/probe').set('x-api-key', 'b'.repeat(64));
+    const res = await request(probeApp(KEY_VALIDA))
+      .get('/probe')
+      .set('x-api-key', 'b'.repeat(64));
     expect(res.status).toBe(401);
   });
 
   it('deja pasar (200) con la key correcta', async () => {
-    const res = await request(probeApp(KEY_VALIDA)).get('/probe').set('x-api-key', KEY_VALIDA);
+    const res = await request(probeApp(KEY_VALIDA))
+      .get('/probe')
+      .set('x-api-key', KEY_VALIDA);
     expect(res.status).toBe(200);
     expect(res.text).toBe('ok');
   });

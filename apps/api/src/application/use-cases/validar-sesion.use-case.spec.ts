@@ -11,9 +11,7 @@ import { SesionInvalidaError } from '../../domain/errors/sesion-invalida.error';
 // Unit tests — ValidarSesionUseCase (mocked ports, fake clock). No infra, no DB.
 // ──────────────────────────────────────────────────────────────────────────────
 
-function makeMockSessions(
-  found: SesionPersistida | null,
-): ISessionRepository {
+function makeMockSessions(found: SesionPersistida | null): ISessionRepository {
   return {
     crear: vi.fn(),
     buscarPorTokenHash: vi.fn().mockResolvedValue(found),

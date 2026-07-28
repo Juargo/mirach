@@ -24,7 +24,9 @@ export function extractToken(request: Request): string | undefined {
 }
 
 /** Parseo hand-rolled de UNA cookie conocida — no se usa `cookie-parser` (decisión locked). */
-function readSessionCookie(cookieHeader: string | undefined): string | undefined {
+function readSessionCookie(
+  cookieHeader: string | undefined,
+): string | undefined {
   if (!cookieHeader) {
     return undefined;
   }
@@ -43,7 +45,9 @@ function readSessionCookie(cookieHeader: string | undefined): string | undefined
   return undefined;
 }
 
-function readBearer(authorizationHeader: string | undefined): string | undefined {
+function readBearer(
+  authorizationHeader: string | undefined,
+): string | undefined {
   if (!authorizationHeader) {
     return undefined;
   }

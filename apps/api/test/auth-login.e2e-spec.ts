@@ -73,7 +73,7 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
 
   function extraerNombreValorCookie(res: request.Response): string {
     const raw = res.headers['set-cookie'] as unknown as string[];
-    return raw[0]!.split(';')[0]!; // "md_session=<token>"
+    return raw[0].split(';')[0]; // "md_session=<token>"
   }
 
   it('login con credenciales correctas → 200, Set-Cookie + body {token,userId,expiresAt}', async () => {
@@ -196,7 +196,9 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieX)
       .expect(204);
-    const clearedCookie = logoutRes.headers['set-cookie'] as unknown as string[];
+    const clearedCookie = logoutRes.headers[
+      'set-cookie'
+    ] as unknown as string[];
     expect(clearedCookie[0]).toContain('Max-Age=0');
 
     // Sesión X revocada

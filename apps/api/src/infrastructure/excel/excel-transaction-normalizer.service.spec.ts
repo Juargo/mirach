@@ -9,7 +9,7 @@ const FIXTURES = join(__dirname, '..', '..', '..', 'test', 'fixtures');
 
 async function workbookABuffer(wb: ExcelJS.Workbook): Promise<Buffer> {
   const arr = await wb.xlsx.writeBuffer();
-  return Buffer.from(arr as ArrayBuffer);
+  return Buffer.from(arr);
 }
 
 async function buildBancoEstadoWorkbook(

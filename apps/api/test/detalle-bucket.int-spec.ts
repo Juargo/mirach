@@ -46,8 +46,12 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
   beforeAll(async () => {
     await prisma.$connect();
 
-    await prisma.user.create({ data: { id: TEST_USER_ID_A, nombre: `Test User A ${RUN_ID}` } });
-    await prisma.user.create({ data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` } });
+    await prisma.user.create({
+      data: { id: TEST_USER_ID_A, nombre: `Test User A ${RUN_ID}` },
+    });
+    await prisma.user.create({
+      data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` },
+    });
 
     const accA = await prisma.account.create({
       data: {
@@ -116,7 +120,15 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     descripcion = 'Test tx',
   ) =>
     prisma.transaccion.create({
-      data: { accountId, ingestaId, fecha, bucketId, cargo, abono, descripcion },
+      data: {
+        accountId,
+        ingestaId,
+        fecha,
+        bucketId,
+        cargo,
+        abono,
+        descripcion,
+      },
     });
 
   it('isolation: a user B transaction in the queried bucket/period NEVER appears in user A results', async () => {
@@ -130,7 +142,11 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
       'UserB tx',
     );
 
-    const rows = await repo.findByPeriodoYBucket(TEST_USER_ID_A, periodoJulio, Bucket.Necesidades);
+    const rows = await repo.findByPeriodoYBucket(
+      TEST_USER_ID_A,
+      periodoJulio,
+      Bucket.Necesidades,
+    );
 
     const returnedIds = rows.map((r) => r.id);
     expect(returnedIds).not.toContain(userBTx.id);

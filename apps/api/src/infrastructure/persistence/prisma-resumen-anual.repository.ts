@@ -41,7 +41,7 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
   ): Promise<ReadonlyArray<BucketSumRowAnual>> {
     const transacciones = await this.prisma.transaccion.findMany({
       where: {
-        account: { userId },                       // USER ISOLATION — structural
+        account: { userId }, // USER ISOLATION — structural
         fecha: { gte: anio.desde, lt: anio.hasta }, // half-open [desde, hasta)
       },
       select: { fecha: true, bucketId: true, cargo: true, abono: true },
