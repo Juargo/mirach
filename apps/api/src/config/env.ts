@@ -88,6 +88,18 @@ export const EnvObjectSchema = z.object({
     .positive()
     .default(900000)
     .describe('Ventana de tiempo (ms) del rate limiter de login.'),
+  CORS_ALLOWED_ORIGINS: z
+    .string()
+    .default('http://localhost:5173')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0),
+    )
+    .describe(
+      'Orígenes de navegador permitidos para CORS, separados por coma. Es una ALLOWLIST — nunca "*": CORS no protege la API (eso lo hacen api-key/sesión), solo autoriza a un origen distinto a LEER la respuesta. Default: el dev server del web (http://localhost:5173). En producción se setea al origen del web desplegado vía el dashboard de Render.',
+    ),
 });
 
 type EnvSource = z.infer<typeof EnvObjectSchema>;

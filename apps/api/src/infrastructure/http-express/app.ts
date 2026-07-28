@@ -3,6 +3,7 @@ import type { Container } from '../../composition/container';
 import type { Env } from '../../config/env';
 import { errorMiddleware } from './middleware/error.middleware';
 import { createApiKeyMiddleware } from './middleware/api-key.middleware';
+import { createCorsMiddleware } from './middleware/cors.middleware';
 import { sessionMiddleware } from './middleware/session.middleware';
 import { registrarResumen } from './routes/resumen.routes';
 import { registrarBuckets } from './routes/buckets.routes';
@@ -35,6 +36,13 @@ import { registrarVersion } from './routes/version.routes';
  */
 export function createApp(container: Container, env: Env): Express {
   const app = express();
+
+  // CORS por allowlist (ADR-029) — global y ANTES de la api-key: el preflight
+  // OPTIONS del navegador viaja sin credenciales y debe resolverse acá, no
+  // chocar con el 401 de la api-key. Habilita el `GET /version` cross-origin
+  // que consume el web; el resto de `/api/*` sigue yendo por el proxy
+  // same-origin (sin header Origin → este middleware no agrega nada).
+  app.use(createCorsMiddleware(env.CORS_ALLOWED_ORIGINS));
 
   app.use(express.json());
 
