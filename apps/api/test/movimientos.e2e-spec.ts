@@ -12,10 +12,6 @@ import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 const RUN_ID = `movmese2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
 
-// Use a unique user per run to keep test data isolated from other runs/users.
-// We derive a unique userId so tests don't contaminate USER_ID_FIJO's real data.
-const TEST_USER_ID = `movmese2e-user-${RUN_ID}`;
-
 /**
  * E2E tests for GET /api/movimientos (US-014).
  *
@@ -224,12 +220,17 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
       .expect(200);
 
     expect(response.body.periodo).toBe('2026-07');
-    expect(response.body.totalTransacciones).toBe(response.body.transacciones.length);
+    expect(response.body.totalTransacciones).toBe(
+      response.body.transacciones.length,
+    );
     expect(response.body.totalTransacciones).toBeGreaterThan(0);
 
     // Find our seeded rows in the result
-    const ourRows = (response.body.transacciones as Array<Record<string, unknown>>).filter(
-      (tx) => typeof tx.descripcion === 'string' && (tx.descripcion as string).includes(RUN_ID),
+    const ourRows = (
+      response.body.transacciones as Array<Record<string, unknown>>
+    ).filter(
+      (tx) =>
+        typeof tx.descripcion === 'string' && tx.descripcion.includes(RUN_ID),
     );
     expect(ourRows.length).toBe(3);
 
@@ -248,7 +249,9 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     }
 
     // BigInt exactness: the > MAX_SAFE_INTEGER amount must survive as exact string
-    const bigRow = ourRows.find((tx) => (tx.descripcion as string).includes('Compra'));
+    const bigRow = ourRows.find((tx) =>
+      (tx.descripcion as string).includes('Compra'),
+    );
     expect(bigRow).toBeDefined();
     expect(bigRow!.cargo).toBe('9007199254740993');
     expect(bigRow!.abono).toBe('0');
@@ -256,14 +259,18 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     expect(bigRow!.bucket).toBe('SinCategoria');
 
     // Zero-cargo row
-    const abonoRow = ourRows.find((tx) => (tx.descripcion as string).includes('Abono'));
+    const abonoRow = ourRows.find((tx) =>
+      (tx.descripcion as string).includes('Abono'),
+    );
     expect(abonoRow).toBeDefined();
     expect(abonoRow!.cargo).toBe('0');
     expect(abonoRow!.abono).toBe('150000');
     expect(abonoRow!.bucket).toBe('SinCategoria');
 
     // Categorized row folds to its domain Bucket, not the raw physical id (MOV-01)
-    const categorizadoRow = ourRows.find((tx) => (tx.descripcion as string).includes('Categorizado'));
+    const categorizadoRow = ourRows.find((tx) =>
+      (tx.descripcion as string).includes('Categorizado'),
+    );
     expect(categorizadoRow).toBeDefined();
     expect(categorizadoRow!.bucket).toBe('Necesidades');
   });

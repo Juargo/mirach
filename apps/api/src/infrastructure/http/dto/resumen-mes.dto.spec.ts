@@ -1,6 +1,5 @@
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
 import { Bucket } from '../../../domain/value-objects/bucket';
-import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import { aResumenMesDto } from './resumen-mes.dto';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -101,7 +100,10 @@ describe('aResumenMesDto', () => {
   describe('US-016: estadoSemaforo wire format per bucket', () => {
     it('SC-W-01: Verde enum → lowercase wire "verde" (not "Verde")', () => {
       // Necesidades: 500000/1500000 = 3333 bp → Verde (≤ 5000)
-      const resumen = makeResumen({ totalIngreso: 1_500_000n, necesidades: 500_000n });
+      const resumen = makeResumen({
+        totalIngreso: 1_500_000n,
+        necesidades: 500_000n,
+      });
       const dto = aResumenMesDto('2026-07', resumen);
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.estadoSemaforo).toBe('verde');
@@ -110,7 +112,10 @@ describe('aResumenMesDto', () => {
 
     it('SC-W-02: Amarillo enum → lowercase wire "amarillo"', () => {
       // Necesidades: 840000/1500000 = 5600 bp → Amarillo (5000 < bp ≤ 6000)
-      const resumen = makeResumen({ totalIngreso: 1_500_000n, necesidades: 840_000n });
+      const resumen = makeResumen({
+        totalIngreso: 1_500_000n,
+        necesidades: 840_000n,
+      });
       const dto = aResumenMesDto('2026-07', resumen);
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.estadoSemaforo).toBe('amarillo');
@@ -118,14 +123,20 @@ describe('aResumenMesDto', () => {
 
     it('SC-W-03: Rojo enum → lowercase wire "rojo"', () => {
       // Necesidades: 960000/1500000 = 6400 bp → Rojo (> 6000)
-      const resumen = makeResumen({ totalIngreso: 1_500_000n, necesidades: 960_000n });
+      const resumen = makeResumen({
+        totalIngreso: 1_500_000n,
+        necesidades: 960_000n,
+      });
       const dto = aResumenMesDto('2026-07', resumen);
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.estadoSemaforo).toBe('rojo');
     });
 
     it('SC-W-04: SinCategoria estadoSemaforo → null in DTO', () => {
-      const resumen = makeResumen({ totalIngreso: 1_500_000n, sinCategoria: 90_000n });
+      const resumen = makeResumen({
+        totalIngreso: 1_500_000n,
+        sinCategoria: 90_000n,
+      });
       const dto = aResumenMesDto('2026-07', resumen);
       const sinCat = dto.buckets.find((b) => b.bucket === Bucket.SinCategoria);
       expect(sinCat?.estadoSemaforo).toBeNull();
@@ -158,7 +169,10 @@ describe('aResumenMesDto', () => {
 
     it('SC-W-05: estadoGlobal Rojo → wire "rojo"', () => {
       // Necesidades > 6000bp → Rojo
-      const resumen = makeResumen({ totalIngreso: 1_500_000n, necesidades: 960_000n });
+      const resumen = makeResumen({
+        totalIngreso: 1_500_000n,
+        necesidades: 960_000n,
+      });
       const dto = aResumenMesDto('2026-07', resumen);
       expect(dto.estadoGlobal).toBe('rojo');
     });
