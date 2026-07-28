@@ -35,4 +35,19 @@ describe('createApp — GET /version', () => {
     expect(typeof body.builtAt).toBe('string');
     expect(body.version).not.toBe('');
   });
+
+  it('permite el fetch cross-origin del web (CORS) desde un origen de la allowlist', async () => {
+    // buildTestEnv() trae el default CORS_ALLOWED_ORIGINS = http://localhost:5173,
+    // que es exactamente el origen del dev server del web.
+    const app = createApp(fakeContainer, buildTestEnv());
+
+    const res = await request(app)
+      .get('/version')
+      .set('Origin', 'http://localhost:5173');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe(
+      'http://localhost:5173',
+    );
+  });
 });
