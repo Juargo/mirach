@@ -32,9 +32,13 @@ export function createCorsMiddleware(
   return (req, res, next) => {
     const origin = req.headers.origin;
 
+    // Siempre declaramos que la respuesta varía por Origin —aunque no agreguemos
+    // ACAO—: así ningún cache intermedio sirve la respuesta de un origen a otro.
+    // `res.vary` APPENDea (no pisa un `Vary` que haya puesto otro middleware).
+    res.vary('Origin');
+
     if (origin !== undefined && allowed.has(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
       res.setHeader(
         'Access-Control-Allow-Methods',
         'GET, POST, PATCH, OPTIONS',
@@ -42,9 +46,14 @@ export function createCorsMiddleware(
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     }
 
-    // Preflight: el navegador espera una respuesta vacía 2xx sin llegar a la
-    // ruta. Si el origen no estaba permitido, va sin headers CORS → bloqueado.
-    if (req.method === 'OPTIONS') {
+    // Preflight REAL: el navegador siempre manda `Access-Control-Request-Method`.
+    // Se responde 204 vacío sin llegar a la ruta (si el origen no estaba
+    // permitido, va sin ACAO → el navegador lo bloquea igual). Un OPTIONS que no
+    // es preflight cae al ruteo normal, sin enmascarar un 404/405.
+    if (
+      req.method === 'OPTIONS' &&
+      req.headers['access-control-request-method'] !== undefined
+    ) {
       res.sendStatus(204);
       return;
     }
