@@ -36,7 +36,7 @@ describe('PrismaResumenMesRepository (integration)', () => {
     prisma = new PrismaClient();
     await prisma.$connect();
     repo = new PrismaResumenMesRepository(prisma);
-    periodoVO = PeriodoMes.crear(PERIODO).getValue() as PeriodoMes;
+    periodoVO = PeriodoMes.crear(PERIODO).getValue();
   });
 
   afterAll(async () => {
@@ -78,7 +78,10 @@ describe('PrismaResumenMesRepository (integration)', () => {
   }
 
   /** Helper: seed an ingesta row (required FK for transacciones). */
-  async function seedIngesta(accountId: string, suffix: string): Promise<string> {
+  async function seedIngesta(
+    accountId: string,
+    suffix: string,
+  ): Promise<string> {
     const ingestaId = `${RUN_ID}-ingesta-${suffix}`;
     await prisma.ingesta.upsert({
       where: { id: ingestaId },
@@ -125,11 +128,41 @@ describe('PrismaResumenMesRepository (integration)', () => {
     const userId = `${RUN_ID}-user-sc01`;
     const ingestaId = await seedIngesta(accountId, 'sc01');
 
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Ingreso],      cargo: 0n,         abono: 1_500_000n });
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Necesidades],  cargo: 750_000n,   abono: 0n });
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Deseos],       cargo: 360_000n,   abono: 0n });
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Ahorro],       cargo: 300_000n,   abono: 0n });
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.SinCategoria], cargo: 90_000n,    abono: 0n });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Ingreso],
+      cargo: 0n,
+      abono: 1_500_000n,
+    });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      cargo: 750_000n,
+      abono: 0n,
+    });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Deseos],
+      cargo: 360_000n,
+      abono: 0n,
+    });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Ahorro],
+      cargo: 300_000n,
+      abono: 0n,
+    });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      cargo: 90_000n,
+      abono: 0n,
+    });
 
     const rows = await repo.sumarPorBucket(userId, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
@@ -151,11 +184,29 @@ describe('PrismaResumenMesRepository (integration)', () => {
     const ingestaId = await seedIngesta(accountId, 'sc03');
 
     // null-bucket row: cargo=150_000n
-    await seedTransaccion({ accountId, ingestaId, bucketId: null,                             cargo: 150_000n, abono: 0n });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: null,
+      cargo: 150_000n,
+      abono: 0n,
+    });
     // real SinCategoria row: cargo=50_000n
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.SinCategoria], cargo: 50_000n,  abono: 0n });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      cargo: 50_000n,
+      abono: 0n,
+    });
     // Income for context
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Ingreso],       cargo: 0n,       abono: 1_000_000n });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Ingreso],
+      cargo: 0n,
+      abono: 1_000_000n,
+    });
 
     const rows = await repo.sumarPorBucket(userId, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
@@ -169,7 +220,7 @@ describe('PrismaResumenMesRepository (integration)', () => {
   it('SC-05: empty month → all 5 buckets return 0n', async () => {
     if (!ALLOW) return;
 
-    const accountId = await seedAccount('sc05');
+    await seedAccount('sc05');
     const userId = `${RUN_ID}-user-sc05`;
     // No transactions seeded for this user
 
@@ -193,7 +244,13 @@ describe('PrismaResumenMesRepository (integration)', () => {
     const ingestaId = await seedIngesta(accountId, 'sc04');
 
     // Spend only, no Ingreso row
-    await seedTransaccion({ accountId, ingestaId, bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 100_000n, abono: 0n });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      cargo: 100_000n,
+      abono: 0n,
+    });
 
     const rows = await repo.sumarPorBucket(userId, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
@@ -215,18 +272,42 @@ describe('PrismaResumenMesRepository (integration)', () => {
     const ingestaIdB = await seedIngesta(accountIdB, 'sc09-B');
 
     // User A: Ingreso=1_000_000, Necesidades=500_000
-    await seedTransaccion({ accountId: accountIdA, ingestaId: ingestaIdA, bucketId: BUCKET_IDS[Bucket.Ingreso],     cargo: 0n,         abono: 1_000_000n });
-    await seedTransaccion({ accountId: accountIdA, ingestaId: ingestaIdA, bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 500_000n,   abono: 0n });
+    await seedTransaccion({
+      accountId: accountIdA,
+      ingestaId: ingestaIdA,
+      bucketId: BUCKET_IDS[Bucket.Ingreso],
+      cargo: 0n,
+      abono: 1_000_000n,
+    });
+    await seedTransaccion({
+      accountId: accountIdA,
+      ingestaId: ingestaIdA,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      cargo: 500_000n,
+      abono: 0n,
+    });
 
     // User B: Ingreso=9_000_000, Necesidades=4_500_000 — must NOT appear in A's query
-    await seedTransaccion({ accountId: accountIdB, ingestaId: ingestaIdB, bucketId: BUCKET_IDS[Bucket.Ingreso],     cargo: 0n,         abono: 9_000_000n });
-    await seedTransaccion({ accountId: accountIdB, ingestaId: ingestaIdB, bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 4_500_000n, abono: 0n });
+    await seedTransaccion({
+      accountId: accountIdB,
+      ingestaId: ingestaIdB,
+      bucketId: BUCKET_IDS[Bucket.Ingreso],
+      cargo: 0n,
+      abono: 9_000_000n,
+    });
+    await seedTransaccion({
+      accountId: accountIdB,
+      ingestaId: ingestaIdB,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      cargo: 4_500_000n,
+      abono: 0n,
+    });
 
     const rows = await repo.sumarPorBucket(userIdA, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
 
     // User A sees ONLY user A's data
-    expect(byBucket.get(Bucket.Ingreso)?.totalAbono).toBe(1_000_000n);      // NOT 10_000_000n
-    expect(byBucket.get(Bucket.Necesidades)?.totalCargo).toBe(500_000n);    // NOT 5_000_000n
+    expect(byBucket.get(Bucket.Ingreso)?.totalAbono).toBe(1_000_000n); // NOT 10_000_000n
+    expect(byBucket.get(Bucket.Necesidades)?.totalCargo).toBe(500_000n); // NOT 5_000_000n
   });
 });

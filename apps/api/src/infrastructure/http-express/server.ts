@@ -19,7 +19,7 @@ import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
  * Acá también se agenda la limpieza diaria de demos (node-cron), que reemplaza
  * al `@Cron` de Nest.
  */
-async function bootstrap(): Promise<void> {
+function bootstrap(): void {
   const env = loadEnv();
   const container = createContainer(env);
   const app = createApp(container, env);
