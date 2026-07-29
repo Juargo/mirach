@@ -14,8 +14,12 @@ export const CTA = {
 } as const;
 
 export const APP = {
-  /** Web app URL — local dev server (`pnpm web dev`); replace with the Vercel URL when deployed */
-  url: 'http://localhost:5173',
+  /** Web app URL, resuelto por ambiente en build (Astro estático). Prod/preview:
+   * `PUBLIC_APP_URL` (seteada en el proyecto Vercel del landing =
+   * `https://app.moneydiary.cl`); dev: fallback al server local (`pnpm web dev`).
+   * De acá derivan "Ingresar" (`APP`) y "Probar" (`PROBAR`), así que en prod
+   * ambos apuntan al web correcto. */
+  url: import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173',
   label: 'Ingresar',
 } as const;
 
