@@ -102,8 +102,9 @@ services:
       # CORS allowlist (ADR-029): orígenes de navegador autorizados a leer el
       # `GET /version` público cross-origin que consume el web. NO es secreto
       # —son orígenes públicos—, por eso va versionado como `value:` (no
-      # `sync:false`). Es una allowlist EXACTA, jamás "*". Se listan ambas
-      # formas del prod alias de Vercel del web (corta y team-scoped). Ampliar
-      # con coma si se agrega un dominio propio (ej. https://app.moneydiary.cl).
+      # `sync:false`). Es una allowlist EXACTA, jamás "*".
+      #   - https://app.moneydiary.cl        → dominio propio del web (canónico)
+      #   - https://money-diary-web.vercel.app → alias de Vercel (respaldo/transición)
+      # Ampliar con coma si se agrega otro origen de navegador.
       - key: CORS_ALLOWED_ORIGINS
-        value: "https://money-diary-web.vercel.app,https://money-diary-web-juargos-projects.vercel.app"
+        value: "https://app.moneydiary.cl,https://money-diary-web.vercel.app"
