@@ -180,10 +180,79 @@ jobs:
       - name: Build API
         run: pnpm api build
 
-      # NOT run in CI (manual/local gate for now):
-      #   pnpm api test:integration — requires a real Supabase database and
-      #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
-      #   persistence changes.
+      # Integration/e2e run in the dedicated `integration` job below, against an
+      # ephemeral Postgres service container — NOT here (this job has no DB).
+
+  # ADR-028/029 — integration + e2e against an EPHEMERAL Postgres. These specs
+  # mutate a real DB (gated by ALLOW_DESTRUCTIVE_DB; db-safety blocks prod/
+  # Supabase URLs), so they used to be a manual/local-only gate. A throwaway
+  # service container on localhost passes the gate, so the money-exactness and
+  # user_id-isolation specs (ADR-015) — the two risk concentrations — now run on
+  # every PR instead of relying on someone remembering to run them locally.
+  # (This closes the ADR-028 debt and is what catches specs bit-rotting silently.)
+  integration:
+    name: Integration & e2e (api, ephemeral DB)
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: moneydiary
+          POSTGRES_PASSWORD: moneydiary
+          POSTGRES_DB: moneydiary_test
+        ports:
+          - 5432:5432
+        # GitHub waits for the service to report healthy before running steps.
+        options: >-
+          --health-cmd "pg_isready -U moneydiary -d moneydiary_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Localhost service container → db-safety gate accepts it (not prod/supabase).
+      DATABASE_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      DIRECT_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      ALLOW_DESTRUCTIVE_DB: '1'
+      # Test-only values (localhost DB, throwaway) — NOT secrets. The scripts set
+      # DOTENV_CONFIG_PATH=.env.test, which is absent in CI; dotenv tolerates the
+      # missing file and never overrides these already-set process.env vars.
+      API_KEY: local-ci-api-key-not-a-secret-0000000000
+      COOKIE_SECURE: 'false'
+      LOGIN_RATELIMIT_MAX_EMAIL: '5'
+      LOGIN_RATELIMIT_MAX_IP: '20'
+      LOGIN_RATELIMIT_WINDOW_MS: '900000'
+      SEED_USER_EMAIL: test@moneydiary.local
+      SEED_USER_PASSWORD: local-ci-password-123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm api exec prisma generate
+
+      # ADR-013: `descripcion` is encrypted at rest — app + specs need a valid
+      # 32-byte AES key. Generated fresh per run (never hardcoded), exported to
+      # the job env so later steps pick it up.
+      - name: Generate test ENCRYPTION_KEY
+        run: echo "ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Migrate + seed the ephemeral DB
+        run: pnpm api test:db:setup
+
+      - name: Integration tests (persistence vs real DB)
+        run: pnpm api test:integration
+
+      - name: E2E tests (HTTP vs real DB)
+        run: pnpm api test:e2e
 
   web:
     name: Typecheck & unit tests (web)
@@ -346,7 +415,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, api, web, mobile, landing, security]
+    needs: [changes, commitlint, release-please-config-check, api, integration, web, mobile, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed
