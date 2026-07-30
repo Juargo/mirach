@@ -4,8 +4,11 @@ import {
   ProcessIngestaUseCase,
   ProcessIngestaError,
 } from '../../../application/use-cases/process-ingesta.use-case';
+import { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
+import { ListarIngestasUseCase } from '../../../application/use-cases/listar-ingestas.use-case';
 import { MulterFileReaderAdapter } from '../../http/multer-file-reader.adapter';
 import { aIngestaResponseDto } from '../../http/dto/ingesta-response.dto';
+import { aIngestaListItemDto } from '../../http/dto/ingesta-list.dto';
 import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
 import { ExtensionNoPermitidaError } from '../../../domain/errors/extension-no-permitida.error';
 import { BancoNoReconocidoError } from '../../../domain/errors/banco-no-reconocido.error';
@@ -15,8 +18,17 @@ import { PdfInvalidoError } from '../../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../../domain/errors/pdf-sin-texto.error';
 import { EstructuraPdfInvalidaError } from '../../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../../domain/errors/rango-fechas-invalido.error';
+import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+/** Deps de `registrarIngestas` (US-018, design.md §6.1) — objeto por
+ * legibilidad con 3 dependencias, mirrors `registrarAuthPublic`. */
+export interface IngestaRoutesDeps {
+  processIngesta: ProcessIngestaUseCase;
+  eliminarIngesta: EliminarIngestaUseCase;
+  listarIngestas: ListarIngestasUseCase;
+}
 
 /**
  * registrarIngestas — port del IngestaController (ADR-028).
@@ -26,13 +38,18 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
  * el CLI). `MulterFileReaderAdapter` (framework-agnóstico, reusado de http/)
  * traduce el `Express.Multer.File` al port `IFileReader`.
  *
+ * GET /api/ingestas → lista las ingestas del usuario autenticado (US-018,
+ * ING-03). DELETE /api/ingestas/:id → borrado en cascada userId-isolado
+ * (US-018, ING-01/ING-02); 404 anti-enumeración cuando no existe o no es del
+ * usuario, 204 sin body en éxito.
+ *
  * Errores de validación del archivo del cliente → 400; fallo de infra
  * (persistencia) → 500. Todos los mensajes son seguros (nunca interpolan montos
  * ni datos crudos). El userId viene del session middleware.
  */
 export function registrarIngestas(
   router: Router,
-  processIngesta: ProcessIngestaUseCase,
+  deps: IngestaRoutesDeps,
 ): void {
   router.post('/ingestas', subirArchivo(), async (req, res, next) => {
     try {
@@ -46,7 +63,7 @@ export function registrarIngestas(
       }
 
       const fileReader = new MulterFileReaderAdapter(file);
-      const result = await processIngesta.execute({
+      const result = await deps.processIngesta.execute({
         fileReader,
         userId: req.userId!,
       });
@@ -58,6 +75,43 @@ export function registrarIngestas(
       }
 
       res.status(200).json(aIngestaResponseDto(result.getValue()));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/ingestas', async (req, res, next) => {
+    try {
+      const ingestas = await deps.listarIngestas.execute(req.userId!);
+      res.status(200).json({ ingestas: ingestas.map(aIngestaListItemDto) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.delete('/ingestas/:id', async (req, res, next) => {
+    try {
+      const result = await deps.eliminarIngesta.execute({
+        userId: req.userId!,
+        ingestaId: req.params.id,
+      });
+
+      if (result.isFail()) {
+        const error = result.getError();
+        if (error instanceof IngestaNoEncontradaError) {
+          res.status(404).json({
+            message:
+              'La cartola no existe o no pertenece al usuario autenticado.',
+          });
+          return;
+        }
+        const _exhaustive: never = error;
+        void _exhaustive;
+        res.status(500).json({ message: 'Error inesperado' });
+        return;
+      }
+
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

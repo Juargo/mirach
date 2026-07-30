@@ -41,6 +41,8 @@ function fakeContainer(): Container {
     processIngesta: {
       execute: vi.fn().mockResolvedValue(Result.ok(INGESTA_OK)),
     },
+    eliminarIngesta: { execute: vi.fn() },
+    listarIngestas: { execute: vi.fn().mockResolvedValue([]) },
     shutdown: async () => {},
   } as unknown as Container;
 }
