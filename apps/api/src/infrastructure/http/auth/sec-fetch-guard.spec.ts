@@ -51,4 +51,33 @@ describe('esNavegacionDeNivelSuperior() — guard anti-embed/CSRF (Sec-Fetch-*)'
   it('ambos headers ausentes (cliente legacy) → true (fail-open documentado — gap residual)', () => {
     expect(esNavegacionDeNivelSuperior(requestConHeaders({}))).toBe(true);
   });
+
+  it('x-fwd-sec-fetch-dest: document (navegación top-level relayeada por el proxy) → true', () => {
+    expect(
+      esNavegacionDeNivelSuperior(
+        requestConHeaders({ 'x-fwd-sec-fetch-dest': 'document' }),
+      ),
+    ).toBe(true);
+  });
+
+  it('x-fwd-sec-fetch-dest: image (embed relayeado por el proxy) → false (se rechaza)', () => {
+    expect(
+      esNavegacionDeNivelSuperior(
+        requestConHeaders({ 'x-fwd-sec-fetch-dest': 'image' }),
+      ),
+    ).toBe(false);
+  });
+
+  it('x-fwd-* tiene prioridad sobre el sec-fetch-* que undici pisa (empty/cors) en el request proxeado → true', () => {
+    expect(
+      esNavegacionDeNivelSuperior(
+        requestConHeaders({
+          'x-fwd-sec-fetch-dest': 'document',
+          'x-fwd-sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+        }),
+      ),
+    ).toBe(true);
+  });
 });
