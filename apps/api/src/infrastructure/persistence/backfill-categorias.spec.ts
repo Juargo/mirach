@@ -7,6 +7,9 @@ import { CATEGORIA_IDS } from './categoria-ids';
 import { BUCKET_IDS } from './bucket-ids';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { Bucket } from '../../domain/value-objects/bucket';
+import type { ICryptoService } from '../../application/ports/crypto-service.port';
+import { AesGcmCryptoService } from './aes-gcm-crypto.service';
+import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
  * backfill-categorias — unit tests (CAT-05, sin BD).
@@ -440,6 +443,106 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
     expect(transacciones.find((t) => t.id === 'tx-c')?.bucketId).toBe(
       BUCKET_IDS[Bucket.Necesidades],
     );
+  });
+});
+
+function makeCrypto(decryptFn: (v: string) => string): ICryptoService {
+  return {
+    encrypt: (v: string) => v,
+    decrypt: decryptFn,
+  };
+}
+
+describe('runBackfill — ADR-013: descifrado de descripcion antes de clasificar', () => {
+  it('sin crypto explícito (default NoOpCryptoService) clasifica sobre la descripcion tal cual llega (compat de tests existentes)', async () => {
+    const { client, updateManyCalls } = makeFakeClient(
+      [PAT_LIDER],
+      [
+        {
+          id: 'tx-plano',
+          descripcion: 'Compra Lider',
+          cargo: 9500n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: null,
+        },
+      ],
+    );
+
+    await runBackfill(client, { dryRun: false });
+
+    expect(updateManyCalls[0]).toMatchObject({
+      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+    });
+  });
+
+  it('con crypto explícito: descifra descripcion ANTES de clasificar — pattern matching nunca corre contra ciphertext', async () => {
+    const { client, updateManyCalls } = makeFakeClient(
+      [PAT_LIDER],
+      [
+        {
+          // Ciphertext simulado — no contiene "lider" en texto plano, así
+          // que si el backfill matcheara contra esto tal cual, aterrizaría
+          // en SinCategoria (el bug de lectura que este test previene).
+          id: 'tx-cifrado',
+          descripcion: 'v1:iv-fake:tag-fake:ciphertext-fake',
+          cargo: 9500n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: null,
+        },
+      ],
+    );
+    const crypto = makeCrypto((v) =>
+      v === 'v1:iv-fake:tag-fake:ciphertext-fake' ? 'Compra Lider' : v,
+    );
+
+    const summary = await runBackfill(client, { dryRun: false, crypto });
+
+    expect(summary.porCategoria[Categoria.Supermercado]).toBe(1);
+    expect(updateManyCalls[0]).toMatchObject({
+      ids: ['tx-cifrado'],
+      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+    });
+  });
+
+  it('compatibilidad de formato end-to-end: descifra un ciphertext REAL producido por AesGcmCryptoService (el mismo adapter que usa el backfill de descripcion, prisma/backfill-descripcion-encryption.ts) y clasifica sobre el plaintext resultante', async () => {
+    const env = buildTestEnv();
+    const cryptoReal = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
+    const ciphertextReal = cryptoReal.encrypt('Compra Lider');
+
+    const { client, updateManyCalls } = makeFakeClient(
+      [PAT_LIDER],
+      [
+        {
+          id: 'tx-adapter-real',
+          descripcion: ciphertextReal,
+          cargo: 9500n,
+          abono: 0n,
+          categoriaId: null,
+          bucketId: null,
+        },
+      ],
+    );
+
+    const summary = await runBackfill(client, {
+      dryRun: false,
+      crypto: cryptoReal,
+    });
+
+    // Prueba que los formatos de ambos scripts son compatibles de verdad
+    // (no solo que decrypt() se llama): un ciphertext escrito por
+    // AesGcmCryptoService.encrypt() se descifra correctamente acá y el
+    // pattern matching corre sobre "Compra Lider", no sobre el ciphertext.
+    expect(summary.porCategoria[Categoria.Supermercado]).toBe(1);
+    expect(updateManyCalls[0]).toMatchObject({
+      ids: ['tx-adapter-real'],
+      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+    });
   });
 });
 
