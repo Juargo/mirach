@@ -5,7 +5,8 @@ import { join } from 'path';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
-import { loadEnv } from '../src/config/env';
+import { loadEnv, type Env } from '../src/config/env';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const RUN_ID = `e2e-${Date.now()}`;
@@ -29,6 +30,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   let app: Express;
   let prisma: PrismaClient;
   let sesion: Sesion;
+  let env: Env;
 
   const fixturesDir = join(__dirname, 'fixtures');
   const xlsxFixture = join(fixturesDir, 'movimientos-test.xlsx');
@@ -37,7 +39,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   const createdIngestaIds: string[] = [];
 
   beforeEach(async () => {
-    const env = loadEnv();
+    env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
@@ -120,11 +122,19 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       abono: string;
     }) => `${t.fecha}|${t.descripcion}|${t.cargo}|${t.abono}`;
     const enRespuesta = response.body.transacciones.map(canon).sort();
+    // ADR-013: `descripcion` se persiste cifrada (AES-256-GCM). Leer la fila
+    // cruda devuelve ciphertext `v1:...`, así que hay que descifrarla con la
+    // misma clave (ENCRYPTION_KEY de env) para comparar contra la respuesta
+    // HTTP, que ya viene descifrada. Esto prueba el round-trip completo:
+    // el valor almacenado descifra de vuelta a lo que devuelve la API.
+    const crypto = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
     const enBd = filas
       .map((f) =>
         canon({
           fecha: f.fecha.toISOString(),
-          descripcion: f.descripcion,
+          descripcion: crypto.decrypt(f.descripcion),
           cargo: f.cargo.toString(),
           abono: f.abono.toString(),
         }),
