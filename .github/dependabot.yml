@@ -1,0 +1,36 @@
+# ADR-021 — SCA: Dependabot mantiene dependencias y actions al día y abre PRs
+# para las vulnerabilidades baselineadas en pnpm-workspace.yaml (burn-down).
+# Ecosistema npm sobre pnpm: Dependabot detecta pnpm-lock.yaml automáticamente.
+version: 2
+updates:
+  # Dependencias de todos los workspaces del monorepo + la raíz.
+  - package-ecosystem: npm
+    directories:
+      - '/'
+      - '/apps/api'
+      - '/apps/web'
+      - '/apps/mobile'
+      - '/apps/landing'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    # Agrupar patch/minor reduce el ruido de PRs; los major van sueltos para
+    # revisarse uno por uno (pueden romper).
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # Las propias GitHub Actions (pinneadas a SHA en los workflows) — Dependabot
+  # las repinnea al SHA nuevo cuando sale una versión.
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope

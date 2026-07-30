@@ -287,6 +287,56 @@ jobs:
       # secrets. Enable when the deployment pipeline is in place.
       # Relevant env vars: LHCI_GITHUB_APP_TOKEN, VERCEL_PREVIEW_URL
 
+  # ADR-021 — SCA + secretos. Repo-wide (NO path-filtered, como commitlint):
+  # una vuln o un secreto filtrado son riesgos de todo el repo, no de un
+  # workspace. Bloquea (fail-closed).
+  security:
+    name: Security (audit + secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks diffea el rango del PR / push — necesita el historial.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # SCA: falla ante vulns high/critical NUEVAS. Las preexistentes están
+      # baselineadas en pnpm-workspace.yaml > auditConfig.ignoreGhsas (burn-down
+      # vía Dependabot). audit-level=high también está en .npmrc; explícito acá.
+      - name: pnpm audit (high/critical gate)
+        run: pnpm audit --audit-level=high
+
+      # Secretos: escaneo de gitleaks. En pull_request escanea SOLO los commits
+      # del PR (no re-flaggea secretos históricos ya removidos). Un hallazgo hace
+      # exit 1 → falla el job. Pinneado a SHA (posture de supply-chain, ADR-021).
+      #
+      # Pin deliberado en v2: existe v3 (cambios de config incompatibles) — cuando
+      # Dependabot ofrezca el bump mayor, es un skip consciente, no staleness.
+      #
+      # NO se le da `pull-requests: write` a propósito: el job hereda el
+      # `contents: read` del workflow (least-privilege). gitleaks intenta anotar
+      # inline el diff del PR; sin ese permiso degrada a un warning y los
+      # hallazgos igual FALLAN el build y se reportan en el summary/SARIF (no se
+      # ocultan). No ampliamos el scope de un action de terceros sobre código de
+      # PR solo por anotaciones inline.
+      #
+      # ⚠️ Si el repo se muda a una GitHub Organization, gitleaks-action exige
+      # el secret GITLEAKS_LICENSE y falla-cerrado (exit 1) ANTES de escanear.
+      # Hoy `Juargo` es cuenta User → inerte. Al migrar (ADR-023 multi-cliente),
+      # agregar GITLEAKS_LICENSE acá primero.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # Single stable required check (Slice C). Path-filtered jobs above can be
   # SKIPPED depending on which workspace changed — a branch-protection rule
   # that requires one of THOSE job names directly would hang forever on a PR
@@ -296,7 +346,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, api, web, mobile, landing]
+    needs: [changes, commitlint, release-please-config-check, api, web, mobile, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed

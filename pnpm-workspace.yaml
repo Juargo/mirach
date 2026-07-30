@@ -17,3 +17,22 @@ overrides:
   uuid: '>=11.1.1'
   js-yaml: '>=4.3.0 <5.0.0'
   fast-uri: '>=3.1.4 <4.0.0'
+
+# ADR-021 — baseline de vulnerabilidades high preexistentes.
+# El gate `pnpm audit --audit-level=high` en CI bloquea vulns high/critical
+# NUEVAS; estos advisories ya presentes al introducir el gate quedan
+# explícitamente registrados (no silenciados) para que Dependabot los vaya
+# resolviendo (bump/override). Burn-down: reducir esta lista a cero.
+# NO agregar entradas nuevas sin justificación — el gate existe para eso.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-72gw-mp4g-v24j # multer — DoS por campos anidados (apps/api). MÁXIMA prioridad de burn-down: alcanzable sin auth vía subida de cartola en modo demo (US-026); el resto es dev-only o build-time.
+    - GHSA-ph9p-34f9-6g65 # tmp — path traversal (transitivo)
+    - GHSA-hmw2-7cc7-3qxx # form-data — CRLF injection (transitivo)
+    - GHSA-8hv8-536x-4wqp # astro — reflected XSS via slot name (apps/landing)
+    - GHSA-2pvr-wf23-7pc7 # astro — host-header SSRF en error page prerenderizada (apps/landing)
+    - GHSA-3jxr-9vmj-r5cp # brace-expansion — DoS expansión exponencial (transitivo de exceljs)
+    - GHSA-mh99-v99m-4gvg # brace-expansion — DoS expansión ilimitada (transitivo de exceljs)
+    - GHSA-88fw-hqm2-52qc # hono — CORS refleja cualquier Origin con credenciales (transitivo)
+    - GHSA-f88m-g3jw-g9cj # sharp — vulnerabilidades heredadas de libvips (apps/landing)
+    - GHSA-r28c-9q8g-f849 # postcss — path traversal en source map (build tooling)
