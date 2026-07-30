@@ -86,7 +86,11 @@ export function createApp(container: Container, env: Env): Express {
   registrarBuckets(protectedApi, container.obtenerDetalleBucket);
   registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
   registrarTransacciones(protectedApi, container.reclasificarTransaccion);
-  registrarIngestas(protectedApi, container.processIngesta);
+  registrarIngestas(protectedApi, {
+    processIngesta: container.processIngesta,
+    eliminarIngesta: container.eliminarIngesta,
+    listarIngestas: container.listarIngestas,
+  });
   registrarAuthMe(protectedApi, container.obtenerIdentidad);
   app.use('/api', protectedApi);
 

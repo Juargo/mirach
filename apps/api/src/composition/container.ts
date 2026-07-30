@@ -12,6 +12,8 @@ import { ObtenerDetalleBucketUseCase } from '../application/use-cases/obtener-de
 import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-movimientos-mes.use-case';
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
+import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingesta.use-case';
+import { ListarIngestasUseCase } from '../application/use-cases/listar-ingestas.use-case';
 import { LoginRateLimiter } from '../infrastructure/http/auth/login-rate-limiter';
 import { DemoRateLimiter } from '../infrastructure/http/auth/demo-rate-limiter';
 import { DemoCleanupService } from '../infrastructure/http/auth/demo-cleanup.service';
@@ -22,6 +24,8 @@ import { PrismaResumenAnualRepository } from '../infrastructure/persistence/pris
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
 import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/prisma-movimientos-mes.repository';
 import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persistence/prisma-reclasificar-categoria.repository';
+import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
+import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
 
 /**
  * Composition Root — ensamblado del grafo de dependencias (ADR-028/029).
@@ -50,6 +54,10 @@ export interface Container {
   readonly reclasificarTransaccion: ReclasificarTransaccionUseCase;
   /** Pipeline de ingesta xlsx/pdf — POST /api/ingestas. */
   readonly processIngesta: ProcessIngestaUseCase;
+  /** Borrado en cascada userId-isolado — DELETE /api/ingestas/:id. */
+  readonly eliminarIngesta: EliminarIngestaUseCase;
+  /** Listado de ingestas del usuario — GET /api/ingestas. */
+  readonly listarIngestas: ListarIngestasUseCase;
   /** Login por credenciales — POST /api/auth/login. */
   readonly login: LoginUseCase;
   /** Revocar sesión — POST /api/auth/logout. */
@@ -90,6 +98,12 @@ export function createContainer(
     new PrismaReclasificarCategoriaRepository(prisma),
   );
   const processIngesta = crearProcessIngesta(prisma);
+  const eliminarIngesta = new EliminarIngestaUseCase(
+    new PrismaEliminarIngestaRepository(prisma),
+  );
+  const listarIngestas = new ListarIngestasUseCase(
+    new PrismaListarIngestasReader(prisma),
+  );
 
   return {
     validarSesion: auth.validarSesion,
@@ -99,6 +113,8 @@ export function createContainer(
     obtenerMovimientosMes,
     reclasificarTransaccion,
     processIngesta,
+    eliminarIngesta,
+    listarIngestas,
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
