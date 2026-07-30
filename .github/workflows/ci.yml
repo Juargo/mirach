@@ -37,7 +37,7 @@ jobs:
       shared: ${{ steps.f.outputs.shared }}
       release-please-config: ${{ steps.f.outputs.release-please-config }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: f
         with:
@@ -63,7 +63,7 @@ jobs:
     name: Commitlint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -106,7 +106,7 @@ jobs:
     if: ${{ needs.changes.outputs.release-please-config == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Assert packages keys match manifest keys
         run: |
@@ -132,7 +132,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Reads the pnpm version from package.json > packageManager
       - uses: pnpm/action-setup@v4
@@ -226,7 +226,7 @@ jobs:
       SEED_USER_EMAIL: test@moneydiary.local
       SEED_USER_PASSWORD: local-ci-password-123
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -260,7 +260,7 @@ jobs:
     if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -296,7 +296,7 @@ jobs:
     if: ${{ needs.changes.outputs.mobile == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -318,7 +318,7 @@ jobs:
     if: ${{ needs.changes.outputs.landing == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -363,7 +363,7 @@ jobs:
     name: Security (audit + secrets)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # gitleaks diffea el rango del PR / push — necesita el historial.
           fetch-depth: 0
