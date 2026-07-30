@@ -2,10 +2,12 @@ import 'dotenv/config';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { PrismaDetalleBucketRepository } from '../src/infrastructure/persistence/prisma-detalle-bucket.repository';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
+import { buildTestEnv } from './support/env.fixture';
 
 /**
  * Integration tests for PrismaDetalleBucketRepository (US-017), two-user
@@ -34,7 +36,15 @@ const TEST_USER_ID_B = `user-b-${RUN_ID}`;
 
 describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
   const prisma = createPrismaClient(loadEnv());
-  const repo = new PrismaDetalleBucketRepository(prisma);
+  // ADR-013: adapter REAL (no NoOp) para que este int-spec ejercite el
+  // decrypt real — la clave de 32 bytes viene del fixture compartido
+  // (test/support/env.fixture.ts), nunca hardcodeada acá.
+  const repo = new PrismaDetalleBucketRepository(
+    prisma,
+    new AesGcmCryptoService(
+      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
+    ),
+  );
 
   let accountIdA: string;
   let accountIdB: string;

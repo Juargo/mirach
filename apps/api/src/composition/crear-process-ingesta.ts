@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import type { ICryptoService } from '../application/ports/crypto-service.port';
 
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
 import { IngestFileUseCase } from '../application/use-cases/ingest-file.use-case';
@@ -19,7 +20,6 @@ import { PdfjsBankDetectorService } from '../infrastructure/pdf/pdfjs-bank-detec
 import { PdfjsStructureValidatorService } from '../infrastructure/pdf/pdfjs-structure-validator.service';
 import { PdfjsTransactionNormalizerService } from '../infrastructure/pdf/pdfjs-transaction-normalizer.service';
 
-import { NoOpCryptoService } from '../infrastructure/persistence/no-op-crypto.service';
 import { PrismaAccountRepository } from '../infrastructure/persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../infrastructure/persistence/prisma-ingesta.repository';
 import { PrismaCatalogoClasificacionRepository } from '../infrastructure/persistence/prisma-catalogo-clasificacion.repository';
@@ -36,12 +36,17 @@ import { PrismaTransaccionExistenteReader } from '../infrastructure/persistence/
  *
  * El orden de argumentos de `ProcessIngestaUseCase` es significativo — se
  * mantiene idéntico al del módulo Nest original.
+ *
+ * Cifrado (ADR-013): `crypto` se recibe ya construido (no se instancia acá)
+ * — el caller (`container.ts` / `ingestar.ts`) es dueño de decodificar
+ * `env.ENCRYPTION_KEY` UNA sola vez y pasar la MISMA instancia a este helper
+ * y a los readers de movimientos/detalle-bucket, para que el ciphertext que
+ * escribe la ingesta descifre con la clave que usan esos lectores.
  */
 export function crearProcessIngesta(
   prisma: PrismaClient,
+  crypto: ICryptoService,
 ): ProcessIngestaUseCase {
-  const crypto = new NoOpCryptoService();
-
   const accountRepository = new PrismaAccountRepository(prisma);
   const ingestaRepository = new PrismaIngestaRepository(prisma, crypto);
   const catalogoClasificacion = new PrismaCatalogoClasificacionRepository(
@@ -50,6 +55,7 @@ export function crearProcessIngesta(
   const transaccionBucketWriter = new PrismaTransaccionBucketRepository(prisma);
   const txParaClasificarReader = new PrismaTransaccionClasificacionRepository(
     prisma,
+    crypto,
   );
   const txExistenteReader = new PrismaTransaccionExistenteReader(
     prisma,

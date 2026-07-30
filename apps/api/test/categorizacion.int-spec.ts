@@ -17,6 +17,7 @@ import { runSeed } from '../prisma/seed';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persistence/prisma-transaccion-bucket.repository';
 import { PrismaTransaccionClasificacionRepository } from '../src/infrastructure/persistence/prisma-transaccion-clasificacion.repository';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
 import { CategorizacionFallidaError } from '../src/domain/errors/categorizacion-fallida.error';
 import { Result } from '../src/shared/result';
@@ -27,6 +28,7 @@ import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
 import { ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence/constants';
+import { buildTestEnv } from './support/env.fixture';
 
 /**
  * Stub catálogo que siempre falla — used to exercise the degrade path end-to-end.
@@ -103,8 +105,14 @@ describe('Categorización — integración (real dev DB)', () => {
   const prisma = createPrismaClient(loadEnv());
   const catalogoRepo = new PrismaCatalogoClasificacionRepository(prisma);
   const bucketWriter = new PrismaTransaccionBucketRepository(prisma);
+  // ADR-013: adapter REAL (no NoOp) para que este int-spec ejercite el
+  // decrypt real — la clave de 32 bytes viene del fixture compartido
+  // (test/support/env.fixture.ts), nunca hardcodeada acá.
   const txClasificacionReader = new PrismaTransaccionClasificacionRepository(
     prisma,
+    new AesGcmCryptoService(
+      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
+    ),
   );
   const categorizarUseCase = new CategorizarTransaccionUseCase();
 

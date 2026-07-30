@@ -23,6 +23,21 @@ import { SUPABASE_HOST_PATTERN } from '../infrastructure/persistence/db-safety';
  */
 const LOCALHOST_PATTERN = /(^|@|\/\/)(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i;
 
+/**
+ * `true` si `value` es base64 estándar bien formado (charset + padding) que
+ * decodifica a EXACTAMENTE 32 bytes (AES-256). `Buffer.from(str, 'base64')`
+ * por sí solo es demasiado permisivo — ignora caracteres inválidos en vez de
+ * rechazarlos — así que primero se valida el charset con regex.
+ */
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+
+function isValid32ByteBase64Key(value: string): boolean {
+  if (!BASE64_PATTERN.test(value) || value.length % 4 !== 0) {
+    return false;
+  }
+  return Buffer.from(value, 'base64').length === 32;
+}
+
 export const EnvObjectSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -61,6 +76,15 @@ export const EnvObjectSchema = z.object({
     .transform((value) => value === 'true')
     .describe(
       'Atributo Secure de la cookie de sesión. Enum de strings ("true"/"false"), NO z.coerce.boolean() — coerce trata cualquier string no vacío (incluido "false") como truthy.',
+    ),
+  ENCRYPTION_KEY: z
+    .string()
+    .refine(isValid32ByteBase64Key, {
+      message:
+        'ENCRYPTION_KEY debe ser un string base64 que decodifique a exactamente 32 bytes (AES-256, ADR-013). Generar con: openssl rand -base64 32',
+    })
+    .describe(
+      'Clave AES-256-GCM para cifrar/descifrar Transaccion.descripcion (ADR-013). Base64 de 32 bytes exactos. Requerida en todo ambiente — igual que API_KEY, sin ella el boot falla. Generar con: openssl rand -base64 32',
     ),
   ALLOW_DESTRUCTIVE_DB: z
     .literal('1')

@@ -16,6 +16,7 @@ import 'dotenv/config';
 import { loadEnv } from '../../config/env';
 import { crearProcessIngesta } from '../../composition/crear-process-ingesta';
 import { createPrismaClient } from '../persistence/create-prisma-client';
+import { AesGcmCryptoService } from '../persistence/aes-gcm-crypto.service';
 import { USER_ID_FIJO } from '../persistence/constants';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
 
@@ -55,7 +56,12 @@ async function main(): Promise<void> {
   await prisma.$connect();
 
   try {
-    const processIngesta = crearProcessIngesta(prisma);
+    // Cifrado (ADR-013): la CLI es su propio composition root — decodifica
+    // ENCRYPTION_KEY una vez, igual que container.ts.
+    const crypto = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
+    const processIngesta = crearProcessIngesta(prisma, crypto);
 
     const result = await processIngesta.execute({
       fileReader,

@@ -7,6 +7,7 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 import { foldCategoriaId } from './categoria-ids';
+import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 /**
  * PrismaDetalleBucketRepository — implementación del port de lectura para el
@@ -27,9 +28,16 @@ import { foldCategoriaId } from './categoria-ids';
  *
  * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
  * (categoria-ids.ts) — compartido con PrismaMovimientosMesRepository.
+ *
+ * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
+ * la respuesta HTTP de `GET /api/buckets/:bucket`; sin descifrar, el cliente
+ * recibiría el ciphertext en vez de la descripción real.
  */
 export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly crypto: ICryptoService,
+  ) {}
 
   async findByPeriodoYBucket(
     userId: string,
@@ -73,7 +81,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
     return rows.map((row) => ({
       id: row.id,
       fecha: row.fecha,
-      descripcion: row.descripcion,
+      descripcion: this.crypto.decrypt(row.descripcion),
       cargo: row.cargo,
       abono: row.abono,
       categoria: foldCategoriaId(row.categoriaId),
