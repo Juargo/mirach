@@ -9,9 +9,16 @@ import {
   agruparPorCategoriaBucket,
   type AsignacionCategoriaBucket,
 } from '../src/application/services/agrupar-por-categoria-bucket';
-import { PatronClasificacion, MatchType } from '../src/domain/value-objects/patron-clasificacion';
+import {
+  PatronClasificacion,
+  MatchType,
+} from '../src/domain/value-objects/patron-clasificacion';
 import { Categoria } from '../src/domain/value-objects/categoria';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import type { ICryptoService } from '../src/application/ports/crypto-service.port';
+import { NoOpCryptoService } from '../src/infrastructure/persistence/no-op-crypto.service';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { isValid32ByteBase64Key } from '../src/config/env';
 
 /**
  * backfill-categorias.ts (US-013 S3, CAT-05).
@@ -126,8 +133,18 @@ function decidirEscritura(c: {
 
 export async function runBackfill(
   prisma: BackfillClient,
-  options: { dryRun: boolean },
+  options: { dryRun: boolean; crypto?: ICryptoService },
 ): Promise<BackfillSummary> {
+  // ADR-013: `Transaccion.descripcion` está cifrada at-rest desde
+  // AesGcmCryptoService — hay que descifrarla ANTES del pattern matching de
+  // CategorizarTransaccionUseCase (si no, todo matchea SinCategoria contra
+  // ciphertext, igual que el bug que se corrigió en
+  // PrismaTransaccionClasificacionRepository — ver su docstring). Default a
+  // NoOpCryptoService (identidad) para no romper la firma de los tests
+  // unitarios existentes, que ya trabajan con descripciones en texto plano;
+  // main() SIEMPRE pasa la instancia real.
+  const crypto = options.crypto ?? new NoOpCryptoService();
+
   // 1. Catálogo categoría-aware (mismo formato que PrismaCatalogoClasificacionRepository).
   const patronRows = await prisma.patronClasificacion.findMany({
     include: { categoria: true },
@@ -148,12 +165,15 @@ export async function runBackfill(
   // OJO: dentro de este scope el bucketId puede ya ser NO nulo (filas
   // categorizadas por bucket antes de US-013) — de ahí la regla de
   // preservación de abajo.
-  const rows = await prisma.transaccion.findMany({ where: { categoriaId: null } });
+  const rows = await prisma.transaccion.findMany({
+    where: { categoriaId: null },
+  });
 
   const useCase = new CategorizarTransaccionUseCase();
   const clasificadas = rows.map((row) => {
+    const descripcion = crypto.decrypt(row.descripcion);
     const { categoria, bucket } = useCase
-      .execute({ descripcion: row.descripcion, cargo: row.cargo, abono: row.abono }, patrones)
+      .execute({ descripcion, cargo: row.cargo, abono: row.abono }, patrones)
       .getValue();
     return { id: row.id, categoria, bucket, bucketIdAnterior: row.bucketId };
   });
@@ -215,9 +235,14 @@ export async function runBackfill(
 }
 
 function printSummary(summary: BackfillSummary, dryRun: boolean): void {
-  console.log(`Backfill de categorías${dryRun ? ' (--dry-run, nada se escribió)' : ''}:`);
+  console.log(
+    `Backfill de categorías${dryRun ? ' (--dry-run, nada se escribió)' : ''}:`,
+  );
   console.log(`  Filas evaluadas (categoriaId IS NULL): ${summary.totalRows}`);
-  console.log('  Por categoría (clasificación, incluye filas no escritas):', summary.porCategoria);
+  console.log(
+    '  Por categoría (clasificación, incluye filas no escritas):',
+    summary.porCategoria,
+  );
   console.log(
     `  Filas ya bucketeadas que ganan categoría (bucket preservado): ${summary.categoriaAgregadaBucketPreservado}`,
   );
@@ -234,12 +259,16 @@ function printSummary(summary: BackfillSummary, dryRun: boolean): void {
  * Prisma (ver assertDestructiveDbAllowed) + ejecución de runBackfill.
  * Exportado para poder testear el gate sin BD (ver backfill-categorias.spec.ts).
  */
-export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
+export async function main(
+  argv: string[] = process.argv.slice(2),
+): Promise<void> {
   const dryRun = argv.includes('--dry-run');
 
   const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('backfill-categorias requiere DATABASE_URL o DIRECT_URL en el entorno.');
+    throw new Error(
+      'backfill-categorias requiere DATABASE_URL o DIRECT_URL en el entorno.',
+    );
   }
   // El backfill lee y (salvo --dry-run) muta la BD: exige opt-in explícito y
   // rechaza cadenas de producción, incluso en modo dry-run (misma postura
@@ -259,9 +288,21 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     },
   });
 
+  // ADR-013: descifrar descripcion antes de clasificar (ver comentario en
+  // runBackfill). ENCRYPTION_KEY se lee directo de process.env — igual que
+  // DATABASE_URL arriba — para no arrastrar loadEnv() completo (API_KEY,
+  // COOKIE_SECURE, etc.) a un script standalone que no bootea el servidor.
+  const rawKey = process.env.ENCRYPTION_KEY;
+  if (!rawKey || !isValid32ByteBase64Key(rawKey)) {
+    throw new Error(
+      'backfill-categorias requiere ENCRYPTION_KEY (base64, 32 bytes exactos — AES-256, ADR-013) en el entorno.',
+    );
+  }
+  const crypto = new AesGcmCryptoService(Buffer.from(rawKey, 'base64'));
+
   const prisma = new PrismaClient({ adapter: new PrismaPg(connectionString) });
   try {
-    const summary = await runBackfill(prisma, { dryRun });
+    const summary = await runBackfill(prisma, { dryRun, crypto });
     printSummary(summary, dryRun);
   } finally {
     await prisma.$disconnect();

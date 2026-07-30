@@ -31,7 +31,7 @@ const LOCALHOST_PATTERN = /(^|@|\/\/)(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i;
  */
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 
-function isValid32ByteBase64Key(value: string): boolean {
+export function isValid32ByteBase64Key(value: string): boolean {
   if (!BASE64_PATTERN.test(value) || value.length % 4 !== 0) {
     return false;
   }
