@@ -51,12 +51,14 @@ describe('AesGcmCryptoService', () => {
     const crypto = makeService();
     const ciphertext = crypto.encrypt('Retiro Cajero');
     const parts = ciphertext.split(':');
-    // Tamper el ciphertext (último segmento) cambiando un char.
-    const tamperedLastSegment =
-      parts[3].slice(0, -1) + (parts[3].at(-1) === 'A' ? 'B' : 'A');
-    const tampered = [parts[0], parts[1], parts[2], tamperedLastSegment].join(
-      ':',
-    );
+    // Tamper el auth tag a nivel de byte (no de char base64url): decodifica,
+    // invierte el primer byte y recodifica. Flipear un char base64url puede
+    // ser un no-op cuando el cambio cae en bits de padding descartados, lo que
+    // hacía este test flaky; a nivel de byte el cambio es siempre efectivo.
+    const tagBytes = Buffer.from(parts[2], 'base64url');
+    tagBytes[0] ^= 0xff;
+    const tamperedTag = tagBytes.toString('base64url');
+    const tampered = [parts[0], parts[1], tamperedTag, parts[3]].join(':');
 
     expect(() => crypto.decrypt(tampered)).toThrow();
   });
