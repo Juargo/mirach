@@ -31,6 +31,21 @@ updates:
     directory: '/'
     schedule:
       interval: weekly
+    # Agrupar TODAS las actions en UN solo PR (patch/minor/major) en vez de N
+    # sueltos: son pocas y viven en los workflows, se revisan juntas. La primera
+    # tanda de ADR-021 abrió 5 PRs separados (checkout/setup-node/pnpm/
+    # release-please/gitleaks) — esto lo evita a futuro.
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    # gitleaks-action: pin deliberado en v2 (v3 es nuevo; para un scanner de
+    # seguridad conviene madurez, no ser early-adopter). No ofrecer el major.
+    # Ver el comentario del step `gitleaks` en .github/workflows/ci.yml.
+    ignore:
+      - dependency-name: 'gitleaks/gitleaks-action'
+        update-types:
+          - 'version-update:semver-major'
     commit-message:
       prefix: chore
       include: scope
