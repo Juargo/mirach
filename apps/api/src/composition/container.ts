@@ -26,6 +26,7 @@ import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/pr
 import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
+import { AesGcmCryptoService } from '../infrastructure/persistence/aes-gcm-crypto.service';
 
 /**
  * Composition Root — ensamblado del grafo de dependencias (ADR-028/029).
@@ -88,16 +89,25 @@ export function createContainer(
   const calcularResumenAnual = new CalcularResumenAnualUseCase(
     new PrismaResumenAnualRepository(prisma),
   );
+  // Cifrado (ADR-013): UNA única instancia para todo el composition root,
+  // decodificada de env.ENCRYPTION_KEY (ya validada como base64 de 32 bytes
+  // por loadEnv) — se inyecta tanto en estos readers como en el pipeline de
+  // ingesta (crearProcessIngesta) para que el ciphertext que escribe la
+  // ingesta descifre con la misma clave.
+  const crypto = new AesGcmCryptoService(
+    Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+  );
+
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
-    new PrismaDetalleBucketRepository(prisma),
+    new PrismaDetalleBucketRepository(prisma, crypto),
   );
   const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
-    new PrismaMovimientosMesRepository(prisma),
+    new PrismaMovimientosMesRepository(prisma, crypto),
   );
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(
     new PrismaReclasificarCategoriaRepository(prisma),
   );
-  const processIngesta = crearProcessIngesta(prisma);
+  const processIngesta = crearProcessIngesta(prisma, crypto);
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),
   );

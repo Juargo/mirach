@@ -21,6 +21,8 @@ const BASE_SOURCE: NodeJS.ProcessEnv = {
   DATABASE_URL: 'postgres://user:pass@localhost:5432/moneydiary-test',
   API_KEY: 'test-fixture-api-key-0000000000',
   COOKIE_SECURE: 'false',
+  // 32 bytes fijos en base64 — clave de fixture, NUNCA usar en un ambiente real (ADR-013).
+  ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
 };
 
 export function buildTestEnv(overrides: Partial<Env> = {}): Env {

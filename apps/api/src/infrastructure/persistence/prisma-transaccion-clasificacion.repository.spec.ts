@@ -1,6 +1,7 @@
 import type { Mock } from 'vitest';
 import { PrismaTransaccionClasificacionRepository } from './prisma-transaccion-clasificacion.repository';
 import { PrismaClient } from '@prisma/client';
+import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 /**
  * Unit tests for PrismaTransaccionClasificacionRepository.
@@ -10,6 +11,9 @@ import { PrismaClient } from '@prisma/client';
  *   (b) correct field mapping (id, descripcion, cargo, abono)
  *   (c) large BigInt amounts round-trip exactly without lossy Number() conversion
  *       (guards the money-type contract — 10_000_000_000_000_000n exceeds JS safe integer)
+ *   (d) descripcion is DECRYPTED via crypto.decrypt() before it reaches the
+ *       categorization use case (ADR-013) — without this, pattern matching
+ *       runs against ciphertext and every transaction degrades to SinCategoria.
  */
 function makePrismaMock(
   rows: Array<{
@@ -26,11 +30,21 @@ function makePrismaMock(
   } as unknown as PrismaClient;
 }
 
+function makeCrypto(decryptFn?: (v: string) => string): ICryptoService {
+  return {
+    encrypt: (v: string) => v,
+    decrypt: decryptFn ?? ((v: string) => v),
+  };
+}
+
 describe('PrismaTransaccionClasificacionRepository', () => {
   describe('findParaClasificar()', () => {
     it('calls findMany with where: { ingestaId } for scope isolation', async () => {
       const prisma = makePrismaMock([]);
-      const repo = new PrismaTransaccionClasificacionRepository(prisma);
+      const repo = new PrismaTransaccionClasificacionRepository(
+        prisma,
+        makeCrypto(),
+      );
 
       await repo.findParaClasificar('ingesta-abc');
 
@@ -50,7 +64,10 @@ describe('PrismaTransaccionClasificacionRepository', () => {
         },
       ];
       const prisma = makePrismaMock(rows);
-      const repo = new PrismaTransaccionClasificacionRepository(prisma);
+      const repo = new PrismaTransaccionClasificacionRepository(
+        prisma,
+        makeCrypto(),
+      );
 
       const result = await repo.findParaClasificar('ingesta-1');
 
@@ -82,7 +99,10 @@ describe('PrismaTransaccionClasificacionRepository', () => {
         },
       ];
       const prisma = makePrismaMock(rows);
-      const repo = new PrismaTransaccionClasificacionRepository(prisma);
+      const repo = new PrismaTransaccionClasificacionRepository(
+        prisma,
+        makeCrypto(),
+      );
 
       const result = await repo.findParaClasificar('ingesta-big');
 
@@ -94,11 +114,27 @@ describe('PrismaTransaccionClasificacionRepository', () => {
 
     it('returns empty array when no transactions exist for ingestaId', async () => {
       const prisma = makePrismaMock([]);
-      const repo = new PrismaTransaccionClasificacionRepository(prisma);
+      const repo = new PrismaTransaccionClasificacionRepository(
+        prisma,
+        makeCrypto(),
+      );
 
       const result = await repo.findParaClasificar('ingesta-empty');
 
       expect(result).toHaveLength(0);
+    });
+
+    it('ADR-013: descripcion pasa por crypto.decrypt() antes de devolverse — pattern matching NUNCA corre contra ciphertext', async () => {
+      const rows = [
+        { id: 'tx-1', descripcion: 'cifrado-xyz', cargo: 9500n, abono: 0n },
+      ];
+      const prisma = makePrismaMock(rows);
+      const crypto = makeCrypto((v) => `plano:${v}`);
+      const repo = new PrismaTransaccionClasificacionRepository(prisma, crypto);
+
+      const result = await repo.findParaClasificar('ingesta-1');
+
+      expect(result[0].descripcion).toBe('plano:cifrado-xyz');
     });
   });
 });

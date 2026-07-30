@@ -23,8 +23,17 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { BUCKET_IDS } from './bucket-ids';
 import { CATEGORIA_IDS } from './categoria-ids';
+import { ICryptoService } from '../../application/ports/crypto-service.port';
+import { NoOpCryptoService } from './no-op-crypto.service';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
+
+function makeCrypto(decryptFn?: (v: string) => string): ICryptoService {
+  return {
+    encrypt: (v: string) => v,
+    decrypt: decryptFn ?? ((v: string) => v),
+  };
+}
 
 /**
  * Unit tests (mocked PrismaClient) for the CATAPI-05 categoria fold —
@@ -61,7 +70,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
       }),
     ]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
-    const repo = new PrismaDetalleBucketRepository(prisma);
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
 
     const rows = await repo.findByPeriodoYBucket(
       'user-1',
@@ -80,7 +89,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
       .fn()
       .mockResolvedValue([makeRow({ id: 'tx-null', categoriaId: null })]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
-    const repo = new PrismaDetalleBucketRepository(prisma);
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
 
     const rows = await repo.findByPeriodoYBucket(
       'user-1',
@@ -98,7 +107,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
         makeRow({ id: 'tx-unknown', categoriaId: 'not-a-real-categoria-id' }),
       ]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
-    const repo = new PrismaDetalleBucketRepository(prisma);
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
 
     const rows = await repo.findByPeriodoYBucket(
       'user-1',
@@ -107,6 +116,37 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     );
 
     expect(rows[0].categoria).toBeNull();
+  });
+
+  it('ADR-013: descripcion pasa por crypto.decrypt() antes de devolverse — el drill-down NUNCA expone ciphertext', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'tx-1',
+        fecha: new Date('2026-07-10T00:00:00.000Z'),
+        descripcion: 'cifrado-xyz',
+        cargo: 1000n,
+        abono: 0n,
+        categoriaId: null,
+        account: {
+          banco: 'BCI',
+          tipoCuenta: 'Cuenta Corriente',
+          numeroCuenta: 'acc-1',
+        },
+      },
+    ]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(
+      prisma,
+      makeCrypto((v) => `plano:${v}`),
+    );
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Necesidades,
+    );
+
+    expect(rows[0].descripcion).toBe('plano:cifrado-xyz');
   });
 });
 
@@ -124,7 +164,7 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
     if (!ALLOW) return;
     prisma = new PrismaClient();
     await prisma.$connect();
-    repo = new PrismaDetalleBucketRepository(prisma);
+    repo = new PrismaDetalleBucketRepository(prisma, new NoOpCryptoService());
     periodoVO = PeriodoMes.crear(PERIODO).getValue();
   });
 

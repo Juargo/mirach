@@ -5,11 +5,10 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  * Forma de persistencia de una transacción (US-011).
  *
  * El dinero se almacena como dos columnas BigInt (`cargo`/`abono`) para
- * evitar pérdida de precisión. La descripción se pasa por ICryptoService,
- * cuya implementación por defecto (NoOpCryptoService) es identidad: NO
- * cifra. El cifrado real está DIFERIDO (task 11.6 / era US-012); ninguna
- * capa debe asumir protección at-rest en esta etapa.
- * fecha/cargo/abono/bucketId permanecen en texto plano y consultables.
+ * evitar pérdida de precisión. `descripcion` se cifra at rest a través del
+ * `ICryptoService` inyectado — en producción, `AesGcmCryptoService`
+ * (AES-256-GCM, ADR-013). fecha/cargo/abono/bucketId permanecen en texto
+ * plano y consultables (no son PII sensible por sí solos).
  * bucketId está reservado para US-012 y siempre se persiste como null aquí.
  */
 export interface TransaccionPersistencia {

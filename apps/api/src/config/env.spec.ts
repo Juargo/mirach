@@ -9,12 +9,16 @@ function omit<T extends object, K extends keyof T>(
   return clone;
 }
 
+/** 32 bytes de ceros en base64 — clave válida solo para fixtures de test. */
+const VALID_ENCRYPTION_KEY = Buffer.alloc(32, 1).toString('base64');
+
 const baseDevSource = {
   NODE_ENV: 'development',
   PORT: '3000',
   DATABASE_URL: 'postgres://user:pass@localhost:5432/moneydiary',
   API_KEY: 'a'.repeat(16),
   COOKIE_SECURE: 'false',
+  ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
 };
 
 const baseTestSource = {
@@ -29,6 +33,7 @@ const baseProdSource = {
     'postgresql://postgres.cpudmeahqjiuvpqvvizg:pw@aws-1-us-west-2.pooler.supabase.com:6543/postgres',
   API_KEY: 'a'.repeat(16),
   COOKIE_SECURE: 'true',
+  ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
 };
 
 describe('loadEnv — happy path per NODE_ENV', () => {
@@ -200,6 +205,52 @@ describe('loadEnv — fail-fast, nunca un Env parcial (ENV-01)', () => {
 
   it('PORT malformado (no numérico) lanza', () => {
     expect(() => loadEnv({ ...baseDevSource, PORT: 'not-a-port' })).toThrow();
+  });
+});
+
+describe('loadEnv — ENCRYPTION_KEY: base64 de 32 bytes exactos (ADR-013)', () => {
+  it('acepta una clave base64 válida de 32 bytes y expone el string tal cual', () => {
+    const env = loadEnv(baseDevSource);
+
+    expect(env.ENCRYPTION_KEY).toBe(VALID_ENCRYPTION_KEY);
+    expect(Buffer.from(env.ENCRYPTION_KEY, 'base64')).toHaveLength(32);
+  });
+
+  it('ENCRYPTION_KEY ausente lanza antes de boot (requerida, igual que API_KEY)', () => {
+    expect(() => loadEnv(omit(baseDevSource, 'ENCRYPTION_KEY'))).toThrow(
+      /ENCRYPTION_KEY/,
+    );
+  });
+
+  it('rechaza una clave que decodifica a MENOS de 32 bytes', () => {
+    const shortKey = Buffer.alloc(16, 1).toString('base64');
+
+    expect(() =>
+      loadEnv({ ...baseDevSource, ENCRYPTION_KEY: shortKey }),
+    ).toThrow(/ENCRYPTION_KEY/);
+  });
+
+  it('rechaza una clave que decodifica a MÁS de 32 bytes', () => {
+    const longKey = Buffer.alloc(64, 1).toString('base64');
+
+    expect(() =>
+      loadEnv({ ...baseDevSource, ENCRYPTION_KEY: longKey }),
+    ).toThrow(/ENCRYPTION_KEY/);
+  });
+
+  it('rechaza un string que no es base64 válido', () => {
+    expect(() =>
+      loadEnv({ ...baseDevSource, ENCRYPTION_KEY: 'no-es-base64-válido!!' }),
+    ).toThrow(/ENCRYPTION_KEY/);
+  });
+
+  it('producción también exige ENCRYPTION_KEY válida (32 bytes)', () => {
+    const env = loadEnv({
+      ...baseProdSource,
+      ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
+    });
+
+    expect(env.ENCRYPTION_KEY).toBe(VALID_ENCRYPTION_KEY);
   });
 });
 
