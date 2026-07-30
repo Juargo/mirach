@@ -1,10 +1,13 @@
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { PrismaMovimientosMesRepository } from '../src/infrastructure/persistence/prisma-movimientos-mes.repository';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
+import { buildTestEnv } from './support/env.fixture';
 
 /**
  * Integration tests for PrismaMovimientosMesRepository (US-014).
@@ -30,12 +33,20 @@ const TEST_USER_ID = `${USER_ID_FIJO}-${RUN_ID}`;
 const TEST_USER_ID_B = `user-b-${RUN_ID}`;
 
 describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
-  const prisma = new PrismaService();
-  const repo = new PrismaMovimientosMesRepository(prisma);
+  const prisma = createPrismaClient(loadEnv());
+  // ADR-013: adapter REAL (no NoOp) para que este int-spec ejercite el
+  // decrypt real — la clave de 32 bytes viene del fixture compartido
+  // (test/support/env.fixture.ts), nunca hardcodeada acá.
+  const repo = new PrismaMovimientosMesRepository(
+    prisma,
+    new AesGcmCryptoService(
+      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
+    ),
+  );
 
-  let accountIdA1: string;   // user A, bank 1 (BancoEstado)
-  let accountIdA2: string;   // user A, bank 2 (BCI)
-  let accountIdB: string;    // user B (for isolation test)
+  let accountIdA1: string; // user A, bank 1 (BancoEstado)
+  let accountIdA2: string; // user A, bank 2 (BCI)
+  let accountIdB: string; // user B (for isolation test)
   let ingestaIdA1: string;
   let ingestaIdA2: string;
   let ingestaIdB: string;
@@ -48,8 +59,12 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     await prisma.$connect();
 
     // Create user A and user B
-    await prisma.user.create({ data: { id: TEST_USER_ID, nombre: `Test User A ${RUN_ID}` } });
-    await prisma.user.create({ data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` } });
+    await prisma.user.create({
+      data: { id: TEST_USER_ID, nombre: `Test User A ${RUN_ID}` },
+    });
+    await prisma.user.create({
+      data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` },
+    });
 
     // Accounts for user A
     const accA1 = await prisma.account.create({
@@ -133,14 +148,35 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
   });
 
   // Helper to create a transaction
-  const createTx = (accountId: string, ingestaId: string, fecha: Date, cargo: bigint, abono: bigint, descripcion = 'Test tx') =>
+  const createTx = (
+    accountId: string,
+    ingestaId: string,
+    fecha: Date,
+    cargo: bigint,
+    abono: bigint,
+    descripcion = 'Test tx',
+  ) =>
     prisma.transaccion.create({
       data: { accountId, ingestaId, fecha, cargo, abono, descripcion },
     });
 
   it('CA-01/CA-02: returns all July rows from 2 banks with banco/tipoCuenta/numeroCuenta fields', async () => {
-    const tx1 = await createTx(accountIdA1, ingestaIdA1, new Date('2026-07-10T00:00:00.000Z'), 30000n, 0n, 'Compra A1');
-    const tx2 = await createTx(accountIdA2, ingestaIdA2, new Date('2026-07-15T00:00:00.000Z'), 50000n, 0n, 'Compra A2');
+    const tx1 = await createTx(
+      accountIdA1,
+      ingestaIdA1,
+      new Date('2026-07-10T00:00:00.000Z'),
+      30000n,
+      0n,
+      'Compra A1',
+    );
+    const tx2 = await createTx(
+      accountIdA2,
+      ingestaIdA2,
+      new Date('2026-07-15T00:00:00.000Z'),
+      50000n,
+      0n,
+      'Compra A2',
+    );
 
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
 
@@ -160,8 +196,22 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
   });
 
   it('CA-03: row at desde (2026-07-01T00:00:00.000Z) is INCLUDED; row at hasta (2026-08-01) is EXCLUDED', async () => {
-    const txFirst = await createTx(accountIdA1, ingestaIdA1, new Date('2026-07-01T00:00:00.000Z'), 1000n, 0n, 'First of July');
-    const txAug = await createTx(accountIdA1, ingestaIdA1, new Date('2026-08-01T00:00:00.000Z'), 2000n, 0n, 'First of August');
+    const txFirst = await createTx(
+      accountIdA1,
+      ingestaIdA1,
+      new Date('2026-07-01T00:00:00.000Z'),
+      1000n,
+      0n,
+      'First of July',
+    );
+    const txAug = await createTx(
+      accountIdA1,
+      ingestaIdA1,
+      new Date('2026-08-01T00:00:00.000Z'),
+      2000n,
+      0n,
+      'First of August',
+    );
 
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
 
@@ -181,7 +231,9 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     const ORDER_USER_ID = `${USER_ID_FIJO}-order-${RUN_ID}`;
     const periodoJunio = PeriodoMes.crear('2026-06').getValue();
 
-    await prisma.user.create({ data: { id: ORDER_USER_ID, nombre: `Order User ${RUN_ID}` } });
+    await prisma.user.create({
+      data: { id: ORDER_USER_ID, nombre: `Order User ${RUN_ID}` },
+    });
 
     const orderAccount = await prisma.account.create({
       data: {
@@ -255,7 +307,9 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
       // same-date pair both before the later-date row
       expect(sameDateIdx).toBeLessThan(laterIdx);
     } finally {
-      await prisma.transaccion.deleteMany({ where: { ingestaId: orderIngesta.id } });
+      await prisma.transaccion.deleteMany({
+        where: { ingestaId: orderIngesta.id },
+      });
       await prisma.ingesta.delete({ where: { id: orderIngesta.id } });
       await prisma.account.delete({ where: { id: orderAccount.id } });
       await prisma.user.delete({ where: { id: ORDER_USER_ID } });
@@ -264,7 +318,14 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
 
   it('AC-08: money exactness — cargo > MAX_SAFE_INTEGER is returned as exact bigint', async () => {
     const bigAmount = 9007199254740993n; // 2^53 + 1
-    const tx = await createTx(accountIdA1, ingestaIdA1, new Date('2026-07-25T00:00:00.000Z'), bigAmount, 0n, 'BigInt test');
+    const tx = await createTx(
+      accountIdA1,
+      ingestaIdA1,
+      new Date('2026-07-25T00:00:00.000Z'),
+      bigAmount,
+      0n,
+      'BigInt test',
+    );
 
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
 
@@ -276,7 +337,14 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
 
   it('AC-10 (user isolation): user B transactions in July NEVER appear in user A results', async () => {
     // Seed a user B transaction in July and capture its id
-    const userBTx = await createTx(accountIdB, ingestaIdB, new Date('2026-07-12T00:00:00.000Z'), 99000n, 0n, 'UserB tx');
+    const userBTx = await createTx(
+      accountIdB,
+      ingestaIdB,
+      new Date('2026-07-12T00:00:00.000Z'),
+      99000n,
+      0n,
+      'UserB tx',
+    );
 
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
 
@@ -288,7 +356,14 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
   });
 
   it('MOV-01: bucketId=null folds to Bucket.SinCategoria when transaction has no bucket assigned', async () => {
-    const tx = await createTx(accountIdA1, ingestaIdA1, new Date('2026-07-28T00:00:00.000Z'), 5000n, 0n, 'No bucket');
+    const tx = await createTx(
+      accountIdA1,
+      ingestaIdA1,
+      new Date('2026-07-28T00:00:00.000Z'),
+      5000n,
+      0n,
+      'No bucket',
+    );
 
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
     const found = rows.find((r) => r.id === tx.id);

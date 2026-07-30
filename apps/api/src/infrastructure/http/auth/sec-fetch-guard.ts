@@ -20,10 +20,23 @@ import type { Request } from 'express';
  * envían) — gap residual documentado y aceptado (ver
  * docs/demo-mode-notes.md), no bloqueamos tráfico legítimo de un navegador
  * viejo por un header que ni siquiera puede enviar.
+ *
+ * Prioriza `x-fwd-sec-fetch-*`: cuando el request llega por el proxy
+ * same-origin del web (app.moneydiary.cl), undici descarta los `sec-fetch-*`
+ * de la request salida, así que el proxy reenvía los valores REALES del
+ * navegador bajo ese nombre custom (los setea server-side desde el request
+ * entrante y descarta cualquier `x-fwd-*` del cliente — no forjables). Para una
+ * navegación directa al API se usan los `sec-fetch-*` estándar.
  */
 export function esNavegacionDeNivelSuperior(request: Request): boolean {
-  const dest = headerValue(request.headers['sec-fetch-dest']);
-  const mode = headerValue(request.headers['sec-fetch-mode']);
+  const dest = headerValue(
+    request.headers['x-fwd-sec-fetch-dest'] ??
+      request.headers['sec-fetch-dest'],
+  );
+  const mode = headerValue(
+    request.headers['x-fwd-sec-fetch-mode'] ??
+      request.headers['sec-fetch-mode'],
+  );
 
   if (dest !== undefined && dest !== 'document') {
     return false;

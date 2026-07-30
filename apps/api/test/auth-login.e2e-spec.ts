@@ -27,12 +27,13 @@
  *   - logout clears the cookie and revokes the row; a second session (Y)
  *     still works (AUTH-07 multi-session)
  */
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
@@ -43,20 +44,17 @@ const EMAIL = `${RUN_ID}@example.com`;
 const PASSWORD = 'correcto-123-clave';
 
 describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
   let userId: string;
 
   beforeAll(async () => {
     if (!ALLOW) return;
 
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     const user = await prisma.user.create({
@@ -70,18 +68,18 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
 
     await prisma.session.deleteMany({ where: { userId } });
     await prisma.user.delete({ where: { id: userId } });
-    await app.close();
+    await prisma.$disconnect();
   });
 
   function extraerNombreValorCookie(res: request.Response): string {
     const raw = res.headers['set-cookie'] as unknown as string[];
-    return raw[0]!.split(';')[0]!; // "md_session=<token>"
+    return raw[0].split(';')[0]; // "md_session=<token>"
   }
 
   it('login con credenciales correctas → 200, Set-Cookie + body {token,userId,expiresAt}', async () => {
     if (!ALLOW) return;
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL, password: PASSWORD })
@@ -101,13 +99,13 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
   it('wrong-password ≡ unknown-email: mismo status y misma forma de body (AUTH-02)', async () => {
     if (!ALLOW) return;
 
-    const resWrongPassword = await request(app.getHttpServer())
+    const resWrongPassword = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL, password: 'password-incorrecto' })
       .expect(401);
 
-    const resUnknownEmail = await request(app.getHttpServer())
+    const resUnknownEmail = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: 'no-existe@example.com', password: 'lo-que-sea' })
@@ -119,56 +117,56 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
   it('GET /api/auth/me: 401 sin sesión, 200 con cookie de sesión (AC-06)', async () => {
     if (!ALLOW) return;
 
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/auth/me')
       .set('x-api-key', API_KEY)
       .expect(401);
 
-    const loginRes = await request(app.getHttpServer())
+    const loginRes = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL, password: PASSWORD })
       .expect(200);
     const cookie = extraerNombreValorCookie(loginRes);
 
-    const meRes = await request(app.getHttpServer())
+    const meRes = await request(app)
       .get('/api/auth/me')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookie)
       .expect(200);
 
-    expect(meRes.body).toEqual({ userId, email: EMAIL });
+    expect(meRes.body).toEqual({ userId, email: EMAIL, esDemo: false });
   });
 
   it('transporte Bearer: mismo endpoint 200 con Authorization: Bearer <body.token>, sin cookie (AUTH-05)', async () => {
     if (!ALLOW) return;
 
-    const loginRes = await request(app.getHttpServer())
+    const loginRes = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL, password: PASSWORD })
       .expect(200);
 
-    const meRes = await request(app.getHttpServer())
+    const meRes = await request(app)
       .get('/api/auth/me')
       .set('x-api-key', API_KEY)
       .set('Authorization', `Bearer ${loginRes.body.token}`)
       .expect(200);
 
-    expect(meRes.body).toEqual({ userId, email: EMAIL });
+    expect(meRes.body).toEqual({ userId, email: EMAIL, esDemo: false });
   });
 
   it('precedencia de cookie: cookie válida + Bearer basura → sigue funcionando (usa la cookie, AUTH-05)', async () => {
     if (!ALLOW) return;
 
-    const loginRes = await request(app.getHttpServer())
+    const loginRes = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL, password: PASSWORD })
       .expect(200);
     const cookie = extraerNombreValorCookie(loginRes);
 
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/auth/me')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookie)
@@ -179,37 +177,39 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
   it('logout limpia la cookie y revoca la fila; una segunda sesión (Y) sigue funcionando (AUTH-07)', async () => {
     if (!ALLOW) return;
 
-    const loginX = await request(app.getHttpServer())
+    const loginX = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL, password: PASSWORD })
       .expect(200);
     const cookieX = extraerNombreValorCookie(loginX);
 
-    const loginY = await request(app.getHttpServer())
+    const loginY = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL, password: PASSWORD })
       .expect(200);
     const cookieY = extraerNombreValorCookie(loginY);
 
-    const logoutRes = await request(app.getHttpServer())
+    const logoutRes = await request(app)
       .post('/api/auth/logout')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieX)
       .expect(204);
-    const clearedCookie = logoutRes.headers['set-cookie'] as unknown as string[];
+    const clearedCookie = logoutRes.headers[
+      'set-cookie'
+    ] as unknown as string[];
     expect(clearedCookie[0]).toContain('Max-Age=0');
 
     // Sesión X revocada
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/auth/me')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieX)
       .expect(401);
 
     // Sesión Y sigue viva (multi-sesión preservada)
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/auth/me')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieY)

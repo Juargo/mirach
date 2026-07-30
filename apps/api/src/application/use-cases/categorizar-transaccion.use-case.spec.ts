@@ -13,7 +13,13 @@ function makePatron(
   prioridad: number,
   id = `p-${patron}-${prioridad}`,
 ): PatronClasificacion {
-  return new PatronClasificacion({ id, patron, matchType, categoria, prioridad });
+  return new PatronClasificacion({
+    id,
+    patron,
+    matchType,
+    categoria,
+    prioridad,
+  });
 }
 
 const useCase = new CategorizarTransaccionUseCase();
@@ -23,7 +29,10 @@ const useCase = new CategorizarTransaccionUseCase();
 // ---------------------------------------------------------------------------
 describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
   it('SC-01: abono > 0 y cargo = 0 → { categoria: null, bucket: Ingreso } (con catálogo vacío)', () => {
-    const result = useCase.execute({ descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n }, []);
+    const result = useCase.execute(
+      { descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n },
+      [],
+    );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.Ingreso);
@@ -31,7 +40,10 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
 
   it('SC-01 variante: abono > 0 y cargo = 0 → Ingreso (con patrones no vacíos)', () => {
     const patrones = [makePatron('sueldo', 'CONTAINS', Categoria.Streaming, 1)];
-    const result = useCase.execute({ descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n }, patrones);
+    const result = useCase.execute(
+      { descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n },
+      patrones,
+    );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.Ingreso);
@@ -48,14 +60,20 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
   });
 
   it('SC-03: abono = 0 y cargo = 0 → NO Ingreso, cae a SinCategoria (catálogo vacío)', () => {
-    const result = useCase.execute({ descripcion: 'SIN MOVIMIENTO', abono: 0n, cargo: 0n }, []);
+    const result = useCase.execute(
+      { descripcion: 'SIN MOVIMIENTO', abono: 0n, cargo: 0n },
+      [],
+    );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
   });
 
   it('SC-04: abono = 0 y cargo > 0 → NO Ingreso, cae a SinCategoria (catálogo vacío)', () => {
-    const result = useCase.execute({ descripcion: 'COMPRA LIDER', abono: 0n, cargo: 8000n }, []);
+    const result = useCase.execute(
+      { descripcion: 'COMPRA LIDER', abono: 0n, cargo: 8000n },
+      [],
+    );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
@@ -63,7 +81,10 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
 
   it('regla Ingreso gana sin importar los patrones: incluso si un patrón coincide, es Ingreso (sin categoría)', () => {
     const patrones = [makePatron('sueldo', 'CONTAINS', Categoria.Ahorro, 1)];
-    const result = useCase.execute({ descripcion: 'DEPOSITO SUELDO', abono: 500000n, cargo: 0n }, patrones);
+    const result = useCase.execute(
+      { descripcion: 'DEPOSITO SUELDO', abono: 500000n, cargo: 0n },
+      patrones,
+    );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.Ingreso);
   });
@@ -76,7 +97,9 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
 // ---------------------------------------------------------------------------
 describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
   it('SC-05: CONTAINS coincide cuando el patrón aparece como substring → persiste la categoría matcheada', () => {
-    const patrones = [makePatron('LIDER', 'CONTAINS', Categoria.Supermercado, 10)];
+    const patrones = [
+      makePatron('LIDER', 'CONTAINS', Categoria.Supermercado, 10),
+    ];
     const result = useCase.execute(
       { descripcion: 'COMPRA LIDER SAN PABLO 123', abono: 0n, cargo: 9500n },
       patrones,
@@ -86,7 +109,9 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
   });
 
   it('SC-06: CONTAINS es insensible a mayúsculas (descripción UPPERCASE, patrón lowercase)', () => {
-    const patrones = [makePatron('netflix', 'CONTAINS', Categoria.Streaming, 20)];
+    const patrones = [
+      makePatron('netflix', 'CONTAINS', Categoria.Streaming, 20),
+    ];
     const result = useCase.execute(
       { descripcion: 'SUSCRIPCION NETFLIX', abono: 0n, cargo: 5000n },
       patrones,
@@ -96,7 +121,9 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
   });
 
   it('SC-07: STARTS_WITH coincide cuando la descripción empieza con el patrón', () => {
-    const patrones = [makePatron('COPEC', 'STARTS_WITH', Categoria.Combustible, 15)];
+    const patrones = [
+      makePatron('COPEC', 'STARTS_WITH', Categoria.Combustible, 15),
+    ];
     const result = useCase.execute(
       { descripcion: 'COPEC ESTACION 456', abono: 0n, cargo: 30000n },
       patrones,
@@ -106,7 +133,9 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
   });
 
   it('SC-08: STARTS_WITH NO coincide cuando el patrón aparece en el medio → SinCategoria, categoria null', () => {
-    const patrones = [makePatron('COPEC', 'STARTS_WITH', Categoria.Combustible, 15)];
+    const patrones = [
+      makePatron('COPEC', 'STARTS_WITH', Categoria.Combustible, 15),
+    ];
     const result = useCase.execute(
       { descripcion: 'PAGO COPEC ESTACION 456', abono: 0n, cargo: 30000n },
       patrones,
@@ -116,7 +145,9 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
   });
 
   it('SC-09: REGEX coincide con flag i', () => {
-    const patrones = [makePatron('^JUMBO\\s+\\d+', 'REGEX', Categoria.Supermercado, 30)];
+    const patrones = [
+      makePatron('^JUMBO\\s+\\d+', 'REGEX', Categoria.Supermercado, 30),
+    ];
     const result = useCase.execute(
       { descripcion: 'JUMBO 007 LAS CONDES', abono: 0n, cargo: 55000n },
       patrones,
@@ -130,7 +161,10 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       makePatron('JUMBO', 'CONTAINS', Categoria.Supermercado, 5, 'p1'),
       makePatron('JUMBO', 'CONTAINS', Categoria.Streaming, 20, 'p2'),
     ];
-    const result = useCase.execute({ descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n }, patrones);
+    const result = useCase.execute(
+      { descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n },
+      patrones,
+    );
     expect(result.getValue().categoria).toBe(Categoria.Supermercado);
     expect(result.getValue().bucket).toBe(Bucket.Necesidades);
   });
@@ -141,20 +175,31 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       makePatron('JUMBO', 'CONTAINS', Categoria.Streaming, 10, 'p2'),
       makePatron('JUMBO', 'CONTAINS', Categoria.Supermercado, 10, 'p1'),
     ];
-    const result = useCase.execute({ descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n }, patrones);
+    const result = useCase.execute(
+      { descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n },
+      patrones,
+    );
     expect(result.getValue().categoria).toBe(Categoria.Supermercado);
     expect(result.getValue().bucket).toBe(Bucket.Necesidades);
   });
 
   it('SC-11: SinCategoria cuando ningún patrón coincide (categoria null)', () => {
-    const patrones = [makePatron('JUMBO', 'CONTAINS', Categoria.Supermercado, 10)];
-    const result = useCase.execute({ descripcion: 'CASINO XYZ', abono: 0n, cargo: 5000n }, patrones);
+    const patrones = [
+      makePatron('JUMBO', 'CONTAINS', Categoria.Supermercado, 10),
+    ];
+    const result = useCase.execute(
+      { descripcion: 'CASINO XYZ', abono: 0n, cargo: 5000n },
+      patrones,
+    );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
   });
 
   it('SC-12: SinCategoria cuando el catálogo está vacío (categoria null)', () => {
-    const result = useCase.execute({ descripcion: 'CUALQUIER COSA', abono: 0n, cargo: 1000n }, []);
+    const result = useCase.execute(
+      { descripcion: 'CUALQUIER COSA', abono: 0n, cargo: 1000n },
+      [],
+    );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
   });
@@ -162,9 +207,15 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
   it('matcher-never-throws: regex malformada en un patrón → use case retorna Result.ok', () => {
     const patrones = [makePatron('(', 'REGEX', Categoria.Supermercado, 1)];
     expect(() =>
-      useCase.execute({ descripcion: 'cualquier texto', abono: 0n, cargo: 1000n }, patrones),
+      useCase.execute(
+        { descripcion: 'cualquier texto', abono: 0n, cargo: 1000n },
+        patrones,
+      ),
     ).not.toThrow();
-    const result = useCase.execute({ descripcion: 'cualquier texto', abono: 0n, cargo: 1000n }, patrones);
+    const result = useCase.execute(
+      { descripcion: 'cualquier texto', abono: 0n, cargo: 1000n },
+      patrones,
+    );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
@@ -172,13 +223,19 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
 
   // SC-14: reconciliación — Ingreso sobrevive cuando el catálogo no está disponible
   it('SC-14: catálogo vacío (fallo simulado) + tx con abono>0 cargo=0 → Ingreso', () => {
-    const result = useCase.execute({ descripcion: 'DEPOSITO SUELDO', abono: 120000n, cargo: 0n }, []);
+    const result = useCase.execute(
+      { descripcion: 'DEPOSITO SUELDO', abono: 120000n, cargo: 0n },
+      [],
+    );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.Ingreso);
   });
 
   it('SC-14: catálogo vacío + tx sin abono → SinCategoria', () => {
-    const result = useCase.execute({ descripcion: 'COMPRA ONLINE', abono: 0n, cargo: 5000n }, []);
+    const result = useCase.execute(
+      { descripcion: 'COMPRA ONLINE', abono: 0n, cargo: 5000n },
+      [],
+    );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
   });

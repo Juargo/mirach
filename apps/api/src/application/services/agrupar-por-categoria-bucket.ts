@@ -14,7 +14,10 @@ export interface GrupoCategoriaBucket {
 }
 
 /** Clave de agrupación estable: `categoria` puede ser null (Ingreso/SinCategoria). */
-export function claveCategoriaBucket(categoria: Categoria | null, bucket: Bucket): string {
+export function claveCategoriaBucket(
+  categoria: Categoria | null,
+  bucket: Bucket,
+): string {
   return `${categoria ?? ' '}::${bucket}`;
 }
 

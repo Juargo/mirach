@@ -11,11 +11,13 @@
  * Gate: assertDestructiveDbAllowed() runs in integration.setup.ts (setupFiles).
  */
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { runSeed } from '../prisma/seed';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persistence/prisma-transaccion-bucket.repository';
 import { PrismaTransaccionClasificacionRepository } from '../src/infrastructure/persistence/prisma-transaccion-clasificacion.repository';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
 import { CategorizacionFallidaError } from '../src/domain/errors/categorizacion-fallida.error';
 import { Result } from '../src/shared/result';
@@ -25,7 +27,8 @@ import { Bucket } from '../src/domain/value-objects/bucket';
 import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
-import { USER_ID_FIJO, ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence/constants';
+import { ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence/constants';
+import { buildTestEnv } from './support/env.fixture';
 
 /**
  * Stub catálogo que siempre falla — used to exercise the degrade path end-to-end.
@@ -33,8 +36,12 @@ import { USER_ID_FIJO, ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence
  * behavior the real pipeline exercises when the DB is unavailable.
  */
 class FailingCatalogo implements ICatalogoClasificacion {
-  async findAll(): Promise<Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>> {
-    return Result.fail(new CategorizacionFallidaError('test: catalog unavailable'));
+  async findAll(): Promise<
+    Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
+  > {
+    return Result.fail(
+      new CategorizacionFallidaError('test: catalog unavailable'),
+    );
   }
 }
 
@@ -64,7 +71,10 @@ async function runCategorizacionStep(
 
     const clasificadas = txs.map((tx) => {
       const { categoria, bucket } = categorizarUseCase
-        .execute({ descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono }, patrones)
+        .execute(
+          { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
+          patrones,
+        )
         .getValue();
       return { transaccionId: tx.id, categoria, bucket };
     });
@@ -79,7 +89,10 @@ async function runCategorizacionStep(
       ? clasificadas.filter((a) => a.bucket === Bucket.SinCategoria).length
       : 0;
 
-    const writeResult = await bucketWriter.asignarCategorizacion(ingestaId, asignaciones);
+    const writeResult = await bucketWriter.asignarCategorizacion(
+      ingestaId,
+      asignaciones,
+    );
     if (writeResult.isFail()) return undefined;
 
     return { asignadas: writeResult.getValue().actualizadas, sinCategoria };
@@ -89,10 +102,18 @@ async function runCategorizacionStep(
 }
 
 describe('Categorización — integración (real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient(loadEnv());
   const catalogoRepo = new PrismaCatalogoClasificacionRepository(prisma);
   const bucketWriter = new PrismaTransaccionBucketRepository(prisma);
-  const txClasificacionReader = new PrismaTransaccionClasificacionRepository(prisma);
+  // ADR-013: adapter REAL (no NoOp) para que este int-spec ejercite el
+  // decrypt real — la clave de 32 bytes viene del fixture compartido
+  // (test/support/env.fixture.ts), nunca hardcodeada acá.
+  const txClasificacionReader = new PrismaTransaccionClasificacionRepository(
+    prisma,
+    new AesGcmCryptoService(
+      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
+    ),
+  );
   const categorizarUseCase = new CategorizarTransaccionUseCase();
 
   let testIngestaAId: string;
@@ -130,11 +151,15 @@ describe('Categorización — integración (real dev DB)', () => {
   afterEach(async () => {
     // Clean up test data (FK cascade: delete transacciones first)
     if (testIngestaAId) {
-      await prisma.transaccion.deleteMany({ where: { ingestaId: testIngestaAId } });
+      await prisma.transaccion.deleteMany({
+        where: { ingestaId: testIngestaAId },
+      });
       await prisma.ingesta.deleteMany({ where: { id: testIngestaAId } });
     }
     if (testIngestaBId) {
-      await prisma.transaccion.deleteMany({ where: { ingestaId: testIngestaBId } });
+      await prisma.transaccion.deleteMany({
+        where: { ingestaId: testIngestaBId },
+      });
       await prisma.ingesta.deleteMany({ where: { id: testIngestaBId } });
     }
   });
@@ -199,12 +224,15 @@ describe('Categorización — integración (real dev DB)', () => {
     // Classify only ingesta B's transactions
     const catalogResult = await catalogoRepo.findAll();
     const patrones = catalogResult.isOk() ? catalogResult.getValue() : [];
-    const txParaClasificar = await txClasificacionReader.findParaClasificar(testIngestaBId);
+    const txParaClasificar =
+      await txClasificacionReader.findParaClasificar(testIngestaBId);
     const asignaciones = txParaClasificar.map((tx) => {
-      const { categoria, bucket } = categorizarUseCase.execute(
-        { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
-        patrones,
-      ).getValue();
+      const { categoria, bucket } = categorizarUseCase
+        .execute(
+          { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
+          patrones,
+        )
+        .getValue();
       return { transaccionId: tx.id, categoria, bucket };
     });
     await bucketWriter.asignarCategorizacion(testIngestaBId, asignaciones);
@@ -266,16 +294,22 @@ describe('Categorización — integración (real dev DB)', () => {
     expect(resumen).toBeDefined();
 
     // (b) Expense row: bucketId must remain null (catalog failed, pattern matching skipped)
-    const afterExpense = await prisma.transaccion.findUnique({ where: { id: txExpense.id } });
+    const afterExpense = await prisma.transaccion.findUnique({
+      where: { id: txExpense.id },
+    });
     expect(afterExpense?.bucketId).toBeNull();
 
     // (c) Income row: Ingreso rule still fires even when catalog fails (abono>0, cargo=0)
     //     so bucketId should be the Ingreso bucket, not null.
-    const afterIncome = await prisma.transaccion.findUnique({ where: { id: txIncome.id } });
+    const afterIncome = await prisma.transaccion.findUnique({
+      where: { id: txIncome.id },
+    });
     expect(afterIncome?.bucketId).toBe(BUCKET_IDS[Bucket.Ingreso]);
 
     // Ingesta remains PROCESADA (was set in beforeEach, nothing should change it here)
-    const ingesta = await prisma.ingesta.findUnique({ where: { id: testIngestaBId } });
+    const ingesta = await prisma.ingesta.findUnique({
+      where: { id: testIngestaBId },
+    });
     expect(ingesta?.estado).toBe('PROCESADA');
   });
 
@@ -295,9 +329,16 @@ describe('Categorización — integración (real dev DB)', () => {
     expect(txNull.bucketId).toBeNull(); // pre-existing null is valid
 
     // Assign a real categoría+bucket (ingestaId for structural scope isolation)
-    const writeResult = await bucketWriter.asignarCategorizacion(testIngestaBId, [
-      { transaccionId: txNull.id, categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-    ]);
+    const writeResult = await bucketWriter.asignarCategorizacion(
+      testIngestaBId,
+      [
+        {
+          transaccionId: txNull.id,
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
+      ],
+    );
     expect(writeResult.isOk()).toBe(true);
 
     // Verify FKs resolve correctly
@@ -322,7 +363,9 @@ describe('Categorización — integración (real dev DB)', () => {
         // bucketId intentionally omitted → null
       },
     });
-    const stillNull = await prisma.transaccion.findUnique({ where: { id: anotherNull.id } });
+    const stillNull = await prisma.transaccion.findUnique({
+      where: { id: anotherNull.id },
+    });
     expect(stillNull?.bucketId).toBeNull(); // null FK rows remain valid after migration
   });
 });

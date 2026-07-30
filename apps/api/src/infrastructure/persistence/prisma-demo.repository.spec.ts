@@ -1,6 +1,6 @@
 import { EstadoIngesta } from '@prisma/client';
 import { PrismaDemoRepository } from './prisma-demo.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { IReloj } from '../../application/ports/reloj.port';
 import { DEMO_TRANSACCIONES } from './demo-data';
 
@@ -13,15 +13,21 @@ function makeTxMock() {
     user: { create: vi.fn().mockResolvedValue({ id: 'user-demo-1' }) },
     account: { create: vi.fn().mockResolvedValue({ id: 'account-demo-1' }) },
     ingesta: { create: vi.fn().mockResolvedValue({ id: 'ingesta-demo-1' }) },
-    transaccion: { createMany: vi.fn().mockResolvedValue({ count: DEMO_TRANSACCIONES.length }) },
+    transaccion: {
+      createMany: vi
+        .fn()
+        .mockResolvedValue({ count: DEMO_TRANSACCIONES.length }),
+    },
     session: { create: vi.fn().mockResolvedValue({ id: 'session-demo-1' }) },
   };
 }
 
 function makePrismaMock(tx: ReturnType<typeof makeTxMock>) {
   return {
-    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(tx)),
-  } as unknown as PrismaService;
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback(tx),
+    ),
+  } as unknown as PrismaClient;
 }
 
 function makeReloj(): IReloj {
@@ -42,7 +48,10 @@ describe('PrismaDemoRepository', () => {
     });
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ userId: 'user-demo-1', accountId: 'account-demo-1' });
+    expect(result).toEqual({
+      userId: 'user-demo-1',
+      accountId: 'account-demo-1',
+    });
   });
 
   it('crea el User con esDemo=true, demoCreatedAt=ahora y el nombre recibido', async () => {
@@ -50,7 +59,11 @@ describe('PrismaDemoRepository', () => {
     const prisma = makePrismaMock(tx);
     const repo = new PrismaDemoRepository(prisma, makeReloj());
 
-    await repo.crear({ nombre: 'Demo-abc123', tokenHash: TOKEN_HASH, expiresAt: EXPIRES_AT });
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
 
     expect(tx.user.create).toHaveBeenCalledWith({
       data: { nombre: 'Demo-abc123', esDemo: true, demoCreatedAt: AHORA },
@@ -62,10 +75,16 @@ describe('PrismaDemoRepository', () => {
     const prisma = makePrismaMock(tx);
     const repo = new PrismaDemoRepository(prisma, makeReloj());
 
-    await repo.crear({ nombre: 'Demo-abc123', tokenHash: TOKEN_HASH, expiresAt: EXPIRES_AT });
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
 
     expect(tx.account.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ userId: 'user-demo-1' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: 'user-demo-1' }),
+      }),
     );
   });
 
@@ -74,7 +93,11 @@ describe('PrismaDemoRepository', () => {
     const prisma = makePrismaMock(tx);
     const repo = new PrismaDemoRepository(prisma, makeReloj());
 
-    await repo.crear({ nombre: 'Demo-abc123', tokenHash: TOKEN_HASH, expiresAt: EXPIRES_AT });
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
 
     expect(tx.ingesta.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -92,10 +115,15 @@ describe('PrismaDemoRepository', () => {
     const prisma = makePrismaMock(tx);
     const repo = new PrismaDemoRepository(prisma, makeReloj());
 
-    await repo.crear({ nombre: 'Demo-abc123', tokenHash: TOKEN_HASH, expiresAt: EXPIRES_AT });
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
 
     expect(tx.transaccion.createMany).toHaveBeenCalledTimes(1);
-    const [{ data }] = (tx.transaccion.createMany as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    const [{ data }] = (tx.transaccion.createMany as ReturnType<typeof vi.fn>)
+      .mock.calls[0];
     expect(data).toHaveLength(DEMO_TRANSACCIONES.length);
     for (const row of data) {
       expect(row.accountId).toBe('account-demo-1');
@@ -108,10 +136,18 @@ describe('PrismaDemoRepository', () => {
     const prisma = makePrismaMock(tx);
     const repo = new PrismaDemoRepository(prisma, makeReloj());
 
-    await repo.crear({ nombre: 'Demo-abc123', tokenHash: TOKEN_HASH, expiresAt: EXPIRES_AT });
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
 
     expect(tx.session.create).toHaveBeenCalledWith({
-      data: { userId: 'user-demo-1', tokenHash: TOKEN_HASH, expiresAt: EXPIRES_AT },
+      data: {
+        userId: 'user-demo-1',
+        tokenHash: TOKEN_HASH,
+        expiresAt: EXPIRES_AT,
+      },
     });
   });
 
@@ -122,7 +158,11 @@ describe('PrismaDemoRepository', () => {
     const repo = new PrismaDemoRepository(prisma, makeReloj());
 
     await expect(
-      repo.crear({ nombre: 'Demo-abc123', tokenHash: TOKEN_HASH, expiresAt: EXPIRES_AT }),
+      repo.crear({
+        nombre: 'Demo-abc123',
+        tokenHash: TOKEN_HASH,
+        expiresAt: EXPIRES_AT,
+      }),
     ).rejects.toThrow('DB connection lost');
   });
 });

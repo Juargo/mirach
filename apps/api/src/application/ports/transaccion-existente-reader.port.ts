@@ -33,7 +33,9 @@ export interface ITransaccionExistenteReader {
     accountId: string,
     fechaDesde: Date,
     fechaHasta: Date,
-  ): Promise<Result<ReadonlyArray<TransaccionExistente>, PersistenciaFallidaError>>;
+  ): Promise<
+    Result<ReadonlyArray<TransaccionExistente>, PersistenciaFallidaError>
+  >;
 }
 
 /** Token de inyección — las interfaces se borran en runtime. */

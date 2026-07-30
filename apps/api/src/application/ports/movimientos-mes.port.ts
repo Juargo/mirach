@@ -27,7 +27,10 @@ export interface MovimientoMesRow {
   readonly tipoCuenta: string;
   readonly numeroCuenta: string;
   readonly bucket: Bucket;
-  readonly categoria: { readonly id: string; readonly nombre: Categoria } | null;
+  readonly categoria: {
+    readonly id: string;
+    readonly nombre: Categoria;
+  } | null;
 }
 
 /**

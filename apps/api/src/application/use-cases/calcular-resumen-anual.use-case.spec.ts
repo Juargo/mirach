@@ -67,8 +67,18 @@ describe('CalcularResumenAnualUseCase', () => {
       // (not zero-valued rows). Pins the `rowMap.get(...) ?? 0n` defaulting
       // in construirResumenMesDesdeFilas.
       const rows: BucketSumRowAnual[] = [
-        { mes: '2026-01', bucket: Bucket.Ingreso, totalCargo: 0n, totalAbono: 1_000_000n },
-        { mes: '2026-01', bucket: Bucket.Necesidades, totalCargo: 500_000n, totalAbono: 0n },
+        {
+          mes: '2026-01',
+          bucket: Bucket.Ingreso,
+          totalCargo: 0n,
+          totalAbono: 1_000_000n,
+        },
+        {
+          mes: '2026-01',
+          bucket: Bucket.Necesidades,
+          totalCargo: 500_000n,
+          totalAbono: 0n,
+        },
       ];
       const reader = makeMockReader(rows);
       const uc = new CalcularResumenAnualUseCase(reader);

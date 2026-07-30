@@ -7,11 +7,18 @@
   "license": "MIT",
   "packageManager": "pnpm@11.2.2",
   "scripts": {
+    "prepare": "husky",
     "api": "pnpm --filter @moneydiary/api",
     "web": "pnpm --filter @moneydiary/web",
     "landing": "pnpm --filter @moneydiary/landing",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.1.0"
   }
 }

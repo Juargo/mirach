@@ -9,9 +9,121 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege: paths-filter + checkout only need read. No job in this
+# file writes to the repo or opens PRs (that's release-please.yml).
+permissions:
+  contents: read
+
 jobs:
-  ci:
-    name: Typecheck & unit tests
+  # Slice C: path-scoped booleans consumed by every workspace job below, so
+  # a PR touching only one workspace doesn't pay for the others. Pinned to a
+  # commit SHA (not the mutable @v4 tag) to match the repo's supply-chain
+  # posture (ADR-021) — same convention as release-please.yml.
+  changes:
+    name: Detect changed workspaces
+    runs-on: ubuntu-latest
+    # dorny/paths-filter lists a PR's changed files via the GitHub API on
+    # pull_request events → it needs pull-requests: read. The workflow-level
+    # `permissions: contents: read` block sets every unlisted scope to `none`,
+    # so this job must re-grant it explicitly (contents: read stays for checkout).
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      api: ${{ steps.f.outputs.api }}
+      web: ${{ steps.f.outputs.web }}
+      mobile: ${{ steps.f.outputs.mobile }}
+      landing: ${{ steps.f.outputs.landing }}
+      shared: ${{ steps.f.outputs.shared }}
+      release-please-config: ${{ steps.f.outputs.release-please-config }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: f
+        with:
+          filters: |
+            api:     ['apps/api/**']
+            web:     ['apps/web/**']
+            mobile:  ['apps/mobile/**']
+            landing: ['apps/landing/**']
+            # Fail-safe: security/build-relevant ROOT files must trigger the
+            # workspace jobs, so a change to them can never skip the secret-scans
+            # (fail-open on unlisted root files was the original bug). Listed
+            # literally — NOT a `*` catch-all — because picomatch doesn't match
+            # dotfiles (e.g. .npmrc) reliably. Only root docs (*.md, LICENSE) may
+            # skip; they can't affect build or security.
+            shared:  ['pnpm-lock.yaml', 'package.json', 'pnpm-workspace.yaml', '.node-version', '.npmrc', '.lintstagedrc.json', 'commitlint.config.js', 'render.yaml', '.github/workflows/**']
+            release-please-config: ['release-please-config.json', '.release-please-manifest.json']
+
+  # ADR-020: the REAL commit-message enforcement (local husky hooks are
+  # --no-verify-skippable, this is not). Runs on every PR/push — NOT
+  # path-filtered — commit-message validity is a repo-wide rule, unrelated
+  # to which workspace's files changed.
+  commitlint:
+    name: Commitlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate PR commits with commitlint
+        if: github.event_name == 'pull_request'
+        run: pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }}
+
+      - name: Validate push commits with commitlint
+        # Skip when `before` is the all-zero SHA (new branch / force-push): the
+        # range `--from <all-zero>` would fail with a raw git "bad revision"
+        # error instead of a clear commit-message failure. On normal pushes to
+        # main `before` is the prior tip, so the gate still runs.
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: pnpm exec commitlint --from ${{ github.event.before }} --to ${{ github.sha }}
+
+  # NEW (Slice C follow-up from Slice B's review): release-please's own
+  # documented failure mode is `release-please-config.json`'s `packages` map
+  # drifting out of sync with `.release-please-manifest.json`'s keys — that
+  # errors the release-please workflow at run time, not at review time. This
+  # job catches the drift in CI instead, on the exact 2 files that can cause
+  # it. Deliberately NOT using `release-please debug-config --local` here —
+  # that subcommand runs `git reset --hard origin/<default-branch>` against
+  # its `--local-path` checkout (see apply-progress topic
+  # sdd/versioning-release-automation/apply-progress for the incident this
+  # caused during Slice B) — destructive and unnecessary for a key-set check.
+  # A plain `jq` comparison is simple (KISS), safe, and sufficient.
+  release-please-config-check:
+    name: Validate release-please config/manifest key parity
+    needs: changes
+    if: ${{ needs.changes.outputs.release-please-config == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Assert packages keys match manifest keys
+        run: |
+          config_keys=$(jq -r '.packages | keys | sort | join(",")' release-please-config.json)
+          manifest_keys=$(jq -r 'keys | sort | join(",")' .release-please-manifest.json)
+          echo "release-please-config.json packages keys: $config_keys"
+          echo ".release-please-manifest.json keys:        $manifest_keys"
+          if [ "$config_keys" != "$manifest_keys" ]; then
+            echo "::error::release-please-config.json > packages keys and .release-please-manifest.json keys diverge. This is release-please's documented failure mode (a mismatch errors the release-please workflow at run time). Keep both files' key sets identical."
+            exit 1
+          fi
+          echo "OK: key sets match."
+
+  api:
+    name: Typecheck & unit tests (api)
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     env:
       # Dummy URLs so prisma.config.ts loads without a real database — its
@@ -20,14 +132,14 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Reads the pnpm version from package.json > packageManager
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
 
       # Build scripts run only for packages allowlisted in
@@ -44,18 +156,119 @@ jobs:
       - name: Typecheck API
         run: pnpm api exec tsc --noEmit
 
+      # Fail-closed guard (ADR-029, Slice 6): `.env.example` is DERIVED from
+      # src/config/env.ts (EnvObjectSchema). If someone adds/removes/renames a
+      # schema field without regenerating, this catches the drift before
+      # merge — a stale .env.example silently misleads whoever sets up a new
+      # environment.
+      - name: Check .env.example is up to date
+        run: pnpm api env:example:check
+
       # Vitest detecta CI automáticamente vía la env var CI (la setea GitHub
-      # Actions) — no necesita un flag equivalente al `--ci` de Jest.
+      # Actions) — no necesita un flag equivalente al `--ci` de Jest. En CI eso
+      # pone `allowOnly: false` (default de Vitest = `!isCI`), así que un
+      # `it.only`/`describe.only` olvidado hace FALLAR el run en vez de reducir
+      # el suite en silencio. Localmente `.only` se permite a propósito (debug).
       - name: Unit tests API
         run: pnpm api test
 
-      # Exercises the PRODUCTION build. `nest build` uses tsconfig.build.json
+      # Exercises the PRODUCTION build. `tsc -p tsconfig.build.json` uses
       # (rootDir: ./src); the `tsc --noEmit` above uses tsconfig.json (no
       # rootDir), so it does NOT catch rootDir violations (TS6059) — e.g. a
       # src/ file importing a .ts outside src/. This step does. Without it, a
       # build that only Render runs can fail after merge.
       - name: Build API
         run: pnpm api build
+
+      # Integration/e2e run in the dedicated `integration` job below, against an
+      # ephemeral Postgres service container — NOT here (this job has no DB).
+
+  # ADR-028/029 — integration + e2e against an EPHEMERAL Postgres. These specs
+  # mutate a real DB (gated by ALLOW_DESTRUCTIVE_DB; db-safety blocks prod/
+  # Supabase URLs), so they used to be a manual/local-only gate. A throwaway
+  # service container on localhost passes the gate, so the money-exactness and
+  # user_id-isolation specs (ADR-015) — the two risk concentrations — now run on
+  # every PR instead of relying on someone remembering to run them locally.
+  # (This closes the ADR-028 debt and is what catches specs bit-rotting silently.)
+  integration:
+    name: Integration & e2e (api, ephemeral DB)
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: moneydiary
+          POSTGRES_PASSWORD: moneydiary
+          POSTGRES_DB: moneydiary_test
+        ports:
+          - 5432:5432
+        # GitHub waits for the service to report healthy before running steps.
+        options: >-
+          --health-cmd "pg_isready -U moneydiary -d moneydiary_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Localhost service container → db-safety gate accepts it (not prod/supabase).
+      DATABASE_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      DIRECT_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      ALLOW_DESTRUCTIVE_DB: '1'
+      # Test-only values (localhost DB, throwaway) — NOT secrets. The scripts set
+      # DOTENV_CONFIG_PATH=.env.test, which is absent in CI; dotenv tolerates the
+      # missing file and never overrides these already-set process.env vars.
+      API_KEY: local-ci-api-key-not-a-secret-0000000000
+      COOKIE_SECURE: 'false'
+      LOGIN_RATELIMIT_MAX_EMAIL: '5'
+      LOGIN_RATELIMIT_MAX_IP: '20'
+      LOGIN_RATELIMIT_WINDOW_MS: '900000'
+      SEED_USER_EMAIL: test@moneydiary.local
+      SEED_USER_PASSWORD: local-ci-password-123
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm api exec prisma generate
+
+      # ADR-013: `descripcion` is encrypted at rest — app + specs need a valid
+      # 32-byte AES key. Generated fresh per run (never hardcoded), exported to
+      # the job env so later steps pick it up.
+      - name: Generate test ENCRYPTION_KEY
+        run: echo "ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Migrate + seed the ephemeral DB
+        run: pnpm api test:db:setup
+
+      - name: Integration tests (persistence vs real DB)
+        run: pnpm api test:integration
+
+      - name: E2E tests (HTTP vs real DB)
+        run: pnpm api test:e2e
+
+  web:
+    name: Typecheck & unit tests (web)
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck web
         run: pnpm web typecheck
@@ -76,20 +289,40 @@ jobs:
           test -d apps/web/dist
           ! grep -rEn 'x-api-key' apps/web/dist
 
-      # NOT run in CI (manual/local gate for now):
-      #   pnpm api test:integration — requires a real Supabase database and
-      #   sets ALLOW_DESTRUCTIVE_DB=1; run it locally before merging
-      #   persistence changes.
+  # NEW job (ADR-017) — jest-expo/RNTL had no CI job before this slice.
+  mobile:
+    name: Typecheck & unit tests (mobile)
+    needs: changes
+    if: ${{ needs.changes.outputs.mobile == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck mobile
+        run: pnpm --filter @moneydiary/mobile exec tsc --noEmit
+
+      - name: Unit tests mobile
+        run: pnpm --filter @moneydiary/mobile test
 
   landing:
     name: Typecheck & build landing
+    needs: changes
+    if: ${{ needs.changes.outputs.landing == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -122,3 +355,74 @@ jobs:
       # These require a Vercel preview URL and LHCI token configured in GitHub
       # secrets. Enable when the deployment pipeline is in place.
       # Relevant env vars: LHCI_GITHUB_APP_TOKEN, VERCEL_PREVIEW_URL
+
+  # ADR-021 — SCA + secretos. Repo-wide (NO path-filtered, como commitlint):
+  # una vuln o un secreto filtrado son riesgos de todo el repo, no de un
+  # workspace. Bloquea (fail-closed).
+  security:
+    name: Security (audit + secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # gitleaks diffea el rango del PR / push — necesita el historial.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # SCA: falla ante vulns high/critical NUEVAS. Las preexistentes están
+      # baselineadas en pnpm-workspace.yaml > auditConfig.ignoreGhsas (burn-down
+      # vía Dependabot). audit-level=high también está en .npmrc; explícito acá.
+      - name: pnpm audit (high/critical gate)
+        run: pnpm audit --audit-level=high
+
+      # Secretos: escaneo de gitleaks. En pull_request escanea SOLO los commits
+      # del PR (no re-flaggea secretos históricos ya removidos). Un hallazgo hace
+      # exit 1 → falla el job. Pinneado a SHA (posture de supply-chain, ADR-021).
+      #
+      # Pin deliberado en v2: existe v3 (cambios de config incompatibles) — cuando
+      # Dependabot ofrezca el bump mayor, es un skip consciente, no staleness.
+      #
+      # NO se le da `pull-requests: write` a propósito: el job hereda el
+      # `contents: read` del workflow (least-privilege). gitleaks intenta anotar
+      # inline el diff del PR; sin ese permiso degrada a un warning y los
+      # hallazgos igual FALLAN el build y se reportan en el summary/SARIF (no se
+      # ocultan). No ampliamos el scope de un action de terceros sobre código de
+      # PR solo por anotaciones inline.
+      #
+      # ⚠️ Si el repo se muda a una GitHub Organization, gitleaks-action exige
+      # el secret GITLEAKS_LICENSE y falla-cerrado (exit 1) ANTES de escanear.
+      # Hoy `Juargo` es cuenta User → inerte. Al migrar (ADR-023 multi-cliente),
+      # agregar GITLEAKS_LICENSE acá primero.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Single stable required check (Slice C). Path-filtered jobs above can be
+  # SKIPPED depending on which workspace changed — a branch-protection rule
+  # that requires one of THOSE job names directly would hang forever on a PR
+  # where that job never runs. This job always runs (`if: always()`) and
+  # fails only if a needed job actually FAILED or was CANCELLED — a SKIPPED
+  # job (correctly gated off by paths-filter) does not fail the gate.
+  ci-success:
+    name: CI success
+    if: always()
+    needs: [changes, commitlint, release-please-config-check, api, integration, web, mobile, landing, security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no required job failed
+        run: |
+          results='${{ join(needs.*.result, ',') }}'
+          echo "job results: $results"
+          case "$results" in
+            *failure*|*cancelled*) echo "A required job failed"; exit 1 ;;
+            *) echo "All required jobs passed or were skipped" ;;
+          esac

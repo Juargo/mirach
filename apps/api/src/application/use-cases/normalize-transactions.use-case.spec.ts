@@ -17,13 +17,26 @@ function makeNormalizer(
 describe('NormalizeTransactionsUseCase', () => {
   it('delega en el port y retorna las transacciones normalizadas', async () => {
     const transacciones: Transaccion[] = [
-      { fecha: new Date('2026-05-14'), descripcion: 'Compra', cargo: 8103, abono: 0 },
-      { fecha: new Date('2026-05-15'), descripcion: 'Sueldo', cargo: 0, abono: 1500000 },
+      Transaccion.crear({
+        fecha: new Date('2026-05-14'),
+        descripcion: 'Compra',
+        cargo: 8103n,
+        abono: 0n,
+      }).getValue(),
+      Transaccion.crear({
+        fecha: new Date('2026-05-15'),
+        descripcion: 'Sueldo',
+        cargo: 0n,
+        abono: 1500000n,
+      }).getValue(),
     ];
     const normalizer = makeNormalizer(async () => Result.ok(transacciones));
     const useCase = new NormalizeTransactionsUseCase(normalizer);
 
-    const result = await useCase.execute(Buffer.from(''), BancoConocido.BancoEstado);
+    const result = await useCase.execute(
+      Buffer.from(''),
+      BancoConocido.BancoEstado,
+    );
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual(transacciones);
@@ -36,7 +49,10 @@ describe('NormalizeTransactionsUseCase', () => {
     const normalizer = makeNormalizer(async () => Result.fail(error));
     const useCase = new NormalizeTransactionsUseCase(normalizer);
 
-    const result = await useCase.execute(Buffer.from(''), BancoConocido.Santander);
+    const result = await useCase.execute(
+      Buffer.from(''),
+      BancoConocido.Santander,
+    );
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);

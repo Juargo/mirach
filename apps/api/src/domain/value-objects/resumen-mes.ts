@@ -126,7 +126,9 @@ export class ResumenMes {
       };
     });
 
-    const estadoGlobal = calcularEstadoGlobal(buckets.map((b) => b.estadoSemaforo));
+    const estadoGlobal = calcularEstadoGlobal(
+      buckets.map((b) => b.estadoSemaforo),
+    );
 
     return new ResumenMes(input.totalIngreso, buckets, estadoGlobal);
   }

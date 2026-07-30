@@ -1,10 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
 import { join } from 'path';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const RUN_ID = `e2e-pdf-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
@@ -21,9 +23,9 @@ const API_KEY = process.env.API_KEY ?? '';
  * limpia sus propias filas (Ingesta/Transaccion) en afterAll.
  */
 describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
+  let sesion: Sesion;
 
   const fixturesDir = join(__dirname, 'fixtures', 'pdf');
   const pdfFixture = join(fixturesDir, 'santander-cartola-test.pdf');
@@ -32,22 +34,20 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
   const createdIngestaIds: string[] = [];
 
   beforeEach(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
+    sesion = await loginAsSeededUser(app);
   });
 
   afterEach(async () => {
-    await app.close();
+    await prisma.$disconnect();
   });
 
   afterAll(async () => {
     if (createdIngestaIds.length === 0) return;
-    const cleanupPrisma = new PrismaService();
+    const cleanupPrisma = createPrismaClient(loadEnv());
     await cleanupPrisma.$connect();
     await cleanupPrisma.transaccion.deleteMany({
       where: { ingestaId: { in: createdIngestaIds } },
@@ -61,9 +61,10 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
   it('acepta un archivo .pdf bancario válido, lo persiste vía ProcessIngestaUseCase y retorna el contrato HTTP completo (PDF-04 escenario 1)', async () => {
     const nombreArchivo = `cartola-${RUN_ID}-ok.pdf`;
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', pdfFixture, nombreArchivo)
       .expect(200);
 
@@ -111,9 +112,10 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
     // sintético > 10 MB en vez de un fixture real de ese tamaño en el repo.
     const buffer = Buffer.alloc(10 * 1024 * 1024 + 1, 0);
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', buffer, 'cartola-gigante.pdf')
       .expect(400);
 
@@ -123,9 +125,10 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
   it('un PDF sin ninguno de los 4 anclas de banco falla con error controlado, sin filtrar texto crudo (PDF-04 escenario "non-bank PDF")', async () => {
     const nombreArchivo = `no-banco-${RUN_ID}.pdf`;
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', noBancoPdfFixture, nombreArchivo)
       .expect(400);
 
@@ -138,9 +141,10 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
 
   it('no dejó ninguna fila huérfana para el PDF no reconocido (nada que limpiar, la ingesta nunca se creó)', async () => {
     const antes = await prisma.ingesta.count();
-    await request(app.getHttpServer())
+    await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', noBancoPdfFixture, `no-banco-${RUN_ID}-2.pdf`)
       .expect(400);
     const despues = await prisma.ingesta.count();

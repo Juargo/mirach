@@ -1,18 +1,16 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const RUN_ID = `movmese2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
-
-// Use a unique user per run to keep test data isolated from other runs/users.
-// We derive a unique userId so tests don't contaminate USER_ID_FIJO's real data.
-const TEST_USER_ID = `movmese2e-user-${RUN_ID}`;
 
 /**
  * E2E tests for GET /api/movimientos (US-014).
@@ -33,9 +31,9 @@ const TEST_USER_ID = `movmese2e-user-${RUN_ID}`;
  *     'Necesidades'), never the raw physical bucketId
  */
 describe('MovimientosController (e2e) — GET /api/movimientos', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
+  let sesion: Sesion;
 
   // Track seeded IDs for cleanup
   const seededIngestaIds: string[] = [];
@@ -44,13 +42,15 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   const FIXED_USER_ID = 'usuario-fijo-moneydiary';
 
   beforeAll(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
+    // Session-protected endpoint: log in as USER_ID_FIJO (= FIXED_USER_ID)
+    // so req.userId matches the seeded rows below — otherwise every
+    // happy-path assertion would silently degrade to an empty-response
+    // false-positive (aislamiento por userId, RNF-SEC-006).
+    sesion = await loginAsSeededUser(app);
   });
 
   afterAll(async () => {
@@ -68,43 +68,48 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
         where: { id: { in: seededAccountIds } },
       });
     }
-    await app.close();
+    await prisma.$disconnect();
   });
 
   // ── Validation errors ────────────────────────────────────────────────────
 
   it('AC-05: GET /api/movimientos?periodo=2026-13 → 400 (invalid month)', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=2026-13')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
   it('AC-07a: GET /api/movimientos?periodo= (empty string) → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
   it('AC-07b: GET /api/movimientos?periodo=abc → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=abc')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
   it('AC-07c: GET /api/movimientos?periodo=2026-7 (non-padded month) → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=2026-7')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
   it('AC-07d: GET /api/movimientos?periodo=2026/07 (wrong separator) → 400', async () => {
-    await request(app.getHttpServer())
+    await request(app)
       .get('/api/movimientos?periodo=2026%2F07')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
   });
 
@@ -112,9 +117,10 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
   it('AC-04: valid periodo with no data → 200 with empty envelope', async () => {
     // Use a month with no data: far past (2000-01)
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .get('/api/movimientos?periodo=2000-01')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(response.body.periodo).toBe('2000-01');
@@ -131,9 +137,10 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     const now = new Date();
     const expectedPeriodo = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .get('/api/movimientos')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(response.body.periodo).toBe(expectedPeriodo);
@@ -206,18 +213,24 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
       ],
     });
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .get('/api/movimientos?periodo=2026-07')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(200);
 
     expect(response.body.periodo).toBe('2026-07');
-    expect(response.body.totalTransacciones).toBe(response.body.transacciones.length);
+    expect(response.body.totalTransacciones).toBe(
+      response.body.transacciones.length,
+    );
     expect(response.body.totalTransacciones).toBeGreaterThan(0);
 
     // Find our seeded rows in the result
-    const ourRows = (response.body.transacciones as Array<Record<string, unknown>>).filter(
-      (tx) => typeof tx.descripcion === 'string' && (tx.descripcion as string).includes(RUN_ID),
+    const ourRows = (
+      response.body.transacciones as Array<Record<string, unknown>>
+    ).filter(
+      (tx) =>
+        typeof tx.descripcion === 'string' && tx.descripcion.includes(RUN_ID),
     );
     expect(ourRows.length).toBe(3);
 
@@ -236,7 +249,9 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     }
 
     // BigInt exactness: the > MAX_SAFE_INTEGER amount must survive as exact string
-    const bigRow = ourRows.find((tx) => (tx.descripcion as string).includes('Compra'));
+    const bigRow = ourRows.find((tx) =>
+      (tx.descripcion as string).includes('Compra'),
+    );
     expect(bigRow).toBeDefined();
     expect(bigRow!.cargo).toBe('9007199254740993');
     expect(bigRow!.abono).toBe('0');
@@ -244,14 +259,18 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     expect(bigRow!.bucket).toBe('SinCategoria');
 
     // Zero-cargo row
-    const abonoRow = ourRows.find((tx) => (tx.descripcion as string).includes('Abono'));
+    const abonoRow = ourRows.find((tx) =>
+      (tx.descripcion as string).includes('Abono'),
+    );
     expect(abonoRow).toBeDefined();
     expect(abonoRow!.cargo).toBe('0');
     expect(abonoRow!.abono).toBe('150000');
     expect(abonoRow!.bucket).toBe('SinCategoria');
 
     // Categorized row folds to its domain Bucket, not the raw physical id (MOV-01)
-    const categorizadoRow = ourRows.find((tx) => (tx.descripcion as string).includes('Categorizado'));
+    const categorizadoRow = ourRows.find((tx) =>
+      (tx.descripcion as string).includes('Categorizado'),
+    );
     expect(categorizadoRow).toBeDefined();
     expect(categorizadoRow!.bucket).toBe('Necesidades');
   });

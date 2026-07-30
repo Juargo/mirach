@@ -1,29 +1,27 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: Express;
+  let prisma: PrismaClient;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
   });
 
   it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+    return request(app).get('/').expect(200).expect('Hello World!');
   });
 
   afterEach(async () => {
-    await app.close();
+    await prisma.$disconnect();
   });
 });

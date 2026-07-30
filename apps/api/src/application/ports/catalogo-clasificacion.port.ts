@@ -12,7 +12,9 @@ import { PatronClasificacion } from '../../domain/value-objects/patron-clasifica
  * un resultado válido (ok con array vacío); solo errores estructurales retornan fail.
  */
 export interface ICatalogoClasificacion {
-  findAll(): Promise<Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>>;
+  findAll(): Promise<
+    Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
+  >;
 }
 
 /** Token de inyección — las interfaces se borran en runtime. */

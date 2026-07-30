@@ -4,9 +4,10 @@ import {
 } from '../../application/ports/detalle-bucket.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 import { foldCategoriaId } from './categoria-ids';
+import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 /**
  * PrismaDetalleBucketRepository — implementación del port de lectura para el
@@ -22,13 +23,21 @@ import { foldCategoriaId } from './categoria-ids';
  * Bucket.SinCategoria, el filtro es `OR: [{bucketId: null}, {bucketId: 'bucket-sincategoria'}]`;
  * para cualquier otro bucket, `bucketId: BUCKET_IDS[bucket]`.
  *
- * Constructor takes PrismaService directly (no NestJS decorators — clean arch).
+ * Depende de `PrismaClient` (base), no de `PrismaService` (artefacto Nest) —
+ * así el composition root de Express le pasa un cliente plano (ADR-028).
  *
  * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
  * (categoria-ids.ts) — compartido con PrismaMovimientosMesRepository.
+ *
+ * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
+ * la respuesta HTTP de `GET /api/buckets/:bucket`; sin descifrar, el cliente
+ * recibiría el ciphertext en vez de la descripción real.
  */
 export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly crypto: ICryptoService,
+  ) {}
 
   async findByPeriodoYBucket(
     userId: string,
@@ -37,7 +46,12 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
   ): Promise<ReadonlyArray<DetalleBucketRow>> {
     const bucketFilter =
       bucket === Bucket.SinCategoria
-        ? { OR: [{ bucketId: null }, { bucketId: BUCKET_IDS[Bucket.SinCategoria] }] }
+        ? {
+            OR: [
+              { bucketId: null },
+              { bucketId: BUCKET_IDS[Bucket.SinCategoria] },
+            ],
+          }
         : { bucketId: BUCKET_IDS[bucket] };
 
     const rows = await this.prisma.transaccion.findMany({
@@ -67,7 +81,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
     return rows.map((row) => ({
       id: row.id,
       fecha: row.fecha,
-      descripcion: row.descripcion,
+      descripcion: this.crypto.decrypt(row.descripcion),
       cargo: row.cargo,
       abono: row.abono,
       categoria: foldCategoriaId(row.categoriaId),

@@ -1,63 +1,19 @@
-import { LoginRateLimiter, readRateLimitConfigFromEnv } from './login-rate-limiter';
+import { LoginRateLimiter } from './login-rate-limiter';
 
-const CONFIG = { maxAttemptsPerEmail: 3, maxAttemptsPerIp: 5, windowMs: 900_000 };
+const CONFIG = {
+  maxAttemptsPerEmail: 3,
+  maxAttemptsPerIp: 5,
+  windowMs: 900_000,
+};
 
-describe('readRateLimitConfigFromEnv (fail-closed, AUTH-08)', () => {
-  const envOriginal = { ...process.env };
-
-  afterEach(() => {
-    process.env = { ...envOriginal };
-  });
-
-  it('usa los defaults cuando las 3 env vars están ausentes', () => {
-    delete process.env.LOGIN_RATELIMIT_MAX_EMAIL;
-    delete process.env.LOGIN_RATELIMIT_MAX_IP;
-    delete process.env.LOGIN_RATELIMIT_WINDOW_MS;
-
-    expect(readRateLimitConfigFromEnv()).toEqual({
-      maxAttemptsPerEmail: 5,
-      maxAttemptsPerIp: 20,
-      windowMs: 900_000,
-    });
-  });
-
-  it('lanza (fail-closed) si una env var es string vacío — Number("")=0 causaría auto-bloqueo', () => {
-    process.env.LOGIN_RATELIMIT_MAX_EMAIL = '';
-
-    expect(() => readRateLimitConfigFromEnv()).toThrow();
-  });
-
-  it('lanza (fail-closed) si una env var no es numérica — NaN desactivaría el limiter en silencio', () => {
-    process.env.LOGIN_RATELIMIT_MAX_IP = 'abc';
-
-    expect(() => readRateLimitConfigFromEnv()).toThrow();
-  });
-
-  it('lanza (fail-closed) si una env var es 0', () => {
-    process.env.LOGIN_RATELIMIT_WINDOW_MS = '0';
-
-    expect(() => readRateLimitConfigFromEnv()).toThrow();
-  });
-
-  it('lanza (fail-closed) si una env var es negativa', () => {
-    process.env.LOGIN_RATELIMIT_MAX_EMAIL = '-5';
-
-    expect(() => readRateLimitConfigFromEnv()).toThrow();
-  });
-
-  it('acepta una config válida provista por env', () => {
-    process.env.LOGIN_RATELIMIT_MAX_EMAIL = '10';
-    process.env.LOGIN_RATELIMIT_MAX_IP = '40';
-    process.env.LOGIN_RATELIMIT_WINDOW_MS = '600000';
-
-    expect(readRateLimitConfigFromEnv()).toEqual({
-      maxAttemptsPerEmail: 10,
-      maxAttemptsPerIp: 40,
-      windowMs: 600_000,
-    });
-  });
-});
-
+/**
+ * ADR-029: `readRateLimitConfigFromEnv` se eliminó — su validación fail-closed
+ * ad-hoc (`Number(...)` + chequeo manual de finito/positivo) quedó redundante
+ * una vez que `env.ts` valida `LOGIN_RATELIMIT_*` con Zod (`.coerce.number()
+ * .int().positive()`, ver env.spec.ts). `crearAuth(prisma, env)` construye el
+ * `RateLimitConfig` directamente desde `env.LOGIN_RATELIMIT_*` — sin leer
+ * `process.env` en este módulo.
+ */
 describe('LoginRateLimiter', () => {
   it('no bloquea antes de alcanzar ningún umbral', () => {
     const limiter = new LoginRateLimiter(CONFIG);
@@ -123,7 +79,11 @@ describe('LoginRateLimiter', () => {
   });
 
   it('el mapa no crece sin límite: al superar maxEntries se evictan las entradas más antiguas', () => {
-    const configSensible = { maxAttemptsPerEmail: 1, maxAttemptsPerIp: 1000, windowMs: 900_000 };
+    const configSensible = {
+      maxAttemptsPerEmail: 1,
+      maxAttemptsPerIp: 1000,
+      windowMs: 900_000,
+    };
     // maxEntries=4 (constructor param) para un test rápido — cada recordFailure
     // agrega 2 claves (email + ip), así que 2 llamadas llenan la capacidad.
     const limiter = new LoginRateLimiter(configSensible, Date.now, 4);

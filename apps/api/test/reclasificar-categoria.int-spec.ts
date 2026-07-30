@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { PrismaReclasificarCategoriaRepository } from '../src/infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaResumenMesRepository } from '../src/infrastructure/persistence/prisma-resumen-mes.repository';
 import { CalcularResumenMesUseCase } from '../src/application/use-cases/calcular-resumen-mes.use-case';
@@ -31,7 +32,7 @@ const TEST_USER_ID_A = `${USER_ID_FIJO}-${RUN_ID}`;
 const TEST_USER_ID_B = `user-b-${RUN_ID}`;
 
 describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient(loadEnv());
   const repo = new PrismaReclasificarCategoriaRepository(prisma);
   const resumenReader = new PrismaResumenMesRepository(prisma);
   const calcularResumen = new CalcularResumenMesUseCase(resumenReader);
@@ -46,8 +47,12 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
   beforeAll(async () => {
     await prisma.$connect();
 
-    await prisma.user.create({ data: { id: TEST_USER_ID_A, nombre: `Test User A ${RUN_ID}` } });
-    await prisma.user.create({ data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` } });
+    await prisma.user.create({
+      data: { id: TEST_USER_ID_A, nombre: `Test User A ${RUN_ID}` },
+    });
+    await prisma.user.create({
+      data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` },
+    });
 
     const accA = await prisma.account.create({
       data: {
@@ -116,7 +121,16 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     descripcion = 'Test tx',
   ) =>
     prisma.transaccion.create({
-      data: { accountId, ingestaId, fecha: FECHA, cargo, abono, categoriaId, bucketId, descripcion },
+      data: {
+        accountId,
+        ingestaId,
+        fecha: FECHA,
+        cargo,
+        abono,
+        categoriaId,
+        bucketId,
+        descripcion,
+      },
     });
 
   // -------------------------------------------------------------------------
@@ -143,7 +157,9 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(TransaccionNoEncontradaError);
 
-    const unchanged = await prisma.transaccion.findUniqueOrThrow({ where: { id: userBTx.id } });
+    const unchanged = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: userBTx.id },
+    });
     expect(unchanged.categoriaId).toBe(CATEGORIA_IDS[Categoria.Delivery]);
     expect(unchanged.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
   });
@@ -173,7 +189,9 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       bucket: Bucket.Deseos,
     });
 
-    const updated = await prisma.transaccion.findUniqueOrThrow({ where: { id: userATx.id } });
+    const updated = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: userATx.id },
+    });
     expect(updated.categoriaId).toBe(CATEGORIA_IDS[Categoria.Streaming]);
     expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
   });
@@ -193,7 +211,9 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       },
     });
 
-    await prisma.user.create({ data: { id: `${TEST_USER_ID_A}-within`, nombre: 'within' } });
+    await prisma.user.create({
+      data: { id: `${TEST_USER_ID_A}-within`, nombre: 'within' },
+    });
     const acc = await prisma.account.create({
       data: {
         userId: `${TEST_USER_ID_A}-within`,
@@ -240,7 +260,9 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       userId: `${TEST_USER_ID_A}-within`,
       periodo: '2026-07',
     });
-    const deseosAntes = antes.getValue().resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
+    const deseosAntes = antes
+      .getValue()
+      .resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
 
     const result = await repo.reasignar(
       `${TEST_USER_ID_A}-within`,
@@ -254,17 +276,25 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       userId: `${TEST_USER_ID_A}-within`,
       periodo: '2026-07',
     });
-    const deseosDespues = despues.getValue().resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
+    const deseosDespues = despues
+      .getValue()
+      .resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
 
     expect(deseosDespues.total).toBe(deseosAntes.total);
     expect(deseosDespues.porcentajeBp).toBe(deseosAntes.porcentajeBp);
 
-    const updated = await prisma.transaccion.findUniqueOrThrow({ where: { id: tx.id } });
+    const updated = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: tx.id },
+    });
     expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
 
     // cleanup this scenario's own scope (separate user/account/ingesta)
-    await prisma.transaccion.deleteMany({ where: { id: { in: [ingreso.id, tx.id] } } });
-    await prisma.ingesta.deleteMany({ where: { id: { in: [ing.id, ingWithin.id] } } });
+    await prisma.transaccion.deleteMany({
+      where: { id: { in: [ingreso.id, tx.id] } },
+    });
+    await prisma.ingesta.deleteMany({
+      where: { id: { in: [ing.id, ingWithin.id] } },
+    });
     await prisma.account.deleteMany({ where: { id: acc.id } });
     await prisma.user.deleteMany({ where: { id: `${TEST_USER_ID_A}-within` } });
   });
@@ -273,7 +303,9 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
   // CATAPI-04 — cross-bucket reclassify: exact BigInt money move + threshold flip
   // -------------------------------------------------------------------------
   it('T4.5b: Deseos→Necesidades shifts both bucket totals by the exact amount and can flip estadoSemaforo away from Verde', async () => {
-    await prisma.user.create({ data: { id: `${TEST_USER_ID_A}-cross`, nombre: 'cross' } });
+    await prisma.user.create({
+      data: { id: `${TEST_USER_ID_A}-cross`, nombre: 'cross' },
+    });
     const acc = await prisma.account.create({
       data: {
         userId: `${TEST_USER_ID_A}-cross`,
@@ -334,8 +366,12 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       userId: `${TEST_USER_ID_A}-cross`,
       periodo: '2026-07',
     });
-    const necAntes = antes.getValue().resumen.buckets.find((b) => b.bucket === Bucket.Necesidades)!;
-    const desAntes = antes.getValue().resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
+    const necAntes = antes
+      .getValue()
+      .resumen.buckets.find((b) => b.bucket === Bucket.Necesidades)!;
+    const desAntes = antes
+      .getValue()
+      .resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
     expect(necAntes.total).toBe(50000n);
     expect(necAntes.estadoSemaforo).toBe(EstadoSemaforo.Verde);
     expect(desAntes.total).toBe(10000n);
@@ -352,8 +388,12 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       userId: `${TEST_USER_ID_A}-cross`,
       periodo: '2026-07',
     });
-    const necDespues = despues.getValue().resumen.buckets.find((b) => b.bucket === Bucket.Necesidades)!;
-    const desDespues = despues.getValue().resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
+    const necDespues = despues
+      .getValue()
+      .resumen.buckets.find((b) => b.bucket === Bucket.Necesidades)!;
+    const desDespues = despues
+      .getValue()
+      .resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
 
     // Exact BigInt deltas, no float drift.
     expect(necDespues.total).toBe(necAntes.total + 10000n);
@@ -364,7 +404,9 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     // Necesidades crossed 50% → estadoSemaforo flips away from Verde.
     expect(necDespues.estadoSemaforo).not.toBe(EstadoSemaforo.Verde);
 
-    const updated = await prisma.transaccion.findUniqueOrThrow({ where: { id: movida.id } });
+    const updated = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: movida.id },
+    });
     expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
     expect(updated.categoriaId).toBe(CATEGORIA_IDS[Categoria.Transporte]);
 

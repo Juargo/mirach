@@ -35,12 +35,20 @@ describe('ValidateStructureUseCase', () => {
 
   it('propaga el error del port cuando la estructura es inválida', async () => {
     const error = new EstructuraInvalidaError(BancoConocido.Santander, [
-      { tipo: 'ColumnaFaltante', columna: 'C3', esperado: 'Monto cargo ($)', encontrado: 'Cargo' },
+      {
+        tipo: 'ColumnaFaltante',
+        columna: 'C3',
+        esperado: 'Monto cargo ($)',
+        encontrado: 'Cargo',
+      },
     ]);
     const validator = makeValidator(async () => Result.fail(error));
     const useCase = new ValidateStructureUseCase(validator);
 
-    const result = await useCase.execute(Buffer.from(''), BancoConocido.Santander);
+    const result = await useCase.execute(
+      Buffer.from(''),
+      BancoConocido.Santander,
+    );
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);

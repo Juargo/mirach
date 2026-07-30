@@ -1,7 +1,6 @@
-import { Logger } from '@nestjs/common';
 import type { Mock } from 'vitest';
+import type { PrismaClient } from '@prisma/client';
 import { DemoCleanupService } from './demo-cleanup.service';
-import { PrismaService } from '../../persistence/prisma.service';
 import { IReloj } from '../../../application/ports/reloj.port';
 import { TTL_SESION_MS } from '../../../domain/value-objects/duracion-sesion';
 
@@ -23,8 +22,10 @@ function makePrismaMock(
 ) {
   return {
     user: { findMany: vi.fn().mockResolvedValue(findManyResult) },
-    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(tx)),
-  } as unknown as PrismaService;
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback(tx),
+    ),
+  } as unknown as PrismaClient;
 }
 
 function makeReloj(): IReloj {
@@ -57,7 +58,10 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
 
   it('con demos expirados → borra en cascada Session→Transaccion→Ingesta→Account→User, en ese orden', async () => {
     const tx = makeTxMock();
-    const prisma = makePrismaMock([{ id: 'user-demo-1' }, { id: 'user-demo-2' }], tx);
+    const prisma = makePrismaMock(
+      [{ id: 'user-demo-1' }, { id: 'user-demo-2' }],
+      tx,
+    );
     const service = new DemoCleanupService(prisma, makeReloj());
 
     const llamadas: string[] = [];
@@ -84,12 +88,24 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
 
     const count = await service.borrarExpirados();
 
-    expect(llamadas).toEqual(['session', 'transaccion', 'ingesta', 'account', 'user']);
+    expect(llamadas).toEqual([
+      'session',
+      'transaccion',
+      'ingesta',
+      'account',
+      'user',
+    ]);
     expect(count).toBe(2);
     const ids = ['user-demo-1', 'user-demo-2'];
-    expect(tx.session.deleteMany).toHaveBeenCalledWith({ where: { userId: { in: ids } } });
-    expect(tx.account.deleteMany).toHaveBeenCalledWith({ where: { userId: { in: ids } } });
-    expect(tx.user.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ids } } });
+    expect(tx.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: { in: ids } },
+    });
+    expect(tx.account.deleteMany).toHaveBeenCalledWith({
+      where: { userId: { in: ids } },
+    });
+    expect(tx.user.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ids } },
+    });
   });
 });
 
@@ -99,7 +115,7 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
   });
 
   it('sin demos expirados → loguea "0 expired demo accounts cleaned"', async () => {
-    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const prisma = makePrismaMock([]);
     const service = new DemoCleanupService(prisma, makeReloj());
 
@@ -109,7 +125,7 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
   });
 
   it('con demos expirados → loguea la cantidad borrada', async () => {
-    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const tx = makeTxMock();
     tx.user.deleteMany.mockResolvedValue({ count: 1 });
     const prisma = makePrismaMock([{ id: 'user-demo-1' }], tx);
@@ -121,11 +137,15 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
   });
 
   it('nunca lanza: un fallo de infraestructura se loguea como error, no se propaga', async () => {
-    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const prisma = {
-      user: { findMany: vi.fn().mockRejectedValue(new Error('DB connection lost')) },
+      user: {
+        findMany: vi.fn().mockRejectedValue(new Error('DB connection lost')),
+      },
       $transaction: vi.fn(),
-    } as unknown as PrismaService;
+    } as unknown as PrismaClient;
     const service = new DemoCleanupService(prisma, makeReloj());
 
     await expect(service.limpiarDiario()).resolves.toBeUndefined();

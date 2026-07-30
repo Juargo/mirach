@@ -24,10 +24,7 @@ describe('DetectPdfBankUseCase', () => {
 
     const result = await useCase.execute(buffer, 'cartola.pdf');
 
-    expect(detector.detect as Mock).toHaveBeenCalledWith(
-      buffer,
-      'cartola.pdf',
-    );
+    expect(detector.detect as Mock).toHaveBeenCalledWith(buffer, 'cartola.pdf');
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual(detected);
   });

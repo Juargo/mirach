@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { PrismaTransaccionExistenteReader } from '../src/infrastructure/persistence/prisma-transaccion-existente.reader';
 import { NoOpCryptoService } from '../src/infrastructure/persistence/no-op-crypto.service';
 import { EstadoIngesta } from '@prisma/client';
@@ -14,7 +15,7 @@ const RUN_ID = `it-dup-${Date.now()}`;
  * isolation (RNF-SEC-006 / ISO) enforced by scoping on `accountId`.
  */
 describe('PrismaTransaccionExistenteReader (real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient(loadEnv());
   const crypto = new NoOpCryptoService();
   const reader = new PrismaTransaccionExistenteReader(prisma, crypto);
 

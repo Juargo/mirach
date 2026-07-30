@@ -5,7 +5,10 @@ import {
 } from '../../../prisma/seed';
 import { CATEGORIA_IDS } from './categoria-ids';
 import { BUCKET_IDS } from './bucket-ids';
-import { Categoria, CATEGORIA_BUCKET } from '../../domain/value-objects/categoria';
+import {
+  Categoria,
+  CATEGORIA_BUCKET,
+} from '../../domain/value-objects/categoria';
 
 /**
  * Seed-integrity unit tests (CAT-01, CAT-04) — no DB involved.
@@ -30,7 +33,7 @@ function makeUpsertableStore<T extends { id: string }>() {
       update: Partial<T>;
     }) => {
       const existing = rows.get(where.id);
-      const row = existing ? ({ ...existing, ...update } as T) : create;
+      const row = existing ? { ...existing, ...update } : create;
       rows.set(where.id, row);
       return row;
     },
@@ -41,7 +44,10 @@ function makeUpsertableStore<T extends { id: string }>() {
 function makeFakeSeedClient() {
   const user = makeUpsertableStore<{ id: string }>();
   const account = makeUpsertableStore<{ id: string }>();
-  const bucketPresupuesto = makeUpsertableStore<{ id: string; nombre: string }>();
+  const bucketPresupuesto = makeUpsertableStore<{
+    id: string;
+    nombre: string;
+  }>();
   const patronClasificacion = makeUpsertableStore<{
     id: string;
     patron: string;
@@ -49,7 +55,11 @@ function makeFakeSeedClient() {
     categoriaId: string;
     prioridad: number;
   }>();
-  const categoria = makeUpsertableStore<{ id: string; nombre: string; bucketId: string }>();
+  const categoria = makeUpsertableStore<{
+    id: string;
+    nombre: string;
+    bucketId: string;
+  }>();
 
   return {
     prisma: {
@@ -58,15 +68,22 @@ function makeFakeSeedClient() {
       bucketPresupuesto: { upsert: bucketPresupuesto.upsert },
       patronClasificacion: { upsert: patronClasificacion.upsert },
       categoria: { upsert: categoria.upsert },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any,
-    stores: { user, account, bucketPresupuesto, patronClasificacion, categoria },
+    stores: {
+      user,
+      account,
+      bucketPresupuesto,
+      patronClasificacion,
+      categoria,
+    },
   };
 }
 
 describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () => {
   it('CATEGORIA_IDS cubre exactamente las 8 categorías del enum', () => {
-    expect(Object.keys(CATEGORIA_IDS)).toHaveLength(Object.values(Categoria).length);
+    expect(Object.keys(CATEGORIA_IDS)).toHaveLength(
+      Object.values(Categoria).length,
+    );
     for (const categoria of Object.values(Categoria)) {
       expect(typeof CATEGORIA_IDS[categoria]).toBe('string');
       expect(CATEGORIA_IDS[categoria].length).toBeGreaterThan(0);
@@ -84,7 +101,9 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
     expect(stores.categoria.rows.size).toBe(CATEGORIA_CATALOG_SIZE);
     for (const row of stores.categoria.rows.values()) {
       const categoriaEsperada = row.nombre as Categoria;
-      expect(row.bucketId).toBe(BUCKET_IDS[CATEGORIA_BUCKET[categoriaEsperada]]);
+      expect(row.bucketId).toBe(
+        BUCKET_IDS[CATEGORIA_BUCKET[categoriaEsperada]],
+      );
       expect(row.id).toBe(CATEGORIA_IDS[categoriaEsperada]);
     }
   });

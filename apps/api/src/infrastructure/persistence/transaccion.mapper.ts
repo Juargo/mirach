@@ -5,11 +5,10 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  * Forma de persistencia de una transacción (US-011).
  *
  * El dinero se almacena como dos columnas BigInt (`cargo`/`abono`) para
- * evitar pérdida de precisión. La descripción se pasa por ICryptoService,
- * cuya implementación por defecto (NoOpCryptoService) es identidad: NO
- * cifra. El cifrado real está DIFERIDO (task 11.6 / era US-012); ninguna
- * capa debe asumir protección at-rest en esta etapa.
- * fecha/cargo/abono/bucketId permanecen en texto plano y consultables.
+ * evitar pérdida de precisión. `descripcion` se cifra at rest a través del
+ * `ICryptoService` inyectado — en producción, `AesGcmCryptoService`
+ * (AES-256-GCM, ADR-013). fecha/cargo/abono/bucketId permanecen en texto
+ * plano y consultables (no son PII sensible por sí solos).
  * bucketId está reservado para US-012 y siempre se persiste como null aquí.
  */
 export interface TransaccionPersistencia {
@@ -20,42 +19,11 @@ export interface TransaccionPersistencia {
   bucketId: string | null;
 }
 
-const MAX_BIGINT_SEGURO = BigInt(Number.MAX_SAFE_INTEGER);
-
-/**
- * Convierte un number a BigInt exigiendo que sea un entero.
- * El dominio garantiza enteros positivos; esta precondición hace explícito
- * el contrato entre capas y evita ocultar bugs upstream con Math.trunc.
- */
-function aBigIntEntero(valor: number, campo: string): bigint {
-  if (!Number.isInteger(valor)) {
-    // No se interpola el monto crudo: es un dato sensible que termina en
-    // PersistenciaFallidaError.causa. Solo se reporta el campo.
-    throw new TypeError(`El campo "${campo}" debe ser un entero.`);
-  }
-  return BigInt(valor);
-}
-
-/**
- * Convierte un BigInt de vuelta a number sin coerción silenciosa.
- * Números por encima de Number.MAX_SAFE_INTEGER (2^53-1) perderían precisión
- * al pasar a number, lo que anularía la razón de usar columnas BigInt; por
- * eso se lanza un error explícito en lugar de truncar en silencio.
- */
-function aNumberSeguro(valor: bigint, campo: string): number {
-  if (valor > MAX_BIGINT_SEGURO || valor < -MAX_BIGINT_SEGURO) {
-    // No se interpola el monto crudo (dato sensible); solo campo y el límite.
-    throw new RangeError(
-      `El campo "${campo}" excede Number.MAX_SAFE_INTEGER y no puede ` +
-        `convertirse a number sin pérdida de precisión.`,
-    );
-  }
-  return Number(valor);
-}
-
 /**
  * Mapea una Transaccion de dominio a su forma de persistencia.
- * Conversión fina number→BigInt (exige enteros); pasa la descripción por crypto.
+ *
+ * Mapeo 1:1: el dinero ya es `BigInt` en el dominio, igual que en la columna.
+ * No hay conversión de tipo (ni riesgo de overflow), solo se cifra la descripción.
  */
 export function aPersistencia(
   tx: Transaccion,
@@ -64,25 +32,28 @@ export function aPersistencia(
   return {
     fecha: tx.fecha,
     descripcion: crypto.encrypt(tx.descripcion),
-    cargo: aBigIntEntero(tx.cargo, 'cargo'),
-    abono: aBigIntEntero(tx.abono, 'abono'),
+    cargo: tx.cargo,
+    abono: tx.abono,
     bucketId: null,
   };
 }
 
 /**
  * Mapea una fila de persistencia de vuelta al dominio.
- * Conversión fina BigInt→number con guardas de overflow explícitas;
- * pasa la descripción por crypto (identidad por defecto).
+ * Mapeo 1:1 del dinero (BigInt↔BigInt); pasa la descripción por crypto.
  */
 export function aDominio(
   row: TransaccionPersistencia,
   crypto: ICryptoService,
 ): Transaccion {
-  return {
+  // Frontera de confianza: la fila viene de NUESTRA propia DB, escrita por
+  // `aPersistencia` desde Transacciones ya validadas. Un fail de `crear` aquí
+  // NO es un error de negocio esperable sino corrupción de datos → fail-fast
+  // (getValue lanza), en lugar de propagar Result a todos los lectores.
+  return Transaccion.crear({
     fecha: row.fecha,
     descripcion: crypto.decrypt(row.descripcion),
-    cargo: aNumberSeguro(row.cargo, 'cargo'),
-    abono: aNumberSeguro(row.abono, 'abono'),
-  };
+    cargo: row.cargo,
+    abono: row.abono,
+  }).getValue();
 }

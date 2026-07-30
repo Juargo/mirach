@@ -4,9 +4,10 @@ import {
 } from '../../application/ports/movimientos-mes.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
 import { foldCategoriaId } from './categoria-ids';
+import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 /**
  * PrismaMovimientosMesRepository — implementación del port de lectura mensual
@@ -25,9 +26,16 @@ import { foldCategoriaId } from './categoria-ids';
  *
  * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
  * (categoria-ids.ts) — compartido con PrismaDetalleBucketRepository.
+ *
+ * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
+ * la respuesta HTTP de `GET /api/movimientos`; sin descifrar, el cliente
+ * recibiría el ciphertext en vez de la descripción real.
  */
 export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly crypto: ICryptoService,
+  ) {}
 
   async findByPeriodo(
     userId: string,
@@ -69,7 +77,7 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
       return {
         id: row.id,
         fecha: row.fecha,
-        descripcion: row.descripcion,
+        descripcion: this.crypto.decrypt(row.descripcion),
         cargo: row.cargo,
         abono: row.abono,
         bucket,

@@ -30,4 +30,5 @@ export interface ITransaccionParaClasificarReader {
 }
 
 /** Token de inyección — las interfaces se borran en runtime. */
-export const TRANSACCION_PARA_CLASIFICAR_READER = 'ITransaccionParaClasificarReader';
+export const TRANSACCION_PARA_CLASIFICAR_READER =
+  'ITransaccionParaClasificarReader';

@@ -7,7 +7,7 @@ import {
 import { IReloj } from '../../application/ports/reloj.port';
 import { DEMO_TRANSACCIONES } from './demo-data';
 import { seedDemoTransacciones } from './demo-data-seeder';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 
 const BANCO_DEMO = 'MoneyDiary Demo';
@@ -28,7 +28,7 @@ const NUMERO_CUENTA_DEMO = 'DEMO-0000';
  */
 export class PrismaDemoRepository implements IDemoRepository {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly reloj: IReloj,
   ) {}
 

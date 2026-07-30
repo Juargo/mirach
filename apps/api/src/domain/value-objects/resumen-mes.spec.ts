@@ -1,6 +1,10 @@
 import { Bucket } from './bucket';
 import { EstadoSemaforo } from './estado-semaforo';
-import { porcentajeBasisPoints, ResumenMes, TARGETS_503020 } from './resumen-mes';
+import {
+  porcentajeBasisPoints,
+  ResumenMes,
+  TARGETS_503020,
+} from './resumen-mes';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-02: Unit tests — porcentajeBasisPoints helper + ResumenMes VO invariants
@@ -180,7 +184,9 @@ describe('ResumenMes VO', () => {
     // TypeScript readonly is compile-time; runtime: verify value stability
     const originalIngreso = resumen.totalIngreso;
     expect(resumen.totalIngreso).toBe(originalIngreso);
-    expect(Object.isFrozen(resumen) || resumen.totalIngreso !== undefined).toBe(true);
+    expect(Object.isFrozen(resumen) || resumen.totalIngreso !== undefined).toBe(
+      true,
+    );
   });
 
   it('handles empty month (all zeros)', () => {
@@ -204,9 +210,9 @@ describe('ResumenMes VO', () => {
     // Necesidades: 6001/10000 = 60.01% → Rojo (6001n bp)
     const resumen = ResumenMes.crear({
       totalIngreso: 10_000n,
-      necesidades: 6_001n,  // 6001 bp → Rojo
-      deseos: 1_000n,       // 1000 bp → Verde (< 3000)
-      ahorro: 2_000n,       // 2000 bp → Verde (boundary)
+      necesidades: 6_001n, // 6001 bp → Rojo
+      deseos: 1_000n, // 1000 bp → Verde (< 3000)
+      ahorro: 2_000n, // 2000 bp → Verde (boundary)
       sinCategoria: 999n,
     });
     expect(resumen.buckets[0].estadoSemaforo).toBe(EstadoSemaforo.Rojo);
@@ -218,9 +224,9 @@ describe('ResumenMes VO', () => {
     // Deseos: 3001/10000 = 30.01% → Amarillo
     const resumen = ResumenMes.crear({
       totalIngreso: 10_000n,
-      necesidades: 4_000n,  // 4000 bp → Verde (≤ 5000)
-      deseos: 3_001n,       // 3001 bp → Amarillo
-      ahorro: 2_000n,       // 2000 bp → Verde (boundary)
+      necesidades: 4_000n, // 4000 bp → Verde (≤ 5000)
+      deseos: 3_001n, // 3001 bp → Amarillo
+      ahorro: 2_000n, // 2000 bp → Verde (boundary)
       sinCategoria: 999n,
     });
     expect(resumen.buckets[1].estadoSemaforo).toBe(EstadoSemaforo.Amarillo);

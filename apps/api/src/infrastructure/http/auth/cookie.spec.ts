@@ -1,20 +1,24 @@
 import { serializeSessionCookie, clearSessionCookie } from './cookie';
 
+/**
+ * ADR-029: `secure` se recibe como parámetro (parameter-threading, decisión
+ * KISS/YAGNI de design.md — NO una clase inyectada), no se lee de
+ * `process.env` dentro de este módulo. El call site (auth.routes.ts) recibe
+ * `cookieSecure` de `AuthPublicDeps`, derivado una sola vez en app.ts a partir
+ * de `env`. `shouldBeSecure()` se eliminó.
+ */
 describe('cookie', () => {
-  const envOriginal = { ...process.env };
-
-  afterEach(() => {
-    process.env = { ...envOriginal };
-  });
-
   describe('serializeSessionCookie()', () => {
     it('setea nombre md_session, HttpOnly, SameSite=Strict, Path=/, sin Domain=', () => {
-      delete process.env.NODE_ENV;
-      delete process.env.COOKIE_SECURE;
       const ahora = new Date('2026-07-18T00:00:00.000Z');
       const expiresAt = new Date('2026-07-25T00:00:00.000Z');
 
-      const cookie = serializeSessionCookie('token-abc', expiresAt, ahora);
+      const cookie = serializeSessionCookie(
+        'token-abc',
+        expiresAt,
+        false,
+        ahora,
+      );
 
       expect(cookie).toContain('md_session=token-abc');
       expect(cookie).toContain('HttpOnly');
@@ -27,40 +31,32 @@ describe('cookie', () => {
       const ahora = new Date('2026-07-18T00:00:00.000Z');
       const expiresAt = new Date('2026-07-25T00:00:00.000Z'); // +7d exacto
 
-      const cookie = serializeSessionCookie('token-abc', expiresAt, ahora);
+      const cookie = serializeSessionCookie(
+        'token-abc',
+        expiresAt,
+        false,
+        ahora,
+      );
 
       expect(cookie).toContain('Max-Age=604800');
     });
 
-    it('sin Secure cuando NODE_ENV no es production y COOKIE_SECURE no es true', () => {
-      delete process.env.NODE_ENV;
-      delete process.env.COOKIE_SECURE;
+    it('sin Secure cuando secure=false', () => {
       const cookie = serializeSessionCookie(
         'token-abc',
         new Date('2026-07-25T00:00:00.000Z'),
+        false,
         new Date('2026-07-18T00:00:00.000Z'),
       );
 
       expect(cookie).not.toContain('Secure');
     });
 
-    it('con Secure cuando NODE_ENV=production', () => {
-      process.env.NODE_ENV = 'production';
+    it('con Secure cuando secure=true', () => {
       const cookie = serializeSessionCookie(
         'token-abc',
         new Date('2026-07-25T00:00:00.000Z'),
-        new Date('2026-07-18T00:00:00.000Z'),
-      );
-
-      expect(cookie).toContain('Secure');
-    });
-
-    it('con Secure cuando COOKIE_SECURE=true (aunque NODE_ENV no sea production)', () => {
-      delete process.env.NODE_ENV;
-      process.env.COOKIE_SECURE = 'true';
-      const cookie = serializeSessionCookie(
-        'token-abc',
-        new Date('2026-07-25T00:00:00.000Z'),
+        true,
         new Date('2026-07-18T00:00:00.000Z'),
       );
 
@@ -69,14 +65,21 @@ describe('cookie', () => {
   });
 
   describe('clearSessionCookie()', () => {
-    it('mismos atributos con Max-Age=0', () => {
-      const cookie = clearSessionCookie();
+    it('mismos atributos con Max-Age=0 (secure=false)', () => {
+      const cookie = clearSessionCookie(false);
 
       expect(cookie).toContain('md_session=');
       expect(cookie).toContain('Max-Age=0');
       expect(cookie).toContain('HttpOnly');
       expect(cookie).toContain('SameSite=Strict');
       expect(cookie).toContain('Path=/');
+      expect(cookie).not.toContain('Secure');
+    });
+
+    it('agrega Secure cuando secure=true', () => {
+      const cookie = clearSessionCookie(true);
+
+      expect(cookie).toContain('Secure');
     });
   });
 });

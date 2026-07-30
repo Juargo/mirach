@@ -23,7 +23,11 @@ function makeWriter(
 describe('ReclasificarTransaccionUseCase', () => {
   it('T4.1a: deriva el bucket desde la categoría elegida — NUNCA la acepta del caller', async () => {
     const writer = makeWriter(
-      Result.ok({ id: 'tx-1', categoria: Categoria.Transporte, bucket: Bucket.Necesidades }),
+      Result.ok({
+        id: 'tx-1',
+        categoria: Categoria.Transporte,
+        bucket: Bucket.Necesidades,
+      }),
     );
     const useCase = new ReclasificarTransaccionUseCase(writer);
 
@@ -57,18 +61,33 @@ describe('ReclasificarTransaccionUseCase', () => {
     ];
 
     for (const [categoria, bucketEsperado] of casos) {
-      const writer = makeWriter(Result.ok({ id: 'tx-1', categoria, bucket: bucketEsperado }));
+      const writer = makeWriter(
+        Result.ok({ id: 'tx-1', categoria, bucket: bucketEsperado }),
+      );
       const useCase = new ReclasificarTransaccionUseCase(writer);
 
-      await useCase.execute({ userId: 'user-a', transaccionId: 'tx-1', categoria });
+      await useCase.execute({
+        userId: 'user-a',
+        transaccionId: 'tx-1',
+        categoria,
+      });
 
-      expect(writer.reasignar).toHaveBeenCalledWith('user-a', 'tx-1', categoria, bucketEsperado);
+      expect(writer.reasignar).toHaveBeenCalledWith(
+        'user-a',
+        'tx-1',
+        categoria,
+        bucketEsperado,
+      );
     }
   });
 
   it('T4.1c: categoría desconocida → CategoriaInvalidaError, el writer NUNCA se invoca', async () => {
     const writer = makeWriter(
-      Result.ok({ id: 'tx-1', categoria: Categoria.Transporte, bucket: Bucket.Necesidades }),
+      Result.ok({
+        id: 'tx-1',
+        categoria: Categoria.Transporte,
+        bucket: Bucket.Necesidades,
+      }),
     );
     const useCase = new ReclasificarTransaccionUseCase(writer);
 
@@ -85,7 +104,11 @@ describe('ReclasificarTransaccionUseCase', () => {
 
   it('T4.1d: el mensaje del error NUNCA refleja el valor crudo de categoría (anti-reflected-input)', async () => {
     const writer = makeWriter(
-      Result.ok({ id: 'tx-1', categoria: Categoria.Transporte, bucket: Bucket.Necesidades }),
+      Result.ok({
+        id: 'tx-1',
+        categoria: Categoria.Transporte,
+        bucket: Bucket.Necesidades,
+      }),
     );
     const useCase = new ReclasificarTransaccionUseCase(writer);
 
@@ -101,7 +124,9 @@ describe('ReclasificarTransaccionUseCase', () => {
   });
 
   it('T4.1e: propaga el TransaccionNoEncontradaError del writer (not-found o not-owned, indistinguible)', async () => {
-    const writer = makeWriter(Result.fail(new TransaccionNoEncontradaError('tx-ajena')));
+    const writer = makeWriter(
+      Result.fail(new TransaccionNoEncontradaError('tx-ajena')),
+    );
     const useCase = new ReclasificarTransaccionUseCase(writer);
 
     const result = await useCase.execute({

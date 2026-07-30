@@ -1,37 +1,17 @@
-/** RateLimitConfig — umbrales y ventana del rate limiter de login (AUTH-08). */
+/**
+ * RateLimitConfig — umbrales y ventana del rate limiter de login (AUTH-08).
+ *
+ * ADR-029: antes se poblaba vía `readRateLimitConfigFromEnv()` (leía
+ * `process.env` acá mismo, con validación fail-closed ad-hoc). Esa función se
+ * eliminó — `env.ts` ya valida `LOGIN_RATELIMIT_*` con Zod
+ * (`.coerce.number().int().positive()`, ver env.spec.ts), y `crearAuth(prisma,
+ * env)` construye este objeto directamente desde `env.LOGIN_RATELIMIT_*`
+ * (DRY: una sola validación, no dos).
+ */
 export interface RateLimitConfig {
   readonly maxAttemptsPerEmail: number;
   readonly maxAttemptsPerIp: number;
   readonly windowMs: number;
-}
-
-/**
- * Lee los defaults desde env (mirrors ApiKeyGuard's env-driven config).
- *
- * Fail-closed (mirrors ApiKeyGuard): `Number(process.env.X ?? default)` deja
- * pasar en silencio dos casos peligrosos que `??` no atrapa porque `""` NO es
- * `null`/`undefined` — `Number("")` da `0` (auto-bloqueo/DoS: cualquier
- * fallo bloquea inmediatamente) y `Number("abc")` da `NaN` (el limiter queda
- * desactivado sin que nadie lo note, ya que toda comparación con `NaN` es
- * `false`). Cada valor se valida como finito y estrictamente positivo; si
- * alguno no lo es, se lanza en el arranque en vez de operar mal configurado.
- */
-export function readRateLimitConfigFromEnv(): RateLimitConfig {
-  const config = {
-    maxAttemptsPerEmail: Number(process.env.LOGIN_RATELIMIT_MAX_EMAIL ?? 5),
-    maxAttemptsPerIp: Number(process.env.LOGIN_RATELIMIT_MAX_IP ?? 20),
-    windowMs: Number(process.env.LOGIN_RATELIMIT_WINDOW_MS ?? 900_000),
-  };
-
-  for (const [nombre, valor] of Object.entries(config)) {
-    if (!Number.isFinite(valor) || valor <= 0) {
-      throw new Error(
-        `Configuración de rate-limit de login inválida: "${nombre}" debe ser un número finito > 0 (recibido: ${valor}).`,
-      );
-    }
-  }
-
-  return config;
 }
 
 interface Contador {
@@ -70,12 +50,23 @@ export class LoginRateLimiter {
     private readonly maxEntries: number = MAX_ENTRIES,
   ) {}
 
+  /**
+   * Expone el `RateLimitConfig` con el que se construyó (solo lectura). Lo
+   * usa `crear-auth.spec.ts` (ADR-029) para probar el mapeo `env.LOGIN_RATELIMIT_*
+   * -> RateLimitConfig` de `crearAuth` sin duplicar la validación de umbrales
+   * en un test de comportamiento (`isBlocked`/`recordFailure`).
+   */
+  get configuracion(): RateLimitConfig {
+    return this.config;
+  }
+
   isBlocked(ip: string, email: string): boolean {
     const porEmail = this.readCurrent(this.emailKey(email));
     const porIp = this.readCurrent(this.ipKey(ip));
 
     return (
-      (porEmail !== undefined && porEmail.conteo >= this.config.maxAttemptsPerEmail) ||
+      (porEmail !== undefined &&
+        porEmail.conteo >= this.config.maxAttemptsPerEmail) ||
       (porIp !== undefined && porIp.conteo >= this.config.maxAttemptsPerIp)
     );
   }
@@ -96,7 +87,10 @@ export class LoginRateLimiter {
     if (vigente === undefined) {
       this.purgarExpiradas();
       this.evictarSiExcedeCapacidad();
-      this.contadores.set(key, { conteo: 1, expiraEn: this.ahora() + this.config.windowMs });
+      this.contadores.set(key, {
+        conteo: 1,
+        expiraEn: this.ahora() + this.config.windowMs,
+      });
       return;
     }
 

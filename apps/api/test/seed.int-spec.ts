@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { runSeed, PATRON_CATALOG_SIZE } from '../prisma/seed';
 import {
   USER_ID_FIJO,
@@ -7,7 +8,7 @@ import {
 } from '../src/infrastructure/persistence/constants';
 
 describe('seed idempotency integration (real dev DB)', () => {
-  const prisma = new PrismaService();
+  const prisma = createPrismaClient(loadEnv());
 
   // Se siembra DOS veces una sola vez para TODA la suite y luego cada test
   // asserta sobre el estado ya doble-sembrado. Antes cada test corría el seed
@@ -28,7 +29,9 @@ describe('seed idempotency integration (real dev DB)', () => {
 
   it('el seed no duplica User/Account fijos (upsert idempotente)', async () => {
     expect(await prisma.user.count({ where: { id: USER_ID_FIJO } })).toBe(1);
-    expect(await prisma.account.count({ where: { id: ACCOUNT_ID_FIJO } })).toBe(1);
+    expect(await prisma.account.count({ where: { id: ACCOUNT_ID_FIJO } })).toBe(
+      1,
+    );
   });
 
   // T20 — seed idempotency: exactamente 5 BucketPresupuesto, sin duplicados

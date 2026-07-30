@@ -1,7 +1,10 @@
 import { Result } from '../../shared/result';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida.error';
-import { IStructureValidator, ValidatedStructure } from '../ports/structure-validator.port';
+import {
+  IStructureValidator,
+  ValidatedStructure,
+} from '../ports/structure-validator.port';
 
 export { EstructuraInvalidaError };
 

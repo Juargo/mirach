@@ -26,7 +26,9 @@ export interface IngestFileResult {
  * Retorna Result<T,E> en lugar de lanzar excepciones.
  */
 export class IngestFileUseCase {
-  execute(fileReader: IFileReader): Result<IngestFileResult, ExtensionNoPermitidaError> {
+  execute(
+    fileReader: IFileReader,
+  ): Result<IngestFileResult, ExtensionNoPermitidaError> {
     const originalName = fileReader.getOriginalName();
 
     let extension: Extension;

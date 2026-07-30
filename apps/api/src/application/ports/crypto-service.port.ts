@@ -2,13 +2,19 @@
  * ICryptoService — port de aplicación.
  *
  * Define el contrato de cifrado/descifrado para campos sensibles de una
- * transacción (por ejemplo, la descripción). Cuando exista una clave de
- * cifrado, NUNCA provendrá de variables de entorno (ver US-011 / diseño).
+ * transacción (por ejemplo, la descripción).
  *
- * IMPORTANTE: la implementación por defecto (NoOpCryptoService) es identidad
- * (pass-through) — NO cifra nada. El cifrado real está DIFERIDO (task 11.6 /
- * era US-012); ninguna capa debe asumir protección at-rest todavía.
- * fecha/cargo/abono/bucketId permanecen en texto plano y consultables.
+ * La implementación de producción por defecto es `AesGcmCryptoService`
+ * (AES-256-GCM, ver `aes-gcm-crypto.service.ts`), no identidad. La clave de
+ * 32 bytes proviene de la variable de entorno `ENCRYPTION_KEY` (secreto en
+ * el dashboard de Render, `sync:false` — ver CLAUDE.md "Notas de
+ * seguridad"). Esto es una decisión ACEPTADA, no un descuido: dado el
+ * topology actual (PaaS free tier mono-usuario, ADR-023), guardar la clave
+ * en env protege contra el robo de un dump/backup de la BD, pero NO contra
+ * un atacante con acceso al dashboard de Render (esa amenaza requeriría un
+ * KMS separado, diferido — YAGNI para este topology). `NoOpCryptoService`
+ * (identidad, pass-through) sigue existiendo para tests/fixtures que no
+ * necesitan ejercitar cifrado real.
  */
 export interface ICryptoService {
   encrypt(plaintext: string): string;

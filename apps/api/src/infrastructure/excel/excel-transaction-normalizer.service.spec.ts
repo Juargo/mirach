@@ -3,12 +3,13 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ExcelTransactionNormalizerService } from './excel-transaction-normalizer.service';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
+import { Transaccion } from '../../domain/value-objects/transaccion';
 
 const FIXTURES = join(__dirname, '..', '..', '..', 'test', 'fixtures');
 
 async function workbookABuffer(wb: ExcelJS.Workbook): Promise<Buffer> {
   const arr = await wb.xlsx.writeBuffer();
-  return Buffer.from(arr as ArrayBuffer);
+  return Buffer.from(arr);
 }
 
 async function buildBancoEstadoWorkbook(
@@ -53,18 +54,22 @@ describe('ExcelTransactionNormalizerService', () => {
       expect(result.isOk()).toBe(true);
       const tx = result.getValue();
       expect(tx).toHaveLength(2);
-      expect(tx[0]).toEqual({
-        fecha: new Date(Date.UTC(2026, 3, 20)),
-        descripcion: 'PAGO QR',
-        cargo: 815,
-        abono: 0,
-      });
-      expect(tx[1]).toEqual({
-        fecha: new Date(Date.UTC(2026, 3, 19)),
-        descripcion: 'TRANSF RECIBIDA',
-        cargo: 0,
-        abono: 1500,
-      });
+      expect(tx[0]).toEqual(
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 3, 20)),
+          descripcion: 'PAGO QR',
+          cargo: 815n,
+          abono: 0n,
+        }).getValue(),
+      );
+      expect(tx[1]).toEqual(
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 3, 19)),
+          descripcion: 'TRANSF RECIBIDA',
+          cargo: 0n,
+          abono: 1500n,
+        }).getValue(),
+      );
     });
   });
 
@@ -75,8 +80,8 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(0);
-      expect(result.getValue()[0].abono).toBe(1000);
+      expect(result.getValue()[0].cargo).toBe(0n);
+      expect(result.getValue()[0].abono).toBe(1000n);
     });
 
     it('asigna 0 cuando el abono está vacío', async () => {
@@ -85,8 +90,8 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(500);
-      expect(result.getValue()[0].abono).toBe(0);
+      expect(result.getValue()[0].cargo).toBe(500n);
+      expect(result.getValue()[0].abono).toBe(0n);
     });
   });
 
@@ -97,7 +102,7 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(8103);
+      expect(result.getValue()[0].cargo).toBe(8103n);
     });
   });
 
@@ -108,7 +113,7 @@ describe('ExcelTransactionNormalizerService', () => {
       ]);
       const result = await service.normalize(buffer, BancoConocido.BancoEstado);
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()[0].cargo).toBe(815);
+      expect(result.getValue()[0].cargo).toBe(815n);
     });
   });
 
@@ -149,10 +154,10 @@ describe('ExcelTransactionNormalizerService', () => {
       const tx = result.getValue();
       expect(tx.length).toBeGreaterThan(0);
       for (const t of tx) {
-        expect(t.cargo).toBeGreaterThanOrEqual(0);
-        expect(t.abono).toBeGreaterThanOrEqual(0);
+        expect(t.cargo).toBeGreaterThanOrEqual(0n);
+        expect(t.abono).toBeGreaterThanOrEqual(0n);
         // Cargo y abono son mutuamente excluyentes
-        expect(t.cargo === 0 || t.abono === 0).toBe(true);
+        expect(t.cargo === 0n || t.abono === 0n).toBe(true);
       }
     });
 
@@ -163,8 +168,8 @@ describe('ExcelTransactionNormalizerService', () => {
       const tx = result.getValue();
       expect(tx.length).toBeGreaterThan(0);
       for (const t of tx) {
-        expect(t.cargo).toBeGreaterThanOrEqual(0);
-        expect(t.abono).toBeGreaterThanOrEqual(0);
+        expect(t.cargo).toBeGreaterThanOrEqual(0n);
+        expect(t.abono).toBeGreaterThanOrEqual(0n);
       }
     });
 

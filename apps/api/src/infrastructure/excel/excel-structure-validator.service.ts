@@ -2,7 +2,6 @@ import ExcelJS from 'exceljs';
 import { Result } from '../../shared/result';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoColumna } from '../../domain/value-objects/tipo-columna';
-import { ColumnaEsperada } from '../../domain/value-objects/columna-esperada';
 import {
   EstructuraInvalidaError,
   ProblemaEstructura,
@@ -32,7 +31,8 @@ const FORMATOS_FECHA = [
 ];
 
 /** Permite números con separador de miles (`.` o `,`) y decimales opcionales. */
-const PATRON_NUMERO = /^-?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?$|^-?\d+(?:[.,]\d+)?$/;
+const PATRON_NUMERO =
+  /^-?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?$|^-?\d+(?:[.,]\d+)?$/;
 
 /** Límite de filas a leer tras los encabezados — evita loops sobre hojas con miles de filas vacías. */
 const MAX_FILAS_DATOS = 10_000;
@@ -75,7 +75,6 @@ export class ExcelStructureValidatorService implements IStructureValidator {
 
     const workbook = new ExcelJS.Workbook();
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await workbook.xlsx.load(buffer as any);
     } catch {
       return Result.fail(
@@ -98,16 +97,24 @@ export class ExcelStructureValidatorService implements IStructureValidator {
 
     // 1. Fila de encabezados completamente vacía → SinEncabezados.
     const headerVacia = estructura.columnas.every(
-      (c) => (ws.getCell(`${c.letra}${estructura.filaEncabezados}`).text ?? '').trim() === '',
+      (c) =>
+        (
+          ws.getCell(`${c.letra}${estructura.filaEncabezados}`).text ?? ''
+        ).trim() === '',
     );
     if (headerVacia) {
-      problemas.push({ tipo: 'SinEncabezados', fila: estructura.filaEncabezados });
+      problemas.push({
+        tipo: 'SinEncabezados',
+        fila: estructura.filaEncabezados,
+      });
       return Result.fail(new EstructuraInvalidaError(banco, problemas));
     }
 
     // 2. Validar nombre de cada columna esperada (CA-01).
     for (const col of estructura.columnas) {
-      const encontrado = (ws.getCell(`${col.letra}${estructura.filaEncabezados}`).text ?? '').trim();
+      const encontrado = (
+        ws.getCell(`${col.letra}${estructura.filaEncabezados}`).text ?? ''
+      ).trim();
       if (encontrado !== col.nombre) {
         problemas.push({
           tipo: 'ColumnaFaltante',
@@ -132,7 +139,9 @@ export class ExcelStructureValidatorService implements IStructureValidator {
 
     for (let i = 0; i < MAX_FILAS_DATOS; i++) {
       const fila = primeraFilaDatos + i;
-      const refTexto = (ws.getCell(`${colReferencia.letra}${fila}`).text ?? '').trim();
+      const refTexto = (
+        ws.getCell(`${colReferencia.letra}${fila}`).text ?? ''
+      ).trim();
       if (refTexto === '') break;
       totalFilasDatos++;
 

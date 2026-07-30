@@ -200,7 +200,10 @@ export function normalizarTransaccionesPdf(
   const { prefijoParaFila, filasConsumidasComoPrefijo } =
     estructura.fusionarContinuaciones
       ? calcularPrefijosContinuacion(filasRelevantes, estructura.formatoFecha)
-      : { prefijoParaFila: new Map<number, string>(), filasConsumidasComoPrefijo: new Set<number>() };
+      : {
+          prefijoParaFila: new Map<number, string>(),
+          filasConsumidasComoPrefijo: new Set<number>(),
+        };
 
   const problemas: ProblemaEstructuraPdf[] = [];
   const candidatas: FilaCandidata[] = [];
@@ -292,12 +295,27 @@ export function normalizarTransaccionesPdf(
 
   const anios = resolverAnios(candidatas, estructura, periodo);
 
-  const transacciones: Transaccion[] = candidatas.map((c, i) => ({
-    fecha: new Date(Date.UTC(anios[i], c.mes - 1, c.dia)),
-    descripcion: c.descripcion,
-    cargo: c.cargo,
-    abono: c.abono,
-  }));
+  const transacciones: Transaccion[] = [];
+  for (let i = 0; i < candidatas.length; i++) {
+    const c = candidatas[i];
+    // El VO Transaccion protege el invariante en un único lugar (cargo XOR
+    // abono, montos enteros ≥ 0). Un fail aquí implica una fila con montos en
+    // AMBAS columnas o un negativo residual → estructura del PDF inválida.
+    const tx = Transaccion.crear({
+      fecha: new Date(Date.UTC(anios[i], c.mes - 1, c.dia)),
+      descripcion: c.descripcion,
+      cargo: BigInt(c.cargo),
+      abono: BigInt(c.abono),
+    });
+    if (tx.isFail()) {
+      return Result.fail(
+        new EstructuraPdfInvalidaError(estructura.banco, [
+          { tipo: 'MontoIleeible', fila: i, columna: 'cargo' },
+        ]),
+      );
+    }
+    transacciones.push(tx.getValue());
+  }
 
   return Result.ok(transacciones);
 }
@@ -380,7 +398,10 @@ function calcularPrefijosContinuacion(
     if (!esFragmento) continue; // fila fechada siguiente ya trae descripción completa
 
     const previo = prefijoParaFila.get(i + 1);
-    prefijoParaFila.set(i + 1, previo !== undefined ? `${previo} ${descTxt}` : descTxt);
+    prefijoParaFila.set(
+      i + 1,
+      previo !== undefined ? `${previo} ${descTxt}` : descTxt,
+    );
     filasConsumidasComoPrefijo.add(i);
   }
 

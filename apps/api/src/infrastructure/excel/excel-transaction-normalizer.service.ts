@@ -30,7 +30,9 @@ const MAX_FILAS_DATOS = 10_000;
 function parseMontoEntero(valor: string): number | null {
   const limpio = valor.trim().replace(/\s/g, '');
   if (limpio === '') return null;
-  if (!/^-?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?$|^-?\d+(?:[.,]\d+)?$/.test(limpio)) {
+  if (
+    !/^-?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?$|^-?\d+(?:[.,]\d+)?$/.test(limpio)
+  ) {
     return null;
   }
   // Quitamos signo, separadores de miles y parte decimal — solo importa el entero.
@@ -54,20 +56,30 @@ function parseFecha(valor: string): Date | null {
   let y: number, m: number, d: number;
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(limpio)) {
     const [dd, mm, yyyy] = limpio.split('/').map(Number);
-    d = dd; m = mm; y = yyyy;
+    d = dd;
+    m = mm;
+    y = yyyy;
   } else if (/^\d{4}-\d{2}-\d{2}$/.test(limpio)) {
     const [yyyy, mm, dd] = limpio.split('-').map(Number);
-    d = dd; m = mm; y = yyyy;
+    d = dd;
+    m = mm;
+    y = yyyy;
   } else if (/^\d{2}-\d{2}-\d{4}$/.test(limpio)) {
     const [dd, mm, yyyy] = limpio.split('-').map(Number);
-    d = dd; m = mm; y = yyyy;
+    d = dd;
+    m = mm;
+    y = yyyy;
   } else {
     return null;
   }
   // Validamos rango básico — Date acepta 31/02 silenciosamente.
   if (m < 1 || m > 12 || d < 1 || d > 31) return null;
   const dt = new Date(Date.UTC(y, m - 1, d));
-  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== m - 1 ||
+    dt.getUTCDate() !== d
+  ) {
     return null;
   }
   return dt;
@@ -111,7 +123,6 @@ export class ExcelTransactionNormalizerService implements ITransactionNormalizer
 
     const workbook = new ExcelJS.Workbook();
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await workbook.xlsx.load(buffer as any);
     } catch {
       return Result.fail(
@@ -140,7 +151,9 @@ export class ExcelTransactionNormalizerService implements ITransactionNormalizer
       const fechaTxt = (ws.getCell(`${mapeo.fecha}${fila}`).text ?? '').trim();
       if (fechaTxt === '') break;
 
-      const descripcion = (ws.getCell(`${mapeo.descripcion}${fila}`).text ?? '').trim();
+      const descripcion = (
+        ws.getCell(`${mapeo.descripcion}${fila}`).text ?? ''
+      ).trim();
       const cargoTxt = (ws.getCell(`${mapeo.cargo}${fila}`).text ?? '').trim();
       const abonoTxt = (ws.getCell(`${mapeo.abono}${fila}`).text ?? '').trim();
 
@@ -185,7 +198,25 @@ export class ExcelTransactionNormalizerService implements ITransactionNormalizer
         continue;
       }
 
-      transacciones.push({ fecha, descripcion, cargo, abono });
+      // El VO Transaccion protege el invariante en un único lugar (cargo XOR
+      // abono, montos enteros ≥ 0). El flujo previo ya filtró fechas/celdas
+      // vacías y no-enteros; un fail aquí implica montos en AMBAS columnas o
+      // un negativo residual → se reporta como problema de la fila.
+      const tx = Transaccion.crear({
+        fecha,
+        descripcion,
+        cargo: BigInt(cargo),
+        abono: BigInt(abono),
+      });
+      if (tx.isFail()) {
+        problemas.push({
+          tipo: 'MontoIninterpretable',
+          fila,
+          columna: mapeo.cargo,
+        });
+        continue;
+      }
+      transacciones.push(tx.getValue());
     }
 
     if (problemas.length > 0) {

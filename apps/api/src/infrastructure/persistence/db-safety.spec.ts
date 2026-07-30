@@ -30,7 +30,9 @@ describe('assertDestructiveDbAllowed', () => {
     delete process.env.ALLOW_DESTRUCTIVE_DB;
 
     expect(() =>
-      assertDestructiveDbAllowed({ connectionString: 'postgres://x@dev-host/db' }),
+      assertDestructiveDbAllowed({
+        connectionString: 'postgres://x@dev-host/db',
+      }),
     ).toThrow(/ALLOW_DESTRUCTIVE_DB/);
   });
 
@@ -38,7 +40,9 @@ describe('assertDestructiveDbAllowed', () => {
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
 
     expect(() =>
-      assertDestructiveDbAllowed({ connectionString: 'postgres://x@localhost:5432/postgres' }),
+      assertDestructiveDbAllowed({
+        connectionString: 'postgres://x@localhost:5432/postgres',
+      }),
     ).not.toThrow();
   });
 
@@ -46,7 +50,9 @@ describe('assertDestructiveDbAllowed', () => {
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
 
     expect(() =>
-      assertDestructiveDbAllowed({ connectionString: 'postgres://x@prod-db.example.com/production' }),
+      assertDestructiveDbAllowed({
+        connectionString: 'postgres://x@prod-db.example.com/production',
+      }),
     ).toThrow(/producción/);
   });
 
@@ -74,7 +80,8 @@ describe('assertDestructiveDbAllowed', () => {
 
     expect(() =>
       assertDestructiveDbAllowed({
-        connectionString: 'postgresql://postgres:PW@db.cpudmeahqjiuvpqvvizg.supabase.co:5432/postgres',
+        connectionString:
+          'postgresql://postgres:PW@db.cpudmeahqjiuvpqvvizg.supabase.co:5432/postgres',
       }),
     ).toThrow(/producción/);
   });
@@ -153,7 +160,9 @@ describe('assertDestructiveDbAllowed — allowProductionAck (opt-in explícito p
   it('permite la operación contra producción cuando el ack coincide exactamente y ALLOW_DESTRUCTIVE_DB=1, y emite un warning fuerte', () => {
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
     process.env[ACK.envVar] = ACK.expected;
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
 
     expect(() =>
       assertDestructiveDbAllowed({
@@ -199,14 +208,18 @@ describe('assertDestructiveDbAllowed — Supabase real (única BD del proyecto =
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
 
     expect(() =>
-      assertDestructiveDbAllowed({ connectionString: REAL_PROD_CONNECTION_STRING }),
+      assertDestructiveDbAllowed({
+        connectionString: REAL_PROD_CONNECTION_STRING,
+      }),
     ).toThrow(/producción/);
   });
 
   it('el opt-in allowProductionAck ahora SÍ se alcanza contra el pooler real y permite la operación con warning', () => {
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
     process.env[ACK.envVar] = ACK.expected;
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
 
     expect(() =>
       assertDestructiveDbAllowed({

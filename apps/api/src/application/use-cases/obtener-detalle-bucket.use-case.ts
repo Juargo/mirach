@@ -3,7 +3,10 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
-import { IDetalleBucketReader, DetalleBucketRow } from '../ports/detalle-bucket.port';
+import {
+  IDetalleBucketReader,
+  DetalleBucketRow,
+} from '../ports/detalle-bucket.port';
 
 /** Tipo de retorno del use case en caso de éxito. */
 export interface ObtenerDetalleBucketResult {
@@ -31,7 +34,12 @@ export class ObtenerDetalleBucketUseCase {
     userId: string;
     bucket: string; // raw path param
     periodo: string | undefined;
-  }): Promise<Result<ObtenerDetalleBucketResult, BucketInvalidoError | PeriodoInvalidoError>> {
+  }): Promise<
+    Result<
+      ObtenerDetalleBucketResult,
+      BucketInvalidoError | PeriodoInvalidoError
+    >
+  > {
     // 1. Validate :bucket against the Bucket enum first.
     if (!BUCKETS_VALIDOS.has(input.bucket)) {
       return Result.fail(new BucketInvalidoError(input.bucket));

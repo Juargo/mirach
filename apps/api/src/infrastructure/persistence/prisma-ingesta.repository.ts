@@ -7,7 +7,7 @@ import {
   CrearIngestaInput,
   IIngestaRepository,
 } from '../../application/ports/ingesta-repository.port';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 import { aPersistencia } from './transaccion.mapper';
 
 /**
@@ -20,7 +20,7 @@ import { aPersistencia } from './transaccion.mapper';
  */
 export class PrismaIngestaRepository implements IIngestaRepository {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaClient,
     private readonly crypto: ICryptoService,
   ) {}
 

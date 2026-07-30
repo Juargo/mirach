@@ -9,33 +9,41 @@ import {
 
 /** Fake reader — devuelve filas fijas y registra los argumentos de la llamada. */
 class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
-  llamadas: Array<{ accountId: string; fechaDesde: Date; fechaHasta: Date }> = [];
+  llamadas: Array<{ accountId: string; fechaDesde: Date; fechaHasta: Date }> =
+    [];
 
   constructor(
-    private readonly respuesta: Result<ReadonlyArray<TransaccionExistente>, PersistenciaFallidaError>,
+    private readonly respuesta: Result<
+      ReadonlyArray<TransaccionExistente>,
+      PersistenciaFallidaError
+    >,
   ) {}
 
   async buscarPorCuentaYRango(
     accountId: string,
     fechaDesde: Date,
     fechaHasta: Date,
-  ): Promise<Result<ReadonlyArray<TransaccionExistente>, PersistenciaFallidaError>> {
+  ): Promise<
+    Result<ReadonlyArray<TransaccionExistente>, PersistenciaFallidaError>
+  > {
     this.llamadas.push({ accountId, fechaDesde, fechaHasta });
     return this.respuesta;
   }
 }
 
 function makeTx(overrides: Partial<Transaccion> = {}): Transaccion {
-  return {
+  return Transaccion.crear({
     fecha: new Date('2026-07-01T00:00:00.000Z'),
     descripcion: 'COMPRA LIDER',
-    cargo: 5000,
-    abono: 0,
+    cargo: 5000n,
+    abono: 0n,
     ...overrides,
-  };
+  }).getValue();
 }
 
-function makeExistente(overrides: Partial<TransaccionExistente> = {}): TransaccionExistente {
+function makeExistente(
+  overrides: Partial<TransaccionExistente> = {},
+): TransaccionExistente {
   return {
     fecha: new Date('2026-07-01T00:00:00.000Z'),
     descripcion: 'COMPRA LIDER',
@@ -50,7 +58,10 @@ describe('DetectarDuplicadosUseCase — batch vacío', () => {
     const reader = new FakeTransaccionExistenteReader(Result.ok([]));
     const useCase = new DetectarDuplicadosUseCase(reader);
 
-    const result = await useCase.execute({ accountId: 'A1', transacciones: [] });
+    const result = await useCase.execute({
+      accountId: 'A1',
+      transacciones: [],
+    });
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual({ nuevas: [], duplicadas: 0 });
@@ -62,7 +73,10 @@ describe('DetectarDuplicadosUseCase — sin existentes', () => {
   it('reader retorna [] → todas nuevas, duplicadas: 0 (CA-04)', async () => {
     const reader = new FakeTransaccionExistenteReader(Result.ok([]));
     const useCase = new DetectarDuplicadosUseCase(reader);
-    const transacciones = [makeTx(), makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000 })];
+    const transacciones = [
+      makeTx(),
+      makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n }),
+    ];
 
     const result = await useCase.execute({ accountId: 'A1', transacciones });
 
@@ -79,8 +93,8 @@ describe('DetectarDuplicadosUseCase — solapamiento parcial (N de M)', () => {
     const useCase = new DetectarDuplicadosUseCase(reader);
 
     const duplicada = makeTx(); // matchea `existente`
-    const nueva1 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000 });
-    const nueva2 = makeTx({ descripcion: 'COMPRA UNIMARC', cargo: 7000 });
+    const nueva1 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n });
+    const nueva2 = makeTx({ descripcion: 'COMPRA UNIMARC', cargo: 7000n });
     const transacciones = [duplicada, nueva1, nueva2];
 
     const result = await useCase.execute({ accountId: 'A1', transacciones });
@@ -94,13 +108,19 @@ describe('DetectarDuplicadosUseCase — solapamiento parcial (N de M)', () => {
 describe('DetectarDuplicadosUseCase — solapamiento total', () => {
   it('todas las M ya existen → nuevas: [], duplicadas: M', async () => {
     const tx1 = makeTx();
-    const tx2 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000 });
+    const tx2 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n });
     const reader = new FakeTransaccionExistenteReader(
-      Result.ok([makeExistente(), makeExistente({ descripcion: 'COMPRA JUMBO', cargo: 3000n })]),
+      Result.ok([
+        makeExistente(),
+        makeExistente({ descripcion: 'COMPRA JUMBO', cargo: 3000n }),
+      ]),
     );
     const useCase = new DetectarDuplicadosUseCase(reader);
 
-    const result = await useCase.execute({ accountId: 'A1', transacciones: [tx1, tx2] });
+    const result = await useCase.execute({
+      accountId: 'A1',
+      transacciones: [tx1, tx2],
+    });
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue().nuevas).toEqual([]);
@@ -110,11 +130,16 @@ describe('DetectarDuplicadosUseCase — solapamiento total', () => {
 
 describe('DetectarDuplicadosUseCase — fallo conservador', () => {
   it('reader Result.fail → use case retorna fail (nada se persiste después)', async () => {
-    const error = new PersistenciaFallidaError('no se pudo consultar transacciones existentes');
+    const error = new PersistenciaFallidaError(
+      'no se pudo consultar transacciones existentes',
+    );
     const reader = new FakeTransaccionExistenteReader(Result.fail(error));
     const useCase = new DetectarDuplicadosUseCase(reader);
 
-    const result = await useCase.execute({ accountId: 'A1', transacciones: [makeTx()] });
+    const result = await useCase.execute({
+      accountId: 'A1',
+      transacciones: [makeTx()],
+    });
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
@@ -127,26 +152,44 @@ describe('DetectarDuplicadosUseCase — rango fecha del batch', () => {
     const useCase = new DetectarDuplicadosUseCase(reader);
 
     const temprana = makeTx({ fecha: new Date('2026-07-01T00:00:00.000Z') });
-    const tardia = makeTx({ fecha: new Date('2026-07-15T00:00:00.000Z'), descripcion: 'OTRA' });
-    const media = makeTx({ fecha: new Date('2026-07-10T00:00:00.000Z'), descripcion: 'MEDIA' });
+    const tardia = makeTx({
+      fecha: new Date('2026-07-15T00:00:00.000Z'),
+      descripcion: 'OTRA',
+    });
+    const media = makeTx({
+      fecha: new Date('2026-07-10T00:00:00.000Z'),
+      descripcion: 'MEDIA',
+    });
 
-    await useCase.execute({ accountId: 'A1', transacciones: [media, temprana, tardia] });
+    await useCase.execute({
+      accountId: 'A1',
+      transacciones: [media, temprana, tardia],
+    });
 
     expect(reader.llamadas.length).toBe(1);
     expect(reader.llamadas[0].accountId).toBe('A1');
-    expect(reader.llamadas[0].fechaDesde.getTime()).toBe(temprana.fecha.getTime());
-    expect(reader.llamadas[0].fechaHasta.getTime()).toBe(tardia.fecha.getTime());
+    expect(reader.llamadas[0].fechaDesde.getTime()).toBe(
+      temprana.fecha.getTime(),
+    );
+    expect(reader.llamadas[0].fechaHasta.getTime()).toBe(
+      tardia.fecha.getTime(),
+    );
   });
 });
 
 describe('DetectarDuplicadosUseCase — exactitud BigInt del dinero', () => {
   it('dos transacciones que difieren en 1 unidad de dinero NO son duplicadas (ambas nuevas)', async () => {
-    const reader = new FakeTransaccionExistenteReader(Result.ok([makeExistente({ cargo: 5000n })]));
+    const reader = new FakeTransaccionExistenteReader(
+      Result.ok([makeExistente({ cargo: 5000n })]),
+    );
     const useCase = new DetectarDuplicadosUseCase(reader);
 
-    const casiIgual = makeTx({ cargo: 5001 });
+    const casiIgual = makeTx({ cargo: 5001n });
 
-    const result = await useCase.execute({ accountId: 'A1', transacciones: [casiIgual] });
+    const result = await useCase.execute({
+      accountId: 'A1',
+      transacciones: [casiIgual],
+    });
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue().nuevas).toEqual([casiIgual]);

@@ -1,7 +1,7 @@
 # render.yaml — Blueprint de despliegue del backend MoneyDiary (ADR-004).
 #
-# Despliega apps/api (NestJS) como Web Service en Render, apuntando a la BD
-# Supabase (ADR-002). El frontend web/mobile NO se despliegan aquí.
+# Despliega apps/api (Express — ADR-028) como Web Service en Render, apuntando
+# a la BD Supabase (ADR-002). El frontend web/mobile NO se despliegan aquí.
 #
 # Cómo usarlo:
 #   1. En Render → New → Blueprint → conectar el repo Juargo/MoneyDiary.
@@ -11,7 +11,7 @@
 #
 # Seguridad: los 3 secretos van con `sync:false` — NO se commitean; se cargan
 # a mano en el dashboard de Render. API_KEY protege todos los endpoints salvo
-# el health check (ApiKeyGuard, fail-closed).
+# el health check (apiKeyMiddleware, fail-closed).
 
 services:
   - type: web
@@ -23,7 +23,7 @@ services:
     # El repo es un monorepo pnpm; se instala y construye desde la raíz.
     rootDir: .
     # `rm -rf apps/api/dist` runs after Render restores its build cache and
-    # before nest build: it guarantees the deployed dist is exactly what THIS
+    # before the TypeScript build: it guarantees the deployed dist is exactly what THIS
     # build compiled, never a stale/partial dist left in the cache by a prior
     # (possibly failed) build. A cached dist once shipped without a new route
     # despite the source being correct — this makes the output cache-proof.
@@ -34,11 +34,45 @@ services:
       pnpm --filter @moneydiary/api exec prisma generate &&
       pnpm --filter @moneydiary/api build
     startCommand: pnpm --filter @moneydiary/api start:prod
-    # Health check público (AppController @Public) — sin API key.
+    # Health check público (ruta Express `GET /`, fuera de /api) — sin API key.
     healthCheckPath: /
+    # Hybrid CD (versioning-release-automation, Slice D): rebuild only when
+    # something that can affect this service actually changed — a web/landing/
+    # mobile-only commit no longer triggers an api deploy. Glob paths are
+    # ALWAYS relative to the repo root (monorepo), never to `rootDir` above —
+    # verified against Render's live Blueprint spec docs (CONFIRM-AT-APPLY
+    # resolved, see apply-progress). `pnpm-lock.yaml`/`pnpm-workspace.yaml`/
+    # this file itself stay in `paths` because they can change api's runtime
+    # even without touching `apps/api/**`. `ignoredPaths` narrows within an
+    # already-matched path (e.g. a `.spec.ts`-only change under `apps/api/`
+    # still skips the rebuild).
+    buildFilter:
+      paths:
+        - apps/api/**
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        # Root files that change how the API is built/secured but live outside
+        # apps/api: package.json pins packageManager (the pnpm version corepack
+        # resolves in buildCommand); .npmrc holds the supply-chain knobs
+        # (minimum-release-age, audit-level — ADR-006/021). A change to either
+        # must redeploy, or prod silently keeps running a stale build.
+        - package.json
+        - .npmrc
+        - render.yaml
+      ignoredPaths:
+        - apps/api/**/*.spec.ts
+        - apps/api/test/**
+        - apps/api/**/*.md
     envVars:
       - key: NODE_VERSION
         value: "22.22.3"
+      # ADR-029: env.ts's superRefine only enforces the production rules
+      # (COOKIE_SECURE=true, Supabase host, ALLOW_DESTRUCTIVE_DB absent) when
+      # NODE_ENV === 'production'. Render does NOT set this implicitly, so it
+      # must be explicit here — otherwise the loose 'development' defaults
+      # apply in prod (localhost fail-fast off, destructive-DB rule off).
+      - key: NODE_ENV
+        value: "production"
       # Pooler transaction-mode (IPv4) de Supabase — la app en runtime.
       - key: DATABASE_URL
         sync: false
@@ -49,17 +83,28 @@ services:
       #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
       - key: API_KEY
         sync: false
-      # Fuerza el flag `Secure` en la cookie de sesión en producción sin
-      # depender de que Render setee NODE_ENV=production implícitamente
-      # (ver cookie.ts → shouldBeSecure). Es un valor no secreto.
+      # Fuerza el flag `Secure` en la cookie de sesión. Con NODE_ENV=production
+      # ya seteado arriba, app.ts la deriva igual (cookieSecure = NODE_ENV
+      # === 'production' || COOKIE_SECURE) — queda explícita acá como
+      # belt-and-suspenders y porque env.ts (ADR-029) exige COOKIE_SECURE=true
+      # en producción vía superRefine. Es un valor no secreto.
       - key: COOKIE_SECURE
         value: "true"
       # Rate limiter de login (AUTH-08) — valores por defecto explícitos.
-      # El parseo es fail-closed: si alguno queda vacío/no-numérico/≤0, la
-      # API no arranca (ver login-rate-limiter.ts → readRateLimitConfigFromEnv).
+      # El parseo es fail-closed vía env.ts (ADR-029): si alguno queda
+      # vacío/no-numérico/≤0, la API no arranca (Zod coerce + superRefine).
       - key: LOGIN_RATELIMIT_MAX_EMAIL
         value: "5"
       - key: LOGIN_RATELIMIT_MAX_IP
         value: "20"
       - key: LOGIN_RATELIMIT_WINDOW_MS
         value: "900000"
+      # CORS allowlist (ADR-029): orígenes de navegador autorizados a leer el
+      # `GET /version` público cross-origin que consume el web. NO es secreto
+      # —son orígenes públicos—, por eso va versionado como `value:` (no
+      # `sync:false`). Es una allowlist EXACTA, jamás "*".
+      #   - https://app.moneydiary.cl        → dominio propio del web (canónico)
+      #   - https://money-diary-web.vercel.app → alias de Vercel (respaldo/transición)
+      # Ampliar con coma si se agrega otro origen de navegador.
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://app.moneydiary.cl,https://money-diary-web.vercel.app"

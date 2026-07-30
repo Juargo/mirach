@@ -32,13 +32,14 @@
  *     A's userId (never a fixed/default user)
  *   - POST /api/ingestas with valid x-api-key but NO session → 401
  */
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
 import { join } from 'path';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
@@ -58,9 +59,8 @@ const CURRENT_PERIODO = `${CURRENT_YEAR}-${CURRENT_MONTH}`;
 const MID_MONTH_DATE = new Date(Date.UTC(CURRENT_YEAR, NOW.getUTCMonth(), 10));
 
 describe('Cross-user isolation (integration) — auth-rewired data endpoints (ISO-01, ISO-02)', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
 
   let userIdA: string;
   let userIdB: string;
@@ -78,12 +78,10 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
   beforeAll(async () => {
     if (!ALLOW) return;
 
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     const userA = await prisma.user.create({
@@ -187,12 +185,14 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
 
     // Log in as A ONCE — the same login response gives us both transports:
     // the Set-Cookie header AND the body token for Authorization: Bearer.
-    const loginRes = await request(app.getHttpServer())
+    const loginRes = await request(app)
       .post('/api/auth/login')
       .set('x-api-key', API_KEY)
       .send({ email: EMAIL_A, password: PASSWORD })
       .expect(200);
-    const rawCookie = (loginRes.headers['set-cookie'] as unknown as string[])[0]!;
+    const rawCookie = (
+      loginRes.headers['set-cookie'] as unknown as string[]
+    )[0];
     cookieA = rawCookie.split(';')[0]!;
     tokenA = loginRes.body.token;
   });
@@ -224,13 +224,13 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     await prisma.user.deleteMany({
       where: { id: { in: [userIdA, userIdB] } },
     });
-    await app.close();
+    await prisma.$disconnect();
   });
 
   it("GET /api/resumen (cookie): returns only A's totals, never B's (ISO-02)", async () => {
     if (!ALLOW) return;
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieA)
@@ -243,10 +243,10 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     expect(necesidades.total).toBe('200000');
   });
 
-  it("GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)", async () => {
+  it('GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)', async () => {
     if (!ALLOW) return;
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .set('Authorization', `Bearer ${tokenA}`)
@@ -258,7 +258,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
   it('GET /api/resumen: valid x-api-key but NO session (neither cookie nor Bearer) → 401 — no keyless fallback (ISO-01)', async () => {
     if (!ALLOW) return;
 
-    await request(app.getHttpServer())
+    await request(app)
       .get(`/api/resumen?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .expect(401);
@@ -267,7 +267,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
   it("GET /api/movimientos (cookie): returns only A's transactions, B's rows never appear (ISO-02)", async () => {
     if (!ALLOW) return;
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/movimientos?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieA)
@@ -283,7 +283,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
   it("GET /api/buckets/Necesidades (cookie): returns only A's bucket detail, B's rows never appear (ISO-02)", async () => {
     if (!ALLOW) return;
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .get(`/api/buckets/Necesidades?periodo=${CURRENT_PERIODO}`)
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieA)
@@ -299,7 +299,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
   it("POST /api/ingestas (cookie): the created Account is scoped to A's userId, never a fixed/default user (ISO-01/02)", async () => {
     if (!ALLOW) return;
 
-    const res = await request(app.getHttpServer())
+    const res = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieA)
@@ -322,7 +322,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
   it('POST /api/ingestas: valid x-api-key but NO session → 401, upload never processed (ISO-01)', async () => {
     if (!ALLOW) return;
 
-    await request(app.getHttpServer())
+    await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
       .attach('file', xlsxFixture, `iso-noauth-${RUN_ID}.xlsx`)

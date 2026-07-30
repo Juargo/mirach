@@ -1,10 +1,8 @@
 import { Result } from '../../shared/result';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
-import {
-  DetectedBank,
-} from '../../application/ports/bank-detector.port';
+import { DetectedBank } from '../../application/ports/bank-detector.port';
 import { IAccountRepository } from '../../application/ports/account-repository.port';
-import { PrismaService } from './prisma.service';
+import type { PrismaClient } from '@prisma/client';
 
 /**
  * PrismaAccountRepository — implementación Prisma del upsert idempotente de
@@ -14,7 +12,7 @@ import { PrismaService } from './prisma.service';
  * Convierte errores de infraestructura en Result.fail(PersistenciaFallidaError).
  */
 export class PrismaAccountRepository implements IAccountRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaClient) {}
 
   async ensure(
     userId: string,

@@ -1,10 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
+import type { Express } from 'express';
+import type { PrismaClient } from '@prisma/client';
 import { join } from 'path';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/infrastructure/persistence/prisma.service';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
+import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
+import { loadEnv, type Env } from '../src/config/env';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 
 const RUN_ID = `e2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
@@ -24,9 +27,10 @@ const API_KEY = process.env.API_KEY ?? '';
  * ambigüedad (en vez de "la más reciente con este nombre").
  */
 describe('IngestaController (e2e) — POST /api/ingestas', () => {
-  let app: INestApplication<App>;
-  let moduleFixture: TestingModule;
-  let prisma: PrismaService;
+  let app: Express;
+  let prisma: PrismaClient;
+  let sesion: Sesion;
+  let env: Env;
 
   const fixturesDir = join(__dirname, 'fixtures');
   const xlsxFixture = join(fixturesDir, 'movimientos-test.xlsx');
@@ -35,22 +39,20 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   const createdIngestaIds: string[] = [];
 
   beforeEach(async () => {
-    moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    prisma = moduleFixture.get(PrismaService);
+    env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
+    sesion = await loginAsSeededUser(app);
   });
 
   afterEach(async () => {
-    await app.close();
+    await prisma.$disconnect();
   });
 
   afterAll(async () => {
     if (createdIngestaIds.length === 0) return;
-    const cleanupPrisma = new PrismaService();
+    const cleanupPrisma = createPrismaClient(loadEnv());
     await cleanupPrisma.$connect();
     await cleanupPrisma.transaccion.deleteMany({
       where: { ingestaId: { in: createdIngestaIds } },
@@ -64,9 +66,10 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   it('acepta un archivo .xlsx válido, lo persiste vía ProcessIngestaUseCase y retorna el contrato HTTP completo', async () => {
     const nombreArchivo = `movimientos-${RUN_ID}-ok.xlsx`;
 
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', xlsxFixture, nombreArchivo)
       .expect(200);
 
@@ -119,11 +122,19 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       abono: string;
     }) => `${t.fecha}|${t.descripcion}|${t.cargo}|${t.abono}`;
     const enRespuesta = response.body.transacciones.map(canon).sort();
+    // ADR-013: `descripcion` se persiste cifrada (AES-256-GCM). Leer la fila
+    // cruda devuelve ciphertext `v1:...`, así que hay que descifrarla con la
+    // misma clave (ENCRYPTION_KEY de env) para comparar contra la respuesta
+    // HTTP, que ya viene descifrada. Esto prueba el round-trip completo:
+    // el valor almacenado descifra de vuelta a lo que devuelve la API.
+    const crypto = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
     const enBd = filas
       .map((f) =>
         canon({
           fecha: f.fecha.toISOString(),
-          descripcion: f.descripcion,
+          descripcion: crypto.decrypt(f.descripcion),
           cargo: f.cargo.toString(),
           abono: f.abono.toString(),
         }),
@@ -133,9 +144,10 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   });
 
   it('rechaza un archivo .xls con 400 (falla en IngestFile, antes de crear ninguna Ingesta)', async () => {
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .attach('file', xlsFixture)
       .expect(400);
 
@@ -143,9 +155,10 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   });
 
   it('retorna 400 cuando no se envía archivo', async () => {
-    const response = await request(app.getHttpServer())
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
+      .set('Cookie', sesion.cookie)
       .expect(400);
 
     expect(response.body.message).toMatch(/archivo/i);
@@ -169,9 +182,10 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       );
 
     try {
-      const response = await request(app.getHttpServer())
+      const response = await request(app)
         .post('/api/ingestas')
         .set('x-api-key', API_KEY)
+        .set('Cookie', sesion.cookie)
         .attach('file', xlsxFixture, nombreArchivo)
         .expect(500);
 

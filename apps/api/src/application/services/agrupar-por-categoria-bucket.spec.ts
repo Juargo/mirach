@@ -17,8 +17,16 @@ describe('agruparPorCategoriaBucket()', () => {
 
   it('groups ids with the same (categoria, bucket) into a single group', () => {
     const grupos = agruparPorCategoriaBucket([
-      { id: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-      { id: 'tx-2', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+      {
+        id: 'tx-1',
+        categoria: Categoria.Supermercado,
+        bucket: Bucket.Necesidades,
+      },
+      {
+        id: 'tx-2',
+        categoria: Categoria.Supermercado,
+        bucket: Bucket.Necesidades,
+      },
     ]);
 
     expect(grupos).toHaveLength(1);
@@ -34,13 +42,25 @@ describe('agruparPorCategoriaBucket()', () => {
     // different categorías and must stay in separate groups (distinct
     // categoriaId), even though bucket is identical for both.
     const grupos = agruparPorCategoriaBucket([
-      { id: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-      { id: 'tx-2', categoria: Categoria.Combustible, bucket: Bucket.Necesidades },
+      {
+        id: 'tx-1',
+        categoria: Categoria.Supermercado,
+        bucket: Bucket.Necesidades,
+      },
+      {
+        id: 'tx-2',
+        categoria: Categoria.Combustible,
+        bucket: Bucket.Necesidades,
+      },
     ]);
 
     expect(grupos).toHaveLength(2);
-    const supermercado = grupos.find((g) => g.categoria === Categoria.Supermercado);
-    const combustible = grupos.find((g) => g.categoria === Categoria.Combustible);
+    const supermercado = grupos.find(
+      (g) => g.categoria === Categoria.Supermercado,
+    );
+    const combustible = grupos.find(
+      (g) => g.categoria === Categoria.Combustible,
+    );
     expect(supermercado?.ids).toEqual(['tx-1']);
     expect(combustible?.ids).toEqual(['tx-2']);
   });
@@ -55,7 +75,11 @@ describe('agruparPorCategoriaBucket()', () => {
     expect(grupos).toHaveLength(2);
     const ingreso = grupos.find((g) => g.bucket === Bucket.Ingreso);
     const sinCategoria = grupos.find((g) => g.bucket === Bucket.SinCategoria);
-    expect(ingreso).toEqual({ categoria: null, bucket: Bucket.Ingreso, ids: ['tx-1', 'tx-2'] });
+    expect(ingreso).toEqual({
+      categoria: null,
+      bucket: Bucket.Ingreso,
+      ids: ['tx-1', 'tx-2'],
+    });
     expect(sinCategoria).toEqual({
       categoria: null,
       bucket: Bucket.SinCategoria,

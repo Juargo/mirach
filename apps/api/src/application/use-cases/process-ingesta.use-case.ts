@@ -331,10 +331,11 @@ export class ProcessIngestaUseCase {
       // 5. Escribir categoría+bucket en BD, atómico por fila (fallo → deja
       // null, log + continúa). ingestaId threads through for structural
       // scope isolation (RNF-SEC-006).
-      const writeResult = await this.transaccionBucketWriter.asignarCategorizacion(
-        ingestaId,
-        asignaciones,
-      );
+      const writeResult =
+        await this.transaccionBucketWriter.asignarCategorizacion(
+          ingestaId,
+          asignaciones,
+        );
       if (writeResult.isFail()) {
         console.error(
           '[ProcessIngestaUseCase] No se pudieron escribir los buckets (degradando):',

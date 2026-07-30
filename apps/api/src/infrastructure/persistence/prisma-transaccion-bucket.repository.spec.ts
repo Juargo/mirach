@@ -1,6 +1,6 @@
 import type { Mock } from 'vitest';
 import { PrismaTransaccionBucketRepository } from './prisma-transaccion-bucket.repository';
-import { PrismaService } from './prisma.service';
+import { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
@@ -21,7 +21,7 @@ function makePrismaMock(throws?: Error) {
   return {
     transaccion: { updateMany },
     $transaction: transaction,
-  } as unknown as PrismaService;
+  } as unknown as PrismaClient;
 }
 
 describe('PrismaTransaccionBucketRepository', () => {
@@ -45,13 +45,21 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const ingestaId = 'ingesta-abc-123';
       const asignaciones = [
-        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-2', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        {
+          transaccionId: 'tx-1',
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
+        {
+          transaccionId: 'tx-2',
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
         { transaccionId: 'tx-3', categoria: null, bucket: Bucket.Ingreso },
       ];
 
@@ -94,18 +102,41 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [
-        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-2', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-3', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-4', categoria: Categoria.Streaming, bucket: Bucket.Deseos },
-        { transaccionId: 'tx-5', categoria: Categoria.Streaming, bucket: Bucket.Deseos },
+        {
+          transaccionId: 'tx-1',
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
+        {
+          transaccionId: 'tx-2',
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
+        {
+          transaccionId: 'tx-3',
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
+        {
+          transaccionId: 'tx-4',
+          categoria: Categoria.Streaming,
+          bucket: Bucket.Deseos,
+        },
+        {
+          transaccionId: 'tx-5',
+          categoria: Categoria.Streaming,
+          bucket: Bucket.Deseos,
+        },
       ];
 
-      const result = await repo.asignarCategorizacion('ingesta-xyz', asignaciones);
+      const result = await repo.asignarCategorizacion(
+        'ingesta-xyz',
+        asignaciones,
+      );
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue().actualizadas).toBe(5);
@@ -119,25 +150,35 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       // Supermercado and Combustible both derive to Necesidades — but they are
       // DIFFERENT categorías and must be written as separate groups (distinct
       // categoriaId), even though bucketId is identical for both.
       const asignaciones = [
-        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
-        { transaccionId: 'tx-2', categoria: Categoria.Combustible, bucket: Bucket.Necesidades },
+        {
+          transaccionId: 'tx-1',
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
+        {
+          transaccionId: 'tx-2',
+          categoria: Categoria.Combustible,
+          bucket: Bucket.Necesidades,
+        },
       ];
 
       await repo.asignarCategorizacion('ingesta-1', asignaciones);
 
       expect(updateMany).toHaveBeenCalledTimes(2);
       const supermercadoCall = updateMany.mock.calls.find(
-        (call) => call[0].data.categoriaId === CATEGORIA_IDS[Categoria.Supermercado],
+        (call) =>
+          call[0].data.categoriaId === CATEGORIA_IDS[Categoria.Supermercado],
       );
       const combustibleCall = updateMany.mock.calls.find(
-        (call) => call[0].data.categoriaId === CATEGORIA_IDS[Categoria.Combustible],
+        (call) =>
+          call[0].data.categoriaId === CATEGORIA_IDS[Categoria.Combustible],
       );
       expect(supermercadoCall![0].where.id.in).toEqual(['tx-1']);
       expect(combustibleCall![0].where.id.in).toEqual(['tx-2']);
@@ -148,10 +189,17 @@ describe('PrismaTransaccionBucketRepository', () => {
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [
-        { transaccionId: 'tx-1', categoria: Categoria.Supermercado, bucket: Bucket.Necesidades },
+        {
+          transaccionId: 'tx-1',
+          categoria: Categoria.Supermercado,
+          bucket: Bucket.Necesidades,
+        },
       ];
 
-      const result = await repo.asignarCategorizacion('ingesta-1', asignaciones);
+      const result = await repo.asignarCategorizacion(
+        'ingesta-1',
+        asignaciones,
+      );
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
@@ -168,7 +216,10 @@ describe('PrismaTransaccionBucketRepository', () => {
       await expect(
         repo.asignarCategorizacion('ingesta-1', asignaciones),
       ).resolves.toBeDefined();
-      const result = await repo.asignarCategorizacion('ingesta-1', asignaciones);
+      const result = await repo.asignarCategorizacion(
+        'ingesta-1',
+        asignaciones,
+      );
       expect(result.isFail()).toBe(true);
     });
 
@@ -180,11 +231,15 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       await repo.asignarCategorizacion('ingesta-scope-test', [
-        { transaccionId: 'tx-1', categoria: Categoria.Ahorro, bucket: Bucket.Ahorro },
+        {
+          transaccionId: 'tx-1',
+          categoria: Categoria.Ahorro,
+          bucket: Bucket.Ahorro,
+        },
       ]);
 
       expect(updateMany).toHaveBeenCalledWith({
@@ -204,7 +259,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       const prisma = {
         transaccion: { updateMany },
         $transaction: txFn,
-      } as unknown as PrismaService;
+      } as unknown as PrismaClient;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       await repo.asignarCategorizacion('ingesta-1', [

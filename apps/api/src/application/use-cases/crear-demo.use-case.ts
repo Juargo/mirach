@@ -19,7 +19,9 @@ export interface CrearDemoUseCaseResult {
  * declarar cada dependencia directa — ADR-006/CLAUDE.md — y esto evita sumar
  * una solo para un sufijo cosmético).
  */
-export function generarNombreDemo(sufijo: string = randomBytes(6).toString('hex')): string {
+export function generarNombreDemo(
+  sufijo: string = randomBytes(6).toString('hex'),
+): string {
   return `Demo-${sufijo}`;
 }
 
@@ -50,7 +52,11 @@ export class CrearDemoUseCase {
     const { token, tokenHash } = this.tokens.generar();
     const expiresAt = calcularExpiracion(this.reloj.ahora());
 
-    const { userId } = await this.demoRepo.crear({ nombre, tokenHash, expiresAt });
+    const { userId } = await this.demoRepo.crear({
+      nombre,
+      tokenHash,
+      expiresAt,
+    });
 
     return { token, userId, expiresAt };
   }
