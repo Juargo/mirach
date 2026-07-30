@@ -1,0 +1,144 @@
+---
+tags:
+  - adr
+  - fase-diseño
+  - toolchain
+  - seguridad
+  - devsecops
+proyecto: MoneyDiary
+estado: ✅ Decidido
+fecha_creacion: 2026-07-12
+fecha_actualizacion: 2026-07-12
+---
+
+# ADR-021 — Análisis automatizado de seguridad en el pipeline (SCA + DAST + SAST + secretos)
+
+## Estado
+
+✅ **Decidido** — herramientas OSS/gratuitas sobre GitHub Actions (ADR-004 Hosting y Despliegue). Se aplican en `apps/api` y `apps/web` con el MVP; `apps/mobile` se suma al scaffoldearse (post-MVP, ADR-010 App Mobile).
+
+---
+
+## Contexto
+
+MoneyDiary maneja datos financieros (montos, RUT, cuentas, tokens) y tiene la seguridad como valor central. Hoy las verificaciones de seguridad son mayormente **manuales**: `pnpm audit` a mano, el checklist de peer review de ADR-015 Técnicas de Verificación de Requisitos y las defensas de instalación de ADR-006 Package Manager (`minimum-release-age`, `block-exotic-subdeps`, `overrides`). No hay **análisis automatizado en CI** que bloquee un merge por una dependencia vulnerable, un endpoint inseguro, un patrón de código riesgoso o un secreto commiteado.
+
+Se decide incorporar **análisis automatizado en el pipeline** cubriendo cuatro capas complementarias, todas con herramientas **open source / gratuitas** integradas en **GitHub Actions**:
+
+1. **SCA** (dependencias) — vulnerabilidades y supply-chain.
+2. **DAST** (endpoints) — la API corriendo, dirigido por el contrato OpenAPI.
+3. **SAST** (código) — patrones inseguros en el fuente.
+4. **Secret scanning** — credenciales/tokens que no deben commitearse.
+
+**Habilitador clave:** el **contrato OpenAPI** (ADR-011 Contrato-first OpenAPI) permite escaneo de endpoints *dirigido por el esquema* (importar `openapi.json` y derivar los casos), en vez de configurar rutas a mano.
+
+**Principio rector:** ninguna capa sola basta; se combinan. Y —crucial— **estas herramientas son gates de CI, no un sustituto** de los tests de aislamiento por `user_id` ni del peer review de ADR-015 Técnicas de Verificación de Requisitos.
+
+---
+
+## Dos límites que la decisión fija de entrada
+
+1. **El DAST necesita la app corriendo → NUNCA contra Supabase real.** El escaneo activo fuzzea endpoints y **muta/contamina datos**. Debe correr contra un **entorno efímero con BD de test** (levantado en el job de CI), igual que el e2e de `api` (mismo riesgo ya identificado en los quality gates). Apuntarlo a producción o a la BD real está prohibido.
+
+2. **La autorización a nivel de objeto (BOLA/IDOR — OWASP API #1) NO la detecta bien el DAST genérico.** El aislamiento por `user_id` (RNF-SEC-006) se verifica con **tests de integración dedicados** (ADR-015 Técnicas de Verificación de Requisitos), no con ZAP. El DAST **complementa**; no reemplaza esos tests.
+
+---
+
+## Opciones Evaluadas (por capa, filosofía OSS/gratis-first)
+
+### Capa 1 — SCA (dependencias)
+
+- **Dependabot** ✅ — gratis y nativo de GitHub; alertas + **PRs automáticos de parche**. Es el "arreglar". No hace reachability ni SBOM, pero cubre el loop de actualización sin coste.
+- **`pnpm audit --audit-level=high` como job de CI** ✅ — convierte la auditoría manual de ADR-006 Package Manager en **gate bloqueante**. Es el "hacer cumplir".
+- **Socket.dev (GitHub App, free tier)** ✅ opcional-recomendado — detecta **paquetes maliciosos por comportamiento** (install scripts, exfiltración), no solo CVEs. Encaja de lleno con la postura anti-supply-chain del proyecto y va más allá del heurístico de edad.
+- **Trivy** (OSS) — diagnóstico profundo + SBOM; se deja como opción para generar SBOM si se requiere, no como gate primario.
+- **Snyk** — descartado como primario: su valor (BD propia, reachability) vive tras plan de pago; contradice el criterio gratis-first.
+
+### Capa 2 — DAST (endpoints, dirigido por OpenAPI)
+
+- **OWASP ZAP – API Scan** ✅ (GitHub Action) — importa `openapi.json`, fuzzea contra el OWASP API Top 10 (inyección, headers, auth, misconfig). Perfil *baseline* (rápido, en cada PR) + *full/active* (semanal, más lento).
+- **Schemathesis** ✅ (OSS) — tests **property-based** generados desde el OpenAPI; encuentra edge-cases y rupturas de contrato. Encaja con el enfoque contract-first (ADR-011 Contrato-first OpenAPI) y corre como test más.
+- **Escaneo estático del `openapi.json`** (p. ej. 42Crunch free / reglas propias) — barato, detecta problemas en el **propio contrato** antes de levantar la app.
+- **StackHawk** — descartado como primario (SaaS free-tier) por la elección gratis-first; ZAP cubre lo mismo con más configuración.
+
+### Capa 3 — SAST (código)
+
+- **Semgrep (OSS)** ✅ — reglas para inyección, authz, secretos hardcodeados, malas prácticas TS/Node/React; **gratis vía CLI/Action también en repos privados**. Elegido como SAST primario.
+- **CodeQL** ✅ condicional — gratis y nativo **si el repo es público** (o si se dispone de GitHub Advanced Security). Añadirlo cuando aplique; si el repo es privado sin GHAS, quedarse con Semgrep.
+- **Bearer** — alternativa OSS enfocada a flujos de datos sensibles/PII; se menciona como candidata futura (útil por el perfil financiero).
+
+### Capa 4 — Secret scanning
+
+- **gitleaks (OSS)** ✅ — detecta credenciales/tokens en el código y el historial; corre como **job de CI** y, opcionalmente, como **hook pre-commit** (ADR-020 Git Hooks Husky Monorepo) para atajar el secreto antes del commit.
+- **GitHub secret scanning + push protection** ✅ condicional — gratis en repos públicos; activarlo si aplica. En privado sin GHAS, gitleaks es la vía gratis.
+
+---
+
+## Decisión
+
+**Cuatro capas OSS/gratuitas en GitHub Actions, ubicadas según su coste de ejecución:**
+
+| Capa | Herramienta (elegida) | Rol |
+|---|---|---|
+| **SCA** | Dependabot + `pnpm audit --audit-level=high` (+ Socket.dev opcional) | Parche automático + gate de vulnerabilidades + supply-chain |
+| **DAST** | OWASP ZAP API scan + Schemathesis (desde `openapi.json`) | Fuzzing de endpoints contra entorno efímero |
+| **SAST** | Semgrep (CodeQL si el repo es público/GHAS) | Patrones inseguros en el código |
+| **Secretos** | gitleaks (+ GitHub secret scanning si público) | Credenciales/tokens fuera del repo |
+
+### Ubicación en el pipeline
+
+| Momento | Qué corre | Por qué ahí |
+|---|---|---|
+| **pre-commit** (local, ADR-020) | gitleaks (rápido) | Atajar el secreto antes de que entre al historial |
+| **En cada PR** (CI) | `pnpm audit` gate · Semgrep · gitleaks (full) · ZAP *baseline* + Schemathesis contra **entorno efímero** | Feedback por PR sin penalizar demasiado |
+| **Programado** (nightly/weekly) | Dependabot (updates) · ZAP *full/active scan* | Escaneos lentos fuera del camino crítico |
+| **Gate real** | Todo lo anterior en CI + tests de aislamiento `user_id` + peer review | La seguridad no depende de hooks locales (ADR-020 Git Hooks Husky Monorepo) |
+
+### Reglas de severidad (evitar el ruido)
+
+- **Bloquean el merge:** vulnerabilidades `high`/`critical` de SCA, hallazgos `high` de SAST, cualquier secreto detectado, y fallos de contrato/`5xx` inesperados del DAST.
+- **Advierten (no bloquean):** `moderate`/`low`, para no ahogar a un solo desarrollador en falsos positivos. Se triagean, no se ignoran.
+- Los umbrales se afinan; empezar estricto en secretos y dinero, tolerante en el resto (coherente con el énfasis risk-based de ADR-015 Técnicas de Verificación de Requisitos).
+
+---
+
+## Consecuencias
+
+**Positivas:**
+
+- **DevSecOps real y a coste cero:** las cuatro capas corren en GitHub Actions sin licencias, coherente con el proyecto TFM.
+- **Automatiza lo que hoy es manual:** `pnpm audit`, revisión de secretos y patrones inseguros pasan de "acuerdo/checklist" a **gate ejecutable**.
+- **Aprovecha el contrato OpenAPI:** el DAST se dirige solo desde `openapi.json` — sinergia directa con ADR-011 Contrato-first OpenAPI.
+- **Supply-chain reforzado:** Dependabot + Socket.dev cubren tanto CVEs conocidas como paquetes maliciosos, extendiendo las defensas de instalación de ADR-006 Package Manager al tiempo de ejecución del pipeline.
+- **Defensa en capas:** secretos atajados en pre-commit y re-verificados en CI; dependencias en install-time (ADR-006) y en CI.
+
+**A tener en cuenta:**
+
+- **El DAST exige un entorno efímero con BD de test** (nunca Supabase real). Montar ese job es trabajo de CI no trivial; hasta tenerlo, el DAST activo queda deshabilitado (no se apunta a la BD real "provisionalmente").
+- **BOLA/IDOR no lo cubre el DAST:** el aislamiento por `user_id` se sigue verificando con tests de integración (ADR-015 Técnicas de Verificación de Requisitos). El ADR no debe dar falsa sensación de cobertura.
+- **Ruido/falsos positivos:** con un solo desarrollador, hay que **triagear** y ajustar severidades, o los gates se vuelven ignorables. Empezar con pocas reglas de alto valor.
+- **CodeQL/GitHub secret scanning dependen de que el repo sea público o de GHAS;** en privado sin GHAS, Semgrep + gitleaks cubren el hueco gratis.
+- **Tiempo de CI:** ZAP full y Schemathesis alargan los jobs → por eso el *full scan* va programado, no en cada PR.
+- **Mantenimiento de reglas:** Semgrep/ZAP requieren mantener/ajustar rulesets; es trabajo recurrente, no "instalar y olvidar".
+
+---
+
+## Referencias
+
+- [OWASP ZAP — API Scan (GitHub Action)](https://github.com/zaproxy/action-api-scan)
+- [Schemathesis](https://schemathesis.readthedocs.io/)
+- [Semgrep](https://semgrep.dev/)
+- [gitleaks](https://github.com/gitleaks/gitleaks)
+- [Dependabot](https://docs.github.com/en/code-security/dependabot)
+- [Socket.dev](https://socket.dev/)
+- [OWASP API Security Top 10](https://owasp.org/API-Security/)
+- ADR-004 Hosting y Despliegue
+- ADR-006 Package Manager
+- ADR-011 Contrato-first OpenAPI
+- ADR-013 Cifrado de Datos en Reposo
+- ADR-015 Técnicas de Verificación de Requisitos
+- ADR-020 Git Hooks Husky Monorepo
+
+---
+
+*Fecha de decisión: 2026-07-12 · Última actualización: 2026-07-12*
