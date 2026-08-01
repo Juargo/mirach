@@ -107,6 +107,22 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
       where: { id: { in: ids } },
     });
   });
+
+  it('borra Ingesta por userId DIRECTO (US-004) — NO por el join account: { userId } (cubre filas FALLIDA sin cuenta)', async () => {
+    const tx = makeTxMock();
+    const prisma = makePrismaMock(
+      [{ id: 'user-demo-1' }, { id: 'user-demo-2' }],
+      tx,
+    );
+    const service = new DemoCleanupService(prisma, makeReloj());
+
+    await service.borrarExpirados();
+
+    const ids = ['user-demo-1', 'user-demo-2'];
+    expect(tx.ingesta.deleteMany).toHaveBeenCalledWith({
+      where: { userId: { in: ids } },
+    });
+  });
 });
 
 describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
