@@ -94,6 +94,7 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
   ) =>
     prisma.ingesta.create({
       data: {
+        userId: accountId === accountIdA ? TEST_USER_ID_A : TEST_USER_ID_B,
         accountId,
         banco: accountId === accountIdA ? 'BCI' : 'Santander',
         nombreArchivo,
@@ -127,9 +128,9 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // PROCESADA filter (design.md §5.2, D5)
+  // PROCESADA/FALLIDA in, PENDIENTE out (design.md §4.1/D7, ING-03/ING-07)
   // -------------------------------------------------------------------------
-  it('filters out non-PROCESADA ingestas (PENDIENTE/FALLIDA) for the same user', async () => {
+  it('includes PROCESADA and FALLIDA ingestas but excludes PENDIENTE for the same user', async () => {
     const ingProcesada = await createIngesta(
       accountIdA,
       `a-ok-${RUN_ID}.xlsx`,
@@ -152,9 +153,14 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
     const resultA = await reader.listarPorUsuario(TEST_USER_ID_A);
     const returnedIds = resultA.map((r) => r.id);
 
+    // FALLIDA is a terminal outcome the historial must surface (ING-07) — the
+    // pre-US-004 assertion excluded it; that was correct only under the old
+    // "historial = successes only" contract, which this US replaces.
     expect(returnedIds).toContain(ingProcesada.id);
+    expect(returnedIds).toContain(ingFallida.id);
+    // PENDIENTE is never a terminal state written by the pipeline and stays
+    // filtered out by the reader's WHERE (estado IN [PROCESADA, FALLIDA]).
     expect(returnedIds).not.toContain(ingPendiente.id);
-    expect(returnedIds).not.toContain(ingFallida.id);
   });
 
   // -------------------------------------------------------------------------
