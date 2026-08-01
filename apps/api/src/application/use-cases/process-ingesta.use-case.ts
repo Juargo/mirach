@@ -25,6 +25,7 @@ import { NormalizePdfTransactionsUseCase } from './normalize-pdf-transactions.us
 import { PersistTransactionsUseCase } from './persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
+import { IRegistrarIngestaFallidaWriter } from '../ports/registrar-ingesta-fallida.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 
@@ -110,24 +111,69 @@ export class ProcessIngestaUseCase {
     private readonly categorizarTransaccionUseCase: CategorizarTransaccionUseCase,
     private readonly txParaClasificarReader: ITransaccionParaClasificarReader,
     private readonly detectarDuplicadosUseCase: DetectarDuplicadosUseCase,
+    private readonly ingestaFallidaWriter: IRegistrarIngestaFallidaWriter,
   ) {}
 
   async execute(
     input: ProcessIngestaInput,
   ): Promise<Result<ProcessIngestaResult, ProcessIngestaError>> {
     try {
-      return await this.runPipeline(input);
+      const result = await this.runPipeline(input);
+      if (result.isFail()) {
+        await this.registrarFallo(input, result.getError().message);
+      }
+      // El error ORIGINAL de runPipeline se preserva verbatim — el registro
+      // de la falla nunca lo reemplaza (single-writer boundary, US-004
+      // design.md §3.2).
+      return result;
     } catch (error) {
       // Defensivo: un colaborador (adapters ExcelJS/Prisma) puede lanzar en
       // lugar de retornar Result. NUNCA propagamos — el motivo es fijo y
       // genérico a propósito: el mensaje crudo del error podría contener
       // datos sensibles (p. ej. un monto leído de una celda). La causa se
       // conserva aparte, sin interpolarla en el mensaje.
-      return Result.fail(
-        new PersistenciaFallidaError(
-          'fallo inesperado durante el pipeline de ingesta',
-          error instanceof Error ? error : undefined,
-        ),
+      const persistErr = new PersistenciaFallidaError(
+        'fallo inesperado durante el pipeline de ingesta',
+        error instanceof Error ? error : undefined,
+      );
+      await this.registrarFallo(input, persistErr.message);
+      return Result.fail(persistErr);
+    }
+  }
+
+  /**
+   * registrarFallo — boundary de registro de FALLIDA (US-004, design.md
+   * §3.2). ÚNICO escritor de filas FALLIDA (single-writer-per-state, D1).
+   *
+   * Island: TODO el cuerpo va envuelto en try/catch (mirrors
+   * `runCategorizacion`) para que este método sea ESTRUCTURALMENTE
+   * never-throw, no "never-throw por suerte" — p. ej. si
+   * `input.fileReader.getOriginalName()` en sí mismo lanza, tampoco debe
+   * escalar. Un fallo al registrar (DB caída, o el writer devuelve
+   * Result.fail) NUNCA debe cambiar el Result que ve el caller: el pedido
+   * del usuario ya falló, y fallar en LOGUEAR ese intento no debe agravar el
+   * error que se le devuelve.
+   */
+  private async registrarFallo(
+    input: ProcessIngestaInput,
+    motivo: string,
+  ): Promise<void> {
+    try {
+      const res = await this.ingestaFallidaWriter.registrar({
+        userId: input.userId,
+        nombreArchivo: input.fileReader.getOriginalName(),
+        motivo,
+      });
+      if (res.isFail()) {
+        console.error(
+          '[ProcessIngestaUseCase] no se pudo registrar el intento fallido (degradando):',
+          res.getError().message,
+        );
+      }
+    } catch (error) {
+      console.error(
+        '[ProcessIngestaUseCase] registrarFallo lanzó inesperadamente (degradando):',
+        error instanceof Error ? error.message : String(error),
       );
     }
   }
@@ -212,6 +258,7 @@ export class ProcessIngestaUseCase {
     const { nuevas, duplicadas } = dedupeResult.getValue();
 
     const persistResult = await this.persistTransactionsUseCase.execute({
+      userId: input.userId,
       accountId,
       banco: banco.banco,
       nombreArchivo: archivo.originalName,

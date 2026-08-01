@@ -38,9 +38,13 @@ import { ITransactionNormalizer } from '../ports/transaction-normalizer.port';
 import { IPdfTransactionNormalizer } from '../ports/pdf-transaction-normalizer.port';
 import { IAccountRepository } from '../ports/account-repository.port';
 import {
-  CrearIngestaInput,
+  CrearIngestaProcesadaInput,
   IIngestaRepository,
 } from '../ports/ingesta-repository.port';
+import {
+  IRegistrarIngestaFallidaWriter,
+  RegistrarIngestaFallidaInput,
+} from '../ports/registrar-ingesta-fallida.port';
 import { ITransaccionRepository } from '../ports/transaccion-repository.port';
 import { ICatalogoClasificacion } from '../ports/catalogo-clasificacion.port';
 import { ITransaccionBucketWriter } from '../ports/transaccion-bucket-writer.port';
@@ -201,61 +205,67 @@ class FakeAccountRepository implements IAccountRepository {
 
 interface IngestaRecord {
   id: string;
-  estado: 'PENDIENTE' | 'PROCESADA' | 'FALLIDA';
-  motivoFallo: string | null;
-  duplicadosOmitidos?: number;
+  estado: 'PROCESADA';
+  duplicadosOmitidos: number;
 }
 
-/** Fake mínimo: implementa ambos ports que consume PersistTransactionsUseCase. */
+/**
+ * Fake mínimo del port COLAPSADO (US-004, design.md §6.3/§7.1): una única
+ * `persistirProcesada` reemplaza createPending/commit/markFailed. Bajo el
+ * nuevo diseño, un `persistirProcesada` fallido NO deja fila alguna en este
+ * store (mismo comportamiento atómico que Prisma) — la FALLIDA la escribe el
+ * boundary vía `FakeRegistrarIngestaFallidaWriter`, no este store.
+ */
 class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
   private seq = 0;
   readonly ingestas = new Map<string, IngestaRecord>();
-  failCommitWith?: PersistenciaFallidaError;
-  /** Transacciones REALMENTE recibidas por commit() (para probar que solo `nuevas` llegan). */
+  failWith?: PersistenciaFallidaError;
+  /** Transacciones REALMENTE recibidas por persistirProcesada() (para probar que solo `nuevas` llegan). */
   readonly commitTransacciones: Array<ReadonlyArray<Transaccion>> = [];
+  readonly persistCalls: CrearIngestaProcesadaInput[] = [];
 
-  async createPending(
-    input: CrearIngestaInput,
-  ): Promise<Result<{ ingestaId: string }, PersistenciaFallidaError>> {
-    void input;
+  async persistirProcesada(
+    input: CrearIngestaProcesadaInput,
+  ): Promise<
+    Result<{ ingestaId: string; total: number }, PersistenciaFallidaError>
+  > {
+    this.persistCalls.push(input);
+    this.commitTransacciones.push(input.transacciones);
+    if (this.failWith) {
+      return Result.fail(this.failWith);
+    }
     const id = `ingesta-${++this.seq}`;
-    this.ingestas.set(id, { id, estado: 'PENDIENTE', motivoFallo: null });
-    return Result.ok({ ingestaId: id });
-  }
-
-  async commit(
-    ingestaId: string,
-    accountId: string,
-    transacciones: ReadonlyArray<Transaccion>,
-    duplicadosOmitidos: number,
-  ): Promise<Result<{ total: number }, PersistenciaFallidaError>> {
-    void accountId;
-    this.commitTransacciones.push(transacciones);
-    if (this.failCommitWith) {
-      return Result.fail(this.failCommitWith);
-    }
-    const rec = this.ingestas.get(ingestaId);
-    if (rec) {
-      rec.estado = 'PROCESADA';
-      rec.duplicadosOmitidos = duplicadosOmitidos;
-    }
-    return Result.ok({ total: transacciones.length });
-  }
-
-  async markFailed(
-    ingestaId: string,
-    motivo: string,
-  ): Promise<Result<void, PersistenciaFallidaError>> {
-    const rec = this.ingestas.get(ingestaId);
-    if (rec) {
-      rec.estado = 'FALLIDA';
-      rec.motivoFallo = motivo;
-    }
-    return Result.ok(undefined);
+    this.ingestas.set(id, {
+      id,
+      estado: 'PROCESADA',
+      duplicadosOmitidos: input.duplicadosOmitidos,
+    });
+    return Result.ok({ ingestaId: id, total: input.transacciones.length });
   }
 
   async findByIngesta(): Promise<ReadonlyArray<Transaccion>> {
     return TXS;
+  }
+}
+
+/**
+ * Fake del boundary de registro de fallos (US-004, design.md §3.2). El
+ * boundary lo invoca en `ProcessIngestaUseCase.execute()` — nunca en
+ * `runPipeline` — así que estos fakes solo se ejercitan a través de
+ * `execute()`.
+ */
+class FakeRegistrarIngestaFallidaWriter implements IRegistrarIngestaFallidaWriter {
+  readonly calls: RegistrarIngestaFallidaInput[] = [];
+  failWith?: PersistenciaFallidaError;
+  throwWith?: Error;
+
+  async registrar(
+    input: RegistrarIngestaFallidaInput,
+  ): Promise<Result<void, PersistenciaFallidaError>> {
+    this.calls.push(input);
+    if (this.throwWith) throw this.throwWith;
+    if (this.failWith) return Result.fail(this.failWith);
+    return Result.ok(undefined);
   }
 }
 
@@ -341,6 +351,7 @@ interface BuildOptions {
   pdfStructureValidator?: FakePdfStructureValidator;
   pdfNormalizer?: FakePdfTransactionNormalizer;
   txExistenteReader?: FakeTransaccionExistenteReader;
+  ingestaFallidaWriter?: FakeRegistrarIngestaFallidaWriter;
 }
 
 function buildUseCase(opts?: BuildOptions) {
@@ -362,6 +373,8 @@ function buildUseCase(opts?: BuildOptions) {
   const detectarDuplicadosUseCase = new DetectarDuplicadosUseCase(
     txExistenteReader,
   );
+  const ingestaFallidaWriter =
+    opts?.ingestaFallidaWriter ?? new FakeRegistrarIngestaFallidaWriter();
 
   const useCase = new ProcessIngestaUseCase(
     new IngestFileUseCase(),
@@ -378,6 +391,7 @@ function buildUseCase(opts?: BuildOptions) {
     new CategorizarTransaccionUseCase(),
     txReader,
     detectarDuplicadosUseCase,
+    ingestaFallidaWriter,
   );
 
   return {
@@ -394,6 +408,7 @@ function buildUseCase(opts?: BuildOptions) {
     bucketWriter,
     txReader,
     txExistenteReader,
+    ingestaFallidaWriter,
   };
 }
 
@@ -408,6 +423,7 @@ describe('ProcessIngestaUseCase', () => {
       normalizer,
       accountRepository,
       ingestaStore,
+      ingestaFallidaWriter,
     } = buildUseCase();
 
     const result = await useCase.execute({
@@ -434,15 +450,18 @@ describe('ProcessIngestaUseCase', () => {
     expect(ingestaStore.ingestas.get(value.ingestaId)?.estado).toBe(
       'PROCESADA',
     );
+    // ING-07/D1: el éxito NUNCA registra una fila FALLIDA.
+    expect(ingestaFallidaWriter.calls).toHaveLength(0);
   });
 
-  it('extensión inválida: retorna fail sin ejecutar ningún paso posterior', async () => {
+  it('extensión inválida: retorna fail sin ejecutar ningún paso posterior, Y registra una fila FALLIDA (boundary)', async () => {
     const {
       useCase,
       bankDetector,
       structureValidator,
       normalizer,
       accountRepository,
+      ingestaFallidaWriter,
     } = buildUseCase();
 
     // .csv (no .pdf): Sprint 4 (sprint4-pdf-ingesta, PDF-00) hizo que .pdf
@@ -462,15 +481,26 @@ describe('ProcessIngestaUseCase', () => {
     expect(accountRepository.called).toBe(false);
     expect(structureValidator.called).toBe(false);
     expect(normalizer.called).toBe(false);
+
+    // ING-07: incluso esta falla PRE-CUENTA registra una fila FALLIDA — el
+    // boundary observa el Result.fail de runPipeline en execute(), no
+    // adentro del pipeline.
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    expect(ingestaFallidaWriter.calls[0]).toEqual({
+      userId: USER_ID,
+      nombreArchivo: 'cartola.csv',
+      motivo: result.getError().message,
+    });
   });
 
-  it('banco no reconocido: retorna fail sin asegurar cuenta ni validar/normalizar/persistir', async () => {
+  it('banco no reconocido: retorna fail sin asegurar cuenta ni validar/normalizar/persistir, Y registra FALLIDA', async () => {
     const {
       useCase,
       bankDetector,
       structureValidator,
       normalizer,
       accountRepository,
+      ingestaFallidaWriter,
     } = buildUseCase();
     const error = new BancoNoReconocidoError('movimientos.xlsx');
     bankDetector.failWith = error;
@@ -485,11 +515,23 @@ describe('ProcessIngestaUseCase', () => {
     expect(accountRepository.called).toBe(false);
     expect(structureValidator.called).toBe(false);
     expect(normalizer.called).toBe(false);
+
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    expect(ingestaFallidaWriter.calls[0]).toEqual({
+      userId: USER_ID,
+      nombreArchivo: 'movimientos.xlsx',
+      motivo: error.message,
+    });
   });
 
-  it('falla el aseguramiento de cuenta: retorna fail sin validar/normalizar/persistir', async () => {
-    const { useCase, structureValidator, normalizer, accountRepository } =
-      buildUseCase();
+  it('falla el aseguramiento de cuenta: retorna fail sin validar/normalizar/persistir, Y registra FALLIDA', async () => {
+    const {
+      useCase,
+      structureValidator,
+      normalizer,
+      accountRepository,
+      ingestaFallidaWriter,
+    } = buildUseCase();
     const error = new PersistenciaFallidaError('no se pudo asegurar la cuenta');
     accountRepository.failWith = error;
 
@@ -502,10 +544,14 @@ describe('ProcessIngestaUseCase', () => {
     expect(result.getError()).toBe(error);
     expect(structureValidator.called).toBe(false);
     expect(normalizer.called).toBe(false);
+
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    expect(ingestaFallidaWriter.calls[0].motivo).toBe(error.message);
   });
 
-  it('estructura inválida: retorna fail sin normalizar ni persistir', async () => {
-    const { useCase, structureValidator, normalizer } = buildUseCase();
+  it('estructura inválida: retorna fail sin normalizar ni persistir, Y registra FALLIDA', async () => {
+    const { useCase, structureValidator, normalizer, ingestaFallidaWriter } =
+      buildUseCase();
     const error = new EstructuraInvalidaError('BancoEstado', [
       { tipo: 'SinEncabezados', fila: 1 },
     ]);
@@ -519,10 +565,14 @@ describe('ProcessIngestaUseCase', () => {
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
     expect(normalizer.called).toBe(false);
+
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    expect(ingestaFallidaWriter.calls[0].motivo).toBe(error.message);
   });
 
-  it('normalización inválida: retorna fail sin persistir', async () => {
-    const { useCase, normalizer, ingestaStore } = buildUseCase();
+  it('normalización inválida: retorna fail sin persistir, Y registra FALLIDA', async () => {
+    const { useCase, normalizer, ingestaStore, ingestaFallidaWriter } =
+      buildUseCase();
     const error = new NormalizacionInvalidaError('BancoEstado', [
       { tipo: 'FilaSinMontos', fila: 3 },
     ]);
@@ -536,12 +586,15 @@ describe('ProcessIngestaUseCase', () => {
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
     expect(ingestaStore.ingestas.size).toBe(0);
+
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    expect(ingestaFallidaWriter.calls[0].motivo).toBe(error.message);
   });
 
-  it('falla la persistencia: retorna fail y la Ingesta queda FALLIDA', async () => {
-    const { useCase, ingestaStore } = buildUseCase();
+  it('falla la persistencia: retorna fail y registra una fila FALLIDA (single-writer boundary, no ingestaStore FALLIDA)', async () => {
+    const { useCase, ingestaStore, ingestaFallidaWriter } = buildUseCase();
     const error = new PersistenciaFallidaError('base de datos no disponible');
-    ingestaStore.failCommitWith = error;
+    ingestaStore.failWith = error;
 
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
@@ -550,13 +603,22 @@ describe('ProcessIngestaUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
-    const [record] = Array.from(ingestaStore.ingestas.values());
-    expect(record.estado).toBe('FALLIDA');
-    expect(record.motivoFallo).toBe('base de datos no disponible');
+    // US-004/D1: un persistirProcesada fallido no deja NINGUNA fila en el
+    // repositorio de éxito (atómico) — la única fila que queda es la FALLIDA
+    // que escribe el boundary, no algo dentro de ingestaStore.
+    expect(ingestaStore.ingestas.size).toBe(0);
+
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    expect(ingestaFallidaWriter.calls[0]).toEqual({
+      userId: USER_ID,
+      nombreArchivo: 'movimientos.xlsx',
+      motivo: error.message,
+    });
   });
 
-  it('lista de transacciones vacía: persiste con total 0 y retorna ok', async () => {
-    const { useCase, normalizer, ingestaStore } = buildUseCase();
+  it('lista de transacciones vacía: persiste con total 0 y retorna ok, sin registrar FALLIDA', async () => {
+    const { useCase, normalizer, ingestaStore, ingestaFallidaWriter } =
+      buildUseCase();
     normalizer.returnEmpty = true;
 
     const result = await useCase.execute({
@@ -571,10 +633,11 @@ describe('ProcessIngestaUseCase', () => {
     expect(ingestaStore.ingestas.get(value.ingestaId)?.estado).toBe(
       'PROCESADA',
     );
+    expect(ingestaFallidaWriter.calls).toHaveLength(0);
   });
 
-  it('un colaborador lanza en vez de retornar Result: NO propaga, retorna fail descriptivo sin filtrar montos', async () => {
-    const { useCase, bankDetector } = buildUseCase();
+  it('un colaborador lanza en vez de retornar Result: NO propaga, retorna fail descriptivo sin filtrar montos, Y registra FALLIDA con el motivo FIJO genérico (no el mensaje crudo)', async () => {
+    const { useCase, bankDetector, ingestaFallidaWriter } = buildUseCase();
     // Simula una excepción inesperada de infraestructura (ExcelJS/Prisma) cuyo
     // mensaje podría contener datos sensibles si se propagara tal cual.
     bankDetector.throwWith = new Error(
@@ -591,6 +654,52 @@ describe('ProcessIngestaUseCase', () => {
     // El mensaje descriptivo NO debe interpolar el mensaje crudo del error
     // (podría filtrar montos u otros datos sensibles).
     expect(result.getError().message).not.toContain('1500000');
+
+    // El motivo registrado es el mismo mensaje FIJO/genérico devuelto — nunca
+    // el error crudo lanzado por el colaborador (ING-09, no-leak).
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    const { motivo } = ingestaFallidaWriter.calls[0];
+    expect(motivo).toBe(result.getError().message);
+    expect(motivo).not.toContain('1500000');
+  });
+
+  describe('registro de fallos: island estructuralmente never-throw (US-004, design §3.2)', () => {
+    it('registrar() devuelve Result.fail: execute() NO lanza y preserva el Result ORIGINAL de runPipeline', async () => {
+      const ingestaFallidaWriter = new FakeRegistrarIngestaFallidaWriter();
+      ingestaFallidaWriter.failWith = new PersistenciaFallidaError(
+        'no se pudo registrar el intento fallido',
+      );
+      const { useCase, bankDetector } = buildUseCase({ ingestaFallidaWriter });
+      const originalError = new BancoNoReconocidoError('movimientos.xlsx');
+      bankDetector.failWith = originalError;
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      // El fallo de registrar() NUNCA cambia el error que ve el caller.
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBe(originalError);
+      expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    });
+
+    it('registrar() LANZA inesperadamente: execute() NO lanza y preserva el Result ORIGINAL de runPipeline', async () => {
+      const ingestaFallidaWriter = new FakeRegistrarIngestaFallidaWriter();
+      ingestaFallidaWriter.throwWith = new Error('conexión perdida');
+      const { useCase, bankDetector } = buildUseCase({ ingestaFallidaWriter });
+      const originalError = new BancoNoReconocidoError('movimientos.xlsx');
+      bankDetector.failWith = originalError;
+
+      // No debe rechazar aunque registrar() lance.
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBe(originalError);
+    });
   });
 
   // T16 — Categorization orchestration tests (US-012, SC-13, SC-14, SC-15)
@@ -785,7 +894,7 @@ describe('ProcessIngestaUseCase', () => {
 
   // US-005 (Slice 2) — dedupe detection wired before persist.
   describe('detección de duplicados (US-005)', () => {
-    it('overlap parcial: solo las nuevas llegan a commit(); duplicadosOmitidos threaded al resultado', async () => {
+    it('overlap parcial: solo las nuevas llegan a persistirProcesada(); duplicadosOmitidos threaded al resultado', async () => {
       // TXS[0] = Compra (cargo 8103), TXS[1] = Sueldo (abono 1500000).
       const txExistenteReader = new FakeTransaccionExistenteReader();
       txExistenteReader.existentes = [
@@ -808,13 +917,13 @@ describe('ProcessIngestaUseCase', () => {
       expect(value.duplicadosOmitidos).toBe(1);
       expect(value.total).toBe(1);
       expect(value.transacciones).toEqual([TXS[1]]);
-      // commit() solo recibe la transacción NUEVA (Sueldo), no la duplicada (Compra).
+      // persistirProcesada() solo recibe la transacción NUEVA (Sueldo), no la duplicada (Compra).
       expect(ingestaStore.commitTransacciones[0]).toEqual([TXS[1]]);
       const [record] = Array.from(ingestaStore.ingestas.values());
       expect(record.duplicadosOmitidos).toBe(1);
     });
 
-    it('overlap total: nuevas=[] llega a commit(), duplicadosOmitidos = N, Ingesta igual queda PROCESADA', async () => {
+    it('overlap total: nuevas=[] llega a persistirProcesada(), duplicadosOmitidos = N, Ingesta igual queda PROCESADA', async () => {
       const txExistenteReader = new FakeTransaccionExistenteReader();
       txExistenteReader.existentes = TXS.map((tx) => ({
         fecha: tx.fecha,
@@ -839,13 +948,15 @@ describe('ProcessIngestaUseCase', () => {
       expect(record.estado).toBe('PROCESADA');
     });
 
-    it('el reader de duplicados falla: la ingesta NUNCA se crea (persist jamás se llama), retorna fail', async () => {
+    it('el reader de duplicados falla: la ingesta NUNCA se crea (persist jamás se llama), retorna fail Y registra FALLIDA', async () => {
       const txExistenteReader = new FakeTransaccionExistenteReader();
       const error = new PersistenciaFallidaError(
         'no se pudo consultar transacciones existentes para deduplicación',
       );
       txExistenteReader.failWith = error;
-      const { useCase, ingestaStore } = buildUseCase({ txExistenteReader });
+      const { useCase, ingestaStore, ingestaFallidaWriter } = buildUseCase({
+        txExistenteReader,
+      });
 
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
@@ -854,8 +965,10 @@ describe('ProcessIngestaUseCase', () => {
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBe(error);
-      // Nada se persiste: ni siquiera se creó una Ingesta PENDIENTE.
+      // Nada se persiste: ni siquiera se creó una Ingesta PROCESADA.
       expect(ingestaStore.ingestas.size).toBe(0);
+      expect(ingestaFallidaWriter.calls).toHaveLength(1);
+      expect(ingestaFallidaWriter.calls[0].motivo).toBe(error.message);
     });
   });
 
@@ -909,7 +1022,7 @@ describe('ProcessIngestaUseCase', () => {
       expect(pdfNormalizer.called).toBe(false);
     });
 
-    it('detección PDF falla (PdfInvalidoError): retorna fail sin asegurar cuenta ni validar/normalizar/persistir', async () => {
+    it('detección PDF falla (PdfInvalidoError): retorna fail sin asegurar cuenta ni validar/normalizar/persistir, Y registra FALLIDA', async () => {
       const pdfBankDetector = new FakePdfBankDetector();
       const error = new PdfInvalidoError('corrupto.pdf');
       pdfBankDetector.failWith = error;
@@ -919,6 +1032,7 @@ describe('ProcessIngestaUseCase', () => {
         pdfNormalizer,
         accountRepository,
         ingestaStore,
+        ingestaFallidaWriter,
       } = buildUseCase({ pdfBankDetector });
 
       const result = await useCase.execute({
@@ -932,10 +1046,18 @@ describe('ProcessIngestaUseCase', () => {
       expect(pdfStructureValidator.called).toBe(false);
       expect(pdfNormalizer.called).toBe(false);
       expect(ingestaStore.ingestas.size).toBe(0);
+
+      expect(ingestaFallidaWriter.calls).toHaveLength(1);
+      expect(ingestaFallidaWriter.calls[0]).toEqual({
+        userId: USER_ID,
+        nombreArchivo: 'corrupto.pdf',
+        motivo: error.message,
+      });
     });
 
-    it('normalización PDF falla (EstructuraPdfInvalidaError): retorna fail sin persistir', async () => {
-      const { useCase, pdfNormalizer, ingestaStore } = buildUseCase();
+    it('normalización PDF falla (EstructuraPdfInvalidaError): retorna fail sin persistir, Y registra FALLIDA', async () => {
+      const { useCase, pdfNormalizer, ingestaStore, ingestaFallidaWriter } =
+        buildUseCase();
       const error = new EstructuraPdfInvalidaError('BancoEstado', [
         { tipo: 'PdfIlegible' },
       ]);
@@ -949,6 +1071,9 @@ describe('ProcessIngestaUseCase', () => {
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBe(error);
       expect(ingestaStore.ingestas.size).toBe(0);
+
+      expect(ingestaFallidaWriter.calls).toHaveLength(1);
+      expect(ingestaFallidaWriter.calls[0].motivo).toBe(error.message);
     });
   });
 });
