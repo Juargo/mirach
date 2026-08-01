@@ -3,11 +3,11 @@ import { PersistenciaFallidaError } from '../../domain/errors/persistencia-falli
 
 /**
  * RegistrarIngestaFallidaInput — datos mínimos que el boundary
- * (ProcessIngestaUseCase.execute) tiene reliably disponibles en CUALQUIER
- * punto de falla del pipeline (design.md §3.3): `banco`/`accountId` NO viajan
- * acá a propósito — son locales a `runPipeline` y threadearlos por los ~8
- * return sites es exactamente la plomería per-branch que el diseño evita
- * (KISS/YAGNI). Ver design.md §3.3/D2 para el tradeoff documentado.
+ * (ProcessIngestaUseCase.execute) tiene confiablemente disponibles en
+ * CUALQUIER punto de falla del pipeline (design.md §3.3): `banco`/`accountId`
+ * NO viajan acá a propósito — son locales a `runPipeline` y threadearlos por
+ * los ~8 return sites es exactamente la plomería per-branch que el diseño
+ * evita (KISS/YAGNI). Ver design.md §3.3/D2 para el tradeoff documentado.
  */
 export interface RegistrarIngestaFallidaInput {
   readonly userId: string;

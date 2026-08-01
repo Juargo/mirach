@@ -247,7 +247,9 @@ export class ProcessIngestaUseCase {
     // `nuevas` llegan a PersistTransactionsUseCase; `duplicadas` se cuenta
     // pero NUNCA se persiste. Un fallo del detector corta el pipeline
     // (conservador: si no podemos verificar, no persistimos un batch
-    // potencialmente duplicado) — nada se crea, ni siquiera la Ingesta PENDIENTE.
+    // potencialmente duplicado) — no se crea ninguna fila PROCESADA; el
+    // boundary de este método (catch/return-fail) registra una fila FALLIDA
+    // vía `ingestaFallidaWriter` (US-004, §3.2), nunca una PENDIENTE.
     const dedupeResult = await this.detectarDuplicadosUseCase.execute({
       accountId,
       transacciones,
