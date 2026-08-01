@@ -100,3 +100,24 @@ separadas (folded, ADR-029): al ser `test`/`development` fail-fast a `localhost`
 Los e2e bit-rotteados (mandan solo `x-api-key`, sin sesión) fallarán hasta que se les
 agregue el flujo de login (`POST /api/auth/login` → cookie/Bearer) en su `beforeAll`.
 Eso es deuda separada de la migración.
+
+## Supervisión de prod — migración `Ingesta.userId` NOT NULL (US-004)
+
+La migración `20260801000000_ingesta_userid_nullable_account_banco` agrega
+`Ingesta.userId` NOT NULL vía backfill en dos fases (nullable → backfill desde
+`Account.userId` → `SET NOT NULL`). El backfill es un `UPDATE ... FROM
+"Account"` determinístico que corre DENTRO de la transacción de la migración
+(no un script supervisado aparte como el de ADR-013) — pero antes de aplicar
+esta migración contra Supabase (prod):
+
+1. **Antes**: `SELECT count(*) FROM "Ingesta" WHERE "accountId" IS NULL;`
+   debe ser `0` (invariante pre-migración: el schema actual exige `accountId`
+   NOT NULL, así que esto es una tautología de verificación, no una
+   expectativa incierta).
+2. **Rehearsal recomendado** (precedente ADR-013): correr esta migración
+   contra un snapshot/dump de prod ANTES del apply real, no confiar solo en
+   el count check.
+3. **Después**: `SELECT count(*) FROM "Ingesta" WHERE "userId" IS NULL;` debe
+   ser `0` — si no lo es, el paso 3 de la migración (`SET NOT NULL`) ya
+   habría fallado en seco (fail-closed), así que llegar a "después" con
+   éxito ya lo garantiza; el check es documentación/paranoia adicional.

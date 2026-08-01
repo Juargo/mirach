@@ -22,6 +22,10 @@ model User {
   creadoEn      DateTime  @default(now())
   accounts      Account[]
   sessions      Session[]
+  // US-004: historial de ingestas — aislamiento directo por userId,
+  // independiente de accountId (que ahora puede ser null en fallas
+  // tempranas, ver Ingesta más abajo).
+  ingestas      Ingesta[]
 }
 
 model Session {
@@ -51,9 +55,22 @@ model Account {
 
 model Ingesta {
   id                 String        @id @default(cuid())
-  accountId          String
-  account            Account       @relation(fields: [accountId], references: [id])
-  banco              String
+  // US-004: userId es el aislamiento AUTORITATIVO (RNF-SEC-006) — el único
+  // que puede aislar una fila FALLIDA sin account (accountId null abajo).
+  // NOT NULL: toda Ingesta (éxito o fallo) pertenece a un usuario
+  // autenticado (design.md §5.1).
+  userId             String
+  user               User          @relation(fields: [userId], references: [id])
+  // US-004: relajado a nullable — una FALLIDA temprana (extensión inválida,
+  // banco no reconocido) no tiene cuenta resuelta. Invariante
+  // `estado = PROCESADA ⟹ accountId NOT NULL` se enforce en application
+  // (single-writer, persistirProcesada) + CHECK en BD (raw SQL, ver
+  // migración) — Prisma no modela CHECK.
+  accountId          String?
+  account            Account?      @relation(fields: [accountId], references: [id])
+  // US-004: relajado a nullable por la misma razón que accountId — una
+  // FALLIDA temprana no tiene banco resuelto.
+  banco              String?
   nombreArchivo      String
   estado             EstadoIngesta @default(PENDIENTE)
   totalTransacciones Int?
@@ -66,6 +83,8 @@ model Ingesta {
   creadoEn           DateTime      @default(now())
   procesadoEn        DateTime?
   transacciones      Transaccion[]
+
+  @@index([userId])
 }
 
 model BucketPresupuesto {
