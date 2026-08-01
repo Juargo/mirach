@@ -3,8 +3,11 @@ import { Transaccion } from '../../domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { IIngestaRepository } from '../ports/ingesta-repository.port';
 
-/** Entrada del use case (account-agnostic: recibe accountId ya resuelto). */
+/** Entrada del use case. `userId` viaja explícito (US-004) — ya disponible
+ * en `runPipeline` como `input.userId` (session-guaranteed), no un lookup
+ * nuevo. */
 export interface PersistTransactionsInput {
+  userId: string;
   accountId: string;
   banco: string;
   nombreArchivo: string;
@@ -17,23 +20,24 @@ export interface PersistTransactionsInput {
 export interface PersistTransactionsResult {
   ingestaId: string;
   total: number;
-  /** Ecoado desde el input — commit() solo retorna {total} (US-005). */
+  /** Ecoado desde el input — persistirProcesada solo retorna {ingestaId,total}. */
   duplicadosOmitidos: number;
 }
 
 /**
  * PersistTransactionsUseCase — persiste transacciones normalizadas bajo una
- * Ingesta, orquestando su ciclo de vida.
+ * Ingesta PROCESADA.
  *
- * Secuencia (decisiones 1-2 del diseño):
- *   1. createPending  → confirma la fila Ingesta en PENDIENTE (commit propio),
- *      de modo que una FALLIDA posterior sobreviva.
- *   2. commit         → escritura atómica (inserta filas + transiciona a
- *      PROCESADA) en una sola transacción a nivel de infraestructura.
- *   3. si commit falla → markFailed(motivo) y Result.fail; ninguna fila parcial.
+ * US-004 (design.md §3.1/D1, §6.4): el ciclo de vida COLAPSA a una única
+ * llamada atómica — `createPending`/`commit`/`markFailed` desaparecen porque
+ * la falla ahora es responsabilidad EXCLUSIVA del boundary
+ * `ProcessIngestaUseCase` (vía `IRegistrarIngestaFallidaWriter`,
+ * single-writer-per-state). Este use case ya no orquesta un ciclo de vida —
+ * es un pass-through: delega a `persistirProcesada` y ecoa
+ * `duplicadosOmitidos` (que la escritura atómica no retorna).
  *
- * account-agnostic: recibe el accountId ya resuelto (el upsert de Account vive
- * en otro port/PR). Retorna Result y NUNCA lanza.
+ * account-agnostic: recibe el accountId ya resuelto (el upsert de Account
+ * vive en otro port). Retorna Result y NUNCA lanza.
  */
 export class PersistTransactionsUseCase {
   constructor(private readonly ingestaRepository: IIngestaRepository) {}
@@ -41,41 +45,21 @@ export class PersistTransactionsUseCase {
   async execute(
     input: PersistTransactionsInput,
   ): Promise<Result<PersistTransactionsResult, PersistenciaFallidaError>> {
-    const pending = await this.ingestaRepository.createPending({
+    const res = await this.ingestaRepository.persistirProcesada({
+      userId: input.userId,
       accountId: input.accountId,
       banco: input.banco,
       nombreArchivo: input.nombreArchivo,
+      transacciones: input.transacciones,
+      duplicadosOmitidos: input.duplicadosOmitidos,
     });
-    if (pending.isFail()) {
-      return Result.fail(pending.getError());
+    if (res.isFail()) {
+      return Result.fail(res.getError());
     }
-    const { ingestaId } = pending.getValue();
-
-    const committed = await this.ingestaRepository.commit(
-      ingestaId,
-      input.accountId,
-      input.transacciones,
-      input.duplicadosOmitidos,
-    );
-    if (committed.isFail()) {
-      const error = committed.getError();
-      // Defensivo: la misma caída de DB que abortó el commit puede hacer que
-      // markFailed también falle o RECHACE. Nunca debe propagarse: execute
-      // jamás lanza. Pase lo que pase con markFailed, devolvemos el error
-      // ORIGINAL del commit (el relevante para el caller). Si markFailed no
-      // completa, la Ingesta puede quedar PENDIENTE — se resolverá con el
-      // seguimiento de reconciliación de PR3 (test de atomicidad real).
-      try {
-        await this.ingestaRepository.markFailed(ingestaId, error.motivo);
-      } catch {
-        // markFailed rechazó; preservamos "nunca lanza" y el error original.
-      }
-      return Result.fail(error);
-    }
-
+    const { ingestaId, total } = res.getValue();
     return Result.ok({
       ingestaId,
-      total: committed.getValue().total,
+      total,
       duplicadosOmitidos: input.duplicadosOmitidos,
     });
   }
