@@ -104,6 +104,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
   async function seedIngesta(
     accountId: string,
     suffix: string,
+    userId: string,
   ): Promise<string> {
     const ingestaId = `${RUN_ID}-ing-${suffix}`;
     await prisma.ingesta.upsert({
@@ -111,6 +112,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
       update: {},
       create: {
         id: ingestaId,
+        userId,
         accountId,
         banco: 'TestBank',
         nombreArchivo: `test-${suffix}.xlsx`,
@@ -210,7 +212,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     // With real DB: seed a full month and verify totals + percentages
     const userId = await seedUser('sc01');
     const accountId = await seedAccount(userId, 'sc01');
-    const ingestaId = await seedIngesta(accountId, 'sc01');
+    const ingestaId = await seedIngesta(accountId, 'sc01', userId);
 
     await seedTx({
       accountId,
@@ -318,7 +320,11 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     // Seed a genuinely different user with large amounts in the current month
     const alienUserId = await seedUser('sc09-alien');
     const alienAccountId = await seedAccount(alienUserId, 'sc09-alien');
-    const alienIngestaId = await seedIngesta(alienAccountId, 'sc09-alien');
+    const alienIngestaId = await seedIngesta(
+      alienAccountId,
+      'sc09-alien',
+      alienUserId,
+    );
 
     // Alien user's transactions — must NOT appear in /api/resumen response
     await seedTx({

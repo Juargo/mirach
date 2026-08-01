@@ -94,6 +94,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   async function seedIngesta(
     accountId: string,
     suffix: string,
+    userId: string,
   ): Promise<string> {
     const ingestaId = `${RUN_ID}-ing-${suffix}`;
     await prisma.ingesta.upsert({
@@ -101,6 +102,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
       update: {},
       create: {
         id: ingestaId,
+        userId,
         accountId,
         banco: 'TestBank',
         nombreArchivo: `test-${suffix}.xlsx`,
@@ -180,7 +182,7 @@ describe('DetalleBucketController (e2e) — GET /api/buckets/:bucket', () => {
   it('W3-01: valid bucket + valid periodo → 200, flat list with string amounts', async () => {
     const userId = await seedUser('w301');
     const accountId = await seedAccount(userId, 'w301');
-    const ingestaId = await seedIngesta(accountId, 'w301');
+    const ingestaId = await seedIngesta(accountId, 'w301', userId);
 
     await seedTx({
       accountId,

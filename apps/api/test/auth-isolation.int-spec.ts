@@ -117,6 +117,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     ingestaIdA = (
       await prisma.ingesta.create({
         data: {
+          userId: userIdA,
           accountId: accountIdA,
           banco: 'TestBank',
           nombreArchivo: `a-${RUN_ID}.xlsx`,
@@ -127,6 +128,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     ingestaIdB = (
       await prisma.ingesta.create({
         data: {
+          userId: userIdB,
           accountId: accountIdB,
           banco: 'TestBank',
           nombreArchivo: `b-${RUN_ID}.xlsx`,

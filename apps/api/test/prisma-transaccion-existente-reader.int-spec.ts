@@ -53,6 +53,7 @@ describe('PrismaTransaccionExistenteReader (real dev DB)', () => {
 
     const ingestaA = await prisma.ingesta.create({
       data: {
+        userId: userIdA,
         accountId: accountIdA,
         banco: 'BancoEstado',
         nombreArchivo: 'a.xlsx',
@@ -63,6 +64,7 @@ describe('PrismaTransaccionExistenteReader (real dev DB)', () => {
 
     const ingestaB = await prisma.ingesta.create({
       data: {
+        userId: userIdB,
         accountId: accountIdB,
         banco: 'BancoEstado',
         nombreArchivo: 'b.xlsx',

@@ -85,6 +85,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
 
     const ingA = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID_A,
         accountId: accountIdA,
         banco: 'BCI',
         nombreArchivo: `a-${RUN_ID}.xlsx`,
@@ -95,6 +96,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
 
     const ingB = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID_B,
         accountId: accountIdB,
         banco: 'Santander',
         nombreArchivo: `b-${RUN_ID}.xlsx`,

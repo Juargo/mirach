@@ -101,6 +101,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     // Ingestas (required as FK for Transaccion)
     const ingA1 = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID,
         accountId: accountIdA1,
         banco: 'BancoEstado',
         nombreArchivo: `be-${RUN_ID}.xlsx`,
@@ -111,6 +112,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
 
     const ingA2 = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID,
         accountId: accountIdA2,
         banco: 'BCI',
         nombreArchivo: `bci-${RUN_ID}.xlsx`,
@@ -121,6 +123,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
 
     const ingB = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID_B,
         accountId: accountIdB,
         banco: 'Santander',
         nombreArchivo: `san-${RUN_ID}.xlsx`,
@@ -246,6 +249,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
 
     const orderIngesta = await prisma.ingesta.create({
       data: {
+        userId: ORDER_USER_ID,
         accountId: orderAccount.id,
         banco: 'BCI',
         nombreArchivo: `order-${RUN_ID}.xlsx`,
