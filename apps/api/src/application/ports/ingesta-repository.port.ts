@@ -2,58 +2,46 @@ import { Result } from '../../shared/result';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 
-/** Datos mínimos para crear la Ingesta en estado PENDIENTE. */
-export interface CrearIngestaInput {
+/**
+ * CrearIngestaProcesadaInput — datos completos de una Ingesta EXITOSA
+ * (US-004, design.md §6.3). `userId` viaja explícito (threaded desde la
+ * sesión, no un lookup extra vía `account`) — RNF-SEC-006 lo exige como
+ * columna directa en `Ingesta`, independiente de `accountId`.
+ */
+export interface CrearIngestaProcesadaInput {
+  userId: string;
   accountId: string;
   banco: string;
   nombreArchivo: string;
+  transacciones: ReadonlyArray<Transaccion>;
+  /** Conteo de duplicados detectados y omitidos ANTES de persistir (US-005). */
+  duplicadosOmitidos: number;
 }
 
 /**
  * IIngestaRepository — port de aplicación (lado de escritura).
  *
- * La Ingesta es la raíz de agregado que posee la escritura atómica: `commit`
- * inserta las transacciones y transiciona la Ingesta a PROCESADA dentro de una
- * única `prisma.$transaction` (a nivel de infraestructura). Aquí solo vive el
- * CONTRATO — la implementación Prisma llega en PR3.
+ * US-004 (design.md §3.1/D1): el ciclo de vida COLAPSA a una única escritura
+ * atómica — `createPending`/`commit`/`markFailed` desaparecen. La eager
+ * PENDIENTE ya no tiene razón de existir (su único propósito era que una
+ * FALLIDA posterior sobreviviera; ahora el boundary
+ * `IRegistrarIngestaFallidaWriter` posee ese registro). `markFailed` también
+ * desaparece: la falla es responsabilidad EXCLUSIVA del boundary
+ * (single-writer-per-state).
  *
- * Ciclo de vida orquestado por PersistTransactionsUseCase:
- *   createPending (commit propio) → commit (atómico) → markFailed en caso de error.
+ * `persistirProcesada` inserta la Ingesta EN ESTADO PROCESADA junto con
+ * todas sus transacciones en una única `prisma.$transaction` (a nivel de
+ * infraestructura) — un fallo NO debe dejar filas parciales, ni de Ingesta
+ * ni de Transaccion.
  *
  * API asíncrona; retorna Result y NUNCA lanza en el contrato de aplicación.
  */
 export interface IIngestaRepository {
-  /** Crea la Ingesta en PENDIENTE y la confirma en su propio commit. */
-  createPending(
-    input: CrearIngestaInput,
-  ): Promise<Result<{ ingestaId: string }, PersistenciaFallidaError>>;
-
-  /**
-   * Escritura atómica: inserta todas las transacciones y transiciona la
-   * Ingesta a PROCESADA (totalTransacciones, procesadoEn,
-   * duplicadosOmitidos) en una sola transacción. Un fallo NO debe dejar
-   * filas parciales. `duplicadosOmitidos` (US-005) es el conteo de filas
-   * detectadas como duplicado y NO incluidas en `transacciones` — se
-   * escribe en el mismo `$transaction` que ya existía, no en una escritura
-   * separada no-atómica.
-   */
-  commit(
-    ingestaId: string,
-    accountId: string,
-    transacciones: ReadonlyArray<Transaccion>,
-    duplicadosOmitidos: number,
-  ): Promise<Result<{ total: number }, PersistenciaFallidaError>>;
-
-  /**
-   * Marca la Ingesta como FALLIDA registrando el motivo del fallo.
-   * Retorna Result (NUNCA lanza): la misma caída de DB que abortó el commit
-   * puede hacer fallar también este marcado, y el orquestador debe poder
-   * manejarlo sin propagar excepciones.
-   */
-  markFailed(
-    ingestaId: string,
-    motivo: string,
-  ): Promise<Result<void, PersistenciaFallidaError>>;
+  persistirProcesada(
+    input: CrearIngestaProcesadaInput,
+  ): Promise<
+    Result<{ ingestaId: string; total: number }, PersistenciaFallidaError>
+  >;
 }
 
 /** Token de inyección — las interfaces se borran en runtime. */
