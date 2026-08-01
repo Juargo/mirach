@@ -143,15 +143,33 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     expect(enBd).toEqual(enRespuesta);
   });
 
-  it('rechaza un archivo .xls con 400 (falla en IngestFile, antes de crear ninguna Ingesta)', async () => {
+  it('rechaza un archivo .xls con 400 y registra exactamente una fila FALLIDA (ING-07)', async () => {
+    const nombreArchivo = `cartola-${RUN_ID}-rechazo.xls`;
+
     const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
-      .attach('file', xlsFixture)
+      .attach('file', xlsFixture, nombreArchivo)
       .expect(400);
 
     expect(response.body.message).toMatch(/\.xls/i);
+
+    // Bajo ING-07 esto INVIERTE la aserción pre-US-004 ("no crea ninguna
+    // Ingesta"): el boundary `registrarFallo` (design.md §3.2) registra una
+    // fila FALLIDA incluso para un rechazo temprano de extensión — el
+    // historial debe mostrar también los intentos fallidos, no solo los
+    // éxitos.
+    const fallida = await prisma.ingesta.findFirst({
+      where: { nombreArchivo, estado: 'FALLIDA' },
+    });
+
+    // Registrar ANTES de cualquier expect(): un assertion fallido más abajo
+    // no debe dejar la fila huérfana.
+    if (fallida) createdIngestaIds.push(fallida.id);
+
+    expect(fallida).not.toBeNull();
+    expect(fallida?.motivoFallo).toMatch(/\.xls/i);
   });
 
   it('retorna 400 cuando no se envía archivo', async () => {
@@ -167,19 +185,22 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
   it('si falla la escritura atómica en persistencia, retorna 500 con mensaje descriptivo y la Ingesta queda FALLIDA', async () => {
     const nombreArchivo = `movimientos-${RUN_ID}-fail.xlsx`;
 
-    // Misma técnica que el int-spec de PR3a: fuerza que la 2da sentencia del
-    // $transaction (ingesta.update) apunte a un id inexistente → P2025 →
-    // rollback de TODO el commit. La llamada real de markFailed (fuera del
-    // $transaction) NO está mockeada, así que sí marca FALLIDA.
-    const realUpdate = prisma.ingesta.update.bind(prisma.ingesta);
+    // El persist-path collapse (US-004, §7.1) dejó un ÚNICO escritor de
+    // PROCESADA: un solo `ingesta.create` con `transacciones.createMany`
+    // anidado (ya no hay un `ingesta.update` separado que interceptar, como
+    // en la técnica pre-US-004). Se fuerza la MISMA falla atómica que la
+    // CHECK-violation de `historial-ingestas.int-spec.ts` prueba a nivel de
+    // repositorio, pero acá vía spy en la única llamada de escritura — el
+    // efecto observable es idéntico: `persistirProcesada` cae al catch y
+    // retorna `Result.fail(PersistenciaFallidaError)`. La llamada real de
+    // `registrarFallo` (un SEGUNDO `ingesta.create`, con `estado: FALLIDA`,
+    // fuera de este mock de una sola vez) NO está mockeada, así que sí marca
+    // FALLIDA.
     const spy = vi
-      .spyOn(prisma.ingesta, 'update')
-      .mockImplementationOnce((args) =>
-        realUpdate({
-          where: { id: `inexistente-${Date.now()}` },
-          data: args.data,
-        }),
-      );
+      .spyOn(prisma.ingesta, 'create')
+      .mockImplementationOnce(() => {
+        throw new Error('Simulated atomic write failure (test-forced)');
+      });
 
     try {
       const response = await request(app)
@@ -200,8 +221,11 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       if (fallida) createdIngestaIds.push(fallida.id);
 
       // Mensaje fijo y genérico: nunca interpola montos ni datos crudos.
+      // Coincide con PrismaIngestaRepository.persistirProcesada's catch
+      // (prisma-ingesta.repository.ts) — "de la ingesta", no "de
+      // transacciones" (mensaje pre-US-004, ya no vigente tras el collapse).
       expect(response.body.message).toBe(
-        'Persistencia fallida: falló la escritura atómica de transacciones',
+        'Persistencia fallida: falló la escritura atómica de la ingesta',
       );
       expect(response.body.message).not.toMatch(/\d/);
       expect(fallida).not.toBeNull();
