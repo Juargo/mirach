@@ -19,6 +19,8 @@ import { DemoRateLimiter } from '../infrastructure/http/auth/demo-rate-limiter';
 import { DemoCleanupService } from '../infrastructure/http/auth/demo-cleanup.service';
 import { crearAuth } from './crear-auth';
 import { crearProcessIngesta } from './crear-process-ingesta';
+import { crearPreviewIngesta } from './crear-preview-ingesta';
+import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
@@ -55,6 +57,10 @@ export interface Container {
   readonly reclasificarTransaccion: ReclasificarTransaccionUseCase;
   /** Pipeline de ingesta xlsx/pdf — POST /api/ingestas. */
   readonly processIngesta: ProcessIngestaUseCase;
+  /** Seam de solo-lectura detect→validate→normalize, sin persistir (US-003,
+   * CA-04) — POST /api/ingestas/preview. Ni prisma ni crypto: no tiene cómo
+   * alcanzar la BD. */
+  readonly previewIngesta: PreviewIngestaUseCase;
   /** Borrado en cascada userId-isolado — DELETE /api/ingestas/:id. */
   readonly eliminarIngesta: EliminarIngestaUseCase;
   /** Listado de ingestas del usuario — GET /api/ingestas. */
@@ -108,6 +114,7 @@ export function createContainer(
     new PrismaReclasificarCategoriaRepository(prisma),
   );
   const processIngesta = crearProcessIngesta(prisma, crypto);
+  const previewIngesta = crearPreviewIngesta();
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),
   );
@@ -123,6 +130,7 @@ export function createContainer(
     obtenerMovimientosMes,
     reclasificarTransaccion,
     processIngesta,
+    previewIngesta,
     eliminarIngesta,
     listarIngestas,
     login: auth.login,
