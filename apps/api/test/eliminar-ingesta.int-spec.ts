@@ -6,8 +6,9 @@ import { IngestaNoEncontradaError } from '../src/domain/errors/ingesta-no-encont
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
 /**
- * Integration tests for PrismaEliminarIngestaRepository (US-018, design.md
- * §3.1/§3.2/§8.3) — two-user pattern, mirrors reclasificar-categoria.int-spec.ts.
+ * Integration tests for PrismaEliminarIngestaRepository (US-018 §3.1/§3.2/
+ * §8.3, hardened post-4R-review for US-004 D8) — two-user pattern, mirrors
+ * reclasificar-categoria.int-spec.ts.
  *
  * THIS IS THE KEY CORRECTNESS TEST (design.md §3.2): the ISO case catches the
  * cross-tenant child-deleteMany bug a naive `{ ingestaId }` (unscoped) clause
@@ -16,16 +17,16 @@ import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
  * response status is NOT enough; this file also asserts the VICTIM's rows are
  * untouched.
  *
- * Requires a live dev DB with ALLOW_DESTRUCTIVE_DB=1 — run via
- * `pnpm api test:integration` (vitest.int.config.ts, which only includes
- * `test/**\/*.int-spec.ts` and gates via `test/integration.setup.ts` →
- * `assertDestructiveDbAllowed()`). It is intentionally EXCLUDED from
- * `pnpm api test` (vitest.config.ts only includes `src/**\/*.spec.ts`) — same
- * posture as reclasificar-categoria.int-spec.ts and the rest of the
- * `test/*.int-spec.ts` suite (ADR-028 debt: local disposable Postgres not yet
- * provisioned, see apps/api/docs/local-test-db.md). NOT executed in this
- * apply session for that reason — written and committed now, green run is
- * gated on a human provisioning the local DB.
+ * Post-US-004 hardening (T1.15e): also proves that a FALLIDA ingesta owned
+ * by the requesting user is NOT deletable — this is now an EXPLICIT
+ * `estado: PROCESADA` gate in the repository's WHERE clauses, not an
+ * accident of the old `account: { userId }` join (FALLIDA rows have
+ * `accountId = null`, so that join never matched them either — same
+ * observable 404, different and now deliberate reason).
+ *
+ * Requires a live Postgres reachable via `.env.test` — run via
+ * `pnpm --filter @moneydiary/api test:integration` against the local
+ * disposable Postgres (localhost:5432, seeded, ADR-029/apps/api/docs/local-test-db.md).
  */
 
 const RUN_ID = `eliminaringint-${Date.now()}`;
@@ -77,8 +78,11 @@ describe('PrismaEliminarIngestaRepository (integration — real dev DB)', () => 
     await prisma.transaccion.deleteMany({
       where: { accountId: { in: [accountIdA, accountIdB] } },
     });
+    // Scoped by userId (not accountId): a FALLIDA fixture (T1.15e) has
+    // accountId = null and would otherwise survive cleanup and block the
+    // subsequent user delete under the required Ingesta.userId FK.
     await prisma.ingesta.deleteMany({
-      where: { accountId: { in: [accountIdA, accountIdB] } },
+      where: { userId: { in: [TEST_USER_ID_A, TEST_USER_ID_B] } },
     });
     await prisma.account.deleteMany({
       where: { id: { in: [accountIdA, accountIdB] } },
@@ -92,11 +96,24 @@ describe('PrismaEliminarIngestaRepository (integration — real dev DB)', () => 
   const createIngesta = (accountId: string, nombreArchivo: string) =>
     prisma.ingesta.create({
       data: {
+        userId: accountId === accountIdA ? TEST_USER_ID_A : TEST_USER_ID_B,
         accountId,
         banco: accountId === accountIdA ? 'BCI' : 'Santander',
         nombreArchivo,
         estado: 'PROCESADA',
         totalTransacciones: 0,
+      },
+    });
+
+  const createIngestaFallida = (userId: string, nombreArchivo: string) =>
+    prisma.ingesta.create({
+      data: {
+        userId,
+        accountId: null,
+        banco: null,
+        nombreArchivo,
+        estado: 'FALLIDA',
+        motivoFallo: 'Extensión de archivo no soportada',
       },
     });
 
@@ -114,8 +131,9 @@ describe('PrismaEliminarIngestaRepository (integration — real dev DB)', () => 
 
   // -------------------------------------------------------------------------
   // §3.2 — THE trap: cross-tenant isolation, catches the unscoped-child bug
+  // (now via the direct Ingesta.userId column, post-US-004 hardening)
   // -------------------------------------------------------------------------
-  it('T1.15a (ISO): user A cannot delete user B ingesta — Result.fail AND B rows untouched (catches §3.2)', async () => {
+  it('T1.15a (ISO): user A cannot delete user B PROCESADA ingesta — Result.fail AND B rows untouched (catches §3.2, direct userId)', async () => {
     const ingB = await createIngesta(accountIdB, `b-${RUN_ID}.xlsx`);
     await createTx(accountIdB, ingB.id, 10000n);
     await createTx(accountIdB, ingB.id, 20000n);
@@ -138,6 +156,31 @@ describe('PrismaEliminarIngestaRepository (integration — real dev DB)', () => 
       where: { ingestaId: ingB.id },
     });
     expect(count).toBe(2);
+  });
+
+  // -------------------------------------------------------------------------
+  // 4R-review hardening: FALLIDA is explicitly not deletable (D8), not an
+  // accident of the old account-join miss.
+  // -------------------------------------------------------------------------
+  it('T1.15e: a FALLIDA ingesta owned by the requesting user is NOT deletable — Result.fail (explicit estado gate, D8)', async () => {
+    const ingFallida = await createIngestaFallida(
+      TEST_USER_ID_A,
+      `fallida-${RUN_ID}.xlsx`,
+    );
+
+    const result = await repo.eliminarConTransacciones(
+      TEST_USER_ID_A,
+      ingFallida.id,
+    );
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(IngestaNoEncontradaError);
+
+    // The FALLIDA row MUST still exist — it was never targeted.
+    const ingestaAun = await prisma.ingesta.findUnique({
+      where: { id: ingFallida.id },
+    });
+    expect(ingestaAun).not.toBeNull();
   });
 
   // -------------------------------------------------------------------------
