@@ -16,6 +16,9 @@ describe('ListarIngestasUseCase', () => {
       {
         id: 'ing-1',
         banco: 'BCI',
+        nombreArchivo: 'movimientos.xlsx',
+        estado: 'PROCESADA',
+        motivoFallo: null,
         fecha: new Date('2026-07-15T00:00:00.000Z'),
         totalTransacciones: 10,
       },

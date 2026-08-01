@@ -22,6 +22,7 @@ import { PdfjsTransactionNormalizerService } from '../infrastructure/pdf/pdfjs-t
 
 import { PrismaAccountRepository } from '../infrastructure/persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../infrastructure/persistence/prisma-ingesta.repository';
+import { PrismaRegistrarIngestaFallidaRepository } from '../infrastructure/persistence/prisma-registrar-ingesta-fallida.repository';
 import { PrismaCatalogoClasificacionRepository } from '../infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../infrastructure/persistence/prisma-transaccion-bucket.repository';
 import { PrismaTransaccionClasificacionRepository } from '../infrastructure/persistence/prisma-transaccion-clasificacion.repository';
@@ -49,6 +50,9 @@ export function crearProcessIngesta(
 ): ProcessIngestaUseCase {
   const accountRepository = new PrismaAccountRepository(prisma);
   const ingestaRepository = new PrismaIngestaRepository(prisma, crypto);
+  const ingestaFallidaWriter = new PrismaRegistrarIngestaFallidaRepository(
+    prisma,
+  );
   const catalogoClasificacion = new PrismaCatalogoClasificacionRepository(
     prisma,
   );
@@ -79,5 +83,6 @@ export function crearProcessIngesta(
     new CategorizarTransaccionUseCase(),
     txParaClasificarReader,
     new DetectarDuplicadosUseCase(txExistenteReader),
+    ingestaFallidaWriter,
   );
 }
