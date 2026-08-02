@@ -1,6 +1,16 @@
 import type { PrismaClient } from '@prisma/client';
 import { crearAuth } from './crear-auth';
 import { buildTestEnv } from '../../test/support/env.fixture';
+import type { ICryptoService } from '../application/ports/crypto-service.port';
+import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+
+const fakeCrypto: ICryptoService = {
+  encrypt: (v: string) => v,
+  decrypt: (v: string) => v,
+};
+const fakeBlindIndex: IBlindIndexService = {
+  compute: (v: string) => v,
+};
 
 /**
  * crearAuth(prisma, env) — cobertura del mapeo `env.LOGIN_RATELIMIT_* ->
@@ -25,7 +35,7 @@ describe('crearAuth — mapeo env.LOGIN_RATELIMIT_* -> RateLimitConfig', () => {
       LOGIN_RATELIMIT_WINDOW_MS: 123456,
     });
 
-    const auth = crearAuth(fakePrisma(), env);
+    const auth = crearAuth(fakePrisma(), env, fakeCrypto, fakeBlindIndex);
 
     expect(auth.loginRateLimiter.configuracion).toEqual({
       maxAttemptsPerEmail: 7,

@@ -1,6 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 
 import type { Env } from '../config/env';
+import type { ICryptoService } from '../application/ports/crypto-service.port';
+import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
@@ -53,6 +55,11 @@ export interface AuthGraph {
  * Nota (ADR-028): la limpieza DIARIA de demos (`DemoCleanupService.limpiarDiario`)
  * la agenda `programarLimpiezaDemo` (node-cron) en el bootstrap. La limpieza
  * lazy en `GET /demo` también corre.
+ *
+ * US-035: `crypto`/`blindIndex` se reciben ya construidos (no se instancian
+ * acá) — el caller (`container.ts`) es dueño de decodificar
+ * `env.ENCRYPTION_KEY` y derivar la clave del blind index UNA sola vez,
+ * mismo patrón que `crearProcessIngesta` recibe `crypto` inyectado.
  */
 export function crearAuth(
   prisma: PrismaClient,
@@ -62,13 +69,15 @@ export function crearAuth(
     | 'LOGIN_RATELIMIT_MAX_IP'
     | 'LOGIN_RATELIMIT_WINDOW_MS'
   >,
+  crypto: ICryptoService,
+  blindIndex: IBlindIndexService,
 ): AuthGraph {
   const reloj = new SystemReloj();
   const tokens = new Sha256SessionTokenService();
   const hasher = new Argon2PasswordHasher();
 
   const sessions = new PrismaSessionRepository(prisma);
-  const creds = new PrismaUserCredentialRepository(prisma);
+  const creds = new PrismaUserCredentialRepository(prisma, crypto, blindIndex);
   const demoRepo = new PrismaDemoRepository(prisma, reloj);
 
   return {

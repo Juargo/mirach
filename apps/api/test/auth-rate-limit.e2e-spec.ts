@@ -18,8 +18,9 @@ import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
-import { loadEnv } from '../src/config/env';
+import { loadEnv, type Env } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
+import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -31,12 +32,13 @@ const PASSWORD = 'correcto-123-clave';
 describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () => {
   let app: Express;
   let prisma: PrismaClient;
+  let env: Env;
   const createdUserIds: string[] = [];
 
   beforeAll(async () => {
     if (!ALLOW) return;
 
-    const env = loadEnv();
+    env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
@@ -57,8 +59,13 @@ describe('AuthController (e2e) — rate limiting on POST /api/auth/login', () =>
   ): Promise<{ userId: string; email: string }> {
     const email = `${RUN_ID}-${suffix}@example.com`;
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
+    // US-035: email cifrado + blind index (ver auth-login.e2e-spec.ts).
     const user = await prisma.user.create({
-      data: { nombre: `E2E RateLimit User ${suffix}`, email, passwordHash },
+      data: {
+        nombre: `E2E RateLimit User ${suffix}`,
+        ...buildEncryptedEmailFields(email, env),
+        passwordHash,
+      },
     });
     createdUserIds.push(user.id);
     return { userId: user.id, email };

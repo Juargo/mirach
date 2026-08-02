@@ -35,6 +35,7 @@ import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
+import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -57,8 +58,13 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
     app = createApp(createContainer(env, prisma), env);
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
+    // US-035: email cifrado en reposo — este helper cifra + computa el
+    // blind index con la MISMA clave (env.ENCRYPTION_KEY) que usa
+    // createContainer(env, prisma) más abajo, así el login (que busca por
+    // emailBlindIndex) encuentra esta fila.
+    const { email, emailBlindIndex } = buildEncryptedEmailFields(EMAIL, env);
     const user = await prisma.user.create({
-      data: { nombre: 'E2E Auth User', email: EMAIL, passwordHash },
+      data: { nombre: 'E2E Auth User', email, emailBlindIndex, passwordHash },
     });
     userId = user.id;
   });

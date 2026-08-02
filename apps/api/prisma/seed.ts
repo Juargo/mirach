@@ -8,9 +8,16 @@ import {
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
-import { Categoria, CATEGORIA_BUCKET } from '../src/domain/value-objects/categoria';
+import {
+  Categoria,
+  CATEGORIA_BUCKET,
+} from '../src/domain/value-objects/categoria';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
+import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
+import { loadEnv } from '../src/config/env';
 
 /**
  * Seed mono-usuario (US-011, tareas 0.1-0.3) + Buckets de categorización (US-012).
@@ -40,12 +47,15 @@ type SeedClient = Pick<
 // derives from it — mismo patrón que PATRON_CATALOG_SIZE). Cada fila deriva
 // su bucketId de CATEGORIA_BUCKET (invariante CAT-01) — single-sourced, no
 // puede quedar desincronizada del mapa de dominio.
-const CATEGORIA_CATALOG: Array<{ id: string; nombre: Categoria; bucketId: string }> =
-  Object.values(Categoria).map((categoria) => ({
-    id: CATEGORIA_IDS[categoria],
-    nombre: categoria,
-    bucketId: BUCKET_IDS[CATEGORIA_BUCKET[categoria]],
-  }));
+const CATEGORIA_CATALOG: Array<{
+  id: string;
+  nombre: Categoria;
+  bucketId: string;
+}> = Object.values(Categoria).map((categoria) => ({
+  id: CATEGORIA_IDS[categoria],
+  nombre: categoria,
+  bucketId: BUCKET_IDS[CATEGORIA_BUCKET[categoria]],
+}));
 
 /**
  * Número total de categorías del catálogo — derivado del array real (mirror
@@ -73,32 +83,152 @@ const PATRON_CATALOG: Array<{
   prioridad: number;
 }> = [
   // ── Necesidades (alimentos, transporte, salud, servicios básicos) ──
-  { id: 'pat-lider',         patron: 'lider',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
-  { id: 'pat-jumbo',         patron: 'jumbo',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
-  { id: 'pat-unimarc',       patron: 'unimarc',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
-  { id: 'pat-santa-isabel',  patron: 'santa isabel',   matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
-  { id: 'pat-tottus',        patron: 'tottus',         matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Supermercado], prioridad: 10 },
-  { id: 'pat-copec',         patron: 'copec',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Combustible], prioridad: 15 },
-  { id: 'pat-shell',         patron: 'shell',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Combustible], prioridad: 15 },
-  { id: 'pat-farmacia',      patron: 'farmacia',       matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Farmacia], prioridad: 20 },
-  { id: 'pat-isapre',        patron: 'isapre',         matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Salud], prioridad: 20 },
-  { id: 'pat-transantiago',  patron: 'transantiago',   matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Transporte], prioridad: 20 },
-  { id: 'pat-bip',           patron: 'bip',            matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Transporte], prioridad: 25 },
+  {
+    id: 'pat-lider',
+    patron: 'lider',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-jumbo',
+    patron: 'jumbo',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-unimarc',
+    patron: 'unimarc',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-santa-isabel',
+    patron: 'santa isabel',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-tottus',
+    patron: 'tottus',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-copec',
+    patron: 'copec',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Combustible],
+    prioridad: 15,
+  },
+  {
+    id: 'pat-shell',
+    patron: 'shell',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Combustible],
+    prioridad: 15,
+  },
+  {
+    id: 'pat-farmacia',
+    patron: 'farmacia',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Farmacia],
+    prioridad: 20,
+  },
+  {
+    id: 'pat-isapre',
+    patron: 'isapre',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Salud],
+    prioridad: 20,
+  },
+  {
+    id: 'pat-transantiago',
+    patron: 'transantiago',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Transporte],
+    prioridad: 20,
+  },
+  {
+    id: 'pat-bip',
+    patron: 'bip',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Transporte],
+    prioridad: 25,
+  },
 
   // ── Deseos (entretenimiento, restaurantes, suscripciones) ──
-  { id: 'pat-netflix',       patron: 'netflix',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Streaming], prioridad: 10 },
-  { id: 'pat-spotify',       patron: 'spotify',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Streaming], prioridad: 10 },
-  { id: 'pat-amazon-prime',  patron: 'prime video',    matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Streaming], prioridad: 10 },
-  { id: 'pat-uber-eats',     patron: 'uber eats',      matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Delivery], prioridad: 15 },
-  { id: 'pat-rappi',         patron: 'rappi',          matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Delivery], prioridad: 15 },
+  {
+    id: 'pat-netflix',
+    patron: 'netflix',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Streaming],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-spotify',
+    patron: 'spotify',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Streaming],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-amazon-prime',
+    patron: 'prime video',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Streaming],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-uber-eats',
+    patron: 'uber eats',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Delivery],
+    prioridad: 15,
+  },
+  {
+    id: 'pat-rappi',
+    patron: 'rappi',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Delivery],
+    prioridad: 15,
+  },
 
   // ── Ahorro (transferencias a fintech / ahorro / inversión) ──
-  { id: 'pat-fintual',       patron: 'fintual',        matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 10 },
-  { id: 'pat-bci-ahorro',    patron: 'cuenta ahorro',  matchType: 'CONTAINS',    categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 20 },
+  {
+    id: 'pat-fintual',
+    patron: 'fintual',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Ahorro],
+    prioridad: 10,
+  },
+  {
+    id: 'pat-bci-ahorro',
+    patron: 'cuenta ahorro',
+    matchType: 'CONTAINS',
+    categoriaId: CATEGORIA_IDS[Categoria.Ahorro],
+    prioridad: 20,
+  },
   // AFP abreviada en cartola: "AFP ..." — STARTS_WITH para anclar y evitar false positives
-  { id: 'pat-afp',           patron: 'afp ',           matchType: 'STARTS_WITH', categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 15 },
+  {
+    id: 'pat-afp',
+    patron: 'afp ',
+    matchType: 'STARTS_WITH',
+    categoriaId: CATEGORIA_IDS[Categoria.Ahorro],
+    prioridad: 15,
+  },
   // Transferencia a cuenta propia o de ahorro: REGEX acotado
-  { id: 'pat-transferencia-ahorro', patron: '^transf(?:erencia)?.*ahorro', matchType: 'REGEX', categoriaId: CATEGORIA_IDS[Categoria.Ahorro], prioridad: 25 },
+  {
+    id: 'pat-transferencia-ahorro',
+    patron: '^transf(?:erencia)?.*ahorro',
+    matchType: 'REGEX',
+    categoriaId: CATEGORIA_IDS[Categoria.Ahorro],
+    prioridad: 25,
+  },
 ];
 
 /**
@@ -121,13 +251,32 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
   // está presente, se omite solo este backfill — el seed sigue siendo
   // ejecutable para el resto del estado (usuarios sin auth aún funcionan
   // igual que antes de este change).
+  //
+  // US-035: `email` se persiste CIFRADO (ADR-013) — ya no es buscable por
+  // WHERE email=... — así que además se escribe `emailBlindIndex` (HMAC
+  // determinístico) para que el login pueda encontrar la fila. `crypto` y
+  // `blindIndex` se construyen acá desde `env.ENCRYPTION_KEY` vía `loadEnv()`
+  // — MISMA derivación HKDF que `container.ts` (ver derive-blind-index-key.ts),
+  // para que el índice que escribe el seed matchee el que consulta el login.
   const seedEmail = process.env.SEED_USER_EMAIL;
   const seedPassword = process.env.SEED_USER_PASSWORD;
   if (seedEmail && seedPassword) {
+    const env = loadEnv();
+    const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
+    const crypto = new AesGcmCryptoService(encryptionKey);
+    const blindIndex = new HmacBlindIndexService(
+      deriveBlindIndexKey(encryptionKey),
+    );
+
+    const normalizedEmail = seedEmail.trim().toLowerCase();
     const passwordHash = await new Argon2PasswordHasher().hash(seedPassword);
     await prisma.user.update({
       where: { id: USER_ID_FIJO },
-      data: { email: seedEmail.trim().toLowerCase(), passwordHash },
+      data: {
+        email: crypto.encrypt(normalizedEmail),
+        emailBlindIndex: blindIndex.compute(normalizedEmail),
+        passwordHash,
+      },
     });
   }
 
@@ -158,7 +307,11 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
   for (const categoria of CATEGORIA_CATALOG) {
     await prisma.categoria.upsert({
       where: { id: categoria.id },
-      create: { id: categoria.id, nombre: categoria.nombre, bucketId: categoria.bucketId },
+      create: {
+        id: categoria.id,
+        nombre: categoria.nombre,
+        bucketId: categoria.bucketId,
+      },
       update: { nombre: categoria.nombre, bucketId: categoria.bucketId },
     });
   }
