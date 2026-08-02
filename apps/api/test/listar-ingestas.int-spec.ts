@@ -91,16 +91,15 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
     nombreArchivo: string,
     estado: 'PENDIENTE' | 'PROCESADA' | 'FALLIDA',
     totalTransacciones: number,
-    motivoFallo: string | null = null,
   ) =>
     prisma.ingesta.create({
       data: {
+        userId: accountId === accountIdA ? TEST_USER_ID_A : TEST_USER_ID_B,
         accountId,
         banco: accountId === accountIdA ? 'BCI' : 'Santander',
         nombreArchivo,
         estado,
         totalTransacciones,
-        motivoFallo,
       },
     });
 
@@ -129,11 +128,9 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Historial completo (US-004, CA-01/CA-04) — revierte el filtro PROCESADA
-  // que traía US-018 (D5): el historial ahora es traza de auditoría e
-  // INCLUYE ingestas fallidas y pendientes, con su estado y motivoFallo.
+  // PROCESADA/FALLIDA in, PENDIENTE out (design.md §4.1/D7, ING-03/ING-07)
   // -------------------------------------------------------------------------
-  it('incluye ingestas PENDIENTE/FALLIDA con estado mapeado + motivoFallo (CA-04)', async () => {
+  it('includes PROCESADA and FALLIDA ingestas but excludes PENDIENTE for the same user', async () => {
     const ingProcesada = await createIngesta(
       accountIdA,
       `a-ok-${RUN_ID}.xlsx`,
@@ -151,26 +148,31 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
       `a-fallida-${RUN_ID}.xlsx`,
       'FALLIDA',
       0,
-      'Formato de fecha no reconocido',
     );
 
     const resultA = await reader.listarPorUsuario(TEST_USER_ID_A);
-    const byId = new Map(resultA.map((r) => [r.id, r]));
+    const returnedIds = resultA.map((r) => r.id);
 
-    expect(byId.get(ingProcesada.id)?.estado).toBe('exitoso');
-    expect(byId.get(ingPendiente.id)?.estado).toBe('pendiente');
-
-    const fallida = byId.get(ingFallida.id);
-    expect(fallida?.estado).toBe('fallido');
-    expect(fallida?.motivoFallo).toBe('Formato de fecha no reconocido');
+    // FALLIDA is a terminal outcome the historial must surface (ING-07) — the
+    // pre-US-004 assertion excluded it; that was correct only under the old
+    // "historial = successes only" contract, which this US replaces.
+    expect(returnedIds).toContain(ingProcesada.id);
+    expect(returnedIds).toContain(ingFallida.id);
+    // PENDIENTE is never a terminal state written by the pipeline and stays
+    // filtered out by the reader's WHERE (estado IN [PROCESADA, FALLIDA]).
+    expect(returnedIds).not.toContain(ingPendiente.id);
   });
 
   // -------------------------------------------------------------------------
   // Shape + count
   // -------------------------------------------------------------------------
-  it('returns rows shaped as { id, banco, nombreArchivo, fecha, estado, totalTransacciones, motivoFallo } with the correct count', async () => {
-    const nombreArchivo = `a-shape-${RUN_ID}.xlsx`;
-    const ing = await createIngesta(accountIdA, nombreArchivo, 'PROCESADA', 7);
+  it('returns rows shaped as { id, banco, fecha, totalTransacciones } with the correct count', async () => {
+    const ing = await createIngesta(
+      accountIdA,
+      `a-shape-${RUN_ID}.xlsx`,
+      'PROCESADA',
+      7,
+    );
 
     const resultA = await reader.listarPorUsuario(TEST_USER_ID_A);
     const found = resultA.find((r) => r.id === ing.id);
@@ -180,10 +182,7 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
       expect.objectContaining({
         id: ing.id,
         banco: 'BCI',
-        nombreArchivo,
-        estado: 'exitoso',
         totalTransacciones: 7,
-        motivoFallo: null,
       }),
     );
     expect(found!.fecha).toBeInstanceOf(Date);

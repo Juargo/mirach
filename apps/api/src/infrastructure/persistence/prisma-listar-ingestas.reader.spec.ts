@@ -4,9 +4,13 @@ import { PrismaClient } from '@prisma/client';
 
 /**
  * Unit tests for PrismaListarIngestasReader — mocked PrismaClient
- * (US-018 base; US-004 amplía a historial completo con estado + motivoFallo).
+ * (US-004, design.md §4.1). Widens US-018's reader: drops the bare
+ * `estado: PROCESADA` filter for `estado: { in: [PROCESADA, FALLIDA] }`, and
+ * switches isolation from the `account: { userId }` join to the direct
+ * `Ingesta.userId` column — the only mechanism that can isolate an
+ * `accountId = null` FALLIDA row (RNF-SEC-006, ING-08).
  */
-describe('PrismaListarIngestasReader.listarPorUsuario', () => {
+describe('PrismaListarIngestasReader.listarPorUsuario (US-004)', () => {
   function makePrisma(rows: unknown[]): {
     prisma: PrismaClient;
     findMany: Mock;
@@ -18,38 +22,38 @@ describe('PrismaListarIngestasReader.listarPorUsuario', () => {
     return { prisma, findMany };
   }
 
-  it('T4.1a: WHERE userId-scoped SIN filtro de estado (US-004: historial completo), orderBy creadoEn desc, select con nombreArchivo/estado/motivoFallo', async () => {
+  it('WHERE userId-scoped (NO account join) + estado in [PROCESADA, FALLIDA], orderBy creadoEn desc', async () => {
     const { prisma, findMany } = makePrisma([]);
     const reader = new PrismaListarIngestasReader(prisma);
 
     await reader.listarPorUsuario('user-a');
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { account: { userId: 'user-a' } },
+      where: { userId: 'user-a', estado: { in: ['PROCESADA', 'FALLIDA'] } },
       orderBy: { creadoEn: 'desc' },
       select: {
         id: true,
         banco: true,
         nombreArchivo: true,
-        creadoEn: true,
         estado: true,
-        totalTransacciones: true,
         motivoFallo: true,
+        creadoEn: true,
+        totalTransacciones: true,
       },
     });
   });
 
-  it('T4.1b: mapea una ingesta PROCESADA → estado "exitoso", motivoFallo null', async () => {
+  it('mapea una fila PROCESADA a IngestaResumen completo', async () => {
     const fecha = new Date('2026-07-15T00:00:00.000Z');
     const { prisma } = makePrisma([
       {
         id: 'ing-1',
         banco: 'BCI',
         nombreArchivo: 'movimientos.xlsx',
-        creadoEn: fecha,
         estado: 'PROCESADA',
-        totalTransacciones: 10,
         motivoFallo: null,
+        creadoEn: fecha,
+        totalTransacciones: 10,
       },
     ]);
     const reader = new PrismaListarIngestasReader(prisma);
@@ -61,60 +65,81 @@ describe('PrismaListarIngestasReader.listarPorUsuario', () => {
         id: 'ing-1',
         banco: 'BCI',
         nombreArchivo: 'movimientos.xlsx',
-        fecha,
-        estado: 'exitoso',
-        totalTransacciones: 10,
+        estado: 'PROCESADA',
         motivoFallo: null,
+        fecha,
+        totalTransacciones: 10,
       },
     ]);
   });
 
-  it('T4.1c: mapea una ingesta FALLIDA → estado "fallido" conservando motivoFallo (CA-04)', async () => {
-    const fecha = new Date('2026-07-15T00:00:00.000Z');
+  it('mapea una fila FALLIDA con banco=null, totalTransacciones coalescido a 0, y motivoFallo presente', async () => {
+    const fecha = new Date('2026-07-16T00:00:00.000Z');
     const { prisma } = makePrisma([
       {
         id: 'ing-2',
-        banco: 'Santander',
-        nombreArchivo: 'rota.xlsx',
-        creadoEn: fecha,
+        banco: null,
+        nombreArchivo: 'cartola.docx',
         estado: 'FALLIDA',
+        motivoFallo: 'extensión no permitida: .docx',
+        creadoEn: fecha,
         totalTransacciones: null,
-        motivoFallo: 'Formato de fecha no reconocido',
       },
     ]);
     const reader = new PrismaListarIngestasReader(prisma);
 
     const result = await reader.listarPorUsuario('user-a');
 
-    expect(result[0]).toEqual({
-      id: 'ing-2',
-      banco: 'Santander',
-      nombreArchivo: 'rota.xlsx',
-      fecha,
-      estado: 'fallido',
-      totalTransacciones: 0,
-      motivoFallo: 'Formato de fecha no reconocido',
-    });
+    expect(result).toEqual([
+      {
+        id: 'ing-2',
+        banco: null,
+        nombreArchivo: 'cartola.docx',
+        estado: 'FALLIDA',
+        motivoFallo: 'extensión no permitida: .docx',
+        fecha,
+        totalTransacciones: 0,
+      },
+    ]);
   });
 
-  it('T4.1d: mapea una ingesta PENDIENTE → estado "pendiente"', async () => {
+  it('totalTransacciones nulo (PROCESADA legacy) coalesce a 0 (defensivo)', async () => {
     const fecha = new Date('2026-07-15T00:00:00.000Z');
     const { prisma } = makePrisma([
       {
         id: 'ing-3',
-        banco: 'BancoEstado',
-        nombreArchivo: 'a-medias.xlsx',
-        creadoEn: fecha,
-        estado: 'PENDIENTE',
-        totalTransacciones: null,
+        banco: 'Santander',
+        nombreArchivo: 'x.xlsx',
+        estado: 'PROCESADA',
         motivoFallo: null,
+        creadoEn: fecha,
+        totalTransacciones: null,
       },
     ]);
     const reader = new PrismaListarIngestasReader(prisma);
 
     const result = await reader.listarPorUsuario('user-a');
 
-    expect(result[0].estado).toBe('pendiente');
     expect(result[0].totalTransacciones).toBe(0);
+  });
+
+  it('aIngestaEstado (narrowing infra-boundary): un estado inesperado (p.ej. PENDIENTE leaking) LANZA en vez de mentirle al tipo', async () => {
+    const fecha = new Date('2026-07-15T00:00:00.000Z');
+    const { prisma } = makePrisma([
+      {
+        id: 'ing-4',
+        banco: null,
+        nombreArchivo: 'x.xlsx',
+        estado: 'PENDIENTE',
+        motivoFallo: null,
+        creadoEn: fecha,
+        totalTransacciones: null,
+      },
+    ]);
+    const reader = new PrismaListarIngestasReader(prisma);
+
+    await expect(reader.listarPorUsuario('user-a')).rejects.toThrow(
+      /estado inesperado/,
+    );
   });
 });

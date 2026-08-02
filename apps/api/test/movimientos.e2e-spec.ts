@@ -174,6 +174,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
     const ingesta = await prisma.ingesta.create({
       data: {
+        userId: FIXED_USER_ID,
         accountId: account.id,
         banco: 'BCI',
         nombreArchivo: `e2e-${RUN_ID}.xlsx`,

@@ -83,11 +83,14 @@ describe('PrismaResumenMesRepository (integration)', () => {
     suffix: string,
   ): Promise<string> {
     const ingestaId = `${RUN_ID}-ingesta-${suffix}`;
+    // Same userId derivation as seedAccount — the owning user for this suffix.
+    const userId = `${RUN_ID}-user-${suffix}`;
     await prisma.ingesta.upsert({
       where: { id: ingestaId },
       update: {},
       create: {
         id: ingestaId,
+        userId,
         accountId,
         banco: 'TestBank',
         nombreArchivo: `test-${suffix}.xlsx`,

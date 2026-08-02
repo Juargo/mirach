@@ -110,6 +110,24 @@ describe('PrismaDemoRepository', () => {
     );
   });
 
+  it('crea la Ingesta con userId: user.id (US-004 — Ingesta.userId ahora NOT NULL)', async () => {
+    const tx = makeTxMock();
+    const prisma = makePrismaMock(tx);
+    const repo = new PrismaDemoRepository(prisma, makeReloj());
+
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
+
+    expect(tx.ingesta.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: 'user-demo-1' }),
+      }),
+    );
+  });
+
   it('inserta todas las transacciones demo vía createMany, con accountId/ingestaId correctos', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);

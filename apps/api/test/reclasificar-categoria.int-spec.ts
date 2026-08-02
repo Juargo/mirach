@@ -76,6 +76,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
 
     const ingA = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID_A,
         accountId: accountIdA,
         banco: 'BCI',
         nombreArchivo: `a-${RUN_ID}.xlsx`,
@@ -86,6 +87,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
 
     const ingB = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID_B,
         accountId: accountIdB,
         banco: 'Santander',
         nombreArchivo: `b-${RUN_ID}.xlsx`,
@@ -204,6 +206,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     // other test cases in this file (all share the same calendar month).
     const ing = await prisma.ingesta.create({
       data: {
+        userId: TEST_USER_ID_A,
         accountId: accountIdA,
         banco: 'BCI',
         nombreArchivo: `within-${RUN_ID}.xlsx`,
@@ -224,6 +227,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     });
     const ingWithin = await prisma.ingesta.create({
       data: {
+        userId: `${TEST_USER_ID_A}-within`,
         accountId: acc.id,
         banco: 'BCI',
         nombreArchivo: `within2-${RUN_ID}.xlsx`,
@@ -316,6 +320,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     });
     const ing = await prisma.ingesta.create({
       data: {
+        userId: `${TEST_USER_ID_A}-cross`,
         accountId: acc.id,
         banco: 'BCI',
         nombreArchivo: `cross-${RUN_ID}.xlsx`,

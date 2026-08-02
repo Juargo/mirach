@@ -139,15 +139,35 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
     expect(response.body.message).not.toMatch(/RUT|rut\s*:/i);
   });
 
-  it('no dejó ninguna fila huérfana para el PDF no reconocido (nada que limpiar, la ingesta nunca se creó)', async () => {
-    const antes = await prisma.ingesta.count();
-    await request(app)
+  it('registra exactamente una fila FALLIDA para el PDF no reconocido (US-004, ING-07)', async () => {
+    // Bajo ING-07 esto INVIERTE la aserción pre-US-004 ("no crea ninguna
+    // Ingesta"): "banco no reconocido" es un rechazo temprano (pre-cuenta,
+    // design.md §11 "Bank not recognized (pre-account)") — el boundary
+    // `registrarFallo` (§3.2) registra una fila FALLIDA igual que el .xls
+    // rejection case de `ingesta.e2e-spec.ts`. Se correlaciona por
+    // `nombreArchivo` único de esta corrida en vez de un conteo global
+    // (`prisma.ingesta.count()`), que es frágil contra una BD compartida por
+    // otros e2e corriendo en paralelo.
+    const nombreArchivo = `no-banco-${RUN_ID}-2.pdf`;
+
+    const response = await request(app)
       .post('/api/ingestas')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
-      .attach('file', noBancoPdfFixture, `no-banco-${RUN_ID}-2.pdf`)
+      .attach('file', noBancoPdfFixture, nombreArchivo)
       .expect(400);
-    const despues = await prisma.ingesta.count();
-    expect(despues).toBe(antes);
+
+    expect(typeof response.body.message).toBe('string');
+
+    const fallida = await prisma.ingesta.findFirst({
+      where: { nombreArchivo, estado: 'FALLIDA' },
+    });
+
+    // Registrar ANTES de cualquier expect(): un assertion fallido más abajo
+    // no debe dejar la fila huérfana.
+    if (fallida) createdIngestaIds.push(fallida.id);
+
+    expect(fallida).not.toBeNull();
+    expect(fallida?.motivoFallo).toBeTruthy();
   });
 });

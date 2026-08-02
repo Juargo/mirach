@@ -22,7 +22,10 @@ import { Categoria } from '../src/domain/value-objects/categoria';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
-import { ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence/constants';
+import {
+  ACCOUNT_ID_FIJO,
+  USER_ID_FIJO,
+} from '../src/infrastructure/persistence/constants';
 
 describe('Backfill de categorías — integración (real dev DB)', () => {
   const prisma = createPrismaClient(loadEnv());
@@ -37,6 +40,7 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
   beforeEach(async () => {
     const ingesta = await prisma.ingesta.create({
       data: {
+        userId: USER_ID_FIJO,
         accountId: ACCOUNT_ID_FIJO,
         banco: 'BancoEstado',
         nombreArchivo: 'test-backfill.xlsx',

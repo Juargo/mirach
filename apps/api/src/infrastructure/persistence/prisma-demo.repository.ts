@@ -55,6 +55,7 @@ export class PrismaDemoRepository implements IDemoRepository {
 
       const ingesta = await tx.ingesta.create({
         data: {
+          userId: user.id,
           accountId: account.id,
           banco: BANCO_DEMO,
           nombreArchivo: 'demo-seed',

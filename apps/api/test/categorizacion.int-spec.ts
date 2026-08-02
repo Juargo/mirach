@@ -27,7 +27,10 @@ import { Bucket } from '../src/domain/value-objects/bucket';
 import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
-import { ACCOUNT_ID_FIJO } from '../src/infrastructure/persistence/constants';
+import {
+  ACCOUNT_ID_FIJO,
+  USER_ID_FIJO,
+} from '../src/infrastructure/persistence/constants';
 import { buildTestEnv } from './support/env.fixture';
 
 /**
@@ -129,6 +132,7 @@ describe('Categorización — integración (real dev DB)', () => {
     // Create two test ingestas pointing to the fixed account
     const ingestaA = await prisma.ingesta.create({
       data: {
+        userId: USER_ID_FIJO,
         accountId: ACCOUNT_ID_FIJO,
         banco: 'BancoEstado',
         nombreArchivo: 'test-ingesta-A.xlsx',
@@ -139,6 +143,7 @@ describe('Categorización — integración (real dev DB)', () => {
 
     const ingestaB = await prisma.ingesta.create({
       data: {
+        userId: USER_ID_FIJO,
         accountId: ACCOUNT_ID_FIJO,
         banco: 'BancoEstado',
         nombreArchivo: 'test-ingesta-B.xlsx',

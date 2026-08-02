@@ -122,6 +122,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   async function seedIngesta(
     accountId: string,
     suffix: string,
+    userId: string,
   ): Promise<string> {
     const ingestaId = `${RUN_ID}-ing-${suffix}`;
     await prisma.ingesta.upsert({
@@ -129,6 +130,7 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
       update: {},
       create: {
         id: ingestaId,
+        userId,
         accountId,
         banco: 'TestBank',
         nombreArchivo: `test-${suffix}.xlsx`,
@@ -225,11 +227,11 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     );
     const userA = `${RUN_ID}-ca08-a`;
     const accountA = await seedAccount(userA, 'ca08-a');
-    const ingestaA = await seedIngesta(accountA, 'ca08-a');
+    const ingestaA = await seedIngesta(accountA, 'ca08-a', userA);
 
     const userB = await seedUser('ca08-b');
     const accountB = await seedAccount(userB, 'ca08-b');
-    const ingestaB = await seedIngesta(accountB, 'ca08-b');
+    const ingestaB = await seedIngesta(accountB, 'ca08-b', userB);
 
     const fecha = new Date(Date.UTC(CURRENT_YEAR, 2, 10)); // March
 

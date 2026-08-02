@@ -17,10 +17,10 @@ describe('ListarIngestasUseCase', () => {
         id: 'ing-1',
         banco: 'BCI',
         nombreArchivo: 'movimientos.xlsx',
-        fecha: new Date('2026-07-15T00:00:00.000Z'),
-        estado: 'exitoso',
-        totalTransacciones: 10,
+        estado: 'PROCESADA',
         motivoFallo: null,
+        fecha: new Date('2026-07-15T00:00:00.000Z'),
+        totalTransacciones: 10,
       },
     ];
     const reader = makeReader(rows);

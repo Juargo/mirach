@@ -54,8 +54,12 @@ export class DemoCleanupService {
       await tx.transaccion.deleteMany({
         where: { account: { userId: { in: ids } } },
       });
+      // US-004: userId DIRECTO, no el join account: { userId } — el join
+      // no puede alcanzar una Ingesta FALLIDA sin cuenta (accountId=null).
+      // Ver design.md §5.3: el userId directo es ahora la clave de
+      // aislamiento autoritativa para Ingesta en todo el sistema.
       await tx.ingesta.deleteMany({
-        where: { account: { userId: { in: ids } } },
+        where: { userId: { in: ids } },
       });
       await tx.account.deleteMany({ where: { userId: { in: ids } } });
       const { count } = await tx.user.deleteMany({
