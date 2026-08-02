@@ -15,7 +15,13 @@ enum EstadoIngesta {
 model User {
   id            String    @id @default(cuid())
   nombre        String
-  email         String?   @unique
+  // US-035: email cifrado en reposo (AES-GCM, ADR-013). Deja de ser @unique
+  // porque el IV aleatorio hace que dos cifrados del mismo email difieran.
+  email         String?
+  // Blind index (HMAC-SHA256 determinístico sobre el email normalizado) — la
+  // unicidad y la búsqueda por igualdad (login) se hacen acá. Nullable: los
+  // usuarios demo no tienen email (múltiples NULL permitidos por Postgres).
+  emailBlindIndex String? @unique
   passwordHash  String?
   esDemo        Boolean   @default(false)
   demoCreatedAt DateTime?

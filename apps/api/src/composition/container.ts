@@ -29,6 +29,8 @@ import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persist
 import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
 import { AesGcmCryptoService } from '../infrastructure/persistence/aes-gcm-crypto.service';
+import { HmacBlindIndexService } from '../infrastructure/persistence/hmac-blind-index.service';
+import { deriveBlindIndexKey } from './derive-blind-index-key';
 
 /**
  * Composition Root — ensamblado del grafo de dependencias (ADR-028/029).
@@ -87,21 +89,30 @@ export function createContainer(
   env: Env,
   prisma: PrismaClient = createPrismaClient(env),
 ): Container {
-  const auth = crearAuth(prisma, env);
+  // Cifrado (ADR-013): UNA única instancia para todo el composition root,
+  // decodificada de env.ENCRYPTION_KEY (ya validada como base64 de 32 bytes
+  // por loadEnv) — se inyecta tanto en estos readers como en el pipeline de
+  // ingesta (crearProcessIngesta) para que el ciphertext que escribe la
+  // ingesta descifre con la misma clave. Construida ANTES de crearAuth
+  // porque PrismaUserCredentialRepository (US-035) también la necesita.
+  const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
+  const crypto = new AesGcmCryptoService(encryptionKey);
+  // Blind index de email (US-035): la clave HMAC se DERIVA vía HKDF del
+  // MISMO ENCRYPTION_KEY (ver derive-blind-index-key.ts) — no hay env var
+  // nuevo. Habilita `buscarPorEmail` (login) a buscar por
+  // `WHERE emailBlindIndex = ...` en vez de por email en claro, que ya no es
+  // posible contra ciphertext no-determinístico.
+  const blindIndex = new HmacBlindIndexService(
+    deriveBlindIndexKey(encryptionKey),
+  );
+
+  const auth = crearAuth(prisma, env, crypto, blindIndex);
 
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),
   );
   const calcularResumenAnual = new CalcularResumenAnualUseCase(
     new PrismaResumenAnualRepository(prisma),
-  );
-  // Cifrado (ADR-013): UNA única instancia para todo el composition root,
-  // decodificada de env.ENCRYPTION_KEY (ya validada como base64 de 32 bytes
-  // por loadEnv) — se inyecta tanto en estos readers como en el pipeline de
-  // ingesta (crearProcessIngesta) para que el ciphertext que escribe la
-  // ingesta descifre con la misma clave.
-  const crypto = new AesGcmCryptoService(
-    Buffer.from(env.ENCRYPTION_KEY, 'base64'),
   );
 
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(

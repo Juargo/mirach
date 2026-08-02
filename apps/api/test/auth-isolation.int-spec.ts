@@ -42,6 +42,7 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
+import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 
@@ -92,11 +93,23 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     );
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
+    // US-035: email cifrado en reposo + blind index — mismo
+    // env.ENCRYPTION_KEY que createContainer(env, prisma) más arriba, así el
+    // login (POST /api/auth/login, que consulta por emailBlindIndex)
+    // encuentra estas filas.
     const userA = await prisma.user.create({
-      data: { nombre: `Isolation A ${RUN_ID}`, email: EMAIL_A, passwordHash },
+      data: {
+        nombre: `Isolation A ${RUN_ID}`,
+        ...buildEncryptedEmailFields(EMAIL_A, env),
+        passwordHash,
+      },
     });
     const userB = await prisma.user.create({
-      data: { nombre: `Isolation B ${RUN_ID}`, email: EMAIL_B, passwordHash },
+      data: {
+        nombre: `Isolation B ${RUN_ID}`,
+        ...buildEncryptedEmailFields(EMAIL_B, env),
+        passwordHash,
+      },
     });
     userIdA = userA.id;
     userIdB = userB.id;

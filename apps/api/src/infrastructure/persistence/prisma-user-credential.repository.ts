@@ -5,6 +5,8 @@ import {
 } from '../../application/ports/user-credential-repository.port';
 import { Email } from '../../domain/value-objects/email';
 import type { PrismaClient } from '@prisma/client';
+import type { ICryptoService } from '../../application/ports/crypto-service.port';
+import type { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 
 /**
  * PrismaUserCredentialRepository — implementación de `IUserCredentialRepository`.
@@ -14,14 +16,26 @@ import type { PrismaClient } from '@prisma/client';
  * casos son "no se puede loguear", y `LoginUseCase` los colapsa al mismo
  * `CredencialesInvalidasError` (AUTH-02, no enumeración).
  *
+ * US-035 (email cifrado en reposo, ADR-013): `User.email` ahora es
+ * ciphertext v1, no texto plano, así que ya no se puede buscar por
+ * `WHERE email = ...` (AES-GCM es no-determinístico). `buscarPorEmail`
+ * consulta por `emailBlindIndex` (HMAC determinístico, ver
+ * `IBlindIndexService`/`HmacBlindIndexService`) en su lugar. `buscarIdentidad`
+ * sigue devolviendo el email en texto plano — se descifra acá antes de
+ * devolverlo, nunca se expone el ciphertext.
+ *
  * Constructor takes PrismaService directly (no NestJS decorators — clean arch).
  */
 export class PrismaUserCredentialRepository implements IUserCredentialRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly crypto: ICryptoService,
+    private readonly blindIndex: IBlindIndexService,
+  ) {}
 
   async buscarPorEmail(email: Email): Promise<CredencialUsuario | null> {
     const user = await this.prisma.user.findUnique({
-      where: { email: email.valor },
+      where: { emailBlindIndex: this.blindIndex.compute(email.valor) },
       select: { id: true, passwordHash: true },
     });
 
@@ -52,6 +66,11 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
       return null;
     }
 
-    return { userId: user.id, email: user.email, esDemo: user.esDemo };
+    // El email persistido es ciphertext v1 (US-035) — nunca `null` en este
+    // punto salvo demo (ya cubierto arriba), así que decrypt() solo se llama
+    // sobre un valor real.
+    const email = user.email === null ? null : this.crypto.decrypt(user.email);
+
+    return { userId: user.id, email, esDemo: user.esDemo };
   }
 }

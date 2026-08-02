@@ -18,11 +18,12 @@ import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
-import { loadEnv } from '../src/config/env';
+import { loadEnv, type Env } from '../src/config/env';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
+import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -35,11 +36,12 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   let app: Express;
   let prisma: PrismaClient;
   let sesion: Sesion;
+  let env: Env;
 
   const createdAccountIds: string[] = [];
 
   beforeAll(async () => {
-    const env = loadEnv();
+    env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
@@ -94,10 +96,19 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     const userId = `${RUN_ID}-${suffix}`;
     const email = `${userId}@example.com`;
     const passwordHash = await new Argon2PasswordHasher().hash(password);
+    // US-035: email cifrado + blind index (ver auth-login.e2e-spec.ts) —
+    // CA-08 hace login REAL como este usuario, así que buscarPorEmail debe
+    // encontrarlo por emailBlindIndex.
+    const encryptedFields = buildEncryptedEmailFields(email, env);
     await prisma.user.upsert({
       where: { id: userId },
-      update: { email, passwordHash },
-      create: { id: userId, nombre: `E2E User ${suffix}`, email, passwordHash },
+      update: { ...encryptedFields, passwordHash },
+      create: {
+        id: userId,
+        nombre: `E2E User ${suffix}`,
+        ...encryptedFields,
+        passwordHash,
+      },
     });
     return { userId, email };
   }
