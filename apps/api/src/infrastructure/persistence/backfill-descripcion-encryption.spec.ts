@@ -1,6 +1,7 @@
 import {
   runBackfillDescripcionEncryption,
   partitionBatch,
+  parseBatchSizeArg,
   main,
   scrubCredenciales,
   logBackfillFailure,
@@ -362,6 +363,29 @@ describe('runBackfillDescripcionEncryption — cifrado (unit, sin BD)', () => {
     expect(transactionCalls).toHaveLength(1);
     expect(transactionCalls[0].options?.timeout).toBeGreaterThan(5000);
     expect(transactionCalls[0].options?.maxWait).toBeGreaterThan(0);
+  });
+});
+
+describe('parseBatchSizeArg — flag --batch-size=N', () => {
+  it('devuelve undefined cuando el flag no está presente (se usa el default)', () => {
+    expect(parseBatchSizeArg(['--dry-run'])).toBeUndefined();
+    expect(parseBatchSizeArg([])).toBeUndefined();
+  });
+
+  it('parsea un entero positivo', () => {
+    expect(parseBatchSizeArg(['--batch-size=50'])).toBe(50);
+    expect(parseBatchSizeArg(['--dry-run', '--batch-size=100'])).toBe(100);
+  });
+
+  it('lanza si el valor no es un entero positivo (0, negativo, no numérico, decimal)', () => {
+    expect(() => parseBatchSizeArg(['--batch-size=0'])).toThrow(/batch-size/);
+    expect(() => parseBatchSizeArg(['--batch-size=-5'])).toThrow(/batch-size/);
+    expect(() => parseBatchSizeArg(['--batch-size=abc'])).toThrow(/batch-size/);
+    expect(() => parseBatchSizeArg(['--batch-size=1.5'])).toThrow(/batch-size/);
+  });
+
+  it('lanza si el flag viene sin valor', () => {
+    expect(() => parseBatchSizeArg(['--batch-size='])).toThrow(/batch-size/);
   });
 });
 
