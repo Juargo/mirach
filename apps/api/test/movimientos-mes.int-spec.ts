@@ -36,13 +36,14 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
   const prisma = createPrismaClient(loadEnv());
   // ADR-013: adapter REAL (no NoOp) para que este int-spec ejercite el
   // decrypt real — la clave de 32 bytes viene del fixture compartido
-  // (test/support/env.fixture.ts), nunca hardcodeada acá.
-  const repo = new PrismaMovimientosMesRepository(
-    prisma,
-    new AesGcmCryptoService(
-      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
-    ),
+  // (test/support/env.fixture.ts), nunca hardcodeada acá. Reutilizado
+  // también para cifrar los seeds de `descripcion` de este archivo (US-036:
+  // `findByPeriodo` decrypta TODAS las filas que matchean, así que cualquier
+  // seed en texto plano lanzaría — no hay passthrough legacy).
+  const crypto = new AesGcmCryptoService(
+    Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
   );
+  const repo = new PrismaMovimientosMesRepository(prisma, crypto);
 
   let accountIdA1: string; // user A, bank 1 (BancoEstado)
   let accountIdA2: string; // user A, bank 2 (BCI)
@@ -150,7 +151,8 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     await prisma.$disconnect();
   });
 
-  // Helper to create a transaction
+  // Helper to create a transaction. `descripcion` se cifra con la MISMA
+  // clave que usa `repo` (US-036: decrypt() ya no hace passthrough legacy).
   const createTx = (
     accountId: string,
     ingestaId: string,
@@ -160,7 +162,14 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     descripcion = 'Test tx',
   ) =>
     prisma.transaccion.create({
-      data: { accountId, ingestaId, fecha, cargo, abono, descripcion },
+      data: {
+        accountId,
+        ingestaId,
+        fecha,
+        cargo,
+        abono,
+        descripcion: crypto.encrypt(descripcion),
+      },
     });
 
   it('CA-01/CA-02: returns all July rows from 2 banks with banco/tipoCuenta/numeroCuenta fields', async () => {
@@ -269,7 +278,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
           fecha: new Date('2026-06-05T00:00:00.000Z'),
           cargo: 200n,
           abono: 0n,
-          descripcion: 'Earlier',
+          descripcion: crypto.encrypt('Earlier'),
         },
       });
 
@@ -281,7 +290,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
           fecha: new Date('2026-06-05T00:00:00.000Z'),
           cargo: 150n,
           abono: 0n,
-          descripcion: 'SameDate',
+          descripcion: crypto.encrypt('SameDate'),
         },
       });
 
@@ -292,7 +301,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
           fecha: new Date('2026-06-20T00:00:00.000Z'),
           cargo: 100n,
           abono: 0n,
-          descripcion: 'Later',
+          descripcion: crypto.encrypt('Later'),
         },
       });
 
@@ -383,7 +392,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
         fecha: new Date('2026-07-29T00:00:00.000Z'),
         cargo: 12000n,
         abono: 0n,
-        descripcion: 'Categorized tx',
+        descripcion: crypto.encrypt('Categorized tx'),
         bucketId: BUCKET_IDS[Bucket.Necesidades],
       },
     });

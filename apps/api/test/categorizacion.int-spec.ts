@@ -110,12 +110,17 @@ describe('Categorización — integración (real dev DB)', () => {
   const bucketWriter = new PrismaTransaccionBucketRepository(prisma);
   // ADR-013: adapter REAL (no NoOp) para que este int-spec ejercite el
   // decrypt real — la clave de 32 bytes viene del fixture compartido
-  // (test/support/env.fixture.ts), nunca hardcodeada acá.
+  // (test/support/env.fixture.ts), nunca hardcodeada acá. Reutilizado
+  // también para cifrar los seeds de `descripcion` de este archivo (US-036:
+  // decrypt() ya no hace passthrough de texto plano, así que cualquier seed
+  // que se lea vía `txClasificacionReader.findParaClasificar` debe llegar
+  // como ciphertext v1 cifrado con esta MISMA clave).
+  const crypto = new AesGcmCryptoService(
+    Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
+  );
   const txClasificacionReader = new PrismaTransaccionClasificacionRepository(
     prisma,
-    new AesGcmCryptoService(
-      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
-    ),
+    crypto,
   );
   const categorizarUseCase = new CategorizarTransaccionUseCase();
 
@@ -192,14 +197,17 @@ describe('Categorización — integración (real dev DB)', () => {
       ),
     );
 
-    // Insert 3 unclassified rows for ingesta B
+    // Insert 3 unclassified rows for ingesta B. `descripcion` cifrada
+    // (US-036): estas filas se leen vía txClasificacionReader.findParaClasificar
+    // más abajo, que llama decrypt() con la clave real — un seed en texto
+    // plano ya no hace passthrough, lanza.
     const txsB = await Promise.all([
       prisma.transaccion.create({
         data: {
           ingestaId: testIngestaBId,
           accountId: ACCOUNT_ID_FIJO,
           fecha: new Date('2026-07-02'),
-          descripcion: 'Compra Lider',
+          descripcion: crypto.encrypt('Compra Lider'),
           cargo: 9500n,
           abono: 0n,
         },
@@ -209,7 +217,7 @@ describe('Categorización — integración (real dev DB)', () => {
           ingestaId: testIngestaBId,
           accountId: ACCOUNT_ID_FIJO,
           fecha: new Date('2026-07-02'),
-          descripcion: 'Sueldo',
+          descripcion: crypto.encrypt('Sueldo'),
           cargo: 0n,
           abono: 1500000n,
         },
@@ -219,7 +227,7 @@ describe('Categorización — integración (real dev DB)', () => {
           ingestaId: testIngestaBId,
           accountId: ACCOUNT_ID_FIJO,
           fecha: new Date('2026-07-02'),
-          descripcion: 'Spotify',
+          descripcion: crypto.encrypt('Spotify'),
           cargo: 5000n,
           abono: 0n,
         },
@@ -264,12 +272,14 @@ describe('Categorización — integración (real dev DB)', () => {
   // The test will fail if the degrade island is removed (no more passthrough).
   it('T19/SC-13: catálogo falla → pipeline degrada; filas de gasto quedan null, ingesta continúa PROCESADA', async () => {
     // Insert 2 transactions: one expense (cargo>0), one income (abono>0).
+    // `descripcion` cifrada (US-036): runCategorizacionStep llama
+    // txClasificacionReader.findParaClasificar internamente, que decrypta.
     const txExpense = await prisma.transaccion.create({
       data: {
         ingestaId: testIngestaBId,
         accountId: ACCOUNT_ID_FIJO,
         fecha: new Date('2026-07-02'),
-        descripcion: 'Compra sin clasificar',
+        descripcion: crypto.encrypt('Compra sin clasificar'),
         cargo: 5000n,
         abono: 0n,
       },
@@ -279,7 +289,7 @@ describe('Categorización — integración (real dev DB)', () => {
         ingestaId: testIngestaBId,
         accountId: ACCOUNT_ID_FIJO,
         fecha: new Date('2026-07-02'),
-        descripcion: 'Deposito sueldo',
+        descripcion: crypto.encrypt('Deposito sueldo'),
         cargo: 0n,
         abono: 1200000n,
       },

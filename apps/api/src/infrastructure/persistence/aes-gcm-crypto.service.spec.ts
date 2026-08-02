@@ -40,11 +40,11 @@ describe('AesGcmCryptoService', () => {
     expect(crypto.decrypt(b)).toBe(plaintext);
   });
 
-  it('legacy plaintext (sin prefijo "v1:") pasa por decrypt() SIN cambios — migración zero-downtime', () => {
+  it('legacy plaintext (sin prefijo "v1:") LANZA en decrypt() — fail-loud, sin passthrough (US-036, migración completa)', () => {
     const crypto = makeService();
     const legacyPlaintext = 'Compra Falabella';
 
-    expect(crypto.decrypt(legacyPlaintext)).toBe(legacyPlaintext);
+    expect(() => crypto.decrypt(legacyPlaintext)).toThrow();
   });
 
   it('ciphertext manipulado (auth tag no coincide) LANZA en decrypt', () => {

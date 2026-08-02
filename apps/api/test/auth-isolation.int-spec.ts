@@ -40,6 +40,7 @@ import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
@@ -82,6 +83,13 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
+    // US-036: `createContainer` cablea AesGcmCryptoService con la clave de
+    // RUNTIME (env.ENCRYPTION_KEY, aleatoria en CI) — los seeds de
+    // `descripcion` de abajo deben cifrarse con esa MISMA clave, no la fija
+    // de buildTestEnv() (esa es para los int-specs que NO pasan por la app).
+    const crypto = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     const userA = await prisma.user.create({
@@ -147,7 +155,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
           cargo: 0n,
           abono: 1_000_000n,
           fecha: MID_MONTH_DATE,
-          descripcion: `Ingreso A ${RUN_ID}`,
+          descripcion: crypto.encrypt(`Ingreso A ${RUN_ID}`),
         },
         {
           accountId: accountIdA,
@@ -156,7 +164,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
           cargo: 200_000n,
           abono: 0n,
           fecha: MID_MONTH_DATE,
-          descripcion: `Necesidad A ${RUN_ID}`,
+          descripcion: crypto.encrypt(`Necesidad A ${RUN_ID}`),
         },
       ],
     });
@@ -171,7 +179,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
           cargo: 0n,
           abono: 9_000_000n,
           fecha: MID_MONTH_DATE,
-          descripcion: `Ingreso B ${RUN_ID}`,
+          descripcion: crypto.encrypt(`Ingreso B ${RUN_ID}`),
         },
         {
           accountId: accountIdB,
@@ -180,7 +188,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
           cargo: 4_000_000n,
           abono: 0n,
           fecha: MID_MONTH_DATE,
-          descripcion: `Necesidad B ${RUN_ID}`,
+          descripcion: crypto.encrypt(`Necesidad B ${RUN_ID}`),
         },
       ],
     });
