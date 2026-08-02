@@ -243,12 +243,6 @@ function printSummary(
 }
 
 /**
- * Wiring de script real: gate de seguridad ANTES de cualquier conexión a
- * Prisma (ver assertDestructiveDbAllowed) + ejecución de
- * runBackfillDescripcionEncryption. Exportado para poder testear el gate sin
- * BD (ver backfill-descripcion-encryption.spec.ts).
- */
-/**
  * Parsea `--batch-size=N` de los args del script. Devuelve `undefined` si el
  * flag no está (se usa DEFAULT_BATCH_SIZE) y LANZA si el valor no es un entero
  * positivo — mejor fallar ruidoso al arrancar que correr con un batch inválido
@@ -268,6 +262,12 @@ export function parseBatchSizeArg(argv: string[]): number | undefined {
   return value;
 }
 
+/**
+ * Wiring de script real: gate de seguridad ANTES de cualquier conexión a
+ * Prisma (ver assertDestructiveDbAllowed) + ejecución de
+ * runBackfillDescripcionEncryption. Exportado para poder testear el gate sin
+ * BD (ver backfill-descripcion-encryption.spec.ts).
+ */
 export async function main(
   argv: string[] = process.argv.slice(2),
 ): Promise<void> {
