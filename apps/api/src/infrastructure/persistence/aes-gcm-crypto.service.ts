@@ -29,13 +29,14 @@ export function tieneFormatoV1(value: string): boolean {
  * reutilizado — la seguridad de GCM depende de eso). Formato serializado:
  * `v1:<iv base64url>:<authTag base64url>:<ciphertext base64url>`.
  *
- * `decrypt()` hace passthrough de texto plano LEGACY (cualquier valor sin el
- * prefijo `v1:`) — esto es intencional, no un bug: permite migrar la columna
- * `Transaccion.descripcion` sin downtime (filas viejas en texto plano
- * conviven con filas nuevas cifradas hasta correr el backfill) y hace que el
- * backfill sea idempotente (reintentarlo sobre una fila ya cifrada no la
- * vuelve a tocar porque el backfill primero decrypta — ver diseño ADR-013,
- * el script de backfill queda fuera de este cambio).
+ * `decrypt()` es fail-loud (US-036): el backfill de ADR-013 ya migró todas
+ * las filas de `Transaccion.descripcion` a ciphertext v1, así que la ventana
+ * de migración terminó. Cualquier valor que no tenga el formato estructural
+ * `v1:` (ver `tieneFormatoV1()`) LANZA en vez de devolverse como-is — el
+ * passthrough de texto plano legacy que existía durante la migración se
+ * eliminó a propósito: dejarlo vivo era un riesgo silencioso (una fila que
+ * por algún motivo no se cifró se serviría en claro sin que nada lo
+ * detectara).
  *
  * La clave de 32 bytes se recibe ya decodificada — este adapter es "tonto" a
  * propósito: decodificar/validar el base64 del env es responsabilidad del
@@ -64,22 +65,9 @@ export class AesGcmCryptoService implements ICryptoService {
   }
 
   decrypt(value: string): string {
-    if (!value.startsWith(`${VERSION_PREFIX}:`)) {
-      // Legacy plaintext passthrough — ver docstring de la clase.
-      return value;
-    }
-
-    // Riesgo de colisión de prefijo ACEPTADO (baja severidad, solo durante
-    // la ventana de migración): un texto plano legacy que por coincidencia
-    // empezara con "v1:" y tuviera 4 segmentos separados por ":" se
-    // enrutaría acá abajo y LANZARÍA en vez de hacer passthrough — decrypt()
-    // no puede distinguir esa coincidencia de un ciphertext v1 real. Texto
-    // de cartola bancaria con esa forma exacta es muy improbable, y el
-    // backfill de ADR-013 (ver prisma/backfill-descripcion-encryption.ts)
-    // clasifica esas filas como "sospechosas" en vez de cifrarlas o
-    // saltarlas en silencio, para que un humano las revise. Ver el test
-    // "boundary caso aceptado" en aes-gcm-crypto.service.spec.ts.
-
+    // Fail-loud (US-036): cualquier valor sin el formato estructural v1
+    // (prefijo `v1:` + 4 segmentos) LANZA — no hay passthrough de texto
+    // plano legacy, ver docstring de la clase.
     if (!tieneFormatoV1(value)) {
       throw new Error('AesGcmCryptoService: formato v1 malformado.');
     }

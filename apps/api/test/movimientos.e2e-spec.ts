@@ -4,7 +4,8 @@ import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
-import { loadEnv } from '../src/config/env';
+import { loadEnv, type Env } from '../src/config/env';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
@@ -34,6 +35,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   let app: Express;
   let prisma: PrismaClient;
   let sesion: Sesion;
+  let env: Env;
 
   // Track seeded IDs for cleanup
   const seededIngestaIds: string[] = [];
@@ -42,7 +44,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   const FIXED_USER_ID = 'usuario-fijo-moneydiary';
 
   beforeAll(async () => {
-    const env = loadEnv();
+    env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
@@ -184,13 +186,20 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     seededIngestaIds.push(ingesta.id);
 
     const bigAmount = 9007199254740993n; // > MAX_SAFE_INTEGER
+    // US-036: la app (createContainer) decripta con env.ENCRYPTION_KEY (clave
+    // de RUNTIME, aleatoria en CI) — los seeds deben cifrarse con esa misma
+    // clave, no la fija de test/support/env.fixture.ts (ver
+    // ingesta.e2e-spec.ts, mismo patrón probado).
+    const crypto = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
     await prisma.transaccion.createMany({
       data: [
         {
           ingestaId: ingesta.id,
           accountId: account.id,
           fecha: new Date('2026-07-10T00:00:00.000Z'),
-          descripcion: `Compra e2e ${RUN_ID}`,
+          descripcion: crypto.encrypt(`Compra e2e ${RUN_ID}`),
           cargo: bigAmount,
           abono: 0n,
         },
@@ -198,7 +207,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
           ingestaId: ingesta.id,
           accountId: account.id,
           fecha: new Date('2026-07-15T00:00:00.000Z'),
-          descripcion: `Abono e2e ${RUN_ID}`,
+          descripcion: crypto.encrypt(`Abono e2e ${RUN_ID}`),
           cargo: 0n,
           abono: 150000n,
         },
@@ -206,7 +215,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
           ingestaId: ingesta.id,
           accountId: account.id,
           fecha: new Date('2026-07-18T00:00:00.000Z'),
-          descripcion: `Categorizado e2e ${RUN_ID}`,
+          descripcion: crypto.encrypt(`Categorizado e2e ${RUN_ID}`),
           cargo: 25000n,
           abono: 0n,
           bucketId: BUCKET_IDS[Bucket.Necesidades],

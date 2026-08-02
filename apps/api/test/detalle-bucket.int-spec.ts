@@ -39,12 +39,10 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
   // ADR-013: adapter REAL (no NoOp) para que este int-spec ejercite el
   // decrypt real — la clave de 32 bytes viene del fixture compartido
   // (test/support/env.fixture.ts), nunca hardcodeada acá.
-  const repo = new PrismaDetalleBucketRepository(
-    prisma,
-    new AesGcmCryptoService(
-      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
-    ),
+  const crypto = new AesGcmCryptoService(
+    Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
   );
+  const repo = new PrismaDetalleBucketRepository(prisma, crypto);
 
   let accountIdA: string;
   let accountIdB: string;
@@ -139,7 +137,10 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
         bucketId,
         cargo,
         abono,
-        descripcion,
+        // Cifrada con la MISMA clave que el repo (buildTestEnv) — decrypt()
+        // ya no hace passthrough de texto plano (US-036), así que la seed
+        // debe estar cifrada o findByPeriodoYBucket lanza al leerla.
+        descripcion: crypto.encrypt(descripcion),
       },
     });
 
