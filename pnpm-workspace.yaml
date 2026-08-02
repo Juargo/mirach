@@ -26,7 +26,6 @@ overrides:
 # NO agregar entradas nuevas sin justificación — el gate existe para eso.
 auditConfig:
   ignoreGhsas:
-    - GHSA-72gw-mp4g-v24j # multer — DoS por campos anidados (apps/api). MÁXIMA prioridad de burn-down: alcanzable sin auth vía subida de cartola en modo demo (US-026); el resto es dev-only o build-time.
     - GHSA-ph9p-34f9-6g65 # tmp — path traversal (transitivo)
     - GHSA-hmw2-7cc7-3qxx # form-data — CRLF injection (transitivo)
     - GHSA-8hv8-536x-4wqp # astro — reflected XSS via slot name (apps/landing)
