@@ -19,6 +19,7 @@ import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-in
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
+import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { IFileReader } from '../ports/file-reader.port';
@@ -138,9 +139,12 @@ const ESTRUCTURA_PDF: EstructuraPdfValidada = {
 
 class FakePdfStructureValidator implements IPdfStructureValidator {
   called = false;
-  failWith?: EstructuraPdfInvalidaError;
+  failWith?: EstructuraPdfInvalidaError | RangoFechasInvalidoError;
   async validate(): Promise<
-    Result<EstructuraPdfValidada, EstructuraPdfInvalidaError>
+    Result<
+      EstructuraPdfValidada,
+      EstructuraPdfInvalidaError | RangoFechasInvalidoError
+    >
   > {
     this.called = true;
     if (this.failWith) return Result.fail(this.failWith);
@@ -209,10 +213,30 @@ function buildUseCase(opts?: BuildOptions) {
 }
 
 describe('PreviewIngestaUseCase', () => {
-  it('CA-04 estructural: el constructor solo acepta los 7 colaboradores sin escritura (sin accountRepository/persist/dedupe/categorize)', () => {
-    // La garantía es la aridad del constructor en sí misma — no hay ningún
-    // colaborador de escritura que stubear ni cuya llamada a `ensure()` espiar.
-    expect(PreviewIngestaUseCase.length).toBe(7);
+  it('CA-04 comportamental: execute() retorna únicamente el read model {banco, estructura, muestra} — ningún artefacto de persistencia se filtra', async () => {
+    // La garantía FUERTE de "nada se persiste" es de construcción (tipos del
+    // constructor, ver comentario de la clase — no hay `IAccountRepository`
+    // ni ningún colaborador de escritura por lo que no hay nada que espiar
+    // en runtime) + el e2e (`test/ingesta-preview.e2e-spec.ts`), que corre
+    // contra Postgres real y prueba que la tabla `Ingesta` queda vacía tras
+    // el preview. Un test que solo cuenta la aridad del constructor
+    // (`PreviewIngestaUseCase.length`) es una proxy débil: un regresión
+    // podría cambiar un colaborador de lectura por uno de escritura sin
+    // mover el conteo. Esta aserción de unidad complementa ambas pruebas
+    // fijando la FORMA del read model: si alguna vez se agregara un campo
+    // de escritura (p. ej. un `id` de ingesta persistida), este test lo
+    // detecta.
+    const { useCase } = buildUseCase();
+
+    const result = await useCase.execute({ fileReader: new FakeFileReader() });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.getValue();
+    expect(Object.keys(value).sort()).toEqual([
+      'banco',
+      'estructura',
+      'muestra',
+    ]);
   });
 
   it('happy Excel: encadena ingest → detect → validate → normalize y retorna banco/estructura/muestra', async () => {
@@ -294,6 +318,19 @@ describe('PreviewIngestaUseCase', () => {
     const value = result.getValue();
     expect(value.muestra.length).toBe(7);
     expect(value.estructura.totalFilasDatos).toBe(7);
+  });
+
+  it('archivo con encabezados pero 0 filas de datos: retorna ok con totalFilasDatos:0 y muestra:[] (200 legítimo)', async () => {
+    const normalizer = new FakeTransactionNormalizer();
+    normalizer.transacciones = [];
+    const { useCase } = buildUseCase({ normalizer });
+
+    const result = await useCase.execute({ fileReader: new FakeFileReader() });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.getValue();
+    expect(value.estructura.totalFilasDatos).toBe(0);
+    expect(value.muestra).toEqual([]);
   });
 
   it('extensión inválida: retorna fail sin ejecutar ningún paso posterior', async () => {
@@ -413,7 +450,14 @@ describe('PreviewIngestaUseCase', () => {
     expect(pdfNormalizer.called).toBe(false);
   });
 
-  it('rango de fechas inválido (PDF): retorna fail', async () => {
+  it('estructura PDF inválida (PeriodoFaltante junto a otros problemas de encabezado): retorna fail', async () => {
+    // NOTA: pese al `tipo: 'PeriodoFaltante'`, esto sigue siendo un
+    // EstructuraPdfInvalidaError (no RangoFechasInvalidoError) — ver el
+    // comentario de `ProblemaEstructuraPdf` en
+    // estructura-pdf-invalida.error.ts: PeriodoFaltante solo se reporta acá
+    // cuando aparece junto a otros problemas de encabezado en la misma
+    // pasada. Cuando es el ÚNICO problema, se reporta como
+    // RangoFechasInvalidoError (ver el test siguiente).
     const pdfStructureValidator = new FakePdfStructureValidator();
     const error = new EstructuraPdfInvalidaError('BancoEstado', [
       { tipo: 'PeriodoFaltante' },
@@ -427,6 +471,22 @@ describe('PreviewIngestaUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
+  });
+
+  it('rango de fechas inválido (PDF, RangoFechasInvalidoError genuino): retorna fail sin normalizar', async () => {
+    const pdfStructureValidator = new FakePdfStructureValidator();
+    const error = new RangoFechasInvalidoError('BancoEstado');
+    pdfStructureValidator.failWith = error;
+    const { useCase, pdfNormalizer } = buildUseCase({ pdfStructureValidator });
+
+    const result = await useCase.execute({
+      fileReader: new FakeFileReader(Buffer.from('%PDF-1.4'), 'cartola.pdf'),
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBe(error);
+    expect(result.getError()).toBeInstanceOf(RangoFechasInvalidoError);
+    expect(pdfNormalizer.called).toBe(false);
   });
 
   it('normalización PDF falla (EstructuraPdfInvalidaError): retorna fail', async () => {
@@ -470,5 +530,22 @@ describe('PreviewIngestaUseCase', () => {
     expect(
       (result.getError() as PersistenciaFallidaError).causa,
     ).toBeInstanceOf(Error);
+  });
+
+  it('D5: totalFilasDatos es el conteo PRE-dedupe — preview no corre DetectarDuplicados, filas duplicadas cuentan todas', async () => {
+    const normalizer = new FakeTransactionNormalizer();
+    const duplicada = crearTxs(1)[0];
+    normalizer.transacciones = [duplicada, duplicada, duplicada];
+    const { useCase } = buildUseCase({ normalizer });
+
+    const result = await useCase.execute({ fileReader: new FakeFileReader() });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.getValue();
+    // `confirm` (ProcessIngestaUseCase) sí corre DetectarDuplicados y puede
+    // terminar importando ≤ este número — el preview intencionalmente NO
+    // deduplica (design §5.1, D5).
+    expect(value.estructura.totalFilasDatos).toBe(3);
+    expect(value.muestra.length).toBe(3);
   });
 });

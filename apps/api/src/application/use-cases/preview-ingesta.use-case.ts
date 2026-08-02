@@ -30,6 +30,7 @@ export interface PreviewIngestaInput {
 /** Salida: read model de aplicación, no un VO de dominio (sin invariante que proteger). */
 export interface PreviewIngestaResult {
   banco: DetectedBank;
+  /** `totalFilasDatos` es PRE-dedupe (D5): `confirm` puede importar ≤ este número tras DetectarDuplicados. */
   estructura: { totalFilasDatos: number };
   muestra: ReadonlyArray<Transaccion>;
 }
