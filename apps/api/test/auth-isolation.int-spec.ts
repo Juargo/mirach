@@ -63,6 +63,10 @@ const MID_MONTH_DATE = new Date(Date.UTC(CURRENT_YEAR, NOW.getUTCMonth(), 10));
 describe('Cross-user isolation (integration) — auth-rewired data endpoints (ISO-01, ISO-02)', () => {
   let app: Express;
   let prisma: PrismaClient;
+  // US-035 Slice 2: hoisted out of beforeAll — la usa también el test de
+  // POST /api/ingestas para decodificar el numeroCuenta cifrado leído
+  // directo de la BD (ver ese test más abajo).
+  let crypto: AesGcmCryptoService;
 
   let userIdA: string;
   let userIdB: string;
@@ -84,13 +88,12 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createContainer(env, prisma), env);
-    // US-036: `createContainer` cablea AesGcmCryptoService con la clave de
-    // RUNTIME (env.ENCRYPTION_KEY, aleatoria en CI) — los seeds de
-    // `descripcion` de abajo deben cifrarse con esa MISMA clave, no la fija
-    // de buildTestEnv() (esa es para los int-specs que NO pasan por la app).
-    const crypto = new AesGcmCryptoService(
-      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
-    );
+    // US-036/US-035: `createContainer` cablea AesGcmCryptoService con la
+    // clave de RUNTIME (env.ENCRYPTION_KEY, aleatoria en CI) — los seeds de
+    // `descripcion`/`numeroCuenta` de abajo deben cifrarse con esa MISMA
+    // clave, no la fija de buildTestEnv() (esa es para los int-specs que NO
+    // pasan por la app).
+    crypto = new AesGcmCryptoService(Buffer.from(env.ENCRYPTION_KEY, 'base64'));
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     // US-035: email cifrado en reposo + blind index — mismo
@@ -114,13 +117,17 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     userIdA = userA.id;
     userIdB = userB.id;
 
+    // US-035 Slice 2: numeroCuenta CIFRADO — GET /api/movimientos y
+    // GET /api/buckets/:bucket lo descifran con `crypto` (misma clave
+    // runtime que createContainer), así que sembrarlo en claro haría
+    // lanzar AesGcmCryptoService.decrypt() (fail-loud, US-036).
     accountIdA = (
       await prisma.account.create({
         data: {
           userId: userIdA,
           banco: 'TestBank',
           tipoCuenta: 'CuentaCorriente',
-          numeroCuenta: `iso-a-${RUN_ID}`,
+          numeroCuenta: crypto.encrypt(`iso-a-${RUN_ID}`),
         },
       })
     ).id;
@@ -130,7 +137,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
           userId: userIdB,
           banco: 'TestBank',
           tipoCuenta: 'CuentaCorriente',
-          numeroCuenta: `iso-b-${RUN_ID}`,
+          numeroCuenta: crypto.encrypt(`iso-b-${RUN_ID}`),
         },
       })
     ).id;
@@ -329,16 +336,19 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       .attach('file', xlsxFixture, `iso-${RUN_ID}.xlsx`)
       .expect(200);
 
+    // US-035 Slice 2: numeroCuenta ya no es filtrable en claro (columna
+    // cifrada, IV aleatorio) — se filtra por banco/tipoCuenta/userId y se
+    // verifica numeroCuenta DESCIFRÁNDOLO, en vez de un WHERE exacto.
     const cuenta = await prisma.account.findFirst({
       where: {
         banco: res.body.banco,
         tipoCuenta: res.body.tipoCuenta,
-        numeroCuenta: res.body.numeroCuenta,
         userId: userIdA,
       },
     });
     expect(cuenta).not.toBeNull();
     expect(cuenta?.userId).toBe(userIdA);
+    expect(crypto.decrypt(cuenta!.numeroCuenta)).toBe(res.body.numeroCuenta);
     ingestedAccountIdForA = cuenta!.id;
   });
 

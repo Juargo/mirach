@@ -17,6 +17,8 @@ import { loadEnv } from '../../config/env';
 import { crearProcessIngesta } from '../../composition/crear-process-ingesta';
 import { createPrismaClient } from '../persistence/create-prisma-client';
 import { AesGcmCryptoService } from '../persistence/aes-gcm-crypto.service';
+import { HmacBlindIndexService } from '../persistence/hmac-blind-index.service';
+import { deriveBlindIndexKey } from '../../composition/derive-blind-index-key';
 import { USER_ID_FIJO } from '../persistence/constants';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
 
@@ -57,11 +59,15 @@ async function main(): Promise<void> {
 
   try {
     // Cifrado (ADR-013): la CLI es su propio composition root — decodifica
-    // ENCRYPTION_KEY una vez, igual que container.ts.
-    const crypto = new AesGcmCryptoService(
-      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    // ENCRYPTION_KEY una vez, igual que container.ts. US-035: mismo blind
+    // index derivado del mismo ENCRYPTION_KEY (ver derive-blind-index-key.ts)
+    // que necesita PrismaAccountRepository.ensure.
+    const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
+    const crypto = new AesGcmCryptoService(encryptionKey);
+    const blindIndex = new HmacBlindIndexService(
+      deriveBlindIndexKey(encryptionKey),
     );
-    const processIngesta = crearProcessIngesta(prisma, crypto);
+    const processIngesta = crearProcessIngesta(prisma, crypto, blindIndex);
 
     const result = await processIngesta.execute({
       fileReader,

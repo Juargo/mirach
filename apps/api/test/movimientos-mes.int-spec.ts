@@ -68,12 +68,15 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     });
 
     // Accounts for user A
+    // US-035 Slice 2: numeroCuenta CIFRADO — findByPeriodo lo descifra con
+    // `crypto` (misma clave fija de este int-spec), así que sembrarlo en
+    // claro haría lanzar AesGcmCryptoService.decrypt() (fail-loud, US-036).
     const accA1 = await prisma.account.create({
       data: {
         userId: TEST_USER_ID,
         banco: 'BancoEstado',
         tipoCuenta: 'CuentaRUT',
-        numeroCuenta: `rut-${RUN_ID}`,
+        numeroCuenta: crypto.encrypt(`rut-${RUN_ID}`),
       },
     });
     accountIdA1 = accA1.id;
@@ -83,7 +86,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
         userId: TEST_USER_ID,
         banco: 'BCI',
         tipoCuenta: 'Cuenta Corriente',
-        numeroCuenta: `bci-${RUN_ID}`,
+        numeroCuenta: crypto.encrypt(`bci-${RUN_ID}`),
       },
     });
     accountIdA2 = accA2.id;
@@ -94,7 +97,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
         userId: TEST_USER_ID_B,
         banco: 'Santander',
         tipoCuenta: 'Cuenta Corriente',
-        numeroCuenta: `san-${RUN_ID}`,
+        numeroCuenta: crypto.encrypt(`san-${RUN_ID}`),
       },
     });
     accountIdB = accB.id;
@@ -252,7 +255,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
         userId: ORDER_USER_ID,
         banco: 'BCI',
         tipoCuenta: 'Cuenta Corriente',
-        numeroCuenta: `order-${RUN_ID}`,
+        numeroCuenta: crypto.encrypt(`order-${RUN_ID}`),
       },
     });
 

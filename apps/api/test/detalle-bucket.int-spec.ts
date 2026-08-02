@@ -61,12 +61,16 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
       data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` },
     });
 
+    // US-035 Slice 2: numeroCuenta CIFRADO — findByPeriodoYBucket lo
+    // descifra con `crypto` (misma clave fija de este int-spec), así que
+    // sembrarlo en claro haría lanzar AesGcmCryptoService.decrypt()
+    // (fail-loud, US-036).
     const accA = await prisma.account.create({
       data: {
         userId: TEST_USER_ID_A,
         banco: 'BCI',
         tipoCuenta: 'Cuenta Corriente',
-        numeroCuenta: `bci-a-${RUN_ID}`,
+        numeroCuenta: crypto.encrypt(`bci-a-${RUN_ID}`),
       },
     });
     accountIdA = accA.id;
@@ -76,7 +80,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
         userId: TEST_USER_ID_B,
         banco: 'Santander',
         tipoCuenta: 'Cuenta Corriente',
-        numeroCuenta: `san-b-${RUN_ID}`,
+        numeroCuenta: crypto.encrypt(`san-b-${RUN_ID}`),
       },
     });
     accountIdB = accB.id;
