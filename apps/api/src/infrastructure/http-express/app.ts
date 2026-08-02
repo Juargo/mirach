@@ -90,6 +90,7 @@ export function createApp(container: Container, env: Env): Express {
     processIngesta: container.processIngesta,
     eliminarIngesta: container.eliminarIngesta,
     listarIngestas: container.listarIngestas,
+    previewIngesta: container.previewIngesta,
   });
   registrarAuthMe(protectedApi, container.obtenerIdentidad);
   app.use('/api', protectedApi);

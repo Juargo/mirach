@@ -6,9 +6,11 @@ import {
 } from '../../../application/use-cases/process-ingesta.use-case';
 import { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
 import { ListarIngestasUseCase } from '../../../application/use-cases/listar-ingestas.use-case';
+import { PreviewIngestaUseCase } from '../../../application/use-cases/preview-ingesta.use-case';
 import { MulterFileReaderAdapter } from '../../http/multer-file-reader.adapter';
 import { aIngestaResponseDto } from '../../http/dto/ingesta-response.dto';
 import { aIngestaListItemDto } from '../../http/dto/ingesta-list.dto';
+import { aPreviewIngestaDto } from '../../http/dto/preview-ingesta.dto';
 import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
 import { ExtensionNoPermitidaError } from '../../../domain/errors/extension-no-permitida.error';
 import { BancoNoReconocidoError } from '../../../domain/errors/banco-no-reconocido.error';
@@ -22,12 +24,13 @@ import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-enco
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-/** Deps de `registrarIngestas` (US-018, design.md §6.1) — objeto por
- * legibilidad con 3 dependencias, mirrors `registrarAuthPublic`. */
+/** Deps de `registrarIngestas` (US-018, design.md §6.1; +previewIngesta
+ * US-003) — objeto por legibilidad, mirrors `registrarAuthPublic`. */
 export interface IngestaRoutesDeps {
   processIngesta: ProcessIngestaUseCase;
   eliminarIngesta: EliminarIngestaUseCase;
   listarIngestas: ListarIngestasUseCase;
+  previewIngesta: PreviewIngestaUseCase;
 }
 
 /**
@@ -75,6 +78,37 @@ export function registrarIngestas(
       }
 
       res.status(200).json(aIngestaResponseDto(result.getValue()));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // POST /api/ingestas/preview (US-003, design.md §8, D1): sub-path distinto
+  // (no un flag ?dryRun) — reusa el mismo gate multipart (`subirArchivo`) y el
+  // mismo `aHttpError`. NO forwarda `userId`: el input de PreviewIngestaUseCase
+  // no tiene ese campo (design §3.3) — refuerza a nivel de firma que este
+  // camino no escopa por tenant porque no toca datos de tenant.
+  router.post('/ingestas/preview', subirArchivo(), async (req, res, next) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({
+          message:
+            'No se recibió ningún archivo. Envía el archivo en el campo "file".',
+        });
+        return;
+      }
+
+      const fileReader = new MulterFileReaderAdapter(file);
+      const result = await deps.previewIngesta.execute({ fileReader });
+
+      if (result.isFail()) {
+        const { status, message } = aHttpError(result.getError());
+        res.status(status).json({ message });
+        return;
+      }
+
+      res.status(200).json(aPreviewIngestaDto(result.getValue()));
     } catch (err) {
       next(err);
     }

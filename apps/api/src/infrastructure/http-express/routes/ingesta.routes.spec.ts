@@ -9,6 +9,9 @@ import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-enco
 import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
 import type { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
 import type { ListarIngestasUseCase } from '../../../application/use-cases/listar-ingestas.use-case';
+import type { PreviewIngestaUseCase } from '../../../application/use-cases/preview-ingesta.use-case';
+import { BancoConocido } from '../../../domain/value-objects/nombre-banco';
+import { TipoCuentaConocido } from '../../../domain/value-objects/tipo-cuenta';
 
 /**
  * Port del IngestaController: upload multipart (multer) → MulterFileReaderAdapter
@@ -22,6 +25,7 @@ import type { ListarIngestasUseCase } from '../../../application/use-cases/lista
 type ProcessDoble = Pick<ProcessIngestaUseCase, 'execute'>;
 type EliminarDoble = Pick<EliminarIngestaUseCase, 'execute'>;
 type ListarDoble = Pick<ListarIngestasUseCase, 'execute'>;
+type PreviewDoble = Pick<PreviewIngestaUseCase, 'execute'>;
 
 const INGESTA_OK = {
   ingestaId: 'ing-1',
@@ -44,6 +48,7 @@ function probeApp(deps: {
   processIngesta?: ProcessDoble;
   eliminarIngesta?: EliminarDoble;
   listarIngestas?: ListarDoble;
+  previewIngesta?: PreviewDoble;
 }): Express {
   const app = express();
   app.use(express.json());
@@ -62,6 +67,9 @@ function probeApp(deps: {
     listarIngestas: (deps.listarIngestas ?? {
       execute: vi.fn(),
     }) as ListarIngestasUseCase,
+    previewIngesta: (deps.previewIngesta ?? {
+      execute: vi.fn(),
+    }) as PreviewIngestaUseCase,
   });
   app.use('/api', router);
   app.use(errorMiddleware);
@@ -207,6 +215,96 @@ describe('registrarIngestas — DELETE /api/ingestas/:id', () => {
     const res = await request(probeApp({ eliminarIngesta: uc })).delete(
       '/api/ingestas/ing-1',
     );
+
+    expect(res.status).toBe(500);
+  });
+});
+
+const PREVIEW_OK = {
+  banco: {
+    banco: BancoConocido.BancoEstado,
+    tipoCuenta: TipoCuentaConocido.CuentaRut,
+    numeroCuenta: '****',
+  },
+  estructura: { totalFilasDatos: 2 },
+  muestra: [],
+};
+
+describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
+  it('200 con el PreviewIngestaDto en Result.ok — sin userId en el input', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(PREVIEW_OK)) };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      banco: 'BancoEstado',
+      tipoCuenta: 'CuentaRUT',
+      numeroCuenta: '****',
+      estructura: { totalFilasDatos: 2 },
+      muestra: [],
+    });
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ fileReader: expect.anything() }),
+    );
+    // No userId forwarded — the preview input type has none (design §3.3).
+    expect(uc.execute).not.toHaveBeenCalledWith(
+      expect.objectContaining({ userId: expect.anything() }),
+    );
+  });
+
+  it('400 ante un error de validación representativo (prueba la reutilización de aHttpError)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new ExtensionNoPermitidaError('.txt', ['.xlsx', '.pdf'])),
+        ),
+    };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('x'), 'malo.txt');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('400 si no se envía archivo', async () => {
+    const uc = { execute: vi.fn() };
+    const res = await request(probeApp({ previewIngesta: uc })).post(
+      '/api/ingestas/preview',
+    );
+
+    expect(res.status).toBe(400);
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('400 cuando el archivo excede el límite de multer (10 MB)', async () => {
+    const uc = { execute: vi.fn() };
+    const grande = Buffer.alloc(10 * 1024 * 1024 + 1);
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', grande, 'grande.xlsx');
+
+    expect(res.status).toBe(400);
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('500 ante un fallo defensivo (PersistenciaFallidaError)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(
+            new PersistenciaFallidaError(
+              'fallo inesperado durante la vista previa de ingesta',
+            ),
+          ),
+        ),
+    };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('x'), 'cartola.xlsx');
 
     expect(res.status).toBe(500);
   });
