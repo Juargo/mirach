@@ -138,11 +138,17 @@ describe('registrarIngestas — GET /api/ingestas', () => {
   it('T1.11a: 200 con { ingestas: [...] } — llama al use case con el userId', async () => {
     const fecha = new Date('2026-07-15T00:00:00.000Z');
     const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue([
-          { id: 'ing-1', banco: 'BCI', fecha, totalTransacciones: 10 },
-        ]),
+      execute: vi.fn().mockResolvedValue([
+        {
+          id: 'ing-1',
+          banco: 'BCI',
+          nombreArchivo: 'movimientos.xlsx',
+          fecha,
+          estado: 'exitoso',
+          totalTransacciones: 10,
+          motivoFallo: null,
+        },
+      ]),
     };
     const res = await request(probeApp({ listarIngestas: uc })).get(
       '/api/ingestas',
@@ -154,8 +160,11 @@ describe('registrarIngestas — GET /api/ingestas', () => {
         {
           id: 'ing-1',
           banco: 'BCI',
+          nombreArchivo: 'movimientos.xlsx',
           fecha: fecha.toISOString(),
+          estado: 'exitoso',
           totalTransacciones: 10,
+          motivoFallo: null,
         },
       ],
     });
