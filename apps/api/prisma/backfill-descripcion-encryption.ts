@@ -136,7 +136,15 @@ export function partitionBatch(
   return { toUpdate, skipped, sospechosas };
 }
 
-const DEFAULT_BATCH_SIZE = 500;
+/**
+ * Tamaño de batch por defecto. Cada batch envuelve sus updates en UN
+ * `$transaction`, y cada update es un round-trip de red. Contra prod
+ * (Supabase, ~60ms por update medidos) un batch de 500 tardó 30.4s y superó
+ * el `TRANSACTION_TIMEOUT_MS` de 30s → la transacción expiró y abortó. 100
+ * updates ≈ 6s, con margen holgado para picos de latencia. Se puede sobreescribir
+ * con `--batch-size=N` (ver parseBatchSizeArg) si un entorno necesita otro valor.
+ */
+const DEFAULT_BATCH_SIZE = 100;
 /**
  * Timeout explícito del `$transaction` por batch — el default de Prisma
  * (5s) es riesgoso para un batch de `DEFAULT_BATCH_SIZE` updates
@@ -235,6 +243,26 @@ function printSummary(
 }
 
 /**
+ * Parsea `--batch-size=N` de los args del script. Devuelve `undefined` si el
+ * flag no está (se usa DEFAULT_BATCH_SIZE) y LANZA si el valor no es un entero
+ * positivo — mejor fallar ruidoso al arrancar que correr con un batch inválido
+ * contra prod. Exportada para testearla sin invocar main().
+ */
+export function parseBatchSizeArg(argv: string[]): number | undefined {
+  const flag = argv.find((arg) => arg.startsWith('--batch-size='));
+  if (!flag) return undefined;
+
+  const raw = flag.slice('--batch-size='.length);
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(
+      `--batch-size debe ser un entero positivo (recibido: "${raw}").`,
+    );
+  }
+  return value;
+}
+
+/**
  * Wiring de script real: gate de seguridad ANTES de cualquier conexión a
  * Prisma (ver assertDestructiveDbAllowed) + ejecución de
  * runBackfillDescripcionEncryption. Exportado para poder testear el gate sin
@@ -244,6 +272,7 @@ export async function main(
   argv: string[] = process.argv.slice(2),
 ): Promise<void> {
   const dryRun = argv.includes('--dry-run');
+  const batchSize = parseBatchSizeArg(argv);
 
   const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
   if (!connectionString) {
@@ -278,6 +307,7 @@ export async function main(
   try {
     const summary = await runBackfillDescripcionEncryption(prisma, crypto, {
       dryRun,
+      ...(batchSize !== undefined ? { batchSize } : {}),
     });
     printSummary(summary, dryRun);
   } finally {
