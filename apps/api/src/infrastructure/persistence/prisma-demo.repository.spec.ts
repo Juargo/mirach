@@ -2,11 +2,24 @@ import { EstadoIngesta } from '@prisma/client';
 import { PrismaDemoRepository } from './prisma-demo.repository';
 import { PrismaClient } from '@prisma/client';
 import { IReloj } from '../../application/ports/reloj.port';
+import { ICryptoService } from '../../application/ports/crypto-service.port';
+import { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 import { DEMO_TRANSACCIONES } from './demo-data';
 
 const AHORA = new Date('2026-07-18T12:00:00.000Z');
 const TOKEN_HASH = 'hash-demo-abc';
 const EXPIRES_AT = new Date('2026-07-25T12:00:00.000Z');
+
+function makeCrypto(): ICryptoService {
+  return {
+    encrypt: (v: string) => `cifrado:${v}`,
+    decrypt: (v: string) => v,
+  };
+}
+
+function makeBlindIndex(): IBlindIndexService {
+  return { compute: (v: string) => `bi:${v}` };
+}
 
 function makeTxMock() {
   return {
@@ -39,7 +52,12 @@ describe('PrismaDemoRepository', () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
     const reloj = makeReloj();
-    const repo = new PrismaDemoRepository(prisma, reloj);
+    const repo = new PrismaDemoRepository(
+      prisma,
+      reloj,
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     const result = await repo.crear({
       nombre: 'Demo-abc123',
@@ -57,7 +75,12 @@ describe('PrismaDemoRepository', () => {
   it('crea el User con esDemo=true, demoCreatedAt=ahora y el nombre recibido', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
-    const repo = new PrismaDemoRepository(prisma, makeReloj());
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     await repo.crear({
       nombre: 'Demo-abc123',
@@ -73,7 +96,12 @@ describe('PrismaDemoRepository', () => {
   it('crea el Account referenciando el userId recién creado', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
-    const repo = new PrismaDemoRepository(prisma, makeReloj());
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     await repo.crear({
       nombre: 'Demo-abc123',
@@ -88,10 +116,41 @@ describe('PrismaDemoRepository', () => {
     );
   });
 
+  it('US-035: crea el Account con numeroCuenta CIFRADO (nunca en claro) + su blind index', async () => {
+    const tx = makeTxMock();
+    const prisma = makePrismaMock(tx);
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
+
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
+
+    expect(tx.account.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          numeroCuenta: 'cifrado:DEMO-0000',
+          numeroCuentaBlindIndex: 'bi:DEMO-0000',
+        }),
+      }),
+    );
+  });
+
   it('crea la Ingesta PROCESADA referenciando el accountId recién creado', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
-    const repo = new PrismaDemoRepository(prisma, makeReloj());
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     await repo.crear({
       nombre: 'Demo-abc123',
@@ -113,7 +172,12 @@ describe('PrismaDemoRepository', () => {
   it('crea la Ingesta con userId: user.id (US-004 — Ingesta.userId ahora NOT NULL)', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
-    const repo = new PrismaDemoRepository(prisma, makeReloj());
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     await repo.crear({
       nombre: 'Demo-abc123',
@@ -131,7 +195,12 @@ describe('PrismaDemoRepository', () => {
   it('inserta todas las transacciones demo vía createMany, con accountId/ingestaId correctos', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
-    const repo = new PrismaDemoRepository(prisma, makeReloj());
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     await repo.crear({
       nombre: 'Demo-abc123',
@@ -152,7 +221,12 @@ describe('PrismaDemoRepository', () => {
   it('crea la Session DENTRO de la misma $transaction, con el userId recién creado y el tokenHash/expiresAt recibidos (fix crítico DEMO-DATA-04 — no orphan)', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
-    const repo = new PrismaDemoRepository(prisma, makeReloj());
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     await repo.crear({
       nombre: 'Demo-abc123',
@@ -173,7 +247,12 @@ describe('PrismaDemoRepository', () => {
     const tx = makeTxMock();
     tx.session.create.mockRejectedValue(new Error('DB connection lost'));
     const prisma = makePrismaMock(tx);
-    const repo = new PrismaDemoRepository(prisma, makeReloj());
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
 
     await expect(
       repo.crear({

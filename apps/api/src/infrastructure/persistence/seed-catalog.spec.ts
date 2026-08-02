@@ -9,6 +9,7 @@ import {
   Categoria,
   CATEGORIA_BUCKET,
 } from '../../domain/value-objects/categoria';
+import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
  * Seed-integrity unit tests (CAT-01, CAT-04) — no DB involved.
@@ -80,6 +81,21 @@ function makeFakeSeedClient() {
 }
 
 describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () => {
+  // US-035 Slice 2: runSeed() ahora SIEMPRE cifra Account.numeroCuenta +
+  // computa su blind index (ver docstring de runSeed) — requiere
+  // process.env.ENCRYPTION_KEY incluso en este spec sin BD real. Se usa la
+  // clave fija de test/support/env.fixture.ts y se restaura el valor
+  // original después, para no filtrar estado entre archivos de test.
+  const originalEncryptionKey = process.env.ENCRYPTION_KEY;
+
+  beforeAll(() => {
+    process.env.ENCRYPTION_KEY = buildTestEnv().ENCRYPTION_KEY;
+  });
+
+  afterAll(() => {
+    process.env.ENCRYPTION_KEY = originalEncryptionKey;
+  });
+
   it('CATEGORIA_IDS cubre exactamente las 8 categorías del enum', () => {
     expect(Object.keys(CATEGORIA_IDS)).toHaveLength(
       Object.values(Categoria).length,

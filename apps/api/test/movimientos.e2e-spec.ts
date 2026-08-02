@@ -6,6 +6,8 @@ import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv, type Env } from '../src/config/env';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
+import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
@@ -153,15 +155,28 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
   // ── Happy path with seeded rows ──────────────────────────────────────────
 
   it('AC-08/AC-09/AC-11/MOV-01: seeded rows → 200, cargo/abono as strings, fecha ISO, bucket folded (SinCategoria + Necesidades), shape matches DTO', async () => {
+    // US-036/US-035: la app (createContainer) decripta con env.ENCRYPTION_KEY
+    // (clave de RUNTIME, aleatoria en CI) — los seeds deben cifrarse con esa
+    // misma clave, no la fija de test/support/env.fixture.ts (ver
+    // ingesta.e2e-spec.ts, mismo patrón probado). Numero de cuenta también se
+    // cifra + indexa (US-035 Slice 2): la clave natural del upsert ahora es
+    // numeroCuentaBlindIndex, MISMA derivación HKDF que container.ts.
+    const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
+    const crypto = new AesGcmCryptoService(encryptionKey);
+    const blindIndex = new HmacBlindIndexService(
+      deriveBlindIndexKey(encryptionKey),
+    );
+    const numeroCuenta = `e2e-${RUN_ID}`;
+
     // Seed data under USER_ID_FIJO so the controller can find them
     // Use upsert for the account (idempotent) and create ingesta
     const account = await prisma.account.upsert({
       where: {
-        userId_banco_tipoCuenta_numeroCuenta: {
+        userId_banco_tipoCuenta_numeroCuentaBlindIndex: {
           userId: FIXED_USER_ID,
           banco: 'BCI',
           tipoCuenta: 'Cuenta Corriente',
-          numeroCuenta: `e2e-${RUN_ID}`,
+          numeroCuentaBlindIndex: blindIndex.compute(numeroCuenta),
         },
       },
       update: {},
@@ -169,7 +184,8 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
         userId: FIXED_USER_ID,
         banco: 'BCI',
         tipoCuenta: 'Cuenta Corriente',
-        numeroCuenta: `e2e-${RUN_ID}`,
+        numeroCuenta: crypto.encrypt(numeroCuenta),
+        numeroCuentaBlindIndex: blindIndex.compute(numeroCuenta),
       },
     });
     seededAccountIds.push(account.id);
@@ -186,13 +202,6 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     seededIngestaIds.push(ingesta.id);
 
     const bigAmount = 9007199254740993n; // > MAX_SAFE_INTEGER
-    // US-036: la app (createContainer) decripta con env.ENCRYPTION_KEY (clave
-    // de RUNTIME, aleatoria en CI) — los seeds deben cifrarse con esa misma
-    // clave, no la fija de test/support/env.fixture.ts (ver
-    // ingesta.e2e-spec.ts, mismo patrón probado).
-    const crypto = new AesGcmCryptoService(
-      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
-    );
     await prisma.transaccion.createMany({
       data: [
         {

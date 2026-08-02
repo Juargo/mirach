@@ -11,6 +11,8 @@ import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persist
 import { PrismaTransaccionClasificacionRepository } from '../src/infrastructure/persistence/prisma-transaccion-clasificacion.repository';
 import { PrismaTransaccionExistenteReader } from '../src/infrastructure/persistence/prisma-transaccion-existente.reader';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
+import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { IngestFileUseCase } from '../src/application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../src/application/use-cases/detect-bank.use-case';
 import { DetectPdfBankUseCase } from '../src/application/use-cases/detect-pdf-bank.use-case';
@@ -67,12 +69,19 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
   const crypto = new AesGcmCryptoService(
     Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
   );
+  // US-035 Slice 2: PrismaAccountRepository ahora busca/crea la cuenta por
+  // numeroCuentaBlindIndex — misma clave HMAC derivada del mismo
+  // ENCRYPTION_KEY fijo de este int-spec (ver KEY-MATCHING en el docstring
+  // del módulo — nunca la clave runtime de loadEnv() en un int-spec).
+  const blindIndex = new HmacBlindIndexService(
+    deriveBlindIndexKey(Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64')),
+  );
 
   const processIngesta = new ProcessIngestaUseCase(
     new IngestFileUseCase(),
     new DetectBankUseCase(new ExcelBankDetectorService()),
     new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
-    new PrismaAccountRepository(prisma),
+    new PrismaAccountRepository(prisma, crypto, blindIndex),
     new ValidateStructureUseCase(new ExcelStructureValidatorService()),
     new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
     new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),

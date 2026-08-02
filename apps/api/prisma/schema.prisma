@@ -51,12 +51,18 @@ model Account {
   user          User          @relation(fields: [userId], references: [id])
   banco         String
   tipoCuenta    String
+  // US-035 Slice 2: numeroCuenta cifrado en reposo (AES-GCM, ADR-013).
   numeroCuenta  String
+  // Blind index (HMAC determinístico sobre numeroCuenta normalizado) — la
+  // clave natural del upsert de ingesta se muda acá porque el IV aleatorio del
+  // cifrado no es único ni matcheable. Nullable SOLO durante la ventana de
+  // migración/backfill: en la práctica lo pobla siempre ensure()/demo/seed.
+  numeroCuentaBlindIndex String?
   creadoEn      DateTime      @default(now())
   ingestas      Ingesta[]
   transacciones Transaccion[]
 
-  @@unique([userId, banco, tipoCuenta, numeroCuenta])
+  @@unique([userId, banco, tipoCuenta, numeroCuentaBlindIndex])
 }
 
 model Ingesta {

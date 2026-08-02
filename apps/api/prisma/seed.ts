@@ -17,7 +17,8 @@ import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-pas
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
-import { loadEnv } from '../src/config/env';
+import { normalizeNumeroCuenta } from '../src/infrastructure/persistence/normalize-numero-cuenta';
+import { isValid32ByteBase64Key } from '../src/config/env';
 
 /**
  * Seed mono-usuario (US-011, tareas 0.1-0.3) + Buckets de categorización (US-012).
@@ -246,6 +247,27 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
     update: {},
   });
 
+  // `crypto`/`blindIndex` se construyen SIEMPRE (no solo para el backfill de
+  // credenciales) — desde US-035 Slice 2 la cuenta semilla también cifra
+  // `numeroCuenta` + computa su blind index. Se lee `process.env.ENCRYPTION_KEY`
+  // DIRECTO (no vía `loadEnv()`, que también validaría DATABASE_URL/NODE_ENV
+  // — fuera del scope de esta función y rompería los unit tests con
+  // SeedClient fake, ver seed-catalog.spec.ts) — mismo patrón que los scripts
+  // de backfill (backfill-email-blind-index.ts). MISMA derivación HKDF que
+  // `container.ts` (ver derive-blind-index-key.ts) — para que el índice que
+  // escribe el seed matchee el que consultan login/ingesta.
+  const rawEncryptionKey = process.env.ENCRYPTION_KEY;
+  if (!rawEncryptionKey || !isValid32ByteBase64Key(rawEncryptionKey)) {
+    throw new Error(
+      'runSeed requiere ENCRYPTION_KEY (base64, 32 bytes exactos — AES-256, ADR-013) en el entorno.',
+    );
+  }
+  const encryptionKey = Buffer.from(rawEncryptionKey, 'base64');
+  const crypto = new AesGcmCryptoService(encryptionKey);
+  const blindIndex = new HmacBlindIndexService(
+    deriveBlindIndexKey(encryptionKey),
+  );
+
   // ── auth-login-session: backfill de credenciales de login (Slice 1) ──
   // Las credenciales vienen SIEMPRE de env, nunca hardcodeadas. Si el env no
   // está presente, se omite solo este backfill — el seed sigue siendo
@@ -254,20 +276,10 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
   //
   // US-035: `email` se persiste CIFRADO (ADR-013) — ya no es buscable por
   // WHERE email=... — así que además se escribe `emailBlindIndex` (HMAC
-  // determinístico) para que el login pueda encontrar la fila. `crypto` y
-  // `blindIndex` se construyen acá desde `env.ENCRYPTION_KEY` vía `loadEnv()`
-  // — MISMA derivación HKDF que `container.ts` (ver derive-blind-index-key.ts),
-  // para que el índice que escribe el seed matchee el que consulta el login.
+  // determinístico) para que el login pueda encontrar la fila.
   const seedEmail = process.env.SEED_USER_EMAIL;
   const seedPassword = process.env.SEED_USER_PASSWORD;
   if (seedEmail && seedPassword) {
-    const env = loadEnv();
-    const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
-    const crypto = new AesGcmCryptoService(encryptionKey);
-    const blindIndex = new HmacBlindIndexService(
-      deriveBlindIndexKey(encryptionKey),
-    );
-
     const normalizedEmail = seedEmail.trim().toLowerCase();
     const passwordHash = await new Argon2PasswordHasher().hash(seedPassword);
     await prisma.user.update({
@@ -280,9 +292,21 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
     });
   }
 
+  // US-035 Slice 2: numeroCuenta CIFRADO + blind index — mismo tratamiento
+  // que cualquier cuenta real (ver PrismaAccountRepository.ensure).
+  const numeroCuentaSeedNormalizado = normalizeNumeroCuenta(
+    SEED_ACCOUNT.numeroCuenta,
+  );
   await prisma.account.upsert({
     where: { id: ACCOUNT_ID_FIJO },
-    create: { id: ACCOUNT_ID_FIJO, userId: USER_ID_FIJO, ...SEED_ACCOUNT },
+    create: {
+      id: ACCOUNT_ID_FIJO,
+      userId: USER_ID_FIJO,
+      banco: SEED_ACCOUNT.banco,
+      tipoCuenta: SEED_ACCOUNT.tipoCuenta,
+      numeroCuenta: crypto.encrypt(numeroCuentaSeedNormalizado),
+      numeroCuentaBlindIndex: blindIndex.compute(numeroCuentaSeedNormalizado),
+    },
     update: {},
   });
 

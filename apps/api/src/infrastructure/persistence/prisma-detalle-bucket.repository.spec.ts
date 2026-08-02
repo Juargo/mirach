@@ -148,6 +148,37 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
 
     expect(rows[0].descripcion).toBe('plano:cifrado-xyz');
   });
+
+  it('US-035: numeroCuenta pasa por crypto.decrypt() antes de devolverse — el drill-down NUNCA expone el ciphertext de numeroCuenta', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'tx-1',
+        fecha: new Date('2026-07-10T00:00:00.000Z'),
+        descripcion: 'Test tx',
+        cargo: 1000n,
+        abono: 0n,
+        categoriaId: null,
+        account: {
+          banco: 'BCI',
+          tipoCuenta: 'Cuenta Corriente',
+          numeroCuenta: 'cifrado-numero-xyz',
+        },
+      },
+    ]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(
+      prisma,
+      makeCrypto((v) => `plano:${v}`),
+    );
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Necesidades,
+    );
+
+    expect(rows[0].numeroCuenta).toBe('plano:cifrado-numero-xyz');
+  });
 });
 
 const RUN_ID = `detalle-bucket-repo-${Date.now()}`;

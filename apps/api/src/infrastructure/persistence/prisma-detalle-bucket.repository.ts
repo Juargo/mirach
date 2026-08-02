@@ -31,7 +31,9 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  *
  * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
  * la respuesta HTTP de `GET /api/buckets/:bucket`; sin descifrar, el cliente
- * recibiría el ciphertext en vez de la descripción real.
+ * recibiría el ciphertext en vez de la descripción real. US-035 Slice 2:
+ * `account.numeroCuenta` también se descifra acá, mismo motivo — el port
+ * (`DetalleBucketRow`) sigue siendo plaintext-facing.
  */
 export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
   constructor(
@@ -87,7 +89,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
       categoria: foldCategoriaId(row.categoriaId),
       banco: row.account.banco,
       tipoCuenta: row.account.tipoCuenta,
-      numeroCuenta: row.account.numeroCuenta,
+      numeroCuenta: this.crypto.decrypt(row.account.numeroCuenta),
     }));
   }
 }

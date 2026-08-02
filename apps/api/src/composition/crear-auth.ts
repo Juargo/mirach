@@ -59,7 +59,9 @@ export interface AuthGraph {
  * US-035: `crypto`/`blindIndex` se reciben ya construidos (no se instancian
  * acá) — el caller (`container.ts`) es dueño de decodificar
  * `env.ENCRYPTION_KEY` y derivar la clave del blind index UNA sola vez,
- * mismo patrón que `crearProcessIngesta` recibe `crypto` inyectado.
+ * mismo patrón que `crearProcessIngesta` recibe `crypto` inyectado. Slice 2:
+ * `demoRepo` también los necesita — el Account demo cifra `numeroCuenta` +
+ * computa su blind index igual que cualquier cuenta real.
  */
 export function crearAuth(
   prisma: PrismaClient,
@@ -78,7 +80,7 @@ export function crearAuth(
 
   const sessions = new PrismaSessionRepository(prisma);
   const creds = new PrismaUserCredentialRepository(prisma, crypto, blindIndex);
-  const demoRepo = new PrismaDemoRepository(prisma, reloj);
+  const demoRepo = new PrismaDemoRepository(prisma, reloj, crypto, blindIndex);
 
   return {
     validarSesion: new ValidarSesionUseCase(sessions, tokens, reloj),

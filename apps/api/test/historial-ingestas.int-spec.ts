@@ -8,6 +8,8 @@ import { PrismaIngestaRepository } from '../src/infrastructure/persistence/prism
 import { PrismaRegistrarIngestaFallidaRepository } from '../src/infrastructure/persistence/prisma-registrar-ingesta-fallida.repository';
 import { PrismaListarIngestasReader } from '../src/infrastructure/persistence/prisma-listar-ingestas.reader';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
+import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { Transaccion } from '../src/domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../src/domain/errors/persistencia-fallida.error';
 import { IFileReader } from '../src/application/ports/file-reader.port';
@@ -53,7 +55,13 @@ describe('Historial de ingestas (US-004, integration — real dev DB)', () => {
   const crypto = new AesGcmCryptoService(
     Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
   );
-  const processIngesta = crearProcessIngesta(prisma, crypto);
+  // US-035 Slice 2: PrismaAccountRepository ahora busca/crea la cuenta por
+  // numeroCuentaBlindIndex — misma clave HMAC fija de este int-spec (ver
+  // KEY-MATCHING en ingesta-duplicados.int-spec.ts).
+  const blindIndex = new HmacBlindIndexService(
+    deriveBlindIndexKey(Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64')),
+  );
+  const processIngesta = crearProcessIngesta(prisma, crypto, blindIndex);
   const ingestaRepo = new PrismaIngestaRepository(prisma, crypto);
   const fallidaWriter = new PrismaRegistrarIngestaFallidaRepository(prisma);
   const reader = new PrismaListarIngestasReader(prisma);

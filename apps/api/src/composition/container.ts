@@ -97,11 +97,14 @@ export function createContainer(
   // porque PrismaUserCredentialRepository (US-035) también la necesita.
   const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
   const crypto = new AesGcmCryptoService(encryptionKey);
-  // Blind index de email (US-035): la clave HMAC se DERIVA vía HKDF del
-  // MISMO ENCRYPTION_KEY (ver derive-blind-index-key.ts) — no hay env var
-  // nuevo. Habilita `buscarPorEmail` (login) a buscar por
-  // `WHERE emailBlindIndex = ...` en vez de por email en claro, que ya no es
-  // posible contra ciphertext no-determinístico.
+  // Blind index (US-035): la clave HMAC se DERIVA vía HKDF del MISMO
+  // ENCRYPTION_KEY (ver derive-blind-index-key.ts) — no hay env var nuevo.
+  // Slice 1: habilita `buscarPorEmail` (login) a buscar por
+  // `WHERE emailBlindIndex = ...` en vez de por email en claro. Slice 2:
+  // MISMA instancia reutilizada por `crearProcessIngesta` para que
+  // `PrismaAccountRepository.ensure` busque/cree la cuenta por
+  // `numeroCuentaBlindIndex` — ninguno de los dos es posible contra
+  // ciphertext no-determinístico.
   const blindIndex = new HmacBlindIndexService(
     deriveBlindIndexKey(encryptionKey),
   );
@@ -124,7 +127,7 @@ export function createContainer(
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(
     new PrismaReclasificarCategoriaRepository(prisma),
   );
-  const processIngesta = crearProcessIngesta(prisma, crypto);
+  const processIngesta = crearProcessIngesta(prisma, crypto, blindIndex);
   const previewIngesta = crearPreviewIngesta();
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),

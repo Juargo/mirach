@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
+import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
 import { IngestFileUseCase } from '../application/use-cases/ingest-file.use-case';
@@ -43,12 +44,23 @@ import { PrismaTransaccionExistenteReader } from '../infrastructure/persistence/
  * `env.ENCRYPTION_KEY` UNA sola vez y pasar la MISMA instancia a este helper
  * y a los readers de movimientos/detalle-bucket, para que el ciphertext que
  * escribe la ingesta descifre con la clave que usan esos lectores.
+ *
+ * US-035 Slice 2: `blindIndex` se recibe igual de ya-construido — lo usa
+ * `PrismaAccountRepository.ensure` para buscar/crear la cuenta por
+ * `numeroCuentaBlindIndex` en vez de por `numeroCuenta` en claro (ver
+ * docstring de esa clase). MISMA instancia que `crearAuth` (derivada del
+ * mismo `ENCRYPTION_KEY`, ver `derive-blind-index-key.ts`).
  */
 export function crearProcessIngesta(
   prisma: PrismaClient,
   crypto: ICryptoService,
+  blindIndex: IBlindIndexService,
 ): ProcessIngestaUseCase {
-  const accountRepository = new PrismaAccountRepository(prisma);
+  const accountRepository = new PrismaAccountRepository(
+    prisma,
+    crypto,
+    blindIndex,
+  );
   const ingestaRepository = new PrismaIngestaRepository(prisma, crypto);
   const ingestaFallidaWriter = new PrismaRegistrarIngestaFallidaRepository(
     prisma,

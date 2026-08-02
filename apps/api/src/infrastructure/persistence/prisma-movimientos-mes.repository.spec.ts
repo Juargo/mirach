@@ -176,6 +176,28 @@ describe('PrismaMovimientosMesRepository', () => {
     expect(rows[0].descripcion).toBe('plano:cifrado-xyz');
   });
 
+  it('US-035: numeroCuenta pasa por crypto.decrypt() antes de devolverse — GET /api/movimientos NUNCA expone el ciphertext de numeroCuenta', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        ...makeRow({ id: 'tx-1', bucketId: BUCKET_IDS[Bucket.Necesidades] }),
+        account: {
+          banco: 'BCI',
+          tipoCuenta: 'Cuenta Corriente',
+          numeroCuenta: 'cifrado-numero-xyz',
+        },
+      },
+    ]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
+    const repo = new PrismaMovimientosMesRepository(
+      prisma,
+      makeCrypto((v) => `plano:${v}`),
+    );
+
+    const rows = await repo.findByPeriodo('user-1', periodo);
+
+    expect(rows[0].numeroCuenta).toBe('plano:cifrado-numero-xyz');
+  });
+
   it('user isolation: findByPeriodo filters structurally by account.userId (RNF-SEC-006)', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
