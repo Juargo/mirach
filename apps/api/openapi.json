@@ -776,6 +776,32 @@
         "summary": "Upload a bank statement"
       }
     },
+    "/api/ingestas/{id}": {
+      "delete": {
+        "description": "Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "parameters": [
+          {
+            "description": "Ingesta id (raw path param). Existence/ownership is checked by the use case, not this schema.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Ingesta id (raw path param). Existence/ownership is checked by the use case, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ingesta deleted. No response body."
+          },
+          "404": {
+            "description": "Anti-enumeration: the ingesta does not exist or does not belong to the authenticated user."
+          }
+        },
+        "summary": "Delete an ingesta"
+      }
+    },
     "/api/ingestas/preview": {
       "post": {
         "description": "Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the result itself is not scoped by user (no tenant data is touched).",

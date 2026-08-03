@@ -107,6 +107,21 @@ describe('buildOpenApiDocument', () => {
     expect(previewPath?.post?.responses?.['200']).toBeDefined();
   });
 
+  it('registers DELETE /api/ingestas/{id} with an id path param and no response-body schema', () => {
+    const document = buildOpenApiDocument();
+
+    const deletePath = document.paths?.['/api/ingestas/{id}'];
+    expect(deletePath).toBeDefined();
+    expect(deletePath?.delete).toBeDefined();
+    expect(deletePath?.delete?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'id', in: 'path' }),
+      ]),
+    );
+    expect(deletePath?.delete?.responses?.['204']).toBeDefined();
+    expect(deletePath?.delete?.responses?.['204']?.content).toBeUndefined();
+  });
+
   it('registers GET /api/auth/me with a response schema (no query/path params)', () => {
     const document = buildOpenApiDocument();
 

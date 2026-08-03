@@ -31,6 +31,7 @@ import {
   previewIngestaRequestSchema,
   previewIngestaResponseSchema,
 } from './ingesta-preview.schema';
+import { ingestaDeletePathParamsSchema } from './ingesta-delete.schema';
 import { authMeResponseSchema } from './auth-me.schema';
 
 /**
@@ -222,6 +223,25 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const ingestaDeleteOperation: ZodOpenApiOperationObject = {
+  summary: 'Delete an ingesta',
+  description:
+    'Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    path: ingestaDeletePathParamsSchema,
+  },
+  responses: {
+    '204': {
+      description: 'Ingesta deleted. No response body.',
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the ingesta does not exist or does not belong to the authenticated user.',
+    },
+  },
+};
+
 const authMeOperation: ZodOpenApiOperationObject = {
   summary: 'Current session identity',
   description:
@@ -291,6 +311,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/auth/me': { get: authMeOperation },
   '/api/auth/demo': { get: authDemoOperation },
   '/api/ingestas/preview': { post: ingestaPreviewOperation },
+  '/api/ingestas/{id}': { delete: ingestaDeleteOperation },
 };
 
 export function buildOpenApiDocument() {
