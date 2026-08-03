@@ -85,6 +85,7 @@ export class PrismaDemoRepository implements IDemoRepository {
         account.id,
         ingesta.id,
         ahora,
+        this.crypto,
       );
 
       await tx.transaccion.createMany({ data: transacciones });

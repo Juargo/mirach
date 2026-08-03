@@ -2,10 +2,17 @@ import { seedDemoTransacciones } from './demo-data-seeder';
 import { DEMO_TRANSACCIONES } from './demo-data';
 import { BUCKET_IDS } from './bucket-ids';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 const ACCOUNT_ID = 'account-demo-1';
 const INGESTA_ID = 'ingesta-demo-1';
 const AHORA = new Date('2026-07-18T12:00:00.000Z');
+
+/** Mock determinístico — mismo estilo que prisma-demo.repository.spec.ts. */
+const CRYPTO: ICryptoService = {
+  encrypt: (v: string) => `cifrado:${v}`,
+  decrypt: (v: string) => v,
+};
 
 describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
   it('tiene entre 25 y 35 transacciones (DEMO-DATA-01)', () => {
@@ -110,6 +117,7 @@ describe('seedDemoTransacciones()', () => {
       ACCOUNT_ID,
       INGESTA_ID,
       AHORA,
+      CRYPTO,
     );
 
     expect(rows).toHaveLength(DEMO_TRANSACCIONES.length);
@@ -118,10 +126,26 @@ describe('seedDemoTransacciones()', () => {
       const def = DEMO_TRANSACCIONES[i];
       expect(row.accountId).toBe(ACCOUNT_ID);
       expect(row.ingestaId).toBe(INGESTA_ID);
-      expect(row.descripcion).toBe(def.descripcion);
       expect(row.cargo).toBe(def.cargo);
       expect(row.abono).toBe(def.abono);
       expect(row.bucketId).toBe(BUCKET_IDS[def.bucketKey]);
+    });
+  });
+
+  it('cifra la descripcion vía el ICryptoService — nunca la persiste en claro (#204)', () => {
+    const rows = seedDemoTransacciones(
+      DEMO_TRANSACCIONES,
+      BUCKET_IDS,
+      ACCOUNT_ID,
+      INGESTA_ID,
+      AHORA,
+      CRYPTO,
+    );
+
+    rows.forEach((row, i) => {
+      const def = DEMO_TRANSACCIONES[i];
+      expect(row.descripcion).toBe(`cifrado:${def.descripcion}`);
+      expect(row.descripcion).not.toBe(def.descripcion);
     });
   });
 
@@ -142,6 +166,7 @@ describe('seedDemoTransacciones()', () => {
       ACCOUNT_ID,
       INGESTA_ID,
       AHORA,
+      CRYPTO,
     );
 
     expect((row.fecha as Date).getTime()).toBe(
@@ -156,6 +181,7 @@ describe('seedDemoTransacciones()', () => {
       ACCOUNT_ID,
       INGESTA_ID,
       AHORA,
+      CRYPTO,
     );
     const idsValidos = new Set(Object.values(BUCKET_IDS));
 

@@ -218,6 +218,29 @@ describe('PrismaDemoRepository', () => {
     }
   });
 
+  it('#204: persiste cada descripcion CIFRADA (nunca en claro) — evita el 500 con decrypt() fail-loud al leerla', async () => {
+    const tx = makeTxMock();
+    const prisma = makePrismaMock(tx);
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
+
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
+
+    const [{ data }] = (tx.transaccion.createMany as ReturnType<typeof vi.fn>)
+      .mock.calls[0];
+    for (const row of data) {
+      expect(row.descripcion.startsWith('cifrado:')).toBe(true);
+    }
+  });
+
   it('crea la Session DENTRO de la misma $transaction, con el userId recién creado y el tokenHash/expiresAt recibidos (fix crítico DEMO-DATA-04 — no orphan)', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(tx);
