@@ -14,6 +14,7 @@ import {
   clearSessionCookie,
 } from '../../http/auth/cookie';
 import { esNavegacionDeNivelSuperior } from '../../http/auth/sec-fetch-guard';
+import { appLogger } from '../../logging/app-logger';
 
 /** Dependencias de las rutas session-public (login/logout/demo). */
 export interface AuthPublicDeps {
@@ -61,7 +62,7 @@ export function registrarAuthPublic(
 
       if (loginRateLimiter.isBlocked(ip, email)) {
         // Scrubbed: path only — NUNCA el email/password.
-        console.warn(`Login rechazado (rate-limited) — path=${req.path}`);
+        appLogger.warn('Login rechazado (rate-limited)', { path: req.path });
         res
           .status(429)
           .json({ message: 'Demasiados intentos. Espera unos minutos.' });
@@ -76,9 +77,9 @@ export function registrarAuthPublic(
       const result = await login.execute({ emailRaw: email, password });
 
       if (result.isFail()) {
-        console.warn(
-          `Login rechazado (credenciales inválidas) — path=${req.path}`,
-        );
+        appLogger.warn('Login rechazado (credenciales inválidas)', {
+          path: req.path,
+        });
         res.status(401).json({ message: result.getError().message });
         return;
       }
@@ -106,10 +107,9 @@ export function registrarAuthPublic(
         await logout.execute({ token });
       } catch (err) {
         // Logout robusto: nunca relanza — la cookie se limpia igual client-side.
-        console.error(
-          'Error inesperado durante el logout',
-          err instanceof Error ? err.stack : String(err),
-        );
+        appLogger.error('Error inesperado durante el logout', {
+          errorName: err instanceof Error ? err.name : 'UnknownError',
+        });
       }
 
       res.setHeader('Set-Cookie', clearSessionCookie(cookieSecure));
@@ -123,9 +123,9 @@ export function registrarAuthPublic(
   router.get('/auth/demo', async (req, res, next) => {
     try {
       if (!esNavegacionDeNivelSuperior(req)) {
-        console.warn(
-          `Demo rechazado (no es navegación top-level) — path=${req.path}`,
-        );
+        appLogger.warn('Demo rechazado (no es navegación top-level)', {
+          path: req.path,
+        });
         res.status(403).json({
           message: 'Solicitud rechazada: se requiere navegación directa.',
         });
@@ -144,7 +144,7 @@ export function registrarAuthPublic(
 
       const ip = getClientIp(req);
       if (demoRateLimiter.isBlocked(ip)) {
-        console.warn(`Demo rechazado (rate-limited) — path=${req.path}`);
+        appLogger.warn('Demo rechazado (rate-limited)', { path: req.path });
         res.status(429).json({
           message: 'Demasiadas solicitudes de demo. Intenta más tarde.',
         });
@@ -156,9 +156,9 @@ export function registrarAuthPublic(
       try {
         await demoCleanup.borrarExpirados();
       } catch (err) {
-        console.error(
+        appLogger.error(
           'Error al limpiar cuentas demo expiradas (no bloquea la creación del demo)',
-          err instanceof Error ? err.stack : String(err),
+          { errorName: err instanceof Error ? err.name : 'UnknownError' },
         );
       }
 

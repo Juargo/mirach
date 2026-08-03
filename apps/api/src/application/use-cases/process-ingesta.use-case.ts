@@ -28,6 +28,7 @@ import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
 import { IRegistrarIngestaFallidaWriter } from '../ports/registrar-ingesta-fallida.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
+import { ILogger } from '../ports/logger.port';
 
 /** Entrada del orquestador: el archivo subido/leído y el usuario dueño de la cuenta. */
 export interface ProcessIngestaInput {
@@ -112,6 +113,7 @@ export class ProcessIngestaUseCase {
     private readonly txParaClasificarReader: ITransaccionParaClasificarReader,
     private readonly detectarDuplicadosUseCase: DetectarDuplicadosUseCase,
     private readonly ingestaFallidaWriter: IRegistrarIngestaFallidaWriter,
+    private readonly logger: ILogger,
   ) {}
 
   async execute(
@@ -165,16 +167,15 @@ export class ProcessIngestaUseCase {
         motivo,
       });
       if (res.isFail()) {
-        console.error(
-          '[ProcessIngestaUseCase] no se pudo registrar el intento fallido (degradando):',
-          res.getError().message,
+        this.logger.error(
+          'no se pudo registrar el intento fallido de ingesta (degradando)',
+          { errorName: res.getError().constructor.name },
         );
       }
     } catch (error) {
-      console.error(
-        '[ProcessIngestaUseCase] registrarFallo lanzó inesperadamente (degradando):',
-        error instanceof Error ? error.message : String(error),
-      );
+      this.logger.error('registrarFallo lanzó inesperadamente (degradando)', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
     }
   }
 
@@ -339,9 +340,9 @@ export class ProcessIngestaUseCase {
         patrones = catalogResult.getValue();
       } else {
         catalogoDisponible = false;
-        console.error(
-          '[ProcessIngestaUseCase] Catálogo de clasificación no disponible (solo se escriben filas de Ingreso; el resto queda null):',
-          catalogResult.getError().message,
+        this.logger.error(
+          'catálogo de clasificación no disponible; solo se escriben filas de Ingreso, el resto queda null',
+          { errorName: catalogResult.getError().constructor.name },
         );
       }
 
@@ -386,9 +387,9 @@ export class ProcessIngestaUseCase {
           asignaciones,
         );
       if (writeResult.isFail()) {
-        console.error(
-          '[ProcessIngestaUseCase] No se pudieron escribir los buckets (degradando):',
-          writeResult.getError().message,
+        this.logger.error(
+          'no se pudieron escribir los buckets de categorización (degradando)',
+          { errorName: writeResult.getError().constructor.name },
         );
         return undefined;
       }
@@ -398,9 +399,7 @@ export class ProcessIngestaUseCase {
       // Cualquier excepción imprevista en la isla de categorización no propaga.
       // Raw error is NOT logged — it may contain Prisma SQL/table details or
       // sensitive amounts from transaction data. Fixed message only.
-      console.error(
-        '[ProcessIngestaUseCase] categorización falló; ingesta continúa PROCESADA',
-      );
+      this.logger.error('categorización falló; ingesta continúa PROCESADA');
       return undefined;
     }
   }

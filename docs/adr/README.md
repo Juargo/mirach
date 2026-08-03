@@ -51,3 +51,4 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-030](ADR-030-versionado-y-automatizacion-de-releases.md) | Versionado Independiente por Paquete y Automatización de Releases con release-please | ✅ Decidido |
 | [ADR-031](ADR-031-estrategia-de-ramas-github-flow.md) | Estrategia de Ramas: GitHub Flow (Trunk-Based) | ✅ Decidido |
 | [ADR-032](ADR-032-runner-scripts-ts-node-a-tsx.md) | Runner de scripts TypeScript: `ts-node` → `tsx` | ✅ Decidido |
+| [ADR-033](ADR-033-logging-estructurado-con-pino.md) | Logging Estructurado con Pino | ✅ Decidido |

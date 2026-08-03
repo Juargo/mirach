@@ -1,4 +1,5 @@
 import { assertDestructiveDbAllowed } from './db-safety';
+import { appLogger } from '../logging/app-logger';
 
 describe('assertDestructiveDbAllowed', () => {
   const original = process.env.ALLOW_DESTRUCTIVE_DB;
@@ -161,7 +162,7 @@ describe('assertDestructiveDbAllowed — allowProductionAck (opt-in explícito p
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
     process.env[ACK.envVar] = ACK.expected;
     const warnSpy = vi
-      .spyOn(console, 'warn')
+      .spyOn(appLogger, 'warn')
       .mockImplementation(() => undefined);
 
     expect(() =>
@@ -218,7 +219,7 @@ describe('assertDestructiveDbAllowed — Supabase real (única BD del proyecto =
     process.env.ALLOW_DESTRUCTIVE_DB = '1';
     process.env[ACK.envVar] = ACK.expected;
     const warnSpy = vi
-      .spyOn(console, 'warn')
+      .spyOn(appLogger, 'warn')
       .mockImplementation(() => undefined);
 
     expect(() =>

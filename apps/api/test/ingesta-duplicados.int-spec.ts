@@ -31,6 +31,7 @@ import { PdfjsBankDetectorService } from '../src/infrastructure/pdf/pdfjs-bank-d
 import { PdfjsStructureValidatorService } from '../src/infrastructure/pdf/pdfjs-structure-validator.service';
 import { PdfjsTransactionNormalizerService } from '../src/infrastructure/pdf/pdfjs-transaction-normalizer.service';
 import { IFileReader } from '../src/application/ports/file-reader.port';
+import { createPinoLogger } from '../src/infrastructure/logging/pino-logger';
 import { buildTestEnv } from './support/env.fixture';
 
 const RUN_ID = `it-reupload-${Date.now()}`;
@@ -97,6 +98,7 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
       new PrismaTransaccionExistenteReader(prisma, crypto),
     ),
     new PrismaRegistrarIngestaFallidaRepository(prisma),
+    createPinoLogger({ pretty: false }),
   );
 
   const fixture = join(__dirname, 'fixtures', 'movimientos-test.xlsx');

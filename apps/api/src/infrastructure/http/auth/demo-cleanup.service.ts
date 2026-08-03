@@ -1,6 +1,7 @@
 import { IReloj } from '../../../application/ports/reloj.port';
 import { TTL_SESION_MS } from '../../../domain/value-objects/duracion-sesion';
 import type { PrismaClient } from '@prisma/client';
+import { appLogger } from '../../logging/app-logger';
 
 /**
  * DemoCleanupService — borra usuarios demo expirados (demo-cleanup.md).
@@ -73,15 +74,13 @@ export class DemoCleanupService {
   async limpiarDiario(): Promise<void> {
     try {
       const count = await this.borrarExpirados();
-      console.log(
-        count === 0
-          ? '0 expired demo accounts cleaned'
-          : `${count} expired demo accounts cleaned`,
-      );
+      appLogger.info('expired demo accounts cleaned', { count });
     } catch (err) {
-      console.error(
-        'Error inesperado durante la limpieza diaria de cuentas demo',
-        err instanceof Error ? err.stack : String(err),
+      appLogger.error(
+        'fallo inesperado en la limpieza diaria de cuentas demo',
+        {
+          errorName: err instanceof Error ? err.name : 'UnknownError',
+        },
       );
     }
   }

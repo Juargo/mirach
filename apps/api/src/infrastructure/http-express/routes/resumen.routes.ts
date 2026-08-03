@@ -8,6 +8,7 @@ import { aResumenMesDto } from '../../http/dto/resumen-mes.dto';
 import { aResumenAnualDto } from '../../http/dto/resumen-anual.dto';
 import { resumenQuerySchema } from '../schemas/resumen.schema';
 import { resumenAnualQuerySchema } from '../schemas/resumen-anual.schema';
+import { appLogger } from '../../logging/app-logger';
 
 /**
  * registrarResumen — port del ResumenController a handlers Express (ADR-028).
@@ -96,9 +97,11 @@ export function registrarResumen(
         }
         if (error instanceof ResumenAnualInvalidoError) {
           // Violación de invariante (no un problema de input): 500, log server-side.
-          console.error(
+          // `cantidadRecibida` es un conteo (no dinero/PII) — documentado en
+          // el error como seguro para logging.
+          appLogger.error(
             'Invariante de ResumenAnual violada al ensamblar el resumen anual',
-            error.stack,
+            { cantidadRecibida: error.cantidadRecibida },
           );
           res.status(500).json({
             message:

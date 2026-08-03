@@ -54,6 +54,7 @@ import {
 } from '../ports/transaccion-para-clasificar.port';
 import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
 import { ITransaccionExistenteReader } from '../ports/transaccion-existente-reader.port';
+import { ILogger, LogContext } from '../ports/logger.port';
 
 class FakeFileReader implements IFileReader {
   constructor(
@@ -343,6 +344,27 @@ class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
   }
 }
 
+/** Doble en memoria de ILogger — nunca pull Pino a un unit test (ADR-033 slice 2). */
+class FakeLogger implements ILogger {
+  readonly calls: Array<{
+    level: 'debug' | 'info' | 'warn' | 'error';
+    message: string;
+    context?: LogContext;
+  }> = [];
+  debug(message: string, context?: LogContext): void {
+    this.calls.push({ level: 'debug', message, context });
+  }
+  info(message: string, context?: LogContext): void {
+    this.calls.push({ level: 'info', message, context });
+  }
+  warn(message: string, context?: LogContext): void {
+    this.calls.push({ level: 'warn', message, context });
+  }
+  error(message: string, context?: LogContext): void {
+    this.calls.push({ level: 'error', message, context });
+  }
+}
+
 interface BuildOptions {
   catalogo?: FakeCatalogo;
   bucketWriter?: FakeBucketWriter;
@@ -352,6 +374,7 @@ interface BuildOptions {
   pdfNormalizer?: FakePdfTransactionNormalizer;
   txExistenteReader?: FakeTransaccionExistenteReader;
   ingestaFallidaWriter?: FakeRegistrarIngestaFallidaWriter;
+  logger?: FakeLogger;
 }
 
 function buildUseCase(opts?: BuildOptions) {
@@ -375,6 +398,7 @@ function buildUseCase(opts?: BuildOptions) {
   );
   const ingestaFallidaWriter =
     opts?.ingestaFallidaWriter ?? new FakeRegistrarIngestaFallidaWriter();
+  const logger = opts?.logger ?? new FakeLogger();
 
   const useCase = new ProcessIngestaUseCase(
     new IngestFileUseCase(),
@@ -392,6 +416,7 @@ function buildUseCase(opts?: BuildOptions) {
     txReader,
     detectarDuplicadosUseCase,
     ingestaFallidaWriter,
+    logger,
   );
 
   return {
@@ -409,6 +434,7 @@ function buildUseCase(opts?: BuildOptions) {
     txReader,
     txExistenteReader,
     ingestaFallidaWriter,
+    logger,
   };
 }
 

@@ -28,7 +28,7 @@ function bootstrap(): void {
   const tareaLimpiezaDemo = programarLimpiezaDemo(container.demoCleanup);
 
   const server = app.listen(port, () => {
-    console.log(`API (Express) escuchando en :${port}`);
+    container.logger.info('API (Express) escuchando', { port });
   });
 
   const shutdown = async (): Promise<void> => {

@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
+import { appLogger } from '../../logging/app-logger';
 
 /**
  * Error-handling middleware central (ADR-028) — reemplaza los ExceptionFilters
@@ -13,10 +14,9 @@ import type { ErrorRequestHandler } from 'express';
  * error-handler por su aridad.
  */
 export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
-  console.error(
-    'Error inesperado en la API',
-    err instanceof Error ? err.stack : String(err),
-  );
+  appLogger.error('Error inesperado en la API', {
+    errorName: err instanceof Error ? err.name : 'UnknownError',
+  });
   res.status(500).json({
     message: 'Error inesperado. Intenta nuevamente.',
   });

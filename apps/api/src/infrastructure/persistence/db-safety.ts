@@ -1,3 +1,5 @@
+import { appLogger } from '../logging/app-logger';
+
 /**
  * Guarda de seguridad para operaciones destructivas de base de datos.
  *
@@ -74,7 +76,7 @@ export function assertDestructiveDbAllowed(
   if (looksLikeProduction(connectionString)) {
     const ack = options?.allowProductionAck;
     if (ack && process.env[ack.envVar] === ack.expected) {
-      console.warn(
+      appLogger.warn(
         `⚠️  PRODUCTION DESTRUCTIVE OP ACK'd: ${ack.operation} — running against production. ` +
           `(confirmed via ${ack.envVar})`,
       );

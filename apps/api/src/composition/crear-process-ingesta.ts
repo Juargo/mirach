@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import type { ILogger } from '../application/ports/logger.port';
 
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
 import { IngestFileUseCase } from '../application/use-cases/ingest-file.use-case';
@@ -50,11 +51,17 @@ import { PrismaTransaccionExistenteReader } from '../infrastructure/persistence/
  * `numeroCuentaBlindIndex` en vez de por `numeroCuenta` en claro (ver
  * docstring de esa clase). MISMA instancia que `crearAuth` (derivada del
  * mismo `ENCRYPTION_KEY`, ver `derive-blind-index-key.ts`).
+ *
+ * ADR-033 slice 2: `logger` se recibe ya construido — `container.ts` es
+ * dueño de crear la ÚNICA instancia de `PinoLogger` del composition root
+ * (pretty/JSON decidido por `env.NODE_ENV`) y la inyecta acá, igual que
+ * `crypto`/`blindIndex`.
  */
 export function crearProcessIngesta(
   prisma: PrismaClient,
   crypto: ICryptoService,
   blindIndex: IBlindIndexService,
+  logger: ILogger,
 ): ProcessIngestaUseCase {
   const accountRepository = new PrismaAccountRepository(
     prisma,
@@ -96,5 +103,6 @@ export function crearProcessIngesta(
     txParaClasificarReader,
     new DetectarDuplicadosUseCase(txExistenteReader),
     ingestaFallidaWriter,
+    logger,
   );
 }
