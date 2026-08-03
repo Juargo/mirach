@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { authMeResponseSchema } from './schemas/auth-me.schema';
 
 /**
  * Gate arquitectónico de Slice 7: el montaje session-public vs protegido.
@@ -97,6 +98,16 @@ describe('/api/auth — session-public vs protegido', () => {
     expect(c.obtenerIdentidad.execute).toHaveBeenCalledWith({
       userId: 'user-de-sesion',
     });
+  });
+
+  it('GET /api/auth/me: el body 200 real cumple authMeResponseSchema (garantía de sincronía, openapi-contract-express)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/auth/me')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido');
+
+    expect(res.status).toBe(200);
+    expect(() => authMeResponseSchema.parse(res.body)).not.toThrow();
   });
 });
 

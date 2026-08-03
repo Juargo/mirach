@@ -23,6 +23,7 @@ import {
   bucketsResponseSchema,
 } from './buckets.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
+import { authMeResponseSchema } from './auth-me.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -157,6 +158,24 @@ const ingestasOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const authMeOperation: ZodOpenApiOperationObject = {
+  summary: 'Current session identity',
+  description:
+    'Authenticated endpoint returning the identity of the current session (AUTH-09, DEMO-AUTH-05). ' +
+    'Requires x-api-key + a valid session.',
+  responses: {
+    '200': {
+      description: 'Identity of the authenticated session.',
+      content: {
+        'application/json': { schema: authMeResponseSchema },
+      },
+    },
+    '401': {
+      description: 'No valid session (missing, expired, or invalid token).',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -171,6 +190,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/movimientos': { get: movimientosOperation },
   '/api/buckets/{bucket}': { get: bucketsOperation },
   '/api/ingestas': { get: ingestasOperation },
+  '/api/auth/me': { get: authMeOperation },
 };
 
 export function buildOpenApiDocument() {
