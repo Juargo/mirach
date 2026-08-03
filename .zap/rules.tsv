@@ -1,0 +1,30 @@
+# .zap/rules.tsv — ZAP passive-scan alert threshold overrides for the `dast`
+# CI job (dast-ci-wiring, ADR-021). Format: <rule id><TAB><threshold> where
+# threshold is one of IGNORE/INFO/WARN/FAIL. A rule NOT listed here keeps
+# ZAP's own default threshold. This file only DOWNGRADES noisy, low-value
+# passive alerts for MoneyDiary's context (a token-authed JSON API, no
+# browser-rendered HTML/forms) — it never upgrades a rule to FAIL. Real
+# findings still surface as WARN in the scan report; slice 1 is advisory
+# (`continue-on-error: true` on the `dast` job), so nothing here silently
+# hides a signal from the report, it only tunes the threshold column.
+#
+# 10015 — Incomplete or No Cache-Control Header: this API returns JSON behind
+#   x-api-key + bearer auth; the leak this rule guards against (cached HTML
+#   with sensitive data) doesn't apply the same way to a token-authed JSON API.
+10015	WARN
+# 10020 — X-Frame-Options Header Missing: no HTML/iframe surface on this API;
+#   clickjacking mitigation belongs to the web client, not the JSON API.
+10020	WARN
+# 10021 — X-Content-Type-Options Header Missing: same JSON-API rationale as
+#   10020 above.
+10021	WARN
+# 10096 — Timestamp Disclosure: ISO timestamps (e.g. `expiresAt`) are an
+#   intentional, documented part of this API's JSON responses, not a leak.
+10096	WARN
+# 10109 — Modern Web Application: purely informational SPA/JSON-API
+#   detection signal, not a finding.
+10109	WARN
+# 10202 — Absence of Anti-CSRF Tokens: this API is authenticated via
+#   x-api-key + bearer token, not browser cookie+form submission — CSRF
+#   tokens are not the applicable mitigation for this transport.
+10202	WARN
