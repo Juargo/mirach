@@ -342,7 +342,7 @@ export function logBackfillFailure(error: unknown): void {
   console.error('Backfill falló:', detalle);
 }
 
-// Ejecuta solo como script (ts-node), no al importarse en tests.
+// Ejecuta solo como script (tsx), no al importarse en tests.
 if (require.main === module) {
   main()
     .then(() => {

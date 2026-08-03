@@ -8,18 +8,9 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": false
-  },
-  "ts-node": {
-    // Carga los .d.ts ambient (ej. `src/infrastructure/http/auth/express-request.d.ts`,
-    // que hace `declare global` para agregar `req.userId`). Sin esto ts-node solo
-    // type-chequea lo alcanzable desde el entrypoint y `pnpm api start` falla con
-    // TS2339 en `session.middleware.ts`. `tsc`/`start:prod` no lo sufren porque
-    // `tsconfig.build.json` incluye `src/**`.
-    "files": true
   }
 }

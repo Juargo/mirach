@@ -378,7 +378,7 @@ async function main(): Promise<void> {
   }
 }
 
-// Ejecuta solo como script (prisma db seed / ts-node), no al importarse en tests.
+// Ejecuta solo como script (prisma db seed / tsx), no al importarse en tests.
 if (require.main === module) {
   main()
     .then(() => {

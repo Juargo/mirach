@@ -309,7 +309,7 @@ export async function main(
   }
 }
 
-// Ejecuta solo como script (ts-node), no al importarse en tests.
+// Ejecuta solo como script (tsx), no al importarse en tests.
 if (require.main === module) {
   main()
     .then(() => {
