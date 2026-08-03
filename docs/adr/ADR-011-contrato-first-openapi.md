@@ -6,9 +6,9 @@ tags:
   - toolchain
   - seguridad
 proyecto: MoneyDiary
-estado: ✅ Decidido
+estado: ✅ Decidido (mecanismo enmendado 2026-08-02, ver abajo)
 fecha_creacion: 2026-07-02
-fecha_actualizacion: 2026-07-02
+fecha_actualizacion: 2026-08-02
 ---
 
 # ADR-011 — Contrato-first con OpenAPI: `openapi.json` como fuente única de verdad
@@ -216,4 +216,47 @@ El artefacto commiteado debe coincidir siempre con lo que emite el código actua
 
 ---
 
+## Enmienda 2026-08-02 — mecanismo para Express
+
+**No se reabre la decisión original** (contrato-first con OpenAPI committeado + drift-check en CI). Lo que cambia es **el mecanismo de emisión**: ADR-028 eliminó NestJS (migración a Express), y con él desaparecieron `@nestjs/swagger`, `@ApiProperty` y `SwaggerModule.createDocument(...)` descritos arriba. Esta sección registra el mecanismo real vigente sin reescribir la Opción C original — queda como historial de por qué se descartó en su momento la Opción B (Zod).
+
+### Mecanismo nuevo: Zod como fuente de verdad del contrato
+
+El contrato HTTP se define ahora como **schemas Zod** (`zod-openapi@5.4.2`, versión exacta pineada) en `apps/api/src/infrastructure/http-express/schemas/` — capa de infraestructura, un `<endpoint>.schema.ts` por endpoint (query + response) más `openapi-document.ts` (`buildOpenApiDocument()`, función pura). El dominio y la aplicación **nunca** importan estos schemas (ADR-005 sin cambios).
+
+| Aspecto | Mecanismo vigente (Express) | Mecanismo original (NestJS, ver arriba) |
+|---|---|---|
+| Fuente de verdad | Schemas Zod en `infrastructure/http-express/schemas/` | Controllers + DTOs anotados `@ApiProperty` |
+| Librería | `zod-openapi@5.4.2` (pin exacto) | `@nestjs/swagger` |
+| Emisión | `apps/api/scripts/emit-openapi.ts` → `pnpm api openapi:emit` | Script standalone que booteaba `NestFactory` |
+| Artefacto | `apps/api/openapi.json` (commiteado, co-ubicado con el código que lo emite) | `packages/api-client/openapi.json` |
+| Versión OpenAPI | **3.1.0** | 3.x (sin fijar) |
+| Check de drift en CI | `pnpm api openapi:check` (paso nuevo en el job `api` de `.github/workflows/ci.yml`, mismo `path filter` `apps/api/**`) | `git diff --exit-code` tras `openapi:emit` |
+| Validación runtime | **Sí** — cada handler hace `.safeParse()` sobre el mismo schema que alimenta el documento (ver abajo) | No incluida (límite documentado en la versión original) |
+
+**Por qué Zod y no revivir la Opción C tal cual:** no hay controllers ni decoradores en Express — no existe un lugar natural para `@ApiProperty`. Zod ya era una opción evaluada (Opción B) y **rechazada** en la decisión original por dos razones que eran específicas de NestJS y hoy son **moot**:
+
+1. *"Invierte la dirección de la dependencia"* — no aplica: los schemas viven en `infrastructure/http-express/schemas/`, capa de infraestructura del propio `apps/api`, no en un paquete compartido que el backend deba importar desde afuera.
+2. *"Obliga a `nestjs-zod` o similar, cambiando el estilo idiomático"* — no aplica: no hay NestJS ni `class-validator` que desplazar.
+
+Se evaluó también `@asteasolutions/zod-to-openapi` (requiere el monkey-patch global `extendZodWithOpenApi(z)`, contrario al ethos "sin magia" post-ADR-028) — se prefirió `zod-openapi`, nativo de Zod 4 (`.meta()`), con `createDocument()` explícito.
+
+**Por qué OpenAPI 3.1.0 y no 3.0.3:** `zod-openapi` emite únicamente 3.1.x (nunca 3.0.x) — al elegir la librería, la versión del documento queda determinada. El riesgo de compatibilidad de 3.1 con las herramientas de ADR-021 Análisis de Seguridad (ZAP, Schemathesis) se acepta como bajo (ambas soportan 3.1 en 2026); si un follow-up de DAST encuentra una incompatibilidad concreta, el costo de bajar a 3.0 es acotado (cambiar a `OpenApiGeneratorV3` de `@asteasolutions/zod-to-openapi` sobre los mismos DTOs simples).
+
+**Beneficio nuevo que el mecanismo NestJS no daba:** validación runtime en el borde HTTP. Cada handler valida `req.query`/`req.body` con `.safeParse()` contra el mismo schema Zod que alimenta el documento OpenAPI — una sola fuente, dos consumidores (route + document builder). Esto cierra el límite "Sin validación runtime" que la sección "No incluido" de este ADR había dejado explícitamente abierto.
+
+**Metas originales preservadas sin cambios:** fuente única de verdad del contrato, artefacto committeado y diffable en PR, check de drift obligatorio en CI, sin endpoint `/api-docs` público en producción (sigue sin existir).
+
+### Estado de implementación (2026-08-02)
+
+**Parcial.** Change SDD `openapi-contract-express`:
+- ✅ Slice 0 (toolchain completo + `GET /version`) — PR #212, mergeado a `main`.
+- ✅ Slice 1 (`GET /api/resumen`, query + respuesta rica con `BigInt`) — PR #213, mergeado a `main`.
+- ⏳ Rollout del resto de endpoints (lecturas restantes, luego escrituras/auth con cuidado extra por ADR-015) — pendiente, una slice por PR.
+- ⏳ Consumidor de tipos generados (`openapi-typescript` + `packages/api-client` de ADR-012 packages api-client) — **sin construir**. Ver nota en ADR-012.
+- ⏳ Cableado del DAST de ADR-021 Análisis de Seguridad contra este artefacto — follow-up no iniciado.
+
+---
+
 *Fecha de decisión: 2026-07-02*
+*Fecha de enmienda (mecanismo): 2026-08-02*
