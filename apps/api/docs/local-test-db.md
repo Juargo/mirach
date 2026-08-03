@@ -19,6 +19,16 @@ a mano con este contenido (apunta al Postgres local; NO es secreto — DB local)
 DATABASE_URL=postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
 DIRECT_URL=postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
 
+# Clave de cifrado de TEST (AES-256, ADR-013) — REQUERIDA desde US-034/035: el
+# seed cifra descripcion/numeroCuenta/email y los tests descifran con ella, así
+# que sin esto el seed falla ("runSeed requiere ENCRYPTION_KEY"). NO es secreta
+# (DB local desechable). Generá la tuya con `openssl rand -base64 32`; si la
+# cambiás, re-corré `pnpm api test:db:setup` (la clave del seed y la de los tests
+# DEBEN coincidir, o el descifrado falla). La clave de blind index se DERIVA de
+# esta, no es una var aparte. El valor de abajo es un PLACEHOLDER (no una clave
+# válida): reemplazalo por tu propia salida de `openssl rand -base64 32`.
+ENCRYPTION_KEY=REEMPLAZAR-por-openssl-rand-base64-32
+
 # API key de TEST (no secreta; solo requiere >= 16 chars).
 API_KEY=local-test-api-key-not-a-secret-000000000000000000000000000000
 COOKIE_SECURE=false
@@ -89,6 +99,12 @@ separadas (folded, ADR-029): al ser `test`/`development` fail-fast a `localhost`
 (env.ts), correrlos sin `.env.test` no puede apuntar a Supabase por accidente.
 
 ## Cómo leer los resultados
+
+> **Estado 2026-08-02:** con `.env.test` completo (incluyendo `ENCRYPTION_KEY`)
+> la suite local pasa entera — **integración 52/52 y e2e 51/51**. La advertencia
+> de bit-rot de abajo quedó como referencia histórica: los e2e con sesión ya
+> fueron corregidos y hoy pasan. Si volvés a ver 401 donde se espera 200,
+> tratalo como regresión, no como deuda conocida.
 
 | Resultado | Significado |
 |---|---|
