@@ -4,6 +4,7 @@ import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { authMeResponseSchema } from './schemas/auth-me.schema';
+import { authLoginResponseSchema } from './schemas/auth-login.schema';
 
 /**
  * Gate arquitectónico de Slice 7: el montaje session-public vs protegido.
@@ -78,6 +79,16 @@ describe('/api/auth — session-public vs protegido', () => {
       .set('x-api-key', KEY)
       .send({ email: 'a@b.cl', password: 'secreta' });
     expect(res.status).toBe(200);
+  });
+
+  it('POST /api/auth/login: el body 200 real cumple authLoginResponseSchema (garantía de sincronía, openapi-contract-express)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .post('/api/auth/login')
+      .set('x-api-key', KEY)
+      .send({ email: 'a@b.cl', password: 'secreta' });
+
+    expect(res.status).toBe(200);
+    expect(() => authLoginResponseSchema.parse(res.body)).not.toThrow();
   });
 
   it('GET /api/auth/me: 401 con api-key pero SIN sesión (protegido)', async () => {

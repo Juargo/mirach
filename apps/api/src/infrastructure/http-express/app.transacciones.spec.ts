@@ -4,6 +4,7 @@ import { Result } from '../../shared/result';
 import { Categoria } from '../../domain/value-objects/categoria';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { transaccionesCategoriaResponseSchema } from './schemas/transacciones-categoria.schema';
 
 /**
  * Gate de aislamiento para la reclasificación (ADR-015, RNF-SEC-006). Escritura:
@@ -61,5 +62,18 @@ describe('PATCH /api/transacciones/:id/categoria — cadena de auth + aislamient
       transaccionId: 'tx-1',
       categoria: 'Supermercado',
     });
+  });
+
+  it('el body 200 real cumple transaccionesCategoriaResponseSchema (garantía de sincronía, openapi-contract-express)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .patch('/api/transacciones/tx-1/categoria')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido')
+      .send({ categoria: 'Supermercado' });
+
+    expect(res.status).toBe(200);
+    expect(() =>
+      transaccionesCategoriaResponseSchema.parse(res.body),
+    ).not.toThrow();
   });
 });

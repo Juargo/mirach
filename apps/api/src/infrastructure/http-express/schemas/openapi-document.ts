@@ -33,6 +33,15 @@ import {
 } from './ingesta-preview.schema';
 import { ingestaDeletePathParamsSchema } from './ingesta-delete.schema';
 import { authMeResponseSchema } from './auth-me.schema';
+import {
+  authLoginRequestSchema,
+  authLoginResponseSchema,
+} from './auth-login.schema';
+import {
+  transaccionesCategoriaPathParamsSchema,
+  transaccionesCategoriaRequestSchema,
+  transaccionesCategoriaResponseSchema,
+} from './transacciones-categoria.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -295,6 +304,100 @@ const authDemoOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `POST /api/auth/login` (AUTH-01) — CONTRACT-ONLY (openapi-contract-express
+ * Phase 10.2b, writes/sensitive group): documents the request/response
+ * shapes, but `registrarAuthPublic` (`routes/auth.routes.ts`) is left
+ * UNCHANGED — no `.safeParse()` boundary validation is wired in, to preserve
+ * the exact existing auth behavior on this sensitive endpoint.
+ */
+const authLoginOperation: ZodOpenApiOperationObject = {
+  summary: 'Authenticate with email and password',
+  description:
+    'Public endpoint (requires x-api-key only, session-public — no prior session needed) that ' +
+    'authenticates a user and returns a session token (AUTH-01). Sets the `md_session` cookie ' +
+    '(Set-Cookie) in addition to the JSON body.',
+  requestBody: {
+    content: {
+      'application/json': { schema: authLoginRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Authentication succeeded.',
+      content: {
+        'application/json': { schema: authLoginResponseSchema },
+      },
+    },
+    '401': {
+      description:
+        'Invalid credentials (scrubbed — never echoes email/password).',
+    },
+    '429': {
+      description:
+        'Rate-limited: too many failed login attempts from this IP/email combination.',
+    },
+  },
+};
+
+/**
+ * `POST /api/auth/logout` (AUTH-01) — CONTRACT-ONLY, same as login. No
+ * request body, no response body (`registrarAuthPublic` always responds
+ * `204 No Content`, even for an already-invalid/missing token — logout is
+ * deliberately robust and never fails the caller).
+ */
+const authLogoutOperation: ZodOpenApiOperationObject = {
+  summary: 'End the current session',
+  description:
+    'Public endpoint (requires x-api-key only, session-public) that invalidates the current ' +
+    'session token (if any) and clears the `md_session` cookie. Always succeeds — an already ' +
+    'missing or invalid token does not produce an error.',
+  responses: {
+    '204': {
+      description: 'Session ended (or was already absent). No response body.',
+    },
+  },
+};
+
+/**
+ * `PATCH /api/transacciones/:id/categoria` (US-013 S4) — CONTRACT-ONLY
+ * (openapi-contract-express Phase 10.2b, writes/sensitive group): documents
+ * the request/response shapes, but `registrarTransacciones`
+ * (`routes/transacciones.routes.ts`) is left UNCHANGED — no `.safeParse()`
+ * boundary validation is wired in, to preserve the exact existing
+ * reclassification behavior on this sensitive endpoint.
+ */
+const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
+  summary: 'Reclassify a transaction',
+  description:
+    'Authenticated endpoint that manually reassigns a transaction to a category (and its derived ' +
+    'bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    path: transaccionesCategoriaPathParamsSchema,
+  },
+  requestBody: {
+    content: {
+      'application/json': { schema: transaccionesCategoriaRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Transaction reclassified.',
+      content: {
+        'application/json': { schema: transaccionesCategoriaResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError).',
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the transaction does not exist or does not belong to the authenticated user.',
+    },
+  },
+};
+
+/**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
  * appending future endpoints (Slice 1+) must append here, never reorder
@@ -312,6 +415,11 @@ const paths: ZodOpenApiPathsObject = {
   '/api/auth/demo': { get: authDemoOperation },
   '/api/ingestas/preview': { post: ingestaPreviewOperation },
   '/api/ingestas/{id}': { delete: ingestaDeleteOperation },
+  '/api/auth/login': { post: authLoginOperation },
+  '/api/auth/logout': { post: authLogoutOperation },
+  '/api/transacciones/{id}/categoria': {
+    patch: transaccionesCategoriaOperation,
+  },
 };
 
 export function buildOpenApiDocument() {
