@@ -23,6 +23,7 @@ import {
   bucketsResponseSchema,
 } from './buckets.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
+import { authMeResponseSchema } from './auth-me.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -157,6 +158,58 @@ const ingestasOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const authMeOperation: ZodOpenApiOperationObject = {
+  summary: 'Current session identity',
+  description:
+    'Authenticated endpoint returning the identity of the current session (AUTH-09, DEMO-AUTH-05). ' +
+    'Requires x-api-key + a valid session.',
+  responses: {
+    '200': {
+      description: 'Identity of the authenticated session.',
+      content: {
+        'application/json': { schema: authMeResponseSchema },
+      },
+    },
+    '401': {
+      description: 'No valid session (missing, expired, or invalid token).',
+    },
+  },
+};
+
+/**
+ * `GET /api/auth/demo` (DEMO-AUTH-05) is NOT a JSON endpoint — on success it
+ * sets the `md_session` cookie and 302-redirects to `/`; there is no 200
+ * response and therefore no response-body schema to register or sync-test
+ * (see `registrarAuthPublic`, `routes/auth.routes.ts`). It also guards
+ * against embedding (403, Fetch-Metadata) and rate limiting (429).
+ */
+const authDemoOperation: ZodOpenApiOperationObject = {
+  summary: 'Create or resume a demo session',
+  description:
+    'Public endpoint (requires x-api-key only) that creates a demo account or resumes an existing ' +
+    'valid session, then redirects. No JSON response body — the session is conveyed via the ' +
+    '`md_session` cookie (Set-Cookie) and the redirect target.',
+  responses: {
+    '302': {
+      description:
+        'Session established (new demo or resumed existing); redirects to the app root.',
+      headers: {
+        Location: {
+          description: 'Always "/" — the app root.',
+          schema: { type: 'string' },
+        },
+      },
+    },
+    '403': {
+      description:
+        'Rejected: request is not a top-level navigation (anti-embed Fetch-Metadata guard).',
+    },
+    '429': {
+      description: 'Rate-limited: too many demo requests from this IP.',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -171,6 +224,8 @@ const paths: ZodOpenApiPathsObject = {
   '/api/movimientos': { get: movimientosOperation },
   '/api/buckets/{bucket}': { get: bucketsOperation },
   '/api/ingestas': { get: ingestasOperation },
+  '/api/auth/me': { get: authMeOperation },
+  '/api/auth/demo': { get: authDemoOperation },
 };
 
 export function buildOpenApiDocument() {
