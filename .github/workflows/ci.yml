@@ -164,6 +164,15 @@ jobs:
       - name: Check .env.example is up to date
         run: pnpm api env:example:check
 
+      # Fail-closed guard (openapi-contract-express, Slice 0): apps/api/openapi.json
+      # is DERIVED from the Zod schemas in http-express/schemas/ via
+      # `buildOpenApiDocument()`. If a schema or route changes without
+      # re-running `pnpm api openapi:emit`, this catches the drift before
+      # merge — same pattern as the .env.example check above. No DB, no
+      # container/env — buildOpenApiDocument() is pure (see design).
+      - name: Check openapi.json is up to date
+        run: pnpm api openapi:check
+
       # Vitest detecta CI automáticamente vía la env var CI (la setea GitHub
       # Actions) — no necesita un flag equivalente al `--ci` de Jest. En CI eso
       # pone `allowOnly: false` (default de Vitest = `!isCI`), así que un
