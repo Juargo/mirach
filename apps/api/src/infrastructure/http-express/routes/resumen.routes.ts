@@ -6,6 +6,7 @@ import { AnioInvalidoError } from '../../../domain/errors/anio-invalido.error';
 import { ResumenAnualInvalidoError } from '../../../domain/errors/resumen-anual-invalido.error';
 import { aResumenMesDto } from '../../http/dto/resumen-mes.dto';
 import { aResumenAnualDto } from '../../http/dto/resumen-anual.dto';
+import { resumenQuerySchema } from '../schemas/resumen.schema';
 
 /**
  * registrarResumen — port del ResumenController a handlers Express (ADR-028).
@@ -25,9 +26,22 @@ export function registrarResumen(
 ): void {
   router.get('/resumen', async (req, res, next) => {
     try {
+      // Boundary schema validates TRANSPORT SHAPE ONLY (openapi-contract-express
+      // design, layer-honesty gate). It does NOT know the YYYY-MM format rule —
+      // that stays a domain concern (PeriodoMes VO) handled below via
+      // PeriodoInvalidoError, so this 400 covers only shape mismatches (e.g. a
+      // repeated ?periodo= query becoming an array).
+      const parsedQuery = resumenQuerySchema.safeParse(req.query);
+      if (!parsedQuery.success) {
+        res.status(400).json({
+          message: 'Parámetros de consulta inválidos.',
+        });
+        return;
+      }
+
       const result = await calcularResumenMes.execute({
         userId: req.userId!, // garantizado por el session middleware previo
-        periodo: queryString(req.query.periodo),
+        periodo: parsedQuery.data.periodo,
       });
 
       if (result.isFail()) {

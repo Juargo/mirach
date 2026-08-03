@@ -104,6 +104,17 @@ describe('registrarResumen', () => {
 
       expect(res.status).toBe(500);
     });
+
+    it('400 scrubbeado si periodo llega como shape de transporte inválido (array), sin llamar al use case', async () => {
+      const mes = { execute: vi.fn() };
+      const res = await request(probeApp(mes, { execute: vi.fn() })).get(
+        '/api/resumen?periodo=2026-07&periodo=2026-08',
+      );
+
+      expect(res.status).toBe(400);
+      expect(mes.execute).not.toHaveBeenCalled();
+      expect(JSON.stringify(res.body)).not.toContain('2026-08');
+    });
   });
 
   describe('GET /api/resumen/anual', () => {
