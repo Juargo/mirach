@@ -4,7 +4,9 @@ import type { Env } from '../../config/env';
 import { errorMiddleware } from './middleware/error.middleware';
 import { createApiKeyMiddleware } from './middleware/api-key.middleware';
 import { createCorsMiddleware } from './middleware/cors.middleware';
+import { createRequestLoggerMiddleware } from './middleware/request-logger.middleware';
 import { sessionMiddleware } from './middleware/session.middleware';
+import { createPinoLogger } from '../logging/pino-logger';
 import { registrarResumen } from './routes/resumen.routes';
 import { registrarBuckets } from './routes/buckets.routes';
 import { registrarMovimientos } from './routes/movimientos.routes';
@@ -43,6 +45,17 @@ export function createApp(container: Container, env: Env): Express {
   // que consume el web; el resto de `/api/*` sigue yendo por el proxy
   // same-origin (sin header Origin → este middleware no agrega nada).
   app.use(createCorsMiddleware(env.CORS_ALLOWED_ORIGINS));
+
+  // Request logging (ADR-033 slice 2) — una línea NDJSON por request, ANTES
+  // de cualquier middleware de negocio para que capture incluso 400s de
+  // parseo/validación tempranos. Instancia propia (no `container.logger`,
+  // ver Container docstring) para que `createApp` siga siendo ejercitable
+  // con un `Container` doble mínimo en tests — misma redacción (ADR-013,
+  // `SENSITIVE_REDACT_PATHS`) que el resto de la app vía `createPinoLogger`.
+  const requestLogger = createPinoLogger({
+    pretty: env.NODE_ENV === 'development',
+  });
+  app.use(createRequestLoggerMiddleware(requestLogger.raw));
 
   app.use(express.json());
 

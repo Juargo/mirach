@@ -21,6 +21,7 @@ import { HmacBlindIndexService } from '../persistence/hmac-blind-index.service';
 import { deriveBlindIndexKey } from '../../composition/derive-blind-index-key';
 import { USER_ID_FIJO } from '../persistence/constants';
 import { FsFileReaderAdapter } from './fs-file-reader.adapter';
+import { createPinoLogger } from '../logging/pino-logger';
 
 function formatCLP(n: bigint): string {
   return n.toLocaleString('es-CL');
@@ -67,7 +68,16 @@ async function main(): Promise<void> {
     const blindIndex = new HmacBlindIndexService(
       deriveBlindIndexKey(encryptionKey),
     );
-    const processIngesta = crearProcessIngesta(prisma, crypto, blindIndex);
+    // Logger interno del use case (ADR-033 slice 2) — distinto de los
+    // console.log/error de acá abajo, que son output del CLI para el
+    // usuario, no logging de infraestructura.
+    const logger = createPinoLogger({ pretty: env.NODE_ENV === 'development' });
+    const processIngesta = crearProcessIngesta(
+      prisma,
+      crypto,
+      blindIndex,
+      logger,
+    );
 
     const result = await processIngesta.execute({
       fileReader,

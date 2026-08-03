@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 import { extractToken } from '../../http/auth/extraer-token';
 import { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
 import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.error';
+import { appLogger } from '../../logging/app-logger';
 
 /**
  * sessionMiddleware — port 1:1 del `SessionGuard` (ADR-028), corre DESPUÉS de
@@ -25,7 +26,7 @@ export function sessionMiddleware(
     const token = extractToken(req);
 
     if (token === undefined) {
-      console.warn(`Sesión rechazada (sin token) — path=${req.path}`);
+      appLogger.warn('Sesión rechazada (sin token)', { path: req.path });
       res.status(401).json({ message: new SesionInvalidaError().message });
       return;
     }
@@ -33,9 +34,9 @@ export function sessionMiddleware(
     const result = await validarSesion.execute({ token });
 
     if (result.isFail()) {
-      console.warn(
-        `Sesión rechazada (token inválido/expirado) — path=${req.path}`,
-      );
+      appLogger.warn('Sesión rechazada (token inválido/expirado)', {
+        path: req.path,
+      });
       res.status(401).json({ message: new SesionInvalidaError().message });
       return;
     }

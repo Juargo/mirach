@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Env } from '../config/env';
+import type { PinoLogger } from '../infrastructure/logging/pino-logger';
 import { createPrismaClient } from '../infrastructure/persistence/create-prisma-client';
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
@@ -31,6 +32,7 @@ import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma
 import { AesGcmCryptoService } from '../infrastructure/persistence/aes-gcm-crypto.service';
 import { HmacBlindIndexService } from '../infrastructure/persistence/hmac-blind-index.service';
 import { deriveBlindIndexKey } from './derive-blind-index-key';
+import { createPinoLogger } from '../infrastructure/logging/pino-logger';
 
 /**
  * Composition Root — ensamblado del grafo de dependencias (ADR-028/029).
@@ -83,6 +85,11 @@ export interface Container {
   readonly demoCleanup: DemoCleanupService;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
   readonly shutdown: () => Promise<void>;
+  /** Logger estructurado (ADR-033 slice 2) — instancia única del composition
+   * root, inyectada en `ProcessIngestaUseCase`. Disponible acá también para
+   * cualquier otro consumidor futuro que necesite loguear a través del
+   * grafo real (no del singleton de infraestructura `app-logger.ts`). */
+  readonly logger: PinoLogger;
 }
 
 export function createContainer(
@@ -111,6 +118,12 @@ export function createContainer(
 
   const auth = crearAuth(prisma, env, crypto, blindIndex);
 
+  // Logging estructurado (ADR-033 slice 2): UNA instancia para todo el
+  // composition root — pretty en development (legible en consola local),
+  // JSON en el resto (production/test) para que el destino real (Render,
+  // agregadores) reciba NDJSON parseable.
+  const logger = createPinoLogger({ pretty: env.NODE_ENV === 'development' });
+
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),
   );
@@ -127,7 +140,12 @@ export function createContainer(
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(
     new PrismaReclasificarCategoriaRepository(prisma),
   );
-  const processIngesta = crearProcessIngesta(prisma, crypto, blindIndex);
+  const processIngesta = crearProcessIngesta(
+    prisma,
+    crypto,
+    blindIndex,
+    logger,
+  );
   const previewIngesta = crearPreviewIngesta();
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),
@@ -155,5 +173,6 @@ export function createContainer(
     demoRateLimiter: auth.demoRateLimiter,
     demoCleanup: auth.demoCleanup,
     shutdown: () => prisma.$disconnect(),
+    logger,
   };
 }

@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { DemoCleanupService } from './demo-cleanup.service';
 import { IReloj } from '../../../application/ports/reloj.port';
 import { TTL_SESION_MS } from '../../../domain/value-objects/duracion-sesion';
+import { appLogger } from '../../logging/app-logger';
 
 const AHORA = new Date('2026-07-18T12:00:00.000Z');
 
@@ -130,18 +131,24 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
     vi.restoreAllMocks();
   });
 
-  it('sin demos expirados → loguea "0 expired demo accounts cleaned"', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  it('sin demos expirados → loguea count 0', async () => {
+    const logSpy = vi
+      .spyOn(appLogger, 'info')
+      .mockImplementation(() => undefined);
     const prisma = makePrismaMock([]);
     const service = new DemoCleanupService(prisma, makeReloj());
 
     await service.limpiarDiario();
 
-    expect(logSpy).toHaveBeenCalledWith('0 expired demo accounts cleaned');
+    expect(logSpy).toHaveBeenCalledWith('expired demo accounts cleaned', {
+      count: 0,
+    });
   });
 
   it('con demos expirados → loguea la cantidad borrada', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const logSpy = vi
+      .spyOn(appLogger, 'info')
+      .mockImplementation(() => undefined);
     const tx = makeTxMock();
     tx.user.deleteMany.mockResolvedValue({ count: 1 });
     const prisma = makePrismaMock([{ id: 'user-demo-1' }], tx);
@@ -149,12 +156,14 @@ describe('DemoCleanupService.limpiarDiario() (DEMO-CLN-03)', () => {
 
     await service.limpiarDiario();
 
-    expect(logSpy).toHaveBeenCalledWith('1 expired demo accounts cleaned');
+    expect(logSpy).toHaveBeenCalledWith('expired demo accounts cleaned', {
+      count: 1,
+    });
   });
 
   it('nunca lanza: un fallo de infraestructura se loguea como error, no se propaga', async () => {
     const errorSpy = vi
-      .spyOn(console, 'error')
+      .spyOn(appLogger, 'error')
       .mockImplementation(() => undefined);
     const prisma = {
       user: {

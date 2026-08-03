@@ -13,6 +13,7 @@ import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { Transaccion } from '../src/domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../src/domain/errors/persistencia-fallida.error';
 import { IFileReader } from '../src/application/ports/file-reader.port';
+import { createPinoLogger } from '../src/infrastructure/logging/pino-logger';
 import { buildTestEnv } from './support/env.fixture';
 
 /**
@@ -61,7 +62,12 @@ describe('Historial de ingestas (US-004, integration — real dev DB)', () => {
   const blindIndex = new HmacBlindIndexService(
     deriveBlindIndexKey(Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64')),
   );
-  const processIngesta = crearProcessIngesta(prisma, crypto, blindIndex);
+  const processIngesta = crearProcessIngesta(
+    prisma,
+    crypto,
+    blindIndex,
+    createPinoLogger({ pretty: false }),
+  );
   const ingestaRepo = new PrismaIngestaRepository(prisma, crypto);
   const fallidaWriter = new PrismaRegistrarIngestaFallidaRepository(prisma);
   const reader = new PrismaListarIngestasReader(prisma);
