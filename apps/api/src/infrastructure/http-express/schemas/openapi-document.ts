@@ -22,6 +22,7 @@ import {
   bucketsQuerySchema,
   bucketsResponseSchema,
 } from './buckets.schema';
+import { ingestasResponseSchema } from './ingestas.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -141,6 +142,21 @@ const bucketsOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const ingestasOperation: ZodOpenApiOperationObject = {
+  summary: 'List ingestas',
+  description:
+    'Authenticated endpoint returning the per-user ingesta history (US-004/US-018). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  responses: {
+    '200': {
+      description: 'Ingesta list for the authenticated user.',
+      content: {
+        'application/json': { schema: ingestasResponseSchema },
+      },
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -154,6 +170,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/resumen/anual': { get: resumenAnualOperation },
   '/api/movimientos': { get: movimientosOperation },
   '/api/buckets/{bucket}': { get: bucketsOperation },
+  '/api/ingestas': { get: ingestasOperation },
 };
 
 export function buildOpenApiDocument() {

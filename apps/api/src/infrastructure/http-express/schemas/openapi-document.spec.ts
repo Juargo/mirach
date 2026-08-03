@@ -72,6 +72,15 @@ describe('buildOpenApiDocument', () => {
     expect(bucketsPath?.get?.responses?.['200']).toBeDefined();
   });
 
+  it('registers GET /api/ingestas with a response schema (no query/path params)', () => {
+    const document = buildOpenApiDocument();
+
+    const ingestasPath = document.paths?.['/api/ingestas'];
+    expect(ingestasPath).toBeDefined();
+    expect(ingestasPath?.get).toBeDefined();
+    expect(ingestasPath?.get?.responses?.['200']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

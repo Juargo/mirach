@@ -92,6 +92,78 @@
         ],
         "type": "object"
       },
+      "IngestasListResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/ingestas — per-user ingesta list (US-004/US-018).",
+        "properties": {
+          "ingestas": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "banco": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "null when an early FALLIDA ingesta never resolved a bank."
+                },
+                "estado": {
+                  "enum": [
+                    "PROCESADA",
+                    "FALLIDA"
+                  ],
+                  "type": "string"
+                },
+                "fecha": {
+                  "description": "ISO-8601 UTC timestamp.",
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "motivoFallo": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "nombreArchivo": {
+                  "type": "string"
+                },
+                "totalTransacciones": {
+                  "description": "Row count, not money — plain JSON number.",
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "banco",
+                "nombreArchivo",
+                "estado",
+                "motivoFallo",
+                "fecha",
+                "totalTransacciones"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ingestas"
+        ],
+        "type": "object"
+      },
       "MovimientosMesResponse": {
         "additionalProperties": false,
         "description": "GET /api/movimientos — monthly transaction list (US-014).",
@@ -406,6 +478,24 @@
           }
         },
         "summary": "Bucket drill-down"
+      }
+    },
+    "/api/ingestas": {
+      "get": {
+        "description": "Authenticated endpoint returning the per-user ingesta history (US-004/US-018). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestasListResponse"
+                }
+              }
+            },
+            "description": "Ingesta list for the authenticated user."
+          }
+        },
+        "summary": "List ingestas"
       }
     },
     "/api/movimientos": {
