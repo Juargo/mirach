@@ -35,3 +35,5 @@ auditConfig:
     - GHSA-88fw-hqm2-52qc # hono — CORS refleja cualquier Origin con credenciales (transitivo)
     - GHSA-f88m-g3jw-g9cj # sharp — vulnerabilidades heredadas de libvips (apps/landing)
     - GHSA-r28c-9q8g-f849 # postcss — path traversal en source map (build tooling)
+    - GHSA-4cwx-7wf7-3272 # undici — cross-user information disclosure (advisory nuevo; transitivo dev de vitest/jsdom, no llega a prod; ajeno a ADR-033)
+    - GHSA-7p8r-x3mc-p8w7 # fast-uri — host confusion via backslash (advisory nuevo; transitivo dev de @commitlint, no llega a prod; ajeno a ADR-033)
