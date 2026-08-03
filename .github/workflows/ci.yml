@@ -343,7 +343,7 @@ jobs:
       - name: Migrate + seed the ephemeral DB
         run: pnpm api test:db:setup
 
-      # Scans the PRODUCTION build (`start:prod`), not `ts-node start` — same
+      # Scans the PRODUCTION build (`start:prod`), not `tsx start` — same
       # rationale as the `api` job's "Build API" step: closest to what Render
       # actually runs.
       - name: Build API

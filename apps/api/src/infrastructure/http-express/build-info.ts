@@ -12,7 +12,7 @@ import { join } from 'node:path';
  *
  * package.json is read at runtime with `fs` (not `import`) on purpose: an
  * `import` of package.json lives outside `rootDir: src` and would fail the
- * build with TS6059. The relative path resolves identically under ts-node
+ * build with TS6059. The relative path resolves identically under tsx
  * (`src/...`) and the compiled output (`dist/...`) because both mirror the same
  * depth under `apps/api`. Read once at module load — this object is a constant.
  */

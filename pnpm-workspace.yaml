@@ -31,6 +31,7 @@ auditConfig:
     - GHSA-2pvr-wf23-7pc7 # astro — host-header SSRF en error page prerenderizada (apps/landing)
     - GHSA-3jxr-9vmj-r5cp # brace-expansion — DoS expansión exponencial (transitivo de exceljs)
     - GHSA-mh99-v99m-4gvg # brace-expansion — DoS expansión ilimitada (transitivo de exceljs)
+    - GHSA-rgw5-rvv9-x895 # brace-expansion — DoS intermedio no acotado (advisory nuevo; transitivo de eslint/typescript-eslint y exceljs, ajeno a ADR-032)
     - GHSA-88fw-hqm2-52qc # hono — CORS refleja cualquier Origin con credenciales (transitivo)
     - GHSA-f88m-g3jw-g9cj # sharp — vulnerabilidades heredadas de libvips (apps/landing)
     - GHSA-r28c-9q8g-f849 # postcss — path traversal en source map (build tooling)
