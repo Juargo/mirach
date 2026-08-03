@@ -383,6 +383,74 @@
         ],
         "type": "object"
       },
+      "PreviewIngestaResponse": {
+        "additionalProperties": false,
+        "description": "POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003).",
+        "properties": {
+          "banco": {
+            "type": "string"
+          },
+          "estructura": {
+            "additionalProperties": false,
+            "properties": {
+              "totalFilasDatos": {
+                "description": "Row count PRE-dedupe, not money — plain JSON number.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "totalFilasDatos"
+            ],
+            "type": "object"
+          },
+          "muestra": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "abono": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "cargo": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                },
+                "fecha": {
+                  "description": "ISO-8601 UTC timestamp.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fecha",
+                "descripcion",
+                "cargo",
+                "abono"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "numeroCuenta": {
+            "type": "string"
+          },
+          "tipoCuenta": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "banco",
+          "tipoCuenta",
+          "numeroCuenta",
+          "estructura",
+          "muestra"
+        ],
+        "type": "object"
+      },
       "ResumenAnualResponse": {
         "additionalProperties": false,
         "description": "GET /api/resumen/anual — 50/30/20 annual breakdown (US-030).",
@@ -706,6 +774,47 @@
           }
         },
         "summary": "Upload a bank statement"
+      }
+    },
+    "/api/ingestas/preview": {
+      "post": {
+        "description": "Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the result itself is not scoped by user (no tenant data is touched).",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "description": "Bank statement file (.xlsx or .pdf). Extension/bank-format validation is a domain rule (ExtensionNoPermitidaError / BancoNoReconocidoError), not this schema.",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewIngestaResponse"
+                }
+              }
+            },
+            "description": "Preview sample computed (not persisted)."
+          },
+          "400": {
+            "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
+          }
+        },
+        "summary": "Preview a bank statement (dry run)"
       }
     },
     "/api/movimientos": {

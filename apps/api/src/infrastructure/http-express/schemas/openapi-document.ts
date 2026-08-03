@@ -27,6 +27,10 @@ import {
   ingestaUploadRequestSchema,
   ingestaUploadResponseSchema,
 } from './ingesta-upload.schema';
+import {
+  previewIngestaRequestSchema,
+  previewIngestaResponseSchema,
+} from './ingesta-preview.schema';
 import { authMeResponseSchema } from './auth-me.schema';
 
 /**
@@ -192,6 +196,32 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const ingestaPreviewOperation: ZodOpenApiOperationObject = {
+  summary: 'Preview a bank statement (dry run)',
+  description:
+    'Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a ' +
+    'would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the ' +
+    'result itself is not scoped by user (no tenant data is touched).',
+  requestBody: {
+    content: {
+      'multipart/form-data': { schema: previewIngestaRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Preview sample computed (not persisted).',
+      content: {
+        'application/json': { schema: previewIngestaResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
+        'structure/normalization, or an oversized file (>10 MB).',
+    },
+  },
+};
+
 const authMeOperation: ZodOpenApiOperationObject = {
   summary: 'Current session identity',
   description:
@@ -260,6 +290,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/ingestas': { get: ingestasOperation, post: ingestaUploadOperation },
   '/api/auth/me': { get: authMeOperation },
   '/api/auth/demo': { get: authDemoOperation },
+  '/api/ingestas/preview': { post: ingestaPreviewOperation },
 };
 
 export function buildOpenApiDocument() {
