@@ -57,6 +57,21 @@ describe('buildOpenApiDocument', () => {
     expect(movimientosPath?.get?.responses?.['200']).toBeDefined();
   });
 
+  it('registers GET /api/buckets/{bucket} with a bucket path param, a periodo query param, and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const bucketsPath = document.paths?.['/api/buckets/{bucket}'];
+    expect(bucketsPath).toBeDefined();
+    expect(bucketsPath?.get).toBeDefined();
+    expect(bucketsPath?.get?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'bucket', in: 'path' }),
+        expect.objectContaining({ name: 'periodo', in: 'query' }),
+      ]),
+    );
+    expect(bucketsPath?.get?.responses?.['200']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

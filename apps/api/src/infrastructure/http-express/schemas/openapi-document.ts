@@ -17,6 +17,11 @@ import {
   movimientosQuerySchema,
   movimientosResponseSchema,
 } from './movimientos.schema';
+import {
+  bucketsPathParamsSchema,
+  bucketsQuerySchema,
+  bucketsResponseSchema,
+} from './buckets.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -113,6 +118,29 @@ const movimientosOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const bucketsOperation: ZodOpenApiOperationObject = {
+  summary: 'Bucket drill-down',
+  description:
+    'Authenticated endpoint returning the transaction detail for a single spend bucket (US-017). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    path: bucketsPathParamsSchema,
+    query: bucketsQuerySchema,
+  },
+  responses: {
+    '200': {
+      description: 'Bucket detail for the resolved period.',
+      content: {
+        'application/json': { schema: bucketsResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid bucket (unrecognized value) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError).',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -125,6 +153,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/resumen': { get: resumenOperation },
   '/api/resumen/anual': { get: resumenAnualOperation },
   '/api/movimientos': { get: movimientosOperation },
+  '/api/buckets/{bucket}': { get: bucketsOperation },
 };
 
 export function buildOpenApiDocument() {

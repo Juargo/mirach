@@ -3,6 +3,7 @@ import { ObtenerDetalleBucketUseCase } from '../../../application/use-cases/obte
 import { BucketInvalidoError } from '../../../domain/errors/bucket-invalido.error';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { aDetalleBucketDto } from '../../http/dto/detalle-bucket.dto';
+import { bucketsQuerySchema } from '../schemas/buckets.schema';
 
 /**
  * registrarBuckets — port del DetalleBucketController (ADR-028).
@@ -19,10 +20,21 @@ export function registrarBuckets(
 ): void {
   router.get('/buckets/:bucket', async (req, res, next) => {
     try {
+      // Boundary schema validates TRANSPORT SHAPE ONLY (openapi-contract-express
+      // design, layer-honesty gate) — it does NOT know the YYYY-MM format rule
+      // nor the valid-bucket enum, both stay domain concerns handled below.
+      const parsedQuery = bucketsQuerySchema.safeParse(req.query);
+      if (!parsedQuery.success) {
+        res.status(400).json({
+          message: 'Parámetros de consulta inválidos.',
+        });
+        return;
+      }
+
       const result = await obtenerDetalleBucket.execute({
         userId: req.userId!, // garantizado por el session middleware previo
         bucket: req.params.bucket,
-        periodo: queryString(req.query.periodo),
+        periodo: parsedQuery.data.periodo,
       });
 
       if (result.isFail()) {
@@ -52,9 +64,4 @@ export function registrarBuckets(
       next(err);
     }
   });
-}
-
-/** Express puede entregar string[] si el query se repite — normaliza a string|undefined. */
-function queryString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
 }
