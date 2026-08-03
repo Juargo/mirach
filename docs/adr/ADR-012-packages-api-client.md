@@ -6,9 +6,9 @@ tags:
   - frontend
   - toolchain
 proyecto: MoneyDiary
-estado: ✅ Decidido
+estado: ✅ Decidido (mecánica de origen desactualizada, ver nota 2026-08-02)
 fecha_creacion: 2026-07-02
-fecha_actualizacion: 2026-07-02
+fecha_actualizacion: 2026-08-02
 ---
 
 # ADR-012 — `packages/api-client`: cliente HTTP agnóstico de plataforma
@@ -18,6 +18,8 @@ fecha_actualizacion: 2026-07-02
 ✅ **Decidido**
 
 Reemplaza parcialmente a ADR-008 Frontend Stack (decisión *"no se crea un `packages/shared` ni equivalente"*). Este ADR introduce el primer —y deliberadamente único— paquete compartido del monorepo. Depende de ADR-011 Contrato-first OpenAPI.
+
+> **Nota 2026-08-02:** ADR-028 eliminó NestJS (migración a Express), por lo que la mecánica de origen del `openapi.json` que este ADR asume — emitido vía `@nestjs/swagger` — está **desactualizada**. ADR-011 Contrato-first OpenAPI fue enmendado el mismo día para documentar el mecanismo vigente (Zod + `zod-openapi@5.4.2`, OpenAPI 3.1.0). La **decisión central de este ADR-012 no cambia** (`packages/api-client` sigue siendo el diseño previsto para el consumo agnóstico de plataforma), pero **`packages/api-client` sigue SIN construirse** — es deuda técnica pendiente rastreada, no bloqueada por nada distinto a priorización. Cuando se construya, debe alimentarse del `apps/api/openapi.json` que emite el mecanismo Zod, no del mecanismo NestJS descrito abajo.
 
 ---
 

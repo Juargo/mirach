@@ -29,8 +29,8 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-008](ADR-008-frontend-stack.md) | Frontend Stack (Estructura, Estilos, Estado, Routing) | ⚠️ Parcialmente reemplazado |
 | [ADR-009](ADR-009-libreria-parseo-pdf.md) | Librería de Parseo PDF: pdfjs-dist (build legacy) para cartolas bancarias | ✅ Decidido |
 | [ADR-010](ADR-010-app-mobile.md) | App Mobile: React Native + Expo (dev-client) + Expo Router + NativeWind | ✅ Decidido |
-| [ADR-011](ADR-011-contrato-first-openapi.md) | Contrato-first con OpenAPI: `openapi.json` como fuente única de verdad | ✅ Decidido |
-| [ADR-012](ADR-012-packages-api-client.md) | `packages/api-client`: cliente HTTP agnóstico de plataforma | ✅ Decidido |
+| [ADR-011](ADR-011-contrato-first-openapi.md) | Contrato-first con OpenAPI: `openapi.json` como fuente única de verdad | ✅ Decidido (mecanismo enmendado 2026-08-02: Zod, no NestJS) |
+| [ADR-012](ADR-012-packages-api-client.md) | `packages/api-client`: cliente HTTP agnóstico de plataforma | ✅ Decidido (mecánica de origen desactualizada; paquete sin construir) |
 | [ADR-013](ADR-013-cifrado-de-datos-en-reposo.md) | Cifrado de Datos en Reposo | ✅ Decidido |
 | [ADR-014](ADR-014-tecnicas-de-validacion-de-requisitos.md) | Técnicas de Validación de Requisitos | ✅ Decidido |
 | [ADR-015](ADR-015-tecnicas-de-verificacion-de-requisitos.md) | Técnicas de Verificación de Requisitos | ✅ Decidido |
