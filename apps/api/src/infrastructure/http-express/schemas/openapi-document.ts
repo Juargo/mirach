@@ -9,6 +9,10 @@ import {
 
 import { versionResponseSchema } from './version.schema';
 import { resumenQuerySchema, resumenResponseSchema } from './resumen.schema';
+import {
+  resumenAnualQuerySchema,
+  resumenAnualResponseSchema,
+} from './resumen-anual.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -61,6 +65,28 @@ const resumenOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const resumenAnualOperation: ZodOpenApiOperationObject = {
+  summary: 'Annual 50/30/20 breakdown',
+  description:
+    'Authenticated endpoint returning the 50/30/20 budget breakdown for all 12 months of a year (US-030). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    query: resumenAnualQuerySchema,
+  },
+  responses: {
+    '200': {
+      description: 'Annual resumen for the resolved year.',
+      content: {
+        'application/json': { schema: resumenAnualResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid anio — either a transport-shape mismatch or a malformed/out-of-range value (domain-level).',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -71,6 +97,7 @@ const resumenOperation: ZodOpenApiOperationObject = {
 const paths: ZodOpenApiPathsObject = {
   '/version': { get: versionOperation },
   '/api/resumen': { get: resumenOperation },
+  '/api/resumen/anual': { get: resumenAnualOperation },
 };
 
 export function buildOpenApiDocument() {

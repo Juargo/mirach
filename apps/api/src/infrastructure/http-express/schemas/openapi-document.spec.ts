@@ -33,6 +33,18 @@ describe('buildOpenApiDocument', () => {
     expect(resumenPath?.get?.responses?.['200']).toBeDefined();
   });
 
+  it('registers GET /api/resumen/anual with an anio query param and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const resumenAnualPath = document.paths?.['/api/resumen/anual'];
+    expect(resumenAnualPath).toBeDefined();
+    expect(resumenAnualPath?.get).toBeDefined();
+    expect(resumenAnualPath?.get?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'anio' })]),
+    );
+    expect(resumenAnualPath?.get?.responses?.['200']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

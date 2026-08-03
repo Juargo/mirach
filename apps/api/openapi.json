@@ -1,6 +1,29 @@
 {
   "components": {
     "schemas": {
+      "ResumenAnualResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/resumen/anual — 50/30/20 annual breakdown (US-030).",
+        "properties": {
+          "anio": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "meses": {
+            "description": "Always 12 entries, Enero→Diciembre.",
+            "items": {
+              "$ref": "#/components/schemas/ResumenMesResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "anio",
+          "meses"
+        ],
+        "type": "object"
+      },
       "ResumenMesResponse": {
         "additionalProperties": false,
         "description": "GET /api/resumen — 50/30/20 monthly breakdown (US-015/016).",
@@ -185,6 +208,38 @@
           }
         },
         "summary": "Monthly 50/30/20 breakdown"
+      }
+    },
+    "/api/resumen/anual": {
+      "get": {
+        "description": "Authenticated endpoint returning the 50/30/20 budget breakdown for all 12 months of a year (US-030). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "parameters": [
+          {
+            "description": "Year, e.g. 2026. Absent defaults to the current year. Range/format is validated by the domain, not this schema.",
+            "in": "query",
+            "name": "anio",
+            "schema": {
+              "description": "Year, e.g. 2026. Absent defaults to the current year. Range/format is validated by the domain, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenAnualResponse"
+                }
+              }
+            },
+            "description": "Annual resumen for the resolved year."
+          },
+          "400": {
+            "description": "Invalid anio — either a transport-shape mismatch or a malformed/out-of-range value (domain-level)."
+          }
+        },
+        "summary": "Annual 50/30/20 breakdown"
       }
     },
     "/version": {
