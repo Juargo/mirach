@@ -430,15 +430,12 @@ jobs:
       # authenticated business-logic coverage is Schemathesis's job above.
       # Promoting ZAP to authenticated + active scan is tracked as a slice 2
       # follow-up alongside the scheduled full-scan workflow.
-      # ⚠️ KNOWN GAP vs ADR-021's "pin third-party actions to a commit SHA"
-      # posture (see `dorny/paths-filter`/`gitleaks-action` above): pinned to
-      # the mutable tag `v0.10.0` because the exact commit SHA could not be
-      # looked up this session (no web/Context7 access). Pin to SHA (e.g. via
-      # Dependabot's suggested pin) before merging this job, same as every
-      # other third-party action in this file.
+      # Pinned to a commit SHA per ADR-021's supply-chain posture (same as
+      # `dorny/paths-filter`/`gitleaks-action` above). SHA resolved from tag
+      # v0.10.0 via `gh api repos/zaproxy/action-api-scan/commits/v0.10.0`.
       - name: ZAP baseline scan (passive, unauthenticated, advisory)
         continue-on-error: true
-        uses: zaproxy/action-api-scan@v0.10.0
+        uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
         with:
           target: openapi-dast.json
           format: openapi
