@@ -23,6 +23,15 @@ import {
   bucketsResponseSchema,
 } from './buckets.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
+import {
+  ingestaUploadRequestSchema,
+  ingestaUploadResponseSchema,
+} from './ingesta-upload.schema';
+import {
+  previewIngestaRequestSchema,
+  previewIngestaResponseSchema,
+} from './ingesta-preview.schema';
+import { ingestaDeletePathParamsSchema } from './ingesta-delete.schema';
 import { authMeResponseSchema } from './auth-me.schema';
 
 /**
@@ -158,6 +167,81 @@ const ingestasOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const ingestaUploadOperation: ZodOpenApiOperationObject = {
+  summary: 'Upload a bank statement',
+  description:
+    'Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and ' +
+    'categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session ' +
+    '(RNF-SEC-006, per-user isolation).',
+  requestBody: {
+    content: {
+      'multipart/form-data': { schema: ingestaUploadRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Upload processed and persisted.',
+      content: {
+        'application/json': { schema: ingestaUploadResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
+        'structure/normalization, or an oversized file (>10 MB).',
+    },
+    '500': {
+      description:
+        'Persistence failure (infrastructure fault, not the uploaded file).',
+    },
+  },
+};
+
+const ingestaPreviewOperation: ZodOpenApiOperationObject = {
+  summary: 'Preview a bank statement (dry run)',
+  description:
+    'Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a ' +
+    'would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the ' +
+    'result itself is not scoped by user (no tenant data is touched).',
+  requestBody: {
+    content: {
+      'multipart/form-data': { schema: previewIngestaRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Preview sample computed (not persisted).',
+      content: {
+        'application/json': { schema: previewIngestaResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
+        'structure/normalization, or an oversized file (>10 MB).',
+    },
+  },
+};
+
+const ingestaDeleteOperation: ZodOpenApiOperationObject = {
+  summary: 'Delete an ingesta',
+  description:
+    'Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    path: ingestaDeletePathParamsSchema,
+  },
+  responses: {
+    '204': {
+      description: 'Ingesta deleted. No response body.',
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the ingesta does not exist or does not belong to the authenticated user.',
+    },
+  },
+};
+
 const authMeOperation: ZodOpenApiOperationObject = {
   summary: 'Current session identity',
   description:
@@ -223,9 +307,11 @@ const paths: ZodOpenApiPathsObject = {
   '/api/resumen/anual': { get: resumenAnualOperation },
   '/api/movimientos': { get: movimientosOperation },
   '/api/buckets/{bucket}': { get: bucketsOperation },
-  '/api/ingestas': { get: ingestasOperation },
+  '/api/ingestas': { get: ingestasOperation, post: ingestaUploadOperation },
   '/api/auth/me': { get: authMeOperation },
   '/api/auth/demo': { get: authDemoOperation },
+  '/api/ingestas/preview': { post: ingestaPreviewOperation },
+  '/api/ingestas/{id}': { delete: ingestaDeleteOperation },
 };
 
 export function buildOpenApiDocument() {
