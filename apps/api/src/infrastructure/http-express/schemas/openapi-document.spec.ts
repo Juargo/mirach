@@ -170,6 +170,26 @@ describe('buildOpenApiDocument', () => {
     expect(logoutPath?.post?.responses?.['204']?.content).toBeUndefined();
   });
 
+  it('registers PATCH /api/transacciones/{id}/categoria with an id path param, a JSON requestBody, and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const categoriaPath = document.paths?.['/api/transacciones/{id}/categoria'];
+    expect(categoriaPath).toBeDefined();
+    expect(categoriaPath?.patch).toBeDefined();
+    expect(categoriaPath?.patch?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'id', in: 'path' }),
+      ]),
+    );
+    const requestBody = categoriaPath?.patch?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+    expect(categoriaPath?.patch?.responses?.['200']).toBeDefined();
+    expect(categoriaPath?.patch?.responses?.['400']).toBeDefined();
+    expect(categoriaPath?.patch?.responses?.['404']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

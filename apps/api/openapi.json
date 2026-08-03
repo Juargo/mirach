@@ -612,6 +612,41 @@
         ],
         "type": "object"
       },
+      "TransaccionesCategoriaResponse": {
+        "additionalProperties": false,
+        "description": "PATCH /api/transacciones/:id/categoria — manual reclassification result (US-013 S4).",
+        "properties": {
+          "bucket": {
+            "description": "Derived bucket name (echo, not raw input).",
+            "type": "string"
+          },
+          "categoria": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "nombre": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "nombre"
+            ],
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "categoria",
+          "bucket"
+        ],
+        "type": "object"
+      },
       "VersionResponse": {
         "additionalProperties": false,
         "description": "Deployed build info for the API — GET /version.",
@@ -1015,6 +1050,60 @@
           }
         },
         "summary": "Annual 50/30/20 breakdown"
+      }
+    },
+    "/api/transacciones/{id}/categoria": {
+      "patch": {
+        "description": "Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "parameters": [
+          {
+            "description": "Transaction id (raw path param). Existence/ownership is checked by the use case, not this schema.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Transaction id (raw path param). Existence/ownership is checked by the use case, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "categoria": {
+                    "description": "Category name (Categoria enum member, e.g. \"Supermercado\"). Validated against the domain enum by the use case (CategoriaInvalidaError), not this schema.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "categoria"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransaccionesCategoriaResponse"
+                }
+              }
+            },
+            "description": "Transaction reclassified."
+          },
+          "400": {
+            "description": "Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError)."
+          },
+          "404": {
+            "description": "Anti-enumeration: the transaction does not exist or does not belong to the authenticated user."
+          }
+        },
+        "summary": "Reclassify a transaction"
       }
     },
     "/version": {

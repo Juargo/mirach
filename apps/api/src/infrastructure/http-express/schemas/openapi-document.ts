@@ -37,6 +37,11 @@ import {
   authLoginRequestSchema,
   authLoginResponseSchema,
 } from './auth-login.schema';
+import {
+  transaccionesCategoriaPathParamsSchema,
+  transaccionesCategoriaRequestSchema,
+  transaccionesCategoriaResponseSchema,
+} from './transacciones-categoria.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -354,6 +359,45 @@ const authLogoutOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `PATCH /api/transacciones/:id/categoria` (US-013 S4) — CONTRACT-ONLY
+ * (openapi-contract-express Phase 10.2b, writes/sensitive group): documents
+ * the request/response shapes, but `registrarTransacciones`
+ * (`routes/transacciones.routes.ts`) is left UNCHANGED — no `.safeParse()`
+ * boundary validation is wired in, to preserve the exact existing
+ * reclassification behavior on this sensitive endpoint.
+ */
+const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
+  summary: 'Reclassify a transaction',
+  description:
+    'Authenticated endpoint that manually reassigns a transaction to a category (and its derived ' +
+    'bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    path: transaccionesCategoriaPathParamsSchema,
+  },
+  requestBody: {
+    content: {
+      'application/json': { schema: transaccionesCategoriaRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Transaction reclassified.',
+      content: {
+        'application/json': { schema: transaccionesCategoriaResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError).',
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the transaction does not exist or does not belong to the authenticated user.',
+    },
+  },
+};
+
+/**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
  * appending future endpoints (Slice 1+) must append here, never reorder
@@ -373,6 +417,9 @@ const paths: ZodOpenApiPathsObject = {
   '/api/ingestas/{id}': { delete: ingestaDeleteOperation },
   '/api/auth/login': { post: authLoginOperation },
   '/api/auth/logout': { post: authLogoutOperation },
+  '/api/transacciones/{id}/categoria': {
+    patch: transaccionesCategoriaOperation,
+  },
 };
 
 export function buildOpenApiDocument() {
