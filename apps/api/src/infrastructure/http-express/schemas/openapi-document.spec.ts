@@ -81,6 +81,19 @@ describe('buildOpenApiDocument', () => {
     expect(ingestasPath?.get?.responses?.['200']).toBeDefined();
   });
 
+  it('registers POST /api/ingestas with a multipart/form-data requestBody and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const ingestasPath = document.paths?.['/api/ingestas'];
+    expect(ingestasPath).toBeDefined();
+    expect(ingestasPath?.post).toBeDefined();
+    const requestBody = ingestasPath?.post?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['multipart/form-data']).toBeDefined();
+    expect(ingestasPath?.post?.responses?.['200']).toBeDefined();
+  });
+
   it('registers GET /api/auth/me with a response schema (no query/path params)', () => {
     const document = buildOpenApiDocument();
 

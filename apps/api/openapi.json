@@ -193,6 +193,99 @@
         ],
         "type": "object"
       },
+      "IngestaUploadResponse": {
+        "additionalProperties": false,
+        "description": "POST /api/ingestas — successful upload result (US-004/US-005/US-011).",
+        "properties": {
+          "archivo": {
+            "additionalProperties": false,
+            "properties": {
+              "extension": {
+                "type": "string"
+              },
+              "nombre": {
+                "type": "string"
+              },
+              "tamanoBytes": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "nombre",
+              "extension",
+              "tamanoBytes"
+            ],
+            "type": "object"
+          },
+          "banco": {
+            "type": "string"
+          },
+          "duplicadosOmitidos": {
+            "description": "Count of rows skipped as duplicates. Never omitted (CA-04).",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "ingestaId": {
+            "type": "string"
+          },
+          "numeroCuenta": {
+            "type": "string"
+          },
+          "tipoCuenta": {
+            "type": "string"
+          },
+          "totalTransacciones": {
+            "description": "Row count, not money — plain JSON number.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "transacciones": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "abono": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "cargo": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                },
+                "fecha": {
+                  "description": "ISO-8601 UTC timestamp.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fecha",
+                "descripcion",
+                "cargo",
+                "abono"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ingestaId",
+          "banco",
+          "tipoCuenta",
+          "numeroCuenta",
+          "archivo",
+          "totalTransacciones",
+          "duplicadosOmitidos",
+          "transacciones"
+        ],
+        "type": "object"
+      },
       "MovimientosMesResponse": {
         "additionalProperties": false,
         "description": "GET /api/movimientos — monthly transaction list (US-014).",
@@ -571,6 +664,48 @@
           }
         },
         "summary": "List ingestas"
+      },
+      "post": {
+        "description": "Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentEncoding": "binary",
+                    "description": "Bank statement file (.xlsx or .pdf). Extension/bank-format validation is a domain rule (ExtensionNoPermitidaError / BancoNoReconocidoError), not this schema.",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaUploadResponse"
+                }
+              }
+            },
+            "description": "Upload processed and persisted."
+          },
+          "400": {
+            "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
+          },
+          "500": {
+            "description": "Persistence failure (infrastructure fault, not the uploaded file)."
+          }
+        },
+        "summary": "Upload a bank statement"
       }
     },
     "/api/movimientos": {

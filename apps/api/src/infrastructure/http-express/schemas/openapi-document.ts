@@ -23,6 +23,10 @@ import {
   bucketsResponseSchema,
 } from './buckets.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
+import {
+  ingestaUploadRequestSchema,
+  ingestaUploadResponseSchema,
+} from './ingesta-upload.schema';
 import { authMeResponseSchema } from './auth-me.schema';
 
 /**
@@ -158,6 +162,36 @@ const ingestasOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const ingestaUploadOperation: ZodOpenApiOperationObject = {
+  summary: 'Upload a bank statement',
+  description:
+    'Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and ' +
+    'categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session ' +
+    '(RNF-SEC-006, per-user isolation).',
+  requestBody: {
+    content: {
+      'multipart/form-data': { schema: ingestaUploadRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Upload processed and persisted.',
+      content: {
+        'application/json': { schema: ingestaUploadResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
+        'structure/normalization, or an oversized file (>10 MB).',
+    },
+    '500': {
+      description:
+        'Persistence failure (infrastructure fault, not the uploaded file).',
+    },
+  },
+};
+
 const authMeOperation: ZodOpenApiOperationObject = {
   summary: 'Current session identity',
   description:
@@ -223,7 +257,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/resumen/anual': { get: resumenAnualOperation },
   '/api/movimientos': { get: movimientosOperation },
   '/api/buckets/{bucket}': { get: bucketsOperation },
-  '/api/ingestas': { get: ingestasOperation },
+  '/api/ingestas': { get: ingestasOperation, post: ingestaUploadOperation },
   '/api/auth/me': { get: authMeOperation },
   '/api/auth/demo': { get: authDemoOperation },
 };

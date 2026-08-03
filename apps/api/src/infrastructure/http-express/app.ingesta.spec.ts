@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { ingestaUploadResponseSchema } from './schemas/ingesta-upload.schema';
 
 /**
  * Gate de aislamiento para la ingesta (ADR-015, RNF-SEC-006). Upload autenticado:
@@ -71,5 +72,16 @@ describe('POST /api/ingestas — cadena de auth + aislamiento', () => {
     expect(c.processIngesta.execute).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-de-sesion' }),
     );
+  });
+
+  it('200: el body real cumple ingestaUploadResponseSchema (garantía de sincronía, openapi-contract-express)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .post('/api/ingestas')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(200);
+    expect(() => ingestaUploadResponseSchema.parse(res.body)).not.toThrow();
   });
 });
