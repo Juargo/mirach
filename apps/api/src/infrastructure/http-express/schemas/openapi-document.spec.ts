@@ -45,6 +45,18 @@ describe('buildOpenApiDocument', () => {
     expect(resumenAnualPath?.get?.responses?.['200']).toBeDefined();
   });
 
+  it('registers GET /api/movimientos with a periodo query param and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const movimientosPath = document.paths?.['/api/movimientos'];
+    expect(movimientosPath).toBeDefined();
+    expect(movimientosPath?.get).toBeDefined();
+    expect(movimientosPath?.get?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'periodo' })]),
+    );
+    expect(movimientosPath?.get?.responses?.['200']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

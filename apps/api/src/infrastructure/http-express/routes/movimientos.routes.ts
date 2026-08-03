@@ -2,6 +2,7 @@ import type { Router } from 'express';
 import { ObtenerMovimientosMesUseCase } from '../../../application/use-cases/obtener-movimientos-mes.use-case';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { aMovimientosMesDto } from '../../http/dto/movimiento-mes.dto';
+import { movimientosQuerySchema } from '../schemas/movimientos.schema';
 
 /**
  * registrarMovimientos — port del MovimientosController (ADR-028).
@@ -17,9 +18,20 @@ export function registrarMovimientos(
 ): void {
   router.get('/movimientos', async (req, res, next) => {
     try {
+      // Boundary schema validates TRANSPORT SHAPE ONLY (openapi-contract-express
+      // design, layer-honesty gate) — it does NOT know the YYYY-MM format rule,
+      // that stays a domain concern (PeriodoMes VO) handled below.
+      const parsedQuery = movimientosQuerySchema.safeParse(req.query);
+      if (!parsedQuery.success) {
+        res.status(400).json({
+          message: 'Parámetros de consulta inválidos.',
+        });
+        return;
+      }
+
       const result = await obtenerMovimientosMes.execute({
         userId: req.userId!, // garantizado por el session middleware previo
-        periodo: queryString(req.query.periodo),
+        periodo: parsedQuery.data.periodo,
       });
 
       if (result.isFail()) {
@@ -42,9 +54,4 @@ export function registrarMovimientos(
       next(err);
     }
   });
-}
-
-/** Express puede entregar string[] si el query se repite — normaliza a string|undefined. */
-function queryString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
 }

@@ -1,6 +1,103 @@
 {
   "components": {
     "schemas": {
+      "MovimientosMesResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/movimientos — monthly transaction list (US-014).",
+        "properties": {
+          "periodo": {
+            "description": "Resolved period, format YYYY-MM.",
+            "type": "string"
+          },
+          "totalTransacciones": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "transacciones": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "abono": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "banco": {
+                  "type": "string"
+                },
+                "bucket": {
+                  "description": "Bucket name (Bucket domain enum value).",
+                  "type": "string"
+                },
+                "cargo": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "categoria": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "nombre": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "nombre"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Folded category, or null for Ingreso/SinCategoria rows."
+                },
+                "descripcion": {
+                  "type": "string"
+                },
+                "fecha": {
+                  "description": "ISO-8601 UTC timestamp.",
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "numeroCuenta": {
+                  "type": "string"
+                },
+                "tipoCuenta": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "fecha",
+                "descripcion",
+                "cargo",
+                "abono",
+                "banco",
+                "tipoCuenta",
+                "numeroCuenta",
+                "bucket",
+                "categoria"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "periodo",
+          "totalTransacciones",
+          "transacciones"
+        ],
+        "type": "object"
+      },
       "ResumenAnualResponse": {
         "additionalProperties": false,
         "description": "GET /api/resumen/anual — 50/30/20 annual breakdown (US-030).",
@@ -178,6 +275,38 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/movimientos": {
+      "get": {
+        "description": "Authenticated endpoint returning the consolidated monthly transaction list (US-014). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "parameters": [
+          {
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "in": "query",
+            "name": "periodo",
+            "schema": {
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovimientosMesResponse"
+                }
+              }
+            },
+            "description": "Monthly transaction list for the resolved period."
+          },
+          "400": {
+            "description": "Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO)."
+          }
+        },
+        "summary": "Monthly transaction list"
+      }
+    },
     "/api/resumen": {
       "get": {
         "description": "Authenticated endpoint returning the 50/30/20 budget breakdown for a month (US-015/016). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",

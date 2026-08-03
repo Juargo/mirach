@@ -13,6 +13,10 @@ import {
   resumenAnualQuerySchema,
   resumenAnualResponseSchema,
 } from './resumen-anual.schema';
+import {
+  movimientosQuerySchema,
+  movimientosResponseSchema,
+} from './movimientos.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -87,6 +91,28 @@ const resumenAnualOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const movimientosOperation: ZodOpenApiOperationObject = {
+  summary: 'Monthly transaction list',
+  description:
+    'Authenticated endpoint returning the consolidated monthly transaction list (US-014). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    query: movimientosQuerySchema,
+  },
+  responses: {
+    '200': {
+      description: 'Monthly transaction list for the resolved period.',
+      content: {
+        'application/json': { schema: movimientosResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO).',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -98,6 +124,7 @@ const paths: ZodOpenApiPathsObject = {
   '/version': { get: versionOperation },
   '/api/resumen': { get: resumenOperation },
   '/api/resumen/anual': { get: resumenAnualOperation },
+  '/api/movimientos': { get: movimientosOperation },
 };
 
 export function buildOpenApiDocument() {
