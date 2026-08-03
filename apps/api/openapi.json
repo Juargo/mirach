@@ -467,6 +467,31 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/auth/demo": {
+      "get": {
+        "description": "Public endpoint (requires x-api-key only) that creates a demo account or resumes an existing valid session, then redirects. No JSON response body — the session is conveyed via the `md_session` cookie (Set-Cookie) and the redirect target.",
+        "responses": {
+          "302": {
+            "description": "Session established (new demo or resumed existing); redirects to the app root.",
+            "headers": {
+              "Location": {
+                "description": "Always \"/\" — the app root.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected: request is not a top-level navigation (anti-embed Fetch-Metadata guard)."
+          },
+          "429": {
+            "description": "Rate-limited: too many demo requests from this IP."
+          }
+        },
+        "summary": "Create or resume a demo session"
+      }
+    },
     "/api/auth/me": {
       "get": {
         "description": "Authenticated endpoint returning the identity of the current session (AUTH-09, DEMO-AUTH-05). Requires x-api-key + a valid session.",

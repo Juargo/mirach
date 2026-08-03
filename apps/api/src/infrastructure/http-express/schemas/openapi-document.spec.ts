@@ -91,6 +91,18 @@ describe('buildOpenApiDocument', () => {
     expect(authMePath?.get?.responses?.['401']).toBeDefined();
   });
 
+  it('registers GET /api/auth/demo with a redirect response and no JSON response body', () => {
+    const document = buildOpenApiDocument();
+
+    const authDemoPath = document.paths?.['/api/auth/demo'];
+    expect(authDemoPath).toBeDefined();
+    expect(authDemoPath?.get).toBeDefined();
+    expect(authDemoPath?.get?.responses?.['302']).toBeDefined();
+    expect(authDemoPath?.get?.responses?.['302']?.content).toBeUndefined();
+    expect(authDemoPath?.get?.responses?.['403']).toBeDefined();
+    expect(authDemoPath?.get?.responses?.['429']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();
