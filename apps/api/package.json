@@ -24,7 +24,9 @@
     "db:down": "docker compose down",
     "cli": "ts-node -r tsconfig-paths/register src/infrastructure/cli/ingestar.ts",
     "env:example": "ts-node scripts/gen-env-example.ts",
-    "env:example:check": "ts-node scripts/gen-env-example.ts --check"
+    "env:example:check": "ts-node scripts/gen-env-example.ts --check",
+    "openapi:emit": "ts-node scripts/emit-openapi.ts",
+    "openapi:check": "ts-node scripts/emit-openapi.ts --check"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

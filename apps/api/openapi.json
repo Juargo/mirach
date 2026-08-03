@@ -1,0 +1,61 @@
+{
+  "components": {
+    "schemas": {
+      "VersionResponse": {
+        "additionalProperties": false,
+        "description": "Deployed build info for the API — GET /version.",
+        "properties": {
+          "builtAt": {
+            "description": "ISO-8601 timestamp of when this process booted.",
+            "type": "string"
+          },
+          "commit": {
+            "description": "Short commit SHA, or \"local\" outside Render.",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git branch/ref, or \"local\" outside Render.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Package version (release-please, ADR-030).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "commit",
+          "ref",
+          "builtAt"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "HTTP contract for the MoneyDiary Express API, sourced from Zod schemas (ADR-011 amend).",
+    "title": "MoneyDiary API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/version": {
+      "get": {
+        "description": "Public, unauthenticated endpoint exposing the currently deployed build (ADR-030).",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            },
+            "description": "Build info for the currently deployed API instance."
+          }
+        },
+        "summary": "Deployed build info"
+      }
+    }
+  }
+}
