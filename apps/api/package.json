@@ -37,7 +37,8 @@
     "node-cron": "^4.6.0",
     "pdfjs-dist": "^6.1.200",
     "pg": "^8.21.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zod-openapi": "5.4.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
