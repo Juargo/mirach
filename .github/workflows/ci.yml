@@ -263,6 +263,206 @@ jobs:
       - name: E2E tests (HTTP vs real DB)
         run: pnpm api test:e2e
 
+  # ADR-021 — DAST layer, slice 1 (ADVISORY). Boots the REAL built API against
+  # an ephemeral Postgres (clone of `integration`'s service+env) and scans it
+  # with Schemathesis (authenticated, read-only property fuzzing against
+  # apps/api/openapi.json — the real-value part of this slice) + OWASP ZAP
+  # baseline (passive scan of the actual running surface). `continue-on-error:
+  # true` at both the job and scanner-step level: DAST is new/noisy per
+  # ADR-021's own triage-before-block posture, so it reports without blocking
+  # merges while its signal is tuned (`.zap/rules.tsv`). Deliberately included
+  # in `ci-success`'s `needs` below — GitHub reports a `continue-on-error`
+  # job's result as `success` to dependents even when it internally failed, so
+  # this job stays VISIBLE in the checks list without ever failing
+  # `ci-success`. Active scan + write-fuzzing deferred to a separate scheduled
+  # workflow (slice 2, not built yet).
+  dast:
+    name: DAST (Schemathesis + ZAP, advisory)
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: moneydiary
+          POSTGRES_PASSWORD: moneydiary
+          POSTGRES_DB: moneydiary_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U moneydiary -d moneydiary_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      DIRECT_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      ALLOW_DESTRUCTIVE_DB: '1'
+      API_KEY: local-ci-api-key-not-a-secret-0000000000
+      COOKIE_SECURE: 'false'
+      LOGIN_RATELIMIT_MAX_EMAIL: '5'
+      LOGIN_RATELIMIT_MAX_IP: '20'
+      LOGIN_RATELIMIT_WINDOW_MS: '900000'
+      SEED_USER_EMAIL: test@moneydiary.local
+      SEED_USER_PASSWORD: local-ci-password-123
+      NODE_ENV: test
+      PORT: '3000'
+      API_BASE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Schemathesis runs via `uvx` (not a pnpm dependency — Python tooling).
+      # Installed via the official installer script rather than a third-party
+      # GitHub Action: this repo pins every third-party action to a commit SHA
+      # (ADR-021 supply-chain posture) and a fresh SHA for a brand-new action
+      # couldn't be verified this session (no web/Context7 access) — the
+      # official install script is the safer choice over an unverified pin.
+      - name: Install uv (for Schemathesis via uvx)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Generate Prisma client
+        run: pnpm api exec prisma generate
+
+      # ADR-013: `descripcion` is encrypted at rest — fresh 32-byte AES key
+      # per run, same pattern as the `integration` job above.
+      - name: Generate test ENCRYPTION_KEY
+        run: echo "ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Migrate + seed the ephemeral DB
+        run: pnpm api test:db:setup
+
+      # Scans the PRODUCTION build (`start:prod`), not `ts-node start` — same
+      # rationale as the `api` job's "Build API" step: closest to what Render
+      # actually runs.
+      - name: Build API
+        run: pnpm api build
+
+      - name: Start API (production build) in the background
+        run: nohup pnpm api start:prod > api-dast.log 2>&1 &
+
+      # Combines the readiness-poll (GET / health, public, no api-key) with
+      # the login pre-step (POST /api/auth/login, seeded CI user) into one
+      # script: apps/api/scripts/dast-readiness.ts (untested I/O wrapper)
+      # calls the unit-tested extractLoginToken helper
+      # (src/infrastructure/http-express/dast/extract-login-token.ts). Prints
+      # ONLY the bearer token to stdout; masked immediately below, before it
+      # can appear in any subsequent log line.
+      - name: Wait for API readiness and obtain a DAST auth token
+        id: auth
+        run: |
+          TOKEN=$(pnpm --silent api dast:token)
+          STATUS=$?
+          if [ $STATUS -ne 0 ] || [ -z "$TOKEN" ]; then
+            echo "::error::Failed to obtain a DAST auth token (readiness or login failed)."
+            cat api-dast.log || true
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      # DAST-only copy of the committed contract with a `servers` block added
+      # so scanners know where to send requests. apps/api/openapi.json
+      # intentionally has NO `servers` block (host varies by env — see
+      # design); the COMMITTED file is never modified, so the `openapi:check`
+      # drift gate in the `api` job above stays meaningful. This copy is
+      # discarded with the runner.
+      - name: Build a DAST-only OpenAPI copy (adds servers; committed contract untouched)
+        run: |
+          jq '. + {"servers": [{"url": "http://localhost:3000"}]}' apps/api/openapi.json > openapi-dast.json
+
+      # Schemathesis — the real-value part of slice 1: AUTHENTICATED
+      # (x-api-key + bearer), read-only (`--include-method GET`). Verified
+      # locally (Vitest not involved — a direct `uvx` run) that Schemathesis
+      # v4's filter flags take exactly ONE value each: a comma-separated
+      # `--exclude-method POST,PUT,PATCH,DELETE` is silently treated as one
+      # non-matching value and selects ALL operations instead of narrowing
+      # them — the design's original assumption. `--include-method GET` is
+      # the verified, unambiguous alternative. `not_a_server_error` +
+      # `response_schema_conformance` catch unexpected 5xxs and contract
+      # drift. The trailing check guards against a silent empty-suite pass
+      # (also verified locally: a misconfigured filter/schema exits 0 with
+      # zero test cases run — "Empty test suite" — which would otherwise look
+      # like a clean scan).
+      - name: Schemathesis (authenticated, read-only property fuzzing)
+        continue-on-error: true
+        run: |
+          set +e
+          uvx schemathesis@4.24.3 run apps/api/openapi.json \
+            --url "$API_BASE_URL" \
+            --header "x-api-key: $API_KEY" \
+            --header "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
+            --checks not_a_server_error,response_schema_conformance \
+            --include-method GET \
+            2>&1 | tee schemathesis-dast.log
+          RUN_STATUS="${PIPESTATUS[0]}"
+          set -e
+          if grep -q "Empty test suite" schemathesis-dast.log || grep -Eq "Selected: 0/" schemathesis-dast.log; then
+            echo "::error::Schemathesis selected/tested zero operations — this would be a silent no-op scan."
+            exit 1
+          fi
+          exit "$RUN_STATUS"
+
+      # ZAP baseline (PASSIVE only) — deliberately UNAUTHENTICATED for slice 1.
+      # The design flagged two wrinkles for an authenticated ZAP run: (1) this
+      # action injects only ONE custom header natively (env
+      # ZAP_AUTH_HEADER/_VALUE) — two headers (x-api-key + Bearer) need ZAP's
+      # `replacer.full_list` -z config keys; (2) apps/api/openapi.json has no
+      # `servers` block. Wrinkle (2) is solved above with a verified, standard
+      # OpenAPI mechanism (the generated copy's `servers` entry). Wrinkle (1)
+      # stayed UNVERIFIED against live ZAP docs this session (no Context7/web
+      # access) — its failure mode is a SILENT misconfiguration (the header
+      # quietly never gets applied) rather than a loud one, which is worse
+      # than an honestly-narrower scan. So for slice 1, ZAP scans the real,
+      # running, unauthenticated surface (security headers, error handling,
+      # and passive checks on every endpoint — most will legitimately 401);
+      # authenticated business-logic coverage is Schemathesis's job above.
+      # Promoting ZAP to authenticated + active scan is tracked as a slice 2
+      # follow-up alongside the scheduled full-scan workflow.
+      # Pinned to a commit SHA per ADR-021's supply-chain posture (same as
+      # `dorny/paths-filter`/`gitleaks-action` above). SHA resolved from tag
+      # v0.10.0 via `gh api repos/zaproxy/action-api-scan/commits/v0.10.0`.
+      - name: ZAP baseline scan (passive, unauthenticated, advisory)
+        continue-on-error: true
+        uses: zaproxy/action-api-scan@5158fe4d9d8fcc75ea204db81317cce7f9e5453d # v0.10.0
+        with:
+          target: openapi-dast.json
+          format: openapi
+          rules_file_name: .zap/rules.tsv
+          allow_issue_writing: false
+          fail_action: false
+          cmd_options: '-J zap-report.json'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Guards against a silently-no-op ZAP run (e.g. it never actually
+      # reached the target file/host). A valid report with a `site` entry
+      # proves ZAP sent requests against our host, independent of how many
+      # alerts fired (a fully-401'd surface may legitimately have few/none).
+      - name: Verify ZAP actually scanned the target
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ ! -s zap-report.json ]; then
+            echo "::error::ZAP produced no report file — treat as a no-op run, not a clean scan."
+            exit 1
+          fi
+          jq -e '.site | length > 0' zap-report.json > /dev/null || {
+            echo "::error::ZAP report has no scanned site entries — treat as a no-op run."
+            exit 1
+          }
+          echo "ZAP scanned $(jq -r '.site[0]["@host"]' zap-report.json)."
+
   web:
     name: Typecheck & unit tests (web)
     needs: changes
@@ -424,7 +624,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, api, integration, web, mobile, landing, security]
+    needs: [changes, commitlint, release-please-config-check, api, integration, dast, web, mobile, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed
