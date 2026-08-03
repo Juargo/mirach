@@ -1,6 +1,28 @@
 {
   "components": {
     "schemas": {
+      "AuthLoginResponse": {
+        "additionalProperties": false,
+        "description": "POST /api/auth/login — successful authentication (AUTH-01).",
+        "properties": {
+          "expiresAt": {
+            "description": "ISO-8601 UTC timestamp.",
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "userId",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
       "AuthMeResponse": {
         "additionalProperties": false,
         "description": "GET /api/auth/me — the authenticated user identity (AUTH-09).",
@@ -651,6 +673,62 @@
           }
         },
         "summary": "Create or resume a demo session"
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "description": "Public endpoint (requires x-api-key only, session-public — no prior session needed) that authenticates a user and returns a session token (AUTH-01). Sets the `md_session` cookie (Set-Cookie) in addition to the JSON body.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthLoginResponse"
+                }
+              }
+            },
+            "description": "Authentication succeeded."
+          },
+          "401": {
+            "description": "Invalid credentials (scrubbed — never echoes email/password)."
+          },
+          "429": {
+            "description": "Rate-limited: too many failed login attempts from this IP/email combination."
+          }
+        },
+        "summary": "Authenticate with email and password"
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Public endpoint (requires x-api-key only, session-public) that invalidates the current session token (if any) and clears the `md_session` cookie. Always succeeds — an already missing or invalid token does not produce an error.",
+        "responses": {
+          "204": {
+            "description": "Session ended (or was already absent). No response body."
+          }
+        },
+        "summary": "End the current session"
       }
     },
     "/api/auth/me": {

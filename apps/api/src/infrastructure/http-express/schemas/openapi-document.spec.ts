@@ -144,6 +144,32 @@ describe('buildOpenApiDocument', () => {
     expect(authDemoPath?.get?.responses?.['429']).toBeDefined();
   });
 
+  it('registers POST /api/auth/login with a JSON requestBody and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const loginPath = document.paths?.['/api/auth/login'];
+    expect(loginPath).toBeDefined();
+    expect(loginPath?.post).toBeDefined();
+    const requestBody = loginPath?.post?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+    expect(loginPath?.post?.responses?.['200']).toBeDefined();
+    expect(loginPath?.post?.responses?.['401']).toBeDefined();
+    expect(loginPath?.post?.responses?.['429']).toBeDefined();
+  });
+
+  it('registers POST /api/auth/logout with a 204 response and no requestBody/response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const logoutPath = document.paths?.['/api/auth/logout'];
+    expect(logoutPath).toBeDefined();
+    expect(logoutPath?.post).toBeDefined();
+    expect(logoutPath?.post?.requestBody).toBeUndefined();
+    expect(logoutPath?.post?.responses?.['204']).toBeDefined();
+    expect(logoutPath?.post?.responses?.['204']?.content).toBeUndefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();
