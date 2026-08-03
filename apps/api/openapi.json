@@ -1,6 +1,122 @@
 {
   "components": {
     "schemas": {
+      "ResumenMesResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/resumen — 50/30/20 monthly breakdown (US-015/016).",
+        "properties": {
+          "buckets": {
+            "description": "Always 4 entries: Necesidades, Deseos, Ahorro, SinCategoria.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "bucket": {
+                  "description": "Bucket name (Bucket domain enum value).",
+                  "type": "string"
+                },
+                "estadoSemaforo": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "verde",
+                        "amarillo",
+                        "rojo"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Traffic-light health state, lowercase wire enum (US-016), or null."
+                },
+                "porcentajeBp": {
+                  "anyOf": [
+                    {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Basis-point percentage (0-10000). null when sinIngreso=true."
+                },
+                "total": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "bucket",
+                "total",
+                "porcentajeBp",
+                "estadoSemaforo"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "estadoGlobal": {
+            "anyOf": [
+              {
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Worst traffic-light state across measured buckets, or null."
+          },
+          "periodo": {
+            "description": "Resolved period, format YYYY-MM.",
+            "type": "string"
+          },
+          "sinIngreso": {
+            "type": "boolean"
+          },
+          "targets": {
+            "additionalProperties": false,
+            "description": "Hardcoded 50/30/20 reference targets.",
+            "properties": {
+              "Ahorro": {
+                "type": "number"
+              },
+              "Deseos": {
+                "type": "number"
+              },
+              "Necesidades": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "Necesidades",
+              "Deseos",
+              "Ahorro"
+            ],
+            "type": "object"
+          },
+          "totalIngreso": {
+            "description": "BigInt-safe decimal string amount (never a JSON number).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "periodo",
+          "totalIngreso",
+          "sinIngreso",
+          "buckets",
+          "targets",
+          "estadoGlobal"
+        ],
+        "type": "object"
+      },
       "VersionResponse": {
         "additionalProperties": false,
         "description": "Deployed build info for the API — GET /version.",
@@ -39,6 +155,38 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/resumen": {
+      "get": {
+        "description": "Authenticated endpoint returning the 50/30/20 budget breakdown for a month (US-015/016). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "parameters": [
+          {
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "in": "query",
+            "name": "periodo",
+            "schema": {
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenMesResponse"
+                }
+              }
+            },
+            "description": "Monthly resumen for the resolved period."
+          },
+          "400": {
+            "description": "Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO)."
+          }
+        },
+        "summary": "Monthly 50/30/20 breakdown"
+      }
+    },
     "/version": {
       "get": {
         "description": "Public, unauthenticated endpoint exposing the currently deployed build (ADR-030).",

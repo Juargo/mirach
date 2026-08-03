@@ -8,6 +8,7 @@ import {
 } from 'zod-openapi';
 
 import { versionResponseSchema } from './version.schema';
+import { resumenQuerySchema, resumenResponseSchema } from './resumen.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -38,6 +39,28 @@ const versionOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const resumenOperation: ZodOpenApiOperationObject = {
+  summary: 'Monthly 50/30/20 breakdown',
+  description:
+    'Authenticated endpoint returning the 50/30/20 budget breakdown for a month (US-015/016). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  requestParams: {
+    query: resumenQuerySchema,
+  },
+  responses: {
+    '200': {
+      description: 'Monthly resumen for the resolved period.',
+      content: {
+        'application/json': { schema: resumenResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO).',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -47,6 +70,7 @@ const versionOperation: ZodOpenApiOperationObject = {
  */
 const paths: ZodOpenApiPathsObject = {
   '/version': { get: versionOperation },
+  '/api/resumen': { get: resumenOperation },
 };
 
 export function buildOpenApiDocument() {

@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { resumenResponseSchema } from './schemas/resumen.schema';
 
 /**
  * GATE de Slice 1+2 (ADR-015, RNF-SEC-006): la cadena de auth completa montada
@@ -77,6 +78,16 @@ describe('GET /api/resumen — cadena de auth + aislamiento', () => {
       userId: 'user-de-sesion',
       periodo: undefined,
     });
+  });
+
+  it('el body 200 real cumple resumenResponseSchema (garantía de sincronía, openapi-contract-express)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/resumen')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido');
+
+    expect(res.status).toBe(200);
+    expect(() => resumenResponseSchema.parse(res.body)).not.toThrow();
   });
 
   it('health GET / sigue público (sin api-key ni sesión)', async () => {
