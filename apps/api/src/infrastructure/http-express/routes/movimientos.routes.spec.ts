@@ -79,4 +79,15 @@ describe('registrarMovimientos — GET /api/movimientos', () => {
 
     expect(res.status).toBe(500);
   });
+
+  it('400 scrubbeado si periodo llega como shape de transporte inválido (array), sin llamar al use case', async () => {
+    const uc = { execute: vi.fn() };
+    const res = await request(probeApp(uc)).get(
+      '/api/movimientos?periodo=2026-07&periodo=2026-08',
+    );
+
+    expect(res.status).toBe(400);
+    expect(uc.execute).not.toHaveBeenCalled();
+    expect(JSON.stringify(res.body)).not.toContain('2026-08');
+  });
 });

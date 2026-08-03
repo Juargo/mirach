@@ -33,6 +33,54 @@ describe('buildOpenApiDocument', () => {
     expect(resumenPath?.get?.responses?.['200']).toBeDefined();
   });
 
+  it('registers GET /api/resumen/anual with an anio query param and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const resumenAnualPath = document.paths?.['/api/resumen/anual'];
+    expect(resumenAnualPath).toBeDefined();
+    expect(resumenAnualPath?.get).toBeDefined();
+    expect(resumenAnualPath?.get?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'anio' })]),
+    );
+    expect(resumenAnualPath?.get?.responses?.['200']).toBeDefined();
+  });
+
+  it('registers GET /api/movimientos with a periodo query param and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const movimientosPath = document.paths?.['/api/movimientos'];
+    expect(movimientosPath).toBeDefined();
+    expect(movimientosPath?.get).toBeDefined();
+    expect(movimientosPath?.get?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'periodo' })]),
+    );
+    expect(movimientosPath?.get?.responses?.['200']).toBeDefined();
+  });
+
+  it('registers GET /api/buckets/{bucket} with a bucket path param, a periodo query param, and a response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const bucketsPath = document.paths?.['/api/buckets/{bucket}'];
+    expect(bucketsPath).toBeDefined();
+    expect(bucketsPath?.get).toBeDefined();
+    expect(bucketsPath?.get?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'bucket', in: 'path' }),
+        expect.objectContaining({ name: 'periodo', in: 'query' }),
+      ]),
+    );
+    expect(bucketsPath?.get?.responses?.['200']).toBeDefined();
+  });
+
+  it('registers GET /api/ingestas with a response schema (no query/path params)', () => {
+    const document = buildOpenApiDocument();
+
+    const ingestasPath = document.paths?.['/api/ingestas'];
+    expect(ingestasPath).toBeDefined();
+    expect(ingestasPath?.get).toBeDefined();
+    expect(ingestasPath?.get?.responses?.['200']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

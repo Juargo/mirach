@@ -7,6 +7,7 @@ import { ResumenAnualInvalidoError } from '../../../domain/errors/resumen-anual-
 import { aResumenMesDto } from '../../http/dto/resumen-mes.dto';
 import { aResumenAnualDto } from '../../http/dto/resumen-anual.dto';
 import { resumenQuerySchema } from '../schemas/resumen.schema';
+import { resumenAnualQuerySchema } from '../schemas/resumen-anual.schema';
 
 /**
  * registrarResumen — port del ResumenController a handlers Express (ADR-028).
@@ -68,9 +69,20 @@ export function registrarResumen(
 
   router.get('/resumen/anual', async (req, res, next) => {
     try {
+      // Boundary schema validates TRANSPORT SHAPE ONLY (openapi-contract-express
+      // design, layer-honesty gate) — it does NOT know the year-range rule,
+      // that stays a domain concern (AnioInvalidoError) handled below.
+      const parsedQuery = resumenAnualQuerySchema.safeParse(req.query);
+      if (!parsedQuery.success) {
+        res.status(400).json({
+          message: 'Parámetros de consulta inválidos.',
+        });
+        return;
+      }
+
       const result = await calcularResumenAnual.execute({
         userId: req.userId!,
-        anio: queryString(req.query.anio),
+        anio: parsedQuery.data.anio,
       });
 
       if (result.isFail()) {
@@ -106,9 +118,4 @@ export function registrarResumen(
       next(err);
     }
   });
-}
-
-/** Express puede entregar string[] si el query se repite — normaliza a string|undefined. */
-function queryString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
 }

@@ -148,5 +148,16 @@ describe('registrarResumen', () => {
 
       expect(res.status).toBe(400);
     });
+
+    it('400 scrubbeado si anio llega como shape de transporte inválido (array), sin llamar al use case', async () => {
+      const anual = { execute: vi.fn() };
+      const res = await request(probeApp({ execute: vi.fn() }, anual)).get(
+        '/api/resumen/anual?anio=2026&anio=2027',
+      );
+
+      expect(res.status).toBe(400);
+      expect(anual.execute).not.toHaveBeenCalled();
+      expect(JSON.stringify(res.body)).not.toContain('2027');
+    });
   });
 });
