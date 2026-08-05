@@ -22,7 +22,7 @@ fecha_actualizacion: 2026-08-05
 
 - **Capa 1 (lint):** `eslint-plugin-react-native-a11y` en el gate de ESLint (13 de sus 14 reglas de `all` activas como error). Se **desactivó `has-accessibility-hint`**: `accessibilityHint` es opcional por diseño (RN docs / Apple HIG) y forzarlo en cada control agrega verbosidad que perjudica al lector de pantalla. Corre con ESLint 9 (ver ADR-020: eslint-config-expo fija esa major).
 - **Capa 2 (componentes/CI):** **se descartó `react-native-accessibility-engine`** — su v3.2.0 crashea con `react-test-renderer` 19 / React Native 0.86 (accede a internals de RTR que React 19 cambió; proyecto sin mantenimiento). La capa 2 se cubre con las **queries semánticas de RNTL** (`getByRole`/`getByLabelText` + matchers a11y integrados en `@testing-library/react-native` 14), que este ADR ya listaba como parte de la capa 2. El criterio central "color + texto" del semáforo (US-016) ya estaba verificado así.
-- **Capas 3 (VoiceOver/TalkBack manual + Maestro) y 4 (checklist WCAG 2.2 AA) siguen pendientes** — son manuales/proceso, no automatizables en CI. La automatización cubre ~57% (ver nota abajo); no marcan "a11y hecho" por sí solas.
+- **Capas 3 (VoiceOver/TalkBack manual + Maestro) y 4 (checklist WCAG 2.2 AA): procedimiento documentado, ejecución manual pendiente** — son manuales/proceso, no automatizables en CI. El runbook `docs/mobile-a11y-runbook.md` fija el paso a paso (VoiceOver/TalkBack sobre los flujos críticos + checklist WCAG 2.2 AA + criterio PASA/NO PASA + DoD), con un flujo Maestro de etiquetas accesibles (`.maestro/a11y-labels.yaml`) como smoke semi-automatizable. La automatización cubre ~57% (ver nota abajo); no marcan "a11y hecho" por sí solas.
 
 ---
 
