@@ -156,6 +156,15 @@ jobs:
       - name: Typecheck API
         run: pnpm api exec tsc --noEmit
 
+      # ESLint gate (ADR-020): hooks are skippable with --no-verify, so CI must
+      # re-run lint or the guarantee is illusory. Uses `lint:ci` (no --fix) so
+      # this FAILS on violations instead of silently auto-fixing them in the
+      # throwaway runner. `recommendedTypeChecked` needs the Prisma client, so
+      # this runs after `Generate Prisma client`. Warnings (e.g. the excel
+      # no-unsafe-argument ones) do not fail the run by design — only errors do.
+      - name: Lint API
+        run: pnpm api lint:ci
+
       # Fail-closed guard (ADR-029, Slice 6): `.env.example` is DERIVED from
       # src/config/env.ts (EnvObjectSchema). If someone adds/removes/renames a
       # schema field without regenerating, this catches the drift before
@@ -481,6 +490,13 @@ jobs:
 
       - name: Typecheck web
         run: pnpm web typecheck
+
+      # ESLint gate (ADR-020): same rationale as the API lint step. web's `lint`
+      # is `eslint .` (no --fix, already a pure check); `dist` is ignored via
+      # globalIgnores and the generated routeTree.gen.ts (from `tsr generate` in
+      # the typecheck step above) ships an /* eslint-disable */ header.
+      - name: Lint web
+        run: pnpm web lint
 
       - name: Unit tests web
         run: pnpm web test
