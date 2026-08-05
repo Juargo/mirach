@@ -534,6 +534,15 @@ jobs:
       - name: Typecheck mobile
         run: pnpm --filter @moneydiary/mobile exec tsc --noEmit
 
+      # ESLint gate (ADR-020): parity with api/web. Base is eslint-config-expo
+      # (Expo's idiomatic RN/React ruleset) plus Prettier via
+      # eslint-plugin-prettier. `lint` is `eslint .` (pure check, no --fix).
+      # Warnings do not fail the run by design — only errors do. Needs ESLint 9
+      # (eslint-config-expo 57 pulls eslint-plugin-react, which predates the
+      # ESLint 10 rule-context API).
+      - name: Lint mobile
+        run: pnpm --filter @moneydiary/mobile lint
+
       - name: Unit tests mobile
         run: pnpm --filter @moneydiary/mobile test
 
