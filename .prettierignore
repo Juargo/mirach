@@ -1,6 +1,6 @@
 # apps/api/openapi.json is a DETERMINISTIC build artifact emitted by
-# `pnpm api openapi:emit` (schema-sorted keys, fixed formatting). Prettier
-# reformatting it via lint-staged would fight the CI drift-check
+# `pnpm api openapi:emit` (schema-sorted keys, fixed formatting). A manual
+# `prettier --write` over it would fight the CI drift-check
 # (`pnpm api openapi:check`) with false positives — see
 # openapi-contract-express design decision on determinism.
 apps/api/openapi.json

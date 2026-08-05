@@ -8,7 +8,7 @@ tags:
 proyecto: MoneyDiary
 estado: ✅ Decidido
 fecha_creacion: 2026-07-12
-fecha_actualizacion: 2026-07-27
+fecha_actualizacion: 2026-08-05
 ---
 
 # ADR-020 — Git Hooks en el monorepo: Husky + lint-staged + commitlint (config a nivel raíz)
@@ -18,6 +18,8 @@ fecha_actualizacion: 2026-07-27
 ✅ **Decidido** — aplicable desde ya en `apps/api` y `apps/web`; `apps/mobile` se suma a las mismas reglas al scaffoldearse (post-MVP, ADR-010 App Mobile).
 
 ✅ **Implementado** — esta decisión quedó documentada pero sin construir hasta que se convirtió en **precondición del Slice A** del change SDD `versioning-release-automation` (ADR-030 Versionado y Automatización de Releases): Husky v9 (solo raíz) + commitlint + lint-staged, más un job `commitlint` en CI que corre el mismo gate. Mergeado a `main` vía PR #118 (2026-07-27).
+
+✅ **Gate de CI completado (2026-08-05)** — el principio "CI re-corre las mismas verificaciones" (ver más abajo) no se cumplía para ESLint: el lint vivía **solo** en el hook `pre-commit` (salteable con `--no-verify`). Se añadió un step **`Lint`** a los jobs `api` y `web` de CI (PR #225). Con esto el formato Prettier —que se hace cumplir vía `eslint-plugin-prettier` (regla `prettier/prettier`)— también queda verificado en CI. `apps/web` ganó paridad con `apps/api` (mismo `eslint-plugin-prettier` + `.prettierrc`). `apps/mobile` sigue sin ESLint configurado, por lo que queda sin gate (trabajo futuro).
 
 ---
 
@@ -106,18 +108,18 @@ pnpm exec husky init      # crea .husky/ y el script prepare
 pnpm lint-staged
 ```
 
-`lint-staged` (raíz, en `package.json` o `.lintstagedrc`):
+`lint-staged` (raíz, `.lintstagedrc.json`) — **implementación real**:
 
 ```jsonc
 {
-  "apps/api/**/*.ts":        ["pnpm --filter @moneydiary/api exec eslint --fix"],
-  "apps/web/**/*.{ts,tsx}":  ["pnpm --filter @moneydiary/web exec eslint --fix"],
-  "**/*.{json,md,yml}":      ["prettier --write"]
+  "apps/api/**/*.ts":        "pnpm --filter @moneydiary/api exec eslint --fix",
+  "apps/web/**/*.{ts,tsx}":  "pnpm --filter @moneydiary/web exec eslint --fix"
 }
 ```
 
-- **Typecheck**: `tsc` es por-proyecto, no por-archivo. Se ejecuta el typecheck del workspace **solo si cambiaron archivos suyos** (comando por-workspace disparado desde la entrada de `lint-staged` correspondiente, p. ej. `pnpm --filter @moneydiary/web typecheck`). Se evita typechequear todo el repo en cada commit.
-- Cuando entre `apps/mobile`, se añade su glob (`apps/mobile/**/*.{ts,tsx}` → su ESLint, incl. `eslint-plugin-react-native-a11y` de ADR-018 Testing Accesibilidad y UX).
+- **Prettier**: NO corre como paso propio (`prettier --write`) en lint-staged. El formato se hace cumplir **a través de ESLint** vía `eslint-plugin-prettier` (regla `prettier/prettier: error`) en `apps/api` **y** `apps/web`, con un `.prettierrc` por workspace (`singleQuote: true`, `trailingComma: all`). Así el mismo `eslint --fix` de arriba formatea, y el gate de ESLint en CI lo verifica. No hay formateo de `json/md/yml`.
+- **Typecheck**: NO corre en pre-commit. `tsc` es por-proyecto (caro por-archivo), así que se delega enteramente al **gate de CI** (typecheck por workspace). Evita penalizar cada commit local.
+- Cuando entre `apps/mobile`, se añade su glob (`apps/mobile/**/*.{ts,tsx}` → su ESLint, incl. `eslint-plugin-react-native-a11y` de ADR-018 Testing Accesibilidad y UX). Hoy mobile aún no tiene ESLint configurado, por lo que queda sin gate.
 
 **`.husky/commit-msg`** → Conventional Commits:
 
@@ -139,10 +141,10 @@ pnpm -r --filter "...[origin/main]" test
 
 | Hook | Qué corre | Alcance |
 |---|---|---|
-| `pre-commit` | ESLint `--fix` + Prettier + typecheck del workspace tocado | Solo archivos/paquetes staged |
+| `pre-commit` | ESLint `--fix` (incluye Prettier vía `eslint-plugin-prettier` en api y web) | Solo archivos staged, rutados por glob |
 | `commit-msg` | commitlint (Conventional Commits) | Mensaje del commit |
 | `pre-push` | Tests de workspaces afectados (Vitest) | Solo lo afectado vs `origin/main` |
-| **CI (gate real)** | Lint + typecheck + tests **completos** + checklist seguridad | Todo el repo — ADR-015 Técnicas de Verificación de Requisitos |
+| **CI (gate real)** | ESLint (incl. Prettier) + typecheck + tests **completos** + checklist seguridad | Todo el repo — ADR-015 Técnicas de Verificación de Requisitos |
 
 ---
 
@@ -182,4 +184,4 @@ pnpm -r --filter "...[origin/main]" test
 
 ---
 
-*Fecha de decisión: 2026-07-12 · Última actualización: 2026-07-12*
+*Fecha de decisión: 2026-07-12 · Última actualización: 2026-08-05*
