@@ -19,7 +19,7 @@ fecha_actualizacion: 2026-08-05
 
 ✅ **Implementado** — esta decisión quedó documentada pero sin construir hasta que se convirtió en **precondición del Slice A** del change SDD `versioning-release-automation` (ADR-030 Versionado y Automatización de Releases): Husky v9 (solo raíz) + commitlint + lint-staged, más un job `commitlint` en CI que corre el mismo gate. Mergeado a `main` vía PR #118 (2026-07-27).
 
-✅ **Gate de CI completado (2026-08-05)** — el principio "CI re-corre las mismas verificaciones" (ver más abajo) no se cumplía para ESLint: el lint vivía **solo** en el hook `pre-commit` (salteable con `--no-verify`). Se añadió un step **`Lint`** a los jobs `api` y `web` de CI (PR #225). Con esto el formato Prettier —que se hace cumplir vía `eslint-plugin-prettier` (regla `prettier/prettier`)— también queda verificado en CI. `apps/web` ganó paridad con `apps/api` (mismo `eslint-plugin-prettier` + `.prettierrc`). `apps/mobile` sigue sin ESLint configurado, por lo que queda sin gate (trabajo futuro).
+✅ **Gate de CI completado (2026-08-05)** — el principio "CI re-corre las mismas verificaciones" (ver más abajo) no se cumplía para ESLint: el lint vivía **solo** en el hook `pre-commit` (salteable con `--no-verify`). Se añadió un step **`Lint`** a los jobs `api` y `web` de CI (PR #225). Con esto el formato Prettier —que se hace cumplir vía `eslint-plugin-prettier` (regla `prettier/prettier`)— también queda verificado en CI. `apps/web` ganó paridad con `apps/api` (mismo `eslint-plugin-prettier` + `.prettierrc`, PR #226). `apps/mobile` también se sumó al gate (change `eslint-mobile`, 2026-08-05): base `eslint-config-expo` —el ruleset idiomático de Expo (React Native + React)— + Prettier vía `eslint-plugin-prettier` con su `.prettierrc` espejo. Corre con **ESLint 9** (eslint-config-expo 57 arrastra `eslint-plugin-react`, previo a la API de reglas de ESLint 10). La a11y estricta (`eslint-plugin-react-native-a11y`, ADR-018) sigue diferida (post-MVP).
 
 ---
 
@@ -119,7 +119,7 @@ pnpm lint-staged
 
 - **Prettier**: NO corre como paso propio (`prettier --write`) en lint-staged. El formato se hace cumplir **a través de ESLint** vía `eslint-plugin-prettier` (regla `prettier/prettier: error`) en `apps/api` **y** `apps/web`, con un `.prettierrc` por workspace (`singleQuote: true`, `trailingComma: all`). Así el mismo `eslint --fix` de arriba formatea, y el gate de ESLint en CI lo verifica. No hay formateo de `json/md/yml`.
 - **Typecheck**: NO corre en pre-commit. `tsc` es por-proyecto (caro por-archivo), así que se delega enteramente al **gate de CI** (typecheck por workspace). Evita penalizar cada commit local.
-- Cuando entre `apps/mobile`, se añade su glob (`apps/mobile/**/*.{ts,tsx}` → su ESLint, incl. `eslint-plugin-react-native-a11y` de ADR-018 Testing Accesibilidad y UX). Hoy mobile aún no tiene ESLint configurado, por lo que queda sin gate.
+- `apps/mobile` ya tiene ESLint (flat config `eslint-config-expo/flat` + Prettier vía `eslint-plugin-prettier`, con su propio `.prettierrc`) y su step `Lint mobile` en CI. Corre con ESLint 9 (ver Estado). La a11y estricta con `eslint-plugin-react-native-a11y` (ADR-018 Testing Accesibilidad y UX) queda para cuando se ejecute esa decisión (post-MVP).
 
 **`.husky/commit-msg`** → Conventional Commits:
 
