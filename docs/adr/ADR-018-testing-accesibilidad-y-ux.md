@@ -9,7 +9,7 @@ tags:
 proyecto: MoneyDiary
 estado: ✅ Decidido
 fecha_creacion: 2026-07-12
-fecha_actualizacion: 2026-07-12
+fecha_actualizacion: 2026-08-05
 ---
 
 # ADR-018 — Testing de Accesibilidad (a11y) + UX: pila por capas web y mobile
@@ -17,6 +17,12 @@ fecha_actualizacion: 2026-07-12
 ## Estado
 
 ✅ **Decidido** — la pila **web** se aplica en `apps/web` desde ya; la pila **mobile** es **post-MVP** (se activa con `apps/mobile`, ADR-010 App Mobile). Complementa el stack de testing funcional (ADR-016 Testing Framework Vitest, ADR-017 Testing Mobile) con la dimensión de accesibilidad, y enlaza la validación de UX con ADR-014 Técnicas de Validación de Requisitos.
+
+✅ **Implementado en mobile — capas automatizables 1 y 2 (2026-08-05)** — sobre la config de ESLint de `apps/mobile` (ADR-020):
+
+- **Capa 1 (lint):** `eslint-plugin-react-native-a11y` en el gate de ESLint (13 de sus 14 reglas de `all` activas como error). Se **desactivó `has-accessibility-hint`**: `accessibilityHint` es opcional por diseño (RN docs / Apple HIG) y forzarlo en cada control agrega verbosidad que perjudica al lector de pantalla. Corre con ESLint 9 (ver ADR-020: eslint-config-expo fija esa major).
+- **Capa 2 (componentes/CI):** **se descartó `react-native-accessibility-engine`** — su v3.2.0 crashea con `react-test-renderer` 19 / React Native 0.86 (accede a internals de RTR que React 19 cambió; proyecto sin mantenimiento). La capa 2 se cubre con las **queries semánticas de RNTL** (`getByRole`/`getByLabelText` + matchers a11y integrados en `@testing-library/react-native` 14), que este ADR ya listaba como parte de la capa 2. El criterio central "color + texto" del semáforo (US-016) ya estaba verificado así.
+- **Capas 3 (VoiceOver/TalkBack manual + Maestro) y 4 (checklist WCAG 2.2 AA) siguen pendientes** — son manuales/proceso, no automatizables en CI. La automatización cubre ~57% (ver nota abajo); no marcan "a11y hecho" por sí solas.
 
 ---
 
@@ -50,7 +56,7 @@ La decisión no es "una herramienta" sino **una pila por capas**; se evaluó qu�
 
 - **Web — Opción A: `jest-axe`** ❌ — atado a Jest, que ADR-016 Testing Framework Vitest retira.
 - **Web — Opción B: `vitest-axe`** ✅ (elegida) — wrapper de axe-core para Vitest; corre en las mismas suites de componentes. Complementado con las **queries semánticas de Testing Library** (`getByRole`, `getByLabelText`) que ya son parte del stack.
-- **Mobile — Opción C: `react-native-accessibility-engine`** ✅ (elegida) — aserciones a11y sobre el árbol de RN con React Test Renderer, encaja en Jest (`jest-expo`, ADR-017 Testing Mobile). Complementado con las queries semánticas de **React Native Testing Library** (`getByRole`, `getByLabelText`).
+- **Mobile — Opción C: `react-native-accessibility-engine`** ✅ (elegida en diseño) — aserciones a11y sobre el árbol de RN con React Test Renderer, encaja en Jest (`jest-expo`, ADR-017 Testing Mobile). Complementado con las queries semánticas de **React Native Testing Library** (`getByRole`, `getByLabelText`). ⚠️ **Descartado en implementación (2026-08-05):** su v3.2.0 no soporta `react-test-renderer` 19 / RN 0.86 (crashea al inicializar, accede a internals de RTR que React 19 cambió; proyecto sin mantenimiento). La capa 2 quedó cubierta por las **queries semánticas de RNTL** — el complemento ya previsto en esta misma opción.
 
 ### Capa 3 — E2E / runtime (app corriendo)
 
@@ -71,7 +77,7 @@ La decisión no es "una herramienta" sino **una pila por capas**; se evaluó qu�
 | Capa | Web (`apps/web`) | Mobile (`apps/mobile`, post-MVP) |
 |---|---|---|
 | **Autoría (lint)** | `eslint-plugin-jsx-a11y` | `eslint-plugin-react-native-a11y` |
-| **Componentes (CI)** | `vitest-axe` + queries semánticas de Testing Library | `react-native-accessibility-engine` + queries semánticas de RNTL |
+| **Componentes (CI)** | `vitest-axe` + queries semánticas de Testing Library | queries semánticas de RNTL (`getByRole`/`getByLabelText`) — `react-native-accessibility-engine` **descartado** por incompatibilidad con RTR 19/RN 0.86 (ver Estado) |
 | **E2E / runtime** | `@axe-core/playwright` (gate por PR) | VoiceOver / TalkBack manual + flujos Maestro; AMA opcional en dev |
 | **Manual / heurística** | Checklist WCAG 2.2 AA + heurísticas Nielsen | Checklist WCAG 2.2 AA (táctil/lector) + heurísticas Nielsen |
 | **UX (validación)** | Pruebas de usabilidad, SUS, think-aloud → ADR-014 Técnicas de Validación de Requisitos | ídem |
@@ -135,4 +141,4 @@ pnpm mobile add -D eslint-plugin-react-native-a11y react-native-accessibility-en
 
 ---
 
-*Fecha de decisión: 2026-07-12 · Última actualización: 2026-07-12*
+*Fecha de decisión: 2026-07-12 · Última actualización: 2026-08-05*
