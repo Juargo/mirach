@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "tsx src/infrastructure/http-express/server.ts",
+    "dev": "tsx watch src/infrastructure/http-express/server.ts",
     "start:prod": "node dist/infrastructure/http-express/server",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "lint:ci": "eslint \"{src,apps,libs,test}/**/*.ts\"",
