@@ -79,7 +79,12 @@ model Ingesta {
   // (single-writer, persistirProcesada) + CHECK en BD (raw SQL, ver
   // migración) — Prisma no modela CHECK.
   accountId          String?
-  account            Account?      @relation(fields: [accountId], references: [id])
+  // `onDelete: Restrict` explícito: la BD deployada tiene el FK con RESTRICT
+  // (migración 20260710175729, previa a US-004) y el default de Prisma para
+  // una relación opcional es SetNull — sin el pin, todo `migrate dev` detecta
+  // drift y regenera una migración que nadie pidió. SetNull además chocaría
+  // con el CHECK de arriba al borrar un Account con ingestas PROCESADAS.
+  account            Account?      @relation(fields: [accountId], references: [id], onDelete: Restrict)
   // US-004: relajado a nullable por la misma razón que accountId — una
   // FALLIDA temprana no tiene banco resuelto.
   banco              String?
