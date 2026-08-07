@@ -13,13 +13,19 @@ export const CTA = {
   label: 'Solicitar acceso beta',
 } as const;
 
+const APP_URL = import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173';
+
 export const APP = {
   /** Web app URL, resuelto por ambiente en build (Astro estático). Prod/preview:
    * `PUBLIC_APP_URL` (seteada en el proyecto Vercel del landing =
    * `https://app.moneydiary.cl`); dev: fallback al server local (`pnpm web dev`).
    * De acá derivan "Ingresar" (`APP`) y "Probar" (`PROBAR`), así que en prod
    * ambos apuntan al web correcto. */
-  url: import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173',
+  url: APP_URL,
+  /** Destino del CTA "Ingresar": la ruta `/login`, no la raíz de la app —
+   * apuntar a la raíz permitía que una cookie de sesión demo residual saltara
+   * directo al dashboard sin pasar por el formulario de login (bugfix). */
+  loginHref: `${APP_URL}/login`,
   label: 'Ingresar',
 } as const;
 
