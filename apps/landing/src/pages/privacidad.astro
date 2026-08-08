@@ -1,0 +1,95 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { CTA, SITE } from '../config';
+---
+
+<Layout title={`Política de privacidad — ${SITE.title}`}>
+  <Header />
+  <main id="main" class="scroll-mt-20 px-6 py-16 sm:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-display text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
+      >
+        Política de privacidad
+      </h1>
+      <p class="mt-4 text-body-sm text-on-surface-variant">
+        Última actualización: 8 de agosto de 2026
+      </p>
+
+      <div class="mt-10 space-y-8 text-body-sm leading-relaxed text-on-surface-variant">
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Qué datos almacenamos
+          </h2>
+          <p class="mt-2">
+            Guardamos los datos necesarios para acceder a tu cuenta y los
+            movimientos bancarios que subes voluntariamente desde tus
+            cartolas en formato Excel o PDF. No accedemos a información
+            bancaria que no hayas cargado tú mismo.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Cómo protegemos tus datos
+          </h2>
+          <p class="mt-2">
+            Tus datos se almacenan cifrados en reposo. Los campos más
+            sensibles llevan además una capa adicional de cifrado a nivel de
+            aplicación.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Dónde se alojan tus datos
+          </h2>
+          <p class="mt-2">
+            MoneyDiary funciona sobre proveedores de infraestructura en la
+            nube. No operamos servidores propios.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            No vendemos tus datos
+          </h2>
+          <p class="mt-2">
+            No vendemos tus datos ni los compartimos con terceros con fines
+            comerciales.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Contacto y eliminación de datos
+          </h2>
+          <p class="mt-2">
+            Si quieres eliminar tu cuenta o tus datos, escríbenos a
+            <a
+              href={CTA.href}
+              class="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              beta@moneydiary.cl
+            </a>
+            y lo resolveremos directamente contigo.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Estado beta
+          </h2>
+          <p class="mt-2">
+            MoneyDiary está en fase beta. Esta política puede actualizarse a
+            medida que el producto evoluciona.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>

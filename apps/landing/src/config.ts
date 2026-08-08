@@ -38,13 +38,6 @@ export const PROBAR = {
   label: 'Probar',
 } as const;
 
-// !!! PLACEHOLDER — Replace with verified metrics before public launch !!!
-export const SOCIAL_PROOF = {
-  users: '+11.000',
-  rating: '4.7',
-  reviews: '—',
-} as const;
-
 export interface FAQItem {
   q: string;
   a: string;
@@ -77,17 +70,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
 ];
 
-export const NEWSLETTER = {
-  /** ConvertKit/Mailchimp form action URL — replace with real URL before deploy */
-  action: '',
-  placeholder: 'tu@email.com',
-  buttonLabel: 'Suscribirme',
-  privacyNotice:
-    'Solo te escribiremos sobre novedades de MoneyDiary. Sin spam, prometido.',
-} as const;
-
 export const PRIVACY = {
-  /** Privacy policy URL — replace when Track C delivers the real URL */
-  url: '#',
+  url: '/privacidad',
   label: 'Política de privacidad',
 } as const;
