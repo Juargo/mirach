@@ -31,6 +31,20 @@ const LOCALHOST_PATTERN = /(^|@|\/\/)(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i;
  */
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 
+/**
+ * Pathname donde `auth-google.routes.ts` monta el callback (design §8) —
+ * única fuente de verdad para la assertion de boot Y para el default local
+ * de abajo, así ninguno de los dos puede desincronizarse del otro.
+ */
+export const GOOGLE_CALLBACK_PATHNAME = '/api/auth/google/callback';
+
+/**
+ * Default de `GOOGLE_REDIRECT_URI` para development/test (§8) — mismo host
+ * que el dev server de Vite (`CORS_ALLOWED_ORIGINS` default). NUNCA se aplica
+ * en producción: ver `withGoogleRedirectUriDefault`.
+ */
+const DEFAULT_GOOGLE_REDIRECT_URI = `http://localhost:5173${GOOGLE_CALLBACK_PATHNAME}`;
+
 export function isValid32ByteBase64Key(value: string): boolean {
   if (!BASE64_PATTERN.test(value) || value.length % 4 !== 0) {
     return false;
@@ -124,6 +138,26 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Orígenes de navegador permitidos para CORS, separados por coma. Es una ALLOWLIST — nunca "*": CORS no protege la API (eso lo hacen api-key/sesión), solo autoriza a un origen distinto a LEER la respuesta. Default: el dev server del web (http://localhost:5173). En producción se setea al origen del web desplegado vía el dashboard de Render.',
     ),
+  GOOGLE_CLIENT_ID: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Client ID de OAuth 2.0 de Google (auth-google-login, ADR-034). Opcional: activación por presencia — ver GOOGLE_CLIENT_SECRET. Ausente = feature apagada (kill switch código-cero, design §4.5/§8).',
+    ),
+  GOOGLE_CLIENT_SECRET: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Client secret de OAuth 2.0 de Google. Regla all-or-nothing con GOOGLE_CLIENT_ID (superRefine): exactamente una de las dos presente falla el boot — un cliente OAuth a medio configurar nunca es un apagado silencioso.',
+    ),
+  GOOGLE_REDIRECT_URI: z
+    .url()
+    .optional()
+    .describe(
+      `URL absoluta del callback de Google (${GOOGLE_CALLBACK_PATHNAME}). Requerida (https) en producción cuando el feature está activo; en development/test, si falta, se completa con http://localhost:5173${GOOGLE_CALLBACK_PATHNAME}. El pathname DEBE ser exactamente ${GOOGLE_CALLBACK_PATHNAME} (assertion de boot, design §8) — no protege contra un mismatch con lo registrado en Google Cloud Console, eso se verifica manualmente (§11.4).`,
+    ),
 });
 
 type EnvSource = z.infer<typeof EnvObjectSchema>;
@@ -182,6 +216,102 @@ function refineByEnvironment(
       message: `En ${env.NODE_ENV} la cadena de conexión debe apuntar a localhost.`,
     });
   }
+
+  refineGoogleAuthEnv(env, ctx);
+}
+
+/**
+ * Reglas de `auth-google-login` (ADR-034, design §8) — separadas de
+ * `refineByEnvironment` por legibilidad, misma razón que esa función ya
+ * documenta para sí misma.
+ *
+ * Activación por presencia: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` son el
+ * ÚNICO gate (AUTH-16) — `GOOGLE_REDIRECT_URI` es una regla de
+ * buena-forma de la configuración YA activa, nunca un tercer switch.
+ */
+function refineGoogleAuthEnv(
+  env: EnvSource,
+  ctx: z.RefinementCtx<EnvSource>,
+): void {
+  const clientIdPresente = env.GOOGLE_CLIENT_ID !== undefined;
+  const clientSecretPresente = env.GOOGLE_CLIENT_SECRET !== undefined;
+
+  if (clientIdPresente !== clientSecretPresente) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_CLIENT_ID'],
+      message:
+        'GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET deben estar ambas presentes o ambas ausentes (all-or-nothing) — un cliente OAuth a medio configurar no es un apagado silencioso.',
+    });
+    return;
+  }
+
+  const googleActivo = clientIdPresente && clientSecretPresente;
+
+  if (!googleActivo) {
+    return;
+  }
+
+  if (env.GOOGLE_REDIRECT_URI === undefined) {
+    // En development/test esto nunca dispara: `loadEnv` completa el default
+    // ANTES de parsear (`withGoogleRedirectUriDefault`). Si llegamos acá con
+    // el feature activo y sin URI, es producción sin configurar.
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_REDIRECT_URI'],
+      message:
+        'GOOGLE_REDIRECT_URI es requerida en producción cuando Google login está activo (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET presentes).',
+    });
+    return;
+  }
+
+  if (
+    env.NODE_ENV === 'production' &&
+    env.GOOGLE_REDIRECT_URI.startsWith('http://')
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_REDIRECT_URI'],
+      message: 'En producción GOOGLE_REDIRECT_URI debe ser https.',
+    });
+    return;
+  }
+
+  const pathname = new URL(env.GOOGLE_REDIRECT_URI).pathname;
+
+  if (pathname !== GOOGLE_CALLBACK_PATHNAME) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_REDIRECT_URI'],
+      message: `GOOGLE_REDIRECT_URI tiene el pathname "${pathname}", pero la ruta de callback está montada en "${GOOGLE_CALLBACK_PATHNAME}". Deben coincidir exactamente o todo login con Google fallará.`,
+    });
+  }
+}
+
+/**
+ * Completa `GOOGLE_REDIRECT_URI` con el default local ANTES de parsear
+ * (design §8) — nunca en producción, donde la ausencia debe fallar el boot
+ * (`refineGoogleAuthEnv`). Lee `NODE_ENV` del `source` crudo con el MISMO
+ * default ('development') que el propio schema aplicaría, porque este paso
+ * corre antes de que Zod exista para aplicarlo.
+ */
+function withGoogleRedirectUriDefault(
+  source: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  const nodeEnv = source.NODE_ENV ?? 'development';
+  const ambasCredencialesPresentes =
+    source.GOOGLE_CLIENT_ID !== undefined &&
+    source.GOOGLE_CLIENT_SECRET !== undefined;
+
+  if (
+    nodeEnv !== 'production' &&
+    ambasCredencialesPresentes &&
+    source.GOOGLE_REDIRECT_URI === undefined
+  ) {
+    return { ...source, GOOGLE_REDIRECT_URI: DEFAULT_GOOGLE_REDIRECT_URI };
+  }
+
+  return source;
 }
 
 export const EnvSchema = EnvObjectSchema.superRefine(refineByEnvironment);
@@ -203,7 +333,7 @@ function formatEnvError(error: z.ZodError): string {
  * hacen los specs) evita mutar variables de entorno globales en tests.
  */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = EnvSchema.safeParse(source);
+  const result = EnvSchema.safeParse(withGoogleRedirectUriDefault(source));
 
   if (!result.success) {
     throw new Error(formatEnvError(result.error));
