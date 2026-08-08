@@ -72,6 +72,16 @@ function oauthCookieHeader(
   )[0];
 }
 
+/**
+ * Locks the "redirect + no session on failure" contract (design §6.1): every
+ * failure branch of the callback clears `md_oauth` but must NEVER set
+ * `md_session` — a future refactor that moves session issuance earlier
+ * couldn't silently leak a session past this assertion (4R R3 WARNING).
+ */
+function expectNoSessionCookie(cookies: (string | undefined)[]): void {
+  expect(cookies.some((c) => c?.startsWith('md_session='))).toBe(false);
+}
+
 describe('registrarAuthGoogle — GET /api/auth/google (initiate)', () => {
   it('403 si no es navegación top-level (Sec-Fetch guard, AUTH-11) — no llama a iniciador ni setea cookie', async () => {
     const d = deps();
@@ -148,6 +158,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe(GENERIC_FAILURE_REDIRECT);
     expect(d.verificador.verificar).not.toHaveBeenCalled();
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it('sin cookie md_oauth en absoluto → 302 genérico, verificador nunca invocado', async () => {
@@ -159,6 +170,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe(GENERIC_FAILURE_REDIRECT);
     expect(d.verificador.verificar).not.toHaveBeenCalled();
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it('md_oauth se limpia incluso en la rama de state mismatch (Max-Age=0)', async () => {
@@ -173,6 +185,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
         (c) => c?.startsWith('md_oauth=;') && c.includes('Max-Age=0'),
       ),
     ).toBe(true);
+    expectNoSessionCookie(cookies);
   });
 
   it('callback happy path: Set-Cookie md_session (mismos atributos que password login) + 302 a / + md_oauth limpiada', async () => {
@@ -216,6 +229,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe(GENERIC_FAILURE_REDIRECT);
     expect(d.verificador.verificar).toHaveBeenCalled();
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it('sin match (LoginConGoogleUseCase Result.fail) → 302 genérico, byte-idéntico al resto de fallos (AUTH-15)', async () => {
@@ -235,6 +249,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe(GENERIC_FAILURE_REDIRECT);
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it.each([
@@ -263,6 +278,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
 
       expect(res.status).toBe(302);
       expect(res.headers.location).toBe(GENERIC_FAILURE_REDIRECT);
+      expectNoSessionCookie([res.headers['set-cookie']].flat());
     },
   );
 
@@ -280,6 +296,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
 
     expect(res.status).toBe(429);
     expect(d.verificador.verificar).not.toHaveBeenCalled();
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it('infra fault mid-flow (loginConGoogle rechaza inesperadamente) → 302 genérico, NUNCA un 500 (4R carry-forward, AUTH-15)', async () => {
@@ -297,6 +314,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe(GENERIC_FAILURE_REDIRECT);
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it('infra fault mid-flow: md_oauth igual se limpia', async () => {
@@ -312,6 +330,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
 
     const cookies = [res.headers['set-cookie']].flat();
     expect(cookies.some((c) => c?.startsWith('md_oauth=;'))).toBe(true);
+    expectNoSessionCookie(cookies);
   });
 
   it('infra fault en verificador.verificar (throw, no Result.fail) → 302 genérico', async () => {
@@ -327,6 +346,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.location).toBe(GENERIC_FAILURE_REDIRECT);
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it('403 si el callback no llega como navegación top-level (Sec-Fetch guard aplicado a AMBOS endpoints, design §3)', async () => {
@@ -337,6 +357,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
       .set('Sec-Fetch-Dest', 'iframe');
 
     expect(res.status).toBe(403);
+    expectNoSessionCookie([res.headers['set-cookie']].flat());
   });
 
   it('construye urlCallback desde el redirectUri CONFIGURADO, no desde headers de la request (design §7 — nunca derivar de x-forwarded-host)', async () => {
