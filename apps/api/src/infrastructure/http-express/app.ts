@@ -120,6 +120,10 @@ export function createApp(container: Container, env: Env): Express {
     registrarAuthGoogle(authGoogleApi, {
       ...container.googleAuth,
       cookieSecure,
+      // `!` is safe here: env.ts guarantees GOOGLE_REDIRECT_URI is present
+      // whenever GOOGLE_CLIENT_ID/SECRET are set (required in production,
+      // defaulted to localhost in development/test — see
+      // `withGoogleRedirectUriDefault`/`refineGoogleAuthEnv` in config/env.ts).
       redirectUri: env.GOOGLE_REDIRECT_URI!,
     });
   } else {

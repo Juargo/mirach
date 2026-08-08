@@ -29,6 +29,9 @@ function buildOauthCookie(
     `Max-Age=${maxAgeSegundos}`,
     `Path=${OAUTH_COOKIE_PATH}`,
     'HttpOnly',
+    // Lax, NOT Strict (unlike md_session): the browser sends this cookie on
+    // Google's cross-site redirect back to us. Strict would be withheld on
+    // that top-level navigation and every login would break (design §3).
     'SameSite=Lax',
   ];
 
