@@ -152,8 +152,12 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Client secret de OAuth 2.0 de Google. Regla all-or-nothing con GOOGLE_CLIENT_ID (superRefine): exactamente una de las dos presente falla el boot — un cliente OAuth a medio configurar nunca es un apagado silencioso.',
     ),
+  // `z.string()` (no `z.url()`): la validez de la URL la valida enteramente
+  // `refineGoogleAuthEnv` con un mensaje accionable. Un `z.url()` acá agregaría
+  // una segunda línea de error genérica ("Invalid URL") sobre el mismo campo
+  // ante un valor vacío/malformado, duplicando el diagnóstico (4R SUGGESTION).
   GOOGLE_REDIRECT_URI: z
-    .url()
+    .string()
     .optional()
     .describe(
       `URL absoluta del callback de Google (${GOOGLE_CALLBACK_PATHNAME}). Requerida (https) en producción cuando el feature está activo; en development/test, si falta, se completa con http://localhost:5173${GOOGLE_CALLBACK_PATHNAME}. El pathname DEBE ser exactamente ${GOOGLE_CALLBACK_PATHNAME} (assertion de boot, design §8) — no protege contra un mismatch con lo registrado en Google Cloud Console, eso se verifica manualmente (§11.4).`,
