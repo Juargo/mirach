@@ -16,7 +16,7 @@ import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.
 import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingesta.use-case';
 import { ListarIngestasUseCase } from '../application/use-cases/listar-ingestas.use-case';
 import { LoginRateLimiter } from '../infrastructure/http/auth/login-rate-limiter';
-import { DemoRateLimiter } from '../infrastructure/http/auth/demo-rate-limiter';
+import { IpRateLimiter } from '../infrastructure/http/auth/ip-rate-limiter';
 import { DemoCleanupService } from '../infrastructure/http/auth/demo-cleanup.service';
 import { crearAuth } from './crear-auth';
 import { crearProcessIngesta } from './crear-process-ingesta';
@@ -80,7 +80,7 @@ export interface Container {
   /** Rate limiter de login (por IP + email). */
   readonly loginRateLimiter: LoginRateLimiter;
   /** Rate limiter de demo (por IP). */
-  readonly demoRateLimiter: DemoRateLimiter;
+  readonly demoRateLimiter: IpRateLimiter;
   /** Limpieza de demos expirados (lazy, en GET /demo). */
   readonly demoCleanup: DemoCleanupService;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
