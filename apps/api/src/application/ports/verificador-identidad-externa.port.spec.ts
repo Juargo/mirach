@@ -3,6 +3,7 @@ import { VerificacionIdentidadFallidaError } from '../../domain/errors/verificac
 import {
   IIniciadorLoginExterno,
   IVerificadorIdentidadExterna,
+  IVerificadorIdTokenExterno,
   InicioAutorizacion,
   IdentidadExterna,
   ParametrosCallback,
@@ -28,6 +29,20 @@ function makeVerificador(
 ): IVerificadorIdentidadExterna {
   return {
     verificar: vi.fn().mockResolvedValue(resultado),
+  };
+}
+
+/**
+ * Third role interface (design §4) — a double implementing
+ * `IVerificadorIdTokenExterno` never needs to implement `verificar()` or
+ * `iniciar()` (ISP): the mobile token route has a genuinely disjoint input
+ * (a raw JWT) from the web callback (`ParametrosCallback`).
+ */
+function makeVerificadorIdToken(
+  resultado: Result<IdentidadExterna, VerificacionIdentidadFallidaError>,
+): IVerificadorIdTokenExterno {
+  return {
+    verificarIdToken: vi.fn().mockResolvedValue(resultado),
   };
 }
 
@@ -91,6 +106,31 @@ describe('verificador-identidad-externa.port', () => {
       nonce: 'nonce-abc',
       codeVerifier: 'verifier-abc',
     });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(VerificacionIdentidadFallidaError);
+  });
+
+  it('IVerificadorIdTokenExterno.verificarIdToken() resuelve un Result<IdentidadExterna, ...> exitoso', async () => {
+    const identidad: IdentidadExterna = {
+      sub: 'google-sub-mobile-1',
+      email: 'jorge@example.com',
+      emailVerificado: true,
+    };
+    const verificador = makeVerificadorIdToken(Result.ok(identidad));
+
+    const result = await verificador.verificarIdToken('un-id-token-jwt');
+
+    expect(result.isOk()).toBe(true);
+    expect(result.getValue()).toEqual(identidad);
+  });
+
+  it('IVerificadorIdTokenExterno.verificarIdToken() puede fallar con VerificacionIdentidadFallidaError', async () => {
+    const verificador = makeVerificadorIdToken(
+      Result.fail(new VerificacionIdentidadFallidaError('id-token-invalido')),
+    );
+
+    const result = await verificador.verificarIdToken('un-id-token-jwt');
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(VerificacionIdentidadFallidaError);

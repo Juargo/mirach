@@ -52,3 +52,22 @@ export interface IVerificadorIdentidadExterna {
     p: ParametrosCallback,
   ): Promise<Result<IdentidadExterna, VerificacionIdentidadFallidaError>>;
 }
+
+/**
+ * IVerificadorIdTokenExterno — puerto consumido por la ruta del token mobile
+ * (`POST /api/auth/google/token`, ADR-035, AUTH-19).
+ *
+ * Tercer rol en este archivo, NO un método agregado a
+ * `IVerificadorIdentidadExterna` (design §4, D3): el input es un JWT crudo en
+ * lugar de `ParametrosCallback`, y el único adapter de OIDC existente
+ * (`OpenIdClientGoogleAdapter`) no tiene una forma limpia de implementarlo
+ * (LSP — forzaría un `throw new Error('no implementado')`). El adapter que sí
+ * lo implementa (`GoogleIdTokenVerifier`, infraestructura, slice A1) nunca
+ * deja cruzar una excepción de `google-auth-library` a través del puerto
+ * (ADR-005).
+ */
+export interface IVerificadorIdTokenExterno {
+  verificarIdToken(
+    idToken: string,
+  ): Promise<Result<IdentidadExterna, VerificacionIdentidadFallidaError>>;
+}
