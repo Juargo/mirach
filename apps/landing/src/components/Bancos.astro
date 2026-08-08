@@ -12,9 +12,9 @@ const banks: Bank[] = [
 ];
 ---
 
-<section id="bancos" class="px-6 py-16 sm:py-24">
+<section id="bancos" data-reveal class="px-6 py-16 sm:py-24">
   <h2
-    class="text-center text-headline-lg font-semibold tracking-tight text-on-surface sm:text-4xl"
+    class="font-display text-center text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
   >
     Bancos compatibles
   </h2>
@@ -26,12 +26,10 @@ const banks: Bank[] = [
     Escríbenos y lo agregamos.
   </p>
 
-  <div
-    class="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8"
-  >
+  <div class="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
     {banks.map((bank) => (
       <div
-        class="flex flex-col items-center gap-4 rounded-xl bg-surface p-6 shadow-sm"
+        class="flex flex-col items-center gap-4 card-lift rounded bg-surface p-6 shadow-soft"
       >
         <img
           src={bank.svg}

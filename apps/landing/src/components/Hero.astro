@@ -1,38 +1,51 @@
 ---
+import CtaButton from './CtaButton.astro';
+import { CTA } from '../config';
 ---
 
 <section
   id="hero"
-  class="flex min-h-[80dvh] flex-col items-center justify-center px-6 pb-16 pt-44 sm:pt-48"
+  class="flex min-h-[80dvh] flex-col items-center justify-center px-6 pb-16 pt-12 md:pt-16"
 >
   <div
-    class="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 lg:flex-row lg:gap-20"
+    class="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-10 md:flex-row md:gap-10 lg:gap-20"
   >
     <div
-      class="flex max-w-xl flex-col items-center text-center lg:items-start lg:text-left"
+      class="flex min-w-0 max-w-xl flex-col items-center text-center md:items-start md:text-left"
     >
       <h1
-        class="text-display-lg font-bold leading-tight tracking-tight text-on-surface sm:text-5xl lg:text-6xl"
+        class="animate-hero-in font-display text-hero-lg font-bold leading-[1.05] tracking-tight text-on-surface"
+        style="--reveal-delay: 0ms"
       >
         Visualiza tus gastos<br />
         <span class="text-primary">y empieza a ahorrar</span>
       </h1>
       <p
-        class="mt-6 text-body-lg leading-relaxed text-on-surface-variant sm:text-lg"
+        class="animate-hero-in mt-6 text-body-lg leading-relaxed text-on-surface-variant sm:text-lg"
+        style="--reveal-delay: 90ms"
       >
         MoneyDiary aplica la metodología 50/30/20 a tus gastos reales para
         que visualices claramente a dónde va tu dinero. Entiende tus
         finanzas, identifica oportunidades de ahorro y comienza a generar
         resultados con solo subir tu cartola bancaria.
       </p>
+      <div class="animate-hero-in mt-8 flex flex-col gap-4 sm:flex-row" style="--reveal-delay: 180ms">
+        <CtaButton href={CTA.href}>{CTA.label}</CtaButton>
+        <CtaButton href="#como-funciona" variant="ghost">
+          Ver cómo funciona
+        </CtaButton>
+      </div>
     </div>
-    <div class="shrink-0">
+    <div class="animate-hero-in shrink-0" style="--reveal-delay: 270ms">
       <img
         src="/images/banner-image.png"
         alt="MoneyDiary app dashboard"
         width={1002}
         height={616}
-        class="w-full max-w-[500px] lg:max-w-[600px]"
+        fetchpriority="high"
+        loading="eager"
+        decoding="async"
+        class="w-full max-w-[500px] md:max-w-[360px] lg:max-w-[600px]"
       />
     </div>
   </div>

@@ -2,10 +2,10 @@
 import { NEWSLETTER } from '../config';
 ---
 
-<section id="newsletter" class="bg-primary-container/20 px-6 py-16 sm:py-24">
+<section id="newsletter" data-reveal class="bg-primary-container/20 px-6 py-16 sm:py-24">
   <div class="mx-auto max-w-lg text-center">
     <h2
-      class="text-headline-lg font-semibold tracking-tight text-on-surface"
+      class="font-display text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface"
     >
       Mantente al día
     </h2>
@@ -17,7 +17,7 @@ import { NEWSLETTER } from '../config';
     {
       NEWSLETTER.action ? (
         <form
-          class="mt-8 flex flex-col gap-4 sm:flex-row"
+          class="mt-8 flex flex-col gap-4 sm:flex-row md:gap-6"
           action={NEWSLETTER.action}
           method="POST"
         >
@@ -30,17 +30,17 @@ import { NEWSLETTER } from '../config';
             name="email"
             required
             placeholder={NEWSLETTER.placeholder}
-            class="min-h-[44px] flex-1 rounded-xl border border-outline bg-surface px-4 text-body-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            class="min-h-[44px] flex-1 rounded border border-outline bg-surface px-4 text-body-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
           <button
             type="submit"
-            class="min-h-[44px] rounded-xl bg-primary px-8 text-body-sm font-semibold text-on-primary transition-colors hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            class="min-h-[44px] rounded bg-primary px-8 text-body-sm font-semibold text-on-primary transition-colors hover:brightness-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {NEWSLETTER.buttonLabel}
           </button>
         </form>
       ) : (
-        <div class="mt-8 rounded-xl border border-outline/30 bg-surface-dim/30 px-6 py-6">
+        <div class="mt-8 rounded border border-outline/30 bg-surface-dim/30 px-6 py-6">
           <p class="text-body-sm font-medium text-on-surface-variant">
             Próximamente
           </p>

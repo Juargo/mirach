@@ -49,7 +49,36 @@ const absoluteImage = pageImage.startsWith('http')
     <meta name="twitter:image" content={absoluteImage} />
 
   </head>
-  <body class="flex min-h-screen flex-col bg-surface text-on-surface font-sans antialiased">
+  <body class="flex min-h-screen flex-col bg-surface font-sans leading-relaxed text-on-surface antialiased">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-primary focus:px-4 focus:py-2 focus:text-body-sm focus:font-semibold focus:text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      Saltar al contenido
+    </a>
     <slot />
+
+    <script is:inline>
+      // Scroll reveal for [data-reveal] sections. Progressive enhancement:
+      // sections are visible by default (see theme.css); this script only
+      // hides+animates them once it confirms JS runs and motion is allowed.
+      (function () {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        document.documentElement.classList.add('js-reveal');
+        var observer = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-revealed');
+              observer.unobserve(entry.target);
+            });
+          },
+          { threshold: 0.15 },
+        );
+        document.querySelectorAll('[data-reveal]').forEach(function (el) {
+          observer.observe(el);
+        });
+      })();
+    </script>
   </body>
 </html>

@@ -1,33 +1,47 @@
 ---
+import CtaButton from './CtaButton.astro';
 import { APP, PROBAR, SITE } from '../config';
 ---
 
-<header class="absolute inset-x-0 top-0 z-10 px-4 py-6 sm:px-6 sm:py-8">
-  <div class="mx-auto flex w-full max-w-6xl items-center justify-between">
-    <a href="/" class="shrink-0">
+<header
+  class="sticky top-0 z-40 h-16 border-b border-outline-variant/40 bg-surface sm:h-[72px]"
+>
+  <div class="mx-auto flex h-full w-full max-w-6xl items-center justify-between px-4 sm:px-6">
+    <a href="/" class="flex shrink-0 items-center gap-2" aria-label={SITE.title}>
       <img
-        src="/images/logo-moneydiary.png"
-        alt={SITE.title}
-        width={80}
-        height={70}
-        class="h-[70px] w-auto sm:h-[120px]"
+        src="/images/logo-icon.png"
+        alt=""
+        width={97}
+        height={96}
+        class="h-9 w-auto sm:h-10"
       />
+      <span class="font-display text-xl font-bold leading-none">
+        <span class="text-on-surface">Money</span><span class="text-primary">Diary</span>
+      </span>
     </a>
     <nav class="flex items-center gap-3 sm:gap-4" aria-label="Acceso">
-      <a
-        href={PROBAR.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary-container px-3 py-1.5 text-body-sm font-semibold text-on-primary-container shadow-sm transition-colors hover:bg-primary hover:text-on-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-5 sm:py-2 sm:text-body-md"
-      >
+      <CtaButton href={PROBAR.url} size="sm" target="_blank" rel="noopener noreferrer">
         {PROBAR.label}
-      </a>
+      </CtaButton>
       <a
         href={APP.loginHref}
-        class="inline-flex min-h-[44px] items-center justify-center rounded-xl px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-5 sm:py-2 sm:text-body-md"
+        class="inline-flex min-h-[44px] items-center justify-center rounded px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-5 sm:py-2"
       >
         {APP.label}
       </a>
     </nav>
   </div>
 </header>
+
+<style>
+  /* Solid bg-surface (set via Tailwind class above) is the fallback for
+     browsers without backdrop-filter support. Upgrade to a translucent,
+     blurred bar only when the browser can actually blur behind it. */
+  @supports (backdrop-filter: blur(0)) or (-webkit-backdrop-filter: blur(0)) {
+    header {
+      background-color: color-mix(in srgb, var(--color-surface) 90%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+  }
+</style>

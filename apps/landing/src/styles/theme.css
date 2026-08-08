@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
 @import 'tailwindcss';
 
 @theme {
@@ -37,9 +37,9 @@
   --color-surface-container-highest: #e2e2e2;
   --color-surface-variant: #e2e2e2;
 
-  /* On-surface */
-  --color-on-surface: #1a1c1c;
-  --color-on-surface-variant: #44474e;
+  /* On-surface - dark blue ink instead of neutral gray */
+  --color-on-surface: #022030;
+  --color-on-surface-variant: #435e6d;
 
   /* Inverse */
   --color-inverse-surface: #2f3131;
@@ -50,10 +50,12 @@
   --color-outline: #74777f;
   --color-outline-variant: #c4c6cf;
 
-  /* Typography - font family */
-  --font-sans: 'Inter', system-ui, sans-serif;
+  /* Typography - font family: DM Sans for body, Plus Jakarta Sans for headings */
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'DM Sans', system-ui, sans-serif;
 
   /* Typography - font size scale */
+  --text-hero-lg: clamp(2.25rem, 5vw + 1rem, 3.75rem);
   --text-display-lg: 40px;
   --text-headline-lg: 32px;
   --text-title-md: 18px;
@@ -62,10 +64,71 @@
   --text-label-caps: 12px;
 
   /* Radius scale */
-  --radius-DEFAULT: 0.5rem;
+  --radius: 0.5rem;
   --radius-sm: 0.25rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
   --radius-full: 9999px;
+
+  /* Elevation - soft primary-tinted shadow (DESIGN.md: no harsh black shadows) */
+  --shadow-soft: 0 2px 8px rgb(71 95 133 / 0.12);
+  /* Deepened variant for hover feedback on cards/tiles (Bancos, Capturas) */
+  --shadow-soft-hover: 0 10px 24px rgb(71 95 133 / 0.2);
+}
+
+/*
+ * Motion (design-taste-frontend: MOTION 5, fluid CSS only).
+ * Both effects below are gated under prefers-reduced-motion: no-preference,
+ * so they collapse to a fully static, visible page when the user opts out.
+ */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Hero entrance: staggered fade-up on load, delay set per-element via
+     --reveal-delay. Communicates reading order (headline -> proof -> action). */
+  .animate-hero-in {
+    opacity: 0;
+    animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+
+  /* Scroll reveal for below-fold sections. Hidden state only applies once
+     Layout's inline script has confirmed JS + motion support (html.js-reveal),
+     so content stays visible by default with JS disabled (progressive
+     enhancement) or under reduced motion (script bails before adding the class). */
+  html.js-reveal [data-reveal] {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  html.js-reveal [data-reveal].is-revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Shared hover lift for cards/tiles (Bancos, Capturas). */
+  .card-lift {
+    transition:
+      transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .card-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-soft-hover);
+  }
 }
