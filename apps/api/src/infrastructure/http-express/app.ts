@@ -41,6 +41,15 @@ import { registrarVersion } from './routes/version.routes';
 export function createApp(container: Container, env: Env): Express {
   const app = express();
 
+  // Trust proxy (1 hop) — MoneyDiary's API sits behind exactly one reverse
+  // proxy (Render: api.moneydiary.cl CNAME → Render, sin Cloudflare/multi-
+  // proxy delante — ver CLAUDE.md). Sin esto, Express ignora
+  // `X-Forwarded-For` y `request.ip` resuelve a la IP del proxy, no del
+  // cliente real — rompiendo TODOS los rate limiters por IP (`login:ip:`,
+  // el demo limiter, `google:ip:`), que colapsan hacia un bucket compartido.
+  // Debe ir temprano, antes de cualquier middleware que lea `req.ip`.
+  app.set('trust proxy', 1);
+
   // CORS por allowlist (ADR-029) — global y ANTES de la api-key: el preflight
   // OPTIONS del navegador viaja sin credenciales y debe resolverse acá, no
   // chocar con el 401 de la api-key. Habilita el `GET /version` cross-origin
