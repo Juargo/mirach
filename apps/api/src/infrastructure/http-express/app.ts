@@ -13,6 +13,7 @@ import { registrarMovimientos } from './routes/movimientos.routes';
 import { registrarTransacciones } from './routes/transacciones.routes';
 import { registrarIngestas } from './routes/ingesta.routes';
 import { registrarAuthPublic, registrarAuthMe } from './routes/auth.routes';
+import { registrarAuthGoogleDeshabilitado } from './routes/auth-google.routes';
 import { registrarVersion } from './routes/version.routes';
 
 /**
@@ -87,6 +88,23 @@ export function createApp(container: Container, env: Env): Express {
     cookieSecure,
   });
   app.use('/api', authPublicApi);
+
+  // Login con Google (AUTH-16, design §4.4): SIEMPRE se monta un router acá
+  // — nunca "no montar nada". Un `/api/auth/google` sin ningún router
+  // montado cae en `protectedApi` de abajo, que monta `sessionMiddleware`
+  // sin path (`router.use(mw)` corre para TODA request llegada al router) y
+  // respondería 401, no el 404 que exige AUTH-16.
+  //
+  // Slice C1 (este slice): SIEMPRE el stub deshabilitado — los handlers
+  // reales (`registrarAuthGoogle`) no existen todavía, así que no hay rama
+  // que tomar sobre `container.googleAuth` acá (la activación SÍ se refleja
+  // ya en `GET /api/auth/capabilities`, que lee `container.googleAuth`
+  // directamente). Slice C2 reemplaza esto por
+  // `container.googleAuth !== undefined ? registrarAuthGoogle(...) :
+  // registrarAuthGoogleDeshabilitado(...)`.
+  const authGoogleApi = express.Router();
+  registrarAuthGoogleDeshabilitado(authGoogleApi);
+  app.use('/api', authGoogleApi);
 
   // Rutas protegidas: exigen sesión válida (además de la api-key global).
   const protectedApi = express.Router();
