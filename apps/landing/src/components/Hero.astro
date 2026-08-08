@@ -37,16 +37,19 @@ import { CTA } from '../config';
       </div>
     </div>
     <div class="animate-hero-in shrink-0" style="--reveal-delay: 270ms">
-      <img
-        src="/images/banner-image.png"
-        alt="MoneyDiary app dashboard"
-        width={1002}
-        height={616}
-        fetchpriority="high"
-        loading="eager"
-        decoding="async"
-        class="w-full max-w-[500px] md:max-w-[360px] lg:max-w-[600px]"
-      />
+      <picture>
+        <source srcset="/images/banner-image.webp" type="image/webp" />
+        <img
+          src="/images/banner-image.png"
+          alt="MoneyDiary app dashboard"
+          width={1002}
+          height={616}
+          fetchpriority="high"
+          loading="eager"
+          decoding="async"
+          class="w-full max-w-[500px] md:max-w-[360px] lg:max-w-[600px]"
+        />
+      </picture>
     </div>
   </div>
 </section>
