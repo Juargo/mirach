@@ -90,18 +90,28 @@ describe('/api/auth/google — activation seam (AUTH-16, design §4.4)', () => {
   });
 
   /**
-   * 4R post-review (R2 SUGGESTION): C1 monta `registrarAuthGoogleDeshabilitado`
-   * de forma INCONDICIONAL en `/api/auth/google*` (app.ts, ver comentario de
-   * arriba) — NO ramifica sobre `container.googleAuth`. Hasta ahora esa
-   * invariante solo estaba documentada en comentarios; este test la
-   * machine-checkea: si alguien empieza a cablear C2 a medias (deja
-   * `googleAuth` definido pero todavía no reemplaza el stub por el router
-   * real), este test falla en vez de pasar en silencio.
+   * Slice C2 supersedes the C1-era invariant this describe block used to
+   * assert ("stub always mounted, `googleAuth` ignored"). `app.ts` now
+   * branches for real: `container.googleAuth !== undefined` mounts
+   * `registrarAuthGoogle` (the real handlers), not the stub. This is the
+   * regression guard for THAT flip — the C1.5/C1.6 404-when-undefined
+   * coverage above is untouched and still holds.
    */
-  describe('feature "prendida" (container.googleAuth definido) pero C2 aún no reemplazó el stub', () => {
+  describe('feature "prendida" (container.googleAuth definido) — C2 monta las rutas reales, no el stub', () => {
     function stubGoogleAuthGraph(): NonNullable<Container['googleAuth']> {
       return {
-        iniciador: { execute: vi.fn() },
+        iniciador: {
+          iniciar: vi.fn().mockResolvedValue(
+            Result.ok({
+              urlAutorizacion:
+                'https://accounts.google.com/o/oauth2/v2/auth?x=1',
+              state: 's',
+              nonce: 'n',
+              codeVerifier: 'v',
+            }),
+          ),
+        },
+        verificador: { verificar: vi.fn() },
         loginConGoogle: { execute: vi.fn() },
         googleRateLimiter: {
           isBlocked: vi.fn().mockReturnValue(false),
@@ -111,14 +121,17 @@ describe('/api/auth/google — activation seam (AUTH-16, design §4.4)', () => {
       } as unknown as NonNullable<Container['googleAuth']>;
     }
 
-    it('GET /api/auth/google: sigue siendo 404 (C1 monta el stub deshabilitado sin importar googleAuth)', async () => {
+    it('GET /api/auth/google: 302 a Google (rutas reales montadas, ya NO 404)', async () => {
       const res = await request(
         createApp(fakeContainer(stubGoogleAuthGraph()), testEnv),
       )
         .get('/api/auth/google')
         .set('x-api-key', KEY);
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe(
+        'https://accounts.google.com/o/oauth2/v2/auth?x=1',
+      );
     });
   });
 });
