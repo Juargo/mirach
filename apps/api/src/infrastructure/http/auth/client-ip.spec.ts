@@ -3,8 +3,9 @@ import { getClientIp } from './client-ip';
 
 /**
  * Pure helper — no session/guard involved. `request.ip` is what Express
- * computes once `app.set('trust proxy', 1)` is set (main.ts) — it already
- * resolves the real client IP behind exactly one trusted proxy hop, so this
+ * computes once `app.set('trust proxy', 1)` is set (`createApp()`, in
+ * `http-express/app.ts`) — it already resolves the real client IP behind
+ * exactly one trusted proxy hop, so this
  * helper trusts it instead of re-parsing `x-forwarded-for` by hand (that
  * hand-rolled parse ignored `trust proxy` entirely and trusted whatever the
  * client claimed as the leftmost hop — trivially spoofable).
