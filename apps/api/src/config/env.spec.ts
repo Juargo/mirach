@@ -254,6 +254,208 @@ describe('loadEnv — ENCRYPTION_KEY: base64 de 32 bytes exactos (ADR-013)', () 
   });
 });
 
+describe('loadEnv — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI (auth-google-login, ADR-029, design §8)', () => {
+  const GOOGLE_CALLBACK_PATH = '/api/auth/google/callback';
+  const DEFAULT_LOCAL_REDIRECT_URI = `http://localhost:5173${GOOGLE_CALLBACK_PATH}`;
+  const PROD_REDIRECT_URI = `https://app.moneydiary.cl${GOOGLE_CALLBACK_PATH}`;
+
+  it('ambas credenciales presentes → el schema acepta', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID: 'client-id-123',
+      GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+    });
+
+    expect(env.GOOGLE_CLIENT_ID).toBe('client-id-123');
+    expect(env.GOOGLE_CLIENT_SECRET).toBe('client-secret-abc');
+  });
+
+  it('ninguna credencial presente → el schema acepta (feature apagada)', () => {
+    const env = loadEnv(baseDevSource);
+
+    expect(env.GOOGLE_CLIENT_ID).toBeUndefined();
+    expect(env.GOOGLE_CLIENT_SECRET).toBeUndefined();
+    expect(env.GOOGLE_REDIRECT_URI).toBeUndefined();
+  });
+
+  it('EXACTAMENTE una credencial presente (solo CLIENT_ID) → boot falla (regla all-or-nothing)', () => {
+    expect(() =>
+      loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID: 'client-id-123' }),
+    ).toThrow(/GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET/);
+  });
+
+  it('EXACTAMENTE una credencial presente (solo CLIENT_SECRET) → boot falla (regla all-or-nothing)', () => {
+    expect(() =>
+      loadEnv({ ...baseDevSource, GOOGLE_CLIENT_SECRET: 'client-secret-abc' }),
+    ).toThrow(/GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET/);
+  });
+
+  it('ambas presentes, GOOGLE_REDIRECT_URI ausente, NODE_ENV=production → boot falla', () => {
+    expect(() =>
+      loadEnv({
+        ...baseProdSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+      }),
+    ).toThrow(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('ambas presentes, GOOGLE_REDIRECT_URI ausente, NODE_ENV=development → default a http://localhost:5173/api/auth/google/callback', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID: 'client-id-123',
+      GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+    });
+
+    expect(env.GOOGLE_REDIRECT_URI).toBe(DEFAULT_LOCAL_REDIRECT_URI);
+  });
+
+  it('ambas presentes, GOOGLE_REDIRECT_URI ausente, NODE_ENV=test → default a http://localhost:5173/api/auth/google/callback', () => {
+    const env = loadEnv({
+      ...baseTestSource,
+      GOOGLE_CLIENT_ID: 'client-id-123',
+      GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+    });
+
+    expect(env.GOOGLE_REDIRECT_URI).toBe(DEFAULT_LOCAL_REDIRECT_URI);
+  });
+
+  it('GOOGLE_REDIRECT_URI presente pero con pathname distinto al esperado → boot falla nombrando el pathname configurado Y el esperado', () => {
+    expect(() =>
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: 'http://localhost:5173/auth/callback-incorrecto',
+      }),
+    ).toThrow(/\/auth\/callback-incorrecto.*\/api\/auth\/google\/callback/s);
+  });
+
+  it('GOOGLE_REDIRECT_URI no-https en producción → boot falla', () => {
+    expect(() =>
+      loadEnv({
+        ...baseProdSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: `http://app.moneydiary.cl${GOOGLE_CALLBACK_PATH}`,
+      }),
+    ).toThrow(/GOOGLE_REDIRECT_URI|https/);
+  });
+
+  it('GOOGLE_REDIRECT_URI https válido con el pathname correcto en producción → boot acepta', () => {
+    const env = loadEnv({
+      ...baseProdSource,
+      GOOGLE_CLIENT_ID: 'client-id-123',
+      GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+      GOOGLE_REDIRECT_URI: PROD_REDIRECT_URI,
+    });
+
+    expect(env.GOOGLE_REDIRECT_URI).toBe(PROD_REDIRECT_URI);
+  });
+
+  it('GOOGLE_REDIRECT_URI malformada (no es una URL absoluta válida) en development → boot falla con mensaje accionable, nunca un TypeError crudo (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: 'not-a-url',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('GOOGLE_REDIRECT_URI malformada en producción → boot falla con mensaje accionable, nunca un TypeError crudo (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseProdSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: 'not-a-url',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('GOOGLE_REDIRECT_URI="" (presente pero vacía) con credenciales en development → boot falla, NO recibe el default local (solo aplica cuando la var está ausente) (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: '',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('GOOGLE_REDIRECT_URI="" (presente pero vacía) con credenciales en producción → boot falla con mensaje accionable, nunca un TypeError crudo (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseProdSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: '',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('AUTH-16: el gate de activación sigue siendo SOLO las dos credenciales — GOOGLE_REDIRECT_URI nunca es un tercer switch', () => {
+    const conCredenciales = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID: 'client-id-123',
+      GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+    });
+    const sinCredenciales = loadEnv(baseDevSource);
+
+    expect(
+      conCredenciales.GOOGLE_CLIENT_ID !== undefined &&
+        conCredenciales.GOOGLE_CLIENT_SECRET !== undefined,
+    ).toBe(true);
+    expect(
+      sinCredenciales.GOOGLE_CLIENT_ID !== undefined &&
+        sinCredenciales.GOOGLE_CLIENT_SECRET !== undefined,
+    ).toBe(false);
+  });
+});
+
 describe('loadEnv — coerción de rate-limit falla cerrado (ENV-01)', () => {
   it('un valor no numérico rechaza', () => {
     expect(() =>
