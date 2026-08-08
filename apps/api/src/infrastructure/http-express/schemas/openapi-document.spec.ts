@@ -190,6 +190,16 @@ describe('buildOpenApiDocument', () => {
     expect(categoriaPath?.patch?.responses?.['404']).toBeDefined();
   });
 
+  it('registers GET /api/auth/capabilities with a response schema (no query/path params, AC-10)', () => {
+    const document = buildOpenApiDocument();
+
+    const capabilitiesPath = document.paths?.['/api/auth/capabilities'];
+    expect(capabilitiesPath).toBeDefined();
+    expect(capabilitiesPath?.get).toBeDefined();
+    expect(capabilitiesPath?.get?.responses?.['200']).toBeDefined();
+    expect(capabilitiesPath?.get?.responses?.['401']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();
