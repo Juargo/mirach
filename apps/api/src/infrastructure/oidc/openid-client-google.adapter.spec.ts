@@ -1,6 +1,9 @@
 import * as client from 'openid-client';
 
-import { OpenIdClientGoogleAdapter } from './openid-client-google.adapter';
+import {
+  OpenIdClientGoogleAdapter,
+  OIDC_TIMEOUT_SECONDS,
+} from './openid-client-google.adapter';
 import { VerificacionIdentidadFallidaError } from '../../domain/errors/verificacion-identidad-fallida.error';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -71,6 +74,34 @@ describe('OpenIdClientGoogleAdapter.iniciar', () => {
     );
   });
 
+  it('llama a buildAuthorizationUrl con redirect_uri/scope/code_challenge/code_challenge_method/state/nonce reales (4R C3 — sin esta assertion un swap state↔nonce pasaba desapercibido)', async () => {
+    await makeAdapter().iniciar();
+
+    expect(buildAuthorizationUrl).toHaveBeenCalledWith(FAKE_CONFIG, {
+      redirect_uri: 'https://app.moneydiary.cl/api/auth/google/callback',
+      scope: 'openid email',
+      code_challenge: 'code-challenge-xyz',
+      code_challenge_method: 'S256',
+      state: 'state-xyz',
+      nonce: 'nonce-xyz',
+    });
+  });
+
+  it('swap-detection: state y nonce viajan a buildAuthorizationUrl en sus propios campos, nunca intercambiados (4R C3)', async () => {
+    randomState.mockReturnValue('SOLO-STATE-1234');
+    randomNonce.mockReturnValue('SOLO-NONCE-5678');
+
+    await makeAdapter().iniciar();
+
+    const llamada = buildAuthorizationUrl.mock.calls[0][1] as Record<
+      string,
+      unknown
+    >;
+    expect(llamada.state).toBe('SOLO-STATE-1234');
+    expect(llamada.nonce).toBe('SOLO-NONCE-5678');
+    expect(llamada.state).not.toBe(llamada.nonce);
+  });
+
   it('nunca lanza — envuelve un fallo de buildAuthorizationUrl en Result.fail', async () => {
     buildAuthorizationUrl.mockImplementation(() => {
       throw new Error('boom');
@@ -103,6 +134,18 @@ describe('OpenIdClientGoogleAdapter.iniciar', () => {
 
     expect(discovery).toHaveBeenCalledTimes(1);
   });
+
+  it('discovery() se llama con issuer/clientId/clientSecret inyectados Y un timeout explícito (4R C2 + R3 WARNING) — sin `timeout`, `Configuration.timeout` queda undefined y authorizationCodeGrant() nunca recibe un AbortSignal, pudiendo colgarse indefinidamente si Google se cuelga', async () => {
+    await makeAdapter().iniciar();
+
+    expect(discovery).toHaveBeenCalledWith(
+      new URL('https://accounts.google.com'),
+      'client-id-123',
+      'client-secret-abc',
+      undefined,
+      { timeout: OIDC_TIMEOUT_SECONDS },
+    );
+  });
 });
 
 describe('OpenIdClientGoogleAdapter.verificar', () => {
@@ -113,6 +156,58 @@ describe('OpenIdClientGoogleAdapter.verificar', () => {
     nonce: 'nonce-xyz',
     codeVerifier: 'code-verifier-xyz',
   };
+
+  it('llama a authorizationCodeGrant con la URL de callback y pkceCodeVerifier/expectedState/expectedNonce tomados de ParametrosCallback (4R C3 — sin esta assertion un swap expectedState↔expectedNonce pasaba desapercibido, tsc no lo detecta porque ambos son string)', async () => {
+    authorizationCodeGrant.mockResolvedValue({
+      claims: () => ({
+        sub: 'google-sub-1',
+        email: 'jorge@example.com',
+        email_verified: true,
+      }),
+    } as never);
+
+    await makeAdapter().verificar(PARAMS);
+
+    expect(authorizationCodeGrant).toHaveBeenCalledWith(
+      FAKE_CONFIG,
+      new URL(PARAMS.urlCallback),
+      {
+        pkceCodeVerifier: PARAMS.codeVerifier,
+        expectedState: PARAMS.state,
+        expectedNonce: PARAMS.nonce,
+      },
+    );
+  });
+
+  it('swap-detection: expectedState y expectedNonce viajan en sus propios campos, nunca intercambiados (4R C3 — valores fixture distintos para state/nonce/verifier)', async () => {
+    const paramsDistintos = {
+      urlCallback:
+        'https://app.moneydiary.cl/api/auth/google/callback?code=abc&state=SOLO-STATE-A',
+      state: 'SOLO-STATE-A',
+      nonce: 'SOLO-NONCE-B',
+      codeVerifier: 'SOLO-VERIFIER-C',
+    };
+    authorizationCodeGrant.mockResolvedValue({
+      claims: () => ({ sub: 'google-sub-1' }),
+    } as never);
+
+    await makeAdapter().verificar(paramsDistintos);
+
+    const opciones = authorizationCodeGrant.mock.calls[0][2] as Record<
+      string,
+      unknown
+    >;
+    expect(opciones.expectedState).toBe('SOLO-STATE-A');
+    expect(opciones.expectedNonce).toBe('SOLO-NONCE-B');
+    expect(opciones.pkceCodeVerifier).toBe('SOLO-VERIFIER-C');
+    expect(
+      new Set([
+        opciones.expectedState,
+        opciones.expectedNonce,
+        opciones.pkceCodeVerifier,
+      ]).size,
+    ).toBe(3);
+  });
 
   it('mapea claims a IdentidadExterna (sub/email/emailVerificado)', async () => {
     authorizationCodeGrant.mockResolvedValue({

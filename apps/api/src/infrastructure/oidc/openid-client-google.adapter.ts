@@ -23,6 +23,21 @@ import {
 const GOOGLE_ISSUER = new URL('https://accounts.google.com');
 
 /**
+ * Timeout (segundos) pasado a `discovery()`. openid-client v6.8.4 solo
+ * autoacota el propio fetch de discovery a 30s por default — si no se pasa
+ * `options.timeout` explícito, ese valor NUNCA se propaga a la
+ * `Configuration` resuelta, así que `authorizationCodeGrant()` (verificar())
+ * no recibe ningún `AbortSignal` y puede colgarse indefinidamente si el
+ * endpoint de token de Google se cuelga (4R CRITICAL C2). Pasarlo acá lo
+ * propaga a AMBAS llamadas (discovery Y el intercambio de token — ver
+ * `Configuration.timeout` en el código fuente instalado). 10s por
+ * convención: bien por debajo del timeout de cualquier proxy/LB por delante
+ * de la API (Render free tier corta bastante antes de 30s de cualquier
+ * forma), y generoso para una llamada HTTPS punto a punto con Google.
+ */
+export const OIDC_TIMEOUT_SECONDS = 10;
+
+/**
  * OpenIdClientGoogleAdapter — único archivo del repo que importa `openid-client`
  * (design §4.2). Implementa ambos roles (`IIniciadorLoginExterno` +
  * `IVerificadorIdentidadExterna`, ISP §4.1) sobre el mismo cliente OIDC.
@@ -56,6 +71,8 @@ export class OpenIdClientGoogleAdapter
         GOOGLE_ISSUER,
         this.clientId,
         this.clientSecret,
+        undefined,
+        { timeout: OIDC_TIMEOUT_SECONDS },
       ).catch((error: unknown) => {
         // Memo envenenado limpiado ANTES de re-lanzar: el próximo llamador
         // reintenta discovery desde cero en vez de heredar esta promise ya
