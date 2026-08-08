@@ -2,7 +2,10 @@ import type { PrismaClient } from '@prisma/client';
 
 import type { Env } from '../config/env';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
-import type { IIniciadorLoginExterno } from '../application/ports/verificador-identidad-externa.port';
+import type {
+  IIniciadorLoginExterno,
+  IVerificadorIdentidadExterna,
+} from '../application/ports/verificador-identidad-externa.port';
 
 import { LoginConGoogleUseCase } from '../application/use-cases/login-con-google.use-case';
 
@@ -20,15 +23,24 @@ const GOOGLE_RATE_LIMIT_WINDOW_MS = 15 * 60_000;
 
 /**
  * GoogleAuthGraph — las piezas del login con Google que consume el
- * composition root (design §4.3). `iniciador` lo usa la ruta de inicio
- * (Slice C2); `loginConGoogle` lo usa la ruta de callback (Slice C2);
- * `googleRateLimiter` se comparte entre AMBAS rutas (design §6.4 — un
- * atacante que ya tiene un `state` válido puede reintentar el callback como
- * amplificador contra Google, así que initiate y callback consumen el mismo
- * presupuesto).
+ * composition root (design §4.3). `iniciador` lo usa la ruta de inicio;
+ * `verificador` lo usa la ruta de callback ANTES de invocar `loginConGoogle`
+ * (design §5.1 — el use case nunca verifica, la ruta HTTP ya resolvió la
+ * identidad externa); `googleRateLimiter` se comparte entre AMBAS rutas
+ * (design §6.4 — un atacante que ya tiene un `state` válido puede reintentar
+ * el callback como amplificador contra Google, así que initiate y callback
+ * consumen el mismo presupuesto).
+ *
+ * Apply-time discovery (Slice C2): C1 solo exponía `iniciador` porque nada
+ * consumía `.verificar()` todavía. `iniciador` y `verificador` son DOS
+ * referencias a la MISMA instancia de `OpenIdClientGoogleAdapter` (design
+ * §4.1/§4.2 — un adapter, dos roles/ISP) — separarlas acá, no fusionarlas en
+ * un solo campo, es lo que permite que la ruta de inicio siga sin poder
+ * invocar `.verificar()` por el tipo, y viceversa.
  */
 export interface GoogleAuthGraph {
   readonly iniciador: IIniciadorLoginExterno;
+  readonly verificador: IVerificadorIdentidadExterna;
   readonly loginConGoogle: LoginConGoogleUseCase;
   readonly googleRateLimiter: IpRateLimiter;
 }
@@ -82,6 +94,7 @@ export function crearAuthGoogle(
 
   return {
     iniciador: adapter,
+    verificador: adapter,
     loginConGoogle: new LoginConGoogleUseCase(
       identidades,
       sessions,

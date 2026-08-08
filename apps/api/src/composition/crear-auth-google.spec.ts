@@ -73,9 +73,23 @@ describe('crearAuthGoogle (design §4.3)', () => {
 
     expect(graph).toBeDefined();
     expect(graph!.iniciador).toBeDefined();
+    expect(graph!.verificador).toBeDefined();
     expect(graph!.loginConGoogle).toBeDefined();
     expect(graph!.googleRateLimiter).toBeDefined();
     expect(typeof graph!.googleRateLimiter.isBlocked).toBe('function');
+  });
+
+  it('iniciador y verificador son la MISMA instancia de adapter (ISP §4.1 — dos roles, un adapter) — apply-time discovery: C1 solo exponía `iniciador`, pero la ruta de callback (C2) necesita `.verificar()` por separado', () => {
+    const env = buildTestEnv({
+      GOOGLE_CLIENT_ID: 'client-id',
+      GOOGLE_CLIENT_SECRET: 'secret',
+      GOOGLE_REDIRECT_URI: 'http://localhost:5173/api/auth/google/callback',
+    });
+    const blindIndex: IBlindIndexService = { compute: vi.fn() };
+
+    const graph = crearAuthGoogle(fakePrisma(), env, blindIndex);
+
+    expect(graph!.verificador).toBe(graph!.iniciador);
   });
 
   it('construye sus colaboradores (reloj/tokens/sessions) INTERNAMENTE — la firma solo acepta prisma/env/blindIndex, nunca los recibe como parámetro (design §4.3)', () => {
