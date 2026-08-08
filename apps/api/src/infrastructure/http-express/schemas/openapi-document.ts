@@ -385,6 +385,88 @@ const authCapabilitiesOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `GET /api/auth/google` (AUTH-11, auth-google-login Slice C2) — initiates
+ * the OIDC round trip. Same non-JSON, redirect-shaped contract as
+ * `authDemoOperation`: no response body on any outcome, the transient state
+ * travels via the `md_oauth` cookie (design §3), never in the response body.
+ * `404` when the feature is inactive (AUTH-16 — same activation gate as
+ * `authCapabilitiesOperation` reports).
+ */
+const authGoogleInitiateOperation: ZodOpenApiOperationObject = {
+  summary: 'Start Google sign-in',
+  description:
+    'Public endpoint (requires x-api-key only, session-public) that starts the OIDC Authorization ' +
+    'Code + PKCE round trip with Google (AUTH-11). Must be reached via a true top-level browser ' +
+    'navigation — see AUTH-17. Sets the short-lived `md_oauth` cookie (state/nonce/PKCE) and ' +
+    'redirects to Google. 404 when Google login is not active (AUTH-16) — see GET /api/auth/capabilities.',
+  responses: {
+    '302': {
+      description: "Redirects to Google's OAuth 2.0 authorization endpoint.",
+      headers: {
+        Location: {
+          description: "Google's authorization URL.",
+          schema: { type: 'string' },
+        },
+      },
+    },
+    '403': {
+      description:
+        'Rejected: request is not a top-level navigation (anti-embed Fetch-Metadata guard, shared with GET /api/auth/demo).',
+    },
+    '404': {
+      description:
+        'Google login is not active — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are not both configured (AUTH-16).',
+    },
+    '429': {
+      description:
+        'Rate-limited: too many Google login attempts from this IP (budget shared with the callback, design §6.4).',
+    },
+  },
+};
+
+/**
+ * `GET /api/auth/google/callback` (AUTH-12..15, Slice C2) — the OIDC
+ * redirect target. `302` documents BOTH outcomes on purpose (design §10):
+ * documenting that success and every failure cause share the exact same
+ * response shape IS the AUTH-15 anti-enumeration contract, not an omission.
+ */
+const authGoogleCallbackOperation: ZodOpenApiOperationObject = {
+  summary: 'Complete Google sign-in',
+  description:
+    "Public endpoint (requires x-api-key only, session-public) — Google's redirect target after " +
+    'consent. Validates `state` against the `md_oauth` cookie and the `id_token` (signature/iss/aud/' +
+    'exp/nonce) before any identity resolution (AUTH-12), then resolves the identity to an existing ' +
+    'user (find-only, AUTH-14) and issues a session equivalent to password login (AUTH-13). Every ' +
+    'failure cause — bad state, bad token, no matching user, an unexpected infra fault — produces the ' +
+    'identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them.',
+  responses: {
+    '302': {
+      description:
+        'Success: sets `md_session` and redirects to "/". Failure (any cause): redirects to ' +
+        '"/login?error=google" with no session — see AUTH-15.',
+      headers: {
+        Location: {
+          description: '"/" on success, "/login?error=google" on any failure.',
+          schema: { type: 'string' },
+        },
+      },
+    },
+    '403': {
+      description:
+        'Rejected: request is not a top-level navigation (same Fetch-Metadata guard as initiate, design §3).',
+    },
+    '404': {
+      description:
+        'Google login is not active — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are not both configured (AUTH-16).',
+    },
+    '429': {
+      description:
+        'Rate-limited: too many Google login attempts from this IP (budget shared with initiate, design §6.4).',
+    },
+  },
+};
+
+/**
  * `PATCH /api/transacciones/:id/categoria` (US-013 S4) — CONTRACT-ONLY
  * (openapi-contract-express Phase 10.2b, writes/sensitive group): documents
  * the request/response shapes, but `registrarTransacciones`
@@ -447,6 +529,8 @@ const paths: ZodOpenApiPathsObject = {
     patch: transaccionesCategoriaOperation,
   },
   '/api/auth/capabilities': { get: authCapabilitiesOperation },
+  '/api/auth/google': { get: authGoogleInitiateOperation },
+  '/api/auth/google/callback': { get: authGoogleCallbackOperation },
 };
 
 export function buildOpenApiDocument() {
