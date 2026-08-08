@@ -120,7 +120,10 @@ Surface colors should remain off-white or very light grey to ensure the pastel c
 
 ## Typography
 
-This design system exclusively uses **Inter** to maintain a highly legible, systematic, and modern feel. The typographic hierarchy relies on weight contrast rather than purely size. 
+The product apps (web dashboard, mobile) use **Inter** to maintain a highly legible, systematic, and modern feel. The typographic hierarchy relies on weight contrast rather than purely size.
+
+> **Landing exception (2026-08-07, PR #240):** the public landing (`apps/landing`) uses **DM Sans** for body text (400, 16px/26px line-height) and **Plus Jakarta Sans** for headings (700, ~1.05 line-height, up to 48px on desktop), with dark blue ink text colors (`#022030` primary text, `#435e6d` secondary) instead of the neutral grays above. Rationale: a warmer, more distinctive first impression for the marketing surface. This pairing is a candidate to become the product-wide type system; until that decision is made, app surfaces stay on Inter.
+
 
 Numerical data (balances, percentages) should use `SemiBold` or `Bold` weights to ensure they are the first point of contact in the visual scan. Sub-labels and supporting text use a slightly desaturated neutral color to maintain focus on the primary figures.
 
@@ -167,7 +170,7 @@ Progress bars use a high-contrast relationship between the background (a 10-15% 
 - **Wants:** Solid Lavanda bar, transitioning to Coral if the user exceeds their limit.
 
 ### Buttons
-Primary buttons should use the Soft Blue (#8FA7D1) with white text. Ghost buttons use a 1px border in the same blue. All buttons maintain the 8px roundedness.
+Primary (filled) buttons use `primary` (#475f85) with white text. The originally specified Soft Blue (#8FA7D1) with white text measures ~2.4:1 contrast and fails WCAG AA, so it must not be used as a filled button background behind white text; Soft Blue remains valid for containers and other non-text surfaces. Ghost buttons use a 1px border and text in #475f85. All buttons maintain the 8px roundedness.
 
 ### Input Fields
 Inputs are minimal, featuring a light neutral background (#F4F4F4) and a 1px border that becomes Soft Blue on focus. Labels should use the `label-caps` style for clarity.
