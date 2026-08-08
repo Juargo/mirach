@@ -11,24 +11,11 @@ import {
 import { IReloj } from '../ports/reloj.port';
 import { IdentidadExterna } from '../ports/verificador-identidad-externa.port';
 import { LoginConGoogleFallidoError } from '../../domain/errors/login-con-google-fallido.error';
+import { makeMockIdentidadGoogleRepository as makeMockIdentidades } from '../../../test/support/identidad-google-repository.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — LoginConGoogleUseCase (mocked ports, fake clock). No infra, no DB.
 // ──────────────────────────────────────────────────────────────────────────────
-
-function makeMockIdentidades(overrides?: {
-  porGoogleSub?: UsuarioVinculable | null;
-  porEmail?: UsuarioVinculable | null;
-  vincular?: boolean;
-}): IIdentidadGoogleRepository {
-  return {
-    buscarPorGoogleSub: vi
-      .fn()
-      .mockResolvedValue(overrides?.porGoogleSub ?? null),
-    buscarPorEmail: vi.fn().mockResolvedValue(overrides?.porEmail ?? null),
-    vincularGoogleSub: vi.fn().mockResolvedValue(overrides?.vincular ?? true),
-  };
-}
 
 function makeMockSessions(): ISessionRepository {
   return {
@@ -259,6 +246,29 @@ describe('LoginConGoogleUseCase', () => {
       expect(result.getError().motivo).toBe('email-invalido');
       expect(identidades.buscarPorEmail).not.toHaveBeenCalled();
     });
+
+    it('fails with the generic error for a non-null malformed email and never looks up by email or links', async () => {
+      const identidades = makeMockIdentidades({ porGoogleSub: null });
+      const { uc, sessions } = makeUseCase(identidades);
+
+      const result = await uc.execute({
+        ...IDENTIDAD_BASE,
+        email: 'not-an-email',
+        emailVerificado: true,
+      });
+
+      expect(result.isFail()).toBe(true);
+      const error = result.getError();
+      expect(error).toBeInstanceOf(LoginConGoogleFallidoError);
+      expect(error.motivo).toBe('email-invalido');
+      expect(error.message).toBe('No pudimos iniciar sesión con Google.');
+      expect(error.message).not.toContain('not-an-email');
+      expect(error.constructor.name).not.toBe('EmailInvalidoError');
+      expect(JSON.stringify(error)).not.toContain('not-an-email');
+      expect(identidades.buscarPorEmail).not.toHaveBeenCalled();
+      expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
   });
 
   describe('AUTH-15 no-enumeration: todas las ramas de fallo son indistinguibles', () => {
@@ -312,6 +322,10 @@ describe('LoginConGoogleUseCase', () => {
         },
         {
           identidad: { ...IDENTIDAD_BASE, email: null },
+          identidades: makeMockIdentidades({ porGoogleSub: null }),
+        },
+        {
+          identidad: { ...IDENTIDAD_BASE, email: 'not-an-email' },
           identidades: makeMockIdentidades({ porGoogleSub: null }),
         },
       ];

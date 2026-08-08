@@ -1,27 +1,6 @@
 import { Email } from '../../domain/value-objects/email';
-import {
-  IIdentidadGoogleRepository,
-  UsuarioVinculable,
-} from './identidad-google-repository.port';
-
-/**
- * Double reutilizado por `login-con-google.use-case.spec.ts` (A7). Pin del
- * shape (design §5.2): tres métodos, un rol (ISP) — sin filtrar demo en el
- * repo (eso es responsabilidad del use case).
- */
-function makeMockIdentidadGoogleRepository(overrides?: {
-  porGoogleSub?: UsuarioVinculable | null;
-  porEmail?: UsuarioVinculable | null;
-  vincular?: boolean;
-}): IIdentidadGoogleRepository {
-  return {
-    buscarPorGoogleSub: vi
-      .fn()
-      .mockResolvedValue(overrides?.porGoogleSub ?? null),
-    buscarPorEmail: vi.fn().mockResolvedValue(overrides?.porEmail ?? null),
-    vincularGoogleSub: vi.fn().mockResolvedValue(overrides?.vincular ?? true),
-  };
-}
+import { UsuarioVinculable } from './identidad-google-repository.port';
+import { makeMockIdentidadGoogleRepository } from '../../../test/support/identidad-google-repository.double';
 
 describe('identidad-google-repository.port', () => {
   it('buscarPorGoogleSub resuelve un UsuarioVinculable o null', async () => {
