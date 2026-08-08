@@ -55,7 +55,19 @@ describe('createRequestLoggerMiddleware — redacción de x-api-key (ADR-013, 4R
       .get('/probe')
       .set('x-api-key', 'super-secret-api-key');
 
-    expect(output()).toContain('[REDACTED]');
+    // Assertion self-suficiente (4R R1 SUGGESTION): parsea la línea del request
+    // y verifica el campo puntual, en vez de un `[REDACTED]` genérico que el
+    // Set-Cookie de `/probe` también produciría aunque este redact fallara.
+    const reqLine = output()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map(
+        (l) => JSON.parse(l) as { req?: { headers?: Record<string, string> } },
+      )
+      .find((entry) => entry.req?.headers !== undefined);
+
+    expect(reqLine?.req?.headers?.['x-api-key']).toBe('[REDACTED]');
     expect(output()).not.toContain('super-secret-api-key');
   });
 });
