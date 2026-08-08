@@ -1,0 +1,44 @@
+---
+/**
+ * Canonical CTA button/link. Two variants per DESIGN.md ("Serene Finance"):
+ * - primary: filled bg-primary + white text. DESIGN.md specifies Soft Blue
+ *   (#8FA7D1) with white text for primary buttons, but that combination is
+ *   ~2.6:1 contrast and fails WCAG AA — bg-primary (#475f85) is used instead.
+ * - ghost: 1px border-primary, text-primary, transparent background.
+ * Radius follows DESIGN.md's 8px primary radius (`rounded`, theme default).
+ */
+export interface Props {
+  href: string;
+  variant?: 'primary' | 'ghost';
+  size?: 'sm' | 'md';
+  target?: string;
+  rel?: string;
+  class?: string;
+}
+
+const {
+  href,
+  variant = 'primary',
+  size = 'md',
+  target,
+  rel,
+  class: className,
+} = Astro.props;
+
+const base =
+  'inline-flex min-h-[44px] items-center justify-center rounded text-body-sm font-semibold transition-[color,background-color,border-color,transform] motion-safe:active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
+
+const sizes = {
+  sm: 'px-3 py-1.5 sm:px-5 sm:py-2',
+  md: 'px-6 py-2.5',
+} as const;
+
+const variants = {
+  primary: 'bg-primary text-on-primary hover:brightness-90',
+  ghost: 'border border-primary bg-transparent text-primary hover:bg-primary/10',
+} as const;
+---
+
+<a href={href} target={target} rel={rel} class:list={[base, sizes[size], variants[variant], className]}>
+  <slot />
+</a>

@@ -15,24 +15,22 @@ const screenshots = [
 ];
 ---
 
-<section id="capturas" class="bg-surface-dim/50 px-6 py-16 sm:py-24">
+<section id="capturas" data-reveal class="bg-surface-dim/50 px-6 py-16 sm:py-24">
   <h2
-    class="text-center text-headline-lg font-semibold tracking-tight text-on-surface sm:text-4xl"
+    class="font-display text-center text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
   >
     Así se ve MoneyDiary
   </h2>
 
-  <p class="mx-auto mt-4 text-center text-body-sm text-on-surface-variant">
+  <p class="mx-auto mt-4 max-w-2xl text-center text-body-sm text-on-surface-variant">
     Una interfaz limpia y moderna que te ayuda a entender tus finanzas de
     un vistazo.
   </p>
 
-  <div
-    class="mx-auto mt-10 grid max-w-4xl gap-6 sm:grid-cols-3"
-  >
+  <div class="mx-auto mt-10 grid max-w-6xl gap-6 sm:grid-cols-2 md:grid-cols-3">
     {screenshots.map((s) => (
       <div
-        class="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-xl bg-surface-container-highest"
+        class="flex aspect-[9/16] items-center justify-center card-lift overflow-hidden rounded-xl bg-surface-container-highest shadow-soft"
       >
         <img
           src={s.src}
