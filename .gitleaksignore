@@ -1,0 +1,5 @@
+# gitleaks false-positive fingerprints (commit:file:rule:line)
+# design.md:389 — rule matched documentation prose, no secret (PR #251)
+99b792bb4a530fcc1e1db1c04fbe7c2c42646051:openspec/changes/auth-google-login-mobile/design.md:generic-api-key:389
+# self-referential FP: a prior version of this file quoted the matched prose in its comment
+6d3e033d753da7cf2a9de8402c02367e65698dc4:.gitleaksignore:generic-api-key:2
