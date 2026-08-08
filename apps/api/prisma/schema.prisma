@@ -23,6 +23,12 @@ model User {
   // usuarios demo no tienen email (múltiples NULL permitidos por Postgres).
   emailBlindIndex String? @unique
   passwordHash  String?
+  // auth-google-login (AUTH-14, slice A): identificador OIDC opaco de
+  // Google (`sub`), cleartext — no es PII legible y debe ser @unique, lo que
+  // el cifrado no-determinístico de ADR-013 prohibiría. Nullable: la mayoría
+  // de los usuarios no tienen login con Google. Additive-only: filas
+  // existentes quedan en NULL.
+  googleSub     String?   @unique
   esDemo        Boolean   @default(false)
   demoCreatedAt DateTime?
   creadoEn      DateTime  @default(now())
