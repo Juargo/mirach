@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { loadEnv } from '../../config/env';
 import { createContainer } from '../../composition/container';
+import { assertGoogleAuthActivationConsistency } from '../../composition/assert-google-auth-activation-consistency';
 import { createApp } from './app';
 import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
 
@@ -22,6 +23,10 @@ import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
 function bootstrap(): void {
   const env = loadEnv();
   const container = createContainer(env);
+  // C2.6a (4R C1 carry-forward R4): falla el boot si las credenciales de
+  // Google están presentes pero container.googleAuth no se construyó — ver
+  // el docstring de assertGoogleAuthActivationConsistency.
+  assertGoogleAuthActivationConsistency(env, container.googleAuth);
   const app = createApp(container, env);
   const port = env.PORT;
 
