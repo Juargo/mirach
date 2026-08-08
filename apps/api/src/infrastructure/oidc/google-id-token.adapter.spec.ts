@@ -1,8 +1,13 @@
+import { OAuth2Client } from 'google-auth-library';
+
 import {
   GoogleIdTokenVerifier,
   ClienteVerificadorIdToken,
+  ID_TOKEN_HTTP_TIMEOUT_MS,
 } from './google-id-token.adapter';
 import { VerificacionIdentidadFallidaError } from '../../domain/errors/verificacion-identidad-fallida.error';
+
+vi.mock('google-auth-library', () => ({ OAuth2Client: vi.fn() }));
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — GoogleIdTokenVerifier. `google-auth-library` nunca se invoca
@@ -28,6 +33,16 @@ function makeCliente(
 }
 
 const AUDIENCIAS = ['client-id-android-123.apps.googleusercontent.com'];
+
+describe('GoogleIdTokenVerifier — cliente por defecto', () => {
+  it('construye OAuth2Client con timeout HTTP acotado (nunca fetch sin deadline)', () => {
+    new GoogleIdTokenVerifier(AUDIENCIAS);
+
+    expect(OAuth2Client).toHaveBeenCalledWith({
+      transporterOptions: { timeout: ID_TOKEN_HTTP_TIMEOUT_MS },
+    });
+  });
+});
 
 describe('GoogleIdTokenVerifier.verificarIdToken', () => {
   it('idToken vacío → Result.fail sin invocar el cliente', async () => {

@@ -8,6 +8,18 @@ import {
 } from '../../application/ports/verificador-identidad-externa.port';
 
 /**
+ * Timeout (ms) del transporte HTTP del `OAuth2Client` por defecto. gaxios
+ * solo ata un `AbortSignal.timeout` si `timeout` viene explícito — sin esto,
+ * el fetch del JWKS de Google no tiene deadline y una caída de Google deja
+ * la request colgada hasta que el LB la corte (504 opaco, cero logs), en vez
+ * del 401 genérico que promete AUTH-21 (misma clase de bug que el 4R
+ * CRITICAL C2 del adapter web — ver `OIDC_TIMEOUT_SECONDS` en
+ * `openid-client-google.adapter.ts`; misma convención: 10s, bien por debajo
+ * del timeout del proxy/LB de Render).
+ */
+export const ID_TOKEN_HTTP_TIMEOUT_MS = 10_000;
+
+/**
  * Superficie mínima que el adapter usa de `OAuth2Client` (ISP, design §5.2):
  * el double de test implementa UN método, no el cliente entero.
  */
@@ -42,7 +54,9 @@ export interface ClienteVerificadorIdToken {
 export class GoogleIdTokenVerifier implements IVerificadorIdTokenExterno {
   constructor(
     private readonly audiencias: readonly string[],
-    private readonly cliente: ClienteVerificadorIdToken = new OAuth2Client(),
+    private readonly cliente: ClienteVerificadorIdToken = new OAuth2Client({
+      transporterOptions: { timeout: ID_TOKEN_HTTP_TIMEOUT_MS },
+    }),
   ) {}
 
   async verificarIdToken(
