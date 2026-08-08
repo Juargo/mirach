@@ -353,6 +353,90 @@ describe('loadEnv — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI 
     expect(env.GOOGLE_REDIRECT_URI).toBe(PROD_REDIRECT_URI);
   });
 
+  it('GOOGLE_REDIRECT_URI malformada (no es una URL absoluta válida) en development → boot falla con mensaje accionable, nunca un TypeError crudo (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: 'not-a-url',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('GOOGLE_REDIRECT_URI malformada en producción → boot falla con mensaje accionable, nunca un TypeError crudo (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseProdSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: 'not-a-url',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('GOOGLE_REDIRECT_URI="" (presente pero vacía) con credenciales en development → boot falla, NO recibe el default local (solo aplica cuando la var está ausente) (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: '',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
+  it('GOOGLE_REDIRECT_URI="" (presente pero vacía) con credenciales en producción → boot falla con mensaje accionable, nunca un TypeError crudo (4R C1)', () => {
+    let captured: unknown;
+    try {
+      loadEnv({
+        ...baseProdSource,
+        GOOGLE_CLIENT_ID: 'client-id-123',
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_REDIRECT_URI: '',
+      });
+    } catch (error) {
+      captured = error;
+    }
+
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBeInstanceOf(TypeError);
+    expect((captured as Error).message).toMatch(
+      /Configuración de entorno inválida/,
+    );
+    expect((captured as Error).message).toMatch(/GOOGLE_REDIRECT_URI/);
+  });
+
   it('AUTH-16: el gate de activación sigue siendo SOLO las dos credenciales — GOOGLE_REDIRECT_URI nunca es un tercer switch', () => {
     const conCredenciales = loadEnv({
       ...baseDevSource,

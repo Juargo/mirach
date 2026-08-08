@@ -265,10 +265,26 @@ function refineGoogleAuthEnv(
     return;
   }
 
-  if (
-    env.NODE_ENV === 'production' &&
-    env.GOOGLE_REDIRECT_URI.startsWith('http://')
-  ) {
+  // `new URL(...)` lanza un `TypeError` crudo (no un `ZodError`) ante un
+  // string malformado o vacío — `z.url()` a nivel de campo NO evita que
+  // `superRefine` reciba igualmente el valor crudo inválido (Zod 4 sigue
+  // corriendo `superRefine` aunque un campo ya haya fallado su propio
+  // schema). Sin este guard, ese `TypeError` escapa `safeParse` entero y
+  // bypassea `formatEnvError` — el boot muere con un mensaje no accionable
+  // en vez de listar qué variable está mal y qué se esperaba (4R CRITICAL).
+  let redirectUri: URL;
+  try {
+    redirectUri = new URL(env.GOOGLE_REDIRECT_URI);
+  } catch {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_REDIRECT_URI'],
+      message: `GOOGLE_REDIRECT_URI ("${env.GOOGLE_REDIRECT_URI}") no es una URL absoluta válida. Se espera algo como https://<host>${GOOGLE_CALLBACK_PATHNAME} (en producción) o ${DEFAULT_GOOGLE_REDIRECT_URI} (en development/test).`,
+    });
+    return;
+  }
+
+  if (env.NODE_ENV === 'production' && redirectUri.protocol !== 'https:') {
     ctx.addIssue({
       code: 'custom',
       path: ['GOOGLE_REDIRECT_URI'],
@@ -277,13 +293,11 @@ function refineGoogleAuthEnv(
     return;
   }
 
-  const pathname = new URL(env.GOOGLE_REDIRECT_URI).pathname;
-
-  if (pathname !== GOOGLE_CALLBACK_PATHNAME) {
+  if (redirectUri.pathname !== GOOGLE_CALLBACK_PATHNAME) {
     ctx.addIssue({
       code: 'custom',
       path: ['GOOGLE_REDIRECT_URI'],
-      message: `GOOGLE_REDIRECT_URI tiene el pathname "${pathname}", pero la ruta de callback está montada en "${GOOGLE_CALLBACK_PATHNAME}". Deben coincidir exactamente o todo login con Google fallará.`,
+      message: `GOOGLE_REDIRECT_URI tiene el pathname "${redirectUri.pathname}", pero la ruta de callback está montada en "${GOOGLE_CALLBACK_PATHNAME}". Deben coincidir exactamente o todo login con Google fallará.`,
     });
   }
 }
