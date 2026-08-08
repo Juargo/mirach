@@ -14,7 +14,7 @@ import { Argon2PasswordHasher } from '../infrastructure/http/auth/argon2-passwor
 import { Sha256SessionTokenService } from '../infrastructure/http/auth/sha256-session-token.service';
 import { SystemReloj } from '../infrastructure/http/auth/system-reloj';
 import { LoginRateLimiter } from '../infrastructure/http/auth/login-rate-limiter';
-import { DemoRateLimiter } from '../infrastructure/http/auth/demo-rate-limiter';
+import { IpRateLimiter } from '../infrastructure/http/auth/ip-rate-limiter';
 import { DemoCleanupService } from '../infrastructure/http/auth/demo-cleanup.service';
 
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
@@ -33,7 +33,7 @@ export interface AuthGraph {
   readonly obtenerIdentidad: ObtenerIdentidadUseCase;
   readonly crearDemo: CrearDemoUseCase;
   readonly loginRateLimiter: LoginRateLimiter;
-  readonly demoRateLimiter: DemoRateLimiter;
+  readonly demoRateLimiter: IpRateLimiter;
   readonly demoCleanup: DemoCleanupService;
 }
 
@@ -93,7 +93,7 @@ export function crearAuth(
       maxAttemptsPerIp: env.LOGIN_RATELIMIT_MAX_IP,
       windowMs: env.LOGIN_RATELIMIT_WINDOW_MS,
     }),
-    demoRateLimiter: new DemoRateLimiter(),
+    demoRateLimiter: new IpRateLimiter('demo:ip:'),
     demoCleanup: new DemoCleanupService(prisma, reloj),
   };
 }

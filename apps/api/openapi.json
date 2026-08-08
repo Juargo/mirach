@@ -1,6 +1,20 @@
 {
   "components": {
     "schemas": {
+      "AuthCapabilitiesResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10).",
+        "properties": {
+          "googleLoginEnabled": {
+            "description": "true when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both configured (container.googleAuth !== undefined), false otherwise (AUTH-16).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "googleLoginEnabled"
+        ],
+        "type": "object"
+      },
       "AuthLoginResponse": {
         "additionalProperties": false,
         "description": "POST /api/auth/login — successful authentication (AUTH-01).",
@@ -685,6 +699,27 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/auth/capabilities": {
+      "get": {
+        "description": "Public endpoint (requires x-api-key only, session-public — no prior session needed), always mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are configured (AC-10). Clients read this before rendering any Google-login affordance.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthCapabilitiesResponse"
+                }
+              }
+            },
+            "description": "Current activation state of Google login."
+          },
+          "401": {
+            "description": "Missing or invalid x-api-key."
+          }
+        },
+        "summary": "Discover whether Google login is active"
+      }
+    },
     "/api/auth/demo": {
       "get": {
         "description": "Public endpoint (requires x-api-key only) that creates a demo account or resumes an existing valid session, then redirects. No JSON response body — the session is conveyed via the `md_session` cookie (Set-Cookie) and the redirect target.",

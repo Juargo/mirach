@@ -5,7 +5,7 @@ import { ObtenerIdentidadUseCase } from '../../../application/use-cases/obtener-
 import { CrearDemoUseCase } from '../../../application/use-cases/crear-demo.use-case';
 import { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
 import { LoginRateLimiter } from '../../http/auth/login-rate-limiter';
-import { DemoRateLimiter } from '../../http/auth/demo-rate-limiter';
+import { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 import { DemoCleanupService } from '../../http/auth/demo-cleanup.service';
 import { getClientIp } from '../../http/auth/client-ip';
 import { extractToken } from '../../http/auth/extraer-token';
@@ -24,7 +24,7 @@ export interface AuthPublicDeps {
   readonly demoCleanup: DemoCleanupService;
   readonly validarSesion: ValidarSesionUseCase;
   readonly loginRateLimiter: LoginRateLimiter;
-  readonly demoRateLimiter: DemoRateLimiter;
+  readonly demoRateLimiter: IpRateLimiter;
   /** Atributo Secure de la cookie de sesión (ADR-029) — derivado una única vez en app.ts a partir de `env`. */
   readonly cookieSecure: boolean;
 }

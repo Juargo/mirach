@@ -37,6 +37,7 @@ import {
   authLoginRequestSchema,
   authLoginResponseSchema,
 } from './auth-login.schema';
+import { authCapabilitiesResponseSchema } from './auth-capabilities.schema';
 import {
   transaccionesCategoriaPathParamsSchema,
   transaccionesCategoriaRequestSchema,
@@ -359,6 +360,31 @@ const authLogoutOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `GET /api/auth/capabilities` (AC-10, auth-google-login Slice C1) —
+ * session-public, api-key required, ALWAYS mounted regardless of Google
+ * login's activation state (design §4.5). No query/path params — the
+ * answer comes entirely from `container.googleAuth !== undefined`.
+ */
+const authCapabilitiesOperation: ZodOpenApiOperationObject = {
+  summary: 'Discover whether Google login is active',
+  description:
+    'Public endpoint (requires x-api-key only, session-public — no prior session needed), always ' +
+    'mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are configured (AC-10). ' +
+    'Clients read this before rendering any Google-login affordance.',
+  responses: {
+    '200': {
+      description: 'Current activation state of Google login.',
+      content: {
+        'application/json': { schema: authCapabilitiesResponseSchema },
+      },
+    },
+    '401': {
+      description: 'Missing or invalid x-api-key.',
+    },
+  },
+};
+
+/**
  * `PATCH /api/transacciones/:id/categoria` (US-013 S4) — CONTRACT-ONLY
  * (openapi-contract-express Phase 10.2b, writes/sensitive group): documents
  * the request/response shapes, but `registrarTransacciones`
@@ -420,6 +446,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/transacciones/{id}/categoria': {
     patch: transaccionesCategoriaOperation,
   },
+  '/api/auth/capabilities': { get: authCapabilitiesOperation },
 };
 
 export function buildOpenApiDocument() {

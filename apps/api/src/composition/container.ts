@@ -16,9 +16,10 @@ import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.
 import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingesta.use-case';
 import { ListarIngestasUseCase } from '../application/use-cases/listar-ingestas.use-case';
 import { LoginRateLimiter } from '../infrastructure/http/auth/login-rate-limiter';
-import { DemoRateLimiter } from '../infrastructure/http/auth/demo-rate-limiter';
+import { IpRateLimiter } from '../infrastructure/http/auth/ip-rate-limiter';
 import { DemoCleanupService } from '../infrastructure/http/auth/demo-cleanup.service';
 import { crearAuth } from './crear-auth';
+import { crearAuthGoogle, type GoogleAuthGraph } from './crear-auth-google';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
@@ -77,10 +78,15 @@ export interface Container {
   readonly obtenerIdentidad: ObtenerIdentidadUseCase;
   /** Alta de cuenta demo — GET /api/auth/demo. */
   readonly crearDemo: CrearDemoUseCase;
+  /** Login con Google (AUTH-11..18) — `undefined` cuando el feature está
+   * apagado (GOOGLE_CLIENT_ID/SECRET ausentes, design §4.3/§4.4). El TIPO
+   * de este campo es el seam de activación: `googleAuth !== undefined` es
+   * la única pregunta que `app.ts` hace para decidir qué router montar. */
+  readonly googleAuth?: GoogleAuthGraph;
   /** Rate limiter de login (por IP + email). */
   readonly loginRateLimiter: LoginRateLimiter;
   /** Rate limiter de demo (por IP). */
-  readonly demoRateLimiter: DemoRateLimiter;
+  readonly demoRateLimiter: IpRateLimiter;
   /** Limpieza de demos expirados (lazy, en GET /demo). */
   readonly demoCleanup: DemoCleanupService;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
@@ -117,6 +123,10 @@ export function createContainer(
   );
 
   const auth = crearAuth(prisma, env, crypto, blindIndex);
+  // Login con Google (design §4.3): `blindIndex` es la MISMA instancia
+  // recién derivada arriba — nunca una segunda derivación (4R carry-forward,
+  // design §5.5). `undefined` cuando GOOGLE_CLIENT_ID/SECRET están ausentes.
+  const googleAuth = crearAuthGoogle(prisma, env, blindIndex);
 
   // Logging estructurado (ADR-033 slice 2): UNA instancia para todo el
   // composition root — pretty en development (legible en consola local),
@@ -169,6 +179,7 @@ export function createContainer(
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
     crearDemo: auth.crearDemo,
+    googleAuth,
     loginRateLimiter: auth.loginRateLimiter,
     demoRateLimiter: auth.demoRateLimiter,
     demoCleanup: auth.demoCleanup,

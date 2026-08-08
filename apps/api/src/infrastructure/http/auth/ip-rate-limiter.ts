@@ -1,4 +1,4 @@
-/** Defaults de DemoRateLimiter — 3 intentos por IP por hora (DEMO-AUTH-02). */
+/** Defaults de IpRateLimiter — 3 intentos por IP por hora (DEMO-AUTH-02). */
 export const DEFAULT_MAX_ATTEMPTS_PER_IP = 3;
 export const DEFAULT_WINDOW_MS = 3_600_000;
 
@@ -15,21 +15,23 @@ interface Contador {
 }
 
 /**
- * DemoRateLimiter — limitador de creación de cuentas demo, en memoria, SOLO
- * por IP (DEMO-AUTH-02). A diferencia de `LoginRateLimiter` no tiene
- * dimensión por email (el demo es anónimo, no hay email) y no necesita
- * lectura de config desde env — 3/hora es un valor fijo de producto, no un
- * umbral de seguridad que un operador deba poder retocar (YAGNI).
+ * IpRateLimiter — limitador genérico por IP, en memoria (rename de
+ * `DemoRateLimiter`, design §6.4). La lógica es EXACTAMENTE la misma que ya
+ * protegía la creación de cuentas demo (DEMO-AUTH-02) — solo cambia el
+ * nombre y se agrega `keyPrefix` como parámetro explícito del constructor
+ * para que dos instancias con presupuestos independientes (`demo:ip:` /
+ * `google:ip:`) puedan compartir el mismo proceso sin pisarse las claves ni
+ * el presupuesto entre sí, aun sobre la misma IP.
  *
  * Mismo patrón de storage que `LoginRateLimiter`: `Map` en proceso, ventana
  * fija, evicción perezosa + purga en cada inserción para no crecer sin
- * límite. El prefijo `demo:ip:` evita colisión con las claves de
- * `LoginRateLimiter` en caso de que algún día compartan almacenamiento.
+ * límite.
  */
-export class DemoRateLimiter {
+export class IpRateLimiter {
   private readonly contadores = new Map<string, Contador>();
 
   constructor(
+    private readonly keyPrefix: string,
     private readonly maxAttemptsPerIp: number = DEFAULT_MAX_ATTEMPTS_PER_IP,
     private readonly windowMs: number = DEFAULT_WINDOW_MS,
     private readonly ahora: () => number = Date.now,
@@ -98,6 +100,6 @@ export class DemoRateLimiter {
   }
 
   private ipKey(ip: string): string {
-    return `demo:ip:${ip}`;
+    return `${this.keyPrefix}${ip}`;
   }
 }
