@@ -88,4 +88,37 @@ describe('/api/auth/google — activation seam (AUTH-16, design §4.4)', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  /**
+   * 4R post-review (R2 SUGGESTION): C1 monta `registrarAuthGoogleDeshabilitado`
+   * de forma INCONDICIONAL en `/api/auth/google*` (app.ts, ver comentario de
+   * arriba) — NO ramifica sobre `container.googleAuth`. Hasta ahora esa
+   * invariante solo estaba documentada en comentarios; este test la
+   * machine-checkea: si alguien empieza a cablear C2 a medias (deja
+   * `googleAuth` definido pero todavía no reemplaza el stub por el router
+   * real), este test falla en vez de pasar en silencio.
+   */
+  describe('feature "prendida" (container.googleAuth definido) pero C2 aún no reemplazó el stub', () => {
+    function stubGoogleAuthGraph(): NonNullable<Container['googleAuth']> {
+      return {
+        iniciador: { execute: vi.fn() },
+        loginConGoogle: { execute: vi.fn() },
+        googleRateLimiter: {
+          isBlocked: vi.fn().mockReturnValue(false),
+          recordFailure: vi.fn(),
+          reset: vi.fn(),
+        },
+      } as unknown as NonNullable<Container['googleAuth']>;
+    }
+
+    it('GET /api/auth/google: sigue siendo 404 (C1 monta el stub deshabilitado sin importar googleAuth)', async () => {
+      const res = await request(
+        createApp(fakeContainer(stubGoogleAuthGraph()), testEnv),
+      )
+        .get('/api/auth/google')
+        .set('x-api-key', KEY);
+
+      expect(res.status).toBe(404);
+    });
+  });
 });
