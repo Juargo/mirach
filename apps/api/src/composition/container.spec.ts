@@ -30,4 +30,33 @@ describe('createContainer', () => {
 
     expect(container.validarSesion).toBeInstanceOf(ValidarSesionUseCase);
   });
+
+  describe('googleAuth (design §4.3/§4.4 — seam de activación)', () => {
+    it('es undefined cuando GOOGLE_CLIENT_ID/SECRET están ausentes (feature apagada por defecto)', () => {
+      const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
+      const env = buildTestEnv({
+        GOOGLE_CLIENT_ID: undefined,
+        GOOGLE_CLIENT_SECRET: undefined,
+        GOOGLE_REDIRECT_URI: undefined,
+      });
+
+      const container = createContainer(env, fakePrisma);
+
+      expect(container.googleAuth).toBeUndefined();
+    });
+
+    it('es un GoogleAuthGraph definido cuando ambas credenciales están presentes', () => {
+      const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
+      const env = buildTestEnv({
+        GOOGLE_CLIENT_ID: 'client-id',
+        GOOGLE_CLIENT_SECRET: 'secret',
+        GOOGLE_REDIRECT_URI: 'http://localhost:5173/api/auth/google/callback',
+      });
+
+      const container = createContainer(env, fakePrisma);
+
+      expect(container.googleAuth).toBeDefined();
+      expect(container.googleAuth!.loginConGoogle).toBeDefined();
+    });
+  });
 });
