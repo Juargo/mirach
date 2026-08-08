@@ -26,6 +26,11 @@ export const SENSITIVE_REDACT_PATHS = [
   '*.password',
   'req.headers.authorization',
   'req.headers.cookie',
+  // `set-cookie` es hyphenated → requiere notación de corchetes (sintaxis
+  // de pino redact). pino-http serializa los headers de respuesta bajo
+  // `res.headers`; sin esto, `Set-Cookie` (con el token de sesión) queda
+  // en crudo en cada línea de request logging.
+  'res.headers["set-cookie"]',
 ];
 
 /**
