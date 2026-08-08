@@ -26,6 +26,10 @@ export const SENSITIVE_REDACT_PATHS = [
   '*.password',
   'req.headers.authorization',
   'req.headers.cookie',
+  // `x-api-key` es hyphenated → requiere notación de corchetes (sintaxis de
+  // pino redact). Gatea TODO /api (`apiKeyMiddleware`); sin esto quedaba en
+  // crudo en cada línea de request logging (4R post-review, R1 WARNING).
+  'req.headers["x-api-key"]',
   // `set-cookie` es hyphenated → requiere notación de corchetes (sintaxis
   // de pino redact). pino-http serializa los headers de respuesta bajo
   // `res.headers`; sin esto, `Set-Cookie` (con el token de sesión) queda

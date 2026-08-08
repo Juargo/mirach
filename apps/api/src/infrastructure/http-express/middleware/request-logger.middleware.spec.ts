@@ -42,6 +42,25 @@ describe('createRequestLoggerMiddleware — redacción de headers de respuesta (
 });
 
 /**
+ * 4R post-review (R1 WARNING): `x-api-key` gatea TODO /api (`apiKeyMiddleware`)
+ * y hasta ahora no estaba en `SENSITIVE_REDACT_PATHS` — quedaba en crudo en
+ * cada línea de request log (verificado empíricamente por R1). Mirror del
+ * test de Set-Cookie de arriba.
+ */
+describe('createRequestLoggerMiddleware — redacción de x-api-key (ADR-013, 4R R1)', () => {
+  it('redacta el header x-api-key de la request: la key nunca llega a stdout', async () => {
+    const { raw, output } = captureLogger();
+
+    await request(probeApp(raw))
+      .get('/probe')
+      .set('x-api-key', 'super-secret-api-key');
+
+    expect(output()).toContain('[REDACTED]');
+    expect(output()).not.toContain('super-secret-api-key');
+  });
+});
+
+/**
  * design §6.3(a), AUTH-18 — el `req` serializer por defecto de `pino-http`
  * emite `url` CON su query string completo, y ADEMÁS (descubierto al
  * verificar empíricamente, no solo asumido del design) un campo `query`
