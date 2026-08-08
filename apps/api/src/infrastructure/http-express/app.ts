@@ -14,6 +14,7 @@ import { registrarTransacciones } from './routes/transacciones.routes';
 import { registrarIngestas } from './routes/ingesta.routes';
 import { registrarAuthPublic, registrarAuthMe } from './routes/auth.routes';
 import { registrarAuthGoogleDeshabilitado } from './routes/auth-google.routes';
+import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
 import { registrarVersion } from './routes/version.routes';
 
 /**
@@ -87,6 +88,9 @@ export function createApp(container: Container, env: Env): Express {
     demoRateLimiter: container.demoRateLimiter,
     cookieSecure,
   });
+  // Capability discovery (AC-10, design §4.5) — ALWAYS mounted regardless
+  // of activation state, a diferencia de las dos rutas de Google mismas.
+  registrarAuthCapabilities(authPublicApi, container.googleAuth);
   app.use('/api', authPublicApi);
 
   // Login con Google (AUTH-16, design §4.4): SIEMPRE se monta un router acá
