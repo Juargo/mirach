@@ -19,7 +19,7 @@ export const PARAMS_SENSIBLES = new Set([
 const VALOR_REDACTADO = '[REDACTED]';
 
 /**
- * redactarQueryParamsSensibles — reemplaza el VALOR de cada query param
+ * redactSensitiveQueryParams — reemplaza el VALOR de cada query param
  * sensible por `[REDACTED]`, preservando el resto de la URL intacto
  * (pathname, otros params, orden). Pura, sin dependencias — usada como
  * `serializers.req` en `createRequestLoggerMiddleware` (C1.10) porque
@@ -33,7 +33,7 @@ const VALOR_REDACTADO = '[REDACTED]';
  * redactar, así que el string original pasa intacto en ese caso extremo en
  * vez de tirar abajo el middleware).
  */
-export function redactarQueryParamsSensibles(url: string): string {
+export function redactSensitiveQueryParams(url: string): string {
   const indiceQuery = url.indexOf('?');
   if (indiceQuery === -1) {
     return url;
@@ -62,18 +62,18 @@ export function redactarQueryParamsSensibles(url: string): string {
 }
 
 /**
- * redactarQueryObjectSensible — mismo criterio que
- * `redactarQueryParamsSensibles`, pero sobre el objeto `query` YA PARSEADO
+ * redactSensitiveQueryObject — mismo criterio que
+ * `redactSensitiveQueryParams`, pero sobre el objeto `query` YA PARSEADO
  * por Express (`req.query`).
  *
  * Necesario porque `pino-http`'s default `req` serializer (`pino-std-serializers`)
  * emite DOS campos independientes con la misma información: `url` (el
- * string crudo, cubierto por `redactarQueryParamsSensibles`) Y `query` (el
+ * string crudo, cubierto por `redactSensitiveQueryParams`) Y `query` (el
  * objeto ya parseado) — redactar solo `url` deja `query` filtrando el
  * mismo secreto por otra puerta (descubierto al verificar empíricamente el
  * shape real emitido, no asumido del design). No muta el input.
  */
-export function redactarQueryObjectSensible(
+export function redactSensitiveQueryObject(
   query: Record<string, unknown>,
 ): Record<string, unknown> {
   const resultado: Record<string, unknown> = { ...query };

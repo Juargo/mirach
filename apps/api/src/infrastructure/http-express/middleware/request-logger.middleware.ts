@@ -3,9 +3,9 @@ import pinoHttp, { type StdSerializers } from 'pino-http';
 import type { RequestHandler } from 'express';
 import type pino from 'pino';
 import {
-  redactarQueryParamsSensibles,
-  redactarQueryObjectSensible,
-} from './redactar-query-params-sensibles';
+  redactSensitiveQueryParams,
+  redactSensitiveQueryObject,
+} from './redact-sensitive-query-params';
 
 /**
  * Shape que `pino-http` le pasa a un `serializers.req` custom — NO el
@@ -61,10 +61,10 @@ export function createRequestLoggerMiddleware(
     serializers: {
       req: (req: SerializedRequest) => ({
         ...req,
-        url: redactarQueryParamsSensibles(req.url),
+        url: redactSensitiveQueryParams(req.url),
         query:
           req.query !== undefined && typeof req.query === 'object'
-            ? redactarQueryObjectSensible(req.query)
+            ? redactSensitiveQueryObject(req.query)
             : req.query,
       }),
     },
