@@ -1,0 +1,3 @@
+# gitleaks false-positive fingerprints (commit:file:rule:line)
+# generic-api-key matched design prose "blank token, JWKS/signature/" — no secret (PR #251)
+99b792bb4a530fcc1e1db1c04fbe7c2c42646051:openspec/changes/auth-google-login-mobile/design.md:generic-api-key:389
