@@ -1,7 +1,10 @@
 import 'dotenv/config';
 import { loadEnv } from '../../config/env';
 import { createContainer } from '../../composition/container';
-import { assertGoogleAuthActivationConsistency } from '../../composition/assert-google-auth-activation-consistency';
+import {
+  assertGoogleAuthActivationConsistency,
+  assertGoogleAuthMobileActivationConsistency,
+} from '../../composition/assert-google-auth-activation-consistency';
 import { createApp } from './app';
 import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
 
@@ -27,6 +30,9 @@ function bootstrap(): void {
   // Google están presentes pero container.googleAuth no se construyó — ver
   // el docstring de assertGoogleAuthActivationConsistency.
   assertGoogleAuthActivationConsistency(env, container.googleAuth);
+  // A2.8 (design §7): mismo guard de boot, para el gate mobile independiente
+  // (AUTH-22) — ver el docstring de assertGoogleAuthMobileActivationConsistency.
+  assertGoogleAuthMobileActivationConsistency(env, container.googleAuthMobile);
   const app = createApp(container, env);
   const port = env.PORT;
 

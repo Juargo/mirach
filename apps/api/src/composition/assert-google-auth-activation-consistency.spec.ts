@@ -1,6 +1,12 @@
-import { assertGoogleAuthActivationConsistency } from './assert-google-auth-activation-consistency';
+import {
+  assertGoogleAuthActivationConsistency,
+  assertGoogleAuthMobileActivationConsistency,
+} from './assert-google-auth-activation-consistency';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { GoogleAuthGraph } from './crear-auth-google';
+import type { GoogleAuthMobileGraph } from './crear-auth-google-mobile';
+
+const VALID_ANDROID_CLIENT_ID = '123-abc.apps.googleusercontent.com';
 
 /**
  * assertGoogleAuthActivationConsistency — C2.6a, 4R C1 carry-forward.
@@ -59,5 +65,48 @@ describe('assertGoogleAuthActivationConsistency (C2.6a)', () => {
     expect(() => assertGoogleAuthActivationConsistency(env, undefined)).toThrow(
       /GOOGLE_CLIENT_ID.*GOOGLE_CLIENT_SECRET.*googleAuth/s,
     );
+  });
+});
+
+/**
+ * assertGoogleAuthMobileActivationConsistency — sibling mobile del guard web
+ * (design §7, AUTH-22). Deliberadamente casi idéntica — segunda ocurrencia,
+ * no el tercer strike que justificaría extraer un helper compartido (yagni).
+ */
+describe('assertGoogleAuthMobileActivationConsistency (design §7)', () => {
+  function fakeMobileGraph(): GoogleAuthMobileGraph {
+    return {
+      verificadorIdToken: { verificarIdToken: vi.fn() },
+      loginConGoogle: {} as never,
+      googleTokenRateLimiter: {} as never,
+    };
+  }
+
+  it('no lanza cuando GOOGLE_CLIENT_ID_ANDROID está ausente y googleAuthMobile es undefined (feature apagada, consistente)', () => {
+    const env = buildTestEnv({ GOOGLE_CLIENT_ID_ANDROID: undefined });
+
+    expect(() =>
+      assertGoogleAuthMobileActivationConsistency(env, undefined),
+    ).not.toThrow();
+  });
+
+  it('no lanza cuando GOOGLE_CLIENT_ID_ANDROID está presente y googleAuthMobile está definido (feature prendida, consistente)', () => {
+    const env = buildTestEnv({
+      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+    });
+
+    expect(() =>
+      assertGoogleAuthMobileActivationConsistency(env, fakeMobileGraph()),
+    ).not.toThrow();
+  });
+
+  it('LANZA cuando GOOGLE_CLIENT_ID_ANDROID está presente pero googleAuthMobile es undefined (bug de composición)', () => {
+    const env = buildTestEnv({
+      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+    });
+
+    expect(() =>
+      assertGoogleAuthMobileActivationConsistency(env, undefined),
+    ).toThrow(/GOOGLE_CLIENT_ID_ANDROID.*googleAuthMobile/s);
   });
 });

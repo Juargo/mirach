@@ -20,6 +20,10 @@ import { IpRateLimiter } from '../infrastructure/http/auth/ip-rate-limiter';
 import { DemoCleanupService } from '../infrastructure/http/auth/demo-cleanup.service';
 import { crearAuth } from './crear-auth';
 import { crearAuthGoogle, type GoogleAuthGraph } from './crear-auth-google';
+import {
+  crearAuthGoogleMobile,
+  type GoogleAuthMobileGraph,
+} from './crear-auth-google-mobile';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
@@ -83,6 +87,11 @@ export interface Container {
    * de este campo es el seam de activación: `googleAuth !== undefined` es
    * la única pregunta que `app.ts` hace para decidir qué router montar. */
   readonly googleAuth?: GoogleAuthGraph;
+  /** Login con Google mobile nativo (AUTH-19..24, ADR-035) — `undefined`
+   * cuando el feature está apagado (GOOGLE_CLIENT_ID_ANDROID ausente, design
+   * §7). Gate de activación TOTALMENTE independiente de `googleAuth` (web,
+   * AUTH-22) — ambos pueden estar en cualquier combinación on/off. */
+  readonly googleAuthMobile?: GoogleAuthMobileGraph;
   /** Rate limiter de login (por IP + email). */
   readonly loginRateLimiter: LoginRateLimiter;
   /** Rate limiter de demo (por IP). */
@@ -127,6 +136,9 @@ export function createContainer(
   // recién derivada arriba — nunca una segunda derivación (4R carry-forward,
   // design §5.5). `undefined` cuando GOOGLE_CLIENT_ID/SECRET están ausentes.
   const googleAuth = crearAuthGoogle(prisma, env, blindIndex);
+  // Login con Google mobile (design §7): gate independiente de `googleAuth`
+  // (AUTH-22) — misma instancia de `blindIndex`, nunca una re-derivación.
+  const googleAuthMobile = crearAuthGoogleMobile(prisma, env, blindIndex);
 
   // Logging estructurado (ADR-033 slice 2): UNA instancia para todo el
   // composition root — pretty en development (legible en consola local),
@@ -180,6 +192,7 @@ export function createContainer(
     obtenerIdentidad: auth.obtenerIdentidad,
     crearDemo: auth.crearDemo,
     googleAuth,
+    googleAuthMobile,
     loginRateLimiter: auth.loginRateLimiter,
     demoRateLimiter: auth.demoRateLimiter,
     demoCleanup: auth.demoCleanup,

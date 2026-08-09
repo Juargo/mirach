@@ -456,6 +456,117 @@ describe('loadEnv — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET/GOOGLE_REDIRECT_URI 
   });
 });
 
+describe('loadEnv — GOOGLE_CLIENT_ID_ANDROID (auth-google-login-mobile, ADR-035, design §7)', () => {
+  const VALID_ANDROID_CLIENT_ID = '123-abc.apps.googleusercontent.com';
+
+  it('ausente → el schema acepta, feature apagada, sin error en ningún ambiente', () => {
+    const dev = loadEnv(baseDevSource);
+    const prod = loadEnv(baseProdSource);
+
+    expect(dev.GOOGLE_CLIENT_ID_ANDROID).toBeUndefined();
+    expect(prod.GOOGLE_CLIENT_ID_ANDROID).toBeUndefined();
+  });
+
+  it('presente y termina en .apps.googleusercontent.com → el schema acepta', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+    });
+
+    expect(env.GOOGLE_CLIENT_ID_ANDROID).toBe(VALID_ANDROID_CLIENT_ID);
+  });
+
+  it('presente con sufijo incorrecto (p. ej. un client secret pegado por error) → boot falla', () => {
+    expect(() =>
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID_ANDROID: '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error',
+      }),
+    ).toThrow(/GOOGLE_CLIENT_ID_ANDROID/);
+  });
+
+  it('sufijo incorrecto → el mensaje de error NUNCA incluye el valor pegado (puede ser un secret; no filtrarlo a logs)', () => {
+    const secretPegado = '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error';
+    let error: Error | undefined;
+
+    try {
+      loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID_ANDROID: secretPegado });
+    } catch (e) {
+      error = e as Error;
+    }
+
+    expect(error).toBeDefined();
+    expect(error?.message).not.toContain(secretPegado);
+  });
+
+  it('presente pero vacío ("" ) → boot falla (min(1) rechaza el string vacío antes del refine de formato)', () => {
+    expect(() =>
+      loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID_ANDROID: '' }),
+    ).toThrow(/GOOGLE_CLIENT_ID_ANDROID/);
+  });
+
+  it('presente pero solo espacios en blanco → boot falla (evita una audiencia vacía/no-identificable en el verificador, carry-over 4R A1)', () => {
+    expect(() =>
+      loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID_ANDROID: '   ' }),
+    ).toThrow(/GOOGLE_CLIENT_ID_ANDROID/);
+  });
+
+  it('igual a GOOGLE_CLIENT_ID (copy-paste del client web) → boot falla (guard de ensanchamiento silencioso de audiencia, design §7 punto 3)', () => {
+    expect(() =>
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID: VALID_ANDROID_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+      }),
+    ).toThrow(/GOOGLE_CLIENT_ID_ANDROID/);
+  });
+
+  it('las 4 combinaciones web × mobile on/off son válidas y se computan de forma independiente (design §7 punto 4)', () => {
+    const ningunoActivo = loadEnv(baseDevSource);
+    const soloWeb = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID: 'client-id-web',
+      GOOGLE_CLIENT_SECRET: 'client-secret-web',
+    });
+    const soloMobile = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+    });
+    const ambosActivos = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID: 'client-id-web',
+      GOOGLE_CLIENT_SECRET: 'client-secret-web',
+      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+    });
+
+    expect(ningunoActivo.GOOGLE_CLIENT_ID).toBeUndefined();
+    expect(ningunoActivo.GOOGLE_CLIENT_ID_ANDROID).toBeUndefined();
+    expect(soloWeb.GOOGLE_CLIENT_ID).toBe('client-id-web');
+    expect(soloWeb.GOOGLE_CLIENT_ID_ANDROID).toBeUndefined();
+    expect(soloMobile.GOOGLE_CLIENT_ID).toBeUndefined();
+    expect(soloMobile.GOOGLE_CLIENT_ID_ANDROID).toBe(VALID_ANDROID_CLIENT_ID);
+    expect(ambosActivos.GOOGLE_CLIENT_ID).toBe('client-id-web');
+    expect(ambosActivos.GOOGLE_CLIENT_ID_ANDROID).toBe(VALID_ANDROID_CLIENT_ID);
+  });
+
+  it('producción con el feature mobile apagado es un boot válido (no existe una regla production-only para esta var)', () => {
+    const env = loadEnv(baseProdSource);
+
+    expect(env.GOOGLE_CLIENT_ID_ANDROID).toBeUndefined();
+    expect(env.NODE_ENV).toBe('production');
+  });
+
+  it('producción con GOOGLE_CLIENT_ID_ANDROID válido → boot acepta (sin dependencia del par web)', () => {
+    const env = loadEnv({
+      ...baseProdSource,
+      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+    });
+
+    expect(env.GOOGLE_CLIENT_ID_ANDROID).toBe(VALID_ANDROID_CLIENT_ID);
+  });
+});
+
 describe('loadEnv — coerción de rate-limit falla cerrado (ENV-01)', () => {
   it('un valor no numérico rechaza', () => {
     expect(() =>
