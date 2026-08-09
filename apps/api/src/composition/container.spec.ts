@@ -59,4 +59,42 @@ describe('createContainer', () => {
       expect(container.googleAuth!.loginConGoogle).toBeDefined();
     });
   });
+
+  describe('googleAuthMobile (design §7 — seam de activación independiente, AUTH-22)', () => {
+    it('es undefined cuando GOOGLE_CLIENT_ID_ANDROID está ausente (feature mobile apagada por defecto)', () => {
+      const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
+      const env = buildTestEnv({ GOOGLE_CLIENT_ID_ANDROID: undefined });
+
+      const container = createContainer(env, fakePrisma);
+
+      expect(container.googleAuthMobile).toBeUndefined();
+    });
+
+    it('es un GoogleAuthMobileGraph definido cuando GOOGLE_CLIENT_ID_ANDROID está presente', () => {
+      const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
+      const env = buildTestEnv({
+        GOOGLE_CLIENT_ID_ANDROID: '123-abc.apps.googleusercontent.com',
+      });
+
+      const container = createContainer(env, fakePrisma);
+
+      expect(container.googleAuthMobile).toBeDefined();
+      expect(container.googleAuthMobile!.loginConGoogle).toBeDefined();
+    });
+
+    it('es independiente de googleAuth (web) — ambos gates pueden estar en cualquier combinación', () => {
+      const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
+      const env = buildTestEnv({
+        GOOGLE_CLIENT_ID: undefined,
+        GOOGLE_CLIENT_SECRET: undefined,
+        GOOGLE_REDIRECT_URI: undefined,
+        GOOGLE_CLIENT_ID_ANDROID: '123-abc.apps.googleusercontent.com',
+      });
+
+      const container = createContainer(env, fakePrisma);
+
+      expect(container.googleAuth).toBeUndefined();
+      expect(container.googleAuthMobile).toBeDefined();
+    });
+  });
 });
