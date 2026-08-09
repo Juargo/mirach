@@ -17,6 +17,10 @@ import {
   registrarAuthGoogle,
   registrarAuthGoogleDeshabilitado,
 } from './routes/auth-google.routes';
+import {
+  registrarAuthGoogleToken,
+  registrarAuthGoogleTokenDeshabilitado,
+} from './routes/auth-google-token.routes';
 import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
 import { registrarVersion } from './routes/version.routes';
 
@@ -130,6 +134,19 @@ export function createApp(container: Container, env: Env): Express {
     registrarAuthGoogleDeshabilitado(authGoogleApi);
   }
   app.use('/api', authGoogleApi);
+
+  // Login con Google mobile nativo (AUTH-19..24, ADR-035 M1, design §6.1):
+  // router SEPARADO de authGoogleApi (no una rama adentro) — los dos gates
+  // son independientes por decisión Q2 (AUTH-22): web puede estar prendido
+  // con mobile apagado, y viceversa. `container.googleAuthMobile !==
+  // undefined` es el ÚNICO seam de activación, mismo patrón que arriba.
+  const authGoogleTokenApi = express.Router();
+  if (container.googleAuthMobile !== undefined) {
+    registrarAuthGoogleToken(authGoogleTokenApi, container.googleAuthMobile);
+  } else {
+    registrarAuthGoogleTokenDeshabilitado(authGoogleTokenApi);
+  }
+  app.use('/api', authGoogleTokenApi);
 
   // Rutas protegidas: exigen sesión válida (además de la api-key global).
   const protectedApi = express.Router();

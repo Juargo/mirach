@@ -37,6 +37,7 @@ import {
   authLoginRequestSchema,
   authLoginResponseSchema,
 } from './auth-login.schema';
+import { authGoogleTokenRequestSchema } from './auth-google-token.schema';
 import { authCapabilitiesResponseSchema } from './auth-capabilities.schema';
 import {
   transaccionesCategoriaPathParamsSchema,
@@ -467,6 +468,56 @@ const authGoogleCallbackOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `POST /api/auth/google/token` (AUTH-19..24, ADR-035 M1, design §6) —
+ * session-public, api-key required (AC-11). Mobile-only, native `id_token`
+ * verification — reuses `authLoginResponseSchema` VERBATIM for the 200
+ * response, so the document *proves* the body is identical to
+ * `POST /api/auth/login` rather than asserting it in prose (design §6.2).
+ * `404` when the mobile activation gate is off (`GOOGLE_CLIENT_ID_ANDROID`
+ * absent, AUTH-22) — independent of the web Google login gate.
+ */
+const authGoogleTokenOperation: ZodOpenApiOperationObject = {
+  summary: 'Authenticate with a native Google id_token (mobile)',
+  description:
+    'Public endpoint (requires x-api-key only, session-public — no prior session needed) that ' +
+    'verifies a device-obtained Google id_token (AUTH-19) and, on success, issues a session ' +
+    'identical in shape to POST /api/auth/login (AUTH-20). Every failure cause — invalid/expired/' +
+    'wrong-audience token, unverified email, no matching account, a demo-user match, an email ' +
+    'already linked to a different googleSub, or a JWKS/network failure — produces the identical ' +
+    '401 body used by POST /api/auth/login (AUTH-21, anti-enumeration). No Set-Cookie: mobile uses ' +
+    'Bearer + SecureStore. 404 when GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22) — ' +
+    "independent of GET /api/auth/google's activation gate.",
+  requestBody: {
+    content: {
+      'application/json': { schema: authGoogleTokenRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description:
+        'Authentication succeeded — identical shape to POST /api/auth/login.',
+      content: {
+        'application/json': { schema: authLoginResponseSchema },
+      },
+    },
+    '401': {
+      description:
+        'Verification or identity resolution failed (scrubbed — never echoes the id_token or email; ' +
+        'identical body to POST /api/auth/login for every cause, AUTH-21).',
+    },
+    '404': {
+      description:
+        'Google login mobile is not active — GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22).',
+    },
+    '429': {
+      description:
+        'Rate-limited: too many attempts from this IP (own budget, distinct from /auth/login and ' +
+        'GET /api/auth/google, design §6.4).',
+    },
+  },
+};
+
+/**
  * `PATCH /api/transacciones/:id/categoria` (US-013 S4) — CONTRACT-ONLY
  * (openapi-contract-express Phase 10.2b, writes/sensitive group): documents
  * the request/response shapes, but `registrarTransacciones`
@@ -531,6 +582,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/auth/capabilities': { get: authCapabilitiesOperation },
   '/api/auth/google': { get: authGoogleInitiateOperation },
   '/api/auth/google/callback': { get: authGoogleCallbackOperation },
+  '/api/auth/google/token': { post: authGoogleTokenOperation },
 };
 
 export function buildOpenApiDocument() {
