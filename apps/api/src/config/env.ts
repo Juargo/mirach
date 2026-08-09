@@ -162,6 +162,13 @@ export const EnvObjectSchema = z.object({
     .describe(
       `URL absoluta del callback de Google (${GOOGLE_CALLBACK_PATHNAME}). Requerida (https) en producción cuando el feature está activo; en development/test, si falta, se completa con http://localhost:5173${GOOGLE_CALLBACK_PATHNAME}. El pathname DEBE ser exactamente ${GOOGLE_CALLBACK_PATHNAME} (assertion de boot, design §8) — no protege contra un mismatch con lo registrado en Google Cloud Console, eso se verifica manualmente (§11.4).`,
     ),
+  GOOGLE_CLIENT_ID_ANDROID: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Client ID de OAuth 2.0 (tipo Android) de Google para el login mobile nativo (auth-google-login-mobile, ADR-035). Opcional: activación por presencia, gate TOTALMENTE independiente del par GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET (AUTH-22) — ausente = feature mobile apagada (kill switch código-cero, design §7).',
+    ),
 });
 
 type EnvSource = z.infer<typeof EnvObjectSchema>;
@@ -222,6 +229,7 @@ function refineByEnvironment(
   }
 
   refineGoogleAuthEnv(env, ctx);
+  refineGoogleAuthMobileEnv(env, ctx);
 }
 
 /**
@@ -302,6 +310,61 @@ function refineGoogleAuthEnv(
       code: 'custom',
       path: ['GOOGLE_REDIRECT_URI'],
       message: `GOOGLE_REDIRECT_URI tiene el pathname "${redirectUri.pathname}", pero la ruta de callback está montada en "${GOOGLE_CALLBACK_PATHNAME}". Deben coincidir exactamente o todo login con Google fallará.`,
+    });
+  }
+}
+
+/**
+ * Suffix esperado de un Android OAuth 2.0 client ID de Google. Formato de
+ * negocio, no de plataforma — Zod no tiene un validador para esto.
+ */
+const GOOGLE_ANDROID_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
+
+/**
+ * Reglas de `auth-google-login-mobile` (ADR-035, design §7) — sibling de
+ * `refineGoogleAuthEnv`, NO fusionada en ella: son dos gates de activación
+ * TOTALMENTE independientes (AUTH-22) sobre variables distintas; fusionarlas
+ * en una sola función obligaría a leer condicionales de dos features
+ * entrelazadas para entender cualquiera de las dos (KISS — la duplicación
+ * estructural de "misma forma, distinto dato" es más legible que una función
+ * gigante con ramas cruzadas).
+ *
+ * Con UNA sola variable no existe un "par" que exigir all-or-none (a
+ * diferencia de GOOGLE_CLIENT_ID/SECRET) — el equivalente de "fail-fast ante
+ * una config a medias" es una VALIDACIÓN DE FORMATO: si está presente, debe
+ * *parecer* un Android client ID real, no un secret o un valor pegado por
+ * error. Un string solo-espacios pasa `min(1)` pero produciría una audiencia
+ * vacía/no-identificable en `GoogleIdTokenVerifier` (carry-over 4R de A1) —
+ * por eso el `trim()` explícito, no solo el suffix check.
+ */
+function refineGoogleAuthMobileEnv(
+  env: EnvSource,
+  ctx: z.RefinementCtx<EnvSource>,
+): void {
+  const clientIdAndroid = env.GOOGLE_CLIENT_ID_ANDROID;
+
+  if (clientIdAndroid === undefined) {
+    return;
+  }
+
+  if (
+    clientIdAndroid.trim() === '' ||
+    !clientIdAndroid.endsWith(GOOGLE_ANDROID_CLIENT_ID_SUFFIX)
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_CLIENT_ID_ANDROID'],
+      message: `GOOGLE_CLIENT_ID_ANDROID ("${clientIdAndroid}") no tiene forma de Android OAuth client ID de Google — se espera que termine en "${GOOGLE_ANDROID_CLIENT_ID_SUFFIX}". Confirmar que no se pegó un client secret o un valor truncado por error.`,
+    });
+    return;
+  }
+
+  if (clientIdAndroid === env.GOOGLE_CLIENT_ID) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['GOOGLE_CLIENT_ID_ANDROID'],
+      message:
+        'GOOGLE_CLIENT_ID_ANDROID es idéntico a GOOGLE_CLIENT_ID (el client web) — probable copy-paste. Esto ensancharía en silencio la audiencia aceptada por el verificador de id_token mobile al client web (design §7 punto 3). Usar el Android OAuth client ID real.',
     });
   }
 }
