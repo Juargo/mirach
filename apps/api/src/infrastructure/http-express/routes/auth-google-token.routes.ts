@@ -105,6 +105,12 @@ export function registrarAuthGoogleToken(
         return;
       }
 
+      // Optimistic recordFailure() arriba + reset() acá en éxito (mismo
+      // patrón que `/auth/login`, design §6.4): el presupuesto 30/15min solo
+      // lo consumen los intentos FALLIDOS — un actor con muchos logins
+      // exitosos legítimos (CGNAT) nunca se topa con el límite.
+      googleTokenRateLimiter.reset(ip);
+
       const { token, userId, expiresAt } = resultado.getValue();
       res
         .status(200)

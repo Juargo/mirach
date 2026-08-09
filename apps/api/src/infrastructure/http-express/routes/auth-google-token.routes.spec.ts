@@ -43,6 +43,7 @@ function deps(over: Partial<AuthGoogleTokenDeps> = {}): AuthGoogleTokenDeps {
     googleTokenRateLimiter: {
       isBlocked: vi.fn().mockReturnValue(false),
       recordFailure: vi.fn(),
+      reset: vi.fn(),
     },
     ...over,
   } as unknown as AuthGoogleTokenDeps;
@@ -107,6 +108,18 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
       email: 'a@b.cl',
       emailVerificado: true,
     });
+  });
+
+  it('successful login releases the rate-limit slot (reset called with the request IP)', async () => {
+    const d = deps();
+    const res = await request(tokenApp(d))
+      .post('/api/auth/google/token')
+      .send({ idToken: 'valid-token' });
+
+    expect(res.status).toBe(200);
+    expect(d.googleTokenRateLimiter.reset).toHaveBeenCalledWith(
+      expect.any(String),
+    );
   });
 
   /**
