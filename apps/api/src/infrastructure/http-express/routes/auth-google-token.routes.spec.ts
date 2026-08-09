@@ -87,7 +87,8 @@ function tokenAppWithLogger(
 
 describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
   it('200 con el mismo shape que LoginResponseDto (AUTH-20) y sin Set-Cookie (MOB-02)', async () => {
-    const res = await request(tokenApp(deps()))
+    const d = deps();
+    const res = await request(tokenApp(d))
       .post('/api/auth/google/token')
       .send({ idToken: 'valid-token' });
 
@@ -98,6 +99,14 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
       expiresAt: '2026-08-15T00:00:00.000Z',
     });
     expect(res.headers['set-cookie']).toBeUndefined();
+    // Pins the wiring: la identidad que resuelve el verificador debe pasar
+    // TAL CUAL a `loginConGoogle.execute` (mismo camino find-only de
+    // `LoginConGoogleUseCase`, AUTH-20) — sin transformación intermedia.
+    expect(d.loginConGoogle.execute).toHaveBeenCalledWith({
+      sub: 'sub-1',
+      email: 'a@b.cl',
+      emailVerificado: true,
+    });
   });
 
   /**
@@ -286,6 +295,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
       .send({ idToken: 'a-token' });
 
     expect(res.status).toBe(429);
+    expect(res.body).toEqual({
+      message: 'Demasiadas solicitudes. Intenta más tarde.',
+    });
     expect(res.body).not.toEqual(GENERIC_401_BODY);
     expect(d.verificadorIdToken.verificarIdToken).not.toHaveBeenCalled();
   });
