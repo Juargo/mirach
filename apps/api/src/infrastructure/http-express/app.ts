@@ -104,9 +104,13 @@ export function createApp(container: Container, env: Env): Express {
     demoRateLimiter: container.demoRateLimiter,
     cookieSecure,
   });
-  // Capability discovery (AC-10, design §4.5) — ALWAYS mounted regardless
-  // of activation state, a diferencia de las dos rutas de Google mismas.
-  registrarAuthCapabilities(authPublicApi, container.googleAuth);
+  // Capability discovery (AC-10, design §8/D7) — ALWAYS mounted regardless
+  // of activation state, a diferencia de las rutas de Google mismas. Reporta
+  // dos flags independientes (web + mobile, AUTH-16/AUTH-22).
+  registrarAuthCapabilities(authPublicApi, {
+    googleAuth: container.googleAuth,
+    googleAuthMobile: container.googleAuthMobile,
+  });
   app.use('/api', authPublicApi);
 
   // Login con Google (AUTH-16, design §4.4): SIEMPRE se monta un router acá

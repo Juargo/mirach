@@ -6,13 +6,18 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
 import { authCapabilitiesResponseSchema } from './schemas/auth-capabilities.schema';
 
 /**
- * GET /api/auth/capabilities (AC-10, design §4.5) — session-public,
- * api-key required, ALWAYS mounted (unlike the two Google routes
- * themselves, which only exist as a 404 stub until Slice C2). This is the
- * seam the web/mobile clients read to decide whether to render the
- * "Continuar con Google" affordance.
+ * GET /api/auth/capabilities (AC-10, design §8/D7) — session-public,
+ * api-key required, ALWAYS mounted (unlike the Google routes themselves,
+ * which only exist as a 404 stub until activated). This is the seam the
+ * web/mobile clients read to decide whether to render their own
+ * "Continuar con Google" affordance. `googleLoginEnabled` (web) and
+ * `googleLoginMobileEnabled` (mobile, AUTH-22) are independently computed —
+ * this spec exercises all four combinations.
  */
-function fakeContainer(googleAuth: Container['googleAuth']): Container {
+function fakeContainer(
+  googleAuth: Container['googleAuth'],
+  googleAuthMobile: Container['googleAuthMobile'] = undefined,
+): Container {
   const stub = { execute: vi.fn() };
   return {
     validarSesion: {
@@ -48,7 +53,22 @@ function fakeContainer(googleAuth: Container['googleAuth']): Container {
     demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
     shutdown: async () => {},
     logger: { raw: {} },
+    googleAuthMobile,
   } as unknown as Container;
+}
+
+function stubGoogleAuthMobileGraph(): NonNullable<
+  Container['googleAuthMobile']
+> {
+  return {
+    verificadorIdToken: { verificarIdToken: vi.fn() },
+    loginConGoogle: { execute: vi.fn() },
+    googleTokenRateLimiter: {
+      isBlocked: vi.fn().mockReturnValue(false),
+      recordFailure: vi.fn(),
+      reset: vi.fn(),
+    },
+  } as unknown as NonNullable<Container['googleAuthMobile']>;
 }
 
 describe('GET /api/auth/capabilities (AC-10)', () => {
@@ -71,29 +91,33 @@ describe('GET /api/auth/capabilities (AC-10)', () => {
     expect(res.status).toBe(200);
   });
 
-  it('googleLoginEnabled: true cuando container.googleAuth está definido', async () => {
-    const googleAuth = {
-      iniciador: {},
-      loginConGoogle: {},
-      googleRateLimiter: {},
-    } as unknown as Container['googleAuth'];
+  const googleAuthStub = {
+    iniciador: {},
+    loginConGoogle: {},
+    googleRateLimiter: {},
+  } as unknown as Container['googleAuth'];
 
-    const res = await request(createApp(fakeContainer(googleAuth), testEnv))
-      .get('/api/auth/capabilities')
-      .set('x-api-key', KEY);
+  it.each([
+    [googleAuthStub, stubGoogleAuthMobileGraph(), true, true],
+    [googleAuthStub, undefined, true, false],
+    [undefined, stubGoogleAuthMobileGraph(), false, true],
+    [undefined, undefined, false, false],
+  ])(
+    'reporta googleLoginEnabled/googleLoginMobileEnabled independientemente (web=%s, mobile=%s)',
+    async (googleAuth, googleAuthMobile, expectedWeb, expectedMobile) => {
+      const res = await request(
+        createApp(fakeContainer(googleAuth, googleAuthMobile), testEnv),
+      )
+        .get('/api/auth/capabilities')
+        .set('x-api-key', KEY);
 
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ googleLoginEnabled: true });
-  });
-
-  it('googleLoginEnabled: false cuando container.googleAuth es undefined', async () => {
-    const res = await request(createApp(fakeContainer(undefined), testEnv))
-      .get('/api/auth/capabilities')
-      .set('x-api-key', KEY);
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ googleLoginEnabled: false });
-  });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        googleLoginEnabled: expectedWeb,
+        googleLoginMobileEnabled: expectedMobile,
+      });
+    },
+  );
 
   it('el body 200 real cumple authCapabilitiesResponseSchema (garantía de sincronía)', async () => {
     const res = await request(createApp(fakeContainer(undefined), testEnv))
