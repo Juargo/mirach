@@ -4,17 +4,21 @@ import type { LoginConGoogleUseCase } from '../../../application/use-cases/login
 import type { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 import { getClientIp } from '../../http/auth/client-ip';
 import { appLogger } from '../../logging/app-logger';
+import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
 
 /**
- * Cuerpo genérico 401 — byte-idéntico al de `/auth/login` (AUTH-21). Fijado
- * como literal, NO derivado de `LoginConGoogleFallidoError.message` (esa
- * clase produce "No pudimos iniciar sesión con Google.", un texto distinto
- * reservado para el logging/redirect del flujo web) ni de
- * `VerificacionIdentidadFallidaError.message`. La paridad exacta con
+ * Cuerpo genérico 401 — byte-idéntico al de `/auth/login` (AUTH-21). NO
+ * derivado de `LoginConGoogleFallidoError.message` (esa clase produce "No
+ * pudimos iniciar sesión con Google.", un texto distinto reservado para el
+ * logging/redirect del flujo web) ni de `VerificacionIdentidadFallidaError.
+ * message`. Derivado de `CredencialesInvalidasError` — la misma fuente de
+ * verdad que usa `/auth/login` — para que el body se mantenga byte-idéntico
+ * por construcción y una futura edición de ese mensaje no pueda hacer drift
+ * entre ambos endpoints sin romper un test. La paridad exacta con
  * `/auth/login` es el requisito (AUTH-21/AUTH-02, no enumeración) — el mismo
  * cuerpo para TODA causa de fallo, incluido un throw inesperado.
  */
-const GENERIC_401_BODY = { message: 'Credenciales inválidas.' };
+const GENERIC_401_BODY = { message: new CredencialesInvalidasError().message };
 
 const RATE_LIMITED_BODY = {
   message: 'Demasiadas solicitudes. Intenta más tarde.',
