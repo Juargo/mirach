@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import { loadEnv } from '../../config/env';
 import { createContainer } from '../../composition/container';
-import { assertGoogleAuthActivationConsistency } from '../../composition/assert-google-auth-activation-consistency';
-import { assertGoogleAuthMobileActivationConsistency } from '../../composition/assert-google-auth-mobile-activation-consistency';
+import {
+  assertGoogleAuthActivationConsistency,
+  assertGoogleAuthMobileActivationConsistency,
+} from '../../composition/assert-google-auth-activation-consistency';
 import { createApp } from './app';
 import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
 

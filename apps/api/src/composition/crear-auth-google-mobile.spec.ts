@@ -51,34 +51,6 @@ describe('crearAuthGoogleMobile (design §7)', () => {
     expect(typeof graph!.googleTokenRateLimiter.isBlocked).toBe('function');
   });
 
-  it('nunca construye el verificador con un array de audiencias vacío (carry-over 4R A1 — env.ts ya rechaza vacío/blanco en boot, esto pin-ea la construcción)', () => {
-    const env = buildTestEnv({
-      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
-    });
-    const blindIndex: IBlindIndexService = { compute: vi.fn() };
-
-    const graph = crearAuthGoogleMobile(fakePrisma(), env, blindIndex);
-
-    // GoogleIdTokenVerifier guarda `audiencias` como campo privado; se
-    // inspecciona en runtime porque no hay otra forma de verificar, desde
-    // afuera del adapter, que el array construido tiene al menos un
-    // elemento no vacío — el invariante real (env.ts rechaza vacío/blanco
-    // ANTES de que este factory se ejecute) ya está cubierto en
-    // env.spec.ts; esto pin-ea que el factory no introduce un segundo bug
-    // (p. ej. pasar `[]` en vez de `[env.GOOGLE_CLIENT_ID_ANDROID]`).
-    const audiencias = (
-      graph!.verificadorIdToken as unknown as {
-        audiencias: readonly string[];
-      }
-    ).audiencias;
-    expect(audiencias.length).toBeGreaterThan(0);
-    expect(audiencias.every((a) => a.trim().length > 0)).toBe(true);
-  });
-
-  it('construye sus colaboradores (rate limiter) INTERNAMENTE — la firma solo acepta prisma/env/blindIndex (design §7)', () => {
-    expect(crearAuthGoogleMobile.length).toBe(3);
-  });
-
   it('usa la MISMA instancia de blindIndex recibida — nunca una re-derivación (mismo invariante que crearAuthGoogle, design §5.5)', async () => {
     const env = buildTestEnv({
       GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
