@@ -3,15 +3,20 @@
     "schemas": {
       "AuthCapabilitiesResponse": {
         "additionalProperties": false,
-        "description": "GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10).",
+        "description": "GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10). googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations.",
         "properties": {
           "googleLoginEnabled": {
             "description": "true when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both configured (container.googleAuth !== undefined), false otherwise (AUTH-16).",
             "type": "boolean"
+          },
+          "googleLoginMobileEnabled": {
+            "description": "true when GOOGLE_CLIENT_ID_ANDROID is configured (container.googleAuthMobile !== undefined), false otherwise (AUTH-22). Computed independently of googleLoginEnabled — either, both, or neither may be true.",
+            "type": "boolean"
           }
         },
         "required": [
-          "googleLoginEnabled"
+          "googleLoginEnabled",
+          "googleLoginMobileEnabled"
         ],
         "type": "object"
       },
@@ -701,7 +706,7 @@
   "paths": {
     "/api/auth/capabilities": {
       "get": {
-        "description": "Public endpoint (requires x-api-key only, session-public — no prior session needed), always mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are configured (AC-10). Clients read this before rendering any Google-login affordance.",
+        "description": "Public endpoint (requires x-api-key only, session-public — no prior session needed), always mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET (web) or GOOGLE_CLIENT_ID_ANDROID (mobile) are configured (AC-10). Each client reads its own field (googleLoginEnabled or googleLoginMobileEnabled) before rendering its own Google-login affordance.",
         "responses": {
           "200": {
             "content": {
@@ -717,7 +722,7 @@
             "description": "Missing or invalid x-api-key."
           }
         },
-        "summary": "Discover whether Google login is active"
+        "summary": "Discover whether web and/or mobile Google login are active"
       }
     },
     "/api/auth/demo": {

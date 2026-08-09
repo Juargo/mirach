@@ -361,17 +361,20 @@ const authLogoutOperation: ZodOpenApiOperationObject = {
 };
 
 /**
- * `GET /api/auth/capabilities` (AC-10, auth-google-login Slice C1) —
- * session-public, api-key required, ALWAYS mounted regardless of Google
- * login's activation state (design §4.5). No query/path params — the
- * answer comes entirely from `container.googleAuth !== undefined`.
+ * `GET /api/auth/capabilities` (AC-10, auth-google-login / auth-google-login-mobile
+ * design §8/D7) — session-public, api-key required, ALWAYS mounted
+ * regardless of either Google login gate's activation state. No query/path
+ * params — the answer comes entirely from `container.googleAuth !==
+ * undefined` (web) and `container.googleAuthMobile !== undefined` (mobile),
+ * two independently computed flags.
  */
 const authCapabilitiesOperation: ZodOpenApiOperationObject = {
-  summary: 'Discover whether Google login is active',
+  summary: 'Discover whether web and/or mobile Google login are active',
   description:
     'Public endpoint (requires x-api-key only, session-public — no prior session needed), always ' +
-    'mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are configured (AC-10). ' +
-    'Clients read this before rendering any Google-login affordance.',
+    'mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET (web) or ' +
+    'GOOGLE_CLIENT_ID_ANDROID (mobile) are configured (AC-10). Each client reads its own field ' +
+    '(googleLoginEnabled or googleLoginMobileEnabled) before rendering its own Google-login affordance.',
   responses: {
     '200': {
       description: 'Current activation state of Google login.',
