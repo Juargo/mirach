@@ -485,6 +485,20 @@ describe('loadEnv — GOOGLE_CLIENT_ID_ANDROID (auth-google-login-mobile, ADR-03
     ).toThrow(/GOOGLE_CLIENT_ID_ANDROID/);
   });
 
+  it('sufijo incorrecto → el mensaje de error NUNCA incluye el valor pegado (puede ser un secret; no filtrarlo a logs)', () => {
+    const secretPegado = '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error';
+    let error: Error | undefined;
+
+    try {
+      loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID_ANDROID: secretPegado });
+    } catch (e) {
+      error = e as Error;
+    }
+
+    expect(error).toBeDefined();
+    expect(error?.message).not.toContain(secretPegado);
+  });
+
   it('presente pero vacío ("" ) → boot falla (min(1) rechaza el string vacío antes del refine de formato)', () => {
     expect(() =>
       loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID_ANDROID: '' }),

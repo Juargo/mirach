@@ -354,7 +354,10 @@ function refineGoogleAuthMobileEnv(
     ctx.addIssue({
       code: 'custom',
       path: ['GOOGLE_CLIENT_ID_ANDROID'],
-      message: `GOOGLE_CLIENT_ID_ANDROID ("${clientIdAndroid}") no tiene forma de Android OAuth client ID de Google — se espera que termine en "${GOOGLE_ANDROID_CLIENT_ID_SUFFIX}". Confirmar que no se pegó un client secret o un valor truncado por error.`,
+      // El valor NUNCA se interpola: si lo pegado es un client secret (el
+      // error que este guard existe para atrapar), interpolarlo lo filtraría
+      // a los logs de boot y obligaría a rotarlo (4R Risk, slice A2).
+      message: `GOOGLE_CLIENT_ID_ANDROID no tiene forma de Android OAuth client ID de Google (valor omitido de este mensaje por si es un secret) — se espera que termine en "${GOOGLE_ANDROID_CLIENT_ID_SUFFIX}". Confirmar que no se pegó un client secret o un valor truncado por error.`,
     });
     return;
   }
