@@ -801,6 +801,50 @@
         "summary": "Complete Google sign-in"
       }
     },
+    "/api/auth/google/token": {
+      "post": {
+        "description": "Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and, on success, issues a session identical in shape to POST /api/auth/login (AUTH-20). Every failure cause — invalid/expired/wrong-audience token, unverified email, no matching account, a demo-user match, an email already linked to a different googleSub, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. 404 when GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22) — independent of GET /api/auth/google's activation gate.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "idToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "idToken"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthLoginResponse"
+                }
+              }
+            },
+            "description": "Authentication succeeded — identical shape to POST /api/auth/login."
+          },
+          "401": {
+            "description": "Verification or identity resolution failed (scrubbed — never echoes the id_token or email; identical body to POST /api/auth/login for every cause, AUTH-21)."
+          },
+          "404": {
+            "description": "Google login mobile is not active — GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22)."
+          },
+          "429": {
+            "description": "Rate-limited: too many attempts from this IP (own budget, distinct from /auth/login and GET /api/auth/google, design §6.4)."
+          }
+        },
+        "summary": "Authenticate with a native Google id_token (mobile)"
+      }
+    },
     "/api/auth/login": {
       "post": {
         "description": "Public endpoint (requires x-api-key only, session-public — no prior session needed) that authenticates a user and returns a session token (AUTH-01). Sets the `md_session` cookie (Set-Cookie) in addition to the JSON body.",
