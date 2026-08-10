@@ -6,9 +6,9 @@ tags:
   - frontend
   - toolchain
 proyecto: MoneyDiary
-estado: ✅ Decidido (mecánica de origen desactualizada, ver nota 2026-08-02)
+estado: ✅ Decidido (mecánica de origen desactualizada, ver notas 2026-08-02 y 2026-08-09)
 fecha_creacion: 2026-07-02
-fecha_actualizacion: 2026-08-02
+fecha_actualizacion: 2026-08-09
 ---
 
 # ADR-012 — `packages/api-client`: cliente HTTP agnóstico de plataforma
@@ -20,6 +20,18 @@ fecha_actualizacion: 2026-08-02
 Reemplaza parcialmente a ADR-008 Frontend Stack (decisión *"no se crea un `packages/shared` ni equivalente"*). Este ADR introduce el primer —y deliberadamente único— paquete compartido del monorepo. Depende de ADR-011 Contrato-first OpenAPI.
 
 > **Nota 2026-08-02:** ADR-028 eliminó NestJS (migración a Express), por lo que la mecánica de origen del `openapi.json` que este ADR asume — emitido vía `@nestjs/swagger` — está **desactualizada**. ADR-011 Contrato-first OpenAPI fue enmendado el mismo día para documentar el mecanismo vigente (Zod + `zod-openapi@5.4.2`, OpenAPI 3.1.0). La **decisión central de este ADR-012 no cambia** (`packages/api-client` sigue siendo el diseño previsto para el consumo agnóstico de plataforma), pero **`packages/api-client` sigue SIN construirse** — es deuda técnica pendiente rastreada, no bloqueada por nada distinto a priorización. Cuando se construya, debe alimentarse del `apps/api/openapi.json` que emite el mecanismo Zod, no del mecanismo NestJS descrito abajo.
+>
+> **Nota 2026-08-09 (primer slice construido — mecánica ajustada):** el primer slice de este ADR se
+> implementó como un `packages/api-client` **solo-tipos** (change SDD `api-client-package`): sin
+> `client.ts`/`auth.ts`/`errors.ts` y **sin `tsup`**. Un paquete que no emite runtime no necesita build —
+> `package.json` apunta `types`/`exports` al fuente TypeScript y cada consumidor lo compila; `tsup` existía
+> para que Vite y Metro consumieran *código*, problema que este slice no tiene. Además, `src/types.gen.ts`
+> **se commitea** (corrigiendo el `.gitignore` prescrito arriba): el archivo commiteado habilita el gate de
+> drift `regenerar + git diff --exit-code`, espejo del `openapi:check` ya probado (ADR-011), y elimina un
+> paso obligatorio de generación en cada clon y en cada job de CI. La fuente sigue siendo
+> `apps/api/openapi.json`, no una copia dentro del paquete. `tsup` y el `.gitignore` original vuelven a
+> evaluarse cuando aterrice el cliente runtime (interceptores + `TokenStorage` + `errors.ts`), que sigue
+> siendo deuda registrada con gatillo: mobile como primer adoptante.
 
 ---
 

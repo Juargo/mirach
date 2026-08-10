@@ -34,6 +34,7 @@ jobs:
       web: ${{ steps.f.outputs.web }}
       mobile: ${{ steps.f.outputs.mobile }}
       landing: ${{ steps.f.outputs.landing }}
+      packages: ${{ steps.f.outputs.packages }}
       shared: ${{ steps.f.outputs.shared }}
       release-please-config: ${{ steps.f.outputs.release-please-config }}
     steps:
@@ -46,6 +47,7 @@ jobs:
             web:     ['apps/web/**']
             mobile:  ['apps/mobile/**']
             landing: ['apps/landing/**']
+            packages: ['packages/**']
             # Fail-safe: security/build-relevant ROOT files must trigger the
             # workspace jobs, so a change to them can never skip the secret-scans
             # (fail-open on unlisted root files was the original bug). Listed
@@ -472,10 +474,42 @@ jobs:
           }
           echo "ZAP scanned $(jq -r '.site[0]["@host"]' zap-report.json)."
 
+  # api-client-package Slice 1 — CI drift gate for the generated contract
+  # types. `types.gen.ts` is committed (design.md "Drift gates in CI"), so
+  # this mirrors `pnpm api openapi:check`: regenerate against the committed
+  # `apps/api/openapi.json`, then fail if the committed file diverges.
+  # Triggers on `api` too because a contract edit changes this gate's INPUT.
+  api-client:
+    name: Typecheck & contract-drift (api-client)
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate contract types
+        run: pnpm api-client generate
+
+      - name: Fail if types.gen.ts is stale
+        run: |
+          git diff --exit-code -- packages/api-client/src/types.gen.ts \
+            || { echo "::error::types.gen.ts is out of date. Run 'pnpm api-client generate' and commit."; exit 1; }
+
+      - name: Typecheck api-client
+        run: pnpm api-client typecheck
+
   web:
     name: Typecheck & unit tests (web)
     needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' }}
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -518,7 +552,7 @@ jobs:
   mobile:
     name: Typecheck & unit tests (mobile)
     needs: changes
-    if: ${{ needs.changes.outputs.mobile == 'true' || needs.changes.outputs.shared == 'true' }}
+    if: ${{ needs.changes.outputs.mobile == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -649,7 +683,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, api, integration, dast, web, mobile, landing, security]
+    needs: [changes, commitlint, release-please-config-check, api, integration, dast, api-client, web, mobile, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed
