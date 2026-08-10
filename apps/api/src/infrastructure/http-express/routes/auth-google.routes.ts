@@ -230,7 +230,6 @@ export function registrarAuthGoogle(
       }
 
       appLogger.debug('Google callback: id_token validation outcome', {
-        ok: true,
         emailVerificado: verificacion.getValue().emailVerificado,
       });
 
