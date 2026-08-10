@@ -3,6 +3,7 @@ import {
   InvalidFileExtensionError,
 } from './ingest-file.use-case';
 import { IFileReader } from '../ports/file-reader.port';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 /** Fake (doble de prueba) de IFileReader — no depende de Multer ni HTTP. */
 function makeFileReader(
@@ -23,7 +24,7 @@ describe('IngestFileUseCase', () => {
   let useCase: IngestFileUseCase;
 
   beforeEach(() => {
-    useCase = new IngestFileUseCase();
+    useCase = new IngestFileUseCase(new NoOpLogger());
   });
 
   describe('cuando el archivo es válido', () => {
@@ -119,6 +120,55 @@ describe('IngestFileUseCase', () => {
       expect(result.isFail()).toBe(true);
       const message = result.getError().message;
       expect(message).toContain('.xlsx');
+    });
+  });
+
+  describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {
+    it('loguea sizeInBytes + extension, NUNCA el originalName', () => {
+      const reader = makeFileReader({
+        originalName: 'cartola-secreta-del-usuario.xlsx',
+        sizeInBytes: 2048,
+      });
+      const logger = new FakeLogger();
+      const ucConLogger = new IngestFileUseCase(logger);
+
+      ucConLogger.execute(reader);
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls).toEqual([
+        {
+          level: 'debug',
+          message: 'ingest-file: file received',
+          context: { aceptado: true, sizeInBytes: 2048, extension: '.xlsx' },
+        },
+      ]);
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('cartola-secreta');
+    });
+
+    it('en rechazo por extensión loguea aceptado:false sin el originalName', () => {
+      const reader = makeFileReader({
+        originalName: 'archivo-secreto-del-usuario.csv',
+      });
+      const logger = new FakeLogger();
+      const ucConLogger = new IngestFileUseCase(logger);
+
+      ucConLogger.execute(reader);
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls).toEqual([
+        {
+          level: 'debug',
+          message: 'ingest-file: file received',
+          context: { aceptado: false, sizeInBytes: 1024 },
+        },
+      ]);
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('archivo-secreto');
     });
   });
 });

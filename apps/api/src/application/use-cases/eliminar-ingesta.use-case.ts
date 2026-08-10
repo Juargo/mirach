@@ -1,6 +1,7 @@
 import { Result } from '../../shared/result';
 import { IngestaNoEncontradaError } from '../../domain/errors/ingesta-no-encontrada.error';
 import { IEliminarIngestaWriter } from '../ports/eliminar-ingesta.port';
+import { ILogger } from '../ports/logger.port';
 
 /**
  * EliminarIngestaUseCase — use case de escritura para el borrado en cascada
@@ -13,12 +14,26 @@ import { IEliminarIngestaWriter } from '../ports/eliminar-ingesta.port';
  * `:id` del path.
  */
 export class EliminarIngestaUseCase {
-  constructor(private readonly writer: IEliminarIngestaWriter) {}
+  constructor(
+    private readonly writer: IEliminarIngestaWriter,
+    private readonly logger: ILogger,
+  ) {}
 
-  execute(input: {
+  async execute(input: {
     userId: string;
     ingestaId: string;
   }): Promise<Result<void, IngestaNoEncontradaError>> {
-    return this.writer.eliminarConTransacciones(input.userId, input.ingestaId);
+    const result = await this.writer.eliminarConTransacciones(
+      input.userId,
+      input.ingestaId,
+    );
+    // `eliminarConTransacciones` no retorna conteos de cascada — solo
+    // ingestaId (ID interno) + outcome (ADR-013: nunca userId en claro sería
+    // PII, pero userId ya es un ID interno, no un dato personal directo).
+    this.logger.debug('eliminar-ingesta: delete outcome', {
+      ingestaId: input.ingestaId,
+      eliminado: result.isOk(),
+    });
+    return result;
   }
 }

@@ -86,22 +86,29 @@ export function crearProcessIngesta(
   );
 
   return new ProcessIngestaUseCase(
-    new IngestFileUseCase(),
-    new DetectBankUseCase(new ExcelBankDetectorService()),
-    new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
+    new IngestFileUseCase(logger),
+    new DetectBankUseCase(new ExcelBankDetectorService(), logger),
+    new DetectPdfBankUseCase(new PdfjsBankDetectorService(), logger),
     accountRepository,
-    new ValidateStructureUseCase(new ExcelStructureValidatorService()),
-    new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
-    new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
+    new ValidateStructureUseCase(new ExcelStructureValidatorService(), logger),
+    new ValidatePdfStructureUseCase(
+      new PdfjsStructureValidatorService(),
+      logger,
+    ),
+    new NormalizeTransactionsUseCase(
+      new ExcelTransactionNormalizerService(),
+      logger,
+    ),
     new NormalizePdfTransactionsUseCase(
       new PdfjsTransactionNormalizerService(),
+      logger,
     ),
-    new PersistTransactionsUseCase(ingestaRepository),
+    new PersistTransactionsUseCase(ingestaRepository, logger),
     catalogoClasificacion,
     transaccionBucketWriter,
-    new CategorizarTransaccionUseCase(),
+    new CategorizarTransaccionUseCase(logger),
     txParaClasificarReader,
-    new DetectarDuplicadosUseCase(txExistenteReader),
+    new DetectarDuplicadosUseCase(txExistenteReader, logger),
     ingestaFallidaWriter,
     logger,
   );

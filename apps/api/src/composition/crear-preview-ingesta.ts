@@ -1,3 +1,5 @@
+import type { ILogger } from '../application/ports/logger.port';
+
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { IngestFileUseCase } from '../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../application/use-cases/detect-bank.use-case';
@@ -18,23 +20,34 @@ import { PdfjsTransactionNormalizerService } from '../infrastructure/pdf/pdfjs-t
  * crearPreviewIngesta — ensambla el grafo del seam de solo-lectura de US-003:
  * detectar → validar → normalizar (dual xlsx/pdf), SIN persistir.
  *
- * A propósito NO recibe argumentos — ni `prisma` ni `crypto` (design §7.1):
- * el eco a nivel de composición de que este grafo no puede alcanzar la BD
- * porque no tiene dónde poner un handle de conexión. Contrasta con
+ * A propósito NO recibe `prisma` ni `crypto` (design §7.1): el eco a nivel de
+ * composición de que este grafo no puede alcanzar la BD porque no tiene
+ * dónde poner un handle de conexión. Contrasta con
  * `crearProcessIngesta(prisma, crypto)`. Un reviewer que ve
- * `crearPreviewIngesta()` con parámetros vacíos puede concluir "este camino
- * no puede escribir" sin leer el use case.
+ * `crearPreviewIngesta(logger)` puede concluir "este camino no puede
+ * escribir" sin leer el use case.
+ *
+ * ADR-033 slice B: `logger` se recibe ya construido — MISMA instancia única
+ * de `container.ts` que recibe `crearProcessIngesta`, ver docstring ahí.
  */
-export function crearPreviewIngesta(): PreviewIngestaUseCase {
+export function crearPreviewIngesta(logger: ILogger): PreviewIngestaUseCase {
   return new PreviewIngestaUseCase(
-    new IngestFileUseCase(),
-    new DetectBankUseCase(new ExcelBankDetectorService()),
-    new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
-    new ValidateStructureUseCase(new ExcelStructureValidatorService()),
-    new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
-    new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
+    new IngestFileUseCase(logger),
+    new DetectBankUseCase(new ExcelBankDetectorService(), logger),
+    new DetectPdfBankUseCase(new PdfjsBankDetectorService(), logger),
+    new ValidateStructureUseCase(new ExcelStructureValidatorService(), logger),
+    new ValidatePdfStructureUseCase(
+      new PdfjsStructureValidatorService(),
+      logger,
+    ),
+    new NormalizeTransactionsUseCase(
+      new ExcelTransactionNormalizerService(),
+      logger,
+    ),
     new NormalizePdfTransactionsUseCase(
       new PdfjsTransactionNormalizerService(),
+      logger,
     ),
+    logger,
   );
 }

@@ -6,6 +6,7 @@ import {
 import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { ILogger } from '../ports/logger.port';
 
 export { BancoNoReconocidoError };
 
@@ -17,7 +18,10 @@ export { BancoNoReconocidoError };
  * (implementado en infrastructure/pdf/).
  */
 export class DetectPdfBankUseCase {
-  constructor(private readonly pdfBankDetector: IPdfBankDetector) {}
+  constructor(
+    private readonly pdfBankDetector: IPdfBankDetector,
+    private readonly logger: ILogger,
+  ) {}
 
   async execute(
     buffer: Buffer,
@@ -28,6 +32,12 @@ export class DetectPdfBankUseCase {
       BancoNoReconocidoError | PdfInvalidoError | PdfSinTextoError
     >
   > {
-    return this.pdfBankDetector.detect(buffer, originalName);
+    const result = await this.pdfBankDetector.detect(buffer, originalName);
+    // Nunca el originalName crudo: puede traer info del usuario (ADR-013).
+    this.logger.debug('detect-pdf-bank: bank detection outcome', {
+      detected: result.isOk(),
+      banco: result.isOk() ? result.getValue().banco : null,
+    });
+    return result;
   }
 }

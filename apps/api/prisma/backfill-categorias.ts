@@ -16,8 +16,10 @@ import {
 import { Categoria } from '../src/domain/value-objects/categoria';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import type { ICryptoService } from '../src/application/ports/crypto-service.port';
+import type { ILogger } from '../src/application/ports/logger.port';
 import { NoOpCryptoService } from '../src/infrastructure/persistence/no-op-crypto.service';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { createPinoLogger } from '../src/infrastructure/logging/pino-logger';
 import { isValid32ByteBase64Key } from '../src/config/env';
 
 /**
@@ -133,7 +135,7 @@ function decidirEscritura(c: {
 
 export async function runBackfill(
   prisma: BackfillClient,
-  options: { dryRun: boolean; crypto?: ICryptoService },
+  options: { dryRun: boolean; crypto?: ICryptoService; logger?: ILogger },
 ): Promise<BackfillSummary> {
   // ADR-013: `Transaccion.descripcion` está cifrada at-rest desde
   // AesGcmCryptoService — hay que descifrarla ANTES del pattern matching de
@@ -144,6 +146,10 @@ export async function runBackfill(
   // unitarios existentes, que ya trabajan con descripciones en texto plano;
   // main() SIEMPRE pasa la instancia real.
   const crypto = options.crypto ?? new NoOpCryptoService();
+  // ADR-033 slice B: mismo patrón que `crypto` arriba — default a un logger
+  // real (silencioso salvo LOG_LEVEL=debug) para no romper la firma de los
+  // tests unitarios existentes; `main()` puede pasar una instancia propia.
+  const logger = options.logger ?? createPinoLogger({ pretty: false });
 
   // 1. Catálogo categoría-aware (mismo formato que PrismaCatalogoClasificacionRepository).
   const patronRows = await prisma.patronClasificacion.findMany({
@@ -169,7 +175,7 @@ export async function runBackfill(
     where: { categoriaId: null },
   });
 
-  const useCase = new CategorizarTransaccionUseCase();
+  const useCase = new CategorizarTransaccionUseCase(logger);
   const clasificadas = rows.map((row) => {
     const descripcion = crypto.decrypt(row.descripcion);
     const { categoria, bucket } = useCase

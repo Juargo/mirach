@@ -2,6 +2,7 @@ import {
   IListarIngestasReader,
   IngestaResumen,
 } from '../ports/listar-ingestas.port';
+import { ILogger } from '../ports/logger.port';
 
 /**
  * ListarIngestasUseCase — use case de lectura para el listado de las
@@ -16,9 +17,18 @@ import {
  * (KISS/YAGNI).
  */
 export class ListarIngestasUseCase {
-  constructor(private readonly reader: IListarIngestasReader) {}
+  constructor(
+    private readonly reader: IListarIngestasReader,
+    private readonly logger: ILogger,
+  ) {}
 
-  execute(userId: string): Promise<IngestaResumen[]> {
-    return this.reader.listarPorUsuario(userId);
+  async execute(userId: string): Promise<IngestaResumen[]> {
+    const ingestas = await this.reader.listarPorUsuario(userId);
+    // Solo el CONTEO — nunca los nombres de archivo ni motivos de fallo
+    // de cada ingesta listada (ADR-013).
+    this.logger.debug('listar-ingestas: ingestas listed', {
+      total: ingestas.length,
+    });
+    return ingestas;
   }
 }
