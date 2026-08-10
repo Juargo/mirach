@@ -6,9 +6,9 @@ tags:
   - frontend
   - toolchain
 proyecto: MoneyDiary
-estado: ✅ Decidido (mecánica de origen desactualizada, ver nota 2026-08-02)
+estado: ✅ Decidido (mecánica de origen desactualizada, ver notas 2026-08-02 y 2026-08-09)
 fecha_creacion: 2026-07-02
-fecha_actualizacion: 2026-08-02
+fecha_actualizacion: 2026-08-09
 ---
 
 # ADR-012 — `packages/api-client`: cliente HTTP agnóstico de plataforma
