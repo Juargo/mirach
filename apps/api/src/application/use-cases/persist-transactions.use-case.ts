@@ -2,6 +2,7 @@ import { Result } from '../../shared/result';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { IIngestaRepository } from '../ports/ingesta-repository.port';
+import { ILogger } from '../ports/logger.port';
 
 /** Entrada del use case. `userId` viaja explícito (US-004) — ya disponible
  * en `runPipeline` como `input.userId` (session-guaranteed), no un lookup
@@ -40,7 +41,10 @@ export interface PersistTransactionsResult {
  * vive en otro port). Retorna Result y NUNCA lanza.
  */
 export class PersistTransactionsUseCase {
-  constructor(private readonly ingestaRepository: IIngestaRepository) {}
+  constructor(
+    private readonly ingestaRepository: IIngestaRepository,
+    private readonly logger: ILogger,
+  ) {}
 
   async execute(
     input: PersistTransactionsInput,
@@ -54,9 +58,22 @@ export class PersistTransactionsUseCase {
       duplicadosOmitidos: input.duplicadosOmitidos,
     });
     if (res.isFail()) {
+      this.logger.debug('persist-transactions: persist failed', {
+        persistido: false,
+        accountId: input.accountId,
+      });
       return Result.fail(res.getError());
     }
     const { ingestaId, total } = res.getValue();
+    // ingestaId/accountId son IDs internos (no PII); nunca el nombreArchivo
+    // ni las transacciones (ADR-013).
+    this.logger.debug('persist-transactions: persisted', {
+      persistido: true,
+      ingestaId,
+      accountId: input.accountId,
+      total,
+      duplicadosOmitidos: input.duplicadosOmitidos,
+    });
     return Result.ok({
       ingestaId,
       total,

@@ -35,6 +35,7 @@ import {
 } from '../ports/pdf-structure-validator.port';
 import { ITransactionNormalizer } from '../ports/transaction-normalizer.port';
 import { IPdfTransactionNormalizer } from '../ports/pdf-transaction-normalizer.port';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 class FakeFileReader implements IFileReader {
   constructor(
@@ -192,13 +193,14 @@ function buildUseCase(opts?: BuildOptions) {
     opts?.pdfNormalizer ?? new FakePdfTransactionNormalizer();
 
   const useCase = new PreviewIngestaUseCase(
-    new IngestFileUseCase(),
-    new DetectBankUseCase(bankDetector),
-    new DetectPdfBankUseCase(pdfBankDetector),
-    new ValidateStructureUseCase(structureValidator),
-    new ValidatePdfStructureUseCase(pdfStructureValidator),
-    new NormalizeTransactionsUseCase(normalizer),
-    new NormalizePdfTransactionsUseCase(pdfNormalizer),
+    new IngestFileUseCase(new NoOpLogger()),
+    new DetectBankUseCase(bankDetector, new NoOpLogger()),
+    new DetectPdfBankUseCase(pdfBankDetector, new NoOpLogger()),
+    new ValidateStructureUseCase(structureValidator, new NoOpLogger()),
+    new ValidatePdfStructureUseCase(pdfStructureValidator, new NoOpLogger()),
+    new NormalizeTransactionsUseCase(normalizer, new NoOpLogger()),
+    new NormalizePdfTransactionsUseCase(pdfNormalizer, new NoOpLogger()),
+    new NoOpLogger(),
   );
 
   return {
@@ -356,13 +358,20 @@ describe('PreviewIngestaUseCase', () => {
     const normalizer = new FakeTransactionNormalizer();
 
     const useCase = new PreviewIngestaUseCase(
-      new IngestFileUseCase(),
-      new DetectBankUseCase(bankDetector),
-      new DetectPdfBankUseCase(new FakePdfBankDetector()),
-      new ValidateStructureUseCase(structureValidator),
-      new ValidatePdfStructureUseCase(new FakePdfStructureValidator()),
-      new NormalizeTransactionsUseCase(normalizer),
-      new NormalizePdfTransactionsUseCase(new FakePdfTransactionNormalizer()),
+      new IngestFileUseCase(new NoOpLogger()),
+      new DetectBankUseCase(bankDetector, new NoOpLogger()),
+      new DetectPdfBankUseCase(new FakePdfBankDetector(), new NoOpLogger()),
+      new ValidateStructureUseCase(structureValidator, new NoOpLogger()),
+      new ValidatePdfStructureUseCase(
+        new FakePdfStructureValidator(),
+        new NoOpLogger(),
+      ),
+      new NormalizeTransactionsUseCase(normalizer, new NoOpLogger()),
+      new NormalizePdfTransactionsUseCase(
+        new FakePdfTransactionNormalizer(),
+        new NoOpLogger(),
+      ),
+      new NoOpLogger(),
     );
 
     const result = await useCase.execute({ fileReader: new FakeFileReader() });
@@ -511,13 +520,26 @@ describe('PreviewIngestaUseCase', () => {
       'conexión perdida leyendo la celda con monto 1500000',
     );
     const useCaseConThrow = new PreviewIngestaUseCase(
-      new IngestFileUseCase(),
-      new DetectBankUseCase(bankDetector),
-      new DetectPdfBankUseCase(new FakePdfBankDetector()),
-      new ValidateStructureUseCase(new FakeStructureValidator()),
-      new ValidatePdfStructureUseCase(new FakePdfStructureValidator()),
-      new NormalizeTransactionsUseCase(new FakeTransactionNormalizer()),
-      new NormalizePdfTransactionsUseCase(new FakePdfTransactionNormalizer()),
+      new IngestFileUseCase(new NoOpLogger()),
+      new DetectBankUseCase(bankDetector, new NoOpLogger()),
+      new DetectPdfBankUseCase(new FakePdfBankDetector(), new NoOpLogger()),
+      new ValidateStructureUseCase(
+        new FakeStructureValidator(),
+        new NoOpLogger(),
+      ),
+      new ValidatePdfStructureUseCase(
+        new FakePdfStructureValidator(),
+        new NoOpLogger(),
+      ),
+      new NormalizeTransactionsUseCase(
+        new FakeTransactionNormalizer(),
+        new NoOpLogger(),
+      ),
+      new NormalizePdfTransactionsUseCase(
+        new FakePdfTransactionNormalizer(),
+        new NoOpLogger(),
+      ),
+      new NoOpLogger(),
     );
 
     const result = await useCaseConThrow.execute({
@@ -547,5 +569,53 @@ describe('PreviewIngestaUseCase', () => {
     // deduplica (design §5.1, D5).
     expect(value.estructura.totalFilasDatos).toBe(3);
     expect(value.muestra.length).toBe(3);
+  });
+
+  describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {
+    it('loguea banco/totalFilasDatos/muestraSize, nunca las transacciones de la muestra', async () => {
+      const normalizer = new FakeTransactionNormalizer();
+      const logger = new FakeLogger();
+      const useCase = new PreviewIngestaUseCase(
+        new IngestFileUseCase(new NoOpLogger()),
+        new DetectBankUseCase(new FakeBankDetector(), new NoOpLogger()),
+        new DetectPdfBankUseCase(new FakePdfBankDetector(), new NoOpLogger()),
+        new ValidateStructureUseCase(
+          new FakeStructureValidator(),
+          new NoOpLogger(),
+        ),
+        new ValidatePdfStructureUseCase(
+          new FakePdfStructureValidator(),
+          new NoOpLogger(),
+        ),
+        new NormalizeTransactionsUseCase(normalizer, new NoOpLogger()),
+        new NormalizePdfTransactionsUseCase(
+          new FakePdfTransactionNormalizer(),
+          new NoOpLogger(),
+        ),
+        logger,
+      );
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+      });
+
+      expect(result.isOk()).toBe(true);
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls).toEqual([
+        {
+          level: 'debug',
+          message: 'preview-ingesta: preview generated',
+          context: {
+            banco: BancoConocido.BancoEstado,
+            totalFilasDatos: 2,
+            muestraSize: 2,
+          },
+        },
+      ]);
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('Movimiento');
+    });
   });
 });

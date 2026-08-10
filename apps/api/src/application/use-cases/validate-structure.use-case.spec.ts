@@ -6,6 +6,7 @@ import {
   IStructureValidator,
   ValidatedStructure,
 } from '../ports/structure-validator.port';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 function makeValidator(
   impl: (
@@ -25,7 +26,7 @@ describe('ValidateStructureUseCase', () => {
       totalFilasDatos: 5,
     };
     const validator = makeValidator(async () => Result.ok(expected));
-    const useCase = new ValidateStructureUseCase(validator);
+    const useCase = new ValidateStructureUseCase(validator, new NoOpLogger());
 
     const result = await useCase.execute(Buffer.from(''), BancoConocido.BCI);
 
@@ -43,7 +44,7 @@ describe('ValidateStructureUseCase', () => {
       },
     ]);
     const validator = makeValidator(async () => Result.fail(error));
-    const useCase = new ValidateStructureUseCase(validator);
+    const useCase = new ValidateStructureUseCase(validator, new NoOpLogger());
 
     const result = await useCase.execute(
       Buffer.from(''),
@@ -66,7 +67,7 @@ describe('ValidateStructureUseCase', () => {
         totalFilasDatos: 0,
       });
     });
-    const useCase = new ValidateStructureUseCase(validator);
+    const useCase = new ValidateStructureUseCase(validator, new NoOpLogger());
     const buf = Buffer.from('xyz');
 
     await useCase.execute(buf, BancoConocido.BancoEstado);
@@ -74,5 +75,36 @@ describe('ValidateStructureUseCase', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].buffer).toBe(buf);
     expect(calls[0].banco).toBe(BancoConocido.BancoEstado);
+  });
+
+  describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {
+    it('loguea el conteo de problemas, nunca el detalle crudo (celda encontrada)', async () => {
+      const error = new EstructuraInvalidaError(BancoConocido.Santander, [
+        {
+          tipo: 'ColumnaFaltante',
+          columna: 'C3',
+          esperado: 'Monto cargo ($)',
+          encontrado: 'Descripción sensible de la celda',
+        },
+      ]);
+      const validator = makeValidator(async () => Result.fail(error));
+      const logger = new FakeLogger();
+      const useCase = new ValidateStructureUseCase(validator, logger);
+
+      await useCase.execute(Buffer.from(''), BancoConocido.Santander);
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls).toEqual([
+        {
+          level: 'debug',
+          message: 'validate-structure: structure validation outcome',
+          context: { valido: false, problemasCount: 1 },
+        },
+      ]);
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('Descripción sensible');
+    });
   });
 });

@@ -294,6 +294,17 @@ export class ProcessIngestaUseCase {
             totalFilasDatos: estructura.totalFilasDatos,
           };
 
+    // Resumen agregado del pipeline completo — cada paso ya loguea su propio
+    // debug (detect/validate/normalize/dedupe/persist/categorizar); esta línea
+    // es la ÚNICA que junta el resultado end-to-end en un solo evento
+    // buscable por ingestaId. Nunca transacciones/nombreArchivo (ADR-013).
+    this.logger.debug('process-ingesta: pipeline completed', {
+      banco: banco.banco,
+      ingestaId,
+      total,
+      duplicadosOmitidos,
+    });
+
     return Result.ok({
       archivo: {
         originalName: archivo.originalName,
@@ -351,6 +362,11 @@ export class ProcessIngestaUseCase {
         await this.txParaClasificarReader.findParaClasificar(ingestaId);
 
       if (txsParaClasificar.length === 0) {
+        this.logger.debug('process-ingesta: categorization pass completed', {
+          catalogoDisponible,
+          asignadas: 0,
+          sinCategoria: 0,
+        });
         return { asignadas: 0, sinCategoria: 0 };
       }
 
@@ -394,6 +410,14 @@ export class ProcessIngestaUseCase {
         return undefined;
       }
 
+      // Aggregate del pase de categorización — nunca descripción/montos de
+      // las transacciones clasificadas, solo conteos + el flag de
+      // degradación (ADR-013).
+      this.logger.debug('process-ingesta: categorization pass completed', {
+        catalogoDisponible,
+        asignadas: writeResult.getValue().actualizadas,
+        sinCategoria,
+      });
       return { asignadas: writeResult.getValue().actualizadas, sinCategoria };
     } catch {
       // Cualquier excepción imprevista en la isla de categorización no propaga.

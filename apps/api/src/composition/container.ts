@@ -180,12 +180,14 @@ export function createContainer(
     blindIndex,
     logger,
   );
-  const previewIngesta = crearPreviewIngesta();
+  const previewIngesta = crearPreviewIngesta(logger);
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),
+    logger,
   );
   const listarIngestas = new ListarIngestasUseCase(
     new PrismaListarIngestasReader(prisma),
+    logger,
   );
 
   return {

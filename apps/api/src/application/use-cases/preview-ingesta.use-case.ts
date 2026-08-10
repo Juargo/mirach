@@ -18,6 +18,7 @@ import { ValidateStructureUseCase } from './validate-structure.use-case';
 import { ValidatePdfStructureUseCase } from './validate-pdf-structure.use-case';
 import { NormalizeTransactionsUseCase } from './normalize-transactions.use-case';
 import { NormalizePdfTransactionsUseCase } from './normalize-pdf-transactions.use-case';
+import { ILogger } from '../ports/logger.port';
 
 /** Tope de filas de muestra devueltas (CA-01, design §5.1) — cap de servidor. */
 export const PREVIEW_SAMPLE_MAX = 50;
@@ -77,6 +78,7 @@ export class PreviewIngestaUseCase {
     private readonly validatePdfStructureUseCase: ValidatePdfStructureUseCase,
     private readonly normalizeTransactionsUseCase: NormalizeTransactionsUseCase,
     private readonly normalizePdfTransactionsUseCase: NormalizePdfTransactionsUseCase,
+    private readonly logger: ILogger,
   ) {}
 
   async execute(
@@ -155,11 +157,19 @@ export class PreviewIngestaUseCase {
       return Result.fail(normalizeResult.getError());
     }
     const transacciones = normalizeResult.getValue();
+    const muestra = transacciones.slice(0, PREVIEW_SAMPLE_MAX);
+
+    // Solo conteos + banco (enum) — nunca las transacciones de la muestra.
+    this.logger.debug('preview-ingesta: preview generated', {
+      banco: banco.banco,
+      totalFilasDatos: transacciones.length,
+      muestraSize: muestra.length,
+    });
 
     return Result.ok({
       banco,
       estructura: { totalFilasDatos: transacciones.length },
-      muestra: transacciones.slice(0, PREVIEW_SAMPLE_MAX),
+      muestra,
     });
   }
 }

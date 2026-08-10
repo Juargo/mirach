@@ -6,6 +6,7 @@ import {
   ITransaccionExistenteReader,
   TransaccionExistente,
 } from '../ports/transaccion-existente-reader.port';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 /** Fake reader — devuelve filas fijas y registra los argumentos de la llamada. */
 class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
@@ -56,7 +57,7 @@ function makeExistente(
 describe('DetectarDuplicadosUseCase — batch vacío', () => {
   it('batch vacío → ok sin consultar el reader, duplicadas: 0', async () => {
     const reader = new FakeTransaccionExistenteReader(Result.ok([]));
-    const useCase = new DetectarDuplicadosUseCase(reader);
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
 
     const result = await useCase.execute({
       accountId: 'A1',
@@ -72,7 +73,7 @@ describe('DetectarDuplicadosUseCase — batch vacío', () => {
 describe('DetectarDuplicadosUseCase — sin existentes', () => {
   it('reader retorna [] → todas nuevas, duplicadas: 0 (CA-04)', async () => {
     const reader = new FakeTransaccionExistenteReader(Result.ok([]));
-    const useCase = new DetectarDuplicadosUseCase(reader);
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
     const transacciones = [
       makeTx(),
       makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n }),
@@ -90,7 +91,7 @@ describe('DetectarDuplicadosUseCase — solapamiento parcial (N de M)', () => {
   it('N de M ya existen → particiona correctamente, nuevas preserva el orden de entrada', async () => {
     const existente = makeExistente(); // igual a la primera tx
     const reader = new FakeTransaccionExistenteReader(Result.ok([existente]));
-    const useCase = new DetectarDuplicadosUseCase(reader);
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
 
     const duplicada = makeTx(); // matchea `existente`
     const nueva1 = makeTx({ descripcion: 'COMPRA JUMBO', cargo: 3000n });
@@ -115,7 +116,7 @@ describe('DetectarDuplicadosUseCase — solapamiento total', () => {
         makeExistente({ descripcion: 'COMPRA JUMBO', cargo: 3000n }),
       ]),
     );
-    const useCase = new DetectarDuplicadosUseCase(reader);
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
 
     const result = await useCase.execute({
       accountId: 'A1',
@@ -134,7 +135,7 @@ describe('DetectarDuplicadosUseCase — fallo conservador', () => {
       'no se pudo consultar transacciones existentes',
     );
     const reader = new FakeTransaccionExistenteReader(Result.fail(error));
-    const useCase = new DetectarDuplicadosUseCase(reader);
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
 
     const result = await useCase.execute({
       accountId: 'A1',
@@ -149,7 +150,7 @@ describe('DetectarDuplicadosUseCase — fallo conservador', () => {
 describe('DetectarDuplicadosUseCase — rango fecha del batch', () => {
   it('el reader es consultado con el min/max real de fecha del batch y el accountId dado', async () => {
     const reader = new FakeTransaccionExistenteReader(Result.ok([]));
-    const useCase = new DetectarDuplicadosUseCase(reader);
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
 
     const temprana = makeTx({ fecha: new Date('2026-07-01T00:00:00.000Z') });
     const tardia = makeTx({
@@ -182,7 +183,7 @@ describe('DetectarDuplicadosUseCase — exactitud BigInt del dinero', () => {
     const reader = new FakeTransaccionExistenteReader(
       Result.ok([makeExistente({ cargo: 5000n })]),
     );
-    const useCase = new DetectarDuplicadosUseCase(reader);
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
 
     const casiIgual = makeTx({ cargo: 5001n });
 
@@ -194,5 +195,35 @@ describe('DetectarDuplicadosUseCase — exactitud BigInt del dinero', () => {
     expect(result.isOk()).toBe(true);
     expect(result.getValue().nuevas).toEqual([casiIgual]);
     expect(result.getValue().duplicadas).toBe(0);
+  });
+});
+
+describe('DetectarDuplicadosUseCase — debug logging (ADR-033 slice B, ADR-013)', () => {
+  it('loguea accountId + conteos, nunca descripción/fecha/montos de las transacciones', async () => {
+    const existente = makeExistente();
+    const reader = new FakeTransaccionExistenteReader(Result.ok([existente]));
+    const logger = new FakeLogger();
+    const useCase = new DetectarDuplicadosUseCase(reader, logger);
+
+    const duplicada = makeTx();
+    const nueva = makeTx({ descripcion: 'COMPRA JUMBO SECRETA', cargo: 3000n });
+
+    await useCase.execute({
+      accountId: 'A1',
+      transacciones: [duplicada, nueva],
+    });
+
+    const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+    expect(debugCalls).toEqual([
+      {
+        level: 'debug',
+        message: 'detectar-duplicados: duplicates detected',
+        context: { accountId: 'A1', nuevas: 1, duplicadas: 1 },
+      },
+    ]);
+    const serializedContexts = JSON.stringify(debugCalls.map((c) => c.context));
+    expect(serializedContexts).not.toContain('COMPRA');
+    expect(serializedContexts).not.toContain('3000');
+    expect(serializedContexts).not.toContain('5000');
   });
 });

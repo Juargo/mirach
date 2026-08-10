@@ -32,6 +32,7 @@ import {
   USER_ID_FIJO,
 } from '../src/infrastructure/persistence/constants';
 import { buildTestEnv } from './support/env.fixture';
+import { NoOpLogger } from './support/logger.double';
 
 /**
  * Stub catálogo que siempre falla — used to exercise the degrade path end-to-end.
@@ -122,7 +123,9 @@ describe('Categorización — integración (real dev DB)', () => {
     prisma,
     crypto,
   );
-  const categorizarUseCase = new CategorizarTransaccionUseCase();
+  const categorizarUseCase = new CategorizarTransaccionUseCase(
+    new NoOpLogger(),
+  );
 
   let testIngestaAId: string;
   let testIngestaBId: string;

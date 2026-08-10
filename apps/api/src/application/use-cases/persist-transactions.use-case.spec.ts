@@ -6,6 +6,7 @@ import {
   CrearIngestaProcesadaInput,
   IIngestaRepository,
 } from '../ports/ingesta-repository.port';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 /**
  * Fake in-memory que implementa el port COLAPSADO (US-004, design.md §6.3/
@@ -61,7 +62,7 @@ const baseInput = {
 describe('PersistTransactionsUseCase (US-004 — persist-path collapse)', () => {
   it('happy path: delega a persistirProcesada y retorna ok({ingestaId,total,duplicadosOmitidos})', async () => {
     const repo = new FakeIngestaRepository();
-    const useCase = new PersistTransactionsUseCase(repo);
+    const useCase = new PersistTransactionsUseCase(repo, new NoOpLogger());
 
     const result = await useCase.execute({ ...baseInput, transacciones: TXS });
 
@@ -75,7 +76,7 @@ describe('PersistTransactionsUseCase (US-004 — persist-path collapse)', () => 
 
   it('pasa TODOS los campos (incl. userId) a persistirProcesada, sin transformarlos', async () => {
     const repo = new FakeIngestaRepository();
-    const useCase = new PersistTransactionsUseCase(repo);
+    const useCase = new PersistTransactionsUseCase(repo, new NoOpLogger());
 
     await useCase.execute({
       ...baseInput,
@@ -96,7 +97,7 @@ describe('PersistTransactionsUseCase (US-004 — persist-path collapse)', () => 
 
   it('lista vacía: delega igual y retorna ok({total:0})', async () => {
     const repo = new FakeIngestaRepository();
-    const useCase = new PersistTransactionsUseCase(repo);
+    const useCase = new PersistTransactionsUseCase(repo, new NoOpLogger());
 
     const result = await useCase.execute({ ...baseInput, transacciones: [] });
 
@@ -108,7 +109,7 @@ describe('PersistTransactionsUseCase (US-004 — persist-path collapse)', () => 
     const repo = new FakeIngestaRepository();
     const error = new PersistenciaFallidaError('base de datos no disponible');
     repo.failWith = error;
-    const useCase = new PersistTransactionsUseCase(repo);
+    const useCase = new PersistTransactionsUseCase(repo, new NoOpLogger());
 
     const result = await useCase.execute({ ...baseInput, transacciones: TXS });
 
@@ -118,7 +119,7 @@ describe('PersistTransactionsUseCase (US-004 — persist-path collapse)', () => 
 
   it('duplicadosOmitidos: 0 (sin duplicados) se ecoa igual', async () => {
     const repo = new FakeIngestaRepository();
-    const useCase = new PersistTransactionsUseCase(repo);
+    const useCase = new PersistTransactionsUseCase(repo, new NoOpLogger());
 
     const result = await useCase.execute({
       ...baseInput,
@@ -128,5 +129,62 @@ describe('PersistTransactionsUseCase (US-004 — persist-path collapse)', () => 
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue().duplicadosOmitidos).toBe(0);
+  });
+
+  describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {
+    it('loguea ingestaId/total/duplicadosOmitidos, nunca nombreArchivo/descripción/montos', async () => {
+      const repo = new FakeIngestaRepository();
+      const logger = new FakeLogger();
+      const useCase = new PersistTransactionsUseCase(repo, logger);
+
+      const result = await useCase.execute({
+        ...baseInput,
+        transacciones: TXS,
+        duplicadosOmitidos: 1,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls).toEqual([
+        {
+          level: 'debug',
+          message: 'persist-transactions: persisted',
+          context: {
+            persistido: true,
+            ingestaId: 'ingesta-1',
+            accountId: 'acc-1',
+            total: 2,
+            duplicadosOmitidos: 1,
+          },
+        },
+      ]);
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('movimientos.xlsx');
+      expect(serializedContexts).not.toContain('Compra');
+      expect(serializedContexts).not.toContain('Sueldo');
+      expect(serializedContexts).not.toContain('8103');
+      expect(serializedContexts).not.toContain('1500000');
+    });
+
+    it('en fallo loguea persistido:false sin exponer el motivo crudo del repositorio', async () => {
+      const repo = new FakeIngestaRepository();
+      const error = new PersistenciaFallidaError('base de datos no disponible');
+      repo.failWith = error;
+      const logger = new FakeLogger();
+      const useCase = new PersistTransactionsUseCase(repo, logger);
+
+      await useCase.execute({ ...baseInput, transacciones: TXS });
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls).toEqual([
+        {
+          level: 'debug',
+          message: 'persist-transactions: persist failed',
+          context: { persistido: false, accountId: 'acc-1' },
+        },
+      ]);
+    });
   });
 });
