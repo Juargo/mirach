@@ -2,6 +2,7 @@ import { CrearDemoUseCase, generarNombreDemo } from './crear-demo.use-case';
 import { IDemoRepository } from '../ports/demo-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — CrearDemoUseCase (mocked ports). No infra, no DB.
@@ -54,7 +55,7 @@ describe('CrearDemoUseCase', () => {
 
   it('genera el token y crea el usuario demo (con la sesión atómica dentro del repo), en ese orden', async () => {
     const { demoRepo, tokens, reloj } = makePorts();
-    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj);
+    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj, new NoOpLogger());
 
     const llamadas: string[] = [];
     (tokens.generar as ReturnType<typeof vi.fn>).mockImplementation(() => {
@@ -78,7 +79,7 @@ describe('CrearDemoUseCase', () => {
 
   it('pasa un nombre con el patrón Demo-{sufijo} a IDemoRepository.crear', async () => {
     const { demoRepo, tokens, reloj } = makePorts();
-    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj);
+    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj, new NoOpLogger());
 
     await uc.execute();
 
@@ -91,7 +92,7 @@ describe('CrearDemoUseCase', () => {
 
   it('pasa el tokenHash generado y el expiresAt calculado a IDemoRepository.crear, para que la sesión se cree ATÓMICAMENTE con el usuario (fix crítico DEMO-DATA-04)', async () => {
     const { demoRepo, tokens, reloj } = makePorts();
-    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj);
+    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj, new NoOpLogger());
 
     await uc.execute();
 
@@ -108,8 +109,28 @@ describe('CrearDemoUseCase', () => {
         crear: vi.fn().mockRejectedValue(new Error('DB connection lost')),
       },
     });
-    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj);
+    const uc = new CrearDemoUseCase(demoRepo, tokens, reloj, new NoOpLogger());
 
     await expect(uc.execute()).rejects.toThrow('DB connection lost');
+  });
+
+  describe('debug logging (ADR-033 slice A — redaction contract, ADR-013)', () => {
+    it('NUNCA incluye el token crudo ni su hash en los contexts logueados', async () => {
+      const { demoRepo, tokens, reloj } = makePorts();
+      const logger = new FakeLogger();
+      const uc = new CrearDemoUseCase(demoRepo, tokens, reloj, logger);
+
+      await uc.execute();
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('@');
+      expect(serializedContexts).not.toContain('token-demo-abc');
+      expect(serializedContexts).not.toContain('hash-demo-abc');
+    });
   });
 });

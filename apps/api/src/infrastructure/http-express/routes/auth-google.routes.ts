@@ -92,6 +92,8 @@ export function registrarAuthGoogle(
   // GET /api/auth/google
   router.get('/auth/google', async (req, res) => {
     try {
+      appLogger.debug('Google login: initiate hit');
+
       if (!esNavegacionDeNivelSuperior(req)) {
         appLogger.warn('Google login rechazado (no es navegación top-level)', {
           path: req.path,
@@ -125,6 +127,11 @@ export function registrarAuthGoogle(
       }
 
       const { urlAutorizacion, state, nonce, codeVerifier } = inicio.getValue();
+      // Debug step logging (ADR-033 slice A): mensaje estático, sin context —
+      // state/nonce/codeVerifier NUNCA en claro (ADR-013); `iniciar()` los
+      // garantiza siempre no vacíos acá, así que un booleano de presencia
+      // sería una señal muerta (siempre true).
+      appLogger.debug('Google login: state/PKCE generated');
       res.setHeader(
         'Set-Cookie',
         serializeOauthCookie({ state, nonce, codeVerifier }, cookieSecure),
@@ -172,6 +179,12 @@ export function registrarAuthGoogle(
       googleRateLimiter.recordFailure(ip);
 
       const incoming = new URL(req.originalUrl, 'http://placeholder');
+      // Debug step logging (ADR-033 slice A): presence booleans only — NUNCA
+      // el valor crudo de `code`/`state` (ADR-013).
+      appLogger.debug('Google callback: request received', {
+        hasCode: incoming.searchParams.has('code'),
+        hasState: incoming.searchParams.has('state'),
+      });
       const oauthCookie = parseOauthCookie(req.headers.cookie);
       const queryState = incoming.searchParams.get('state') ?? undefined;
 
@@ -190,6 +203,13 @@ export function registrarAuthGoogle(
         return;
       }
 
+      // Debug: engloba el intercambio de código por token + la validación
+      // del id_token (aud/iss/nonce) — ambos pasos viven dentro del adapter
+      // OIDC, así que la ruta solo puede observar el outcome agregado, nunca
+      // el status HTTP intermedio del intercambio en sí.
+      appLogger.debug(
+        'Google callback: token exchange + id_token validation started',
+      );
       const verificacion = await verificador.verificar({
         urlCallback: buildAbsoluteCallbackUrl(incoming, redirectUri),
         state: oauthCookie.state,
@@ -209,6 +229,10 @@ export function registrarAuthGoogle(
         return;
       }
 
+      appLogger.debug('Google callback: id_token validation outcome', {
+        emailVerificado: verificacion.getValue().emailVerificado,
+      });
+
       const resultado = await loginConGoogle.execute(verificacion.getValue());
 
       if (resultado.isFail()) {
@@ -223,7 +247,15 @@ export function registrarAuthGoogle(
         return;
       }
 
-      const { token, expiresAt } = resultado.getValue();
+      // "identity match outcome" se fusiona acá (no un debug aparte): tras
+      // pasar `resultado.isFail()` arriba, un `ok: true` en su propio evento
+      // sería una señal muerta (siempre true en este punto) — el mismo dato
+      // real (sesión emitida para `userId`) ya lo cubre este evento.
+      const { token, userId, expiresAt } = resultado.getValue();
+      appLogger.debug('Google callback: session emitted', {
+        userId,
+        expiresAt: expiresAt.toISOString(),
+      });
       res.setHeader('Set-Cookie', [
         clearOauthCookie(cookieSecure),
         serializeSessionCookie(token, expiresAt, cookieSecure),

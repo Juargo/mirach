@@ -190,6 +190,29 @@ describe('loadEnv — COOKIE_SECURE vía enum, no coerción (ENV-05)', () => {
   });
 });
 
+describe('loadEnv — LOG_LEVEL (ADR-033 slice A)', () => {
+  it('ausente aplica el default "info"', () => {
+    const env = loadEnv(baseDevSource);
+
+    expect(env.LOG_LEVEL).toBe('info');
+  });
+
+  it.each(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])(
+    'acepta el nivel válido "%s"',
+    (level) => {
+      const env = loadEnv({ ...baseDevSource, LOG_LEVEL: level });
+
+      expect(env.LOG_LEVEL).toBe(level);
+    },
+  );
+
+  it('un valor fuera del enum lanza en vez de aceptarlo silenciosamente', () => {
+    expect(() => loadEnv({ ...baseDevSource, LOG_LEVEL: 'verbose' })).toThrow(
+      /LOG_LEVEL/,
+    );
+  });
+});
+
 describe('loadEnv — fail-fast, nunca un Env parcial (ENV-01)', () => {
   it('API_KEY ausente lanza antes de boot', () => {
     expect(() => loadEnv(omit(baseDevSource, 'API_KEY'))).toThrow();

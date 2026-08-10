@@ -100,7 +100,7 @@ export interface Container {
   readonly demoCleanup: DemoCleanupService;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
   readonly shutdown: () => Promise<void>;
-  /** Logger estructurado (ADR-033 slice 2) — instancia única del composition
+  /** Logger estructurado (ADR-033 slice 2/A) — instancia única del composition
    * root, inyectada en `ProcessIngestaUseCase`. Disponible acá también para
    * cualquier otro consumidor futuro que necesite loguear a través del
    * grafo real (no del singleton de infraestructura `app-logger.ts`). */
@@ -131,20 +131,32 @@ export function createContainer(
     deriveBlindIndexKey(encryptionKey),
   );
 
-  const auth = crearAuth(prisma, env, crypto, blindIndex);
+  // Logging estructurado (ADR-033 slice 2/A): UNA instancia para todo el
+  // composition root — pretty en development (legible en consola local),
+  // JSON en el resto (production/test) para que el destino real (Render,
+  // agregadores) reciba NDJSON parseable. `level` viene de `env.LOG_LEVEL`
+  // (ya validado por `loadEnv`, default 'info') — construida ANTES de
+  // `crearAuth`/`crearAuthGoogle`/`crearAuthGoogleMobile` porque los 6 use
+  // cases de auth ahora la reciben inyectada (mismo patrón que
+  // `crearProcessIngesta`).
+  const logger = createPinoLogger({
+    pretty: env.NODE_ENV === 'development',
+    level: env.LOG_LEVEL,
+  });
+
+  const auth = crearAuth(prisma, env, crypto, blindIndex, logger);
   // Login con Google (design §4.3): `blindIndex` es la MISMA instancia
   // recién derivada arriba — nunca una segunda derivación (4R carry-forward,
   // design §5.5). `undefined` cuando GOOGLE_CLIENT_ID/SECRET están ausentes.
-  const googleAuth = crearAuthGoogle(prisma, env, blindIndex);
+  const googleAuth = crearAuthGoogle(prisma, env, blindIndex, logger);
   // Login con Google mobile (design §7): gate independiente de `googleAuth`
   // (AUTH-22) — misma instancia de `blindIndex`, nunca una re-derivación.
-  const googleAuthMobile = crearAuthGoogleMobile(prisma, env, blindIndex);
-
-  // Logging estructurado (ADR-033 slice 2): UNA instancia para todo el
-  // composition root — pretty en development (legible en consola local),
-  // JSON en el resto (production/test) para que el destino real (Render,
-  // agregadores) reciba NDJSON parseable.
-  const logger = createPinoLogger({ pretty: env.NODE_ENV === 'development' });
+  const googleAuthMobile = crearAuthGoogleMobile(
+    prisma,
+    env,
+    blindIndex,
+    logger,
+  );
 
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),

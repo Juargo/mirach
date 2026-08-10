@@ -11,6 +11,7 @@ import {
 } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { CredencialesInvalidasError } from '../../domain/errors/credenciales-invalidas.error';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — LoginUseCase (mocked ports, fake clock). No infra, no DB.
@@ -69,7 +70,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'jorge@example.com',
@@ -101,7 +109,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'nobody@example.com',
@@ -131,7 +146,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'jorge@example.com',
@@ -152,7 +174,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'not-an-email',
@@ -180,6 +209,7 @@ describe('LoginUseCase', () => {
         sessions,
         tokens,
         reloj,
+        new NoOpLogger(),
       );
       const rInvalido = await ucInvalido.execute({
         emailRaw: 'no-es-un-email',
@@ -193,6 +223,7 @@ describe('LoginUseCase', () => {
         sessions,
         tokens,
         reloj,
+        new NoOpLogger(),
       );
       const rDesconocido = await ucDesconocido.execute({
         emailRaw: 'nadie@example.com',
@@ -206,6 +237,7 @@ describe('LoginUseCase', () => {
         sessions,
         tokens,
         reloj,
+        new NoOpLogger(),
       );
       const rPassMala = await ucPassMala.execute({
         emailRaw: 'user@example.com',
@@ -225,6 +257,45 @@ describe('LoginUseCase', () => {
       expect(ePassMala.name).toBe(eInvalido.name);
       expect(eDesconocido.message).toBe(eInvalido.message);
       expect(ePassMala.message).toBe(eInvalido.message);
+    });
+  });
+
+  describe('debug logging (ADR-033 slice A — redaction contract, ADR-013)', () => {
+    it('NUNCA incluye el email, la password o un token en los contexts logueados', async () => {
+      const cred: CredencialUsuario = {
+        userId: 'user-1',
+        passwordHash: 'stored-hash',
+      };
+      const creds = makeMockCreds(cred);
+      const hasher = makeMockHasher(true);
+      const sessions = makeMockSessions();
+      const tokens = makeMockTokens(TOKEN_GENERADO);
+      const reloj = makeFakeReloj(AHORA);
+      const logger = new FakeLogger();
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        logger,
+      );
+
+      await uc.execute({
+        emailRaw: 'jorge@example.com',
+        password: 'correct-password',
+      });
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('@');
+      expect(serializedContexts).not.toContain('jorge@example.com');
+      expect(serializedContexts).not.toContain('correct-password');
+      expect(serializedContexts).not.toContain('raw-token-abc');
     });
   });
 

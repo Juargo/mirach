@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import type { Env } from '../config/env';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import type { ILogger } from '../application/ports/logger.port';
 import type {
   IIniciadorLoginExterno,
   IVerificadorIdentidadExterna,
@@ -60,6 +61,10 @@ export interface GoogleAuthGraph {
  * `container.ts` deriva una sola vez de `env.ENCRYPTION_KEY` — una segunda
  * derivación HKDF produciría un índice distinto y rompería todo link por
  * email en silencio (design §5.5, 4R carry-forward).
+ *
+ * ADR-033 slice A: `logger` es una segunda excepción a "todo se construye
+ * acá" — misma instancia única del composition root que `crearAuth` recibe,
+ * propagada a `LoginConGoogleUseCase` para el debug step logging.
  */
 export function crearAuthGoogle(
   prisma: PrismaClient,
@@ -68,6 +73,7 @@ export function crearAuthGoogle(
     'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET' | 'GOOGLE_REDIRECT_URI'
   >,
   blindIndex: IBlindIndexService,
+  logger: ILogger,
 ): GoogleAuthGraph | undefined {
   if (
     env.GOOGLE_CLIENT_ID === undefined ||
@@ -100,6 +106,7 @@ export function crearAuthGoogle(
       sessions,
       tokens,
       reloj,
+      logger,
     ),
     googleRateLimiter: new IpRateLimiter(
       GOOGLE_RATE_LIMIT_KEY_PREFIX,

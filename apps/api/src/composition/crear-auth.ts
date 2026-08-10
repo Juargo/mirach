@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { Env } from '../config/env';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import type { ILogger } from '../application/ports/logger.port';
 
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
@@ -62,6 +63,11 @@ export interface AuthGraph {
  * mismo patrón que `crearProcessIngesta` recibe `crypto` inyectado. Slice 2:
  * `demoRepo` también los necesita — el Account demo cifra `numeroCuenta` +
  * computa su blind index igual que cualquier cuenta real.
+ *
+ * ADR-033 slice A: `logger` se recibe ya construido — mismo patrón que
+ * `crypto`/`blindIndex`, la ÚNICA instancia del composition root, propagada
+ * a los 5 use cases de auth para el debug step logging (login, logout,
+ * validar-sesion, obtener-identidad, crear-demo).
  */
 export function crearAuth(
   prisma: PrismaClient,
@@ -73,6 +79,7 @@ export function crearAuth(
   >,
   crypto: ICryptoService,
   blindIndex: IBlindIndexService,
+  logger: ILogger,
 ): AuthGraph {
   const reloj = new SystemReloj();
   const tokens = new Sha256SessionTokenService();
@@ -83,11 +90,11 @@ export function crearAuth(
   const demoRepo = new PrismaDemoRepository(prisma, reloj, crypto, blindIndex);
 
   return {
-    validarSesion: new ValidarSesionUseCase(sessions, tokens, reloj),
-    login: new LoginUseCase(creds, hasher, sessions, tokens, reloj),
-    logout: new LogoutUseCase(sessions, tokens),
-    obtenerIdentidad: new ObtenerIdentidadUseCase(creds),
-    crearDemo: new CrearDemoUseCase(demoRepo, tokens, reloj),
+    validarSesion: new ValidarSesionUseCase(sessions, tokens, reloj, logger),
+    login: new LoginUseCase(creds, hasher, sessions, tokens, reloj, logger),
+    logout: new LogoutUseCase(sessions, tokens, logger),
+    obtenerIdentidad: new ObtenerIdentidadUseCase(creds, logger),
+    crearDemo: new CrearDemoUseCase(demoRepo, tokens, reloj, logger),
     loginRateLimiter: new LoginRateLimiter({
       maxAttemptsPerEmail: env.LOGIN_RATELIMIT_MAX_EMAIL,
       maxAttemptsPerIp: env.LOGIN_RATELIMIT_MAX_IP,

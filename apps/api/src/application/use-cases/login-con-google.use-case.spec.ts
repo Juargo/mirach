@@ -11,7 +11,9 @@ import {
 import { IReloj } from '../ports/reloj.port';
 import { IdentidadExterna } from '../ports/verificador-identidad-externa.port';
 import { LoginConGoogleFallidoError } from '../../domain/errors/login-con-google-fallido.error';
+import { ILogger } from '../ports/logger.port';
 import { makeMockIdentidadGoogleRepository as makeMockIdentidades } from '../../../test/support/identidad-google-repository.double';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — LoginConGoogleUseCase (mocked ports, fake clock). No infra, no DB.
@@ -48,12 +50,21 @@ const IDENTIDAD_BASE: IdentidadExterna = {
   emailVerificado: true,
 };
 
-function makeUseCase(identidades: IIdentidadGoogleRepository) {
+function makeUseCase(
+  identidades: IIdentidadGoogleRepository,
+  logger: ILogger = new NoOpLogger(),
+) {
   const sessions = makeMockSessions();
   const tokens = makeMockTokens(TOKEN_GENERADO);
   const reloj = makeFakeReloj(AHORA);
-  const uc = new LoginConGoogleUseCase(identidades, sessions, tokens, reloj);
-  return { uc, sessions, tokens, reloj };
+  const uc = new LoginConGoogleUseCase(
+    identidades,
+    sessions,
+    tokens,
+    reloj,
+    logger,
+  );
+  return { uc, sessions, tokens, reloj, logger };
 }
 
 describe('LoginConGoogleUseCase', () => {
@@ -341,6 +352,67 @@ describe('LoginConGoogleUseCase', () => {
       const unico = new Set(mensajes);
       expect(unico.size).toBe(1);
       expect([...unico][0]).toBe('No pudimos iniciar sesión con Google.');
+    });
+  });
+
+  describe('debug logging (ADR-033 slice A — redaction contract, ADR-013)', () => {
+    it('emite eventos debug en cada paso del happy path de link-and-login', async () => {
+      const usuario: UsuarioVinculable = {
+        userId: 'user-2',
+        esDemo: false,
+        googleSub: null,
+      };
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: usuario,
+        vincular: true,
+      });
+      const logger = new FakeLogger();
+      const { uc } = makeUseCase(identidades, logger);
+
+      await uc.execute(IDENTIDAD_BASE);
+
+      const debugMessages = logger.calls
+        .filter((c) => c.level === 'debug')
+        .map((c) => c.message);
+      expect(debugMessages).toEqual([
+        'login-con-google: googleSub lookup',
+        'login-con-google: email verified check',
+        'login-con-google: email lookup',
+        'login-con-google: identity link outcome',
+        'login-con-google: session emitted',
+      ]);
+    });
+
+    it('NUNCA incluye el email, el googleSub o un token en los contexts logueados (ADR-013)', async () => {
+      const usuario: UsuarioVinculable = {
+        userId: 'user-2',
+        esDemo: false,
+        googleSub: null,
+      };
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: usuario,
+        vincular: true,
+      });
+      const logger = new FakeLogger();
+      const { uc } = makeUseCase(identidades, logger);
+
+      await uc.execute(IDENTIDAD_BASE);
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      // Patrones que NUNCA deben aparecer en un context: '@' (email),
+      // 'token'/'Bearer' (credenciales), el sub crudo de la fixture.
+      expect(serializedContexts).not.toContain('@');
+      expect(serializedContexts).not.toContain('token');
+      expect(serializedContexts).not.toContain('Bearer');
+      expect(serializedContexts).not.toContain(IDENTIDAD_BASE.sub);
+      expect(serializedContexts).not.toContain(IDENTIDAD_BASE.email);
     });
   });
 });

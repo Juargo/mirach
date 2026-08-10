@@ -11,6 +11,7 @@ import { LoginConGoogleFallidoError } from '../../../domain/errors/login-con-goo
 import { VerificacionIdentidadFallidaError } from '../../../domain/errors/verificacion-identidad-fallida.error';
 import { serializeOauthCookie } from '../../http/auth/oauth-transient-cookie';
 import type { LoginUseCaseResult } from '../../../application/use-cases/login.use-case';
+import { appLogger } from '../../logging/app-logger';
 
 const REDIRECT_URI = 'https://app.moneydiary.cl/api/auth/google/callback';
 const GENERIC_FAILURE_REDIRECT = '/login?error=google';
@@ -374,6 +375,55 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
         urlCallback: expect.stringMatching(/^https:\/\/app\.moneydiary\.cl\//),
       }),
     );
+  });
+});
+
+describe('registrarAuthGoogle — debug logging redaction contract (ADR-013, mismos invariantes que login-con-google.use-case.spec.ts)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('initiate: ningún context logueado en debug contiene @, token, Bearer, code= ni el state/nonce/codeVerifier crudos', async () => {
+    const debugSpy = vi.spyOn(appLogger, 'debug');
+
+    await request(googleApp(deps())).get('/api/auth/google');
+
+    expect(debugSpy.mock.calls.length).toBeGreaterThan(0);
+    // Solo los contexts (2do argumento) — igual que login-con-google.use-case.spec.ts,
+    // el mensaje estático en sí puede mencionar palabras como "token" sin ser un leak.
+    const serializedContexts = JSON.stringify(
+      debugSpy.mock.calls.map((call) => call[1]),
+    );
+    expect(serializedContexts).not.toContain('@');
+    expect(serializedContexts).not.toContain('token');
+    expect(serializedContexts).not.toContain('Bearer');
+    expect(serializedContexts).not.toContain('code=');
+    expect(serializedContexts).not.toContain(OAUTH_STATE.state);
+    expect(serializedContexts).not.toContain(OAUTH_STATE.nonce);
+    expect(serializedContexts).not.toContain(OAUTH_STATE.codeVerifier);
+  });
+
+  it('callback happy path: ningún context logueado en debug contiene @, token, Bearer, code= ni los fixtures crudos de state/sub/email', async () => {
+    const debugSpy = vi.spyOn(appLogger, 'debug');
+
+    await request(googleApp(deps()))
+      .get('/api/auth/google/callback')
+      .query({ code: 'c', state: OAUTH_STATE.state })
+      .set('Cookie', oauthCookieHeader());
+
+    expect(debugSpy.mock.calls.length).toBeGreaterThan(0);
+    // Solo los contexts (2do argumento) — igual que login-con-google.use-case.spec.ts,
+    // el mensaje estático en sí puede mencionar palabras como "token" sin ser un leak.
+    const serializedContexts = JSON.stringify(
+      debugSpy.mock.calls.map((call) => call[1]),
+    );
+    expect(serializedContexts).not.toContain('@');
+    expect(serializedContexts).not.toContain('token');
+    expect(serializedContexts).not.toContain('Bearer');
+    expect(serializedContexts).not.toContain('code=');
+    expect(serializedContexts).not.toContain(OAUTH_STATE.state);
+    expect(serializedContexts).not.toContain('sub-1');
+    expect(serializedContexts).not.toContain('a@b.cl');
   });
 });
 
