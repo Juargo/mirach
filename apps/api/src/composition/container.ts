@@ -100,7 +100,7 @@ export interface Container {
   readonly demoCleanup: DemoCleanupService;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
   readonly shutdown: () => Promise<void>;
-  /** Logger estructurado (ADR-033 slice 2) — instancia única del composition
+  /** Logger estructurado (ADR-033 slice 2/A) — instancia única del composition
    * root, inyectada en `ProcessIngestaUseCase`. Disponible acá también para
    * cualquier otro consumidor futuro que necesite loguear a través del
    * grafo real (no del singleton de infraestructura `app-logger.ts`). */

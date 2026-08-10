@@ -4,7 +4,7 @@ import {
   IdentidadUsuario,
 } from '../ports/user-credential-repository.port';
 import { SesionInvalidaError } from '../../domain/errors/sesion-invalida.error';
-import { NoOpLogger } from '../../../test/support/logger.double';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — ObtenerIdentidadUseCase (mocked port). No infra, no DB.
@@ -59,5 +59,29 @@ describe('ObtenerIdentidadUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual(identidad);
+  });
+
+  describe('debug logging (ADR-033 slice A — redaction contract, ADR-013)', () => {
+    it('NUNCA incluye el email en los contexts logueados', async () => {
+      const identidad: IdentidadUsuario = {
+        userId: 'user-1',
+        email: 'jorge@example.com',
+        esDemo: false,
+      };
+      const creds = makeMockCreds(identidad);
+      const logger = new FakeLogger();
+      const uc = new ObtenerIdentidadUseCase(creds, logger);
+
+      await uc.execute({ userId: 'user-1' });
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('@');
+      expect(serializedContexts).not.toContain('jorge@example.com');
+    });
   });
 });

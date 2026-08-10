@@ -127,13 +127,11 @@ export function registrarAuthGoogle(
       }
 
       const { urlAutorizacion, state, nonce, codeVerifier } = inicio.getValue();
-      // Debug step logging (ADR-033 slice A): presence booleans only —
-      // state/nonce/codeVerifier NUNCA en claro (ADR-013).
-      appLogger.debug('Google login: state/PKCE generated', {
-        hasState: state.length > 0,
-        hasNonce: nonce.length > 0,
-        hasCodeVerifier: codeVerifier.length > 0,
-      });
+      // Debug step logging (ADR-033 slice A): mensaje estático, sin context —
+      // state/nonce/codeVerifier NUNCA en claro (ADR-013); `iniciar()` los
+      // garantiza siempre no vacíos acá, así que un booleano de presencia
+      // sería una señal muerta (siempre true).
+      appLogger.debug('Google login: state/PKCE generated');
       res.setHeader(
         'Set-Cookie',
         serializeOauthCookie({ state, nonce, codeVerifier }, cookieSecure),
@@ -250,10 +248,11 @@ export function registrarAuthGoogle(
         return;
       }
 
+      // "identity match outcome" se fusiona acá (no un debug aparte): tras
+      // pasar `resultado.isFail()` arriba, un `ok: true` en su propio evento
+      // sería una señal muerta (siempre true en este punto) — el mismo dato
+      // real (sesión emitida para `userId`) ya lo cubre este evento.
       const { token, userId, expiresAt } = resultado.getValue();
-      appLogger.debug('Google callback: identity match outcome', {
-        ok: true,
-      });
       appLogger.debug('Google callback: session emitted', {
         userId,
         expiresAt: expiresAt.toISOString(),

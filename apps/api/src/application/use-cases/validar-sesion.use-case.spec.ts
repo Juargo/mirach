@@ -6,7 +6,7 @@ import {
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { SesionInvalidaError } from '../../domain/errors/sesion-invalida.error';
-import { NoOpLogger } from '../../../test/support/logger.double';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — ValidarSesionUseCase (mocked ports, fake clock). No infra, no DB.
@@ -92,5 +92,31 @@ describe('ValidarSesionUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(SesionInvalidaError);
+  });
+
+  describe('debug logging (ADR-033 slice A — redaction contract, ADR-013)', () => {
+    it('NUNCA incluye el token crudo ni su hash en los contexts logueados', async () => {
+      const sesion: SesionPersistida = {
+        userId: 'user-1',
+        expiresAt: new Date('2026-07-22T00:00:00.000Z'),
+      };
+      const sessions = makeMockSessions(sesion);
+      const tokens = makeMockTokens('hashed-token');
+      const reloj = makeFakeReloj(new Date('2026-07-15T00:00:00.000Z'));
+      const logger = new FakeLogger();
+      const uc = new ValidarSesionUseCase(sessions, tokens, reloj, logger);
+
+      await uc.execute({ token: 'raw-token' });
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('@');
+      expect(serializedContexts).not.toContain('raw-token');
+      expect(serializedContexts).not.toContain('hashed-token');
+    });
   });
 });

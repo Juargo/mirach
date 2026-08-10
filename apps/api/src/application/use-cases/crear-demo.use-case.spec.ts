@@ -2,7 +2,7 @@ import { CrearDemoUseCase, generarNombreDemo } from './crear-demo.use-case';
 import { IDemoRepository } from '../ports/demo-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
-import { NoOpLogger } from '../../../test/support/logger.double';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — CrearDemoUseCase (mocked ports). No infra, no DB.
@@ -112,5 +112,25 @@ describe('CrearDemoUseCase', () => {
     const uc = new CrearDemoUseCase(demoRepo, tokens, reloj, new NoOpLogger());
 
     await expect(uc.execute()).rejects.toThrow('DB connection lost');
+  });
+
+  describe('debug logging (ADR-033 slice A — redaction contract, ADR-013)', () => {
+    it('NUNCA incluye el token crudo ni su hash en los contexts logueados', async () => {
+      const { demoRepo, tokens, reloj } = makePorts();
+      const logger = new FakeLogger();
+      const uc = new CrearDemoUseCase(demoRepo, tokens, reloj, logger);
+
+      await uc.execute();
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('@');
+      expect(serializedContexts).not.toContain('token-demo-abc');
+      expect(serializedContexts).not.toContain('hash-demo-abc');
+    });
   });
 });
