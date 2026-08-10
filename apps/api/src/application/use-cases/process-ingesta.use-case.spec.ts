@@ -54,7 +54,7 @@ import {
 } from '../ports/transaccion-para-clasificar.port';
 import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
 import { ITransaccionExistenteReader } from '../ports/transaccion-existente-reader.port';
-import { ILogger, LogContext } from '../ports/logger.port';
+import { FakeLogger } from '../../../test/support/logger.double';
 
 class FakeFileReader implements IFileReader {
   constructor(
@@ -341,27 +341,6 @@ class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
     this.called = true;
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(this.existentes);
-  }
-}
-
-/** Doble en memoria de ILogger — nunca pull Pino a un unit test (ADR-033 slice 2). */
-class FakeLogger implements ILogger {
-  readonly calls: Array<{
-    level: 'debug' | 'info' | 'warn' | 'error';
-    message: string;
-    context?: LogContext;
-  }> = [];
-  debug(message: string, context?: LogContext): void {
-    this.calls.push({ level: 'debug', message, context });
-  }
-  info(message: string, context?: LogContext): void {
-    this.calls.push({ level: 'info', message, context });
-  }
-  warn(message: string, context?: LogContext): void {
-    this.calls.push({ level: 'warn', message, context });
-  }
-  error(message: string, context?: LogContext): void {
-    this.calls.push({ level: 'error', message, context });
   }
 }
 

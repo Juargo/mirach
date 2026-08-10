@@ -169,6 +169,12 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Client ID de OAuth 2.0 (tipo Android) de Google para el login mobile nativo (auth-google-login-mobile, ADR-035). Opcional: activación por presencia, gate TOTALMENTE independiente del par GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET (AUTH-22) — ausente = feature mobile apagada (kill switch código-cero, design §7).',
     ),
+  LOG_LEVEL: z
+    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
+    .default('info')
+    .describe(
+      'Nivel mínimo de log emitido por el singleton Pino (ADR-033 slice A). Default "info" — subir a "debug" en un ambiente puntual (nunca en producción de forma permanente) para ver el detalle paso a paso del pipeline de auth. No pasa por superRefine: es un knob de observabilidad, no una regla de negocio condicionada por NODE_ENV.',
+    ),
 });
 
 type EnvSource = z.infer<typeof EnvObjectSchema>;
