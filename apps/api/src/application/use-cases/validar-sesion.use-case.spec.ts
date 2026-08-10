@@ -6,6 +6,7 @@ import {
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { SesionInvalidaError } from '../../domain/errors/sesion-invalida.error';
+import { NoOpLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — ValidarSesionUseCase (mocked ports, fake clock). No infra, no DB.
@@ -39,7 +40,12 @@ describe('ValidarSesionUseCase', () => {
     const sessions = makeMockSessions(sesion);
     const tokens = makeMockTokens('hashed-token');
     const reloj = makeFakeReloj(new Date('2026-07-15T00:00:00.000Z'));
-    const uc = new ValidarSesionUseCase(sessions, tokens, reloj);
+    const uc = new ValidarSesionUseCase(
+      sessions,
+      tokens,
+      reloj,
+      new NoOpLogger(),
+    );
 
     const result = await uc.execute({ token: 'raw-token' });
 
@@ -53,7 +59,12 @@ describe('ValidarSesionUseCase', () => {
     const sessions = makeMockSessions(null);
     const tokens = makeMockTokens('hashed-token');
     const reloj = makeFakeReloj(new Date('2026-07-15T00:00:00.000Z'));
-    const uc = new ValidarSesionUseCase(sessions, tokens, reloj);
+    const uc = new ValidarSesionUseCase(
+      sessions,
+      tokens,
+      reloj,
+      new NoOpLogger(),
+    );
 
     const result = await uc.execute({ token: 'garbage-token' });
 
@@ -70,7 +81,12 @@ describe('ValidarSesionUseCase', () => {
     const tokens = makeMockTokens('hashed-token');
     // fake clock past expiresAt
     const reloj = makeFakeReloj(new Date('2026-07-16T00:00:00.000Z'));
-    const uc = new ValidarSesionUseCase(sessions, tokens, reloj);
+    const uc = new ValidarSesionUseCase(
+      sessions,
+      tokens,
+      reloj,
+      new NoOpLogger(),
+    );
 
     const result = await uc.execute({ token: 'raw-token' });
 

@@ -1,6 +1,7 @@
 import { LogoutUseCase } from './logout.use-case';
 import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
+import { NoOpLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — LogoutUseCase (mocked ports). No infra, no DB.
@@ -25,7 +26,7 @@ describe('LogoutUseCase', () => {
   it('token present → revokes the session identified by its tokenHash', async () => {
     const sessions = makeMockSessions();
     const tokens = makeMockTokens('hashed-token');
-    const uc = new LogoutUseCase(sessions, tokens);
+    const uc = new LogoutUseCase(sessions, tokens, new NoOpLogger());
 
     const result = await uc.execute({ token: 'raw-token' });
 
@@ -37,7 +38,7 @@ describe('LogoutUseCase', () => {
   it('token undefined → idempotent Result.ok, no revocation attempted', async () => {
     const sessions = makeMockSessions();
     const tokens = makeMockTokens('hashed-token');
-    const uc = new LogoutUseCase(sessions, tokens);
+    const uc = new LogoutUseCase(sessions, tokens, new NoOpLogger());
 
     const result = await uc.execute({ token: undefined });
 

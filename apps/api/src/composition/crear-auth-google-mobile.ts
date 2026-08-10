@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import type { Env } from '../config/env';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import type { ILogger } from '../application/ports/logger.port';
 import type { IVerificadorIdTokenExterno } from '../application/ports/verificador-identidad-externa.port';
 
 import { LoginConGoogleUseCase } from '../application/use-cases/login-con-google.use-case';
@@ -48,11 +49,16 @@ export interface GoogleAuthMobileGraph {
  * Android client ID) — el array de audiencias que recibe
  * `GoogleIdTokenVerifier` nunca puede quedar vacío por construcción (carry-over
  * 4R A1).
+ *
+ * ADR-033 slice A: `logger` es una excepción más a "colaboradores
+ * construidos internamente" — misma instancia única del composition root,
+ * propagada a la SEGUNDA `LoginConGoogleUseCase` para el debug step logging.
  */
 export function crearAuthGoogleMobile(
   prisma: PrismaClient,
   env: Pick<Env, 'GOOGLE_CLIENT_ID_ANDROID'>,
   blindIndex: IBlindIndexService,
+  logger: ILogger,
 ): GoogleAuthMobileGraph | undefined {
   if (env.GOOGLE_CLIENT_ID_ANDROID === undefined) {
     return undefined;
@@ -72,6 +78,7 @@ export function crearAuthGoogleMobile(
       sessions,
       tokens,
       reloj,
+      logger,
     ),
     googleTokenRateLimiter: new IpRateLimiter(
       GOOGLE_TOKEN_RATE_LIMIT_KEY_PREFIX,

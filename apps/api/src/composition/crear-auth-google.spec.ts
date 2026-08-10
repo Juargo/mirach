@@ -3,6 +3,7 @@ import { crearAuthGoogle } from './crear-auth-google';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 import type { IdentidadExterna } from '../application/ports/verificador-identidad-externa.port';
+import { NoOpLogger } from '../../test/support/logger.double';
 
 function fakePrisma(
   findUniqueImpl: (args: unknown) => unknown = () => null,
@@ -30,7 +31,12 @@ describe('crearAuthGoogle (design §4.3)', () => {
     });
     const blindIndex: IBlindIndexService = { compute: vi.fn() };
 
-    const graph = crearAuthGoogle(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogle(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(graph).toBeUndefined();
   });
@@ -43,7 +49,12 @@ describe('crearAuthGoogle (design §4.3)', () => {
     });
     const blindIndex: IBlindIndexService = { compute: vi.fn() };
 
-    const graph = crearAuthGoogle(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogle(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(graph).toBeUndefined();
   });
@@ -56,7 +67,12 @@ describe('crearAuthGoogle (design §4.3)', () => {
     });
     const blindIndex: IBlindIndexService = { compute: vi.fn() };
 
-    const graph = crearAuthGoogle(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogle(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(graph).toBeUndefined();
   });
@@ -69,7 +85,12 @@ describe('crearAuthGoogle (design §4.3)', () => {
     });
     const blindIndex: IBlindIndexService = { compute: vi.fn() };
 
-    const graph = crearAuthGoogle(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogle(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(graph).toBeDefined();
     expect(graph!.iniciador).toBeDefined();
@@ -87,13 +108,18 @@ describe('crearAuthGoogle (design §4.3)', () => {
     });
     const blindIndex: IBlindIndexService = { compute: vi.fn() };
 
-    const graph = crearAuthGoogle(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogle(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(graph!.verificador).toBe(graph!.iniciador);
   });
 
-  it('construye sus colaboradores (reloj/tokens/sessions) INTERNAMENTE — la firma solo acepta prisma/env/blindIndex, nunca los recibe como parámetro (design §4.3)', () => {
-    expect(crearAuthGoogle.length).toBe(3);
+  it('construye sus colaboradores (reloj/tokens/sessions) INTERNAMENTE — la firma solo acepta prisma/env/blindIndex/logger, nunca los recibe como parámetro (design §4.3, ADR-033 slice A)', () => {
+    expect(crearAuthGoogle.length).toBe(4);
   });
 
   it('usa la MISMA instancia de blindIndex recibida — nunca una re-derivación (4R carry-forward, design §5.5)', async () => {
@@ -105,7 +131,12 @@ describe('crearAuthGoogle (design §4.3)', () => {
     const computeSpy = vi.fn().mockReturnValue('blind-index-de-esta-instancia');
     const blindIndex: IBlindIndexService = { compute: computeSpy };
 
-    const graph = crearAuthGoogle(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogle(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     // No hay match por googleSub ni por email → 'sin-match'. Lo que importa
     // es que buscarPorEmail (alcanzado tras el gate de emailVerificado) haya

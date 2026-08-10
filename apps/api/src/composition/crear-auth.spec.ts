@@ -3,6 +3,7 @@ import { crearAuth } from './crear-auth';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import { NoOpLogger } from '../../test/support/logger.double';
 
 const fakeCrypto: ICryptoService = {
   encrypt: (v: string) => v,
@@ -35,7 +36,13 @@ describe('crearAuth — mapeo env.LOGIN_RATELIMIT_* -> RateLimitConfig', () => {
       LOGIN_RATELIMIT_WINDOW_MS: 123456,
     });
 
-    const auth = crearAuth(fakePrisma(), env, fakeCrypto, fakeBlindIndex);
+    const auth = crearAuth(
+      fakePrisma(),
+      env,
+      fakeCrypto,
+      fakeBlindIndex,
+      new NoOpLogger(),
+    );
 
     expect(auth.loginRateLimiter.configuracion).toEqual({
       maxAttemptsPerEmail: 7,

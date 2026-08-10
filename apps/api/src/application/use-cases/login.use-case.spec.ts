@@ -11,6 +11,7 @@ import {
 } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { CredencialesInvalidasError } from '../../domain/errors/credenciales-invalidas.error';
+import { NoOpLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — LoginUseCase (mocked ports, fake clock). No infra, no DB.
@@ -69,7 +70,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'jorge@example.com',
@@ -101,7 +109,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'nobody@example.com',
@@ -131,7 +146,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'jorge@example.com',
@@ -152,7 +174,14 @@ describe('LoginUseCase', () => {
       const sessions = makeMockSessions();
       const tokens = makeMockTokens(TOKEN_GENERADO);
       const reloj = makeFakeReloj(AHORA);
-      const uc = new LoginUseCase(creds, hasher, sessions, tokens, reloj);
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        tokens,
+        reloj,
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         emailRaw: 'not-an-email',
@@ -180,6 +209,7 @@ describe('LoginUseCase', () => {
         sessions,
         tokens,
         reloj,
+        new NoOpLogger(),
       );
       const rInvalido = await ucInvalido.execute({
         emailRaw: 'no-es-un-email',
@@ -193,6 +223,7 @@ describe('LoginUseCase', () => {
         sessions,
         tokens,
         reloj,
+        new NoOpLogger(),
       );
       const rDesconocido = await ucDesconocido.execute({
         emailRaw: 'nadie@example.com',
@@ -206,6 +237,7 @@ describe('LoginUseCase', () => {
         sessions,
         tokens,
         reloj,
+        new NoOpLogger(),
       );
       const rPassMala = await ucPassMala.execute({
         emailRaw: 'user@example.com',

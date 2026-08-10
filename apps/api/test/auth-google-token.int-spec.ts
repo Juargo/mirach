@@ -33,6 +33,7 @@ import { IpRateLimiter } from '../src/infrastructure/http/auth/ip-rate-limiter';
 import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
+import { NoOpLogger } from './support/logger.double';
 import type { IdentidadExterna } from '../src/application/ports/verificador-identidad-externa.port';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
@@ -101,6 +102,7 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
       sessions,
       tokens,
       reloj,
+      new NoOpLogger(),
     );
 
     const googleAuthMobile: GoogleAuthMobileGraph = {

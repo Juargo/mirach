@@ -3,6 +3,7 @@ import { crearAuthGoogleMobile } from './crear-auth-google-mobile';
 import { crearAuthGoogle } from './crear-auth-google';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import { NoOpLogger } from '../../test/support/logger.double';
 
 function fakePrisma(
   findUniqueImpl: (args: unknown) => unknown = () => null,
@@ -30,7 +31,12 @@ describe('crearAuthGoogleMobile (design §7)', () => {
     const env = buildTestEnv({ GOOGLE_CLIENT_ID_ANDROID: undefined });
     const blindIndex: IBlindIndexService = { compute: vi.fn() };
 
-    const graph = crearAuthGoogleMobile(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogleMobile(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(graph).toBeUndefined();
   });
@@ -41,7 +47,12 @@ describe('crearAuthGoogleMobile (design §7)', () => {
     });
     const blindIndex: IBlindIndexService = { compute: vi.fn() };
 
-    const graph = crearAuthGoogleMobile(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogleMobile(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(graph).toBeDefined();
     expect(graph!.verificadorIdToken).toBeDefined();
@@ -58,7 +69,12 @@ describe('crearAuthGoogleMobile (design §7)', () => {
     const computeSpy = vi.fn().mockReturnValue('blind-index-de-esta-instancia');
     const blindIndex: IBlindIndexService = { compute: computeSpy };
 
-    const graph = crearAuthGoogleMobile(fakePrisma(), env, blindIndex);
+    const graph = crearAuthGoogleMobile(
+      fakePrisma(),
+      env,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     await graph!.loginConGoogle.execute({
       sub: 'google-sub-inexistente',
@@ -84,8 +100,14 @@ describe('crearAuthGoogleMobile (design §7)', () => {
       fakePrisma(),
       envMobile,
       blindIndex,
+      new NoOpLogger(),
     );
-    const webGraph = crearAuthGoogle(fakePrisma(), envWeb, blindIndex);
+    const webGraph = crearAuthGoogle(
+      fakePrisma(),
+      envWeb,
+      blindIndex,
+      new NoOpLogger(),
+    );
 
     expect(mobileGraph!.loginConGoogle).not.toBe(webGraph!.loginConGoogle);
   });

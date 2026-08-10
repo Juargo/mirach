@@ -4,6 +4,7 @@ import {
   IdentidadUsuario,
 } from '../ports/user-credential-repository.port';
 import { SesionInvalidaError } from '../../domain/errors/sesion-invalida.error';
+import { NoOpLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Unit tests — ObtenerIdentidadUseCase (mocked port). No infra, no DB.
@@ -26,7 +27,7 @@ describe('ObtenerIdentidadUseCase', () => {
       esDemo: false,
     };
     const creds = makeMockCreds(identidad);
-    const uc = new ObtenerIdentidadUseCase(creds);
+    const uc = new ObtenerIdentidadUseCase(creds, new NoOpLogger());
 
     const result = await uc.execute({ userId: 'user-1' });
 
@@ -37,7 +38,7 @@ describe('ObtenerIdentidadUseCase', () => {
 
   it('buscarIdentidad returns null → Result.fail(SesionInvalidaError)', async () => {
     const creds = makeMockCreds(null);
-    const uc = new ObtenerIdentidadUseCase(creds);
+    const uc = new ObtenerIdentidadUseCase(creds, new NoOpLogger());
 
     const result = await uc.execute({ userId: 'ghost-user' });
 
@@ -52,7 +53,7 @@ describe('ObtenerIdentidadUseCase', () => {
       esDemo: true,
     };
     const creds = makeMockCreds(identidad);
-    const uc = new ObtenerIdentidadUseCase(creds);
+    const uc = new ObtenerIdentidadUseCase(creds, new NoOpLogger());
 
     const result = await uc.execute({ userId: 'user-demo-1' });
 

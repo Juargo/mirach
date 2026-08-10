@@ -3,6 +3,7 @@ import { calcularExpiracion } from '../../domain/value-objects/duracion-sesion';
 import { IDemoRepository } from '../ports/demo-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
+import { ILogger } from '../ports/logger.port';
 
 export interface CrearDemoUseCaseResult {
   readonly token: string;
@@ -45,6 +46,7 @@ export class CrearDemoUseCase {
     private readonly demoRepo: IDemoRepository,
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
+    private readonly logger: ILogger,
   ) {}
 
   async execute(): Promise<CrearDemoUseCaseResult> {
@@ -56,6 +58,10 @@ export class CrearDemoUseCase {
       nombre,
       tokenHash,
       expiresAt,
+    });
+    this.logger.debug('crear-demo: session emitted', {
+      userId,
+      expiresAt: expiresAt.toISOString(),
     });
 
     return { token, userId, expiresAt };

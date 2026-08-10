@@ -30,6 +30,7 @@ import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-bl
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { serializeOauthCookie } from '../src/infrastructure/http/auth/oauth-transient-cookie';
 import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
+import { NoOpLogger } from './support/logger.double';
 import type {
   IdentidadExterna,
   IIniciadorLoginExterno,
@@ -130,6 +131,7 @@ describe('GET /api/auth/google/callback (int) — LoginConGoogleUseCase against 
       sessions,
       tokens,
       reloj,
+      new NoOpLogger(),
     );
 
     fakeVerificador = {

@@ -7,6 +7,7 @@ import { IPasswordHasher } from '../ports/password-hasher.port';
 import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
+import { ILogger } from '../ports/logger.port';
 
 export interface LoginUseCaseResult {
   readonly token: string;
@@ -41,6 +42,7 @@ export class LoginUseCase {
     private readonly sessions: ISessionRepository,
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
+    private readonly logger: ILogger,
   ) {}
 
   async execute(input: {
@@ -48,6 +50,9 @@ export class LoginUseCase {
     password: string;
   }): Promise<Result<LoginUseCaseResult, CredencialesInvalidasError>> {
     const emailResult = Email.crear(input.emailRaw);
+    this.logger.debug('login: email format checked', {
+      emailValido: emailResult.isOk(),
+    });
 
     if (emailResult.isFail()) {
       await this.hasher.verificar(input.password, HASH_DUMMY_PARA_TIMING);
@@ -55,6 +60,7 @@ export class LoginUseCase {
     }
 
     const cred = await this.creds.buscarPorEmail(emailResult.getValue());
+    this.logger.debug('login: credential lookup', { found: cred !== null });
 
     if (cred === null) {
       await this.hasher.verificar(input.password, HASH_DUMMY_PARA_TIMING);
@@ -65,6 +71,7 @@ export class LoginUseCase {
       input.password,
       cred.passwordHash,
     );
+    this.logger.debug('login: password verification', { passwordValida });
 
     if (!passwordValida) {
       return Result.fail(new CredencialesInvalidasError());
@@ -74,6 +81,10 @@ export class LoginUseCase {
     const expiresAt = calcularExpiracion(this.reloj.ahora());
 
     await this.sessions.crear({ userId: cred.userId, tokenHash, expiresAt });
+    this.logger.debug('login: session emitted', {
+      userId: cred.userId,
+      expiresAt: expiresAt.toISOString(),
+    });
 
     return Result.ok({ token, userId: cred.userId, expiresAt });
   }

@@ -8,6 +8,7 @@ import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { IdentidadExterna } from '../ports/verificador-identidad-externa.port';
 import { LoginUseCaseResult } from './login.use-case';
+import { ILogger } from '../ports/logger.port';
 
 /**
  * LoginConGoogleUseCase — resolución de identidad Google + emisión de sesión
@@ -34,6 +35,7 @@ export class LoginConGoogleUseCase {
     private readonly sessions: ISessionRepository,
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
+    private readonly logger: ILogger,
   ) {}
 
   async execute(
@@ -42,6 +44,11 @@ export class LoginConGoogleUseCase {
     const porGoogleSub = await this.identidades.buscarPorGoogleSub(
       identidad.sub,
     );
+    // Redaction contract (ADR-013): NUNCA logueamos el sub, el email ni
+    // ningún token — solo booleans/outcomes/userIds internos.
+    this.logger.debug('login-con-google: googleSub lookup', {
+      found: porGoogleSub !== null,
+    });
 
     if (porGoogleSub !== null) {
       if (porGoogleSub.esDemo) {
@@ -49,6 +56,10 @@ export class LoginConGoogleUseCase {
       }
       return this.emitirSesion(porGoogleSub.userId);
     }
+
+    this.logger.debug('login-con-google: email verified check', {
+      emailVerificado: identidad.emailVerificado,
+    });
 
     if (!identidad.emailVerificado) {
       return Result.fail(new LoginConGoogleFallidoError('email-no-verificado'));
@@ -67,6 +78,9 @@ export class LoginConGoogleUseCase {
     const porEmail = await this.identidades.buscarPorEmail(
       emailResult.getValue(),
     );
+    this.logger.debug('login-con-google: email lookup', {
+      found: porEmail !== null,
+    });
 
     if (porEmail === null) {
       return Result.fail(new LoginConGoogleFallidoError('sin-match'));
@@ -90,6 +104,9 @@ export class LoginConGoogleUseCase {
       porEmail.userId,
       identidad.sub,
     );
+    this.logger.debug('login-con-google: identity link outcome', {
+      linkeado,
+    });
 
     if (!linkeado) {
       return Result.fail(
@@ -108,6 +125,10 @@ export class LoginConGoogleUseCase {
     const expiresAt = calcularExpiracion(this.reloj.ahora());
 
     await this.sessions.crear({ userId, tokenHash, expiresAt });
+    this.logger.debug('login-con-google: session emitted', {
+      userId,
+      expiresAt: expiresAt.toISOString(),
+    });
 
     return Result.ok({ token, userId, expiresAt });
   }
