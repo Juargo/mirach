@@ -266,6 +266,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
+      '@moneydiary/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.101.0(react@19.2.7)
