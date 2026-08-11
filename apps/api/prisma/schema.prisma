@@ -38,6 +38,13 @@ model User {
   // independiente de accountId (que ahora puede ser null en fallas
   // tempranas, ver Ingesta más abajo).
   ingestas      Ingesta[]
+  // US-037: catálogo de clasificación per-user (copy-on-signup). NO hay
+  // `patrones PatronClasificacion[]` back-relation deliberadamente — ver
+  // design.md D-06: evita un scalar field compartido por dos relaciones
+  // Prisma a la vez (el riesgo real del composite FK). `userId` sigue
+  // siendo un scalar de relación normal en PatronClasificacion, así que los
+  // filtros `where: { userId }` funcionan igual sin esta navegación.
+  categorias    Categoria[]
 }
 
 model Session {
@@ -120,18 +127,30 @@ model BucketPresupuesto {
   categorias    Categoria[]
 }
 
-// Categoria (US-013) — nivel más fino que Bucket; cada categoría pertenece a
-// exactamente un bucket (invariante CAT-01, dueño real en domain/value-objects
-// /categoria.ts vía CATEGORIA_BUCKET). Catálogo fijo, seed-only (sin
-// categorías creadas por el usuario en MVP).
+// Categoria (US-013, per-user desde US-037) — nivel más fino que Bucket;
+// cada categoría pertenece a exactamente un bucket (invariante CAT-01,
+// dueño real en domain/value-objects/categoria.ts vía CATEGORIA_BUCKET).
+// US-037: el catálogo dejó de ser un row set global — cada usuario recibe
+// su propia copia (copy-on-signup, ver catalogo-template.ts). `nombre` ya
+// NO es único globalmente: la unicidad vive en (userId, nombre).
 model Categoria {
-  id            String                @id
-  nombre        String                @unique
+  id            String                @id @default(cuid())
+  userId        String
+  user          User                  @relation(fields: [userId], references: [id])
+  nombre        String
   bucketId      String
   bucket        BucketPresupuesto     @relation(fields: [bucketId], references: [id])
   patrones      PatronClasificacion[]
   transacciones Transaccion[]
 
+  // Clave de resolución de id para todo writer (seed, copy hook,
+  // reclasificación): un usuario nunca puede tener dos categorías con el
+  // mismo nombre, pero distintos usuarios sí pueden compartir un nombre.
+  @@unique([userId, nombre])
+  // Target del composite FK de PatronClasificacion (design.md D-06) —
+  // redundante para lookups, requerido por Postgres para que la FK
+  // multi-columna pueda referenciar (id, userId).
+  @@unique([id, userId])
   @@index([bucketId])
 }
 
@@ -144,8 +163,20 @@ model PatronClasificacion {
   // categoriaId es NOT NULL desde S2: el seed de S1 pobló categoriaId en
   // todas las filas, así que la tightening es segura.
   categoriaId String
-  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+  // US-037: userId denormalizado en la fila (no solo vía categoria.userId)
+  // — CA-03 exige filtrar patrones por dueño sin un join hop, y un WHERE
+  // directo sobre la columna es más difícil de romper por accidente en un
+  // refactor futuro que un filtro basado en join (design.md D-04).
+  // Integridad: composite FK (categoriaId, userId) → Categoria(id, userId)
+  // garantiza por construcción que userId = categoria.userId — nunca puede
+  // divergir. Deliberadamente SIN relación `user User @relation(...)`
+  // directa (design.md D-06): evita que `userId` participe en dos
+  // relaciones Prisma a la vez, el único construct genuinamente riesgoso.
+  userId      String
+  categoria   Categoria @relation(fields: [categoriaId, userId], references: [id, userId])
   prioridad   Int
+
+  @@index([userId])
 }
 
 model Transaccion {
