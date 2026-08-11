@@ -26,7 +26,16 @@ import { assertDestructiveDbAllowed } from '../../src/infrastructure/persistence
  *   ALLOW_DESTRUCTIVE_DB=1 DOTENV_CONFIG_PATH=.env.test \
  *     pnpm exec tsx prisma/rehearsals/us037-catalogo-rehearsal.ts multi-user-guard
  *   ALLOW_DESTRUCTIVE_DB=1 DOTENV_CONFIG_PATH=.env.test \
+ *     pnpm exec tsx prisma/rehearsals/us037-catalogo-rehearsal.ts fresh-db
+ *   ALLOW_DESTRUCTIVE_DB=1 DOTENV_CONFIG_PATH=.env.test \
  *     pnpm exec tsx prisma/rehearsals/us037-catalogo-rehearsal.ts all
+ *
+ * SIGINT/SIGTERM/exit handlers below restore a parked migration directory if
+ * the process is interrupted between `parkMigration()` and `unparkMigration()`.
+ * They cannot catch a hard kill (SIGKILL, crash, power loss): if that
+ * happens, check `prisma/migrations/` for a leftover `.rehearsal-parked-*`
+ * directory and manually rename it back to
+ * `20260811200000_us037_catalogo_per_user` before re-running.
  */
 
 const MIGRATION_DIR_NAME = '20260811200000_us037_catalogo_per_user';
@@ -38,7 +47,7 @@ const PARKED_DIR = path.resolve(
 );
 const API_ROOT = path.resolve(__dirname, '../..');
 
-type Scenario = 'prod-like' | 'multi-user-guard';
+type Scenario = 'prod-like' | 'multi-user-guard' | 'fresh-db';
 
 function log(msg: string): void {
   console.log(msg);
@@ -123,6 +132,24 @@ function unparkMigration(): void {
     renameSync(PARKED_DIR, MIGRATION_DIR);
   }
 }
+
+/** Restores a parked migration directory if the process is interrupted between park and unpark (see header comment for the hard-kill case this can't catch). */
+function restoreParkedMigrationOnInterrupt(): void {
+  if (existsSync(PARKED_DIR)) {
+    unparkMigration();
+    log(`\nInterrupted — restored ${MIGRATION_DIR_NAME} from parked state.`);
+  }
+}
+
+process.on('SIGINT', () => {
+  restoreParkedMigrationOnInterrupt();
+  process.exit(1);
+});
+process.on('SIGTERM', () => {
+  restoreParkedMigrationOnInterrupt();
+  process.exit(1);
+});
+process.on('exit', restoreParkedMigrationOnInterrupt);
 
 /** Runs `prisma migrate deploy` against the rehearsal DB (env override, never the real DATABASE_URL). */
 function migrateDeploy(
@@ -304,6 +331,12 @@ async function assertProdLikeOutcome(
     );
     assert(demoSession.rows[0].n === 0, "demo user's Session row was purged");
 
+    const demoIngesta = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM "Ingesta" WHERE "userId" = $1`,
+      [seeded.demoUserId],
+    );
+    assert(demoIngesta.rows[0].n === 0, "demo user's Ingesta rows were purged");
+
     const constraints = await client.query<{ conname: string }>(
       `SELECT conname FROM pg_constraint WHERE conname IN (
         'Categoria_userId_fkey',
@@ -375,6 +408,59 @@ async function assertGuardOutcome(rehearsalUrl: string): Promise<void> {
   });
 }
 
+/** Asserts the "fresh-db" scenario outcome: no seeded users, so step 0's fresh-database branch (guard n_reales === 0) is the only path exercised. */
+async function assertFreshDbOutcome(rehearsalUrl: string): Promise<void> {
+  await withClient(rehearsalUrl, async (client) => {
+    const cat = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM "Categoria"`,
+    );
+    assert(
+      cat.rows[0].n === 0,
+      'owner-less Categoria rows self-provisioned by migration 20260719005000 were cleared (got ' +
+        `${cat.rows[0].n})`,
+    );
+
+    const pat = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM "PatronClasificacion"`,
+    );
+    assert(
+      pat.rows[0].n === 0,
+      'owner-less PatronClasificacion rows were cleared (got ' +
+        `${pat.rows[0].n})`,
+    );
+
+    const constraints = await client.query<{ conname: string }>(
+      `SELECT conname FROM pg_constraint WHERE conname IN (
+        'Categoria_userId_fkey',
+        'PatronClasificacion_categoriaId_userId_fkey'
+      )`,
+    );
+    assert(
+      constraints.rows.some((r) => r.conname === 'Categoria_userId_fkey'),
+      'Categoria.userId -> User(id) FK exists',
+    );
+    assert(
+      constraints.rows.some(
+        (r) => r.conname === 'PatronClasificacion_categoriaId_userId_fkey',
+      ),
+      'composite FK (categoriaId, userId) -> Categoria(id, userId) exists',
+    );
+
+    const indexes = await client.query<{ indexname: string }>(
+      `SELECT indexname FROM pg_indexes WHERE tablename IN ('Categoria', 'PatronClasificacion')`,
+    );
+    const indexNames = indexes.rows.map((r) => r.indexname);
+    assert(
+      indexNames.includes('Categoria_userId_nombre_key'),
+      'unique index (userId, nombre) exists on Categoria',
+    );
+    assert(
+      indexNames.includes('Categoria_id_userId_key'),
+      'unique index (id, userId) exists on Categoria (composite FK target)',
+    );
+  });
+}
+
 async function runProdLike(): Promise<void> {
   log('\n=== Rehearsal run 1: prod-like (bootstrap + demo user) ===');
   const { url, dbName } = rehearsalConnectionString();
@@ -439,6 +525,38 @@ async function runMultiUserGuard(): Promise<void> {
   log('PASS: multi-user guard rehearsal');
 }
 
+async function runFreshDb(): Promise<void> {
+  log('\n=== Rehearsal run 3: fresh-db (no seeded users) ===');
+  const { url, dbName } = rehearsalConnectionString();
+  await recreateRehearsalDatabase(url, dbName);
+
+  parkMigration();
+  try {
+    const pre = migrateDeploy(url);
+    if (!pre.ok) {
+      throw new Error(
+        `base migrations failed to apply to the rehearsal DB:\n${pre.error}`,
+      );
+    }
+  } finally {
+    unparkMigration();
+  }
+
+  // No seeding — the base migrations already self-provisioned owner-less
+  // Categoria/PatronClasificacion rows (20260719005000); no User exists.
+
+  const result = migrateDeploy(url);
+  if (!result.ok) {
+    throw new Error(
+      `us037 migration FAILED to apply on the fresh-db scenario:\n${result.error}`,
+    );
+  }
+  log('  migration applied cleanly');
+
+  await assertFreshDbOutcome(url);
+  log('PASS: fresh-db rehearsal');
+}
+
 async function main(): Promise<void> {
   assertDestructiveDbAllowed();
   const scenario = (process.argv[2] ?? 'all') as Scenario | 'all';
@@ -449,12 +567,15 @@ async function main(): Promise<void> {
       await runProdLike();
     } else if (scenario === 'multi-user-guard') {
       await runMultiUserGuard();
+    } else if (scenario === 'fresh-db') {
+      await runFreshDb();
     } else if (scenario === 'all') {
       await runProdLike();
       await runMultiUserGuard();
+      await runFreshDb();
     } else {
       throw new Error(
-        `Unknown scenario "${String(scenario)}" — expected prod-like | multi-user-guard | all`,
+        `Unknown scenario "${String(scenario)}" — expected prod-like | multi-user-guard | fresh-db | all`,
       );
     }
     log('\nAll rehearsal scenarios PASSED.');
