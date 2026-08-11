@@ -22,6 +22,7 @@
     "test:db:migrate": "DOTENV_CONFIG_PATH=.env.test prisma migrate deploy",
     "test:db:seed": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 tsx prisma/seed.ts",
     "test:db:setup": "pnpm test:db:migrate && pnpm test:db:seed",
+    "us037:rehearsal": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 tsx prisma/rehearsals/us037-catalogo-rehearsal.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "cli": "tsx src/infrastructure/cli/ingestar.ts",
