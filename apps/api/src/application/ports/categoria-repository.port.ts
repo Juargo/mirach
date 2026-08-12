@@ -38,20 +38,28 @@ export interface ICategoriaRepository {
     excluirId?: string,
   ): Promise<boolean>;
 
+  /**
+   * `bucket` viaja como NOMBRE validado (`Necesidades`/`Deseos`/`Ahorro`),
+   * nunca como el id físico — el use case no puede resolver `BUCKET_IDS`
+   * (vive en `infrastructure/persistence/`, fuera del alcance de
+   * `application`, ADR-005). El adapter (PR2b) hace la resolución real vía
+   * `BUCKET_IDS[bucket]` antes de escribir la columna física `bucketId`.
+   */
   crear(
     userId: string,
-    data: { nombre: string; bucketId: string },
+    data: { nombre: string; bucket: string },
   ): Promise<CategoriaConPatrones>;
 
   /**
-   * `bucketId` presente en `patch` ⇒ el adapter DEBE re-stampear
+   * `bucket` presente en `patch` ⇒ el adapter DEBE re-stampear
    * `Transaccion.bucketId` en la MISMA transacción (D-07). Su ausencia
-   * significa que el bucket no cambió — no dispara re-stamp.
+   * significa que el bucket no cambió — no dispara re-stamp. Mismo
+   * comentario que en `crear`: viaja como nombre, se resuelve en el adapter.
    */
   actualizar(
     userId: string,
     id: string,
-    patch: { nombre?: string; bucketId?: string },
+    patch: { nombre?: string; bucket?: string },
   ): Promise<CategoriaConPatrones>;
 
   /**
