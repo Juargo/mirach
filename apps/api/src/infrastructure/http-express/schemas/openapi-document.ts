@@ -550,7 +550,8 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError).',
+        "Invalid categoria — the given name does not resolve against the caller's own catalog " +
+        '(scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired).',
     },
     '404': {
       description:

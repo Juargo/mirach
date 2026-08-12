@@ -1237,7 +1237,7 @@
             "description": "Transaction reclassified."
           },
           "400": {
-            "description": "Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError)."
+            "description": "Invalid categoria — the given name does not resolve against the caller's own catalog (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired)."
           },
           "404": {
             "description": "Anti-enumeration: the transaction does not exist or does not belong to the authenticated user."

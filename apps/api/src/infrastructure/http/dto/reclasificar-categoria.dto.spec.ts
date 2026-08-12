@@ -1,14 +1,13 @@
 import { aReclasificarCategoriaDto } from './reclasificar-categoria.dto';
 import { ReclasificarCategoriaResult } from '../../../application/ports/reclasificar-categoria.port';
 import { Bucket } from '../../../domain/value-objects/bucket';
-import { Categoria } from '../../../domain/value-objects/categoria';
 
 const makeResult = (
   overrides: Partial<ReclasificarCategoriaResult> = {},
 ): ReclasificarCategoriaResult => ({
   id: 'tx-1',
   categoriaId: 'cat-real-row-id',
-  categoria: Categoria.Transporte,
+  categoria: 'Transporte',
   bucket: Bucket.Necesidades,
   ...overrides,
 });
@@ -42,14 +41,14 @@ describe('aReclasificarCategoriaDto', () => {
     const dto = aReclasificarCategoriaDto(
       makeResult({
         id: 'tx-42',
-        categoria: Categoria.Ahorro,
+        categoria: 'Ahorro',
         bucket: Bucket.Ahorro,
       }),
     );
 
     expect(dto).toEqual({
       id: 'tx-42',
-      categoria: { id: 'cat-real-row-id', nombre: Categoria.Ahorro },
+      categoria: { id: 'cat-real-row-id', nombre: 'Ahorro' },
       bucket: Bucket.Ahorro,
     });
   });
