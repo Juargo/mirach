@@ -23,16 +23,24 @@
  * `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration catalogo-isolation`.
  */
 import 'dotenv/config';
+import request from 'supertest';
+import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
+import { createApp } from '../src/infrastructure/http-express/app';
+import { createContainer } from '../src/composition/container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaReclasificarCategoriaRepository } from '../src/infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
+import { crearSesionParaUsuario } from './support/session.fixture';
 import {
   CATEGORIA_TEMPLATE_SIZE,
   PATRON_TEMPLATE_SIZE,
 } from '../src/infrastructure/persistence/catalogo-template';
+
+const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
+const API_KEY = process.env.API_KEY ?? '';
 
 const RUN_ID = `catalogo-isolation-int-${Date.now()}`;
 const USER_ID_A = `cat-iso-a-${RUN_ID}`;
@@ -234,5 +242,147 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     expect(prismaError.message).toContain(
       'PatronClasificacion_categoriaId_userId_fkey',
     );
+  });
+});
+
+/**
+ * HTTP-level isolation (US-038, CAT038-07/CA-04) — EXTENDS this file (does
+ * NOT replace the repository-level describe above, whose US-037 assertions
+ * stay green). Two independently-created users, each with their own
+ * `Authorization: Bearer` session (`session.fixture.ts`), then the full
+ * "user B reading/renaming/re-bucketing/deleting user A's category, and
+ * creating/updating/deleting a pattern under A's categoriaId, all get 404
+ * — never 403" battery from design.md §8.2.
+ */
+describe('Catalog CRUD HTTP isolation (CAT038-07, CA-04) — user B never gets 403 on user A rows', () => {
+  let app: Express;
+  let prisma: PrismaClient;
+  let authB: string;
+  let categoriaIdA: string;
+  let patronIdA: string;
+
+  beforeAll(async () => {
+    if (!ALLOW) return;
+
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
+
+    const userIdA = `cat-http-iso-a-${RUN_ID}`;
+    const userIdB = `cat-http-iso-b-${RUN_ID}`;
+    await prisma.user.create({
+      data: { id: userIdA, nombre: `HTTP Iso A ${RUN_ID}` },
+    });
+    await prisma.user.create({
+      data: { id: userIdB, nombre: `HTTP Iso B ${RUN_ID}` },
+    });
+
+    const categoriaA = await prisma.categoria.create({
+      data: {
+        userId: userIdA,
+        nombre: `HttpIsoA-${RUN_ID}`.slice(0, 40),
+        bucketId: (
+          await prisma.bucketPresupuesto.findFirstOrThrow({
+            where: { nombre: 'Deseos' },
+          })
+        ).id,
+      },
+    });
+    categoriaIdA = categoriaA.id;
+    const patronA = await prisma.patronClasificacion.create({
+      data: {
+        userId: userIdA,
+        categoriaId: categoriaA.id,
+        patron: `http-iso-a-${RUN_ID}`,
+        matchType: 'CONTAINS',
+        prioridad: 100,
+      },
+    });
+    patronIdA = patronA.id;
+
+    const sessionB = await crearSesionParaUsuario(prisma, userIdB);
+    authB = `Bearer ${sessionB.token}`;
+  });
+
+  afterAll(async () => {
+    if (!ALLOW) return;
+
+    const userIdA = `cat-http-iso-a-${RUN_ID}`;
+    const userIdB = `cat-http-iso-b-${RUN_ID}`;
+    await prisma.patronClasificacion.deleteMany({
+      where: { userId: { in: [userIdA, userIdB] } },
+    });
+    await prisma.categoria.deleteMany({
+      where: { userId: { in: [userIdA, userIdB] } },
+    });
+    await prisma.session.deleteMany({ where: { userId: userIdB } });
+    await prisma.user.deleteMany({ where: { id: { in: [userIdA, userIdB] } } });
+    await prisma.$disconnect();
+  });
+
+  it('PATCH user A category → 404, never 403', async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .patch(`/api/categorias/${categoriaIdA}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authB)
+      .send({ nombre: 'Hijacked' });
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
+  });
+
+  it('PATCH (re-bucket) user A category → 404, never 403', async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .patch(`/api/categorias/${categoriaIdA}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authB)
+      .send({ bucket: 'Necesidades' });
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE user A category → 404, never 403', async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .delete(`/api/categorias/${categoriaIdA}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authB);
+    expect(res.status).toBe(404);
+  });
+
+  it('POST a pattern under user A categoriaId → 404, never 403', async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .post('/api/patrones')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authB)
+      .send({
+        categoriaId: categoriaIdA,
+        patron: 'sneaky',
+        matchType: 'CONTAINS',
+      });
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
+  });
+
+  it('PATCH user A pattern → 404, never 403', async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .patch(`/api/patrones/${patronIdA}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authB)
+      .send({ prioridad: 1 });
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('PATRON_NO_ENCONTRADO');
+  });
+
+  it('DELETE user A pattern → 404, never 403', async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .delete(`/api/patrones/${patronIdA}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authB);
+    expect(res.status).toBe(404);
   });
 });
