@@ -8,6 +8,8 @@ import { ILogger } from '../ports/logger.port';
 
 export interface ValidarSesionResult {
   readonly userId: string;
+  /** CAT038-08: si la sesión pertenece a un usuario demo — el catálogo es de solo lectura. */
+  readonly esDemo: boolean;
 }
 
 /**
@@ -44,6 +46,6 @@ export class ValidarSesionUseCase {
       return Result.fail(new SesionInvalidaError());
     }
 
-    return Result.ok({ userId: sesion.userId });
+    return Result.ok({ userId: sesion.userId, esDemo: sesion.esDemo });
   }
 }

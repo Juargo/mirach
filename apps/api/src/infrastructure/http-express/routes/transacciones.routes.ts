@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import { ReclasificarTransaccionUseCase } from '../../../application/use-cases/reclasificar-transaccion.use-case';
-import { CategoriaInvalidaError } from '../../../domain/errors/categoria-invalida.error';
+import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
 import { aReclasificarCategoriaDto } from '../../http/dto/reclasificar-categoria.dto';
 
@@ -10,10 +10,12 @@ import { aReclasificarCategoriaDto } from '../../http/dto/reclasificar-categoria
  * PATCH /api/transacciones/:id/categoria → reclasificación manual (US-013 S4).
  *
  * Primera escritura: valida el body a mano (sin class-validator, igual que el
- * login). `categoria` no-string/ausente → '' para que el enum-check del use case
- * lo rechace de forma uniforme (nunca undefined ni un objeto crudo).
+ * login). `categoria` no-string/ausente → '' para que el writer lo rechace de
+ * forma uniforme (nunca undefined ni un objeto crudo).
  *
- * CategoriaInvalidaError     → 400 scrubbeado (nunca refleja el input crudo).
+ * ADR-037: `CategoriaInvalidaError` (el gate del enum cerrado) fue retirado.
+ * `CategoriaDesconocidaError`     → 400, mensaje genérico que NO enumera el
+ *   catálogo (un nombre que no resuelve contra el catálogo REAL del caller).
  * TransaccionNoEncontradaError → 404 (funde no-existe y no-es-tuya: anti-enumeración).
  */
 export function registrarTransacciones(
@@ -35,10 +37,9 @@ export function registrarTransacciones(
 
       if (result.isFail()) {
         const error = result.getError();
-        if (error instanceof CategoriaInvalidaError) {
+        if (error instanceof CategoriaDesconocidaError) {
           res.status(400).json({
-            message:
-              'La categoría no es válida. Valores esperados: Supermercado, Combustible, Farmacia, Salud, Transporte, Streaming, Delivery, Ahorro.',
+            message: 'La categoría indicada no existe en tu catálogo.',
           });
           return;
         }

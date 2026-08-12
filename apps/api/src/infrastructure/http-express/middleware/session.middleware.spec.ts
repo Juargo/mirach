@@ -19,7 +19,9 @@ type ValidarDoble = Pick<ValidarSesionUseCase, 'execute'>;
 function probeApp(validar: ValidarDoble): Express {
   const app = express();
   app.use(sessionMiddleware(validar as ValidarSesionUseCase));
-  app.get('/probe', (req, res) => res.status(200).json({ userId: req.userId }));
+  app.get('/probe', (req, res) =>
+    res.status(200).json({ userId: req.userId, esDemo: req.esDemo }),
+  );
   return app;
 }
 
@@ -45,18 +47,35 @@ describe('sessionMiddleware', () => {
 
   it('deja pasar (200) y expone req.userId con token válido (Bearer)', async () => {
     const validar = {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'user-123' })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-123', esDemo: false })),
     };
     const res = await request(probeApp(validar))
       .get('/probe')
       .set('Authorization', 'Bearer token-bueno');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ userId: 'user-123' });
+    expect(res.body).toEqual({ userId: 'user-123', esDemo: false });
+  });
+
+  it('expone req.esDemo = true para una sesión demo (CAT038-08)', async () => {
+    const validar = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'user-demo', esDemo: true })),
+    };
+    const res = await request(probeApp(validar))
+      .get('/probe')
+      .set('Authorization', 'Bearer token-demo');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ userId: 'user-demo', esDemo: true });
   });
 
   it('la cookie md_session tiene precedencia sobre Bearer (AUTH-05)', async () => {
     const validar = {
-      execute: vi.fn().mockResolvedValue(Result.ok({ userId: 'from-cookie' })),
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ userId: 'from-cookie', esDemo: false })),
     };
     await request(probeApp(validar))
       .get('/probe')

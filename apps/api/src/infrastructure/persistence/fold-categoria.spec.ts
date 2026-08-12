@@ -1,13 +1,15 @@
 import { foldCategoria } from './fold-categoria';
-import { Categoria } from '../../domain/value-objects/categoria';
 
 /**
- * Unit tests for foldCategoria (D-09, CAT037-06).
+ * Unit tests for foldCategoria (D-01, CAT037-06).
  *
- * This is the test that would have caught the fold-to-null defect: it folds
- * a nested `{ id, nombre }` row by `nombre` (a Categoria enum value), never
- * by looking a physical id up in a legacy global id map — so it works for
- * ANY user's per-user catalog row, not only the bootstrap user's fixed ids.
+ * ADR-037 retires the closed `Categoria` enum: category identity is now a
+ * userId-scoped row, not a compile-time type. The old defensive guard
+ * (`CATEGORIA_NOMBRES.has(nombre)` ⇒ null on an "unknown" name) never was
+ * the isolation mechanism — the row already arrives from a query whose
+ * `WHERE` carries `userId` — and keeping it would make every user-created
+ * category vanish from the dashboard without an error. This inverted test
+ * IS the point: an arbitrary owned name must pass through verbatim.
  */
 describe('foldCategoria', () => {
   it('null folds to null', () => {
@@ -18,19 +20,22 @@ describe('foldCategoria', () => {
     expect(foldCategoria(undefined)).toBeNull();
   });
 
-  it('an unknown nombre folds to null (defensive)', () => {
-    const row = { id: 'cly-some-random-cuid', nombre: 'NoExiste' };
-    expect(foldCategoria(row)).toBeNull();
+  it('an arbitrary owned category name passes through verbatim (no enum gate)', () => {
+    const row = { id: 'cly-some-random-cuid', nombre: 'Mascotas' };
+    expect(foldCategoria(row)).toEqual({
+      id: 'cly-some-random-cuid',
+      nombre: 'Mascotas',
+    });
   });
 
-  it('a known nombre with an arbitrary cuid id folds to { id, nombre } using the REAL row id', () => {
+  it('a template-catalog nombre with an arbitrary cuid id folds to { id, nombre } using the REAL row id', () => {
     const row = {
       id: 'cly-arbitrary-per-user-cuid',
-      nombre: Categoria.Streaming,
+      nombre: 'Streaming',
     };
     expect(foldCategoria(row)).toEqual({
       id: 'cly-arbitrary-per-user-cuid',
-      nombre: Categoria.Streaming,
+      nombre: 'Streaming',
     });
   });
 });

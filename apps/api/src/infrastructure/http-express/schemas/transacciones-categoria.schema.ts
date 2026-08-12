@@ -25,18 +25,20 @@ export const transaccionesCategoriaPathParamsSchema = z.object({
  * documents the transport shape for the OpenAPI doc; it is NEVER
  * `.safeParse()`'d at the route. `registrarTransacciones`
  * (`routes/transacciones.routes.ts`) coerces a non-string/absent `categoria`
- * to `''` so the domain's enum check (`CategoriaInvalidaError`) rejects it
- * uniformly — that coercion is deliberately NOT re-encoded here as a Zod
- * `z.enum(...)`, which would duplicate a domain rule one layer down (ADR-005
- * + DRY), and would also change existing error behavior on this sensitive
- * endpoint if wired in as boundary validation.
+ * to `''` so the use case's catalog lookup (`CategoriaDesconocidaError`;
+ * ADR-037 — the closed enum gate is retired) rejects it uniformly — that
+ * coercion is deliberately NOT re-encoded here as a Zod `z.enum(...)`, which
+ * would duplicate a domain rule one layer down (ADR-005 + DRY), and would
+ * also change existing error behavior on this sensitive endpoint if wired in
+ * as boundary validation.
  */
 export const transaccionesCategoriaRequestSchema = z.object({
   categoria: z
     .string()
     .describe(
-      'Category name (Categoria enum member, e.g. "Supermercado"). Validated against the domain ' +
-        'enum by the use case (CategoriaInvalidaError), not this schema.',
+      'Category name (e.g. "Supermercado"), resolved against the caller\'s own catalog ' +
+        '(ADR-036/ADR-037 — no closed enum) by the use case (CategoriaDesconocidaError if it ' +
+        'does not resolve), not this schema.',
     ),
 });
 

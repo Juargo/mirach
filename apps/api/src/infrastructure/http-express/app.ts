@@ -23,6 +23,8 @@ import {
 } from './routes/auth-google-token.routes';
 import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
 import { registrarVersion } from './routes/version.routes';
+import { registrarCategorias } from './routes/categorias.routes';
+import { registrarPatrones } from './routes/patrones.routes';
 
 /**
  * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028/029).
@@ -170,6 +172,8 @@ export function createApp(container: Container, env: Env): Express {
     previewIngesta: container.previewIngesta,
   });
   registrarAuthMe(protectedApi, container.obtenerIdentidad);
+  registrarCategorias(protectedApi, container.catalogo);
+  registrarPatrones(protectedApi, container.catalogo);
   app.use('/api', protectedApi);
 
   app.use(errorMiddleware);

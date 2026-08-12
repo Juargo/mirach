@@ -1,28 +1,32 @@
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no-encontrada.error';
+import { CategoriaDesconocidaError } from '../../domain/errors/categoria-desconocida.error';
 import {
   IReclasificarCategoriaWriter,
   ReclasificarCategoriaResult,
 } from '../../application/ports/reclasificar-categoria.port';
 import type { PrismaClient } from '@prisma/client';
-import { BUCKET_IDS } from './bucket-ids';
 
 /**
  * PrismaReclasificarCategoriaRepository — implementación del port
- * IReclasificarCategoriaWriter (US-013 S4, CATAPI-01/03/04; US-037 CAT037-04).
+ * IReclasificarCategoriaWriter (US-013 S4, CATAPI-01/03/04; ADR-037/Q5,
+ * CAT037-04).
  *
  * `categoriaId` YA NO se resuelve vía `CATEGORIA_IDS` (mapa global fijo):
  * primero busca la fila `Categoria` REAL del propio usuario por la clave
  * compuesta `(userId, nombre)` — esto es en sí mismo una garantía de
- * aislamiento (un caller solo puede resolver su propia fila, design.md §4.3).
- * Si esa fila no existe, el invariante "todo usuario tiene su catálogo
- * copiado al crearse" está roto: se LANZA (nunca Result.fail) — el
- * middleware de errores lo traduce a 500. Deliberadamente NO se mapea a
- * TransaccionNoEncontradaError: reportar "transacción no encontrada" cuando
- * la falla real es un catálogo corrupto mandaría el debugging en la
- * dirección equivocada.
+ * aislamiento (un caller solo puede resolver su propia fila, design.md §1
+ * Q5). Tras el retiro del enum `Categoria`, `nombre` ya no es un valor
+ * cerrado: un nombre que no resuelve a ninguna fila del catálogo del
+ * usuario ⇒ `Result.fail(CategoriaDesconocidaError)` — nunca lanza y nunca
+ * enumera el catálogo. (Esto reemplaza el `throw` de "copia rota": bajo
+ * catálogo per-user un nombre desconocido es una entrada de caller inválida,
+ * no necesariamente un catálogo corrupto.)
+ *
+ * `bucket` ya NO viaja como parámetro — se deriva de la relación
+ * `Categoria.bucket` en el mismo `findUnique` (CAT-02: el bucket siempre
+ * viene de la categoría, nunca aceptado independientemente).
  *
  * `updateMany` con `WHERE { id, account: { userId } }` es el aislamiento
  * ESTRUCTURAL por userId (RNF-SEC-006) — mismo patrón que todo repo de
@@ -32,12 +36,12 @@ import { BUCKET_IDS } from './bucket-ids';
  * nunca se distinguen los dos casos.
  *
  * `categoriaId` + `bucketId` se escriben ATÓMICAMENTE en la misma llamada
- * `updateMany` — el bucket ya viene derivado por el use case (nunca se
- * recalcula aquí), así el caché denormalizado nunca puede quedar
- * desincronizado de la categoría (design.md §2). Sin `$transaction`
- * envolviendo el lookup + el update (KISS, design.md §4.3): la categoría es
- * estable y el peor caso de un delete concurrente es un error de FK → 500,
- * que es el resultado correcto de todas formas.
+ * `updateMany` — el bucket ya viene derivado de la categoría (nunca se
+ * recalcula aquí ni se acepta de otra fuente), así el caché denormalizado
+ * nunca puede quedar desincronizado de la categoría (design.md §2). Sin
+ * `$transaction` envolviendo el lookup + el update (KISS, design.md §4.3):
+ * la categoría es estable y el peor caso de un delete concurrente es un
+ * error de FK → 500, que es el resultado correcto de todas formas.
  */
 export class PrismaReclasificarCategoriaRepository implements IReclasificarCategoriaWriter {
   constructor(private readonly prisma: PrismaClient) {}
@@ -45,26 +49,28 @@ export class PrismaReclasificarCategoriaRepository implements IReclasificarCateg
   async reasignar(
     userId: string,
     transaccionId: string,
-    categoria: Categoria,
-    bucket: Bucket,
+    nombre: string,
   ): Promise<
-    Result<ReclasificarCategoriaResult, TransaccionNoEncontradaError>
+    Result<
+      ReclasificarCategoriaResult,
+      TransaccionNoEncontradaError | CategoriaDesconocidaError
+    >
   > {
     const categoriaRow = await this.prisma.categoria.findUnique({
-      where: { userId_nombre: { userId, nombre: categoria } },
-      select: { id: true },
+      where: { userId_nombre: { userId, nombre } },
+      include: { bucket: true },
     });
     if (categoriaRow === null) {
-      throw new Error(
-        `categoría "${categoria}" no encontrada en el catálogo del usuario (copia rota)`,
-      );
+      return Result.fail(new CategoriaDesconocidaError(nombre));
     }
+
+    const bucket = categoriaRow.bucket.nombre as Bucket;
 
     const { count } = await this.prisma.transaccion.updateMany({
       where: { id: transaccionId, account: { userId } }, // STRUCTURAL isolation (RNF-SEC-006)
       data: {
         categoriaId: categoriaRow.id,
-        bucketId: BUCKET_IDS[bucket],
+        bucketId: categoriaRow.bucketId,
       },
     });
 
@@ -76,7 +82,7 @@ export class PrismaReclasificarCategoriaRepository implements IReclasificarCateg
     return Result.ok({
       id: transaccionId,
       categoriaId: categoriaRow.id,
-      categoria,
+      categoria: nombre,
       bucket,
     });
   }

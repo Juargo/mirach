@@ -5,7 +5,6 @@ import { PrismaDetalleBucketRepository } from '../src/infrastructure/persistence
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { Bucket } from '../src/domain/value-objects/bucket';
-import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 import { buildTestEnv } from './support/env.fixture';
@@ -237,7 +236,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
   it('CAT037-06: a second, non-seed user (B) sees their real categoria on a categorized transaction, not null', async () => {
     const streamingRowB = await prisma.categoria.findUniqueOrThrow({
       where: {
-        userId_nombre: { userId: TEST_USER_ID_B, nombre: Categoria.Streaming },
+        userId_nombre: { userId: TEST_USER_ID_B, nombre: 'Streaming' },
       },
     });
     const tx = await createTx(
@@ -263,7 +262,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     expect(found).toBeDefined();
     expect(found!.categoria).toEqual({
       id: streamingRowB.id,
-      nombre: Categoria.Streaming,
+      nombre: 'Streaming',
     });
   });
 });

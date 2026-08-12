@@ -26,18 +26,47 @@ describe('PrismaSessionRepository', () => {
   describe('buscarPorTokenHash()', () => {
     it('retorna SesionPersistida cuando el hash existe', async () => {
       const expiresAt = new Date('2026-07-25T00:00:00.000Z');
-      const findUnique = vi
-        .fn()
-        .mockResolvedValue({ userId: 'user-1', expiresAt });
+      const findUnique = vi.fn().mockResolvedValue({
+        userId: 'user-1',
+        expiresAt,
+        user: { esDemo: false },
+      });
       const prisma = { session: { findUnique } } as unknown as PrismaClient;
       const repo = new PrismaSessionRepository(prisma);
 
       const result = await repo.buscarPorTokenHash('hash-abc');
 
-      expect(result).toEqual({ userId: 'user-1', expiresAt });
+      expect(result).toEqual({
+        userId: 'user-1',
+        expiresAt,
+        esDemo: false,
+      });
       expect(findUnique as Mock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { tokenHash: 'hash-abc' } }),
       );
+    });
+
+    it('el select pide user.esDemo en la MISMA query — sin round trip extra (CAT038-08)', async () => {
+      const expiresAt = new Date('2026-07-25T00:00:00.000Z');
+      const findUnique = vi.fn().mockResolvedValue({
+        userId: 'user-1',
+        expiresAt,
+        user: { esDemo: true },
+      });
+      const prisma = { session: { findUnique } } as unknown as PrismaClient;
+      const repo = new PrismaSessionRepository(prisma);
+
+      const result = await repo.buscarPorTokenHash('hash-abc');
+
+      expect(result?.esDemo).toBe(true);
+      expect(findUnique as Mock).toHaveBeenCalledWith({
+        where: { tokenHash: 'hash-abc' },
+        select: {
+          userId: true,
+          expiresAt: true,
+          user: { select: { esDemo: true } },
+        },
+      });
     });
 
     it('retorna null cuando el hash es desconocido', async () => {

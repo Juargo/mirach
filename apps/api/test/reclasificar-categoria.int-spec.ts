@@ -6,9 +6,9 @@ import { PrismaResumenMesRepository } from '../src/infrastructure/persistence/pr
 import { CalcularResumenMesUseCase } from '../src/application/use-cases/calcular-resumen-mes.use-case';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 import { Bucket } from '../src/domain/value-objects/bucket';
-import { Categoria } from '../src/domain/value-objects/categoria';
 import { EstadoSemaforo } from '../src/domain/value-objects/estado-semaforo';
 import { TransaccionNoEncontradaError } from '../src/domain/errors/transaccion-no-encontrada.error';
+import { CategoriaDesconocidaError } from '../src/domain/errors/categoria-desconocida.error';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
@@ -134,7 +134,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
    */
   const categoriaIdFor = async (
     userId: string,
-    nombre: Categoria,
+    nombre: string,
   ): Promise<string> => {
     const row = await prisma.categoria.findUniqueOrThrow({
       where: { userId_nombre: { userId, nombre } },
@@ -169,10 +169,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
   // CATAPI-01 — userId isolation
   // -------------------------------------------------------------------------
   it('T4.4a: user A cannot reclassify user B transaction — count===0 → TransaccionNoEncontradaError, row unchanged', async () => {
-    const deliveryIdDeUserB = await categoriaIdFor(
-      TEST_USER_ID_B,
-      Categoria.Delivery,
-    );
+    const deliveryIdDeUserB = await categoriaIdFor(TEST_USER_ID_B, 'Delivery');
     const userBTx = await createTx(
       accountIdB,
       ingestaIdB,
@@ -186,8 +183,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     const result = await repo.reasignar(
       TEST_USER_ID_A,
       userBTx.id,
-      Categoria.Transporte,
-      Bucket.Necesidades,
+      'Transporte',
     );
 
     expect(result.isFail()).toBe(true);
@@ -201,10 +197,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
   });
 
   it('T4.4b: user A can reclassify their own transaction — response + DB reflect the new value', async () => {
-    const deliveryIdDeUserA = await categoriaIdFor(
-      TEST_USER_ID_A,
-      Categoria.Delivery,
-    );
+    const deliveryIdDeUserA = await categoriaIdFor(TEST_USER_ID_A, 'Delivery');
     const userATx = await createTx(
       accountIdA,
       ingestaIdA,
@@ -218,19 +211,18 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     const result = await repo.reasignar(
       TEST_USER_ID_A,
       userATx.id,
-      Categoria.Streaming,
-      Bucket.Deseos,
+      'Streaming',
     );
 
     expect(result.isOk()).toBe(true);
     const streamingIdDeUserA = await categoriaIdFor(
       TEST_USER_ID_A,
-      Categoria.Streaming,
+      'Streaming',
     );
     expect(result.getValue()).toEqual({
       id: userATx.id,
       categoriaId: streamingIdDeUserA,
-      categoria: Categoria.Streaming,
+      categoria: 'Streaming',
       bucket: Bucket.Deseos,
     });
 
@@ -299,7 +291,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
         fecha: FECHA,
         cargo: 10000n,
         abono: 0n,
-        categoriaId: await categoriaIdFor(withinUserId, Categoria.Delivery),
+        categoriaId: await categoriaIdFor(withinUserId, 'Delivery'),
         bucketId: BUCKET_IDS[Bucket.Deseos],
         descripcion: 'Uber Eats',
       },
@@ -313,12 +305,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       .getValue()
       .resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
 
-    const result = await repo.reasignar(
-      withinUserId,
-      tx.id,
-      Categoria.Streaming,
-      Bucket.Deseos,
-    );
+    const result = await repo.reasignar(withinUserId, tx.id, 'Streaming');
     expect(result.isOk()).toBe(true);
 
     const despues = await calcularResumen.execute({
@@ -397,7 +384,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
         fecha: FECHA,
         cargo: 50000n,
         abono: 0n,
-        categoriaId: await categoriaIdFor(crossUserId, Categoria.Supermercado),
+        categoriaId: await categoriaIdFor(crossUserId, 'Supermercado'),
         bucketId: BUCKET_IDS[Bucket.Necesidades],
         descripcion: 'Supermercado',
       },
@@ -409,7 +396,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
         fecha: FECHA,
         cargo: 10000n,
         abono: 0n,
-        categoriaId: await categoriaIdFor(crossUserId, Categoria.Delivery),
+        categoriaId: await categoriaIdFor(crossUserId, 'Delivery'),
         bucketId: BUCKET_IDS[Bucket.Deseos],
         descripcion: 'Uber Eats',
       },
@@ -429,12 +416,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     expect(necAntes.estadoSemaforo).toBe(EstadoSemaforo.Verde);
     expect(desAntes.total).toBe(10000n);
 
-    const result = await repo.reasignar(
-      crossUserId,
-      movida.id,
-      Categoria.Transporte,
-      Bucket.Necesidades,
-    );
+    const result = await repo.reasignar(crossUserId, movida.id, 'Transporte');
     expect(result.isOk()).toBe(true);
 
     const despues = await calcularResumen.execute({
@@ -462,7 +444,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     });
     expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
     expect(updated.categoriaId).toBe(
-      await categoriaIdFor(crossUserId, Categoria.Transporte),
+      await categoriaIdFor(crossUserId, 'Transporte'),
     );
 
     await prisma.transaccion.deleteMany({ where: { ingestaId: ing.id } });
@@ -497,18 +479,8 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       'B tx to reclassify',
     );
 
-    const resultA = await repo.reasignar(
-      TEST_USER_ID_A,
-      txA.id,
-      Categoria.Ahorro,
-      Bucket.Ahorro,
-    );
-    const resultB = await repo.reasignar(
-      TEST_USER_ID_B,
-      txB.id,
-      Categoria.Ahorro,
-      Bucket.Ahorro,
-    );
+    const resultA = await repo.reasignar(TEST_USER_ID_A, txA.id, 'Ahorro');
+    const resultB = await repo.reasignar(TEST_USER_ID_B, txB.id, 'Ahorro');
 
     expect(resultA.isOk()).toBe(true);
     expect(resultB.isOk()).toBe(true);
@@ -516,15 +488,75 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     const ahorroIdB = resultB.getValue().categoriaId;
 
     expect(ahorroIdA).not.toBe(ahorroIdB);
-    expect(ahorroIdA).toBe(
-      await categoriaIdFor(TEST_USER_ID_A, Categoria.Ahorro),
-    );
-    expect(ahorroIdB).toBe(
-      await categoriaIdFor(TEST_USER_ID_B, Categoria.Ahorro),
-    );
+    expect(ahorroIdA).toBe(await categoriaIdFor(TEST_USER_ID_A, 'Ahorro'));
+    expect(ahorroIdB).toBe(await categoriaIdFor(TEST_USER_ID_B, 'Ahorro'));
 
     await prisma.transaccion.deleteMany({
       where: { id: { in: [txA.id, txB.id] } },
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // US-038 (task 12.6, CAT037-04 MODIFIED): reclassification is unconstrained
+  // by any closed/enumerated name set — ownership of the row is the only
+  // validity test.
+  // -------------------------------------------------------------------------
+  it("US-038: reclassifying to a user-created custom category (not in the original template) succeeds and persists that row's real id", async () => {
+    const custom = await prisma.categoria.create({
+      data: {
+        userId: TEST_USER_ID_A,
+        nombre: `Mascotas-${RUN_ID}`.slice(0, 40),
+        bucketId: BUCKET_IDS[Bucket.Deseos],
+      },
+    });
+    const tx = await createTx(
+      accountIdA,
+      ingestaIdA,
+      4000n,
+      0n,
+      null,
+      null,
+      'Tx a reclasificar a categoría custom',
+    );
+
+    const result = await repo.reasignar(TEST_USER_ID_A, tx.id, custom.nombre);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.getValue().categoriaId).toBe(custom.id);
+
+    const updated = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: tx.id },
+    });
+    expect(updated.categoriaId).toBe(custom.id);
+
+    await prisma.transaccion.deleteMany({ where: { id: tx.id } });
+    await prisma.categoria.deleteMany({ where: { id: custom.id } });
+  });
+
+  it("US-038: reclassifying to a nombre absent from the caller's own catalog fails cleanly (CategoriaDesconocidaError), never an enumerated list", async () => {
+    const tx = await createTx(
+      accountIdA,
+      ingestaIdA,
+      2000n,
+      0n,
+      null,
+      null,
+      'Tx a reclasificar a categoría inexistente',
+    );
+
+    const result = await repo.reasignar(
+      TEST_USER_ID_A,
+      tx.id,
+      `NoExiste-${RUN_ID}`,
+    );
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(CategoriaDesconocidaError);
+    // Scrubbed, generic — never enumerates the caller's real catalog names.
+    expect(result.getError().message).not.toMatch(
+      /Necesidades|Deseos|Ahorro|Supermercado|Delivery/,
+    );
+
+    await prisma.transaccion.deleteMany({ where: { id: tx.id } });
   });
 });

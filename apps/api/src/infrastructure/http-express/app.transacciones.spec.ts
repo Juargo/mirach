@@ -1,7 +1,6 @@
 import request from 'supertest';
 import { createApp } from './app';
 import { Result } from '../../shared/result';
-import { Categoria } from '../../domain/value-objects/categoria';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { transaccionesCategoriaResponseSchema } from './schemas/transacciones-categoria.schema';
@@ -28,7 +27,7 @@ function fakeContainer(): Container {
         Result.ok({
           id: 'tx-1',
           categoriaId: 'cat-supermercado-row-id',
-          categoria: Categoria.Supermercado,
+          categoria: 'Supermercado',
           bucket: 'Necesidades',
         }),
       ),

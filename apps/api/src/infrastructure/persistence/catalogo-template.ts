@@ -1,13 +1,11 @@
 import type { PrismaClient } from '@prisma/client';
-import {
-  Categoria,
-  CATEGORIA_BUCKET,
-} from '../../domain/value-objects/categoria';
+import { Bucket } from '../../domain/value-objects/bucket';
 import type { MatchType } from '../../domain/value-objects/patron-clasificacion';
 import { BUCKET_IDS } from './bucket-ids';
 
 /**
- * catalogo-template.ts — plantilla de catálogo de clasificación (US-037 D-01).
+ * catalogo-template.ts — plantilla de catálogo de clasificación (US-037 D-01;
+ * ADR-037 D-02).
  *
  * Fuente única de contenido (qué categorías, qué patrones, qué prioridades)
  * para AMBOS escritores del catálogo: `copiarCatalogoTemplate` (usuarios
@@ -17,19 +15,37 @@ import { BUCKET_IDS } from './bucket-ids';
  * a código de runtime (el copy hook lo llama desde `PrismaDemoRepository`)
  * sería incorrecto (D-01).
  *
- * La plantilla es "id-free": no conoce ningún id físico. `CATEGORIA_IDS`
- * (categoria-ids.ts) sigue siendo la fuente de ids fijos, pero solo el seed
- * la consulta — ningún runtime path la necesita para escribir.
+ * Tras ADR-037 (retiro del enum `Categoria`), la plantilla es un literal
+ * `as const` — es la ÚNICA prueba de consistencia interna que el compilador
+ * sigue dando en este cambio: `CategoriaTemplateNombre` fija el universo de
+ * nombres que `PATRON_TEMPLATE.categoria` puede referenciar. Sobre datos de
+ * usuario ninguna prueba de compilación es posible (la identidad es una fila,
+ * no un tipo) — ver ADR-037.
+ *
+ * `CATEGORIA_IDS` (categoria-ids.ts) sigue siendo la fuente de ids fijos,
+ * pero solo el seed la consulta — ningún runtime path la necesita para
+ * escribir.
  */
 
-/** Fila de categoría de la plantilla — bucketId SIEMPRE derivado, nunca literal (CAT-01). */
-export const CATEGORIA_TEMPLATE: ReadonlyArray<{
-  readonly nombre: Categoria;
-  readonly bucketId: string;
-}> = Object.values(Categoria).map((categoria) => ({
-  nombre: categoria,
-  bucketId: BUCKET_IDS[CATEGORIA_BUCKET[categoria]],
-}));
+/** Fila de categoría de la plantilla — carga `bucket: Bucket`; `bucketId` se resuelve vía `BUCKET_IDS[bucket]` en cada write site, nunca literal (CAT-01, D-02). */
+export const CATEGORIA_TEMPLATE = [
+  { nombre: 'Supermercado', bucket: Bucket.Necesidades },
+  { nombre: 'Combustible', bucket: Bucket.Necesidades },
+  { nombre: 'Farmacia', bucket: Bucket.Necesidades },
+  { nombre: 'Salud', bucket: Bucket.Necesidades },
+  { nombre: 'Transporte', bucket: Bucket.Necesidades },
+  { nombre: 'Streaming', bucket: Bucket.Deseos },
+  { nombre: 'Delivery', bucket: Bucket.Deseos },
+  { nombre: 'Ahorro', bucket: Bucket.Ahorro },
+] as const satisfies ReadonlyArray<{ nombre: string; bucket: Bucket }>;
+
+/**
+ * Universo cerrado de nombres de la plantilla semilla — la única prueba de
+ * compilación que ADR-037 conserva. `PATRON_TEMPLATE.categoria` y
+ * `CATEGORIA_IDS` se re-tipan contra esta unión.
+ */
+export type CategoriaTemplateNombre =
+  (typeof CATEGORIA_TEMPLATE)[number]['nombre'];
 
 /** Derivado del array — no puede desincronizarse en silencio de los tests. */
 export const CATEGORIA_TEMPLATE_SIZE = CATEGORIA_TEMPLATE.length;
@@ -37,80 +53,80 @@ export const CATEGORIA_TEMPLATE_SIZE = CATEGORIA_TEMPLATE.length;
 /**
  * Catálogo chileno de patrones (mismo contenido que el histórico
  * `PATRON_CATALOG` de `prisma/seed.ts`, sin ids físicos — `categoria` es el
- * enum de dominio, resuelto a un id real por cada escritor en el momento de
- * escribir).
+ * nombre de la fila de plantilla, resuelto a un id real por cada escritor en
+ * el momento de escribir).
  */
 export const PATRON_TEMPLATE: ReadonlyArray<{
   readonly patron: string;
   readonly matchType: MatchType;
-  readonly categoria: Categoria;
+  readonly categoria: CategoriaTemplateNombre;
   readonly prioridad: number;
 }> = [
   // ── Necesidades (alimentos, transporte, salud, servicios básicos) ──
   {
     patron: 'lider',
     matchType: 'CONTAINS',
-    categoria: Categoria.Supermercado,
+    categoria: 'Supermercado',
     prioridad: 10,
   },
   {
     patron: 'jumbo',
     matchType: 'CONTAINS',
-    categoria: Categoria.Supermercado,
+    categoria: 'Supermercado',
     prioridad: 10,
   },
   {
     patron: 'unimarc',
     matchType: 'CONTAINS',
-    categoria: Categoria.Supermercado,
+    categoria: 'Supermercado',
     prioridad: 10,
   },
   {
     patron: 'santa isabel',
     matchType: 'CONTAINS',
-    categoria: Categoria.Supermercado,
+    categoria: 'Supermercado',
     prioridad: 10,
   },
   {
     patron: 'tottus',
     matchType: 'CONTAINS',
-    categoria: Categoria.Supermercado,
+    categoria: 'Supermercado',
     prioridad: 10,
   },
   {
     patron: 'copec',
     matchType: 'CONTAINS',
-    categoria: Categoria.Combustible,
+    categoria: 'Combustible',
     prioridad: 15,
   },
   {
     patron: 'shell',
     matchType: 'CONTAINS',
-    categoria: Categoria.Combustible,
+    categoria: 'Combustible',
     prioridad: 15,
   },
   {
     patron: 'farmacia',
     matchType: 'CONTAINS',
-    categoria: Categoria.Farmacia,
+    categoria: 'Farmacia',
     prioridad: 20,
   },
   {
     patron: 'isapre',
     matchType: 'CONTAINS',
-    categoria: Categoria.Salud,
+    categoria: 'Salud',
     prioridad: 20,
   },
   {
     patron: 'transantiago',
     matchType: 'CONTAINS',
-    categoria: Categoria.Transporte,
+    categoria: 'Transporte',
     prioridad: 20,
   },
   {
     patron: 'bip',
     matchType: 'CONTAINS',
-    categoria: Categoria.Transporte,
+    categoria: 'Transporte',
     prioridad: 25,
   },
 
@@ -118,31 +134,31 @@ export const PATRON_TEMPLATE: ReadonlyArray<{
   {
     patron: 'netflix',
     matchType: 'CONTAINS',
-    categoria: Categoria.Streaming,
+    categoria: 'Streaming',
     prioridad: 10,
   },
   {
     patron: 'spotify',
     matchType: 'CONTAINS',
-    categoria: Categoria.Streaming,
+    categoria: 'Streaming',
     prioridad: 10,
   },
   {
     patron: 'prime video',
     matchType: 'CONTAINS',
-    categoria: Categoria.Streaming,
+    categoria: 'Streaming',
     prioridad: 10,
   },
   {
     patron: 'uber eats',
     matchType: 'CONTAINS',
-    categoria: Categoria.Delivery,
+    categoria: 'Delivery',
     prioridad: 15,
   },
   {
     patron: 'rappi',
     matchType: 'CONTAINS',
-    categoria: Categoria.Delivery,
+    categoria: 'Delivery',
     prioridad: 15,
   },
 
@@ -150,27 +166,27 @@ export const PATRON_TEMPLATE: ReadonlyArray<{
   {
     patron: 'fintual',
     matchType: 'CONTAINS',
-    categoria: Categoria.Ahorro,
+    categoria: 'Ahorro',
     prioridad: 10,
   },
   {
     patron: 'cuenta ahorro',
     matchType: 'CONTAINS',
-    categoria: Categoria.Ahorro,
+    categoria: 'Ahorro',
     prioridad: 20,
   },
   // AFP abreviada en cartola: "AFP ..." — STARTS_WITH para anclar y evitar false positives
   {
     patron: 'afp ',
     matchType: 'STARTS_WITH',
-    categoria: Categoria.Ahorro,
+    categoria: 'Ahorro',
     prioridad: 15,
   },
   // Transferencia a cuenta propia o de ahorro: REGEX acotado
   {
     patron: '^transf(?:erencia)?.*ahorro',
     matchType: 'REGEX',
-    categoria: Categoria.Ahorro,
+    categoria: 'Ahorro',
     prioridad: 25,
   },
 ];
@@ -218,7 +234,9 @@ export async function copiarCatalogoTemplate(
     data: CATEGORIA_TEMPLATE.map((categoria) => ({
       userId,
       nombre: categoria.nombre,
-      bucketId: categoria.bucketId,
+      // bucketId SIEMPRE derivado en el write site — BUCKET_IDS sigue siendo
+      // la única autoridad de ids físicos (ADR-037 D-02).
+      bucketId: BUCKET_IDS[categoria.bucket],
     })),
   });
 

@@ -5,7 +5,7 @@ import {
   PatronClasificacion,
   MatchType,
 } from '../../domain/value-objects/patron-clasificacion';
-import { Categoria } from '../../domain/value-objects/categoria';
+import { Bucket } from '../../domain/value-objects/bucket';
 import type { PrismaClient } from '@prisma/client';
 
 /**
@@ -13,10 +13,13 @@ import type { PrismaClient } from '@prisma/client';
  *
  * Carga los PatronClasificacion del `userId` dueño del catálogo (US-037: catálogo
  * per-user, `where: { userId }` estructural en SQL — RNF-SEC-006, nunca un filtro
- * en memoria), incluye la relación con Categoria (US-013 S2, `bucket` se DERIVA de
- * `categoria` en el VO, ya no viene de una relación propia), los mapea a VOs de
- * dominio y los devuelve en memoria. Un catálogo vacío es Result.ok([]).
- * Cualquier error de Prisma se mapea a Result.fail(CategorizacionFallidaError): nunca lanza.
+ * en memoria). Tras ADR-037/D-03, el `include` widened a
+ * `{ categoria: { include: { bucket: true } } }` (antes `{ categoria: true }`,
+ * que traía `bucketId` pero no el `nombre` del bucket) para construir la
+ * categoría anidada COMPLETA que `PatronClasificacion` requiere — `bucket` es
+ * ahora un getter que PROYECTA `categoria.bucket`, nunca un campo hermano
+ * independiente. Un catálogo vacío es Result.ok([]). Cualquier error de
+ * Prisma se mapea a Result.fail(CategorizacionFallidaError): nunca lanza.
  *
  * La carga es por llamada (decisión de diseño 3): sin caché de módulo para que
  * los cambios de seed se reflejen sin reiniciar.
@@ -32,7 +35,7 @@ export class PrismaCatalogoClasificacionRepository implements ICatalogoClasifica
     try {
       const rows = await this.prisma.patronClasificacion.findMany({
         where: { userId },
-        include: { categoria: true },
+        include: { categoria: { include: { bucket: true } } },
         orderBy: { prioridad: 'asc' },
       });
 
@@ -42,7 +45,11 @@ export class PrismaCatalogoClasificacionRepository implements ICatalogoClasifica
             id: row.id,
             patron: row.patron,
             matchType: row.matchType as MatchType,
-            categoria: row.categoria.nombre as Categoria,
+            categoria: {
+              id: row.categoria.id,
+              nombre: row.categoria.nombre,
+              bucket: row.categoria.bucket.nombre as Bucket,
+            },
             prioridad: row.prioridad,
           }),
       );

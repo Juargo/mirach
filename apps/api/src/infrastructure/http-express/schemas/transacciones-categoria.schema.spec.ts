@@ -1,5 +1,4 @@
 import { aReclasificarCategoriaDto } from '../../http/dto/reclasificar-categoria.dto';
-import { Categoria } from '../../../domain/value-objects/categoria';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import {
   transaccionesCategoriaPathParamsSchema,
@@ -15,9 +14,9 @@ import {
  * CONTRACT-ONLY (design decision): these schemas document the transport
  * shape; they are NEVER `.safeParse()`'d at the route.
  * `registrarTransacciones` (`routes/transacciones.routes.ts`) still coerces
- * a non-string `categoria` to `''` so the domain's enum check
- * (`CategoriaInvalidaError`) rejects it uniformly — that behavior is
- * preserved exactly, not reproduced here.
+ * a non-string `categoria` to `''` so the writer rejects it uniformly with
+ * `CategoriaDesconocidaError` (ADR-037 — the closed enum gate is retired) —
+ * that behavior is preserved exactly, not reproduced here.
  */
 describe('transaccionesCategoriaPathParamsSchema', () => {
   it('accepts any non-empty string id', () => {
@@ -54,7 +53,7 @@ describe('transaccionesCategoriaResponseSchema (sync guarantee)', () => {
     const dto = aReclasificarCategoriaDto({
       id: 'tx-1',
       categoriaId: 'cat-supermercado-row-id',
-      categoria: Categoria.Supermercado,
+      categoria: 'Supermercado',
       bucket: Bucket.Necesidades,
     });
 

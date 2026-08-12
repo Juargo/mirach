@@ -1,18 +1,24 @@
 import { PrismaCatalogoClasificacionRepository } from './prisma-catalogo-clasificacion.repository';
 import { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
-import { CATEGORIA_IDS } from './categoria-ids';
 
-/** Fila de PatronClasificacion tal como la devuelve Prisma (incluye relación categoria). */
+/**
+ * Fila de PatronClasificacion tal como la devuelve Prisma tras el widening
+ * de `include` a `{ categoria: { include: { bucket: true } } }` (design.md
+ * §4.4 correction 3, D-03): antes `include: { categoria: true }` devolvía
+ * `bucketId` pero no el `nombre` del bucket, que es lo que el VO anidado
+ * necesita.
+ */
 function makeDbRow(
   overrides?: Partial<{
     id: string;
     patron: string;
     matchType: string;
     prioridad: number;
-    categoriaNombre: Categoria;
+    categoriaId: string;
+    categoriaNombre: string;
+    bucketNombre: Bucket;
   }>,
 ) {
   const data = {
@@ -20,7 +26,9 @@ function makeDbRow(
     patron: 'lider',
     matchType: 'CONTAINS',
     prioridad: 10,
-    categoriaNombre: Categoria.Supermercado,
+    categoriaId: 'cat-supermercado-id',
+    categoriaNombre: 'Supermercado',
+    bucketNombre: Bucket.Necesidades,
     ...overrides,
   };
   return {
@@ -28,12 +36,11 @@ function makeDbRow(
     patron: data.patron,
     matchType: data.matchType,
     prioridad: data.prioridad,
-    categoriaId: CATEGORIA_IDS[data.categoriaNombre],
+    categoriaId: data.categoriaId,
     categoria: {
-      id: CATEGORIA_IDS[data.categoriaNombre],
+      id: data.categoriaId,
       nombre: data.categoriaNombre,
-      patrones: [],
-      transacciones: [],
+      bucket: { nombre: data.bucketNombre },
     },
   };
 }
@@ -51,12 +58,14 @@ function makePrismaMock(rows: ReturnType<typeof makeDbRow>[], throws?: Error) {
 
 describe('PrismaCatalogoClasificacionRepository', () => {
   describe('findAll()', () => {
-    it('maps a CONTAINS row to PatronClasificacion VO correctly (categoria + derived bucket)', async () => {
+    it('maps a CONTAINS row to PatronClasificacion VO correctly (nested categoria + bucket)', async () => {
       const row = makeDbRow({
         patron: 'lider',
         matchType: 'CONTAINS',
         prioridad: 10,
-        categoriaNombre: Categoria.Supermercado,
+        categoriaId: 'cat-supermercado-id',
+        categoriaNombre: 'Supermercado',
+        bucketNombre: Bucket.Necesidades,
       });
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
@@ -69,7 +78,11 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       expect(patrones[0].patron).toBe('lider');
       expect(patrones[0].matchType).toBe('CONTAINS');
       expect(patrones[0].prioridad).toBe(10);
-      expect(patrones[0].categoria).toBe(Categoria.Supermercado);
+      expect(patrones[0].categoria).toEqual({
+        id: 'cat-supermercado-id',
+        nombre: 'Supermercado',
+        bucket: Bucket.Necesidades,
+      });
       expect(patrones[0].bucket).toBe(Bucket.Necesidades);
       expect(patrones[0].id).toBe('pat-1');
     });
@@ -77,7 +90,9 @@ describe('PrismaCatalogoClasificacionRepository', () => {
     it('maps a STARTS_WITH row correctly', async () => {
       const row = makeDbRow({
         matchType: 'STARTS_WITH',
-        categoriaNombre: Categoria.Streaming,
+        categoriaId: 'cat-streaming-id',
+        categoriaNombre: 'Streaming',
+        bucketNombre: Bucket.Deseos,
       });
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
@@ -86,14 +101,16 @@ describe('PrismaCatalogoClasificacionRepository', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue()[0].matchType).toBe('STARTS_WITH');
-      expect(result.getValue()[0].categoria).toBe(Categoria.Streaming);
+      expect(result.getValue()[0].categoria.nombre).toBe('Streaming');
       expect(result.getValue()[0].bucket).toBe(Bucket.Deseos);
     });
 
     it('maps a REGEX row correctly', async () => {
       const row = makeDbRow({
         matchType: 'REGEX',
-        categoriaNombre: Categoria.Ahorro,
+        categoriaId: 'cat-ahorro-id',
+        categoriaNombre: 'Ahorro',
+        bucketNombre: Bucket.Ahorro,
       });
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
@@ -102,8 +119,27 @@ describe('PrismaCatalogoClasificacionRepository', () => {
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue()[0].matchType).toBe('REGEX');
-      expect(result.getValue()[0].categoria).toBe(Categoria.Ahorro);
+      expect(result.getValue()[0].categoria.nombre).toBe('Ahorro');
       expect(result.getValue()[0].bucket).toBe(Bucket.Ahorro);
+    });
+
+    it('maps an arbitrary user-created category name (no enum gate, ADR-037)', async () => {
+      const row = makeDbRow({
+        categoriaId: 'cat-mascotas-id',
+        categoriaNombre: 'Mascotas',
+        bucketNombre: Bucket.Deseos,
+      });
+      const prisma = makePrismaMock([row]);
+      const repo = new PrismaCatalogoClasificacionRepository(prisma);
+
+      const result = await repo.findAll('user-1');
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue()[0].categoria).toEqual({
+        id: 'cat-mascotas-id',
+        nombre: 'Mascotas',
+        bucket: Bucket.Deseos,
+      });
     });
 
     it('returns Result.ok with empty array when catalog is empty', async () => {
@@ -122,14 +158,17 @@ describe('PrismaCatalogoClasificacionRepository', () => {
           id: 'p-1',
           patron: 'lider',
           prioridad: 5,
-          categoriaNombre: Categoria.Supermercado,
+          categoriaId: 'cat-supermercado-id',
+          categoriaNombre: 'Supermercado',
         }),
         makeDbRow({
           id: 'p-2',
           patron: 'netflix',
           matchType: 'CONTAINS',
           prioridad: 10,
-          categoriaNombre: Categoria.Streaming,
+          categoriaId: 'cat-streaming-id',
+          categoriaNombre: 'Streaming',
+          bucketNombre: Bucket.Deseos,
         }),
       ];
       const prisma = makePrismaMock(rows);
@@ -165,8 +204,10 @@ describe('PrismaCatalogoClasificacionRepository', () => {
 
     // US-037 CAT037-03/CA-05: el catálogo es per-user — la query DEBE filtrar
     // por userId en la BD (aislamiento estructural, RNF-SEC-006), nunca en
-    // memoria.
-    it('emits findMany with where: { userId } — structural isolation (RNF-SEC-006)', async () => {
+    // memoria. El `include` widened a `{ categoria: { include: { bucket:
+    // true } } }` (design.md §4.4 correction 3) para traer el nombre del
+    // bucket, no solo su bucketId.
+    it('emits findMany with where: { userId } and the widened include — structural isolation (RNF-SEC-006)', async () => {
       const findMany = vi.fn(async () => []);
       const prisma = {
         patronClasificacion: { findMany },
@@ -177,7 +218,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
 
       expect(findMany).toHaveBeenCalledWith({
         where: { userId: 'user-owner-of-this-catalog' },
-        include: { categoria: true },
+        include: { categoria: { include: { bucket: true } } },
         orderBy: { prioridad: 'asc' },
       });
     });

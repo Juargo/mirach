@@ -1,6 +1,5 @@
 import { aDetalleBucketDto } from '../../http/dto/detalle-bucket.dto';
 import { Bucket } from '../../../domain/value-objects/bucket';
-import { Categoria } from '../../../domain/value-objects/categoria';
 import {
   bucketsPathParamsSchema,
   bucketsQuerySchema,
@@ -79,7 +78,7 @@ describe('bucketsResponseSchema (sync guarantee)', () => {
           banco: 'BancoEstado',
           tipoCuenta: 'CuentaRUT',
           numeroCuenta: '****1234',
-          categoria: { id: 'cat-1', nombre: Categoria.Supermercado },
+          categoria: { id: 'cat-1', nombre: 'Supermercado' },
         },
       ],
     });
@@ -88,7 +87,7 @@ describe('bucketsResponseSchema (sync guarantee)', () => {
     expect(parsed.transacciones[0]?.cargo).toBe('9007199254740993');
     expect(parsed.transacciones[0]?.categoria).toEqual({
       id: 'cat-1',
-      nombre: Categoria.Supermercado,
+      nombre: 'Supermercado',
     });
   });
 

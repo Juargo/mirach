@@ -18,7 +18,6 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { runSeed } from '../prisma/seed';
 import { runBackfill, main } from '../prisma/backfill-categorias';
-import { Categoria } from '../src/domain/value-objects/categoria';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
@@ -110,9 +109,7 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     const summary = await runBackfill(prisma, { dryRun: true });
 
     expect(summary.totalRows).toBeGreaterThanOrEqual(1);
-    expect(summary.porCategoria[Categoria.Supermercado]).toBeGreaterThanOrEqual(
-      1,
-    );
+    expect(summary.porCategoria['Supermercado']).toBeGreaterThanOrEqual(1);
     expect(summary.bucketChanges).toBeGreaterThanOrEqual(1);
 
     const untouched = await prisma.transaccion.findUnique({
@@ -134,7 +131,7 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
         descripcion: 'Compra Lider',
         cargo: 9500n,
         abono: 0n,
-        categoriaId: CATEGORIA_IDS[Categoria.Ahorro],
+        categoriaId: CATEGORIA_IDS['Ahorro'],
         bucketId: BUCKET_IDS[Bucket.Ahorro],
       },
     });
@@ -144,7 +141,7 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     const afterRun = await prisma.transaccion.findUnique({
       where: { id: tx.id },
     });
-    expect(afterRun?.categoriaId).toBe(CATEGORIA_IDS[Categoria.Ahorro]);
+    expect(afterRun?.categoriaId).toBe(CATEGORIA_IDS['Ahorro']);
     expect(afterRun?.bucketId).toBe(BUCKET_IDS[Bucket.Ahorro]);
     // This row was never in the totalRows scope for this run.
     expect(summary.totalRows).toBe(0);
@@ -236,7 +233,7 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     try {
       const attackerAhorroCategoria = await prisma.categoria.findUniqueOrThrow({
         where: {
-          userId_nombre: { userId: attackerUserId, nombre: Categoria.Ahorro },
+          userId_nombre: { userId: attackerUserId, nombre: 'Ahorro' },
         },
       });
       // Repoint the ATTACKER's OWN "lider" pattern (never the bootstrap's) to
@@ -265,12 +262,8 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
       });
       // Must still resolve via the BOOTSTRAP user's own catalog
       // (Supermercado), never the attacker's hijacked categoria (Ahorro).
-      expect(bootstrapRow?.categoriaId).toBe(
-        CATEGORIA_IDS[Categoria.Supermercado],
-      );
-      expect(
-        summary.porCategoria[Categoria.Supermercado],
-      ).toBeGreaterThanOrEqual(1);
+      expect(bootstrapRow?.categoriaId).toBe(CATEGORIA_IDS['Supermercado']);
+      expect(summary.porCategoria['Supermercado']).toBeGreaterThanOrEqual(1);
     } finally {
       // Cleanup must run even when the assertions above fail (red phase or a
       // future regression), so the attacker rows never leak into the DB.
