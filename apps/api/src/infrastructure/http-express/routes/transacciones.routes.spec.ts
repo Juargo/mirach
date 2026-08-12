@@ -17,6 +17,7 @@ type Doble = Pick<ReclasificarTransaccionUseCase, 'execute'>;
 
 const RECLASIF_OK = {
   id: 'tx-1',
+  categoriaId: 'cat-supermercado-row-id',
   categoria: Categoria.Supermercado,
   bucket: 'Necesidades',
 };
@@ -45,6 +46,9 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
     expect(res.status).toBe(200);
     expect(res.body.id).toBe('tx-1');
     expect(res.body.categoria.nombre).toBe('Supermercado');
+    // US-037 CAT037-04: el id expuesto es el que resolvió el writer, nunca
+    // uno derivado localmente por el DTO.
+    expect(res.body.categoria.id).toBe('cat-supermercado-row-id');
     expect(uc.execute).toHaveBeenCalledWith({
       userId: 'user-x',
       transaccionId: 'tx-1',

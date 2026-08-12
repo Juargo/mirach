@@ -12,6 +12,7 @@ import { seedDemoTransacciones } from './demo-data-seeder';
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 import { normalizeNumeroCuenta } from './normalize-numero-cuenta';
+import { copiarCatalogoTemplate } from './catalogo-template';
 
 const BANCO_DEMO = 'MoneyDiary Demo';
 const TIPO_CUENTA_DEMO = 'Cuenta Corriente';
@@ -53,6 +54,15 @@ export class PrismaDemoRepository implements IDemoRepository {
           demoCreatedAt: ahora,
         },
       });
+
+      // US-037 (design.md §6): copia el catálogo del template INMEDIATAMENTE
+      // después de crear el usuario, dentro de la MISMA transacción — si la
+      // copia falla, `copiarCatalogoTemplate` lanza (no retorna `Result`,
+      // ver su docstring) y el rollback incluye también al usuario recién
+      // creado, igual que el fix crítico de la Session más abajo. El demo
+      // recibe la copia SOLO para clasificar (read-only por decisión de
+      // producto) — no hay superficie de escritura del catálogo aquí.
+      await copiarCatalogoTemplate(tx, user.id);
 
       const numeroCuentaNormalizado = normalizeNumeroCuenta(NUMERO_CUENTA_DEMO);
       const account = await tx.account.create({

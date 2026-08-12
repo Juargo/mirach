@@ -279,10 +279,14 @@ const TX_PARA_CLASIFICAR: TransaccionParaClasificar[] = [
 class FakeCatalogo implements ICatalogoClasificacion {
   failWith?: CategorizacionFallidaError;
   patrones: ReadonlyArray<PatronClasificacion> = [];
+  receivedUserIds: string[] = [];
 
-  async findAll(): Promise<
+  async findAll(
+    userId: string,
+  ): Promise<
     Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
   > {
+    this.receivedUserIds.push(userId);
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(this.patrones);
   }
@@ -297,9 +301,11 @@ class FakeBucketWriter implements ITransaccionBucketWriter {
     }>
   > = [];
   receivedIngestaIds: string[] = [];
+  receivedUserIds: string[] = [];
   failWith?: CategorizacionFallidaError;
 
   async asignarCategorizacion(
+    userId: string,
     ingestaId: string,
     asignaciones: ReadonlyArray<{
       transaccionId: string;
@@ -307,6 +313,7 @@ class FakeBucketWriter implements ITransaccionBucketWriter {
       bucket: Bucket;
     }>,
   ): Promise<Result<{ actualizadas: number }, CategorizacionFallidaError>> {
+    this.receivedUserIds.push(userId);
     this.receivedIngestaIds.push(ingestaId);
     this.calls.push(asignaciones);
     if (this.failWith) return Result.fail(this.failWith);
@@ -876,6 +883,24 @@ describe('ProcessIngestaUseCase', () => {
       expect(txReader.receivedIngestaId).toBe(ingestaId);
       // Writer also received that same ingestaId (structural scope lock)
       expect(bucketWriter.receivedIngestaIds[0]).toBe(ingestaId);
+    });
+
+    // US-037 (design.md §4.2): userId debe llegar, sin transformar, tanto al
+    // catálogo (findAll) como al writer (asignarCategorizacion) — pure
+    // threading de input.userId, no lógica nueva.
+    it('userId thread-through: findAll and asignarCategorizacion receive the SAME userId as input.userId', async () => {
+      const catalogo = new FakeCatalogo();
+      const bucketWriter = new FakeBucketWriter();
+      const { useCase } = buildUseCase({ catalogo, bucketWriter });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(catalogo.receivedUserIds[0]).toBe(USER_ID);
+      expect(bucketWriter.receivedUserIds[0]).toBe(USER_ID);
     });
 
     it('ingesta vacía (reader devuelve []): resultado { asignadas: 0, sinCategoria: 0 }, writer NO invocado', async () => {

@@ -5,9 +5,11 @@ import { PrismaDetalleBucketRepository } from '../src/infrastructure/persistence
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 import { buildTestEnv } from './support/env.fixture';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 /**
  * Integration tests for PrismaDetalleBucketRepository (US-017), two-user
@@ -60,6 +62,9 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     await prisma.user.create({
       data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` },
     });
+    // CAT037-06 regression guard: user B needs a real catalog so a
+    // categorized transaction resolves to a real Categoria, not null.
+    await crearCatalogoParaUsuario(prisma, TEST_USER_ID_B);
 
     // US-035 Slice 2: numeroCuenta CIFRADO — findByPeriodoYBucket lo
     // descifra con `crypto` (misma clave fija de este int-spec), así que
@@ -118,6 +123,12 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     await prisma.account.deleteMany({
       where: { id: { in: [accountIdA, accountIdB] } },
     });
+    // Composite FK (PatronClasificacion.(categoriaId,userId) → Categoria) is
+    // RESTRICT — clear user B's copied catalog before deleting the user.
+    await prisma.patronClasificacion.deleteMany({
+      where: { userId: TEST_USER_ID_B },
+    });
+    await prisma.categoria.deleteMany({ where: { userId: TEST_USER_ID_B } });
     await prisma.user.deleteMany({
       where: { id: { in: [TEST_USER_ID_A, TEST_USER_ID_B] } },
     });
@@ -221,5 +232,38 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
 
     const returnedIds = sinCategoriaRows.map((r) => r.id);
     expect(returnedIds).not.toContain(userBNullTx.id);
+  });
+
+  it('CAT037-06: a second, non-seed user (B) sees their real categoria on a categorized transaction, not null', async () => {
+    const streamingRowB = await prisma.categoria.findUniqueOrThrow({
+      where: {
+        userId_nombre: { userId: TEST_USER_ID_B, nombre: Categoria.Streaming },
+      },
+    });
+    const tx = await createTx(
+      accountIdB,
+      ingestaIdB,
+      new Date('2026-07-20T00:00:00.000Z'),
+      BUCKET_IDS[Bucket.Deseos],
+      8000n,
+      0n,
+      'Netflix suscripcion',
+    );
+    await prisma.transaccion.update({
+      where: { id: tx.id },
+      data: { categoriaId: streamingRowB.id },
+    });
+
+    const rows = await repo.findByPeriodoYBucket(
+      TEST_USER_ID_B,
+      periodoJulio,
+      Bucket.Deseos,
+    );
+    const found = rows.find((r) => r.id === tx.id);
+    expect(found).toBeDefined();
+    expect(found!.categoria).toEqual({
+      id: streamingRowB.id,
+      nombre: Categoria.Streaming,
+    });
   });
 });

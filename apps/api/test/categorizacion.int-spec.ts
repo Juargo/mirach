@@ -32,6 +32,7 @@ import {
   USER_ID_FIJO,
 } from '../src/infrastructure/persistence/constants';
 import { buildTestEnv } from './support/env.fixture';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 /**
  * Stub catálogo que siempre falla — used to exercise the degrade path end-to-end.
@@ -39,7 +40,9 @@ import { buildTestEnv } from './support/env.fixture';
  * behavior the real pipeline exercises when the DB is unavailable.
  */
 class FailingCatalogo implements ICatalogoClasificacion {
-  async findAll(): Promise<
+  async findAll(
+    _userId: string,
+  ): Promise<
     Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
   > {
     return Result.fail(
@@ -54,6 +57,7 @@ class FailingCatalogo implements ICatalogoClasificacion {
  */
 async function runCategorizacionStep(
   ingestaId: string,
+  userId: string,
   catalogo: ICatalogoClasificacion,
   txReader: PrismaTransaccionClasificacionRepository,
   bucketWriter: PrismaTransaccionBucketRepository,
@@ -62,7 +66,7 @@ async function runCategorizacionStep(
   try {
     let patrones: ReadonlyArray<PatronClasificacion> = [];
     let catalogoDisponible = true;
-    const catalogResult = await catalogo.findAll();
+    const catalogResult = await catalogo.findAll(userId);
     if (catalogResult.isOk()) {
       patrones = catalogResult.getValue();
     } else {
@@ -93,6 +97,7 @@ async function runCategorizacionStep(
       : 0;
 
     const writeResult = await bucketWriter.asignarCategorizacion(
+      userId,
       ingestaId,
       asignaciones,
     );
@@ -235,7 +240,7 @@ describe('Categorización — integración (real dev DB)', () => {
     ]);
 
     // Classify only ingesta B's transactions
-    const catalogResult = await catalogoRepo.findAll();
+    const catalogResult = await catalogoRepo.findAll(USER_ID_FIJO);
     const patrones = catalogResult.isOk() ? catalogResult.getValue() : [];
     const txParaClasificar =
       await txClasificacionReader.findParaClasificar(testIngestaBId);
@@ -248,7 +253,11 @@ describe('Categorización — integración (real dev DB)', () => {
         .getValue();
       return { transaccionId: tx.id, categoria, bucket };
     });
-    await bucketWriter.asignarCategorizacion(testIngestaBId, asignaciones);
+    await bucketWriter.asignarCategorizacion(
+      USER_ID_FIJO,
+      testIngestaBId,
+      asignaciones,
+    );
 
     // Verify ingesta B rows were updated
     const updatedB = await prisma.transaccion.findMany({
@@ -299,6 +308,7 @@ describe('Categorización — integración (real dev DB)', () => {
     const failingCatalog = new FailingCatalogo();
     const resumen = await runCategorizacionStep(
       testIngestaBId,
+      USER_ID_FIJO,
       failingCatalog,
       txClasificacionReader,
       bucketWriter,
@@ -345,6 +355,7 @@ describe('Categorización — integración (real dev DB)', () => {
 
     // Assign a real categoría+bucket (ingestaId for structural scope isolation)
     const writeResult = await bucketWriter.asignarCategorizacion(
+      USER_ID_FIJO,
       testIngestaBId,
       [
         {
@@ -382,5 +393,79 @@ describe('Categorización — integración (real dev DB)', () => {
       where: { id: anotherNull.id },
     });
     expect(stillNull?.bucketId).toBeNull(); // null FK rows remain valid after migration
+  });
+
+  // CAT037-03: a non-seed user's ingesta is classified using ONLY their own
+  // per-user catalog copy — never the bootstrap user's CATEGORIA_IDS.
+  it("CAT037-03: a non-seed user's ingesta is classified using only their own patterns (real per-user ids, not CATEGORIA_IDS)", async () => {
+    const nonSeedUserId = `catz-nonseed-${Date.now()}`;
+    await prisma.user.create({
+      data: { id: nonSeedUserId, nombre: 'Non-seed catz user' },
+    });
+    await crearCatalogoParaUsuario(prisma, nonSeedUserId);
+
+    const account = await prisma.account.create({
+      data: {
+        userId: nonSeedUserId,
+        banco: 'BancoEstado',
+        tipoCuenta: 'CuentaRUT',
+        numeroCuenta: crypto.encrypt(`nsu-${Date.now()}`),
+      },
+    });
+    const ingesta = await prisma.ingesta.create({
+      data: {
+        userId: nonSeedUserId,
+        accountId: account.id,
+        banco: 'BancoEstado',
+        nombreArchivo: 'nsu-test.xlsx',
+        estado: 'PROCESADA',
+      },
+    });
+    const tx = await prisma.transaccion.create({
+      data: {
+        ingestaId: ingesta.id,
+        accountId: account.id,
+        fecha: new Date('2026-07-02'),
+        descripcion: crypto.encrypt('Compra Lider'),
+        cargo: 9500n,
+        abono: 0n,
+      },
+    });
+
+    const resumen = await runCategorizacionStep(
+      ingesta.id,
+      nonSeedUserId,
+      catalogoRepo,
+      txClasificacionReader,
+      bucketWriter,
+      categorizarUseCase,
+    );
+    expect(resumen).toBeDefined();
+
+    const updated = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: tx.id },
+    });
+    expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
+    const supermercadoRow = await prisma.categoria.findUniqueOrThrow({
+      where: {
+        userId_nombre: {
+          userId: nonSeedUserId,
+          nombre: Categoria.Supermercado,
+        },
+      },
+    });
+    // Resolved through THIS user's own catalog row, never the bootstrap
+    // user's fixed CATEGORIA_IDS constant.
+    expect(updated.categoriaId).toBe(supermercadoRow.id);
+    expect(updated.categoriaId).not.toBe(CATEGORIA_IDS[Categoria.Supermercado]);
+
+    await prisma.transaccion.deleteMany({ where: { ingestaId: ingesta.id } });
+    await prisma.ingesta.deleteMany({ where: { id: ingesta.id } });
+    await prisma.account.deleteMany({ where: { id: account.id } });
+    await prisma.patronClasificacion.deleteMany({
+      where: { userId: nonSeedUserId },
+    });
+    await prisma.categoria.deleteMany({ where: { userId: nonSeedUserId } });
+    await prisma.user.deleteMany({ where: { id: nonSeedUserId } });
   });
 });

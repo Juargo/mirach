@@ -5,6 +5,7 @@ import { IReloj } from '../../application/ports/reloj.port';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 import { DEMO_TRANSACCIONES } from './demo-data';
+import { CATEGORIA_TEMPLATE, PATRON_TEMPLATE } from './catalogo-template';
 
 const AHORA = new Date('2026-07-18T12:00:00.000Z');
 const TOKEN_HASH = 'hash-demo-abc';
@@ -24,6 +25,23 @@ function makeBlindIndex(): IBlindIndexService {
 function makeTxMock() {
   return {
     user: { create: vi.fn().mockResolvedValue({ id: 'user-demo-1' }) },
+    // US-037 (3.3/3.4): fake mínimo que satisface CatalogoTemplateClient —
+    // copiarCatalogoTemplate corre de VERDAD (no mockeada) contra este tx,
+    // así que las asserts de abajo verifican el wiring real, no un doble.
+    categoria: {
+      createMany: vi
+        .fn()
+        .mockResolvedValue({ count: CATEGORIA_TEMPLATE.length }),
+      findMany: vi.fn().mockResolvedValue(
+        CATEGORIA_TEMPLATE.map((categoria, index) => ({
+          id: `categoria-demo-${index}`,
+          nombre: categoria.nombre,
+        })),
+      ),
+    },
+    patronClasificacion: {
+      createMany: vi.fn().mockResolvedValue({ count: PATRON_TEMPLATE.length }),
+    },
     account: { create: vi.fn().mockResolvedValue({ id: 'account-demo-1' }) },
     ingesta: { create: vi.fn().mockResolvedValue({ id: 'ingesta-demo-1' }) },
     transaccion: {
@@ -91,6 +109,97 @@ describe('PrismaDemoRepository', () => {
     expect(tx.user.create).toHaveBeenCalledWith({
       data: { nombre: 'Demo-abc123', esDemo: true, demoCreatedAt: AHORA },
     });
+  });
+
+  it('US-037: copia el catálogo del template (copiarCatalogoTemplate) entre tx.user.create y tx.account.create, todo con el userId recién creado (design.md §6)', async () => {
+    const tx = makeTxMock();
+    const prisma = makePrismaMock(tx);
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
+
+    const llamadas: string[] = [];
+    tx.user.create.mockImplementation(async () => {
+      llamadas.push('user');
+      return { id: 'user-demo-1' };
+    });
+    tx.categoria.createMany.mockImplementation(async () => {
+      llamadas.push('categoria.createMany');
+      return { count: CATEGORIA_TEMPLATE.length };
+    });
+    tx.categoria.findMany.mockImplementation(async () => {
+      llamadas.push('categoria.findMany');
+      return CATEGORIA_TEMPLATE.map((categoria, index) => ({
+        id: `categoria-demo-${index}`,
+        nombre: categoria.nombre,
+      }));
+    });
+    tx.patronClasificacion.createMany.mockImplementation(async () => {
+      llamadas.push('patron.createMany');
+      return { count: PATRON_TEMPLATE.length };
+    });
+    tx.account.create.mockImplementation(async () => {
+      llamadas.push('account');
+      return { id: 'account-demo-1' };
+    });
+
+    await repo.crear({
+      nombre: 'Demo-abc123',
+      tokenHash: TOKEN_HASH,
+      expiresAt: EXPIRES_AT,
+    });
+
+    expect(llamadas).toEqual([
+      'user',
+      'categoria.createMany',
+      'categoria.findMany',
+      'patron.createMany',
+      'account',
+    ]);
+
+    // Cada Categoria/PatronClasificacion escrita lleva el userId del demo
+    // recién creado — nunca uno hardcodeado.
+    const [{ data: categoriaData }] = tx.categoria.createMany.mock.calls[0];
+    for (const row of categoriaData) {
+      expect(row.userId).toBe('user-demo-1');
+    }
+    expect(categoriaData).toHaveLength(CATEGORIA_TEMPLATE.length);
+
+    const [{ data: patronData }] =
+      tx.patronClasificacion.createMany.mock.calls[0];
+    for (const row of patronData) {
+      expect(row.userId).toBe('user-demo-1');
+    }
+    expect(patronData).toHaveLength(PATRON_TEMPLATE.length);
+  });
+
+  it('US-037: si el copy del catálogo falla, TODA la transacción rechaza — ningún dato demo se persiste (rollback, no partial rows)', async () => {
+    const tx = makeTxMock();
+    tx.categoria.createMany.mockRejectedValue(new Error('catalog copy failed'));
+    const prisma = makePrismaMock(tx);
+    const repo = new PrismaDemoRepository(
+      prisma,
+      makeReloj(),
+      makeCrypto(),
+      makeBlindIndex(),
+    );
+
+    await expect(
+      repo.crear({
+        nombre: 'Demo-abc123',
+        tokenHash: TOKEN_HASH,
+        expiresAt: EXPIRES_AT,
+      }),
+    ).rejects.toThrow('catalog copy failed');
+
+    expect(tx.account.create).not.toHaveBeenCalled();
+    expect(tx.ingesta.create).not.toHaveBeenCalled();
+    expect(tx.transaccion.createMany).not.toHaveBeenCalled();
+    expect(tx.session.create).not.toHaveBeenCalled();
+    expect(tx.patronClasificacion.createMany).not.toHaveBeenCalled();
   });
 
   it('crea el Account referenciando el userId recién creado', async () => {
