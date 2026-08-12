@@ -189,7 +189,7 @@ describe('Catalog CRUD (integration) — /api/categorias + /api/patrones (US-038
     expect(patronRow).toBeNull();
   });
 
-  it('delete-in-use → 409, and NOTHING was deleted — the category and its patterns survive', async () => {
+  it('delete-in-use → 204; category and its patterns are gone; the transaction survives with categoriaId: null and its original bucketId unchanged (US-039, CAT038-04 as modified, CA-02/CA-03)', async () => {
     if (!ALLOW) return;
 
     const categoria = await request(app)
@@ -227,7 +227,12 @@ describe('Catalog CRUD (integration) — /api/categorias + /api/patrones (US-038
         estado: 'PROCESADA',
       },
     });
-    await prisma.transaccion.create({
+    const originalBucketId = (
+      await prisma.bucketPresupuesto.findFirstOrThrow({
+        where: { nombre: 'Necesidades' },
+      })
+    ).id;
+    const transaccion = await prisma.transaccion.create({
       data: {
         accountId: account.id,
         ingestaId: ingesta.id,
@@ -236,15 +241,15 @@ describe('Catalog CRUD (integration) — /api/categorias + /api/patrones (US-038
         abono: 0n,
         descripcion: 'Tx en uso',
         categoriaId: categoria.body.id,
+        bucketId: originalBucketId,
       },
     });
 
-    const res = await request(app)
+    await request(app)
       .delete(`/api/categorias/${categoria.body.id}`)
       .set('x-api-key', API_KEY)
       .set('Authorization', auth)
-      .expect(409);
-    expect(res.body.code).toBe('CATEGORIA_EN_USO');
+      .expect(204);
 
     const categoriaRow = await prisma.categoria.findUnique({
       where: { id: categoria.body.id },
@@ -252,8 +257,14 @@ describe('Catalog CRUD (integration) — /api/categorias + /api/patrones (US-038
     const patronRow = await prisma.patronClasificacion.findUnique({
       where: { id: patron.body.id },
     });
-    expect(categoriaRow).not.toBeNull();
-    expect(patronRow).not.toBeNull();
+    const transaccionRow = await prisma.transaccion.findUnique({
+      where: { id: transaccion.id },
+    });
+    expect(categoriaRow).toBeNull();
+    expect(patronRow).toBeNull();
+    expect(transaccionRow).not.toBeNull();
+    expect(transaccionRow?.categoriaId).toBeNull();
+    expect(transaccionRow?.bucketId).toBe(originalBucketId);
   });
 
   it('GET /api/categorias reports transaccionesCount: N for the caller-scoped all-history count (CA-01)', async () => {
