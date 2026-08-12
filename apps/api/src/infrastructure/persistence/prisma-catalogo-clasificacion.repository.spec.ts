@@ -61,7 +61,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
-      const result = await repo.findAll();
+      const result = await repo.findAll('user-1');
 
       expect(result.isOk()).toBe(true);
       const patrones = result.getValue();
@@ -82,7 +82,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
-      const result = await repo.findAll();
+      const result = await repo.findAll('user-1');
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue()[0].matchType).toBe('STARTS_WITH');
@@ -98,7 +98,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       const prisma = makePrismaMock([row]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
-      const result = await repo.findAll();
+      const result = await repo.findAll('user-1');
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue()[0].matchType).toBe('REGEX');
@@ -110,7 +110,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       const prisma = makePrismaMock([]);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
-      const result = await repo.findAll();
+      const result = await repo.findAll('user-1');
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue()).toHaveLength(0);
@@ -135,7 +135,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       const prisma = makePrismaMock(rows);
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
-      const result = await repo.findAll();
+      const result = await repo.findAll('user-1');
 
       expect(result.isOk()).toBe(true);
       expect(result.getValue()).toHaveLength(2);
@@ -147,7 +147,7 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       const prisma = makePrismaMock([], new Error('connection refused'));
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
-      const result = await repo.findAll();
+      const result = await repo.findAll('user-1');
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
@@ -158,9 +158,28 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       const prisma = makePrismaMock([], new Error('db down'));
       const repo = new PrismaCatalogoClasificacionRepository(prisma);
 
-      await expect(repo.findAll()).resolves.toBeDefined();
-      const result = await repo.findAll();
+      await expect(repo.findAll('user-1')).resolves.toBeDefined();
+      const result = await repo.findAll('user-1');
       expect(result.isFail()).toBe(true);
+    });
+
+    // US-037 CAT037-03/CA-05: el catálogo es per-user — la query DEBE filtrar
+    // por userId en la BD (aislamiento estructural, RNF-SEC-006), nunca en
+    // memoria.
+    it('emits findMany with where: { userId } — structural isolation (RNF-SEC-006)', async () => {
+      const findMany = vi.fn(async () => []);
+      const prisma = {
+        patronClasificacion: { findMany },
+      } as unknown as PrismaClient;
+      const repo = new PrismaCatalogoClasificacionRepository(prisma);
+
+      await repo.findAll('user-owner-of-this-catalog');
+
+      expect(findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-owner-of-this-catalog' },
+        include: { categoria: true },
+        orderBy: { prioridad: 'asc' },
+      });
     });
   });
 });

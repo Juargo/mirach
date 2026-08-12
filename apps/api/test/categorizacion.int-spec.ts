@@ -39,7 +39,9 @@ import { buildTestEnv } from './support/env.fixture';
  * behavior the real pipeline exercises when the DB is unavailable.
  */
 class FailingCatalogo implements ICatalogoClasificacion {
-  async findAll(): Promise<
+  async findAll(
+    _userId: string,
+  ): Promise<
     Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
   > {
     return Result.fail(
@@ -54,6 +56,7 @@ class FailingCatalogo implements ICatalogoClasificacion {
  */
 async function runCategorizacionStep(
   ingestaId: string,
+  userId: string,
   catalogo: ICatalogoClasificacion,
   txReader: PrismaTransaccionClasificacionRepository,
   bucketWriter: PrismaTransaccionBucketRepository,
@@ -62,7 +65,7 @@ async function runCategorizacionStep(
   try {
     let patrones: ReadonlyArray<PatronClasificacion> = [];
     let catalogoDisponible = true;
-    const catalogResult = await catalogo.findAll();
+    const catalogResult = await catalogo.findAll(userId);
     if (catalogResult.isOk()) {
       patrones = catalogResult.getValue();
     } else {
@@ -93,6 +96,7 @@ async function runCategorizacionStep(
       : 0;
 
     const writeResult = await bucketWriter.asignarCategorizacion(
+      userId,
       ingestaId,
       asignaciones,
     );
@@ -235,7 +239,7 @@ describe('Categorización — integración (real dev DB)', () => {
     ]);
 
     // Classify only ingesta B's transactions
-    const catalogResult = await catalogoRepo.findAll();
+    const catalogResult = await catalogoRepo.findAll(USER_ID_FIJO);
     const patrones = catalogResult.isOk() ? catalogResult.getValue() : [];
     const txParaClasificar =
       await txClasificacionReader.findParaClasificar(testIngestaBId);
@@ -248,7 +252,11 @@ describe('Categorización — integración (real dev DB)', () => {
         .getValue();
       return { transaccionId: tx.id, categoria, bucket };
     });
-    await bucketWriter.asignarCategorizacion(testIngestaBId, asignaciones);
+    await bucketWriter.asignarCategorizacion(
+      USER_ID_FIJO,
+      testIngestaBId,
+      asignaciones,
+    );
 
     // Verify ingesta B rows were updated
     const updatedB = await prisma.transaccion.findMany({
@@ -299,6 +307,7 @@ describe('Categorización — integración (real dev DB)', () => {
     const failingCatalog = new FailingCatalogo();
     const resumen = await runCategorizacionStep(
       testIngestaBId,
+      USER_ID_FIJO,
       failingCatalog,
       txClasificacionReader,
       bucketWriter,
@@ -345,6 +354,7 @@ describe('Categorización — integración (real dev DB)', () => {
 
     // Assign a real categoría+bucket (ingestaId for structural scope isolation)
     const writeResult = await bucketWriter.asignarCategorizacion(
+      USER_ID_FIJO,
       testIngestaBId,
       [
         {
