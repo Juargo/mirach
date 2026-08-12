@@ -402,6 +402,7 @@ describe('Catalog transaccionesCount + delete isolation (CAT039-01, CA-05)', () 
   let categoriaIdA: string;
   let categoriaIdB: string;
   let txIdB: string;
+  let patronIdB: string;
 
   const userIdA = `cat-ca05-a-${RUN_ID}`;
   const userIdB = `cat-ca05-b-${RUN_ID}`;
@@ -503,6 +504,17 @@ describe('Catalog transaccionesCount + delete isolation (CAT039-01, CA-05)', () 
     });
     txIdB = txB.id;
 
+    const patronB = await prisma.patronClasificacion.create({
+      data: {
+        userId: userIdB,
+        categoriaId: categoriaIdB,
+        patron: `ca05-patron-b-${RUN_ID}`,
+        matchType: 'CONTAINS',
+        prioridad: 100,
+      },
+    });
+    patronIdB = patronB.id;
+
     const sessionA = await crearSesionParaUsuario(prisma, userIdA);
     authA = `Bearer ${sessionA.token}`;
   });
@@ -562,8 +574,12 @@ describe('Catalog transaccionesCount + delete isolation (CAT039-01, CA-05)', () 
     const txBRow = await prisma.transaccion.findUnique({
       where: { id: txIdB },
     });
+    const patronBRow = await prisma.patronClasificacion.findUnique({
+      where: { id: patronIdB },
+    });
     expect(categoriaBRow).not.toBeNull();
     expect(txBRow).not.toBeNull();
     expect(txBRow?.categoriaId).toBe(categoriaIdB);
+    expect(patronBRow).not.toBeNull();
   });
 });
