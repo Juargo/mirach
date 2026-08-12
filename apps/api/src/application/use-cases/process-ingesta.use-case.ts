@@ -274,7 +274,10 @@ export class ProcessIngestaUseCase {
     const { ingestaId, total, duplicadosOmitidos } = persistResult.getValue();
 
     // --- Paso de categorización (try/catch island — nunca falla la ingesta) ---
-    const categorizacion = await this.runCategorizacion(ingestaId);
+    const categorizacion = await this.runCategorizacion(
+      ingestaId,
+      input.userId,
+    );
 
     // `estructura` trae campos distintos por trio (Excel: filas de hoja de
     // cálculo; PDF: página + rangos X, sin conteo de filas propio — ese
@@ -337,16 +340,20 @@ export class ProcessIngestaUseCase {
    *   - Cualquier excepción imprevista → captura, degrada, continúa.
    *
    * Retorna el resumen opcional (undefined si algo impide terminar).
+   *
+   * @param userId - dueño del catálogo a consultar (US-037: catálogo per-user,
+   *   ya en scope como `input.userId` — pure threading, sin lógica nueva).
    */
   private async runCategorizacion(
     ingestaId: string,
+    userId: string,
   ): Promise<CategorizacionResumen | undefined> {
     try {
       // 1. Cargar catálogo. Si falla, la Ingreso rule (dominio puro) todavía
       //    corre, pero solo se escriben filas de Ingreso; el resto queda null.
       let patrones: ReadonlyArray<PatronClasificacion> = [];
       let catalogoDisponible = true;
-      const catalogResult = await this.catalogoClasificacion.findAll();
+      const catalogResult = await this.catalogoClasificacion.findAll(userId);
       if (catalogResult.isOk()) {
         patrones = catalogResult.getValue();
       } else {
@@ -399,6 +406,7 @@ export class ProcessIngestaUseCase {
       // scope isolation (RNF-SEC-006).
       const writeResult =
         await this.transaccionBucketWriter.asignarCategorizacion(
+          userId,
           ingestaId,
           asignaciones,
         );

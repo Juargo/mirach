@@ -1,15 +1,18 @@
 import { Categoria } from '../../domain/value-objects/categoria';
 
 /**
- * CATEGORIA_IDS — mapa de ids físicos fijos para las Categoria (US-013).
+ * CATEGORIA_IDS — ids físicos fijos para las filas seed del usuario bootstrap
+ * y para migraciones históricas (US-013, US-037 D-09) — NUNCA un mecanismo
+ * de resolución de ids en runtime.
  *
- * Los ids son fijos (no autogenerados) para que el seed sea idempotente y la
- * sincronización enum↔fila de BD esté single-sourced. Mirror de BUCKET_IDS
- * (bucket-ids.ts) — mismo patrón, mismas garantías.
- *
- * Infra constraint: estos ids deben coincidir exactamente con los rows que
- * inserta seed.ts vía upsert. Cambiar un id aquí requiere también una nueva
- * migración de datos que actualice los categoriaId existentes.
+ * Bajo US-037 (catálogo per-user), cada usuario tiene su propia copia de
+ * `Categoria` con ids generados (`cuid()`), distintos de estos valores fijos
+ * para cualquier usuario que no sea el bootstrap. Ningún código de lectura
+ * en runtime debe depender de este mapa para ir de un id físico al enum de
+ * dominio — para eso existe `foldCategoria` (fold-categoria.ts), que resuelve
+ * por `nombre`, no por id. Este mapa solo sigue vivo porque `seed.ts`
+ * necesita ids fijos y estables para que el upsert del usuario bootstrap sea
+ * idempotente, y porque migraciones de datos ya aplicadas los referencian.
  */
 export const CATEGORIA_IDS: Record<Categoria, string> = {
   [Categoria.Supermercado]: 'categoria-supermercado',
@@ -21,40 +24,3 @@ export const CATEGORIA_IDS: Record<Categoria, string> = {
   [Categoria.Delivery]: 'categoria-delivery',
   [Categoria.Ahorro]: 'categoria-ahorro',
 };
-
-/**
- * CATEGORIA_ID_TO_CATEGORIA — inverse map: physical categoriaId string →
- * domain Categoria enum.
- *
- * Built once at module load from CATEGORIA_IDS (single source of truth,
- * DRY). Mirror de BUCKET_ID_TO_BUCKET — usado por los repos que necesitan
- * plegar un categoriaId crudo de Prisma de vuelta al enum de dominio (US-013
- * S5: movimientos / detalle-bucket read paths).
- */
-export const CATEGORIA_ID_TO_CATEGORIA: ReadonlyMap<string, Categoria> =
-  new Map(
-    (Object.entries(CATEGORIA_IDS) as [Categoria, string][]).map(
-      ([categoria, id]) => [id, categoria] as [string, Categoria],
-    ),
-  );
-
-/**
- * foldCategoriaId — pliega un `categoriaId` físico crudo de Prisma a la forma
- * de dominio `{ id, nombre }` (US-013 CATAPI-05).
- *
- * `null` → `null` (Ingreso/SinCategoria). Un id no-null no reconocido en
- * `CATEGORIA_ID_TO_CATEGORIA` también pliega a `null` (defensive — mismo
- * criterio que el fold de bucket en prisma-movimientos-mes.repository.ts).
- *
- * Extraído como función compartida (no duplicada inline) porque exactamente
- * dos repos (movimientos, detalle-bucket) necesitan el mismo fold
- * correctness-critical: una divergencia entre ambos rompería CATAPI-05 de
- * forma silenciosa (DRY — ver .claude/skills/dry/SKILL.md).
- */
-export function foldCategoriaId(
-  categoriaId: string | null,
-): { id: string; nombre: Categoria } | null {
-  if (categoriaId === null) return null;
-  const nombre = CATEGORIA_ID_TO_CATEGORIA.get(categoriaId);
-  return nombre === undefined ? null : { id: categoriaId, nombre };
-}

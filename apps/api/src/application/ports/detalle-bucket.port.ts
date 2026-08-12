@@ -10,10 +10,10 @@ import { Categoria } from '../../domain/value-objects/categoria';
  * salida (KISS — ver design.md). Los montos son BigInt — la serialización a
  * string ocurre solo en el DTO HTTP.
  *
- * `categoria` (US-013 CATAPI-05) es la Categoria de dominio ya foldeada —
- * `null` para filas Ingreso/SinCategoria o con un id no reconocido
- * (defensive), vía el mismo `foldCategoriaId` compartido con
- * PrismaMovimientosMesRepository.
+ * `categoria` (US-013 CATAPI-05, US-037 CAT037-06) es la Categoria de
+ * dominio ya foldeada — `null` para filas Ingreso/SinCategoria o con un
+ * `nombre` no reconocido (defensive), vía el mismo `foldCategoria`
+ * (fold-categoria.ts) compartido con PrismaMovimientosMesRepository.
  */
 export interface DetalleBucketRow {
   readonly id: string;

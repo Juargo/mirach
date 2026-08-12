@@ -12,6 +12,12 @@ function makeTxMock() {
     session: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
     transaccion: { deleteMany: vi.fn().mockResolvedValue({ count: 30 }) },
     ingesta: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    // US-037 (3.5/3.6): PatronClasificacion PRECEDE a Categoria (composite
+    // FK RESTRICT — design.md §6), ambas antes de Account/User.
+    patronClasificacion: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 20 }),
+    },
+    categoria: { deleteMany: vi.fn().mockResolvedValue({ count: 8 }) },
     account: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
     user: { deleteMany: vi.fn().mockResolvedValue({ count: 2 }) },
   };
@@ -57,7 +63,7 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
     });
   });
 
-  it('con demos expirados → borra en cascada Session→Transaccion→Ingesta→Account→User, en ese orden', async () => {
+  it('con demos expirados → borra en cascada Session→Transaccion→Ingesta→PatronClasificacion→Categoria→Account→User, en ese orden (US-037 design.md §6)', async () => {
     const tx = makeTxMock();
     const prisma = makePrismaMock(
       [{ id: 'user-demo-1' }, { id: 'user-demo-2' }],
@@ -78,6 +84,14 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
       llamadas.push('ingesta');
       return { count: 2 };
     });
+    tx.patronClasificacion.deleteMany.mockImplementation(async () => {
+      llamadas.push('patronClasificacion');
+      return { count: 40 };
+    });
+    tx.categoria.deleteMany.mockImplementation(async () => {
+      llamadas.push('categoria');
+      return { count: 16 };
+    });
     tx.account.deleteMany.mockImplementation(async () => {
       llamadas.push('account');
       return { count: 2 };
@@ -93,12 +107,20 @@ describe('DemoCleanupService.borrarExpirados() (DEMO-CLN-01/02)', () => {
       'session',
       'transaccion',
       'ingesta',
+      'patronClasificacion',
+      'categoria',
       'account',
       'user',
     ]);
     expect(count).toBe(2);
     const ids = ['user-demo-1', 'user-demo-2'];
     expect(tx.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: { in: ids } },
+    });
+    expect(tx.patronClasificacion.deleteMany).toHaveBeenCalledWith({
+      where: { userId: { in: ids } },
+    });
+    expect(tx.categoria.deleteMany).toHaveBeenCalledWith({
       where: { userId: { in: ids } },
     });
     expect(tx.account.deleteMany).toHaveBeenCalledWith({

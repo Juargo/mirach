@@ -6,6 +6,7 @@ import {
   USER_ID_FIJO,
   ACCOUNT_ID_FIJO,
 } from '../src/infrastructure/persistence/constants';
+import { CATEGORIA_TEMPLATE_SIZE } from '../src/infrastructure/persistence/catalogo-template';
 
 describe('seed idempotency integration (real dev DB)', () => {
   const prisma = createPrismaClient(loadEnv());
@@ -41,5 +42,52 @@ describe('seed idempotency integration (real dev DB)', () => {
 
   it('no crea PatronClasificacion duplicados', async () => {
     expect(await prisma.patronClasificacion.count()).toBe(PATRON_CATALOG_SIZE);
+  });
+
+  // CAT037-02: seed run twice ⇒ 8+20 rows, ids stable, all owned by
+  // USER_ID_FIJO, no duplicates.
+  it('produce exactamente 8 Categoria propias de USER_ID_FIJO, sin nombres duplicados', async () => {
+    const categorias = await prisma.categoria.findMany({
+      where: { userId: USER_ID_FIJO },
+    });
+    expect(categorias).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
+    const nombres = categorias.map((categoria) => categoria.nombre);
+    expect(new Set(nombres).size).toBe(nombres.length);
+  });
+
+  it('todas las filas de PatronClasificacion quedan owned por USER_ID_FIJO', async () => {
+    const patrones = await prisma.patronClasificacion.findMany();
+    expect(patrones.every((patron) => patron.userId === USER_ID_FIJO)).toBe(
+      true,
+    );
+  });
+
+  it('correr el seed una tercera vez no mueve los ids de Categoria/PatronClasificacion (upsert por id fijo)', async () => {
+    const categoriasAntes = await prisma.categoria.findMany({
+      where: { userId: USER_ID_FIJO },
+      orderBy: { nombre: 'asc' },
+    });
+    const patronesAntes = await prisma.patronClasificacion.findMany({
+      orderBy: { patron: 'asc' },
+    });
+
+    await runSeed(prisma);
+
+    const categoriasDespues = await prisma.categoria.findMany({
+      where: { userId: USER_ID_FIJO },
+      orderBy: { nombre: 'asc' },
+    });
+    const patronesDespues = await prisma.patronClasificacion.findMany({
+      orderBy: { patron: 'asc' },
+    });
+
+    expect(categoriasDespues.map((c) => c.id)).toEqual(
+      categoriasAntes.map((c) => c.id),
+    );
+    expect(patronesDespues.map((p) => p.id)).toEqual(
+      patronesAntes.map((p) => p.id),
+    );
+    expect(categoriasDespues).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
+    expect(patronesDespues).toHaveLength(PATRON_CATALOG_SIZE);
   });
 });

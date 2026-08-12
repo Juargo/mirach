@@ -21,6 +21,7 @@ import { NoOpCryptoService } from '../src/infrastructure/persistence/no-op-crypt
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { createPinoLogger } from '../src/infrastructure/logging/pino-logger';
 import { isValid32ByteBase64Key } from '../src/config/env';
+import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
 /**
  * backfill-categorias.ts (US-013 S3, CAT-05).
@@ -43,12 +44,31 @@ import { isValid32ByteBase64Key } from '../src/config/env';
  * un fake client, sin BD — ver backfill-categorias.spec.ts), `main()` es el
  * wiring de script real (gate + PrismaClient) guardado tras
  * `require.main === module`.
+ *
+ * ⚠️ FROZEN, bootstrap-user-only (US-037 D-10, CAT037-05 "legacy backfill
+ * script" scenario), on BOTH the read and the write side. Pre-US-037 this
+ * scanned `categoriaId IS NULL` GLOBALLY and wrote `CATEGORIA_IDS[categoria]`
+ * — a fixed id that only ever belonged to the bootstrap user. Post-US-037
+ * every `Categoria`/`PatronClasificacion` row is per-user, so an unscoped
+ * WRITE would stamp the bootstrap user's category ids onto other users'
+ * transactions (cross-tenant corruption, the exact inverse of RNF-SEC-006);
+ * an unscoped READ of `patronClasificacion` is just as dangerous — it would
+ * merge every user's patterns into one `prioridad`-sorted list, letting an
+ * attacker's own catalog (e.g. a `PatronClasificacion` row they fully own,
+ * repointed to a different `categoria` with a lower `prioridad`) SHADOW the
+ * bootstrap user's pattern and hijack what the bootstrap user's own
+ * transactions get classified as. Both scopes are now hard-pinned to
+ * `userId: USER_ID_FIJO` — this script must NEVER be generalized to run for
+ * an arbitrary `userId` without re-deriving `categoriaId` through that
+ * user's own catalog (the way `PrismaReclasificarCategoriaRepository` does),
+ * not through `CATEGORIA_IDS`.
  */
 
 /** Cliente mínimo requerido por el backfill (mirror de SeedClient en seed.ts). */
 export interface BackfillClient {
   patronClasificacion: {
     findMany(args: {
+      where: { userId: string };
       include: { categoria: true };
       orderBy: { prioridad: 'asc' };
     }): Promise<
@@ -62,7 +82,9 @@ export interface BackfillClient {
     >;
   };
   transaccion: {
-    findMany(args: { where: { categoriaId: null } }): Promise<
+    findMany(args: {
+      where: { categoriaId: null; account: { userId: string } };
+    }): Promise<
       Array<{
         id: string;
         descripcion: string;
@@ -152,7 +174,12 @@ export async function runBackfill(
   const logger = options.logger ?? createPinoLogger({ pretty: false });
 
   // 1. Catálogo categoría-aware (mismo formato que PrismaCatalogoClasificacionRepository).
+  // Scope pinned to USER_ID_FIJO (US-037 D-10, CAT037-05) — un findMany sin
+  // WHERE mezclaría los patrones de TODOS los usuarios en un solo orden por
+  // prioridad, dejando que un patrón ajeno (con prioridad menor) secuestre
+  // la clasificación de las transacciones del usuario bootstrap.
   const patronRows = await prisma.patronClasificacion.findMany({
+    where: { userId: USER_ID_FIJO },
     include: { categoria: true },
     orderBy: { prioridad: 'asc' },
   });
@@ -167,12 +194,13 @@ export async function runBackfill(
       }),
   );
 
-  // 2. Scope: solo filas nunca tocadas manualmente (categoriaId IS NULL, S4).
-  // OJO: dentro de este scope el bucketId puede ya ser NO nulo (filas
-  // categorizadas por bucket antes de US-013) — de ahí la regla de
-  // preservación de abajo.
+  // 2. Scope: solo filas nunca tocadas manualmente (categoriaId IS NULL, S4)
+  // Y pertenecientes al usuario bootstrap (US-037 D-10, CAT037-05) — el
+  // único usuario cuyos ids físicos coinciden con CATEGORIA_IDS. OJO: dentro
+  // de este scope el bucketId puede ya ser NO nulo (filas categorizadas por
+  // bucket antes de US-013) — de ahí la regla de preservación de abajo.
   const rows = await prisma.transaccion.findMany({
-    where: { categoriaId: null },
+    where: { categoriaId: null, account: { userId: USER_ID_FIJO } },
   });
 
   const useCase = new CategorizarTransaccionUseCase(logger);

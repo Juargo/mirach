@@ -6,7 +6,6 @@ import { Categoria } from '../../domain/value-objects/categoria';
 import { agruparPorCategoriaBucket } from '../../application/services/agrupar-por-categoria-bucket';
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
-import { CATEGORIA_IDS } from './categoria-ids';
 
 /**
  * PrismaTransaccionBucketRepository — implementación del port ITransaccionBucketWriter.
@@ -15,8 +14,11 @@ import { CATEGORIA_IDS } from './categoria-ids';
  * grupo dentro de un único prisma.$transaction, escribiendo `categoriaId` +
  * `bucketId` ATÓMICAMENTE en la misma fila (US-013, CAT-02: el bucket
  * escrito es siempre el que ya viene derivado de la categoría — nunca puede
- * quedar desincronizado entre las dos columnas). El mapeo Categoria/Bucket
- * enum → id físico usa CATEGORIA_IDS/BUCKET_IDS (single-sourced con el seed).
+ * quedar desincronizado entre las dos columnas). El mapeo Bucket enum → id
+ * físico usa BUCKET_IDS (global, sin cambios). El mapeo Categoria enum → id
+ * físico YA NO usa CATEGORIA_IDS (mapa global fijo): US-037 hace el catálogo
+ * per-user, así que se resuelve con UN `categoria.findMany({where:{userId}})`
+ * del usuario dueño de la ingesta (design.md §4.2).
  *
  * Contrato: retorna Result y NUNCA lanza. Array vacío → Result.ok({ actualizadas: 0 })
  * sin tocar la BD.
@@ -25,6 +27,7 @@ export class PrismaTransaccionBucketRepository implements ITransaccionBucketWrit
   constructor(private readonly prisma: PrismaClient) {}
 
   async asignarCategorizacion(
+    userId: string,
     ingestaId: string,
     asignaciones: ReadonlyArray<{
       transaccionId: string;
@@ -51,19 +54,41 @@ export class PrismaTransaccionBucketRepository implements ITransaccionBucketWrit
         })),
       );
 
+      // Resolver categoría enum → id físico SOLO si algún grupo lo necesita
+      // — una ingesta puramente Ingreso/SinCategoria no toca la tabla
+      // Categoria en absoluto.
+      let categoriaIds: Map<Categoria, string> | undefined;
+      if (grupos.some((g) => g.categoria !== null)) {
+        const rows = await this.prisma.categoria.findMany({
+          where: { userId },
+          select: { id: true, nombre: true },
+        });
+        categoriaIds = new Map(
+          rows.map((row) => [row.nombre as Categoria, row.id]),
+        );
+      }
+
       // Double-lock scope isolation (RNF-SEC-006): WHERE id IN (...) AND ingestaId = ?
       // ensures a bad id list can never bleed into another ingesta's rows.
-      const operaciones = grupos.map(
-        ({ categoria, bucket, ids }) =>
-          () =>
-            this.prisma.transaccion.updateMany({
-              where: { id: { in: ids }, ingestaId },
-              data: {
-                categoriaId: categoria ? CATEGORIA_IDS[categoria] : null,
-                bucketId: BUCKET_IDS[bucket],
-              },
-            }),
-      );
+      const operaciones = grupos.map(({ categoria, bucket, ids }) => {
+        let categoriaId: string | null = null;
+        if (categoria) {
+          const resuelto = categoriaIds?.get(categoria);
+          if (resuelto === undefined) {
+            // Catálogo corrupto/incompleto para este usuario — el catch de
+            // abajo lo convierte en Result.fail (nunca lanza al caller).
+            throw new Error(
+              `categoría "${categoria}" no encontrada en el catálogo del usuario`,
+            );
+          }
+          categoriaId = resuelto;
+        }
+        return () =>
+          this.prisma.transaccion.updateMany({
+            where: { id: { in: ids }, ingestaId },
+            data: { categoriaId, bucketId: BUCKET_IDS[bucket] },
+          });
+      });
 
       const resultados = await this.prisma.$transaction(
         operaciones.map((op) => op()),

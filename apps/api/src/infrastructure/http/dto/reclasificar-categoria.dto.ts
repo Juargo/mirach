@@ -1,5 +1,4 @@
 import { ReclasificarCategoriaResult } from '../../../application/ports/reclasificar-categoria.port';
-import { CATEGORIA_IDS } from '../../persistence/categoria-ids';
 
 /**
  * ReclasificarCategoriaBodyDto — forma cruda del body de
@@ -29,16 +28,17 @@ export interface ReclasificarCategoriaResponseDto {
 
 /**
  * Mapea el resultado del use case al contrato HTTP. Vive en
- * infrastructure/http porque conoce la forma exacta del JSON de respuesta y
- * el id físico de la categoría (CATEGORIA_IDS) — application no sabe nada de
- * HTTP ni de ids físicos.
+ * infrastructure/http porque conoce la forma exacta del JSON de respuesta.
+ * El id físico de la categoría (`data.categoriaId`) YA VIENE resuelto por el
+ * writer contra el catálogo REAL del usuario (US-037) — este mapper nunca
+ * resuelve ids por su cuenta, solo copia el que recibió.
  */
 export function aReclasificarCategoriaDto(
   data: ReclasificarCategoriaResult,
 ): ReclasificarCategoriaResponseDto {
   return {
     id: data.id,
-    categoria: { id: CATEGORIA_IDS[data.categoria], nombre: data.categoria },
+    categoria: { id: data.categoriaId, nombre: data.categoria },
     bucket: data.bucket,
   };
 }
