@@ -57,7 +57,7 @@ describe('CrearCategoriaUseCase', () => {
     expect(result.isOk()).toBe(true);
     expect(repo.crear).toHaveBeenCalledWith('user-1', {
       nombre: 'Mascotas',
-      bucketId: 'Deseos',
+      bucket: 'Deseos',
     });
   });
 

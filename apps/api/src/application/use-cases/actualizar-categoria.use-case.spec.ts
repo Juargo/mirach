@@ -93,7 +93,7 @@ describe('ActualizarCategoriaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
-      bucketId: 'Necesidades',
+      bucket: 'Necesidades',
     });
   });
 
@@ -163,7 +163,7 @@ describe('ActualizarCategoriaUseCase', () => {
     expect(repo.actualizar).not.toHaveBeenCalled();
   });
 
-  it('bucketId se OMITE del patch cuando el bucket enviado es igual al actual (D-07)', async () => {
+  it('bucket se OMITE del patch cuando el bucket enviado es igual al actual (D-07)', async () => {
     const repo = makeRepo();
     const useCase = new ActualizarCategoriaUseCase(repo);
 
@@ -181,7 +181,7 @@ describe('ActualizarCategoriaUseCase', () => {
     });
   });
 
-  it('bucketId se INCLUYE en el patch cuando el bucket sí cambió (D-07, re-stamp trigger)', async () => {
+  it('bucket se INCLUYE en el patch cuando el bucket sí cambió (D-07, re-stamp trigger)', async () => {
     const repo = makeRepo();
     const useCase = new ActualizarCategoriaUseCase(repo);
 
@@ -194,7 +194,7 @@ describe('ActualizarCategoriaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
-      bucketId: 'Necesidades',
+      bucket: 'Necesidades',
     });
   });
 });

@@ -29,10 +29,10 @@ export type CrearCategoriaError =
  * Orden de validación (design.md §5.1/§5.2): demo gate → forma de `nombre`
  * → asignabilidad de `bucket` → unicidad case-insensitive de `nombre` por
  * usuario → creación. `bucket` viaja como NOMBRE validado; el port lo
- * recibe en el campo `bucketId` y es la capa de infraestructura (PR2b)
- * quien lo resuelve vía `BUCKET_IDS[bucket]` (D-02, §5.1) — este use case
- * nunca importa esa tabla (application no depende de infrastructure,
- * ADR-005). Nunca lanza.
+ * recibe en el campo `bucket` (mismo nombre, tipo honesto) y es la capa de
+ * infraestructura (PR2b) quien lo resuelve vía `BUCKET_IDS[bucket]` (D-02,
+ * §5.1) — este use case nunca importa esa tabla (application no depende de
+ * infrastructure, ADR-005). Nunca lanza.
  */
 export class CrearCategoriaUseCase {
   constructor(private readonly categoriaRepository: ICategoriaRepository) {}
@@ -71,7 +71,7 @@ export class CrearCategoriaUseCase {
 
     const categoria = await this.categoriaRepository.crear(input.userId, {
       nombre,
-      bucketId: input.bucket,
+      bucket: input.bucket,
     });
     return Result.ok(categoria);
   }

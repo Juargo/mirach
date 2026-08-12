@@ -35,7 +35,7 @@ export type ActualizarCategoriaError =
  *   2. 404 si la fila no es del caller (ANTES de validar cualquier campo)
  *   3. `nombre`? → forma + unicidad case-insensitive EXCLUYENDO la propia fila
  *   4. `bucket`? → asignabilidad
- *   5. arma el patch — `bucketId` se incluye SOLO si el bucket cambió (D-07,
+ *   5. arma el patch — `bucket` se incluye SOLO si el bucket cambió (D-07,
  *      el mecanismo que dispara el re-stamp en infraestructura sin un flag)
  *   6. delega en el repositorio
  *
@@ -63,7 +63,7 @@ export class ActualizarCategoriaUseCase {
       return Result.fail(new CategoriaNoEncontradaError(input.id));
     }
 
-    const patch: { nombre?: string; bucketId?: string } = {};
+    const patch: { nombre?: string; bucket?: string } = {};
 
     if (input.nombre !== undefined) {
       const nombre = input.nombre.trim();
@@ -93,7 +93,7 @@ export class ActualizarCategoriaUseCase {
       }
 
       if (input.bucket !== (actual.bucket as string)) {
-        patch.bucketId = input.bucket;
+        patch.bucket = input.bucket;
       }
     }
 
