@@ -30,16 +30,20 @@ import { assertDestructiveDbAllowed } from '../../src/infrastructure/persistence
  *   ALLOW_DESTRUCTIVE_DB=1 DOTENV_CONFIG_PATH=.env.test \
  *     pnpm exec tsx prisma/rehearsals/us037-catalogo-rehearsal.ts all
  *
- * Interrupt safety: the plain try/finally around each scenario's
+ * Interrupt safety: the try/finally around each scenario's
  * park→migrate→unpark sequence restores the parked migration directory on
- * any error, including Ctrl-C (SIGINT) — Node runs the `finally` block
- * before the process exits. It cannot protect against a hard kill (SIGKILL,
- * crash, power loss): if that happens, look for a leftover
- * `.rehearsal-parked-*` directory directly under `apps/api/prisma/` (a
- * SIBLING of `migrations/`, not inside it) and manually rename it back to
- * `migrations/20260811200000_us037_catalogo_per_user`. A hard kill may also
- * leave the `<base>_rehearsal` database behind — harmless, the next run
- * drops and recreates it.
+ * any error. Ctrl-C (SIGINT) and SIGTERM are also covered — a small
+ * top-level signal handler (below) calls the same restore and exits, which
+ * is necessary because Node's default disposition for those signals kills
+ * the process immediately without running `finally`; the handler is what
+ * keeps the process alive long enough for the restore to happen. None of
+ * this protects against a hard kill (SIGKILL, crash, power loss): if that
+ * happens, look for a leftover `.rehearsal-parked-*` directory directly
+ * under `apps/api/prisma/` (a SIBLING of `migrations/`, not inside it) and
+ * manually rename it back to
+ * `migrations/20260811200000_us037_catalogo_per_user`. An interrupted run
+ * may also leave the `<base>_rehearsal` database behind — harmless, the
+ * next run drops and recreates it.
  */
 
 const MIGRATION_DIR_NAME = '20260811200000_us037_catalogo_per_user';
@@ -136,6 +140,22 @@ function unparkMigration(): void {
     renameSync(PARKED_DIR, MIGRATION_DIR);
   }
 }
+
+/**
+ * Restores the parked migration directory on Ctrl-C/SIGTERM and exits.
+ * Registering this handler is what keeps the process alive long enough for
+ * the cleanup to run — without it, Node's default SIGINT/SIGTERM
+ * disposition terminates the process immediately and no `finally` block
+ * (sync or async) ever executes.
+ */
+function handleInterruptSignal(signal: NodeJS.Signals): void {
+  log(`\nReceived ${signal}, restoring parked migration directory...`);
+  unparkMigration();
+  process.exit(1);
+}
+
+process.on('SIGINT', handleInterruptSignal);
+process.on('SIGTERM', handleInterruptSignal);
 
 /** Runs `prisma migrate deploy` against the rehearsal DB (env override, never the real DATABASE_URL). */
 function migrateDeploy(
