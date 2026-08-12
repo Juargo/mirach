@@ -4,7 +4,7 @@ import { loadEnv } from '../src/config/env';
 import { PrismaReclasificarCategoriaRepository } from '../src/infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaResumenMesRepository } from '../src/infrastructure/persistence/prisma-resumen-mes.repository';
 import { CalcularResumenMesUseCase } from '../src/application/use-cases/calcular-resumen-mes.use-case';
-import { copiarCatalogoTemplate } from '../src/infrastructure/persistence/catalogo-template';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { Categoria } from '../src/domain/value-objects/categoria';
 import { EstadoSemaforo } from '../src/domain/value-objects/estado-semaforo';
@@ -21,7 +21,8 @@ import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
  * isolate test data and cleans up in afterAll.
  *
  * US-037: the catalog is per-user now, so every synthetic test user needs
- * its OWN copy (`copiarCatalogoTemplate`, same primitive the demo/signup
+ * its OWN copy (`crearCatalogoParaUsuario`, `test/support/catalogo.fixture.ts` —
+ * thin wrapper over `copiarCatalogoTemplate`, same primitive the demo/signup
  * paths use) — there is no more global `CATEGORIA_IDS` to borrow a fixture
  * category id from. `categoriaIdFor()` resolves the REAL, per-user row id.
  */
@@ -50,11 +51,11 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     await prisma.user.create({
       data: { id: TEST_USER_ID_A, nombre: `Test User A ${RUN_ID}` },
     });
-    await copiarCatalogoTemplate(prisma, TEST_USER_ID_A);
+    await crearCatalogoParaUsuario(prisma, TEST_USER_ID_A);
     await prisma.user.create({
       data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` },
     });
-    await copiarCatalogoTemplate(prisma, TEST_USER_ID_B);
+    await crearCatalogoParaUsuario(prisma, TEST_USER_ID_B);
 
     const accA = await prisma.account.create({
       data: {
@@ -260,7 +261,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     await prisma.user.create({
       data: { id: withinUserId, nombre: 'within' },
     });
-    await copiarCatalogoTemplate(prisma, withinUserId);
+    await crearCatalogoParaUsuario(prisma, withinUserId);
     const acc = await prisma.account.create({
       data: {
         userId: withinUserId,
@@ -356,7 +357,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     await prisma.user.create({
       data: { id: crossUserId, nombre: 'cross' },
     });
-    await copiarCatalogoTemplate(prisma, crossUserId);
+    await crearCatalogoParaUsuario(prisma, crossUserId);
     const acc = await prisma.account.create({
       data: {
         userId: crossUserId,
@@ -469,5 +470,61 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     await prisma.account.deleteMany({ where: { id: acc.id } });
     await limpiarCatalogo(crossUserId);
     await prisma.user.deleteMany({ where: { id: crossUserId } });
+  });
+
+  // -------------------------------------------------------------------------
+  // CAT037-04 — two users reclassifying to the same categoría nombre get
+  // different, user-owned ids (design.md §9.2, scenario "Two users
+  // reclassifying to the same nombre get different ids")
+  // -------------------------------------------------------------------------
+  it('T4.7: user A and user B reclassifying to the same categoría nombre ("Ahorro") persist different, user-owned ids', async () => {
+    const txA = await createTx(
+      accountIdA,
+      ingestaIdA,
+      3000n,
+      0n,
+      null,
+      null,
+      'A tx to reclassify',
+    );
+    const txB = await createTx(
+      accountIdB,
+      ingestaIdB,
+      3000n,
+      0n,
+      null,
+      null,
+      'B tx to reclassify',
+    );
+
+    const resultA = await repo.reasignar(
+      TEST_USER_ID_A,
+      txA.id,
+      Categoria.Ahorro,
+      Bucket.Ahorro,
+    );
+    const resultB = await repo.reasignar(
+      TEST_USER_ID_B,
+      txB.id,
+      Categoria.Ahorro,
+      Bucket.Ahorro,
+    );
+
+    expect(resultA.isOk()).toBe(true);
+    expect(resultB.isOk()).toBe(true);
+    const ahorroIdA = resultA.getValue().categoriaId;
+    const ahorroIdB = resultB.getValue().categoriaId;
+
+    expect(ahorroIdA).not.toBe(ahorroIdB);
+    expect(ahorroIdA).toBe(
+      await categoriaIdFor(TEST_USER_ID_A, Categoria.Ahorro),
+    );
+    expect(ahorroIdB).toBe(
+      await categoriaIdFor(TEST_USER_ID_B, Categoria.Ahorro),
+    );
+
+    await prisma.transaccion.deleteMany({
+      where: { id: { in: [txA.id, txB.id] } },
+    });
   });
 });
