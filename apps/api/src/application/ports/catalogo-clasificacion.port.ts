@@ -5,14 +5,17 @@ import { PatronClasificacion } from '../../domain/value-objects/patron-clasifica
 /**
  * ICatalogoClasificacion — port de aplicación (lectura de catálogo).
  *
- * Carga todos los patrones de clasificación disponibles. La implementación
- * Prisma (PR-B) los lee en memoria una vez por llamada de ingesta (decisión 3).
+ * Carga todos los patrones de clasificación del `userId` dueño del catálogo
+ * (US-037: el catálogo es per-user, no global). La implementación Prisma los
+ * lee en memoria una vez por llamada de ingesta (decisión 3).
  *
  * Contrato: retorna Result y NUNCA lanza. Un catálogo vacío (sin patrones) es
  * un resultado válido (ok con array vacío); solo errores estructurales retornan fail.
  */
 export interface ICatalogoClasificacion {
-  findAll(): Promise<
+  findAll(
+    userId: string,
+  ): Promise<
     Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
   >;
 }

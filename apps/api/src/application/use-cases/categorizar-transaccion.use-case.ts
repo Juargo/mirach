@@ -31,7 +31,13 @@ export interface CategorizarTransaccionResult {
  * Algoritmo (R-02, R-03, R-04, CAT-03):
  *   1. Ingreso rule: abono > 0 AND cargo === 0 → { categoria: null, bucket: Ingreso }
  *      (sin consultar patrones).
- *   2. Ordenar patrones por prioridad asc, luego id asc (tiebreak determinístico).
+ *   2. Ordenar patrones por prioridad asc, luego patron (texto) asc, luego id asc
+ *      (tiebreak determinístico — design.md D-08, US-037). `id` YA NO es el
+ *      primer desempate: bajo copias per-user los ids son cuid()s generados,
+ *      así que dos usuarios con catálogos idénticos podrían resolver una
+ *      colisión de igual prioridad de forma distinta si el orden dependiera
+ *      del id. `patron` es estable y user-independiente; `id` se conserva
+ *      solo como desempate final para garantizar un orden total.
  *   3. Primera coincidencia (PatronClasificacion.coincide) → { categoria: patron.categoria,
  *      bucket: patron.bucket } (bucket derivado, nunca aceptado independientemente).
  *   4. Fallback: { categoria: null, bucket: SinCategoria }.
@@ -50,9 +56,11 @@ export class CategorizarTransaccionUseCase {
       return Result.ok({ categoria: null, bucket: Bucket.Ingreso });
     }
 
-    // 2. Ordenar por prioridad asc, luego id asc como tiebreak.
+    // 2. Ordenar por prioridad asc, luego patron (texto) asc, luego id asc
+    //    como tiebreak final (D-08 — ver docblock de la clase).
     const ordenados = [...patrones].sort((a, b) => {
       if (a.prioridad !== b.prioridad) return a.prioridad - b.prioridad;
+      if (a.patron !== b.patron) return a.patron < b.patron ? -1 : 1;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
 

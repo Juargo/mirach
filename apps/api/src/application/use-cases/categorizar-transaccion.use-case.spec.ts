@@ -169,8 +169,9 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     expect(result.getValue().bucket).toBe(Bucket.Necesidades);
   });
 
-  it('SC-10 variante: tiebreak por id cuando prioridades son iguales', () => {
-    // id "p1" < "p2" lexicográficamente → p1 gana
+  it('SC-10 variante: tiebreak por id cuando prioridades son iguales y el patrón es idéntico', () => {
+    // Misma prioridad y mismo texto de patrón → el tiebreak final es el id:
+    // id "p1" < "p2" lexicográficamente → p1 gana.
     const patrones = [
       makePatron('JUMBO', 'CONTAINS', Categoria.Streaming, 10, 'p2'),
       makePatron('JUMBO', 'CONTAINS', Categoria.Supermercado, 10, 'p1'),
@@ -181,6 +182,50 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     );
     expect(result.getValue().categoria).toBe(Categoria.Supermercado);
     expect(result.getValue().bucket).toBe(Bucket.Necesidades);
+  });
+
+  // -------------------------------------------------------------------------
+  // D-08 (US-037): bajo copias por usuario, PatronClasificacion.id pasa a ser
+  // un cuid() generado — dos usuarios con el MISMO catálogo resolverían una
+  // colisión de igual prioridad de forma DISTINTA si el tiebreak siguiera
+  // siendo (prioridad, id). El tiebreak correcto es (prioridad, patron, id):
+  // `patron` es estable, user-independiente y único dentro del template, así
+  // que la resolución es la misma sin importar el userId dueño de las filas.
+  // -------------------------------------------------------------------------
+  it('D-08: dos patrones de igual prioridad con ids cuid() resuelven por texto de patrón, determinísticamente, en ambos órdenes de entrada', () => {
+    // Ids deliberadamente en el orden CONTRARIO al orden alfabético de
+    // `patron` — si el tiebreak todavía mirara `id`, este test fallaría.
+    const patronAaa = makePatron(
+      'aaa',
+      'CONTAINS',
+      Categoria.Supermercado,
+      10,
+      'clx0000zzzcuid', // id "mayor" lexicográficamente
+    );
+    const patronZzz = makePatron(
+      'zzz',
+      'CONTAINS',
+      Categoria.Streaming,
+      10,
+      'clx0000aaacuid', // id "menor" lexicográficamente
+    );
+    const descripcion = 'COMPRA AAAZZZ TIENDA';
+
+    const ordenAB = useCase.execute({ descripcion, abono: 0n, cargo: 1000n }, [
+      patronAaa,
+      patronZzz,
+    ]);
+    const ordenBA = useCase.execute({ descripcion, abono: 0n, cargo: 1000n }, [
+      patronZzz,
+      patronAaa,
+    ]);
+
+    // 'aaa' < 'zzz' por texto de patrón → Supermercado gana, sin importar el
+    // orden de entrada ni el orden (contrario) de los ids.
+    expect(ordenAB.getValue().categoria).toBe(Categoria.Supermercado);
+    expect(ordenAB.getValue().bucket).toBe(Bucket.Necesidades);
+    expect(ordenBA.getValue().categoria).toBe(Categoria.Supermercado);
+    expect(ordenBA.getValue().bucket).toBe(Bucket.Necesidades);
   });
 
   it('SC-11: SinCategoria cuando ningún patrón coincide (categoria null)', () => {

@@ -6,8 +6,10 @@ import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-c
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { buildTestEnv } from './support/env.fixture';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 /**
  * Integration tests for PrismaMovimientosMesRepository (US-014).
@@ -66,6 +68,9 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     await prisma.user.create({
       data: { id: TEST_USER_ID_B, nombre: `Test User B ${RUN_ID}` },
     });
+    // CAT037-06 regression guard: user B needs a real catalog so a
+    // categorized transaction resolves to a real Categoria, not null.
+    await crearCatalogoParaUsuario(prisma, TEST_USER_ID_B);
 
     // Accounts for user A
     // US-035 Slice 2: numeroCuenta CIFRADO — findByPeriodo lo descifra con
@@ -148,6 +153,12 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     await prisma.account.deleteMany({
       where: { id: { in: [accountIdA1, accountIdA2, accountIdB] } },
     });
+    // Composite FK (PatronClasificacion.(categoriaId,userId) → Categoria) is
+    // RESTRICT — clear user B's copied catalog before deleting the user.
+    await prisma.patronClasificacion.deleteMany({
+      where: { userId: TEST_USER_ID_B },
+    });
+    await prisma.categoria.deleteMany({ where: { userId: TEST_USER_ID_B } });
     await prisma.user.deleteMany({
       where: { id: { in: [TEST_USER_ID, TEST_USER_ID_B] } },
     });
@@ -404,5 +415,33 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     const found = rows.find((r) => r.id === tx.id);
     expect(found).toBeDefined();
     expect(found!.bucket).toBe(Bucket.Necesidades);
+  });
+
+  it('CAT037-06: a second, non-seed user (B) sees their real categoria on a categorized transaction, not null', async () => {
+    const streamingRowB = await prisma.categoria.findUniqueOrThrow({
+      where: {
+        userId_nombre: { userId: TEST_USER_ID_B, nombre: Categoria.Streaming },
+      },
+    });
+    const tx = await prisma.transaccion.create({
+      data: {
+        accountId: accountIdB,
+        ingestaId: ingestaIdB,
+        fecha: new Date('2026-07-22T00:00:00.000Z'),
+        cargo: 8000n,
+        abono: 0n,
+        descripcion: crypto.encrypt('Netflix suscripcion'),
+        bucketId: BUCKET_IDS[Bucket.Deseos],
+        categoriaId: streamingRowB.id,
+      },
+    });
+
+    const rows = await repo.findByPeriodo(TEST_USER_ID_B, periodoJulio);
+    const found = rows.find((r) => r.id === tx.id);
+    expect(found).toBeDefined();
+    expect(found!.categoria).toEqual({
+      id: streamingRowB.id,
+      nombre: Categoria.Streaming,
+    });
   });
 });

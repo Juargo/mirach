@@ -54,3 +54,4 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-033](ADR-033-logging-estructurado-con-pino.md) | Logging Estructurado con Pino | ✅ Decidido |
 | [ADR-034](ADR-034-login-con-google-oidc.md) | Login con Google: OIDC Authorization Code + PKCE terminado en el backend | ✅ Decidido |
 | [ADR-035](ADR-035-login-google-mobile-token-exchange.md) | Login con Google en mobile: verificación nativa de `id_token` (M1) | ✅ Decidido |
+| [ADR-036](ADR-036-catalogo-clasificacion-por-usuario.md) | Catálogo de clasificación por usuario (copy-on-signup): `Categoria`/`PatronClasificacion` dejan de ser globales | ✅ Decidido (deploy pendiente del gate 6.9) |
