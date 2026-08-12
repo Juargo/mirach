@@ -356,8 +356,9 @@ in the listing.
 
 `DELETE /api/categorias/:id` MUST delete the category together with its
 patterns, in one DB transaction, and MUST return `204` regardless of
-whether any `Transaccion` (any period) references the category. The `409`
-response and `CategoriaEnUsoError` for this endpoint MUST NOT exist.
+whether any `Transaccion` (any period) references the category. This
+endpoint MUST NOT have a `409` response, and no in-use rejection error
+MUST exist for it.
 
 Every `Transaccion` that referenced the deleted category MUST survive the
 delete unchanged except for its category label: it MUST NOT be deleted and
@@ -376,14 +377,14 @@ as the category; a failure partway through MUST leave the category, its
 patterns, and every referencing transaction exactly as they were
 (atomicity is unconditional, not only for the previously-unused case).
 
-The endpoint's generated OpenAPI operation MUST drop the `409` response and
-its description MUST no longer mention a rejection for in-use categories;
-`openapi.json` and `@moneydiary/api-client` regeneration MUST pass their
-existing CI drift gates (CAT038-09).
+The endpoint's generated OpenAPI operation MUST NOT declare a `409`
+response and its description MUST NOT mention a rejection for in-use
+categories; `openapi.json` and `@moneydiary/api-client` regeneration MUST
+pass their existing CI drift gates (CAT038-09).
 
-(Previously: `DELETE /api/categorias/:id` returned `409` and refused the
-delete if any `Transaccion` referenced the category, cascading patterns
-only in the unused case.)
+Deleting a category is irreversible: the category row and its patterns are
+gone, and the affected transactions permanently lose their category label.
+The pre-delete impact count (CAT039-01) is the safeguard.
 
 #### Scenario: Deleting an in-use category succeeds and detaches its transactions
 
