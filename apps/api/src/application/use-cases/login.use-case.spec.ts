@@ -23,6 +23,8 @@ function makeMockCreds(
   return {
     buscarPorEmail: vi.fn().mockResolvedValue(row),
     buscarIdentidad: vi.fn(),
+    buscarCredencialPorId: vi.fn(),
+    actualizarPerfil: vi.fn(),
   };
 }
 
