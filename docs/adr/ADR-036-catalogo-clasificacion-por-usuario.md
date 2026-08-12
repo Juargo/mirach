@@ -14,7 +14,7 @@ fecha_actualizacion: 2026-08-11
 
 ## Estado
 
-✅ **Decidido e implementado** (change SDD `us-037-catalogo-per-user`, 7 PRs encadenados en Feature Branch Chain, #296-#302). El **despliegue a producción queda pendiente** de que la tarea 6.9 (ensayo de migración contra un snapshot restaurado de prod) pase — ver "Pendiente antes de producción" más abajo.
+✅ **Decidido e implementado** (change SDD `us-037-catalogo-per-user`, 7 PRs encadenados en Feature Branch Chain, #296-#302). **Desplegado a producción** (commit `4d4cc4c`, 2026-08-11) — el gate 6.9 (ensayo de migración contra un snapshot restaurado de prod) pasó ese mismo día; ver "Gate 6.9" más abajo.
 
 ---
 
@@ -120,7 +120,13 @@ La rama de fallback de D-06 (FK simple) **no se tomó**, así que no aplica ning
 - **`foldCategoriaId` desaparece del código, no solo de los call sites en runtime** — cualquier PR futuro que intente reintroducir resolución por id físico rompe la compilación, no solo el comportamiento.
 - **`domain/` casi no cambia**: el enum `Categoria`, `CATEGORIA_BUCKET`, la VO `PatronClasificacion` (`coincide()`), `Bucket`, la regla de Ingreso y la aritmética 50/30/20 quedan intactos; US-038 es dueño de cualquier cambio ahí.
 - **Sin cambio de frontend**: `pnpm web test` se mantuvo verde con cero ediciones en `apps/web` — prueba de que los nombres de categoría se preservaron por construcción.
+- **US-038 retira el enum `Categoria` que esta decisión dejó intacto** — ver ADR-037 (identidad
+  de categoría como fila del usuario, no tipo de compilación) para esa decisión, separada de
+  la de ownership que este documento registra.
 
-### Pendiente antes de producción
+### Gate 6.9 — ensayo de migración contra snapshot de prod
 
-La tarea **6.9** (tercer ensayo de migración, contra un snapshot restaurado de prod, inmediatamente antes del deploy real) es un **gate manual, no automatizado en CI**, y **no se ejecutó** en este batch. El branch tracker `feat/us-037-catalogo-per-user` **no debe mergearse a `main`** hasta que ese ensayo pase y quede registrado en las notas de deploy — es la última verificación de que el guard de la migración (aborta si hay más de un usuario real) y el backfill se comportan igual contra datos reales que contra el Postgres efímero local.
+**Pasó el 2026-08-11** contra una copia restaurada de `pg_dump` de producción: 1 demo en curso
+purgado, 430 transacciones reales verificadas por checksum idéntico antes/después, constraints
+verificados. US-037 fue mergeado y **desplegado a producción** (commit `4d4cc4c`,
+2026-08-11, smoke-testeado).
