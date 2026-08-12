@@ -13,6 +13,15 @@ import { BUCKET_IDS } from './bucket-ids';
 
 const CATEGORIA_INCLUDE = { bucket: true, patrones: true } as const;
 
+/**
+ * Rollback sentinel for `eliminar()` (D-06) — an interactive `$transaction`
+ * only rolls back when its callback throws, and a `deleteMany()` matching 0
+ * rows does not throw on its own. A real `Error` subclass (not a bare
+ * value) so `throw`ing it satisfies `@typescript-eslint/only-throw-error`;
+ * identity-checked (`instanceof`), never surfaced to a caller.
+ */
+class RollbackCategoriaEnUso extends Error {}
+
 interface PatronRow {
   id: string;
   categoriaId: string;
@@ -173,17 +182,28 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     userId: string,
     id: string,
   ): Promise<Result<void, CategoriaNoEncontradaError | CategoriaEnUsoError>> {
-    const eliminadas = await this.prisma.$transaction(async (tx) => {
-      // Los patrones cascadean junto con la categoría — todo-o-nada.
-      await tx.patronClasificacion.deleteMany({
-        where: { categoriaId: id, userId },
+    let eliminadas = 0;
+    try {
+      eliminadas = await this.prisma.$transaction(async (tx) => {
+        // Los patrones cascadean junto con la categoría — todo-o-nada.
+        await tx.patronClasificacion.deleteMany({
+          where: { categoriaId: id, userId },
+        });
+        // Predicado "en uso" DENTRO del propio DELETE (D-06 — ver docblock).
+        const { count } = await tx.categoria.deleteMany({
+          where: { id, userId, transacciones: { none: {} } },
+        });
+        if (count === 0) {
+          throw new RollbackCategoriaEnUso();
+        }
+        return count;
       });
-      // Predicado "en uso" DENTRO del propio DELETE (D-06 — ver docblock).
-      const { count } = await tx.categoria.deleteMany({
-        where: { id, userId, transacciones: { none: {} } },
-      });
-      return count;
-    });
+    } catch (error) {
+      if (!(error instanceof RollbackCategoriaEnUso)) {
+        throw error;
+      }
+      eliminadas = 0;
+    }
 
     if (eliminadas > 0) {
       return Result.ok(undefined);
