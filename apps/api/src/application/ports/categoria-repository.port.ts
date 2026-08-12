@@ -14,6 +14,14 @@ export interface CategoriaConPatrones {
   readonly nombre: string;
   readonly bucket: Bucket;
   readonly patrones: Patron[];
+  /**
+   * CAT039-01 — all-history count of the CALLER's OWN transacciones
+   * referencing this category. Produced in SQL, scoped in SQL
+   * (RNF-SEC-006). 0 for a category created one moment ago. Required, not
+   * optional: a missing producer is a compile error, not an `undefined` on
+   * the wire.
+   */
+  readonly transaccionesCount: number;
 }
 
 /**

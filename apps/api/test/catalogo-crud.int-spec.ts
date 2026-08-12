@@ -256,6 +256,70 @@ describe('Catalog CRUD (integration) — /api/categorias + /api/patrones (US-038
     expect(patronRow).not.toBeNull();
   });
 
+  it('GET /api/categorias reports transaccionesCount: N for the caller-scoped all-history count (CA-01)', async () => {
+    if (!ALLOW) return;
+
+    const withTx = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `ConTx-${SHORT}`, bucket: 'Necesidades' })
+      .expect(201);
+    const sibling = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `SinTx-${SHORT}`, bucket: 'Necesidades' })
+      .expect(201);
+
+    const account = await prisma.account.create({
+      data: {
+        userId: USER_ID,
+        banco: 'TestBank',
+        tipoCuenta: 'CuentaCorriente',
+        numeroCuenta: `ca01-${RUN_ID}`,
+      },
+    });
+    const ingesta = await prisma.ingesta.create({
+      data: {
+        userId: USER_ID,
+        accountId: account.id,
+        banco: 'TestBank',
+        nombreArchivo: `ca01-${RUN_ID}.xlsx`,
+        estado: 'PROCESADA',
+      },
+    });
+    // 12 transacciones across 3 different periods (all-history, CA-01).
+    await prisma.transaccion.createMany({
+      data: Array.from({ length: 12 }, (_, i) => ({
+        accountId: account.id,
+        ingestaId: ingesta.id,
+        fecha: new Date(
+          Date.UTC(2026, i % 3 === 0 ? 5 : i % 3 === 1 ? 6 : 7, 1),
+        ),
+        cargo: 1000n,
+        abono: 0n,
+        descripcion: `Tx CA-01 #${i}`,
+        categoriaId: withTx.body.id,
+      })),
+    });
+
+    const listed = await request(app)
+      .get('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .expect(200);
+
+    const withTxRow = listed.body.categorias.find(
+      (c: { id: string }) => c.id === withTx.body.id,
+    );
+    const siblingRow = listed.body.categorias.find(
+      (c: { id: string }) => c.id === sibling.body.id,
+    );
+    expect(withTxRow.transaccionesCount).toBe(12);
+    expect(siblingRow.transaccionesCount).toBe(0);
+  });
+
   it('case-insensitive duplicate category name → 409', async () => {
     if (!ALLOW) return;
 

@@ -46,13 +46,22 @@ function categoriaRow(overrides?: Partial<Record<string, unknown>>) {
     bucketId: BUCKET_IDS[Bucket.Deseos],
     bucket: { id: BUCKET_IDS[Bucket.Deseos], nombre: Bucket.Deseos },
     patrones: [],
+    _count: { transacciones: 0 },
     ...overrides,
   };
 }
 
+const CATEGORIA_INCLUDE_WITH_COUNT = {
+  bucket: true,
+  patrones: true,
+  _count: {
+    select: { transacciones: { where: { account: { userId: USER_ID } } } },
+  },
+};
+
 describe('PrismaCategoriaRepository', () => {
   describe('listarConPatrones()', () => {
-    it('filters by userId in the SQL WHERE (RNF-SEC-006)', async () => {
+    it('filters by userId in the SQL WHERE (RNF-SEC-006) and scopes the transaccionesCount subquery by the SAME userId (CAT039-01)', async () => {
       const prisma = makePrismaMock();
       const repo = new PrismaCategoriaRepository(prisma);
 
@@ -60,9 +69,24 @@ describe('PrismaCategoriaRepository', () => {
 
       expect(prisma.categoria.findMany).toHaveBeenCalledWith({
         where: { userId: USER_ID },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
         orderBy: { nombre: 'asc' },
       });
+    });
+
+    it('maps _count.transacciones → transaccionesCount (12 → 12, 0 → 0, never undefined)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.findMany as Mock).mockResolvedValue([
+        categoriaRow({ id: 'cat-1', _count: { transacciones: 12 } }),
+        categoriaRow({ id: 'cat-2', _count: { transacciones: 0 } }),
+      ]);
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const categorias = await repo.listarConPatrones(USER_ID);
+
+      expect(categorias[0]?.transaccionesCount).toBe(12);
+      expect(categorias[1]?.transaccionesCount).toBe(0);
+      expect(categorias[1]?.transaccionesCount).not.toBeUndefined();
     });
 
     it('re-orders nested patrones by (prioridad, patron, id) — D-08', async () => {
@@ -127,7 +151,7 @@ describe('PrismaCategoriaRepository', () => {
 
       expect(prisma.categoria.findFirst).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
     });
 
@@ -200,8 +224,23 @@ describe('PrismaCategoriaRepository', () => {
           nombre: 'Mascotas',
           bucketId: BUCKET_IDS[Bucket.Deseos],
         },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
+    });
+
+    it('returned DTO carries transaccionesCount sourced from the include, not hard-coded to 0', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockResolvedValue(
+        categoriaRow({ _count: { transacciones: 0 } }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const categoria = await repo.crear(USER_ID, {
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+      });
+
+      expect(categoria.transaccionesCount).toBe(0);
     });
   });
 
@@ -218,7 +257,7 @@ describe('PrismaCategoriaRepository', () => {
       expect(prisma.categoria.update).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
         data: { nombre: 'Renombrada' },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.transaccion.updateMany).not.toHaveBeenCalled();
@@ -244,7 +283,7 @@ describe('PrismaCategoriaRepository', () => {
       expect(prisma.categoria.update).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
         data: { bucketId: BUCKET_IDS[Bucket.Necesidades] },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
       expect(prisma.transaccion.updateMany).toHaveBeenCalledWith({
         where: { categoriaId: 'cat-1', account: { userId: USER_ID } },

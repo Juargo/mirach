@@ -85,13 +85,31 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       nombre: 'Mascotas',
       bucket: Bucket.Deseos,
       patrones: [],
+      transaccionesCount: 0,
     });
     expect(categoriaResponseSchema.parse(dto).patrones).toEqual([]);
   });
 
+  it('a non-zero transaccionesCount survives aCategoriaDto() → schema parse unchanged (CAT039-01)', () => {
+    const dto = aCategoriaDto({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: Bucket.Deseos,
+      patrones: [],
+      transaccionesCount: 7,
+    });
+    expect(categoriaResponseSchema.parse(dto).transaccionesCount).toBe(7);
+  });
+
   it('parses the real aCatalogoDto() output', () => {
     const dto = aCatalogoDto([
-      { id: 'cat-1', nombre: 'Mascotas', bucket: Bucket.Deseos, patrones: [] },
+      {
+        id: 'cat-1',
+        nombre: 'Mascotas',
+        bucket: Bucket.Deseos,
+        patrones: [],
+        transaccionesCount: 0,
+      },
     ]);
     expect(catalogoResponseSchema.parse(dto).categorias).toHaveLength(1);
   });
@@ -104,6 +122,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
           nombre: 'Mascotas',
           bucket: 'Deseos',
           patrones: [],
+          transaccionesCount: 0,
           monto: 1000, // must never appear
         },
       ],

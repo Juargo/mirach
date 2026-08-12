@@ -11,7 +11,21 @@ import { CategoriaEnUsoError } from '../../domain/errors/categoria-en-uso.error'
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 
-const CATEGORIA_INCLUDE = { bucket: true, patrones: true } as const;
+/**
+ * categoriaInclude — include shape shared by all four read paths
+ * (`listarConPatrones`, `buscarPorId`, `crear`, `actualizar`). A FUNCTION of
+ * `userId`, not a module-level const, because the `transaccionesCount`
+ * subquery's `where` depends on the caller (CAT039-01, RNF-SEC-006 — scoped
+ * in SQL, never in memory). Same shape `actualizar()`'s re-stamp already
+ * uses (`account: { userId }`).
+ */
+function categoriaInclude(userId: string) {
+  return {
+    bucket: true,
+    patrones: true,
+    _count: { select: { transacciones: { where: { account: { userId } } } } },
+  } as const;
+}
 
 /**
  * Rollback sentinel for `eliminar()` (D-06) — an interactive `$transaction`
@@ -35,6 +49,7 @@ interface CategoriaRow {
   nombre: string;
   bucket: { nombre: string };
   patrones: PatronRow[];
+  _count: { transacciones: number };
 }
 
 /** Mismo tiebreak (prioridad, patron, id) de CategorizarTransaccionUseCase
@@ -64,6 +79,7 @@ function aCategoriaConPatrones(row: CategoriaRow): CategoriaConPatrones {
     nombre: row.nombre,
     bucket: row.bucket.nombre as Bucket,
     patrones: ordenarPatrones(row.patrones).map(aPatron),
+    transaccionesCount: row._count.transacciones,
   };
 }
 
@@ -94,7 +110,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
   async listarConPatrones(userId: string): Promise<CategoriaConPatrones[]> {
     const rows = await this.prisma.categoria.findMany({
       where: { userId },
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
       orderBy: { nombre: 'asc' },
     });
     return (rows as unknown as CategoriaRow[]).map(aCategoriaConPatrones);
@@ -106,7 +122,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
   ): Promise<CategoriaConPatrones | null> {
     const row = await this.prisma.categoria.findFirst({
       where: { id, userId },
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
     });
     return row === null ? null : aCategoriaConPatrones(row);
   }
@@ -137,7 +153,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
         nombre: data.nombre,
         bucketId: BUCKET_IDS[data.bucket as Bucket],
       },
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
     });
     return aCategoriaConPatrones(row);
   }
@@ -158,7 +174,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     const updateCategoria = this.prisma.categoria.update({
       where: { id, userId },
       data,
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
     });
 
     // `bucket` ausente del patch ⇒ el bucket no cambió, sin re-stamp (D-07).

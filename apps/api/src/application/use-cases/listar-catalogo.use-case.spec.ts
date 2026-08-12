@@ -23,6 +23,7 @@ describe('ListarCatalogoUseCase', () => {
         nombre: 'Mascotas',
         bucket: Bucket.Deseos,
         patrones: [],
+        transaccionesCount: 0,
       },
     ];
     const listarConPatrones = vi.fn().mockResolvedValue(catalogo);
@@ -38,7 +39,13 @@ describe('ListarCatalogoUseCase', () => {
 
   it('una categoría sin patrones se retorna con patrones: [] (CA-03)', async () => {
     const catalogo = [
-      { id: 'cat-1', nombre: 'Vacía', bucket: Bucket.Ahorro, patrones: [] },
+      {
+        id: 'cat-1',
+        nombre: 'Vacía',
+        bucket: Bucket.Ahorro,
+        patrones: [],
+        transaccionesCount: 0,
+      },
     ];
     const repo = makeRepo(vi.fn().mockResolvedValue(catalogo));
     const useCase = new ListarCatalogoUseCase(repo);

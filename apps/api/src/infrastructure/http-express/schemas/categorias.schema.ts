@@ -53,10 +53,17 @@ export const categoriaResponseSchema = z
     nombre: z.string(),
     bucket: z.string(),
     patrones: z.array(patronResponseInCategoriaSchema),
+    // z.number(), NOT .int().nonnegative(): layer-honesty gate (see file
+    // docblock) — domain rules do not get duplicated into transport
+    // schemas, and sibling `prioridad` (also an Int column) is a plain
+    // z.number() too (design.md §5.3).
+    transaccionesCount: z.number(),
   })
   .meta({
     id: 'CategoriaResponse',
-    description: 'A category with its nested classification patterns (US-038).',
+    description:
+      'A category with its nested classification patterns and the all-history count of the ' +
+      "caller's own referencing transactions (US-038, US-039 CAT039-01).",
   });
 
 /**

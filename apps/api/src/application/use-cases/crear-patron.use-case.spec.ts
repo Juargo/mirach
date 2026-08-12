@@ -15,6 +15,7 @@ const CATEGORIA = {
   nombre: 'Streaming',
   bucket: Bucket.Deseos,
   patrones: [],
+  transaccionesCount: 0,
 };
 
 function makeCategoriaRepo(

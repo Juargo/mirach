@@ -585,8 +585,10 @@ const categoriasListOperation: ZodOpenApiOperationObject = {
   summary: "List the caller's category catalog",
   description:
     "Authenticated endpoint returning the caller's own categories with their nested classification " +
-    'patterns (US-038, CAT038-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user ' +
-    'isolation). Available to demo sessions (read-only, CAT038-08).',
+    'patterns and an all-history `transaccionesCount` per category — the caller-scoped impact ' +
+    'preview for a destructive delete (US-038, CAT038-02; US-039, CAT039-01). Requires x-api-key + ' +
+    'a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, ' +
+    'CAT038-08).',
   responses: {
     '200': {
       description: "The caller's full catalog.",

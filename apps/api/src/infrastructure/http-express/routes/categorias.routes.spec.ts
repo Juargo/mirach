@@ -15,6 +15,7 @@ const CATEGORIA_OK = {
   nombre: 'Mascotas',
   bucket: Bucket.Deseos,
   patrones: [],
+  transaccionesCount: 0,
 };
 
 function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
