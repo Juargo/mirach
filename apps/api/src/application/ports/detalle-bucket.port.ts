@@ -1,6 +1,5 @@
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 
 /**
  * DetalleBucketRow — proyección de una transacción para el detalle de un
@@ -10,10 +9,12 @@ import { Categoria } from '../../domain/value-objects/categoria';
  * salida (KISS — ver design.md). Los montos son BigInt — la serialización a
  * string ocurre solo en el DTO HTTP.
  *
- * `categoria` (US-013 CATAPI-05, US-037 CAT037-06) es la Categoria de
- * dominio ya foldeada — `null` para filas Ingreso/SinCategoria o con un
- * `nombre` no reconocido (defensive), vía el mismo `foldCategoria`
+ * `categoria` (US-013 CATAPI-05, US-037/ADR-037 CAT037-06) es el
+ * `{id, nombre}` de la fila del usuario ya foldeada — `null` solo para
+ * filas Ingreso/SinCategoria, vía el mismo `foldCategoria`
  * (fold-categoria.ts) compartido con PrismaMovimientosMesRepository.
+ * `nombre` es `string`: ownership (`WHERE userId`) es la única autoridad de
+ * validez, ya no un enum cerrado (D-01).
  */
 export interface DetalleBucketRow {
   readonly id: string;
@@ -26,7 +27,7 @@ export interface DetalleBucketRow {
   readonly numeroCuenta: string;
   readonly categoria: {
     readonly id: string;
-    readonly nombre: Categoria;
+    readonly nombre: string;
   } | null;
 }
 

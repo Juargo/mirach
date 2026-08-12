@@ -2,17 +2,16 @@ import { ReclasificarTransaccionUseCase } from './reclasificar-transaccion.use-c
 import { IReclasificarCategoriaWriter } from '../ports/reclasificar-categoria.port';
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
-import { CategoriaInvalidaError } from '../../domain/errors/categoria-invalida.error';
 import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no-encontrada.error';
+import { CategoriaDesconocidaError } from '../../domain/errors/categoria-desconocida.error';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function makeWriter(
   result: Result<
-    { id: string; categoriaId: string; categoria: Categoria; bucket: Bucket },
-    TransaccionNoEncontradaError
+    { id: string; categoriaId: string; categoria: string; bucket: Bucket },
+    TransaccionNoEncontradaError | CategoriaDesconocidaError
   >,
 ): IReclasificarCategoriaWriter {
   return {
@@ -20,13 +19,20 @@ function makeWriter(
   };
 }
 
+/**
+ * ReclasificarTransaccionUseCase — CAT037-04 (ADR-037/Q5): el use case deja
+ * de validar la categoría cruda contra un enum cerrado y de derivar el
+ * bucket vía `CATEGORIA_BUCKET` — ambos retirados. Se vuelve un delegado
+ * puro: pasa `nombre` al writer sin gating, y el writer (contra el catálogo
+ * REAL del usuario) resuelve id + bucket o falla con `CategoriaDesconocidaError`.
+ */
 describe('ReclasificarTransaccionUseCase', () => {
-  it('T4.1a: deriva el bucket desde la categoría elegida — NUNCA la acepta del caller', async () => {
+  it('T4.1a: delega sin ningún gating de enum — el writer recibe el nombre crudo tal cual', async () => {
     const writer = makeWriter(
       Result.ok({
         id: 'tx-1',
         categoriaId: 'cat-transporte-row-id',
-        categoria: Categoria.Transporte,
+        categoria: 'Transporte',
         bucket: Bucket.Necesidades,
       }),
     );
@@ -39,62 +45,37 @@ describe('ReclasificarTransaccionUseCase', () => {
     });
 
     expect(result.isOk()).toBe(true);
-    // El writer SOLO recibe categoria + bucket ya derivado — nunca un bucket
-    // provisto por el caller (el input del use case no tiene campo `bucket`).
     expect(writer.reasignar).toHaveBeenCalledWith(
       'user-a',
       'tx-1',
-      Categoria.Transporte,
-      Bucket.Necesidades, // derivado vía CATEGORIA_BUCKET, no aceptado
+      'Transporte',
     );
   });
 
-  it('T4.1b: cada categoría del enum deriva el bucket esperado (invariante, no switch)', async () => {
-    const casos: Array<[Categoria, Bucket]> = [
-      [Categoria.Supermercado, Bucket.Necesidades],
-      [Categoria.Combustible, Bucket.Necesidades],
-      [Categoria.Farmacia, Bucket.Necesidades],
-      [Categoria.Salud, Bucket.Necesidades],
-      [Categoria.Transporte, Bucket.Necesidades],
-      [Categoria.Streaming, Bucket.Deseos],
-      [Categoria.Delivery, Bucket.Deseos],
-      [Categoria.Ahorro, Bucket.Ahorro],
-    ];
-
-    for (const [categoria, bucketEsperado] of casos) {
-      const writer = makeWriter(
-        Result.ok({
-          id: 'tx-1',
-          categoriaId: `cat-${categoria}-row-id`,
-          categoria,
-          bucket: bucketEsperado,
-        }),
-      );
-      const useCase = new ReclasificarTransaccionUseCase(writer);
-
-      await useCase.execute({
-        userId: 'user-a',
-        transaccionId: 'tx-1',
-        categoria,
-      });
-
-      expect(writer.reasignar).toHaveBeenCalledWith(
-        'user-a',
-        'tx-1',
-        categoria,
-        bucketEsperado,
-      );
-    }
-  });
-
-  it('T4.1c: categoría desconocida → CategoriaInvalidaError, el writer NUNCA se invoca', async () => {
+  it('T4.1b: delega cualquier nombre, incluido uno fuera del template original (categoría custom del usuario)', async () => {
     const writer = makeWriter(
       Result.ok({
         id: 'tx-1',
-        categoriaId: 'cat-transporte-row-id',
-        categoria: Categoria.Transporte,
-        bucket: Bucket.Necesidades,
+        categoriaId: 'cat-mascotas-row-id',
+        categoria: 'Mascotas',
+        bucket: Bucket.Deseos,
       }),
+    );
+    const useCase = new ReclasificarTransaccionUseCase(writer);
+
+    const result = await useCase.execute({
+      userId: 'user-a',
+      transaccionId: 'tx-1',
+      categoria: 'Mascotas',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(writer.reasignar).toHaveBeenCalledWith('user-a', 'tx-1', 'Mascotas');
+  });
+
+  it('T4.1c: un nombre que no resuelve en el catálogo del usuario → propaga CategoriaDesconocidaError del writer', async () => {
+    const writer = makeWriter(
+      Result.fail(new CategoriaDesconocidaError('NoExiste')),
     );
     const useCase = new ReclasificarTransaccionUseCase(writer);
 
@@ -105,30 +86,7 @@ describe('ReclasificarTransaccionUseCase', () => {
     });
 
     expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CategoriaInvalidaError);
-    expect(writer.reasignar).not.toHaveBeenCalled();
-  });
-
-  it('T4.1d: el mensaje del error NUNCA refleja el valor crudo de categoría (anti-reflected-input)', async () => {
-    const writer = makeWriter(
-      Result.ok({
-        id: 'tx-1',
-        categoriaId: 'cat-transporte-row-id',
-        categoria: Categoria.Transporte,
-        bucket: Bucket.Necesidades,
-      }),
-    );
-    const useCase = new ReclasificarTransaccionUseCase(writer);
-
-    const result = await useCase.execute({
-      userId: 'user-a',
-      transaccionId: 'tx-1',
-      categoria: '<script>alert(1)</script>',
-    });
-
-    expect(result.isFail()).toBe(true);
-    const error = result.getError() as CategoriaInvalidaError;
-    expect(error.message).not.toContain('<script>');
+    expect(result.getError()).toBeInstanceOf(CategoriaDesconocidaError);
   });
 
   it('T4.1e: propaga el TransaccionNoEncontradaError del writer (not-found o not-owned, indistinguible)', async () => {
