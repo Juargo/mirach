@@ -694,8 +694,10 @@ const categoriasDeleteOperation: ZodOpenApiOperationObject = {
   summary: 'Delete a category',
   description:
     'Authenticated endpoint that deletes a category and cascades its patterns, atomically (US-038, ' +
-    'CAT038-04). Rejected if any Transaccion (any period) still references the category. Requires ' +
-    'x-api-key + a valid session. Rejected for demo sessions.',
+    'CAT038-04 as modified by US-039). The delete always succeeds for a category owned by the ' +
+    'caller, whether it is referenced by transactions or not. Every Transaccion that referenced the ' +
+    'deleted category survives with categoriaId: null and its original bucketId unchanged — no ' +
+    'money moves between buckets. Requires x-api-key + a valid session. Rejected for demo sessions.',
   requestParams: {
     path: categoriaIdPathParamsSchema,
   },
@@ -712,13 +714,6 @@ const categoriasDeleteOperation: ZodOpenApiOperationObject = {
     '404': {
       description:
         'Anti-enumeration: the category does not exist or does not belong to the authenticated user.',
-      content: {
-        'application/json': { schema: catalogoErrorResponseSchema },
-      },
-    },
-    '409': {
-      description:
-        'The category is referenced by at least one Transaccion (any period).',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },

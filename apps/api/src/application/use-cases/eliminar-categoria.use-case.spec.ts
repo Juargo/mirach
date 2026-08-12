@@ -3,7 +3,6 @@ import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { Result } from '../../shared/result';
 import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../domain/errors/categoria-en-uso.error';
 
 function makeRepo(
   eliminar: ICategoriaRepository['eliminar'],
@@ -65,22 +64,5 @@ describe('EliminarCategoriaUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(CategoriaNoEncontradaError);
-  });
-
-  it('propaga CategoriaEnUsoError (409) — el use case NO hace su propio in-use check (D-06)', async () => {
-    const eliminar = vi
-      .fn()
-      .mockResolvedValue(Result.fail(new CategoriaEnUsoError('cat-1')));
-    const repo = makeRepo(eliminar);
-    const useCase = new EliminarCategoriaUseCase(repo);
-
-    const result = await useCase.execute({
-      userId: 'user-1',
-      esDemo: false,
-      id: 'cat-1',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CategoriaEnUsoError);
   });
 });

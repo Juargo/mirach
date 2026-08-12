@@ -1,7 +1,6 @@
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../domain/errors/categoria-en-uso.error';
 import { Patron } from './patron-repository.port';
 
 /**
@@ -71,14 +70,16 @@ export interface ICategoriaRepository {
   ): Promise<CategoriaConPatrones>;
 
   /**
-   * Los patrones de la categoría cascadean junto con ella; el rechazo por
-   * "en uso" es atómico con el predicado dentro del propio statement de
-   * borrado (D-06) — nunca un check-then-delete.
+   * Los patrones de la categoría cascadean junto con ella, todo-o-nada
+   * (US-039, CAT038-04 as modified). NO existe rechazo por "en uso": el
+   * delete SIEMPRE succeeds cuando la categoría es del caller. Ver
+   * PrismaCategoriaRepository#eliminar para el contrato children-first +
+   * composite-FK del que depende esta garantía.
    */
   eliminar(
     userId: string,
     id: string,
-  ): Promise<Result<void, CategoriaNoEncontradaError | CategoriaEnUsoError>>;
+  ): Promise<Result<void, CategoriaNoEncontradaError>>;
 }
 
 /** Token de inyección — las interfaces se borran en runtime. */
