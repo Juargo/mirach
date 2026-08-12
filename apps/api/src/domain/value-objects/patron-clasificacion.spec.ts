@@ -1,11 +1,21 @@
 import { PatronClasificacion } from './patron-clasificacion';
 import { Bucket } from './bucket';
-import { Categoria, CATEGORIA_BUCKET } from './categoria';
+
+const CATEGORIA_SUPERMERCADO = {
+  id: 'cat-supermercado',
+  nombre: 'Supermercado',
+  bucket: Bucket.Necesidades,
+};
+const CATEGORIA_STREAMING = {
+  id: 'cat-streaming',
+  nombre: 'Streaming',
+  bucket: Bucket.Deseos,
+};
 
 function makePatron(
   patron: string,
   matchType: PatronClasificacion['matchType'],
-  categoria: Categoria = Categoria.Supermercado,
+  categoria = CATEGORIA_SUPERMERCADO,
 ): PatronClasificacion {
   return new PatronClasificacion({
     id: 'p1',
@@ -23,7 +33,7 @@ describe('PatronClasificacion — CONTAINS', () => {
   });
 
   it('es insensible a mayúsculas: descripción en MAYÚSCULAS, patrón en minúsculas', () => {
-    const p = makePatron('netflix', 'CONTAINS', Categoria.Streaming);
+    const p = makePatron('netflix', 'CONTAINS', CATEGORIA_STREAMING);
     expect(p.coincide('SUSCRIPCION NETFLIX')).toBe(true);
   });
 
@@ -66,6 +76,9 @@ describe('PatronClasificacion — REGEX', () => {
     expect(p.coincide('SUPERMERCADO JUMBO')).toBe(false);
   });
 
+  // GUARDRAIL (CA-05, us-038 §9 constraint 4): esta aserción sostiene la
+  // garantía runtime de que un patrón REGEX malformado nunca lanza durante
+  // categorización — NO debilitar ni eliminar.
   it('devuelve false (no lanza) cuando la regex está malformada', () => {
     const p = makePatron('(', 'REGEX');
     expect(() => p.coincide('cualquier texto')).not.toThrow();
@@ -81,18 +94,18 @@ describe('PatronClasificacion — REGEX', () => {
 });
 
 describe('PatronClasificacion — expone campos inmutables', () => {
-  it('expone los campos correctamente', () => {
+  it('expone los campos correctamente, incluida la categoría anidada', () => {
     const p = new PatronClasificacion({
       id: 'abc',
       patron: 'netflix',
       matchType: 'CONTAINS',
-      categoria: Categoria.Streaming,
+      categoria: CATEGORIA_STREAMING,
       prioridad: 20,
     });
     expect(p.id).toBe('abc');
     expect(p.patron).toBe('netflix');
     expect(p.matchType).toBe('CONTAINS');
-    expect(p.categoria).toBe(Categoria.Streaming);
+    expect(p.categoria).toEqual(CATEGORIA_STREAMING);
     expect(p.bucket).toBe(Bucket.Deseos);
     expect(p.prioridad).toBe(20);
   });
@@ -100,32 +113,43 @@ describe('PatronClasificacion — expone campos inmutables', () => {
 
 // ---------------------------------------------------------------------------
 // CAT-02 — `bucket` is DERIVED from `categoria`, never independently settable.
+// ADR-037: la categoría ya no es un miembro de un enum cerrado — es una fila
+// anidada `{ id, nombre, bucket }`; `bucket` sigue siendo una PROYECCIÓN de
+// esa fila, nunca un campo hermano aceptado de forma independiente.
 // ---------------------------------------------------------------------------
 describe('PatronClasificacion — bucket derivado (CAT-02)', () => {
-  it.each(Object.values(Categoria))(
-    'get bucket() deriva %s → CATEGORIA_BUCKET[%s] para cada categoría del enum',
-    (categoria) => {
-      const p = new PatronClasificacion({
-        id: 'p-derive',
-        patron: 'x',
-        matchType: 'CONTAINS',
-        categoria,
-        prioridad: 1,
-      });
-      expect(p.bucket).toBe(CATEGORIA_BUCKET[categoria]);
-    },
-  );
+  it.each([
+    { ...CATEGORIA_SUPERMERCADO },
+    { ...CATEGORIA_STREAMING },
+    { id: 'cat-ahorro', nombre: 'Ahorro', bucket: Bucket.Ahorro },
+    { id: 'cat-mascotas', nombre: 'Mascotas', bucket: Bucket.Deseos },
+  ])('get bucket() proyecta categoria.bucket para $nombre', (categoria) => {
+    const p = new PatronClasificacion({
+      id: 'p-derive',
+      patron: 'x',
+      matchType: 'CONTAINS',
+      categoria,
+      prioridad: 1,
+    });
+    expect(p.bucket).toBe(categoria.bucket);
+  });
 
-  it('no expone un setter/constructor param independiente para bucket (solo se deriva de categoria)', () => {
+  it('no expone un setter/constructor param independiente para bucket (solo se proyecta de categoria)', () => {
+    const categoria = {
+      id: 'cat-ahorro',
+      nombre: 'Ahorro',
+      bucket: Bucket.Ahorro,
+    };
     const p = new PatronClasificacion({
       id: 'p-1',
       patron: 'x',
       matchType: 'CONTAINS',
-      categoria: Categoria.Ahorro,
+      categoria,
       prioridad: 1,
     });
-    // TypeScript ya impide pasar `bucket` al constructor (ver PatronClasificacionProps);
-    // este test documenta en runtime que `bucket` sigue siendo un getter derivado.
+    // TypeScript ya impide pasar `bucket` como campo hermano suelto en el
+    // constructor (ver PatronClasificacionProps); este test documenta en
+    // runtime que `bucket` sigue siendo un getter que proyecta `categoria.bucket`.
     expect(p.bucket).toBe(Bucket.Ahorro);
   });
 });
