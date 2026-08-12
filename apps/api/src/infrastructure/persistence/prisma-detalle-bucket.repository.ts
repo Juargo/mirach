@@ -6,7 +6,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
-import { foldCategoriaId } from './categoria-ids';
+import { foldCategoria } from './fold-categoria';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 /**
@@ -26,8 +26,9 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  * Depende de `PrismaClient` (base), no de `PrismaService` (artefacto Nest) —
  * así el composition root de Express le pasa un cliente plano (ADR-028).
  *
- * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
- * (categoria-ids.ts) — compartido con PrismaMovimientosMesRepository.
+ * Fold categoria → { id, nombre } | null (CATAPI-05, CAT037-06): vía
+ * foldCategoria (fold-categoria.ts), que resuelve por `nombre`, no por un id
+ * físico fijo — compartido con PrismaMovimientosMesRepository.
  *
  * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
  * la respuesta HTTP de `GET /api/buckets/:bucket`; sin descifrar, el cliente
@@ -68,7 +69,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
         descripcion: true,
         cargo: true,
         abono: true,
-        categoriaId: true,
+        categoria: { select: { id: true, nombre: true } },
         account: {
           select: {
             banco: true,
@@ -86,7 +87,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
       descripcion: this.crypto.decrypt(row.descripcion),
       cargo: row.cargo,
       abono: row.abono,
-      categoria: foldCategoriaId(row.categoriaId),
+      categoria: foldCategoria(row.categoria),
       banco: row.account.banco,
       tipoCuenta: row.account.tipoCuenta,
       numeroCuenta: this.crypto.decrypt(row.account.numeroCuenta),
