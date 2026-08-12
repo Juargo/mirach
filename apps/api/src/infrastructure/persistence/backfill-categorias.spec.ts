@@ -54,7 +54,15 @@ function makeFakeClient(
 
   const client: BackfillClient = {
     patronClasificacion: {
-      findMany: async () => patrones,
+      findMany: async ({ where }: { where: { userId: string } }) => {
+        // D-10 (CAT037-05): the pattern-catalog READ must be scoped to the
+        // bootstrap user too — an unscoped read would merge every user's
+        // patterns into one prioridad-sorted list, letting another user's
+        // own (repointed) pattern shadow the bootstrap user's pattern and
+        // hijack its classification.
+        expect(where).toEqual({ userId: USER_ID_FIJO });
+        return patrones;
+      },
     },
     transaccion: {
       findMany: async ({

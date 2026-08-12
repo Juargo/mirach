@@ -9,9 +9,9 @@
  *  - seed.ts run (populates BucketPresupuesto/Categoria/PatronClasificacion rows)
  *
  * Gate: assertDestructiveDbAllowed() runs in integration.setup.ts (setupFiles).
- * NOT executed this session — same precedent as categorizacion.int-spec.ts
- * (would mutate the shared dev DB). Written test-first per strict TDD; run
- * manually with `pnpm api test:integration` against a disposable dev DB.
+ * Runs as part of the normal integration suite:
+ * `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration` against the disposable
+ * local Postgres (see docs/local-test-db.md) — not against the shared dev DB.
  */
 import 'dotenv/config';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
@@ -26,6 +26,7 @@ import {
   ACCOUNT_ID_FIJO,
   USER_ID_FIJO,
 } from '../src/infrastructure/persistence/constants';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 describe('Backfill de categorías — integración (real dev DB)', () => {
   const prisma = createPrismaClient(loadEnv());
@@ -216,5 +217,64 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     await prisma.ingesta.deleteMany({ where: { id: otherIngesta.id } });
     await prisma.account.deleteMany({ where: { id: otherAccount.id } });
     await prisma.user.deleteMany({ where: { id: otherUserId } });
+  });
+
+  // T3.6 (CAT037-05, D-10): the pattern-catalog READ must be scoped too, not
+  // just the transaccion WRITE (T3.5). Mirrors the demonstrated exploit: an
+  // unscoped `patronClasificacion.findMany()` merges EVERY user's patterns
+  // into one prioridad-sorted list — an attacker who owns their own catalog
+  // copy can repoint their own "lider" pattern to a different categoria with
+  // a LOWER prioridad than the bootstrap's (10) and hijack what the
+  // bootstrap user's own transactions resolve to.
+  it('T3.6 (CAT037-05, D-10): un patrón secuestrado en el catálogo de OTRO usuario, con prioridad menor a la del bootstrap, nunca afecta la clasificación del usuario bootstrap', async () => {
+    const attackerUserId = `backfill-hijack-${Date.now()}`;
+    await prisma.user.create({
+      data: { id: attackerUserId, nombre: 'Hijack probe user' },
+    });
+    await crearCatalogoParaUsuario(prisma, attackerUserId);
+
+    const attackerAhorroCategoria = await prisma.categoria.findUniqueOrThrow({
+      where: {
+        userId_nombre: { userId: attackerUserId, nombre: Categoria.Ahorro },
+      },
+    });
+    // Repoint the ATTACKER's OWN "lider" pattern (never the bootstrap's) to
+    // a different categoria with a lower prioridad than the bootstrap's
+    // "lider"→Supermercado pattern (prioridad 10, catalogo-template.ts).
+    await prisma.patronClasificacion.updateMany({
+      where: { userId: attackerUserId, patron: 'lider' },
+      data: { categoriaId: attackerAhorroCategoria.id, prioridad: 1 },
+    });
+
+    await prisma.transaccion.create({
+      data: {
+        ingestaId: testIngestaId,
+        accountId: ACCOUNT_ID_FIJO,
+        fecha: new Date('2026-07-01'),
+        descripcion: 'Compra Lider',
+        cargo: 9500n,
+        abono: 0n,
+      },
+    });
+
+    const summary = await runBackfill(prisma, { dryRun: false });
+
+    const bootstrapRow = await prisma.transaccion.findFirst({
+      where: { ingestaId: testIngestaId, descripcion: 'Compra Lider' },
+    });
+    // Must still resolve via the BOOTSTRAP user's own catalog
+    // (Supermercado), never the attacker's hijacked categoria (Ahorro).
+    expect(bootstrapRow?.categoriaId).toBe(
+      CATEGORIA_IDS[Categoria.Supermercado],
+    );
+    expect(summary.porCategoria[Categoria.Supermercado]).toBeGreaterThanOrEqual(
+      1,
+    );
+
+    await prisma.patronClasificacion.deleteMany({
+      where: { userId: attackerUserId },
+    });
+    await prisma.categoria.deleteMany({ where: { userId: attackerUserId } });
+    await prisma.user.deleteMany({ where: { id: attackerUserId } });
   });
 });

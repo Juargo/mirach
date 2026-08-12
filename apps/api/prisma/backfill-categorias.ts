@@ -44,22 +44,29 @@ import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
  * `require.main === module`.
  *
  * ⚠️ FROZEN, bootstrap-user-only (US-037 D-10, CAT037-05 "legacy backfill
- * script" scenario). Pre-US-037 this scanned `categoriaId IS NULL` GLOBALLY
- * and wrote `CATEGORIA_IDS[categoria]` — a fixed id that only ever belonged
- * to the bootstrap user. Post-US-037 every `Categoria` row is per-user, so
- * an unscoped run would stamp the bootstrap user's category ids onto other
- * users' transactions: cross-tenant corruption, the exact inverse of
- * RNF-SEC-006. The scope is now hard-pinned to
- * `account: { userId: USER_ID_FIJO }` — this script must NEVER be
- * generalized to run for an arbitrary `userId` without re-deriving
- * `categoriaId` through that user's own catalog (the way
- * `PrismaReclasificarCategoriaRepository` does), not through `CATEGORIA_IDS`.
+ * script" scenario), on BOTH the read and the write side. Pre-US-037 this
+ * scanned `categoriaId IS NULL` GLOBALLY and wrote `CATEGORIA_IDS[categoria]`
+ * — a fixed id that only ever belonged to the bootstrap user. Post-US-037
+ * every `Categoria`/`PatronClasificacion` row is per-user, so an unscoped
+ * WRITE would stamp the bootstrap user's category ids onto other users'
+ * transactions (cross-tenant corruption, the exact inverse of RNF-SEC-006);
+ * an unscoped READ of `patronClasificacion` is just as dangerous — it would
+ * merge every user's patterns into one `prioridad`-sorted list, letting an
+ * attacker's own catalog (e.g. a `PatronClasificacion` row they fully own,
+ * repointed to a different `categoria` with a lower `prioridad`) SHADOW the
+ * bootstrap user's pattern and hijack what the bootstrap user's own
+ * transactions get classified as. Both scopes are now hard-pinned to
+ * `userId: USER_ID_FIJO` — this script must NEVER be generalized to run for
+ * an arbitrary `userId` without re-deriving `categoriaId` through that
+ * user's own catalog (the way `PrismaReclasificarCategoriaRepository` does),
+ * not through `CATEGORIA_IDS`.
  */
 
 /** Cliente mínimo requerido por el backfill (mirror de SeedClient en seed.ts). */
 export interface BackfillClient {
   patronClasificacion: {
     findMany(args: {
+      where: { userId: string };
       include: { categoria: true };
       orderBy: { prioridad: 'asc' };
     }): Promise<
@@ -161,7 +168,12 @@ export async function runBackfill(
   const crypto = options.crypto ?? new NoOpCryptoService();
 
   // 1. Catálogo categoría-aware (mismo formato que PrismaCatalogoClasificacionRepository).
+  // Scope pinned to USER_ID_FIJO (US-037 D-10, CAT037-05) — un findMany sin
+  // WHERE mezclaría los patrones de TODOS los usuarios en un solo orden por
+  // prioridad, dejando que un patrón ajeno (con prioridad menor) secuestre
+  // la clasificación de las transacciones del usuario bootstrap.
   const patronRows = await prisma.patronClasificacion.findMany({
+    where: { userId: USER_ID_FIJO },
     include: { categoria: true },
     orderBy: { prioridad: 'asc' },
   });
