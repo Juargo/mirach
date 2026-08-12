@@ -78,27 +78,40 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
     deriveBlindIndexKey(Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64')),
   );
 
+  const logger = createPinoLogger({ pretty: false });
+
   const processIngesta = new ProcessIngestaUseCase(
-    new IngestFileUseCase(),
-    new DetectBankUseCase(new ExcelBankDetectorService()),
-    new DetectPdfBankUseCase(new PdfjsBankDetectorService()),
+    new IngestFileUseCase(logger),
+    new DetectBankUseCase(new ExcelBankDetectorService(), logger),
+    new DetectPdfBankUseCase(new PdfjsBankDetectorService(), logger),
     new PrismaAccountRepository(prisma, crypto, blindIndex),
-    new ValidateStructureUseCase(new ExcelStructureValidatorService()),
-    new ValidatePdfStructureUseCase(new PdfjsStructureValidatorService()),
-    new NormalizeTransactionsUseCase(new ExcelTransactionNormalizerService()),
+    new ValidateStructureUseCase(new ExcelStructureValidatorService(), logger),
+    new ValidatePdfStructureUseCase(
+      new PdfjsStructureValidatorService(),
+      logger,
+    ),
+    new NormalizeTransactionsUseCase(
+      new ExcelTransactionNormalizerService(),
+      logger,
+    ),
     new NormalizePdfTransactionsUseCase(
       new PdfjsTransactionNormalizerService(),
+      logger,
     ),
-    new PersistTransactionsUseCase(new PrismaIngestaRepository(prisma, crypto)),
+    new PersistTransactionsUseCase(
+      new PrismaIngestaRepository(prisma, crypto),
+      logger,
+    ),
     new PrismaCatalogoClasificacionRepository(prisma),
     new PrismaTransaccionBucketRepository(prisma),
-    new CategorizarTransaccionUseCase(),
+    new CategorizarTransaccionUseCase(logger),
     new PrismaTransaccionClasificacionRepository(prisma, crypto),
     new DetectarDuplicadosUseCase(
       new PrismaTransaccionExistenteReader(prisma, crypto),
+      logger,
     ),
     new PrismaRegistrarIngestaFallidaRepository(prisma),
-    createPinoLogger({ pretty: false }),
+    logger,
   );
 
   const fixture = join(__dirname, 'fixtures', 'movimientos-test.xlsx');

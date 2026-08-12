@@ -2,6 +2,7 @@ import { IFileReader } from '../ports/file-reader.port';
 import { Result } from '../../shared/result';
 import { Extension } from '../../domain/value-objects/extension';
 import { ExtensionNoPermitidaError } from '../../domain/errors/extension-no-permitida.error';
+import { ILogger } from '../ports/logger.port';
 
 // Re-exportamos el error para que el spec y el controller no cambien sus imports.
 // Es un alias de conveniencia, no lógica de aplicación.
@@ -26,24 +27,38 @@ export interface IngestFileResult {
  * Retorna Result<T,E> en lugar de lanzar excepciones.
  */
 export class IngestFileUseCase {
+  constructor(private readonly logger: ILogger) {}
+
   execute(
     fileReader: IFileReader,
   ): Result<IngestFileResult, ExtensionNoPermitidaError> {
     const originalName = fileReader.getOriginalName();
+    const sizeInBytes = fileReader.getSizeInBytes();
 
     let extension: Extension;
     try {
       extension = Extension.desdeNombreArchivo(originalName);
     } catch (error) {
       if (error instanceof ExtensionNoPermitidaError) {
+        // Nunca el originalName — puede traer info del usuario (ADR-013).
+        this.logger.debug('ingest-file: file received', {
+          aceptado: false,
+          sizeInBytes,
+        });
         return Result.fail(error);
       }
       throw error; // error inesperado — propagamos sin envolver
     }
 
+    this.logger.debug('ingest-file: file received', {
+      aceptado: true,
+      sizeInBytes,
+      extension: extension.valor,
+    });
+
     return Result.ok({
       originalName,
-      sizeInBytes: fileReader.getSizeInBytes(),
+      sizeInBytes,
       extension: extension.valor,
       buffer: fileReader.getBuffer(),
     });

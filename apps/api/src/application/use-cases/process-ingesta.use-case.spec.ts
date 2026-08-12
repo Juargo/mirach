@@ -379,26 +379,27 @@ function buildUseCase(opts?: BuildOptions) {
   const txReader = opts?.txReader ?? new FakeTxParaClasificarReader();
   const txExistenteReader =
     opts?.txExistenteReader ?? new FakeTransaccionExistenteReader();
+  const logger = opts?.logger ?? new FakeLogger();
   const detectarDuplicadosUseCase = new DetectarDuplicadosUseCase(
     txExistenteReader,
+    logger,
   );
   const ingestaFallidaWriter =
     opts?.ingestaFallidaWriter ?? new FakeRegistrarIngestaFallidaWriter();
-  const logger = opts?.logger ?? new FakeLogger();
 
   const useCase = new ProcessIngestaUseCase(
-    new IngestFileUseCase(),
-    new DetectBankUseCase(bankDetector),
-    new DetectPdfBankUseCase(pdfBankDetector),
+    new IngestFileUseCase(logger),
+    new DetectBankUseCase(bankDetector, logger),
+    new DetectPdfBankUseCase(pdfBankDetector, logger),
     accountRepository,
-    new ValidateStructureUseCase(structureValidator),
-    new ValidatePdfStructureUseCase(pdfStructureValidator),
-    new NormalizeTransactionsUseCase(normalizer),
-    new NormalizePdfTransactionsUseCase(pdfNormalizer),
-    new PersistTransactionsUseCase(ingestaStore),
+    new ValidateStructureUseCase(structureValidator, logger),
+    new ValidatePdfStructureUseCase(pdfStructureValidator, logger),
+    new NormalizeTransactionsUseCase(normalizer, logger),
+    new NormalizePdfTransactionsUseCase(pdfNormalizer, logger),
+    new PersistTransactionsUseCase(ingestaStore, logger),
     catalogo,
     bucketWriter,
-    new CategorizarTransaccionUseCase(),
+    new CategorizarTransaccionUseCase(logger),
     txReader,
     detectarDuplicadosUseCase,
     ingestaFallidaWriter,
@@ -1104,6 +1105,50 @@ describe('ProcessIngestaUseCase', () => {
 
       expect(ingestaFallidaWriter.calls).toHaveLength(1);
       expect(ingestaFallidaWriter.calls[0].motivo).toBe(error.message);
+    });
+  });
+
+  describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {
+    it('loguea un resumen "pipeline completed" y el pase de categorización agregado, nunca descripción/montos/nombreArchivo', async () => {
+      const logger = new FakeLogger();
+      const { useCase } = buildUseCase({ logger });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const value = result.getValue();
+
+      const debugMessages = logger.calls
+        .filter((c) => c.level === 'debug')
+        .map((c) => c.message);
+      expect(debugMessages).toContain('process-ingesta: pipeline completed');
+      expect(debugMessages).toContain(
+        'process-ingesta: categorization pass completed',
+      );
+
+      const pipelineCompleted = logger.calls.find(
+        (c) => c.message === 'process-ingesta: pipeline completed',
+      );
+      expect(pipelineCompleted?.context).toEqual({
+        banco: BANCO.banco,
+        ingestaId: value.ingestaId,
+        total: 2,
+        duplicadosOmitidos: 0,
+      });
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('Compra');
+      expect(serializedContexts).not.toContain('Sueldo');
+      expect(serializedContexts).not.toContain('8103');
+      expect(serializedContexts).not.toContain('1500000');
+      expect(serializedContexts).not.toContain('movimientos.xlsx');
+      expect(serializedContexts).not.toContain(USER_ID);
     });
   });
 });

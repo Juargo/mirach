@@ -3,6 +3,7 @@ import { PersistenciaFallidaError } from '../../domain/errors/persistencia-falli
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { construirClaveDuplicado } from '../../domain/value-objects/clave-duplicado';
 import { ITransaccionExistenteReader } from '../ports/transaccion-existente-reader.port';
+import { ILogger } from '../ports/logger.port';
 
 /** Datos mínimos para detectar duplicados en un batch entrante (US-005). */
 export interface DetectarDuplicadosInput {
@@ -36,7 +37,10 @@ export interface DetectarDuplicadosResult {
  * Contrato: retorna Result y NUNCA lanza.
  */
 export class DetectarDuplicadosUseCase {
-  constructor(private readonly reader: ITransaccionExistenteReader) {}
+  constructor(
+    private readonly reader: ITransaccionExistenteReader,
+    private readonly logger: ILogger,
+  ) {}
 
   async execute(
     input: DetectarDuplicadosInput,
@@ -44,6 +48,11 @@ export class DetectarDuplicadosUseCase {
     const { accountId, transacciones } = input;
 
     if (transacciones.length === 0) {
+      this.logger.debug('detectar-duplicados: duplicates detected', {
+        accountId,
+        nuevas: 0,
+        duplicadas: 0,
+      });
       return Result.ok({ nuevas: [], duplicadas: 0 });
     }
 
@@ -60,6 +69,7 @@ export class DetectarDuplicadosUseCase {
       fechaHasta,
     );
     if (existentesResult.isFail()) {
+      this.logger.debug('detectar-duplicados: lookup failed', { accountId });
       return Result.fail(existentesResult.getError());
     }
 
@@ -90,6 +100,13 @@ export class DetectarDuplicadosUseCase {
       }
     }
 
+    // Solo conteos + accountId (ID interno) — nunca fecha/descripción/montos
+    // de las transacciones (ADR-013).
+    this.logger.debug('detectar-duplicados: duplicates detected', {
+      accountId,
+      nuevas: nuevas.length,
+      duplicadas,
+    });
     return Result.ok({ nuevas, duplicadas });
   }
 }

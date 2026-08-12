@@ -4,6 +4,7 @@ import { Transaccion } from '../../domain/value-objects/transaccion';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { IPdfTransactionNormalizer } from '../ports/pdf-transaction-normalizer.port';
+import { ILogger } from '../ports/logger.port';
 
 export { EstructuraPdfInvalidaError, RangoFechasInvalidoError };
 
@@ -14,7 +15,10 @@ export { EstructuraPdfInvalidaError, RangoFechasInvalidoError };
  * `IPdfTransactionNormalizer` (infrastructure/pdf/), sin lógica propia.
  */
 export class NormalizePdfTransactionsUseCase {
-  constructor(private readonly normalizer: IPdfTransactionNormalizer) {}
+  constructor(
+    private readonly normalizer: IPdfTransactionNormalizer,
+    private readonly logger: ILogger,
+  ) {}
 
   async execute(
     buffer: Buffer,
@@ -25,6 +29,12 @@ export class NormalizePdfTransactionsUseCase {
       EstructuraPdfInvalidaError | RangoFechasInvalidoError
     >
   > {
-    return this.normalizer.normalize(buffer, banco);
+    const result = await this.normalizer.normalize(buffer, banco);
+    // Solo el CONTEO de filas normalizadas — nunca montos/descripciones (ADR-013).
+    this.logger.debug('normalize-pdf-transactions: rows normalized', {
+      normalizado: result.isOk(),
+      filas: result.isOk() ? result.getValue().length : 0,
+    });
+    return result;
   }
 }

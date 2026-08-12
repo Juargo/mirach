@@ -3,6 +3,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { Transaccion } from '../../domain/value-objects/transaccion';
+import { ILogger } from '../ports/logger.port';
 
 /** Datos mínimos de una transacción necesarios para la clasificación. */
 export interface TransaccionInput {
@@ -46,6 +47,8 @@ export interface CategorizarTransaccionResult {
  * La degradación a SinCategoria ocurre aquí, no en el orquestador.
  */
 export class CategorizarTransaccionUseCase {
+  constructor(private readonly logger: ILogger) {}
+
   execute(
     transaccion: TransaccionInput,
     patrones: ReadonlyArray<PatronClasificacion>,
@@ -53,7 +56,9 @@ export class CategorizarTransaccionUseCase {
     // 1. Ingreso rule — tiene prioridad sobre todo el catálogo. La regla vive
     //    en el VO (única fuente); aquí se evalúa sobre el read model bigint.
     if (Transaccion.esIngreso(transaccion.cargo, transaccion.abono)) {
-      return Result.ok({ categoria: null, bucket: Bucket.Ingreso });
+      const resultado = { categoria: null, bucket: Bucket.Ingreso };
+      this.logDecision(resultado);
+      return Result.ok(resultado);
     }
 
     // 2. Ordenar por prioridad asc, luego patron (texto) asc, luego id asc
@@ -67,14 +72,27 @@ export class CategorizarTransaccionUseCase {
     // 3. Primera coincidencia gana.
     for (const patron of ordenados) {
       if (patron.coincide(transaccion.descripcion)) {
-        return Result.ok({
+        const resultado = {
           categoria: patron.categoria,
           bucket: patron.bucket,
-        });
+        };
+        this.logDecision(resultado);
+        return Result.ok(resultado);
       }
     }
 
     // 4. Fallback.
-    return Result.ok({ categoria: null, bucket: Bucket.SinCategoria });
+    const resultado = { categoria: null, bucket: Bucket.SinCategoria };
+    this.logDecision(resultado);
+    return Result.ok(resultado);
+  }
+
+  /** Solo el bucket/nombre de categoría (enums de configuración) — nunca la
+   * descripción ni los montos de la transacción clasificada (ADR-013). */
+  private logDecision(resultado: CategorizarTransaccionResult): void {
+    this.logger.debug('categorizar-transaccion: classification decision', {
+      bucket: resultado.bucket,
+      categoria: resultado.categoria,
+    });
   }
 }

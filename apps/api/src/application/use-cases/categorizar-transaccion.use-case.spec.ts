@@ -2,6 +2,7 @@ import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-cas
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,7 +23,7 @@ function makePatron(
   });
 }
 
-const useCase = new CategorizarTransaccionUseCase();
+const useCase = new CategorizarTransaccionUseCase(new NoOpLogger());
 
 // ---------------------------------------------------------------------------
 // T05 — Regla Ingreso: boundaries (SC-01..SC-04)
@@ -300,5 +301,35 @@ describe('CategorizarTransaccionUseCase — contrato Result', () => {
       const result = useCase.execute(input, []);
       expect(result.isOk()).toBe(true);
     }
+  });
+});
+
+describe('CategorizarTransaccionUseCase — debug logging (ADR-033 slice B, ADR-013)', () => {
+  it('loguea bucket + categoria (enums), nunca la descripción ni los montos', () => {
+    const patrones = [
+      makePatron('LIDER', 'CONTAINS', Categoria.Supermercado, 10),
+    ];
+    const logger = new FakeLogger();
+    const ucConLogger = new CategorizarTransaccionUseCase(logger);
+
+    ucConLogger.execute(
+      { descripcion: 'COMPRA LIDER SECRETA 123', abono: 0n, cargo: 9500n },
+      patrones,
+    );
+
+    const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+    expect(debugCalls).toEqual([
+      {
+        level: 'debug',
+        message: 'categorizar-transaccion: classification decision',
+        context: {
+          bucket: Bucket.Necesidades,
+          categoria: Categoria.Supermercado,
+        },
+      },
+    ]);
+    const serializedContexts = JSON.stringify(debugCalls.map((c) => c.context));
+    expect(serializedContexts).not.toContain('LIDER SECRETA');
+    expect(serializedContexts).not.toContain('9500');
   });
 });

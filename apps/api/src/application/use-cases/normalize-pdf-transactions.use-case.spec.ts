@@ -5,6 +5,7 @@ import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { Result } from '../../shared/result';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 describe('NormalizePdfTransactionsUseCase', () => {
   it('delega al port y retorna su Result.ok tal cual', async () => {
@@ -19,7 +20,10 @@ describe('NormalizePdfTransactionsUseCase', () => {
     const normalizer: IPdfTransactionNormalizer = {
       normalize: vi.fn().mockResolvedValue(Result.ok(transacciones)),
     };
-    const useCase = new NormalizePdfTransactionsUseCase(normalizer);
+    const useCase = new NormalizePdfTransactionsUseCase(
+      normalizer,
+      new NoOpLogger(),
+    );
     const buffer = Buffer.from('pdf');
 
     const result = await useCase.execute(buffer, BancoConocido.Santander);
@@ -37,7 +41,10 @@ describe('NormalizePdfTransactionsUseCase', () => {
     const normalizer: IPdfTransactionNormalizer = {
       normalize: vi.fn().mockResolvedValue(Result.fail(error)),
     };
-    const useCase = new NormalizePdfTransactionsUseCase(normalizer);
+    const useCase = new NormalizePdfTransactionsUseCase(
+      normalizer,
+      new NoOpLogger(),
+    );
 
     const result = await useCase.execute(
       Buffer.from('pdf'),
@@ -46,5 +53,39 @@ describe('NormalizePdfTransactionsUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
+  });
+
+  describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {
+    it('loguea solo el CONTEO de filas normalizadas, nunca descripción/montos', async () => {
+      const transacciones: ReadonlyArray<Transaccion> = [
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 2, 5)),
+          descripcion: 'compra secreta pdf',
+          cargo: 0n,
+          abono: 1000n,
+        }).getValue(),
+      ];
+      const normalizer: IPdfTransactionNormalizer = {
+        normalize: vi.fn().mockResolvedValue(Result.ok(transacciones)),
+      };
+      const logger = new FakeLogger();
+      const useCase = new NormalizePdfTransactionsUseCase(normalizer, logger);
+
+      await useCase.execute(Buffer.from('pdf'), BancoConocido.Santander);
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls).toEqual([
+        {
+          level: 'debug',
+          message: 'normalize-pdf-transactions: rows normalized',
+          context: { normalizado: true, filas: 1 },
+        },
+      ]);
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('compra secreta');
+      expect(serializedContexts).not.toContain('1000');
+    });
   });
 });
