@@ -41,7 +41,9 @@ export function sessionMiddleware(
       return;
     }
 
-    req.userId = result.getValue().userId;
+    const sesion = result.getValue();
+    req.userId = sesion.userId;
+    req.esDemo = sesion.esDemo;
     next();
   };
 }

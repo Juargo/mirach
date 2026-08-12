@@ -1,6 +1,5 @@
 import { aMovimientosMesDto } from '../../http/dto/movimiento-mes.dto';
 import { Bucket } from '../../../domain/value-objects/bucket';
-import { Categoria } from '../../../domain/value-objects/categoria';
 import {
   movimientosQuerySchema,
   movimientosResponseSchema,
@@ -76,7 +75,7 @@ describe('movimientosResponseSchema (sync guarantee)', () => {
           tipoCuenta: 'CuentaRUT',
           numeroCuenta: '****1234',
           bucket: Bucket.Necesidades,
-          categoria: { id: 'cat-1', nombre: Categoria.Supermercado },
+          categoria: { id: 'cat-1', nombre: 'Supermercado' },
         },
       ],
     });

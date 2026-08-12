@@ -71,6 +71,92 @@
         ],
         "type": "object"
       },
+      "CatalogoErrorResponse": {
+        "additionalProperties": false,
+        "description": "Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations.",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
+        ],
+        "type": "object"
+      },
+      "CatalogoResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/categorias — the authenticated caller's full catalog (US-038, CAT038-02).",
+        "properties": {
+          "categorias": {
+            "items": {
+              "$ref": "#/components/schemas/CategoriaResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "categorias"
+        ],
+        "type": "object"
+      },
+      "CategoriaResponse": {
+        "additionalProperties": false,
+        "description": "A category with its nested classification patterns (US-038).",
+        "properties": {
+          "bucket": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "string"
+          },
+          "patrones": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "categoriaId": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "matchType": {
+                  "type": "string"
+                },
+                "patron": {
+                  "type": "string"
+                },
+                "prioridad": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "categoriaId",
+                "patron",
+                "matchType",
+                "prioridad"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "nombre",
+          "bucket",
+          "patrones"
+        ],
+        "type": "object"
+      },
       "DetalleBucketResponse": {
         "additionalProperties": false,
         "description": "GET /api/buckets/:bucket — bucket drill-down (US-017).",
@@ -421,6 +507,35 @@
           "periodo",
           "totalTransacciones",
           "transacciones"
+        ],
+        "type": "object"
+      },
+      "PatronResponse": {
+        "additionalProperties": false,
+        "description": "A classification pattern (US-038).",
+        "properties": {
+          "categoriaId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "matchType": {
+            "type": "string"
+          },
+          "patron": {
+            "type": "string"
+          },
+          "prioridad": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "categoriaId",
+          "patron",
+          "matchType",
+          "prioridad"
         ],
         "type": "object"
       },
@@ -969,6 +1084,227 @@
         "summary": "Bucket drill-down"
       }
     },
+    "/api/categorias": {
+      "get": {
+        "description": "Authenticated endpoint returning the caller's own categories with their nested classification patterns (US-038, CAT038-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, CAT038-08).",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoResponse"
+                }
+              }
+            },
+            "description": "The caller's full catalog."
+          }
+        },
+        "summary": "List the caller's category catalog"
+      },
+      "post": {
+        "description": "Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01). Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "bucket": {
+                    "type": "string"
+                  },
+                  "nombre": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nombre",
+                  "bucket"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriaResponse"
+                }
+              }
+            },
+            "description": "Category created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid nombre/bucket, or a malformed request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "The calling session is a demo session (read-only catalog)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "A category with that nombre already exists for this user (case-insensitive)."
+          }
+        },
+        "summary": "Create a category"
+      }
+    },
+    "/api/categorias/{id}": {
+      "delete": {
+        "description": "Authenticated endpoint that deletes a category and cascades its patterns, atomically (US-038, CAT038-04). Rejected if any Transaccion (any period) still references the category. Requires x-api-key + a valid session. Rejected for demo sessions.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Category (and its patterns) deleted. No response body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "The calling session is a demo session (read-only catalog)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Anti-enumeration: the category does not exist or does not belong to the authenticated user."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "The category is referenced by at least one Transaccion (any period)."
+          }
+        },
+        "summary": "Delete a category"
+      },
+      "patch": {
+        "description": "Authenticated endpoint that partially updates a category (US-038, CAT038-03). At least one of `nombre`/`bucket` MUST be present. When `bucket` actually changes, every historical Transaccion pointing at the category is re-stamped atomically. Requires x-api-key + a valid session. Rejected for demo sessions.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "bucket": {
+                    "type": "string"
+                  },
+                  "nombre": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriaResponse"
+                }
+              }
+            },
+            "description": "Category updated."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid nombre/bucket, an empty body, or a malformed request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "The calling session is a demo session (read-only catalog)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Anti-enumeration: the category does not exist or does not belong to the authenticated user."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "A category with that nombre already exists for this user (case-insensitive)."
+          }
+        },
+        "summary": "Rename and/or re-bucket a category"
+      }
+    },
     "/api/ingestas": {
       "get": {
         "description": "Authenticated endpoint returning the per-user ingesta history (US-004/US-018). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
@@ -1128,6 +1464,221 @@
         "summary": "Monthly transaction list"
       }
     },
+    "/api/patrones": {
+      "post": {
+        "description": "Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). Requires x-api-key + a valid session. Rejected for demo sessions.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "categoriaId": {
+                    "type": "string"
+                  },
+                  "matchType": {
+                    "type": "string"
+                  },
+                  "patron": {
+                    "type": "string"
+                  },
+                  "prioridad": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "categoriaId",
+                  "patron",
+                  "matchType"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatronResponse"
+                }
+              }
+            },
+            "description": "Pattern created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a malformed request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "The calling session is a demo session (read-only catalog)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "A pattern with that text already exists for this user (case-insensitive)."
+          }
+        },
+        "summary": "Create a classification pattern"
+      }
+    },
+    "/api/patrones/{id}": {
+      "delete": {
+        "description": "Authenticated endpoint that deletes a pattern (US-038, CAT038-05/07). Requires x-api-key + a valid session. Rejected for demo sessions.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pattern deleted. No response body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "The calling session is a demo session (read-only catalog)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Anti-enumeration: the pattern does not exist or does not belong to the authenticated user."
+          }
+        },
+        "summary": "Delete a classification pattern"
+      },
+      "patch": {
+        "description": "Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid session. Rejected for demo sessions.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "matchType": {
+                    "type": "string"
+                  },
+                  "patron": {
+                    "type": "string"
+                  },
+                  "prioridad": {
+                    "type": "number"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatronResponse"
+                }
+              }
+            },
+            "description": "Pattern updated."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid patron/matchType/prioridad, an invalid REGEX, an empty body, or a malformed request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "The calling session is a demo session (read-only catalog)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "Anti-enumeration: the pattern does not exist or does not belong to the authenticated user."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogoErrorResponse"
+                }
+              }
+            },
+            "description": "A pattern with that text already exists for this user (case-insensitive)."
+          }
+        },
+        "summary": "Update a classification pattern"
+      }
+    },
     "/api/resumen": {
       "get": {
         "description": "Authenticated endpoint returning the 50/30/20 budget breakdown for a month (US-015/016). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
@@ -1213,7 +1764,7 @@
               "schema": {
                 "properties": {
                   "categoria": {
-                    "description": "Category name (Categoria enum member, e.g. \"Supermercado\"). Validated against the domain enum by the use case (CategoriaInvalidaError), not this schema.",
+                    "description": "Category name (e.g. \"Supermercado\"), resolved against the caller's own catalog (ADR-036/ADR-037 — no closed enum) by the use case (CategoriaDesconocidaError if it does not resolve), not this schema.",
                     "type": "string"
                   }
                 },
@@ -1237,7 +1788,7 @@
             "description": "Transaction reclassified."
           },
           "400": {
-            "description": "Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError)."
+            "description": "Invalid categoria — the given name does not resolve against the caller's own catalog (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired)."
           },
           "404": {
             "description": "Anti-enumeration: the transaction does not exist or does not belong to the authenticated user."

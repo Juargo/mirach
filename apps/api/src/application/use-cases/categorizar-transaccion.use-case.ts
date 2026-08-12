@@ -1,6 +1,5 @@
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { ILogger } from '../ports/logger.port';
@@ -15,14 +14,15 @@ export interface TransaccionInput {
 /**
  * Resultado de la clasificación: siempre ok (nunca falla por transacción).
  *
- * US-013 (CAT-03): `categoria` es `null` para Ingreso y para SinCategoria
- * (no hay categoría que asignar en ninguno de esos dos casos); cuando un
- * patrón matchea, `categoria` es la del patrón y `bucket` es SIEMPRE el
- * derivado de esa categoría (`patron.bucket`, getter de PatronClasificacion)
- * — nunca un bucket independiente.
+ * US-013 (CAT-03), re-tipado por ADR-037/Q5 (us-038): `categoria` es `null`
+ * para Ingreso y para SinCategoria (no hay categoría que asignar en ninguno
+ * de esos dos casos); cuando un patrón matchea, `categoria` es `{ id, nombre
+ * }` de la fila propia del usuario que matcheó (ya no un miembro del enum
+ * retirado) y `bucket` es SIEMPRE el derivado de esa categoría (`patron.bucket`,
+ * getter de PatronClasificacion) — nunca un bucket independiente.
  */
 export interface CategorizarTransaccionResult {
-  readonly categoria: Categoria | null;
+  readonly categoria: { id: string; nombre: string } | null;
   readonly bucket: Bucket;
 }
 
@@ -73,7 +73,10 @@ export class CategorizarTransaccionUseCase {
     for (const patron of ordenados) {
       if (patron.coincide(transaccion.descripcion)) {
         const resultado = {
-          categoria: patron.categoria,
+          categoria: {
+            id: patron.categoria.id,
+            nombre: patron.categoria.nombre,
+          },
           bucket: patron.bucket,
         };
         this.logDecision(resultado);

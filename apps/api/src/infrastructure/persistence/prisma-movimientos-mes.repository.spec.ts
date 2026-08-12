@@ -3,7 +3,6 @@ import { PrismaMovimientosMesRepository } from './prisma-movimientos-mes.reposit
 import { PrismaClient } from '@prisma/client';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 import { BUCKET_IDS } from './bucket-ids';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 
@@ -113,7 +112,7 @@ describe('PrismaMovimientosMesRepository', () => {
         bucketId: BUCKET_IDS[Bucket.Necesidades],
         categoria: {
           id: 'cly-per-user-supermercado-cuid',
-          nombre: Categoria.Supermercado,
+          nombre: 'Supermercado',
         },
       }),
     ]);
@@ -124,7 +123,7 @@ describe('PrismaMovimientosMesRepository', () => {
 
     expect(rows[0].categoria).toEqual({
       id: 'cly-per-user-supermercado-cuid',
-      nombre: Categoria.Supermercado,
+      nombre: 'Supermercado',
     });
   });
 
@@ -144,12 +143,12 @@ describe('PrismaMovimientosMesRepository', () => {
     expect(rows[0].categoria).toBeNull();
   });
 
-  it('CAT037-06: an unrecognized nombre folds to null (defensive)', async () => {
+  it('CAT037-06/D-01: an arbitrary owned category name passes through verbatim (no enum gate)', async () => {
     const findMany = vi.fn().mockResolvedValue([
       makeRow({
-        id: 'tx-unknown-categoria',
-        bucketId: BUCKET_IDS[Bucket.Necesidades],
-        categoria: { id: 'cly-some-cuid', nombre: 'NoExiste' },
+        id: 'tx-mascotas',
+        bucketId: BUCKET_IDS[Bucket.Deseos],
+        categoria: { id: 'cly-some-cuid', nombre: 'Mascotas' },
       }),
     ]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
@@ -157,7 +156,10 @@ describe('PrismaMovimientosMesRepository', () => {
 
     const rows = await repo.findByPeriodo('user-1', periodo);
 
-    expect(rows[0].categoria).toBeNull();
+    expect(rows[0].categoria).toEqual({
+      id: 'cly-some-cuid',
+      nombre: 'Mascotas',
+    });
   });
 
   it('CAT037-06: select uses the nested categoria relation, not a raw categoriaId scalar', async () => {

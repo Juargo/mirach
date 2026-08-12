@@ -1,6 +1,5 @@
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 
 /**
  * MovimientoMesRow — proyección de una transacción para la consulta mensual.
@@ -13,9 +12,11 @@ import { Categoria } from '../../domain/value-objects/categoria';
  * Prisma) — el fold vive en el repositorio (BUCKET_ID_TO_BUCKET), igual que
  * en prisma-resumen-mes. La capa de application solo conoce el enum.
  *
- * `categoria` (US-013 CATAPI-05) es la Categoria de dominio ya foldeada
- * (nunca el categoriaId físico) — `null` para filas Ingreso/SinCategoria o
- * con un id no reconocido (defensive), mismo criterio que el fold de bucket.
+ * `categoria` (US-013 CATAPI-05, re-tipado por ADR-037/D-01) es el
+ * `{id, nombre}` de la fila del usuario ya foldeada (nunca el categoriaId
+ * físico) — `null` solo para filas Ingreso/SinCategoria. `nombre` es
+ * `string`: la ownership de la query (`WHERE userId`) es la única
+ * autoridad de validez, ya no un enum cerrado.
  */
 export interface MovimientoMesRow {
   readonly id: string;
@@ -29,7 +30,7 @@ export interface MovimientoMesRow {
   readonly bucket: Bucket;
   readonly categoria: {
     readonly id: string;
-    readonly nombre: Categoria;
+    readonly nombre: string;
   } | null;
 }
 

@@ -385,7 +385,11 @@ export class ProcessIngestaUseCase {
             patrones,
           )
           .getValue();
-        return { transaccionId: tx.id, categoria, bucket };
+        return {
+          transaccionId: tx.id,
+          categoriaId: categoria?.id ?? null,
+          bucket,
+        };
       });
 
       // 4. Elegir qué escribir:

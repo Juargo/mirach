@@ -44,6 +44,20 @@ import {
   transaccionesCategoriaRequestSchema,
   transaccionesCategoriaResponseSchema,
 } from './transacciones-categoria.schema';
+import {
+  categoriaCreateRequestSchema,
+  categoriaUpdateRequestSchema,
+  categoriaIdPathParamsSchema,
+  categoriaResponseSchema,
+  catalogoResponseSchema,
+} from './categorias.schema';
+import {
+  patronCreateRequestSchema,
+  patronUpdateRequestSchema,
+  patronIdPathParamsSchema,
+  patronResponseSchema,
+} from './patrones.schema';
+import { catalogoErrorResponseSchema } from './catalogo-error.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -550,11 +564,290 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid categoria — not a recognized value in the domain enum (scrubbed, CategoriaInvalidaError).',
+        "Invalid categoria — the given name does not resolve against the caller's own catalog " +
+        '(scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired).',
     },
     '404': {
       description:
         'Anti-enumeration: the transaction does not exist or does not belong to the authenticated user.',
+    },
+  },
+};
+
+/**
+ * `GET`/`POST /api/categorias`, `PATCH`/`DELETE /api/categorias/{id}` (US-038,
+ * CAT038-01…04/07) — the 4 catalog paths that carry the machine-readable
+ * `code` (design.md Q2/§7.3, `CatalogoErrorResponse`). Boundary-validated
+ * with `.safeParse()` (D-09) — unlike the pre-existing operations above,
+ * which stay contract-only.
+ */
+const categoriasListOperation: ZodOpenApiOperationObject = {
+  summary: "List the caller's category catalog",
+  description:
+    "Authenticated endpoint returning the caller's own categories with their nested classification " +
+    'patterns (US-038, CAT038-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user ' +
+    'isolation). Available to demo sessions (read-only, CAT038-08).',
+  responses: {
+    '200': {
+      description: "The caller's full catalog.",
+      content: {
+        'application/json': { schema: catalogoResponseSchema },
+      },
+    },
+  },
+};
+
+const categoriasCreateOperation: ZodOpenApiOperationObject = {
+  summary: 'Create a category',
+  description:
+    'Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01). ' +
+    'Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+  requestBody: {
+    content: {
+      'application/json': { schema: categoriaCreateRequestSchema },
+    },
+  },
+  responses: {
+    '201': {
+      description: 'Category created.',
+      content: {
+        'application/json': { schema: categoriaResponseSchema },
+      },
+    },
+    '400': {
+      description: 'Invalid nombre/bucket, or a malformed request body.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '403': {
+      description: 'The calling session is a demo session (read-only catalog).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'A category with that nombre already exists for this user (case-insensitive).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+  },
+};
+
+const categoriasUpdateOperation: ZodOpenApiOperationObject = {
+  summary: 'Rename and/or re-bucket a category',
+  description:
+    'Authenticated endpoint that partially updates a category (US-038, CAT038-03). At least one of ' +
+    '`nombre`/`bucket` MUST be present. When `bucket` actually changes, every historical Transaccion ' +
+    'pointing at the category is re-stamped atomically. Requires x-api-key + a valid session. ' +
+    'Rejected for demo sessions.',
+  requestParams: {
+    path: categoriaIdPathParamsSchema,
+  },
+  requestBody: {
+    content: {
+      'application/json': { schema: categoriaUpdateRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Category updated.',
+      content: {
+        'application/json': { schema: categoriaResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid nombre/bucket, an empty body, or a malformed request body.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '403': {
+      description: 'The calling session is a demo session (read-only catalog).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the category does not exist or does not belong to the authenticated user.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'A category with that nombre already exists for this user (case-insensitive).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+  },
+};
+
+const categoriasDeleteOperation: ZodOpenApiOperationObject = {
+  summary: 'Delete a category',
+  description:
+    'Authenticated endpoint that deletes a category and cascades its patterns, atomically (US-038, ' +
+    'CAT038-04). Rejected if any Transaccion (any period) still references the category. Requires ' +
+    'x-api-key + a valid session. Rejected for demo sessions.',
+  requestParams: {
+    path: categoriaIdPathParamsSchema,
+  },
+  responses: {
+    '204': {
+      description: 'Category (and its patterns) deleted. No response body.',
+    },
+    '403': {
+      description: 'The calling session is a demo session (read-only catalog).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the category does not exist or does not belong to the authenticated user.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The category is referenced by at least one Transaccion (any period).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+  },
+};
+
+const patronesCreateOperation: ZodOpenApiOperationObject = {
+  summary: 'Create a classification pattern',
+  description:
+    "Authenticated endpoint that creates a classification pattern under one of the caller's own " +
+    'categories (US-038, CAT038-05/06). Requires x-api-key + a valid session. Rejected for demo ' +
+    'sessions.',
+  requestBody: {
+    content: {
+      'application/json': { schema: patronCreateRequestSchema },
+    },
+  },
+  responses: {
+    '201': {
+      description: 'Pattern created.',
+      content: {
+        'application/json': { schema: patronResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a ' +
+        'malformed request body.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '403': {
+      description: 'The calling session is a demo session (read-only catalog).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '404': {
+      description:
+        'Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'A pattern with that text already exists for this user (case-insensitive).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+  },
+};
+
+const patronesUpdateOperation: ZodOpenApiOperationObject = {
+  summary: 'Update a classification pattern',
+  description:
+    'Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is ' +
+    'NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid ' +
+    'session. Rejected for demo sessions.',
+  requestParams: {
+    path: patronIdPathParamsSchema,
+  },
+  requestBody: {
+    content: {
+      'application/json': { schema: patronUpdateRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description: 'Pattern updated.',
+      content: {
+        'application/json': { schema: patronResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid patron/matchType/prioridad, an invalid REGEX, an empty body, or a malformed request body.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '403': {
+      description: 'The calling session is a demo session (read-only catalog).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the pattern does not exist or does not belong to the authenticated user.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'A pattern with that text already exists for this user (case-insensitive).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+  },
+};
+
+const patronesDeleteOperation: ZodOpenApiOperationObject = {
+  summary: 'Delete a classification pattern',
+  description:
+    'Authenticated endpoint that deletes a pattern (US-038, CAT038-05/07). Requires x-api-key + a ' +
+    'valid session. Rejected for demo sessions.',
+  requestParams: {
+    path: patronIdPathParamsSchema,
+  },
+  responses: {
+    '204': {
+      description: 'Pattern deleted. No response body.',
+    },
+    '403': {
+      description: 'The calling session is a demo session (read-only catalog).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the pattern does not exist or does not belong to the authenticated user.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
     },
   },
 };
@@ -586,6 +879,19 @@ const paths: ZodOpenApiPathsObject = {
   '/api/auth/google': { get: authGoogleInitiateOperation },
   '/api/auth/google/callback': { get: authGoogleCallbackOperation },
   '/api/auth/google/token': { post: authGoogleTokenOperation },
+  '/api/categorias': {
+    get: categoriasListOperation,
+    post: categoriasCreateOperation,
+  },
+  '/api/categorias/{id}': {
+    patch: categoriasUpdateOperation,
+    delete: categoriasDeleteOperation,
+  },
+  '/api/patrones': { post: patronesCreateOperation },
+  '/api/patrones/{id}': {
+    patch: patronesUpdateOperation,
+    delete: patronesDeleteOperation,
+  },
 };
 
 export function buildOpenApiDocument() {

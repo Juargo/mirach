@@ -21,7 +21,6 @@ import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-i
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { IFileReader } from '../ports/file-reader.port';
 import { IBankDetector, DetectedBank } from '../ports/bank-detector.port';
@@ -296,7 +295,7 @@ class FakeBucketWriter implements ITransaccionBucketWriter {
   calls: Array<
     ReadonlyArray<{
       transaccionId: string;
-      categoria: Categoria | null;
+      categoriaId: string | null;
       bucket: Bucket;
     }>
   > = [];
@@ -309,7 +308,7 @@ class FakeBucketWriter implements ITransaccionBucketWriter {
     ingestaId: string,
     asignaciones: ReadonlyArray<{
       transaccionId: string;
-      categoria: Categoria | null;
+      categoriaId: string | null;
       bucket: Bucket;
     }>,
   ): Promise<Result<{ actualizadas: number }, CategorizacionFallidaError>> {
@@ -824,14 +823,19 @@ describe('ProcessIngestaUseCase', () => {
       expect(record.estado).toBe('PROCESADA');
     });
 
-    it('happy path con catálogo: asignarCategorizacion llamado con el mapeo {categoria,bucket} correcto por tx', async () => {
+    it('happy path con catálogo: asignarCategorizacion llamado con el mapeo {categoriaId,bucket} correcto por tx', async () => {
       const catalogo = new FakeCatalogo();
+      const catSupermercado = {
+        id: 'cat-supermercado-row-id',
+        nombre: 'Supermercado',
+        bucket: Bucket.Necesidades,
+      };
       catalogo.patrones = [
         new PatronClasificacion({
           id: 'p-1',
           patron: 'compra',
           matchType: 'CONTAINS',
-          categoria: Categoria.Supermercado,
+          categoria: catSupermercado,
           prioridad: 10,
         }),
       ];
@@ -850,13 +854,13 @@ describe('ProcessIngestaUseCase', () => {
       const compraAsig = allAsignaciones.find(
         (a) => a.transaccionId === 'tx-persisted-1',
       );
-      expect(compraAsig?.categoria).toBe(Categoria.Supermercado);
+      expect(compraAsig?.categoriaId).toBe(catSupermercado.id);
       expect(compraAsig?.bucket).toBe(Bucket.Necesidades);
       // tx-persisted-2 (Sueldo, abono>0 cargo=0) → Ingreso rule, sin categoría
       const sueldoAsig = allAsignaciones.find(
         (a) => a.transaccionId === 'tx-persisted-2',
       );
-      expect(sueldoAsig?.categoria).toBeNull();
+      expect(sueldoAsig?.categoriaId).toBeNull();
       expect(sueldoAsig?.bucket).toBe(Bucket.Ingreso);
     });
 

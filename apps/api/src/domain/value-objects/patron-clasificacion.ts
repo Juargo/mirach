@@ -1,14 +1,25 @@
 import { Bucket } from './bucket';
-import { Categoria, CATEGORIA_BUCKET } from './categoria';
 
 /** Tipos de coincidencia disponibles para un patrón de clasificación. */
 export type MatchType = 'CONTAINS' | 'STARTS_WITH' | 'REGEX';
+
+/**
+ * Proyección mínima de la categoría propietaria de este patrón. Desde
+ * ADR-037, `Categoria` ya no es un miembro de un enum cerrado — es una fila
+ * propiedad del usuario; el patrón anida los tres campos que necesita para
+ * derivar su `bucket` sin volver a consultar el catálogo.
+ */
+export interface CategoriaDePatron {
+  readonly id: string;
+  readonly nombre: string;
+  readonly bucket: Bucket;
+}
 
 export interface PatronClasificacionProps {
   readonly id: string;
   readonly patron: string;
   readonly matchType: MatchType;
-  readonly categoria: Categoria;
+  readonly categoria: CategoriaDePatron;
   readonly prioridad: number;
 }
 
@@ -18,10 +29,10 @@ export interface PatronClasificacionProps {
  * Representa una regla de clasificación del catálogo. El método `coincide()`
  * evalúa si una descripción de transacción cumple el patrón.
  *
- * US-013 (CAT-02): el patrón carga su `categoria`; `bucket` es un getter
- * DERIVADO vía CATEGORIA_BUCKET — nunca se acepta ni se guarda de forma
- * independiente, así el invariante "categoría↔bucket" se sostiene por
- * construcción (ver design.md §2).
+ * CAT-02 (ADR-037): el patrón anida su `categoria` completa; `bucket` es un
+ * getter que PROYECTA `categoria.bucket` — nunca se acepta ni se guarda como
+ * campo hermano independiente, así el invariante "categoría↔bucket" se
+ * sostiene por construcción (ver design.md D-03).
  *
  * Garantías:
  *   - CONTAINS / STARTS_WITH: normalización a minúsculas + trim en ambos lados.
@@ -32,7 +43,7 @@ export class PatronClasificacion {
   readonly id: string;
   readonly patron: string;
   readonly matchType: MatchType;
-  readonly categoria: Categoria;
+  readonly categoria: CategoriaDePatron;
   readonly prioridad: number;
 
   constructor(props: PatronClasificacionProps) {
@@ -43,9 +54,9 @@ export class PatronClasificacion {
     this.prioridad = props.prioridad;
   }
 
-  /** Bucket DERIVADO de la categoría — nunca almacenado independientemente. */
+  /** Bucket PROYECTADO de la categoría anidada — nunca almacenado independientemente. */
   get bucket(): Bucket {
-    return CATEGORIA_BUCKET[this.categoria];
+    return this.categoria.bucket;
   }
 
   /**
