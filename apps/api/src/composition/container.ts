@@ -27,6 +27,7 @@ import {
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { crearCatalogo, type CatalogoGraph } from './crear-catalogo';
+import { crearPerfil, type PerfilGraph } from './crear-perfil';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
@@ -77,6 +78,8 @@ export interface Container {
   readonly listarIngestas: ListarIngestasUseCase;
   /** Catálogo CRUD (US-038) — `/api/categorias` + `/api/patrones`. */
   readonly catalogo: CatalogoGraph;
+  /** Edición de perfil (US-040, PR#1) — `PATCH /api/perfil`. */
+  readonly perfil: PerfilGraph;
   /** Login por credenciales — POST /api/auth/login. */
   readonly login: LoginUseCase;
   /** Revocar sesión — POST /api/auth/logout. */
@@ -193,6 +196,9 @@ export function createContainer(
     logger,
   );
   const catalogo = crearCatalogo(prisma);
+  // US-040: reusa las MISMAS instancias crypto/blindIndex derivadas arriba —
+  // nunca una re-derivación (mismo carry-forward que googleAuth/googleAuthMobile).
+  const perfil = crearPerfil(prisma, crypto, blindIndex, logger);
 
   return {
     validarSesion: auth.validarSesion,
@@ -206,6 +212,7 @@ export function createContainer(
     eliminarIngesta,
     listarIngestas,
     catalogo,
+    perfil,
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
