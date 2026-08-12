@@ -4,7 +4,6 @@ import { NombreCategoriaInvalidoError } from '../../../domain/errors/nombre-cate
 import { BucketNoAsignableError } from '../../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../../domain/errors/categoria-en-uso.error';
 import { PatronInvalidoError } from '../../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../../domain/errors/match-type-invalido.error';
 import { RegexInvalidaError } from '../../../domain/errors/regex-invalida.error';
@@ -25,7 +24,6 @@ describe('aCatalogoHttpError — one class, exactly one status + code', () => {
     [new PatronNoEncontradoError('id'), 404, 'PATRON_NO_ENCONTRADO'],
     [new NombreCategoriaDuplicadoError('x'), 409, 'NOMBRE_DUPLICADO'],
     [new PatronDuplicadoError('x'), 409, 'PATRON_DUPLICADO'],
-    [new CategoriaEnUsoError('id'), 409, 'CATEGORIA_EN_USO'],
   ] as const)('%p -> status %i, code %s', (error, status, code) => {
     const result = aCatalogoHttpError(error);
     expect(result.status).toBe(status);

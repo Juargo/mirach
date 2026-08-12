@@ -3,16 +3,17 @@ import { PrismaCategoriaRepository } from './prisma-categoria.repository';
 import { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../domain/errors/categoria-en-uso.error';
 import { BUCKET_IDS } from './bucket-ids';
 
 const USER_ID = 'user-owner-of-this-catalog';
 
 /**
- * The fake `$transaction` supports BOTH Prisma call styles used by this
- * adapter: array form (`actualizar`, D-07) and interactive callback form
- * (`eliminar`, D-06). The interactive form receives the SAME mocked client,
- * mirroring how a real `tx` exposes the identical model surface.
+ * The fake `$transaction` supports the SINGLE Prisma call style this
+ * adapter uses post-US-039: array form (`actualizar`'s re-stamp, D-07; and
+ * `eliminar`'s children-first delete, design.md §4). Both statements have
+ * no interdependent reads, so neither needs the interactive callback form —
+ * `Promise.all` mirrors Prisma's array-form semantics closely enough for
+ * a unit fake.
  */
 function makePrismaMock() {
   const categoria = {
@@ -30,9 +31,6 @@ function makePrismaMock() {
   };
   const prisma = { categoria, patronClasificacion, transaccion };
   const $transaction = vi.fn(async (arg: unknown) => {
-    if (typeof arg === 'function') {
-      return (arg as (tx: unknown) => Promise<unknown>)(prisma);
-    }
     return Promise.all(arg as Promise<unknown>[]);
   });
   return { ...prisma, $transaction } as unknown as PrismaClient;
@@ -46,13 +44,22 @@ function categoriaRow(overrides?: Partial<Record<string, unknown>>) {
     bucketId: BUCKET_IDS[Bucket.Deseos],
     bucket: { id: BUCKET_IDS[Bucket.Deseos], nombre: Bucket.Deseos },
     patrones: [],
+    _count: { transacciones: 0 },
     ...overrides,
   };
 }
 
+const CATEGORIA_INCLUDE_WITH_COUNT = {
+  bucket: true,
+  patrones: true,
+  _count: {
+    select: { transacciones: { where: { account: { userId: USER_ID } } } },
+  },
+};
+
 describe('PrismaCategoriaRepository', () => {
   describe('listarConPatrones()', () => {
-    it('filters by userId in the SQL WHERE (RNF-SEC-006)', async () => {
+    it('filters by userId in the SQL WHERE (RNF-SEC-006) and scopes the transaccionesCount subquery by the SAME userId (CAT039-01)', async () => {
       const prisma = makePrismaMock();
       const repo = new PrismaCategoriaRepository(prisma);
 
@@ -60,9 +67,24 @@ describe('PrismaCategoriaRepository', () => {
 
       expect(prisma.categoria.findMany).toHaveBeenCalledWith({
         where: { userId: USER_ID },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
         orderBy: { nombre: 'asc' },
       });
+    });
+
+    it('maps _count.transacciones → transaccionesCount (12 → 12, 0 → 0, never undefined)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.findMany as Mock).mockResolvedValue([
+        categoriaRow({ id: 'cat-1', _count: { transacciones: 12 } }),
+        categoriaRow({ id: 'cat-2', _count: { transacciones: 0 } }),
+      ]);
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const categorias = await repo.listarConPatrones(USER_ID);
+
+      expect(categorias[0]?.transaccionesCount).toBe(12);
+      expect(categorias[1]?.transaccionesCount).toBe(0);
+      expect(categorias[1]?.transaccionesCount).not.toBeUndefined();
     });
 
     it('re-orders nested patrones by (prioridad, patron, id) — D-08', async () => {
@@ -127,7 +149,7 @@ describe('PrismaCategoriaRepository', () => {
 
       expect(prisma.categoria.findFirst).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
     });
 
@@ -200,8 +222,23 @@ describe('PrismaCategoriaRepository', () => {
           nombre: 'Mascotas',
           bucketId: BUCKET_IDS[Bucket.Deseos],
         },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
+    });
+
+    it('returned DTO carries transaccionesCount sourced from the include, not hard-coded to 0', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockResolvedValue(
+        categoriaRow({ _count: { transacciones: 0 } }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const categoria = await repo.crear(USER_ID, {
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+      });
+
+      expect(categoria.transaccionesCount).toBe(0);
     });
   });
 
@@ -218,7 +255,7 @@ describe('PrismaCategoriaRepository', () => {
       expect(prisma.categoria.update).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
         data: { nombre: 'Renombrada' },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.transaccion.updateMany).not.toHaveBeenCalled();
@@ -244,7 +281,7 @@ describe('PrismaCategoriaRepository', () => {
       expect(prisma.categoria.update).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
         data: { bucketId: BUCKET_IDS[Bucket.Necesidades] },
-        include: { bucket: true, patrones: true },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
       expect(prisma.transaccion.updateMany).toHaveBeenCalledWith({
         where: { categoriaId: 'cat-1', account: { userId: USER_ID } },
@@ -254,7 +291,7 @@ describe('PrismaCategoriaRepository', () => {
   });
 
   describe('eliminar()', () => {
-    it('runs an interactive $transaction: patterns deleted first, then the category with the in-use predicate INSIDE the delete statement — D-06', async () => {
+    it('runs an array-form $transaction: patterns deleted FIRST, then the category — NO in-use predicate (US-039, CAT038-04 as modified)', async () => {
       const prisma = makePrismaMock();
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);
@@ -264,35 +301,46 @@ describe('PrismaCategoriaRepository', () => {
       expect(result.isOk()).toBe(true);
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       const [txArg] = (prisma.$transaction as Mock).mock.calls[0];
-      expect(typeof txArg).toBe('function');
+      expect(Array.isArray(txArg)).toBe(true);
+    });
+
+    it('the child deleteMany WHERE deep-equals {categoriaId, userId} EXACTLY — pins the Q4 invariant (dropping userId reopens the cross-tenant delete PrismaEliminarIngestaRepository guards against)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.eliminar(USER_ID, 'cat-1');
+
       expect(prisma.patronClasificacion.deleteMany).toHaveBeenCalledWith({
         where: { categoriaId: 'cat-1', userId: USER_ID },
       });
+    });
+
+    it('the parent deleteMany WHERE deep-equals {id, userId} EXACTLY — no transacciones key (predicate removal, D-04)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.eliminar(USER_ID, 'cat-1');
+
       expect(prisma.categoria.deleteMany).toHaveBeenCalledWith({
-        where: { id: 'cat-1', userId: USER_ID, transacciones: { none: {} } },
+        where: { id: 'cat-1', userId: USER_ID },
       });
     });
 
-    it('returns Result.fail(CategoriaEnUsoError) when the delete count is 0 AND a follow-up userId-scoped lookup finds the row (409, in use)', async () => {
+    it('parent count 1 ⇒ Result.ok', async () => {
       const prisma = makePrismaMock();
-      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 0 });
-      (prisma.categoria.findFirst as Mock).mockResolvedValue({ id: 'cat-1' });
+      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);
 
       const result = await repo.eliminar(USER_ID, 'cat-1');
 
-      expect(result.isFail()).toBe(true);
-      expect(result.getError()).toBeInstanceOf(CategoriaEnUsoError);
-      expect(prisma.categoria.findFirst).toHaveBeenCalledWith({
-        where: { id: 'cat-1', userId: USER_ID },
-        select: { id: true },
-      });
+      expect(result.isOk()).toBe(true);
     });
 
-    it('returns Result.fail(CategoriaNoEncontradaError) when the delete count is 0 AND the follow-up lookup finds nothing (404, absent or not owned)', async () => {
+    it('parent count 0 ⇒ Result.fail(CategoriaNoEncontradaError) — absent or not owned, never 409 (US-039)', async () => {
       const prisma = makePrismaMock();
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 0 });
-      (prisma.categoria.findFirst as Mock).mockResolvedValue(null);
       const repo = new PrismaCategoriaRepository(prisma);
 
       const result = await repo.eliminar(USER_ID, 'cat-1');
@@ -301,7 +349,7 @@ describe('PrismaCategoriaRepository', () => {
       expect(result.getError()).toBeInstanceOf(CategoriaNoEncontradaError);
     });
 
-    it('the follow-up lookup runs OUTSIDE the transaction (only after count === 0)', async () => {
+    it('categoria.findFirst is NEVER called — no follow-up lookup exists anymore (D-06 sentinel + predicate both removed)', async () => {
       const prisma = makePrismaMock();
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);

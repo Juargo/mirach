@@ -12,6 +12,8 @@ export interface CategoriaDto {
   readonly nombre: string;
   readonly bucket: string;
   readonly patrones: ReadonlyArray<PatronDto>;
+  /** All-history count of the caller's own transacciones (CAT039-01). */
+  readonly transaccionesCount: number;
 }
 
 export function aCategoriaDto(categoria: CategoriaConPatrones): CategoriaDto {
@@ -20,5 +22,6 @@ export function aCategoriaDto(categoria: CategoriaConPatrones): CategoriaDto {
     nombre: categoria.nombre,
     bucket: categoria.bucket,
     patrones: categoria.patrones.map(aPatronDto),
+    transaccionesCount: categoria.transaccionesCount,
   };
 }

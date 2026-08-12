@@ -8,6 +8,7 @@ describe('aCategoriaDto', () => {
       nombre: 'Mascotas',
       bucket: Bucket.Deseos,
       patrones: [],
+      transaccionesCount: 0,
     });
 
     expect(dto).toEqual({
@@ -15,6 +16,7 @@ describe('aCategoriaDto', () => {
       nombre: 'Mascotas',
       bucket: 'Deseos',
       patrones: [],
+      transaccionesCount: 0,
     });
   });
 
@@ -32,6 +34,7 @@ describe('aCategoriaDto', () => {
           prioridad: 100,
         },
       ],
+      transaccionesCount: 0,
     });
 
     expect(dto.patrones).toEqual([
@@ -43,5 +46,17 @@ describe('aCategoriaDto', () => {
         prioridad: 100,
       },
     ]);
+  });
+
+  it('passes a non-zero transaccionesCount through unchanged (CAT039-01)', () => {
+    const dto = aCategoriaDto({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: Bucket.Deseos,
+      patrones: [],
+      transaccionesCount: 7,
+    });
+
+    expect(dto.transaccionesCount).toBe(7);
   });
 });

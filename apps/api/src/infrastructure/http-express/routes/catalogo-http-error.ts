@@ -3,7 +3,6 @@ import { NombreCategoriaInvalidoError } from '../../../domain/errors/nombre-cate
 import { BucketNoAsignableError } from '../../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../../domain/errors/categoria-en-uso.error';
 import { PatronInvalidoError } from '../../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../../domain/errors/match-type-invalido.error';
 import { RegexInvalidaError } from '../../../domain/errors/regex-invalida.error';
@@ -28,11 +27,13 @@ export type CatalogoError =
 /**
  * aCatalogoHttpError — ÚNICO traductor de errores para `registrarCategorias`
  * y `registrarPatrones` (US-038, design.md §5.3/§7.4). Un class ⇒
- * exactamente un status ⇒ exactamente un `code` (Q2/Q3) — cubre las 12
+ * exactamente un status ⇒ exactamente un `code` (Q2/Q3) — cubre las 11
  * clases alcanzables desde los 6 use cases de mutación del catálogo (no
  * incluye `CategoriaDesconocidaError`, que solo vive en
  * `PATCH /api/transacciones/:id/categoria`, mapeada por su propio switch
  * inline de 2 variantes — mirrors `aHttpError` de `ingesta.routes.ts`).
+ * `CategoriaEnUsoError` retirada (US-039, CAT038-04 as modified): el delete
+ * ya no rechaza por "en uso", así que ya no hay un `409` que mapear acá.
  *
  * El guard `const _exhaustive: never = error` es el ÚNICO sitio de esta
  * garantía para toda la familia — agregar una variante sin mapearla acá
@@ -95,9 +96,6 @@ export function aCatalogoHttpError(error: CatalogoError): {
   }
   if (error instanceof PatronDuplicadoError) {
     return { status: 409, code: 'PATRON_DUPLICADO', message: error.message };
-  }
-  if (error instanceof CategoriaEnUsoError) {
-    return { status: 409, code: 'CATEGORIA_EN_USO', message: error.message };
   }
   const _exhaustive: never = error;
   return _exhaustive;

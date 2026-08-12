@@ -7,20 +7,24 @@ import {
 } from '../../application/ports/categoria-repository.port';
 import { Patron } from '../../application/ports/patron-repository.port';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../domain/errors/categoria-en-uso.error';
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
 
-const CATEGORIA_INCLUDE = { bucket: true, patrones: true } as const;
-
 /**
- * Rollback sentinel for `eliminar()` (D-06) — an interactive `$transaction`
- * only rolls back when its callback throws, and a `deleteMany()` matching 0
- * rows does not throw on its own. A real `Error` subclass (not a bare
- * value) so `throw`ing it satisfies `@typescript-eslint/only-throw-error`;
- * identity-checked (`instanceof`), never surfaced to a caller.
+ * categoriaInclude — include shape shared by all four read paths
+ * (`listarConPatrones`, `buscarPorId`, `crear`, `actualizar`). A FUNCTION of
+ * `userId`, not a module-level const, because the `transaccionesCount`
+ * subquery's `where` depends on the caller (CAT039-01, RNF-SEC-006 — scoped
+ * in SQL, never in memory). Same shape `actualizar()`'s re-stamp already
+ * uses (`account: { userId }`).
  */
-class RollbackCategoriaEnUso extends Error {}
+function categoriaInclude(userId: string) {
+  return {
+    bucket: true,
+    patrones: true,
+    _count: { select: { transacciones: { where: { account: { userId } } } } },
+  } as const;
+}
 
 interface PatronRow {
   id: string;
@@ -35,6 +39,7 @@ interface CategoriaRow {
   nombre: string;
   bucket: { nombre: string };
   patrones: PatronRow[];
+  _count: { transacciones: number };
 }
 
 /** Mismo tiebreak (prioridad, patron, id) de CategorizarTransaccionUseCase
@@ -64,29 +69,17 @@ function aCategoriaConPatrones(row: CategoriaRow): CategoriaConPatrones {
     nombre: row.nombre,
     bucket: row.bucket.nombre as Bucket,
     patrones: ordenarPatrones(row.patrones).map(aPatron),
+    transaccionesCount: row._count.transacciones,
   };
 }
 
 /**
  * PrismaCategoriaRepository — implementación del port ICategoriaRepository
- * (US-038, CAT038-01…04/07).
+ * (US-038, CAT038-01…04/07; US-039, CAT038-04 as modified).
  *
  * `userId` en el `WHERE` SQL de TODA consulta y mutación — nunca un filtro
- * en memoria (RNF-SEC-006).
- *
- * `eliminar` — BINDING, no regresar a check-then-delete (D-06): el predicado
- * "en uso" vive DENTRO del propio statement de borrado
- * (`transacciones: { none: {} }`, que compila a un `NOT EXISTS` evaluado
- * atómicamente con el DELETE). Un `$transaction` envolviendo un count
- * separado NO cierra la carrera bajo READ COMMITTED — una fila comprometida
- * por un writer concurrente entre el count y el delete sigue siendo visible
- * para la acción FK del delete. El `$transaction` interactivo existe por
- * una razón DISTINTA: que "borrar los patrones, luego la categoría" sea
- * todo-o-nada, para que un rechazo nunca le cueste al usuario sus patrones.
- * Ambas razones deben sostenerse a la vez. El filtro `transacciones: { none: {} }`
- * es deliberadamente NO acotado por usuario: cualquier `Transaccion` que
- * apunte a la categoría — incluso una fila cross-tenant hipotética —
- * bloquea el borrado; rechazar es el lado seguro.
+ * en memoria (RNF-SEC-006). Ver el docblock de `eliminar()` para su
+ * contrato transaccional.
  */
 export class PrismaCategoriaRepository implements ICategoriaRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -94,7 +87,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
   async listarConPatrones(userId: string): Promise<CategoriaConPatrones[]> {
     const rows = await this.prisma.categoria.findMany({
       where: { userId },
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
       orderBy: { nombre: 'asc' },
     });
     return (rows as unknown as CategoriaRow[]).map(aCategoriaConPatrones);
@@ -106,7 +99,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
   ): Promise<CategoriaConPatrones | null> {
     const row = await this.prisma.categoria.findFirst({
       where: { id, userId },
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
     });
     return row === null ? null : aCategoriaConPatrones(row);
   }
@@ -137,7 +130,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
         nombre: data.nombre,
         bucketId: BUCKET_IDS[data.bucket as Bucket],
       },
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
     });
     return aCategoriaConPatrones(row);
   }
@@ -158,7 +151,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     const updateCategoria = this.prisma.categoria.update({
       where: { id, userId },
       data,
-      include: CATEGORIA_INCLUDE,
+      include: categoriaInclude(userId),
     });
 
     // `bucket` ausente del patch ⇒ el bucket no cambió, sin re-stamp (D-07).
@@ -178,46 +171,55 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     return aCategoriaConPatrones(row);
   }
 
+  /**
+   * eliminar — array-form $transaction, children FIRST (US-039, CAT038-04 as modified).
+   *
+   * (1) Children first is MANDATORY, not stylistic: PatronClasificacion.categoria
+   *     declares no onDelete (schema.prisma:176) ⇒ Prisma's default Restrict for a
+   *     required relation ⇒ deleting a categoría that still has patrones raises an
+   *     FK error. "Los patrones se borran con la categoría" es una necesidad
+   *     estructural del delete, no una cortesía agregada.
+   *
+   * (2) NO sentinel, and NO in-use predicate. US-038 needed RollbackCategoriaEnUso
+   *     porque un deleteMany de 0 filas NO hace rollback de un $transaction
+   *     interactivo — el usuario perdía sus patrones mientras la categoría
+   *     sobrevivía. Ese peligro ya no puede ocurrir: parent.count === 0 solo puede
+   *     significar ausente/ajena, y en ambos casos el deleteMany hijo también
+   *     matcheó 0 filas, porque PatronClasificacion tiene un composite FK
+   *     (categoriaId, userId) → Categoria(id, userId) (ADR-036 D-06): una fila
+   *     (categoriaId = id, userId = caller) no puede existir si no existe la
+   *     Categoria (id, userId = caller). Cero padre ⇒ cero hijos, por constraint
+   *     de base de datos.
+   *
+   *     INVARIANTE DEL QUE DEPENDE ESA PRUEBA: los DOS statements filtran por el
+   *     MISMO userId. Sacar `userId` del WHERE hijo rompe el argumento y
+   *     reintroduce el ataque documentado en PrismaEliminarIngestaRepository
+   *     (A borra los patrones de B y recibe un 404 limpio). No lo saques.
+   *
+   * (3) Transaccion.categoriaId lo NULea la FK (onDelete: SetNull,
+   *     schema.prisma:199), no código de aplicación — ver design.md §2/D-03.
+   *     bucketId NO se toca: sigue siendo la fuente de verdad del 50/30/20, así
+   *     que borrar una categoría NO mueve dinero (CAT038-04, CA-04).
+   *
+   * deleteMany (no delete) en el padre: el count ES el gate de ownership, así que
+   * "no existe" y "no es tuya" quedan indistinguibles (anti-enumeration, CAT038-07).
+   */
   async eliminar(
     userId: string,
     id: string,
-  ): Promise<Result<void, CategoriaNoEncontradaError | CategoriaEnUsoError>> {
-    let eliminadas = 0;
-    try {
-      eliminadas = await this.prisma.$transaction(async (tx) => {
-        // Los patrones cascadean junto con la categoría — todo-o-nada.
-        await tx.patronClasificacion.deleteMany({
-          where: { categoriaId: id, userId },
-        });
-        // Predicado "en uso" DENTRO del propio DELETE (D-06 — ver docblock).
-        const { count } = await tx.categoria.deleteMany({
-          where: { id, userId, transacciones: { none: {} } },
-        });
-        if (count === 0) {
-          throw new RollbackCategoriaEnUso();
-        }
-        return count;
-      });
-    } catch (error) {
-      if (!(error instanceof RollbackCategoriaEnUso)) {
-        throw error;
-      }
-      eliminadas = 0;
-    }
+  ): Promise<Result<void, CategoriaNoEncontradaError>> {
+    const [, parent] = await this.prisma.$transaction([
+      // (1) children FIRST — REQUIRED under the FK's default Restrict.
+      this.prisma.patronClasificacion.deleteMany({
+        where: { categoriaId: id, userId },
+      }),
+      // (2) parent — its count IS the ownership gate; the FK nulls Transaccion.categoriaId.
+      this.prisma.categoria.deleteMany({ where: { id, userId } }),
+    ]);
 
-    if (eliminadas > 0) {
-      return Result.ok(undefined);
-    }
-
-    // count === 0: distinguir 404 (ausente/no es del usuario) de 409 (en uso)
-    // con un lookup FUERA de la transacción — la categoría ya sobrevivió.
-    const fila = await this.prisma.categoria.findFirst({
-      where: { id, userId },
-      select: { id: true },
-    });
-    if (fila === null) {
+    if (parent.count === 0) {
       return Result.fail(new CategoriaNoEncontradaError(id));
     }
-    return Result.fail(new CategoriaEnUsoError(id));
+    return Result.ok(undefined);
   }
 }

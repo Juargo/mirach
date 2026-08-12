@@ -12,6 +12,7 @@ const CATEGORIA_ACTUAL = {
   nombre: 'Delivery',
   bucket: Bucket.Deseos,
   patrones: [],
+  transaccionesCount: 0,
 };
 
 function makeRepo(

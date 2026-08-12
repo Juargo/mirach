@@ -2,26 +2,24 @@ import { Result } from '../../shared/result';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../domain/errors/categoria-en-uso.error';
 
 export type EliminarCategoriaError =
   | CatalogoDemoSoloLecturaError
-  | CategoriaNoEncontradaError
-  | CategoriaEnUsoError;
+  | CategoriaNoEncontradaError;
 
 /**
  * EliminarCategoriaUseCase — use case de escritura para
- * `DELETE /api/categorias/:id` (US-038, CAT038-04).
+ * `DELETE /api/categorias/:id` (US-038/US-039, CAT038-04 as modified).
  *
- * Non-goal explícito (US-039, NO absorbido aquí): el `409` es el
- * deliverable de este use case — reasignar/migrar las transacciones de una
- * categoría en uso queda fuera de alcance.
+ * El delete SIEMPRE succeeds para una categoría del caller, esté o no en
+ * uso — no hay rechazo por "en uso" (US-039 retiró ese `409`). Las
+ * transacciones que referenciaban la categoría sobreviven con
+ * `categoriaId: null`; su `bucketId` nunca se toca, así que borrar una
+ * categoría no mueve dinero entre buckets (CAT038-04, CA-04).
  *
- * NO hace su propio pre-chequeo de "en uso": eso sería un TOCTOU (una
- * ingesta concurrente podría categorizar en la categoría entre el check y
- * el delete). El predicado "en uso" vive dentro del propio statement de
- * borrado del adapter (D-06) — este use case solo mapea demo gate +
- * delega. Nunca lanza.
+ * Este use case solo mapea el demo gate + delega — la mecánica del delete
+ * (children-first, composite FK) vive en el adapter
+ * (`PrismaCategoriaRepository#eliminar`, design.md Q4). Nunca lanza.
  */
 export class EliminarCategoriaUseCase {
   constructor(private readonly categoriaRepository: ICategoriaRepository) {}

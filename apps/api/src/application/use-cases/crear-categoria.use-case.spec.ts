@@ -18,6 +18,7 @@ function makeRepo(
       nombre: 'Mascotas',
       bucket: Bucket.Deseos,
       patrones: [],
+      transaccionesCount: 0,
     }),
     actualizar: vi.fn(),
     eliminar: vi.fn(),

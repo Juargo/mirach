@@ -7,7 +7,6 @@ import { Bucket } from '../../../domain/value-objects/bucket';
 import { CatalogoDemoSoloLecturaError } from '../../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
-import { CategoriaEnUsoError } from '../../../domain/errors/categoria-en-uso.error';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 
 const CATEGORIA_OK = {
@@ -15,6 +14,7 @@ const CATEGORIA_OK = {
   nombre: 'Mascotas',
   bucket: Bucket.Deseos,
   patrones: [],
+  transaccionesCount: 0,
 };
 
 function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
@@ -208,20 +208,22 @@ describe('registrarCategorias', () => {
       });
     });
 
-    it('409 CATEGORIA_EN_USO when the category is referenced by a transaction', async () => {
+    it('404 CATEGORIA_NO_ENCONTRADA when the use case fails — the delete error path (US-039, no more 409)', async () => {
       const catalogo = makeCatalogo({
         eliminarCategoria: {
           execute: vi
             .fn()
-            .mockResolvedValue(Result.fail(new CategoriaEnUsoError('cat-1'))),
+            .mockResolvedValue(
+              Result.fail(new CategoriaNoEncontradaError('cat-1')),
+            ),
         } as unknown as CatalogoGraph['eliminarCategoria'],
       });
       const res = await request(probeApp(catalogo)).delete(
         '/api/categorias/cat-1',
       );
 
-      expect(res.status).toBe(409);
-      expect(res.body.code).toBe('CATEGORIA_EN_USO');
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
     });
   });
 });

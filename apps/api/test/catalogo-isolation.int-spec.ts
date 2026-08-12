@@ -386,3 +386,200 @@ describe('Catalog CRUD HTTP isolation (CAT038-07, CA-04) — user B never gets 4
     expect(res.status).toBe(404);
   });
 });
+
+/**
+ * transaccionesCount + delete isolation (US-039, CAT039-01/CA-05) — EXTENDS
+ * this file. Same "two independently-created users" style as the describe
+ * blocks above, now covering: (a) transaccionesCount never leaks across
+ * users even when both own a same-named category; (b) deleting another
+ * user's category id is a 404 that leaves their category, patterns and
+ * transactions (including bucketId) completely untouched.
+ */
+describe('Catalog transaccionesCount + delete isolation (CAT039-01, CA-05)', () => {
+  let app: Express;
+  let prisma: PrismaClient;
+  let authA: string;
+  let categoriaIdA: string;
+  let categoriaIdB: string;
+  let txIdB: string;
+  let patronIdB: string;
+
+  const userIdA = `cat-ca05-a-${RUN_ID}`;
+  const userIdB = `cat-ca05-b-${RUN_ID}`;
+
+  beforeAll(async () => {
+    if (!ALLOW) return;
+
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
+
+    await prisma.user.create({
+      data: { id: userIdA, nombre: `CA-05 A ${RUN_ID}` },
+    });
+    await prisma.user.create({
+      data: { id: userIdB, nombre: `CA-05 B ${RUN_ID}` },
+    });
+
+    const bucketDeseos = await prisma.bucketPresupuesto.findFirstOrThrow({
+      where: { nombre: 'Deseos' },
+    });
+
+    const categoriaA = await prisma.categoria.create({
+      data: {
+        userId: userIdA,
+        nombre: `Compartida-${RUN_ID}`.slice(0, 40),
+        bucketId: bucketDeseos.id,
+      },
+    });
+    categoriaIdA = categoriaA.id;
+    const categoriaB = await prisma.categoria.create({
+      data: {
+        userId: userIdB,
+        nombre: `Compartida-${RUN_ID}`.slice(0, 40),
+        bucketId: bucketDeseos.id,
+      },
+    });
+    categoriaIdB = categoriaB.id;
+
+    const accountA = await prisma.account.create({
+      data: {
+        userId: userIdA,
+        banco: 'TestBank',
+        tipoCuenta: 'CuentaCorriente',
+        numeroCuenta: `ca05-a-${RUN_ID}`,
+      },
+    });
+    const ingestaA = await prisma.ingesta.create({
+      data: {
+        userId: userIdA,
+        accountId: accountA.id,
+        banco: 'TestBank',
+        nombreArchivo: `ca05-a-${RUN_ID}.xlsx`,
+        estado: 'PROCESADA',
+      },
+    });
+    await prisma.transaccion.create({
+      data: {
+        accountId: accountA.id,
+        ingestaId: ingestaA.id,
+        fecha: new Date('2026-07-01T00:00:00.000Z'),
+        cargo: 1000n,
+        abono: 0n,
+        descripcion: 'Tx A',
+        categoriaId: categoriaIdA,
+        bucketId: bucketDeseos.id,
+      },
+    });
+
+    const accountB = await prisma.account.create({
+      data: {
+        userId: userIdB,
+        banco: 'TestBank',
+        tipoCuenta: 'CuentaCorriente',
+        numeroCuenta: `ca05-b-${RUN_ID}`,
+      },
+    });
+    const ingestaB = await prisma.ingesta.create({
+      data: {
+        userId: userIdB,
+        accountId: accountB.id,
+        banco: 'TestBank',
+        nombreArchivo: `ca05-b-${RUN_ID}.xlsx`,
+        estado: 'PROCESADA',
+      },
+    });
+    const txB = await prisma.transaccion.create({
+      data: {
+        accountId: accountB.id,
+        ingestaId: ingestaB.id,
+        fecha: new Date('2026-07-01T00:00:00.000Z'),
+        cargo: 2000n,
+        abono: 0n,
+        descripcion: 'Tx B',
+        categoriaId: categoriaIdB,
+        bucketId: bucketDeseos.id,
+      },
+    });
+    txIdB = txB.id;
+
+    const patronB = await prisma.patronClasificacion.create({
+      data: {
+        userId: userIdB,
+        categoriaId: categoriaIdB,
+        patron: `ca05-patron-b-${RUN_ID}`,
+        matchType: 'CONTAINS',
+        prioridad: 100,
+      },
+    });
+    patronIdB = patronB.id;
+
+    const sessionA = await crearSesionParaUsuario(prisma, userIdA);
+    authA = `Bearer ${sessionA.token}`;
+  });
+
+  afterAll(async () => {
+    if (!ALLOW) return;
+
+    await prisma.transaccion.deleteMany({
+      where: { account: { userId: { in: [userIdA, userIdB] } } },
+    });
+    await prisma.ingesta.deleteMany({
+      where: { userId: { in: [userIdA, userIdB] } },
+    });
+    await prisma.account.deleteMany({
+      where: { userId: { in: [userIdA, userIdB] } },
+    });
+    await prisma.patronClasificacion.deleteMany({
+      where: { userId: { in: [userIdA, userIdB] } },
+    });
+    await prisma.categoria.deleteMany({
+      where: { userId: { in: [userIdA, userIdB] } },
+    });
+    await prisma.session.deleteMany({ where: { userId: userIdA } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [userIdA, userIdB] } },
+    });
+    await prisma.$disconnect();
+  });
+
+  it("A's GET /api/categorias shows only A's own transaccionesCount, never B's, even for a same-named category (CAT039-01)", async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .get('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA)
+      .expect(200);
+
+    const compartidaA = res.body.categorias.find(
+      (c: { id: string }) => c.id === categoriaIdA,
+    );
+    expect(compartidaA.transaccionesCount).toBe(1);
+  });
+
+  it("A DELETEs B's real category id → 404; B's category and transaction (with bucketId) remain untouched (CA-05)", async () => {
+    if (!ALLOW) return;
+    const res = await request(app)
+      .delete(`/api/categorias/${categoriaIdB}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA);
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
+
+    const categoriaBRow = await prisma.categoria.findUnique({
+      where: { id: categoriaIdB },
+    });
+    const txBRow = await prisma.transaccion.findUnique({
+      where: { id: txIdB },
+    });
+    const patronBRow = await prisma.patronClasificacion.findUnique({
+      where: { id: patronIdB },
+    });
+    expect(categoriaBRow).not.toBeNull();
+    expect(txBRow).not.toBeNull();
+    expect(txBRow?.categoriaId).toBe(categoriaIdB);
+    expect(patronBRow).not.toBeNull();
+  });
+});
