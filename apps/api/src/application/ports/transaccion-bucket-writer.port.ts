@@ -21,12 +21,16 @@ import { Categoria } from '../../domain/value-objects/categoria';
  */
 export interface ITransaccionBucketWriter {
   /**
+   * @param userId - Catálogo dueño (US-037): la categoría física a escribir
+   *   se resuelve SOLO contra las categorías de este usuario — nunca contra
+   *   un mapa global de ids.
    * @param ingestaId - Scope lock: only rows belonging to this ingesta will be
    *   updated, even if `asignaciones` contains foreign ids. This is structural
    *   isolation, not just a convention — the WHERE clause enforces both
    *   `id IN (...)` AND `ingestaId = ?` at the DB level.
    */
   asignarCategorizacion(
+    userId: string,
     ingestaId: string,
     asignaciones: ReadonlyArray<{
       transaccionId: string;

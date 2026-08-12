@@ -22,7 +22,6 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { BUCKET_IDS } from './bucket-ids';
-import { CATEGORIA_IDS } from './categoria-ids';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { NoOpCryptoService } from './no-op-crypto.service';
 
@@ -46,14 +45,17 @@ function makeCrypto(decryptFn?: (v: string) => string): ICryptoService {
 describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
   const periodo = PeriodoMes.crear('2026-07').getValue();
 
-  function makeRow(overrides: { id: string; categoriaId: string | null }) {
+  function makeRow(overrides: {
+    id: string;
+    categoria: { id: string; nombre: string } | null;
+  }) {
     return {
       id: overrides.id,
       fecha: new Date('2026-07-10T00:00:00.000Z'),
       descripcion: 'Test tx',
       cargo: 1000n,
       abono: 0n,
-      categoriaId: overrides.categoriaId,
+      categoria: overrides.categoria,
       account: {
         banco: 'BCI',
         tipoCuenta: 'Cuenta Corriente',
@@ -62,11 +64,14 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     };
   }
 
-  it('CATAPI-05: classified categoriaId folds to { id, nombre }', async () => {
+  it('CAT037-06: classified categoria (per-user cuid + nombre) folds to { id, nombre }', async () => {
     const findMany = vi.fn().mockResolvedValue([
       makeRow({
         id: 'tx-super',
-        categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+        categoria: {
+          id: 'cly-per-user-supermercado-cuid',
+          nombre: Categoria.Supermercado,
+        },
       }),
     ]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
@@ -79,15 +84,15 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     );
 
     expect(rows[0].categoria).toEqual({
-      id: CATEGORIA_IDS[Categoria.Supermercado],
+      id: 'cly-per-user-supermercado-cuid',
       nombre: Categoria.Supermercado,
     });
   });
 
-  it('CATAPI-05: null categoriaId (Ingreso/SinCategoria row) folds to null', async () => {
+  it('CAT037-06: null categoria (Ingreso/SinCategoria row) folds to null', async () => {
     const findMany = vi
       .fn()
-      .mockResolvedValue([makeRow({ id: 'tx-null', categoriaId: null })]);
+      .mockResolvedValue([makeRow({ id: 'tx-null', categoria: null })]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
 
@@ -100,12 +105,13 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     expect(rows[0].categoria).toBeNull();
   });
 
-  it('CATAPI-05: unrecognized non-null categoriaId folds to null (defensive)', async () => {
-    const findMany = vi
-      .fn()
-      .mockResolvedValue([
-        makeRow({ id: 'tx-unknown', categoriaId: 'not-a-real-categoria-id' }),
-      ]);
+  it('CAT037-06: an unrecognized nombre folds to null (defensive)', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      makeRow({
+        id: 'tx-unknown',
+        categoria: { id: 'cly-some-cuid', nombre: 'NoExiste' },
+      }),
+    ]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
 
@@ -118,6 +124,22 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     expect(rows[0].categoria).toBeNull();
   });
 
+  it('CAT037-06: select uses the nested categoria relation, not a raw categoriaId scalar', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          categoria: { select: { id: true, nombre: true } },
+        }),
+      }),
+    );
+  });
+
   it('ADR-013: descripcion pasa por crypto.decrypt() antes de devolverse — el drill-down NUNCA expone ciphertext', async () => {
     const findMany = vi.fn().mockResolvedValue([
       {
@@ -126,7 +148,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
         descripcion: 'cifrado-xyz',
         cargo: 1000n,
         abono: 0n,
-        categoriaId: null,
+        categoria: null,
         account: {
           banco: 'BCI',
           tipoCuenta: 'Cuenta Corriente',
@@ -157,7 +179,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
         descripcion: 'Test tx',
         cargo: 1000n,
         abono: 0n,
-        categoriaId: null,
+        categoria: null,
         account: {
           banco: 'BCI',
           tipoCuenta: 'Cuenta Corriente',

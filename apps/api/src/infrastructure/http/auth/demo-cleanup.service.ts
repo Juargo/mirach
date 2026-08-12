@@ -32,9 +32,15 @@ export class DemoCleanupService {
 
   /**
    * Borra todos los usuarios demo cuyo `demoCreatedAt` supera el TTL,
-   * en cascada Session → Transaccion → Ingesta → Account → User, dentro de
-   * una única transacción (DEMO-CLN-01). Retorna la cantidad de usuarios
-   * borrados (0 si no había ninguno expirado).
+   * en cascada Session → Transaccion → Ingesta → PatronClasificacion →
+   * Categoria → Account → User, dentro de una única transacción
+   * (DEMO-CLN-01). Retorna la cantidad de usuarios borrados (0 si no había
+   * ninguno expirado).
+   *
+   * US-037 (design.md §6): PatronClasificacion PRECEDE a Categoria — la FK
+   * compuesta `(categoriaId,userId) → Categoria(id,userId)` es RESTRICT, así
+   * que borrar Categoria primero abortaría toda la transacción. Ambas
+   * preceden a Account/User, mismo criterio que Transaccion/Ingesta.
    */
   async borrarExpirados(): Promise<number> {
     const cutoff = new Date(this.reloj.ahora().getTime() - TTL_SESION_MS);
@@ -62,6 +68,10 @@ export class DemoCleanupService {
       await tx.ingesta.deleteMany({
         where: { userId: { in: ids } },
       });
+      await tx.patronClasificacion.deleteMany({
+        where: { userId: { in: ids } },
+      });
+      await tx.categoria.deleteMany({ where: { userId: { in: ids } } });
       await tx.account.deleteMany({ where: { userId: { in: ids } } });
       const { count } = await tx.user.deleteMany({
         where: { id: { in: ids } },

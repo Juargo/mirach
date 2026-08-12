@@ -11,7 +11,7 @@ import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no
 // ---------------------------------------------------------------------------
 function makeWriter(
   result: Result<
-    { id: string; categoria: Categoria; bucket: Bucket },
+    { id: string; categoriaId: string; categoria: Categoria; bucket: Bucket },
     TransaccionNoEncontradaError
   >,
 ): IReclasificarCategoriaWriter {
@@ -25,6 +25,7 @@ describe('ReclasificarTransaccionUseCase', () => {
     const writer = makeWriter(
       Result.ok({
         id: 'tx-1',
+        categoriaId: 'cat-transporte-row-id',
         categoria: Categoria.Transporte,
         bucket: Bucket.Necesidades,
       }),
@@ -62,7 +63,12 @@ describe('ReclasificarTransaccionUseCase', () => {
 
     for (const [categoria, bucketEsperado] of casos) {
       const writer = makeWriter(
-        Result.ok({ id: 'tx-1', categoria, bucket: bucketEsperado }),
+        Result.ok({
+          id: 'tx-1',
+          categoriaId: `cat-${categoria}-row-id`,
+          categoria,
+          bucket: bucketEsperado,
+        }),
       );
       const useCase = new ReclasificarTransaccionUseCase(writer);
 
@@ -85,6 +91,7 @@ describe('ReclasificarTransaccionUseCase', () => {
     const writer = makeWriter(
       Result.ok({
         id: 'tx-1',
+        categoriaId: 'cat-transporte-row-id',
         categoria: Categoria.Transporte,
         bucket: Bucket.Necesidades,
       }),
@@ -106,6 +113,7 @@ describe('ReclasificarTransaccionUseCase', () => {
     const writer = makeWriter(
       Result.ok({
         id: 'tx-1',
+        categoriaId: 'cat-transporte-row-id',
         categoria: Categoria.Transporte,
         bucket: Bucket.Necesidades,
       }),

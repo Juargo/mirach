@@ -5,6 +5,7 @@ import {
 } from '../../../prisma/seed';
 import { CATEGORIA_IDS } from './categoria-ids';
 import { BUCKET_IDS } from './bucket-ids';
+import { USER_ID_FIJO } from './constants';
 import {
   Categoria,
   CATEGORIA_BUCKET,
@@ -55,11 +56,13 @@ function makeFakeSeedClient() {
     matchType: string;
     categoriaId: string;
     prioridad: number;
+    userId?: string;
   }>();
   const categoria = makeUpsertableStore<{
     id: string;
     nombre: string;
     bucketId: string;
+    userId?: string;
   }>();
 
   return {
@@ -149,5 +152,53 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
 
     expect(stores.categoria.rows.size).toBe(CATEGORIA_CATALOG_SIZE);
     expect(stores.patronClasificacion.rows.size).toBe(PATRON_CATALOG_SIZE);
+  });
+
+  // US-037 (3.1): cada fila del catálogo del usuario bootstrap queda marcada
+  // con userId: USER_ID_FIJO — la plantilla es id-free (D-01), pero el seed
+  // (D-07) es el único escritor que estampa el owner fijo.
+  it('cada Categoria y cada PatronClasificacion sembrados quedan con userId: USER_ID_FIJO (US-037 D-07)', async () => {
+    const { prisma, stores } = makeFakeSeedClient();
+    await runSeed(prisma);
+
+    expect(stores.categoria.rows.size).toBeGreaterThan(0);
+    for (const row of stores.categoria.rows.values()) {
+      expect(row.userId).toBe(USER_ID_FIJO);
+    }
+
+    expect(stores.patronClasificacion.rows.size).toBeGreaterThan(0);
+    for (const row of stores.patronClasificacion.rows.values()) {
+      expect(row.userId).toBe(USER_ID_FIJO);
+    }
+  });
+
+  // US-037 (3.1): re-sembrar no debe reescribir el owner de una fila existente
+  // — userId solo viaja en `create`, nunca en `update` (design.md §7).
+  it('re-sembrar no mueve el userId de una fila ya existente (US-037)', async () => {
+    const { prisma, stores } = makeFakeSeedClient();
+    await runSeed(prisma);
+    await runSeed(prisma);
+
+    for (const row of stores.categoria.rows.values()) {
+      expect(row.userId).toBe(USER_ID_FIJO);
+    }
+    for (const row of stores.patronClasificacion.rows.values()) {
+      expect(row.userId).toBe(USER_ID_FIJO);
+    }
+  });
+
+  // US-037 (3.1): los ids fijos de patrones sobreviven la rebuild desde
+  // PATRON_TEMPLATE — un id conocido de la era pre-US-037 debe seguir
+  // presente y sin duplicados (idempotencia + estabilidad de ids, CA-02).
+  it('los ids fijos de patrones (era pre-US-037) siguen presentes tras la rebuild desde PATRON_TEMPLATE', async () => {
+    const { prisma, stores } = makeFakeSeedClient();
+    await runSeed(prisma);
+
+    const patronLider = stores.patronClasificacion.rows.get('pat-lider');
+    expect(patronLider).toBeDefined();
+    expect(patronLider?.patron).toBe('lider');
+    expect(patronLider?.categoriaId).toBe(
+      CATEGORIA_IDS[Categoria.Supermercado],
+    );
   });
 });

@@ -53,6 +53,7 @@ describe('transaccionesCategoriaResponseSchema (sync guarantee)', () => {
   it('parses the real aReclasificarCategoriaDto mapper output', () => {
     const dto = aReclasificarCategoriaDto({
       id: 'tx-1',
+      categoriaId: 'cat-supermercado-row-id',
       categoria: Categoria.Supermercado,
       bucket: Bucket.Necesidades,
     });
