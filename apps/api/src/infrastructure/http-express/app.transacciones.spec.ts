@@ -27,6 +27,7 @@ function fakeContainer(): Container {
       execute: vi.fn().mockResolvedValue(
         Result.ok({
           id: 'tx-1',
+          categoriaId: 'cat-supermercado-row-id',
           categoria: Categoria.Supermercado,
           bucket: 'Necesidades',
         }),

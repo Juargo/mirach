@@ -3,9 +3,16 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no-encontrada.error';
 
-/** Resultado de una reasignación exitosa. */
+/**
+ * Resultado de una reasignación exitosa.
+ *
+ * `categoriaId` (US-037) es el id REAL, per-user, de la fila `Categoria` que
+ * quedó persistida en `Transaccion.categoriaId` — ya no se resuelve vía el
+ * mapa global `CATEGORIA_IDS` (design.md §4.3).
+ */
 export interface ReclasificarCategoriaResult {
   readonly id: string;
+  readonly categoriaId: string;
   readonly categoria: Categoria;
   readonly bucket: Bucket;
 }
