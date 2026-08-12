@@ -5,6 +5,7 @@ import {
 } from '../../../prisma/backfill-categorias';
 import { CATEGORIA_IDS } from './categoria-ids';
 import { BUCKET_IDS } from './bucket-ids';
+import { USER_ID_FIJO } from './constants';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { Bucket } from '../../domain/value-objects/bucket';
 import type { ICryptoService } from '../../application/ports/crypto-service.port';
@@ -53,11 +54,29 @@ function makeFakeClient(
 
   const client: BackfillClient = {
     patronClasificacion: {
-      findMany: async () => patrones,
+      findMany: async ({ where }: { where: { userId: string } }) => {
+        // D-10 (CAT037-05): the pattern-catalog READ must be scoped to the
+        // bootstrap user too — an unscoped read would merge every user's
+        // patterns into one prioridad-sorted list, letting another user's
+        // own (repointed) pattern shadow the bootstrap user's pattern and
+        // hijack its classification.
+        expect(where).toEqual({ userId: USER_ID_FIJO });
+        return patrones;
+      },
     },
     transaccion: {
-      findMany: async ({ where }: { where: { categoriaId: null } }) => {
-        expect(where).toEqual({ categoriaId: null });
+      findMany: async ({
+        where,
+      }: {
+        where: { categoriaId: null; account: { userId: string } };
+      }) => {
+        // D-10 (CAT037-05): scope MUST be pinned to the bootstrap user, not
+        // a bare `{ categoriaId: null }` — this is the assertion that would
+        // catch a regression back to the pre-US-037 global scan.
+        expect(where).toEqual({
+          categoriaId: null,
+          account: { userId: USER_ID_FIJO },
+        });
         return transacciones
           .filter((t) => t.categoriaId === null)
           .map((t) => ({

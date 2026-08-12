@@ -6,7 +6,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
-import { foldCategoriaId } from './categoria-ids';
+import { foldCategoria } from './fold-categoria';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 /**
@@ -24,8 +24,9 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  * SinCategoria nunca reclasifica otra fila (SC-03 aplicado por fila, no hay
  * "add vs overwrite" porque no hay merge).
  *
- * Fold categoriaId → { id, nombre } | null (CATAPI-05): vía foldCategoriaId
- * (categoria-ids.ts) — compartido con PrismaDetalleBucketRepository.
+ * Fold categoria → { id, nombre } | null (CATAPI-05, CAT037-06): vía
+ * foldCategoria (fold-categoria.ts), que resuelve por `nombre`, no por un id
+ * físico fijo — compartido con PrismaDetalleBucketRepository.
  *
  * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
  * la respuesta HTTP de `GET /api/movimientos`; sin descifrar, el cliente
@@ -55,7 +56,7 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
         cargo: true,
         abono: true,
         bucketId: true,
-        categoriaId: true,
+        categoria: { select: { id: true, nombre: true } },
         account: {
           select: {
             banco: true,
@@ -83,7 +84,7 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
         cargo: row.cargo,
         abono: row.abono,
         bucket,
-        categoria: foldCategoriaId(row.categoriaId),
+        categoria: foldCategoria(row.categoria),
         banco: row.account.banco,
         tipoCuenta: row.account.tipoCuenta,
         numeroCuenta: this.crypto.decrypt(row.account.numeroCuenta),
