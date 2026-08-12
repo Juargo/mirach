@@ -200,6 +200,22 @@ describe('buildOpenApiDocument', () => {
     expect(capabilitiesPath?.get?.responses?.['401']).toBeDefined();
   });
 
+  it('registers PATCH /api/perfil with a JSON requestBody and 200/400/403/401 responses (US-040)', () => {
+    const document = buildOpenApiDocument();
+
+    const perfilPath = document.paths?.['/api/perfil'];
+    expect(perfilPath).toBeDefined();
+    expect(perfilPath?.patch).toBeDefined();
+    const requestBody = perfilPath?.patch?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+    expect(perfilPath?.patch?.responses?.['200']).toBeDefined();
+    expect(perfilPath?.patch?.responses?.['400']).toBeDefined();
+    expect(perfilPath?.patch?.responses?.['403']).toBeDefined();
+    expect(perfilPath?.patch?.responses?.['401']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

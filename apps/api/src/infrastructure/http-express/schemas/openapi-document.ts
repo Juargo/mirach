@@ -58,6 +58,10 @@ import {
   patronResponseSchema,
 } from './patrones.schema';
 import { catalogoErrorResponseSchema } from './catalogo-error.schema';
+import {
+  perfilUpdateRequestSchema,
+  perfilErrorResponseSchema,
+} from './perfil.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -850,6 +854,46 @@ const patronesDeleteOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `PATCH /api/perfil` (US-040, design.md §5.5) — updates the caller's own
+ * `nombre` and/or `email`. Boundary-validated with `.safeParse()` (D-09,
+ * `perfil.routes.ts`). Reuses `authMeResponseSchema` VERBATIM for the `200`
+ * — one identity `$ref`, one generated client type shared with
+ * `GET /api/auth/me` (design.md Q2).
+ */
+const perfilUpdateOperation: ZodOpenApiOperationObject = {
+  summary: 'Update the current user profile (nombre and/or email)',
+  description:
+    "Authenticated endpoint that updates the caller's own nombre and/or email (US-040, " +
+    'PERF040-01/02/03/04/07). `passwordActual` is REQUIRED whenever `email` is present. On an email ' +
+    'change the ciphertext and blind index are rewritten together in one atomic update, so login ' +
+    'keeps working with the NEW address and stops working with the old one. A wrong `passwordActual` ' +
+    'and an email already claimed by another account return the SAME generic 403 PERFIL_RECHAZADO ' +
+    '(anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. Requires ' +
+    'x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+  requestBody: {
+    content: { 'application/json': { schema: perfilUpdateRequestSchema } },
+  },
+  responses: {
+    '200': {
+      description: 'Profile updated; the full updated identity is returned.',
+      content: { 'application/json': { schema: authMeResponseSchema } },
+    },
+    '400': {
+      description: 'Malformed body, or an invalid nombre/email.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '403': {
+      description:
+        'Demo session, wrong current password, or the email is already in use.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '401': {
+      description: 'No valid session (missing, expired, or invalid token).',
+    },
+  },
+};
+
+/**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
  * appending future endpoints (Slice 1+) must append here, never reorder
@@ -889,6 +933,7 @@ const paths: ZodOpenApiPathsObject = {
     patch: patronesUpdateOperation,
     delete: patronesDeleteOperation,
   },
+  '/api/perfil': { patch: perfilUpdateOperation },
 };
 
 export function buildOpenApiDocument() {
