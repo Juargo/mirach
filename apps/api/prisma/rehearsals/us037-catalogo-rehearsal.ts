@@ -26,7 +26,24 @@ import { assertDestructiveDbAllowed } from '../../src/infrastructure/persistence
  *   ALLOW_DESTRUCTIVE_DB=1 DOTENV_CONFIG_PATH=.env.test \
  *     pnpm exec tsx prisma/rehearsals/us037-catalogo-rehearsal.ts multi-user-guard
  *   ALLOW_DESTRUCTIVE_DB=1 DOTENV_CONFIG_PATH=.env.test \
+ *     pnpm exec tsx prisma/rehearsals/us037-catalogo-rehearsal.ts fresh-db
+ *   ALLOW_DESTRUCTIVE_DB=1 DOTENV_CONFIG_PATH=.env.test \
  *     pnpm exec tsx prisma/rehearsals/us037-catalogo-rehearsal.ts all
+ *
+ * Interrupt safety: the try/finally around each scenario's
+ * park→migrate→unpark sequence restores the parked migration directory on
+ * any error. Ctrl-C (SIGINT) and SIGTERM are also covered — a small
+ * top-level signal handler (below) calls the same restore and exits, which
+ * is necessary because Node's default disposition for those signals kills
+ * the process immediately without running `finally`; the handler is what
+ * keeps the process alive long enough for the restore to happen. None of
+ * this protects against a hard kill (SIGKILL, crash, power loss): if that
+ * happens, look for a leftover `.rehearsal-parked-*` directory directly
+ * under `apps/api/prisma/` (a SIBLING of `migrations/`, not inside it) and
+ * manually rename it back to
+ * `migrations/20260811200000_us037_catalogo_per_user`. An interrupted run
+ * may also leave the `<base>_rehearsal` database behind — harmless, the
+ * next run drops and recreates it.
  */
 
 const MIGRATION_DIR_NAME = '20260811200000_us037_catalogo_per_user';
@@ -38,7 +55,7 @@ const PARKED_DIR = path.resolve(
 );
 const API_ROOT = path.resolve(__dirname, '../..');
 
-type Scenario = 'prod-like' | 'multi-user-guard';
+type Scenario = 'prod-like' | 'multi-user-guard' | 'fresh-db';
 
 function log(msg: string): void {
   console.log(msg);
@@ -123,6 +140,22 @@ function unparkMigration(): void {
     renameSync(PARKED_DIR, MIGRATION_DIR);
   }
 }
+
+/**
+ * Restores the parked migration directory on Ctrl-C/SIGTERM and exits.
+ * Registering this handler is what keeps the process alive long enough for
+ * the cleanup to run — without it, Node's default SIGINT/SIGTERM
+ * disposition terminates the process immediately and no `finally` block
+ * (sync or async) ever executes.
+ */
+function handleInterruptSignal(signal: NodeJS.Signals): void {
+  log(`\nReceived ${signal}, restoring parked migration directory...`);
+  unparkMigration();
+  process.exit(1);
+}
+
+process.on('SIGINT', handleInterruptSignal);
+process.on('SIGTERM', handleInterruptSignal);
 
 /** Runs `prisma migrate deploy` against the rehearsal DB (env override, never the real DATABASE_URL). */
 function migrateDeploy(
@@ -242,6 +275,47 @@ async function seedProdLikeScenario(rehearsalUrl: string): Promise<{
   };
 }
 
+/** FK/index constraint assertions common to every post-migration scenario (prod-like and fresh-db both need the full set). */
+async function assertCoreConstraints(client: Client): Promise<void> {
+  const constraints = await client.query<{ conname: string }>(
+    `SELECT conname FROM pg_constraint WHERE conname IN (
+      'Categoria_userId_fkey',
+      'PatronClasificacion_categoriaId_userId_fkey'
+    )`,
+  );
+  assert(
+    constraints.rows.some((r) => r.conname === 'Categoria_userId_fkey'),
+    'Categoria.userId -> User(id) FK exists',
+  );
+  assert(
+    constraints.rows.some(
+      (r) => r.conname === 'PatronClasificacion_categoriaId_userId_fkey',
+    ),
+    'composite FK (categoriaId, userId) -> Categoria(id, userId) exists',
+  );
+
+  const indexes = await client.query<{ indexname: string }>(
+    `SELECT indexname FROM pg_indexes WHERE tablename IN ('Categoria', 'PatronClasificacion')`,
+  );
+  const indexNames = indexes.rows.map((r) => r.indexname);
+  assert(
+    indexNames.includes('Categoria_userId_nombre_key'),
+    'unique index (userId, nombre) exists on Categoria',
+  );
+  assert(
+    indexNames.includes('Categoria_id_userId_key'),
+    'unique index (id, userId) exists on Categoria (composite FK target)',
+  );
+  assert(
+    indexNames.includes('PatronClasificacion_userId_idx'),
+    'index on PatronClasificacion.userId exists',
+  );
+  assert(
+    !indexNames.includes('Categoria_nombre_key'),
+    'old global unique index on Categoria.nombre was dropped',
+  );
+}
+
 async function assertProdLikeOutcome(
   rehearsalUrl: string,
   seeded: Awaited<ReturnType<typeof seedProdLikeScenario>>,
@@ -304,43 +378,13 @@ async function assertProdLikeOutcome(
     );
     assert(demoSession.rows[0].n === 0, "demo user's Session row was purged");
 
-    const constraints = await client.query<{ conname: string }>(
-      `SELECT conname FROM pg_constraint WHERE conname IN (
-        'Categoria_userId_fkey',
-        'PatronClasificacion_categoriaId_userId_fkey'
-      )`,
+    const demoIngesta = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM "Ingesta" WHERE "userId" = $1`,
+      [seeded.demoUserId],
     );
-    assert(
-      constraints.rows.some((r) => r.conname === 'Categoria_userId_fkey'),
-      'Categoria.userId -> User(id) FK exists',
-    );
-    assert(
-      constraints.rows.some(
-        (r) => r.conname === 'PatronClasificacion_categoriaId_userId_fkey',
-      ),
-      'composite FK (categoriaId, userId) -> Categoria(id, userId) exists',
-    );
+    assert(demoIngesta.rows[0].n === 0, "demo user's Ingesta rows were purged");
 
-    const indexes = await client.query<{ indexname: string }>(
-      `SELECT indexname FROM pg_indexes WHERE tablename IN ('Categoria', 'PatronClasificacion')`,
-    );
-    const indexNames = indexes.rows.map((r) => r.indexname);
-    assert(
-      indexNames.includes('Categoria_userId_nombre_key'),
-      'unique index (userId, nombre) exists on Categoria',
-    );
-    assert(
-      indexNames.includes('Categoria_id_userId_key'),
-      'unique index (id, userId) exists on Categoria (composite FK target)',
-    );
-    assert(
-      indexNames.includes('PatronClasificacion_userId_idx'),
-      'index on PatronClasificacion.userId exists',
-    );
-    assert(
-      !indexNames.includes('Categoria_nombre_key'),
-      'old global unique index on Categoria.nombre was dropped',
-    );
+    await assertCoreConstraints(client);
   });
 }
 
@@ -372,6 +416,31 @@ async function assertGuardOutcome(rehearsalUrl: string): Promise<void> {
       users.rows[0].n === 2,
       'both non-demo users are untouched (guard aborted before any write)',
     );
+  });
+}
+
+/** Asserts the "fresh-db" scenario outcome: no seeded users, so step 0's fresh-database branch (guard n_reales === 0) is the only path exercised. */
+async function assertFreshDbOutcome(rehearsalUrl: string): Promise<void> {
+  await withClient(rehearsalUrl, async (client) => {
+    const cat = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM "Categoria"`,
+    );
+    assert(
+      cat.rows[0].n === 0,
+      'owner-less Categoria rows self-provisioned by migration 20260719005000 were cleared (got ' +
+        `${cat.rows[0].n})`,
+    );
+
+    const pat = await client.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM "PatronClasificacion"`,
+    );
+    assert(
+      pat.rows[0].n === 0,
+      'owner-less PatronClasificacion rows were cleared (got ' +
+        `${pat.rows[0].n})`,
+    );
+
+    await assertCoreConstraints(client);
   });
 }
 
@@ -439,6 +508,49 @@ async function runMultiUserGuard(): Promise<void> {
   log('PASS: multi-user guard rehearsal');
 }
 
+async function runFreshDb(): Promise<void> {
+  log('\n=== Rehearsal: fresh-db (CI/empty-database scenario) ===');
+  const { url, dbName } = rehearsalConnectionString();
+  await recreateRehearsalDatabase(url, dbName);
+
+  parkMigration();
+  try {
+    const pre = migrateDeploy(url);
+    if (!pre.ok) {
+      throw new Error(
+        `base migrations failed to apply to the rehearsal DB:\n${pre.error}`,
+      );
+    }
+  } finally {
+    unparkMigration();
+  }
+
+  // The base migrations self-provision 8 owner-less Categoria rows
+  // (20260719005000), but that migration's PatronClasificacion UPDATE only
+  // touches pre-existing rows with a matching fixed id — on a genuinely
+  // fresh DB there are none yet, so PatronClasificacion stays empty on its
+  // own. Insert one owner-less row here (fixed id from the
+  // 20260719005000 UPDATE list, pointed at a self-provisioned Categoria)
+  // so the post-migration count-0 assertion actually proves Step 0's
+  // DELETE ran, instead of trivially passing on an already-empty table.
+  await withClient(url, async (client) => {
+    await client.query(
+      `INSERT INTO "PatronClasificacion" (id, patron, "matchType", "categoriaId", prioridad) VALUES ('pat-jumbo', 'jumbo', 'CONTAINS', 'categoria-supermercado', 10)`,
+    );
+  });
+
+  const result = migrateDeploy(url);
+  if (!result.ok) {
+    throw new Error(
+      `us037 migration FAILED to apply on the fresh-db scenario:\n${result.error}`,
+    );
+  }
+  log('  migration applied cleanly');
+
+  await assertFreshDbOutcome(url);
+  log('PASS: fresh-db rehearsal');
+}
+
 async function main(): Promise<void> {
   assertDestructiveDbAllowed();
   const scenario = (process.argv[2] ?? 'all') as Scenario | 'all';
@@ -449,12 +561,15 @@ async function main(): Promise<void> {
       await runProdLike();
     } else if (scenario === 'multi-user-guard') {
       await runMultiUserGuard();
+    } else if (scenario === 'fresh-db') {
+      await runFreshDb();
     } else if (scenario === 'all') {
       await runProdLike();
       await runMultiUserGuard();
+      await runFreshDb();
     } else {
       throw new Error(
-        `Unknown scenario "${String(scenario)}" — expected prod-like | multi-user-guard | all`,
+        `Unknown scenario "${String(scenario)}" — expected prod-like | multi-user-guard | fresh-db | all`,
       );
     }
     log('\nAll rehearsal scenarios PASSED.');

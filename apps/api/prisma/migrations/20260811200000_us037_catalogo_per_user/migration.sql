@@ -48,21 +48,25 @@
 
 -- ── Step 0: guard + fresh-database branch ──────────────────────────────
 DO $$
-DECLARE n_reales integer; n_cat integer;
+DECLARE n_reales integer;
 BEGIN
   SELECT count(*) INTO n_reales FROM "User" WHERE "esDemo" = false;
-  SELECT count(*) INTO n_cat    FROM "Categoria";
 
   IF n_reales > 1 THEN
     RAISE EXCEPTION 'us-037: % non-demo users found — the global catalog cannot be assigned unambiguously. Aborting.', n_reales;
   END IF;
 
   IF n_reales = 0 THEN
-    -- Fresh/CI database: migration 20260719005000 self-provisions 8
-    -- owner-less Categoria rows before any user exists. Zero users ⇒ zero
-    -- accounts ⇒ zero Transaccion rows, so dropping them is safe;
-    -- prisma/seed.ts recreates them owned by USER_ID_FIJO with the same
-    -- fixed ids immediately afterwards (test:db:setup / CI bootstrap).
+    -- n_reales = 0 means zero NON-DEMO users — NOT zero users. A fresh/CI
+    -- database can still have demo users (and their accounts/transactions)
+    -- at this point; they are purged in step 1, right after this block.
+    -- The self-provisioned Categoria/PatronClasificacion rows from
+    -- migration 20260719005000 are owner-less either way, so clearing them
+    -- here (ahead of the purge) is safe: Transaccion.categoriaId is
+    -- `onDelete: SetNull` (schema.prisma), so any demo Transaccion still
+    -- pointing at these rows just gets categoriaId cleared, not deleted.
+    -- prisma/seed.ts recreates the catalog owned by USER_ID_FIJO with the
+    -- same fixed ids immediately afterwards (test:db:setup / CI bootstrap).
     DELETE FROM "PatronClasificacion";
     DELETE FROM "Categoria";
   END IF;
