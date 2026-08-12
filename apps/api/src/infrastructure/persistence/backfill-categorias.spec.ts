@@ -5,6 +5,7 @@ import {
 } from '../../../prisma/backfill-categorias';
 import { CATEGORIA_IDS } from './categoria-ids';
 import { BUCKET_IDS } from './bucket-ids';
+import { USER_ID_FIJO } from './constants';
 import { Categoria } from '../../domain/value-objects/categoria';
 import { Bucket } from '../../domain/value-objects/bucket';
 import type { ICryptoService } from '../../application/ports/crypto-service.port';
@@ -56,8 +57,18 @@ function makeFakeClient(
       findMany: async () => patrones,
     },
     transaccion: {
-      findMany: async ({ where }: { where: { categoriaId: null } }) => {
-        expect(where).toEqual({ categoriaId: null });
+      findMany: async ({
+        where,
+      }: {
+        where: { categoriaId: null; account: { userId: string } };
+      }) => {
+        // D-10 (CAT037-05): scope MUST be pinned to the bootstrap user, not
+        // a bare `{ categoriaId: null }` — this is the assertion that would
+        // catch a regression back to the pre-US-037 global scan.
+        expect(where).toEqual({
+          categoriaId: null,
+          account: { userId: USER_ID_FIJO },
+        });
         return transacciones
           .filter((t) => t.categoriaId === null)
           .map((t) => ({

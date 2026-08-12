@@ -19,6 +19,7 @@ import type { ICryptoService } from '../src/application/ports/crypto-service.por
 import { NoOpCryptoService } from '../src/infrastructure/persistence/no-op-crypto.service';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { isValid32ByteBase64Key } from '../src/config/env';
+import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
 /**
  * backfill-categorias.ts (US-013 S3, CAT-05).
@@ -41,6 +42,18 @@ import { isValid32ByteBase64Key } from '../src/config/env';
  * un fake client, sin BD — ver backfill-categorias.spec.ts), `main()` es el
  * wiring de script real (gate + PrismaClient) guardado tras
  * `require.main === module`.
+ *
+ * ⚠️ FROZEN, bootstrap-user-only (US-037 D-10, CAT037-05 "legacy backfill
+ * script" scenario). Pre-US-037 this scanned `categoriaId IS NULL` GLOBALLY
+ * and wrote `CATEGORIA_IDS[categoria]` — a fixed id that only ever belonged
+ * to the bootstrap user. Post-US-037 every `Categoria` row is per-user, so
+ * an unscoped run would stamp the bootstrap user's category ids onto other
+ * users' transactions: cross-tenant corruption, the exact inverse of
+ * RNF-SEC-006. The scope is now hard-pinned to
+ * `account: { userId: USER_ID_FIJO }` — this script must NEVER be
+ * generalized to run for an arbitrary `userId` without re-deriving
+ * `categoriaId` through that user's own catalog (the way
+ * `PrismaReclasificarCategoriaRepository` does), not through `CATEGORIA_IDS`.
  */
 
 /** Cliente mínimo requerido por el backfill (mirror de SeedClient en seed.ts). */
@@ -60,7 +73,9 @@ export interface BackfillClient {
     >;
   };
   transaccion: {
-    findMany(args: { where: { categoriaId: null } }): Promise<
+    findMany(args: {
+      where: { categoriaId: null; account: { userId: string } };
+    }): Promise<
       Array<{
         id: string;
         descripcion: string;
@@ -161,12 +176,13 @@ export async function runBackfill(
       }),
   );
 
-  // 2. Scope: solo filas nunca tocadas manualmente (categoriaId IS NULL, S4).
-  // OJO: dentro de este scope el bucketId puede ya ser NO nulo (filas
-  // categorizadas por bucket antes de US-013) — de ahí la regla de
-  // preservación de abajo.
+  // 2. Scope: solo filas nunca tocadas manualmente (categoriaId IS NULL, S4)
+  // Y pertenecientes al usuario bootstrap (US-037 D-10, CAT037-05) — el
+  // único usuario cuyos ids físicos coinciden con CATEGORIA_IDS. OJO: dentro
+  // de este scope el bucketId puede ya ser NO nulo (filas categorizadas por
+  // bucket antes de US-013) — de ahí la regla de preservación de abajo.
   const rows = await prisma.transaccion.findMany({
-    where: { categoriaId: null },
+    where: { categoriaId: null, account: { userId: USER_ID_FIJO } },
   });
 
   const useCase = new CategorizarTransaccionUseCase();

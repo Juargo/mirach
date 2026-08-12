@@ -163,4 +163,58 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
       process.env.ALLOW_DESTRUCTIVE_DB = originalAllow;
     }
   });
+
+  // T3.5 — CAT037-05 "legacy backfill script cannot write across tenants"
+  // (D-10): a non-bootstrap user's row is NEVER touched, even when its
+  // description would otherwise match a bootstrap pattern.
+  it('T3.5 (CAT037-05, D-10): el backfill NUNCA toca transacciones de otro usuario, aunque su descripcion matchee un patrón', async () => {
+    const otherUserId = `backfill-other-${Date.now()}`;
+    await prisma.user.create({
+      data: { id: otherUserId, nombre: 'Other user (non-bootstrap)' },
+    });
+    const otherAccount = await prisma.account.create({
+      data: {
+        userId: otherUserId,
+        banco: 'BancoEstado',
+        tipoCuenta: 'CuentaRUT',
+        numeroCuenta: `other-${Date.now()}`,
+      },
+    });
+    const otherIngesta = await prisma.ingesta.create({
+      data: {
+        userId: otherUserId,
+        accountId: otherAccount.id,
+        banco: 'BancoEstado',
+        nombreArchivo: 'other-backfill.xlsx',
+        estado: 'PROCESADA',
+      },
+    });
+    const otherTx = await prisma.transaccion.create({
+      data: {
+        ingestaId: otherIngesta.id,
+        accountId: otherAccount.id,
+        fecha: new Date('2026-07-01'),
+        // Would match the bootstrap "lider" pattern if the backfill's scope
+        // leaked across tenants — the exact defect D-10 exists to prevent.
+        descripcion: 'Compra Lider',
+        cargo: 9500n,
+        abono: 0n,
+      },
+    });
+
+    await runBackfill(prisma, { dryRun: false });
+
+    const untouched = await prisma.transaccion.findUnique({
+      where: { id: otherTx.id },
+    });
+    expect(untouched?.categoriaId).toBeNull();
+    expect(untouched?.bucketId).toBeNull();
+
+    await prisma.transaccion.deleteMany({
+      where: { ingestaId: otherIngesta.id },
+    });
+    await prisma.ingesta.deleteMany({ where: { id: otherIngesta.id } });
+    await prisma.account.deleteMany({ where: { id: otherAccount.id } });
+    await prisma.user.deleteMany({ where: { id: otherUserId } });
+  });
 });
