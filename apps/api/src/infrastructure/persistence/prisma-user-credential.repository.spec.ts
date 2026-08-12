@@ -409,6 +409,34 @@ describe('PrismaUserCredentialRepository', () => {
         ).rejects.toThrow();
       });
 
+      it('forma REAL del driver adapter apuntando a googleSub ⇒ RETHROWS (fail-closed, no confunde con emailBlindIndex)', async () => {
+        const update = vi.fn().mockRejectedValue(
+          p2002({
+            modelName: 'User',
+            driverAdapterError: {
+              cause: {
+                originalMessage:
+                  'duplicate key value violates unique constraint "User_googleSub_key"',
+                constraint: { fields: ['"googleSub"'] },
+              },
+            },
+          }),
+        );
+        const prisma = { user: { update } } as unknown as PrismaClient;
+        const repo = new PrismaUserCredentialRepository(
+          prisma,
+          makeCrypto(),
+          makeBlindIndex(),
+        );
+
+        await expect(
+          repo.actualizarPerfil({
+            userId: 'user-1',
+            email: Email.crear('x@example.com').getValue(),
+          }),
+        ).rejects.toThrow();
+      });
+
       it('target: undefined ⇒ RETHROWS (fail-closed — unknown collision, never assumed email)', async () => {
         const update = vi.fn().mockRejectedValue(p2002(undefined));
         const prisma = { user: { update } } as unknown as PrismaClient;
@@ -424,6 +452,38 @@ describe('PrismaUserCredentialRepository', () => {
             email: Email.crear('x@example.com').getValue(),
           }),
         ).rejects.toThrow();
+      });
+
+      it('forma REAL del driver adapter (@prisma/adapter-pg, verificada contra Postgres real) ⇒ Result.fail(EmailNoDisponibleError)', async () => {
+        const update = vi.fn().mockRejectedValue(
+          p2002({
+            modelName: 'User',
+            driverAdapterError: {
+              name: 'DriverAdapterError',
+              cause: {
+                originalCode: '23505',
+                originalMessage:
+                  'duplicate key value violates unique constraint "User_emailBlindIndex_key"',
+                kind: 'UniqueConstraintViolation',
+                constraint: { fields: ['"emailBlindIndex"'] },
+              },
+            },
+          }),
+        );
+        const prisma = { user: { update } } as unknown as PrismaClient;
+        const repo = new PrismaUserCredentialRepository(
+          prisma,
+          makeCrypto(),
+          makeBlindIndex(),
+        );
+
+        const result = await repo.actualizarPerfil({
+          userId: 'user-1',
+          email: Email.crear('taken@example.com').getValue(),
+        });
+
+        expect(result.isFail()).toBe(true);
+        expect(result.getError()).toBeInstanceOf(EmailNoDisponibleError);
       });
 
       it("target: 'User_emailBlindIndex_key' (string form) ⇒ Result.fail(EmailNoDisponibleError)", async () => {

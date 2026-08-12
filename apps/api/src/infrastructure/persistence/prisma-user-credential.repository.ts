@@ -183,13 +183,54 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
  * combinaciones driver/versión, pero históricamente también llegó como
  * `string` (nombre del constraint, p. ej. "User_emailBlindIndex_key"). Ambas
  * formas contienen el nombre de la columna, así que ambas se aceptan.
- * DESCONOCIDO ⇒ false ⇒ RETHROW (fail-closed, design.md §4.2): un 500
- * visible es mejor que decirle "ese email ya está en uso" a alguien cuya
- * colisión real fue otra (p. ej. `googleSub`, también `@unique`).
+ *
+ * VERIFICADO CONTRA EL DRIVER ADAPTER REAL (`@prisma/adapter-pg`, el que usa
+ * `createPrismaClient` de este repo): Prisma 7 con driver adapters NO puebla
+ * `meta.target` en absoluto — el error de Postgres (23505) llega crudo bajo
+ * `meta.driverAdapterError.cause.constraint.fields` (array de nombres de
+ * columna, citados por Postgres: `'"emailBlindIndex"'`) y/o
+ * `.originalMessage` (el texto del constraint, p. ej.
+ * `'…violates unique constraint "User_emailBlindIndex_key"'`). Ambas formas
+ * contienen igual el nombre de columna, así que `.includes(columna)` sigue
+ * funcionando sin despojar las comillas.
+ *
+ * DESCONOCIDO (ninguna de las formas reconocidas) ⇒ false ⇒ RETHROW
+ * (fail-closed, design.md §4.2): un 500 visible es mejor que decirle "ese
+ * email ya está en uso" a alguien cuya colisión real fue otra (p. ej.
+ * `googleSub`, también `@unique`).
  */
 function apuntaA(meta: unknown, columna: string): boolean {
-  const target = (meta as { target?: unknown } | undefined)?.target;
+  const m = meta as
+    | {
+        target?: unknown;
+        driverAdapterError?: {
+          cause?: {
+            constraint?: { fields?: unknown };
+            originalMessage?: unknown;
+          };
+        };
+      }
+    | undefined;
+
+  const target = m?.target;
   if (Array.isArray(target)) return target.includes(columna);
   if (typeof target === 'string') return target.includes(columna);
+
+  const fields = m?.driverAdapterError?.cause?.constraint?.fields;
+  if (
+    Array.isArray(fields) &&
+    fields.some((f) => typeof f === 'string' && f.includes(columna))
+  ) {
+    return true;
+  }
+
+  const originalMessage = m?.driverAdapterError?.cause?.originalMessage;
+  if (
+    typeof originalMessage === 'string' &&
+    originalMessage.includes(columna)
+  ) {
+    return true;
+  }
+
   return false;
 }
