@@ -24,7 +24,6 @@ import { Result } from '../src/shared/result';
 import { PatronClasificacion } from '../src/domain/value-objects/patron-clasificacion';
 import { ICatalogoClasificacion } from '../src/application/ports/catalogo-clasificacion.port';
 import { Bucket } from '../src/domain/value-objects/bucket';
-import { Categoria } from '../src/domain/value-objects/categoria';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
 import {
@@ -84,7 +83,11 @@ async function runCategorizacionStep(
           patrones,
         )
         .getValue();
-      return { transaccionId: tx.id, categoria, bucket };
+      return {
+        transaccionId: tx.id,
+        categoriaId: categoria?.id ?? null,
+        bucket,
+      };
     });
 
     // Espeja runCategorizacion: catálogo caído → solo se escriben filas de Ingreso;
@@ -254,7 +257,11 @@ describe('Categorización — integración (real dev DB)', () => {
           patrones,
         )
         .getValue();
-      return { transaccionId: tx.id, categoria, bucket };
+      return {
+        transaccionId: tx.id,
+        categoriaId: categoria?.id ?? null,
+        bucket,
+      };
     });
     await bucketWriter.asignarCategorizacion(
       USER_ID_FIJO,
@@ -363,7 +370,7 @@ describe('Categorización — integración (real dev DB)', () => {
       [
         {
           transaccionId: txNull.id,
-          categoria: Categoria.Supermercado,
+          categoriaId: CATEGORIA_IDS.Supermercado,
           bucket: Bucket.Necesidades,
         },
       ],
@@ -377,8 +384,8 @@ describe('Categorización — integración (real dev DB)', () => {
     });
     expect(updated?.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
     expect(updated?.bucket?.nombre).toBe(Bucket.Necesidades);
-    expect(updated?.categoriaId).toBe(CATEGORIA_IDS[Categoria.Supermercado]);
-    expect(updated?.categoria?.nombre).toBe(Categoria.Supermercado);
+    expect(updated?.categoriaId).toBe(CATEGORIA_IDS.Supermercado);
+    expect(updated?.categoria?.nombre).toBe('Supermercado');
 
     // Verify a different null-bucket row (from ingesta A setup if any) is still valid
     const anotherNull = await prisma.transaccion.create({
@@ -453,14 +460,14 @@ describe('Categorización — integración (real dev DB)', () => {
       where: {
         userId_nombre: {
           userId: nonSeedUserId,
-          nombre: Categoria.Supermercado,
+          nombre: 'Supermercado',
         },
       },
     });
     // Resolved through THIS user's own catalog row, never the bootstrap
     // user's fixed CATEGORIA_IDS constant.
     expect(updated.categoriaId).toBe(supermercadoRow.id);
-    expect(updated.categoriaId).not.toBe(CATEGORIA_IDS[Categoria.Supermercado]);
+    expect(updated.categoriaId).not.toBe(CATEGORIA_IDS.Supermercado);
 
     await prisma.transaccion.deleteMany({ where: { ingestaId: ingesta.id } });
     await prisma.ingesta.deleteMany({ where: { id: ingesta.id } });

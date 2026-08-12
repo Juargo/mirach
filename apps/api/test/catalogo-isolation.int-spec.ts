@@ -33,8 +33,6 @@ import {
   CATEGORIA_TEMPLATE_SIZE,
   PATRON_TEMPLATE_SIZE,
 } from '../src/infrastructure/persistence/catalogo-template';
-import { Categoria } from '../src/domain/value-objects/categoria';
-import { Bucket } from '../src/domain/value-objects/bucket';
 
 const RUN_ID = `catalogo-isolation-int-${Date.now()}`;
 const USER_ID_A = `cat-iso-a-${RUN_ID}`;
@@ -133,7 +131,7 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     });
     const originalCategoriaIdB = liderPatternB.categoriaId;
     const ahorroCategoriaB = await prisma.categoria.findUniqueOrThrow({
-      where: { userId_nombre: { userId: USER_ID_B, nombre: Categoria.Ahorro } },
+      where: { userId_nombre: { userId: USER_ID_B, nombre: 'Ahorro' } },
     });
     await prisma.patronClasificacion.update({
       where: { id: liderPatternB.id },
@@ -143,7 +141,7 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     try {
       const result = await catalogoRepo.findAll(USER_ID_A);
       const liderPatternA = result.getValue().find((p) => p.patron === 'lider');
-      expect(liderPatternA?.categoria).toBe(Categoria.Supermercado);
+      expect(liderPatternA?.categoria.nombre).toBe('Supermercado');
     } finally {
       // Restore B's mutated pattern — this test must not leak state into
       // later tests in this file (afterAll only tears down at suite end).
@@ -186,8 +184,7 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     const result = await reclasificarRepo.reasignar(
       USER_ID_B,
       txB.id,
-      Categoria.Transporte,
-      Bucket.Necesidades,
+      'Transporte',
     );
     expect(result.isOk()).toBe(true);
     const { categoriaId } = result.getValue();
@@ -195,12 +192,12 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     const [transporteRowB, transporteRowA] = await Promise.all([
       prisma.categoria.findUniqueOrThrow({
         where: {
-          userId_nombre: { userId: USER_ID_B, nombre: Categoria.Transporte },
+          userId_nombre: { userId: USER_ID_B, nombre: 'Transporte' },
         },
       }),
       prisma.categoria.findUniqueOrThrow({
         where: {
-          userId_nombre: { userId: USER_ID_A, nombre: Categoria.Transporte },
+          userId_nombre: { userId: USER_ID_A, nombre: 'Transporte' },
         },
       }),
     ]);
