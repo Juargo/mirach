@@ -2,6 +2,8 @@
 export interface SesionPersistida {
   readonly userId: string;
   readonly expiresAt: Date;
+  /** CAT038-08: si la sesión pertenece a un usuario demo — el catálogo es de solo lectura. */
+  readonly esDemo: boolean;
 }
 
 /**

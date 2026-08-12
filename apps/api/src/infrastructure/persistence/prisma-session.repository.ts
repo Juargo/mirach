@@ -39,14 +39,22 @@ export class PrismaSessionRepository implements ISessionRepository {
   ): Promise<SesionPersistida | null> {
     const sesion = await this.prisma.session.findUnique({
       where: { tokenHash },
-      select: { userId: true, expiresAt: true },
+      select: {
+        userId: true,
+        expiresAt: true,
+        user: { select: { esDemo: true } },
+      },
     });
 
     if (sesion === null) {
       return null;
     }
 
-    return { userId: sesion.userId, expiresAt: sesion.expiresAt };
+    return {
+      userId: sesion.userId,
+      expiresAt: sesion.expiresAt,
+      esDemo: sesion.user.esDemo,
+    };
   }
 
   async revocarPorTokenHash(tokenHash: string): Promise<void> {
