@@ -233,48 +233,52 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     });
     await crearCatalogoParaUsuario(prisma, attackerUserId);
 
-    const attackerAhorroCategoria = await prisma.categoria.findUniqueOrThrow({
-      where: {
-        userId_nombre: { userId: attackerUserId, nombre: Categoria.Ahorro },
-      },
-    });
-    // Repoint the ATTACKER's OWN "lider" pattern (never the bootstrap's) to
-    // a different categoria with a lower prioridad than the bootstrap's
-    // "lider"→Supermercado pattern (prioridad 10, catalogo-template.ts).
-    await prisma.patronClasificacion.updateMany({
-      where: { userId: attackerUserId, patron: 'lider' },
-      data: { categoriaId: attackerAhorroCategoria.id, prioridad: 1 },
-    });
+    try {
+      const attackerAhorroCategoria = await prisma.categoria.findUniqueOrThrow({
+        where: {
+          userId_nombre: { userId: attackerUserId, nombre: Categoria.Ahorro },
+        },
+      });
+      // Repoint the ATTACKER's OWN "lider" pattern (never the bootstrap's) to
+      // a different categoria with a lower prioridad than the bootstrap's
+      // "lider"→Supermercado pattern (prioridad 10, catalogo-template.ts).
+      await prisma.patronClasificacion.updateMany({
+        where: { userId: attackerUserId, patron: 'lider' },
+        data: { categoriaId: attackerAhorroCategoria.id, prioridad: 1 },
+      });
 
-    await prisma.transaccion.create({
-      data: {
-        ingestaId: testIngestaId,
-        accountId: ACCOUNT_ID_FIJO,
-        fecha: new Date('2026-07-01'),
-        descripcion: 'Compra Lider',
-        cargo: 9500n,
-        abono: 0n,
-      },
-    });
+      await prisma.transaccion.create({
+        data: {
+          ingestaId: testIngestaId,
+          accountId: ACCOUNT_ID_FIJO,
+          fecha: new Date('2026-07-01'),
+          descripcion: 'Compra Lider',
+          cargo: 9500n,
+          abono: 0n,
+        },
+      });
 
-    const summary = await runBackfill(prisma, { dryRun: false });
+      const summary = await runBackfill(prisma, { dryRun: false });
 
-    const bootstrapRow = await prisma.transaccion.findFirst({
-      where: { ingestaId: testIngestaId, descripcion: 'Compra Lider' },
-    });
-    // Must still resolve via the BOOTSTRAP user's own catalog
-    // (Supermercado), never the attacker's hijacked categoria (Ahorro).
-    expect(bootstrapRow?.categoriaId).toBe(
-      CATEGORIA_IDS[Categoria.Supermercado],
-    );
-    expect(summary.porCategoria[Categoria.Supermercado]).toBeGreaterThanOrEqual(
-      1,
-    );
-
-    await prisma.patronClasificacion.deleteMany({
-      where: { userId: attackerUserId },
-    });
-    await prisma.categoria.deleteMany({ where: { userId: attackerUserId } });
-    await prisma.user.deleteMany({ where: { id: attackerUserId } });
+      const bootstrapRow = await prisma.transaccion.findFirst({
+        where: { ingestaId: testIngestaId, descripcion: 'Compra Lider' },
+      });
+      // Must still resolve via the BOOTSTRAP user's own catalog
+      // (Supermercado), never the attacker's hijacked categoria (Ahorro).
+      expect(bootstrapRow?.categoriaId).toBe(
+        CATEGORIA_IDS[Categoria.Supermercado],
+      );
+      expect(
+        summary.porCategoria[Categoria.Supermercado],
+      ).toBeGreaterThanOrEqual(1);
+    } finally {
+      // Cleanup must run even when the assertions above fail (red phase or a
+      // future regression), so the attacker rows never leak into the DB.
+      await prisma.patronClasificacion.deleteMany({
+        where: { userId: attackerUserId },
+      });
+      await prisma.categoria.deleteMany({ where: { userId: attackerUserId } });
+      await prisma.user.deleteMany({ where: { id: attackerUserId } });
+    }
   });
 });
