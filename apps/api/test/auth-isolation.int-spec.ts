@@ -361,4 +361,33 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       .attach('file', xlsxFixture, `iso-noauth-${RUN_ID}.xlsx`)
       .expect(401);
   });
+
+  it("PATCH /api/perfil (cookie A): a body naming B's id is rejected 400 by .strict() — B's row is byte-identical afterward (PERF040-07, US-040)", async () => {
+    if (!ALLOW) return;
+
+    const beforeB = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdB },
+      select: { nombre: true, email: true, emailBlindIndex: true },
+    });
+
+    const res = await request(app)
+      .patch('/api/perfil')
+      .set('x-api-key', API_KEY)
+      .set('Cookie', cookieA)
+      .send({ nombre: 'Intento Cruzado', userId: userIdB });
+
+    expect(res.status).toBe(400);
+
+    const afterB = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdB },
+      select: { nombre: true, email: true, emailBlindIndex: true },
+    });
+    expect(afterB).toEqual(beforeB);
+
+    const afterA = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdA },
+      select: { nombre: true },
+    });
+    expect(afterA.nombre).not.toBe('Intento Cruzado');
+  });
 });
