@@ -2,47 +2,20 @@ import type { Mock } from 'vitest';
 import { PrismaTransaccionBucketRepository } from './prisma-transaccion-bucket.repository';
 import { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { Categoria } from '../../domain/value-objects/categoria';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { BUCKET_IDS } from './bucket-ids';
 
 const USER_ID = 'user-owner-of-this-catalog';
 
 /**
- * Ids deliberadamente DISTINTOS de CATEGORIA_IDS (categoria-ids.ts) — prueban
- * que la escritura resuelve el id físico a través del `findMany({where:{userId}})`
- * de ESTE usuario (US-037), nunca a través del mapa global fijo.
+ * Tras ADR-037/Q5, `asignaciones` ya trae el `categoriaId` REAL resuelto
+ * contra el catálogo del usuario clasificador (design.md §3.3) — el writer
+ * NO hace ningún lookup de categoría. `$transaction` recibe un array de
+ * promesas ya resueltas (Prisma batch style).
  */
-const USER_CATEGORIA_IDS: Record<Categoria, string> = {
-  [Categoria.Supermercado]: 'own-supermercado-row-id',
-  [Categoria.Combustible]: 'own-combustible-row-id',
-  [Categoria.Farmacia]: 'own-farmacia-row-id',
-  [Categoria.Salud]: 'own-salud-row-id',
-  [Categoria.Transporte]: 'own-transporte-row-id',
-  [Categoria.Streaming]: 'own-streaming-row-id',
-  [Categoria.Delivery]: 'own-delivery-row-id',
-  [Categoria.Ahorro]: 'own-ahorro-row-id',
-};
-
-function categoriaRow(categoria: Categoria) {
-  return { id: USER_CATEGORIA_IDS[categoria], nombre: categoria };
-}
-
-/**
- * `categorias` controla qué filas devuelve `categoria.findMany` para este
- * usuario — por defecto, el catálogo completo (8 categorías).
- * When `throws` is set, `$transaction` rejects — simulating a DB-level error.
- * updateMany still returns a pending promise; $transaction is the one that fails.
- */
-function makePrismaMock(options?: {
-  throws?: Error;
-  categorias?: ReadonlyArray<Categoria>;
-}) {
+function makePrismaMock(options?: { throws?: Error }) {
   const updateMany = vi.fn().mockResolvedValue({ count: 1 });
-  const findMany = vi.fn(async () =>
-    (options?.categorias ?? Object.values(Categoria)).map(categoriaRow),
-  );
-  // $transaction receives an array of already-resolved promises (Prisma batch style)
+  const findMany = vi.fn();
   const transaction = vi.fn(async (promises: Promise<unknown>[]) => {
     if (options?.throws) throw options.throws;
     return Promise.all(promises);
@@ -67,7 +40,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       expect((prisma.$transaction as Mock).mock.calls.length).toBe(0);
     });
 
-    it('calls $transaction with updateMany calls grouped by (categoria, bucket), with ingestaId scope lock', async () => {
+    it('calls $transaction with updateMany calls grouped by (categoriaId, bucket), with ingestaId + account.userId triple lock', async () => {
       const prisma = makePrismaMock();
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
@@ -75,15 +48,15 @@ describe('PrismaTransaccionBucketRepository', () => {
       const asignaciones = [
         {
           transaccionId: 'tx-1',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
         {
           transaccionId: 'tx-2',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
-        { transaccionId: 'tx-3', categoria: null, bucket: Bucket.Ingreso },
+        { transaccionId: 'tx-3', categoriaId: null, bucket: Bucket.Ingreso },
       ];
 
       const result = await repo.asignarCategorizacion(
@@ -95,22 +68,21 @@ describe('PrismaTransaccionBucketRepository', () => {
       const txFn = prisma.$transaction as Mock;
 
       expect(result.isOk()).toBe(true);
-      // Should have called $transaction once
       expect(txFn).toHaveBeenCalledTimes(1);
-      // updateMany should have been called twice (one per unique (categoria,bucket) group)
       expect(updateMany).toHaveBeenCalledTimes(2);
-      // Check updateMany called with correct args for the Supermercado/Necesidades group
+
       const supermercadoCall = updateMany.mock.calls.find(
         (call) => call[0].data.bucketId === BUCKET_IDS[Bucket.Necesidades],
       );
       expect(supermercadoCall).toBeDefined();
       expect(supermercadoCall![0].where.id.in).toEqual(['tx-1', 'tx-2']);
       expect(supermercadoCall![0].data.categoriaId).toBe(
-        USER_CATEGORIA_IDS[Categoria.Supermercado],
+        'own-supermercado-row-id',
       );
-      // SCOPE ISOLATION: ingestaId must be in the WHERE clause (double-lock)
+      // Triple lock (Q5): id IN (...) AND ingestaId = ? AND account.userId = ?
       expect(supermercadoCall![0].where.ingestaId).toBe(ingestaId);
-      // Check updateMany called with correct args for the null-categoria/Ingreso group
+      expect(supermercadoCall![0].where.account).toEqual({ userId: USER_ID });
+
       const ingresoCall = updateMany.mock.calls.find(
         (call) => call[0].data.bucketId === BUCKET_IDS[Bucket.Ingreso],
       );
@@ -118,6 +90,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       expect(ingresoCall![0].where.id.in).toEqual(['tx-3']);
       expect(ingresoCall![0].data.categoriaId).toBeNull();
       expect(ingresoCall![0].where.ingestaId).toBe(ingestaId);
+      expect(ingresoCall![0].where.account).toEqual({ userId: USER_ID });
     });
 
     it('returns correct total actualizadas count across all groups', async () => {
@@ -132,27 +105,27 @@ describe('PrismaTransaccionBucketRepository', () => {
       const asignaciones = [
         {
           transaccionId: 'tx-1',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
         {
           transaccionId: 'tx-2',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
         {
           transaccionId: 'tx-3',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
         {
           transaccionId: 'tx-4',
-          categoria: Categoria.Streaming,
+          categoriaId: 'own-streaming-row-id',
           bucket: Bucket.Deseos,
         },
         {
           transaccionId: 'tx-5',
-          categoria: Categoria.Streaming,
+          categoriaId: 'own-streaming-row-id',
           bucket: Bucket.Deseos,
         },
       ];
@@ -167,23 +140,20 @@ describe('PrismaTransaccionBucketRepository', () => {
       expect(result.getValue().actualizadas).toBe(5);
     });
 
-    it('two DIFFERENT categorías in the SAME bucket produce two separate groups (categoria drives grouping, not just bucket)', async () => {
+    it('two DIFFERENT categoriaIds sharing the SAME bucket produce two separate groups', async () => {
       const prisma = makePrismaMock();
       const updateMany = prisma.transaccion.updateMany as Mock;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
-      // Supermercado and Combustible both derive to Necesidades — but they are
-      // DIFFERENT categorías and must be written as separate groups (distinct
-      // categoriaId), even though bucketId is identical for both.
       const asignaciones = [
         {
           transaccionId: 'tx-1',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
         {
           transaccionId: 'tx-2',
-          categoria: Categoria.Combustible,
+          categoriaId: 'own-combustible-row-id',
           bucket: Bucket.Necesidades,
         },
       ];
@@ -192,14 +162,10 @@ describe('PrismaTransaccionBucketRepository', () => {
 
       expect(updateMany).toHaveBeenCalledTimes(2);
       const supermercadoCall = updateMany.mock.calls.find(
-        (call) =>
-          call[0].data.categoriaId ===
-          USER_CATEGORIA_IDS[Categoria.Supermercado],
+        (call) => call[0].data.categoriaId === 'own-supermercado-row-id',
       );
       const combustibleCall = updateMany.mock.calls.find(
-        (call) =>
-          call[0].data.categoriaId ===
-          USER_CATEGORIA_IDS[Categoria.Combustible],
+        (call) => call[0].data.categoriaId === 'own-combustible-row-id',
       );
       expect(supermercadoCall![0].where.id.in).toEqual(['tx-1']);
       expect(combustibleCall![0].where.id.in).toEqual(['tx-2']);
@@ -212,7 +178,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       const asignaciones = [
         {
           transaccionId: 'tx-1',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
       ];
@@ -233,7 +199,11 @@ describe('PrismaTransaccionBucketRepository', () => {
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       const asignaciones = [
-        { transaccionId: 'tx-1', categoria: null, bucket: Bucket.SinCategoria },
+        {
+          transaccionId: 'tx-1',
+          categoriaId: null,
+          bucket: Bucket.SinCategoria,
+        },
       ];
       await expect(
         repo.asignarCategorizacion(USER_ID, 'ingesta-1', asignaciones),
@@ -246,7 +216,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       expect(result.isFail()).toBe(true);
     });
 
-    it('maps Categoria/Bucket enums to correct physical ids in updateMany call, with ingestaId scope lock', async () => {
+    it('writes the handed categoriaId + bucketId verbatim, with ingestaId + account.userId scope lock', async () => {
       const prisma = makePrismaMock();
       const updateMany = prisma.transaccion.updateMany as Mock;
       const repo = new PrismaTransaccionBucketRepository(prisma);
@@ -254,47 +224,56 @@ describe('PrismaTransaccionBucketRepository', () => {
       await repo.asignarCategorizacion(USER_ID, 'ingesta-scope-test', [
         {
           transaccionId: 'tx-1',
-          categoria: Categoria.Ahorro,
+          categoriaId: 'own-ahorro-row-id',
           bucket: Bucket.Ahorro,
         },
       ]);
 
       expect(updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['tx-1'] }, ingestaId: 'ingesta-scope-test' },
+        where: {
+          id: { in: ['tx-1'] },
+          ingestaId: 'ingesta-scope-test',
+          account: { userId: USER_ID },
+        },
         data: {
-          categoriaId: USER_CATEGORIA_IDS[Categoria.Ahorro],
+          categoriaId: 'own-ahorro-row-id',
           bucketId: BUCKET_IDS[Bucket.Ahorro],
         },
       });
     });
 
-    it('maps a null categoria to a null categoriaId (Ingreso / SinCategoria rows) — no category lookup needed', async () => {
+    it('maps a null categoriaId verbatim (Ingreso / SinCategoria rows)', async () => {
       const prisma = makePrismaMock();
       const updateMany = prisma.transaccion.updateMany as Mock;
-      const findMany = prisma.categoria.findMany as Mock;
       const repo = new PrismaTransaccionBucketRepository(prisma);
 
       await repo.asignarCategorizacion(USER_ID, 'ingesta-1', [
-        { transaccionId: 'tx-1', categoria: null, bucket: Bucket.SinCategoria },
+        {
+          transaccionId: 'tx-1',
+          categoriaId: null,
+          bucket: Bucket.SinCategoria,
+        },
       ]);
 
       expect(updateMany).toHaveBeenCalledWith({
-        where: { id: { in: ['tx-1'] }, ingestaId: 'ingesta-1' },
+        where: {
+          id: { in: ['tx-1'] },
+          ingestaId: 'ingesta-1',
+          account: { userId: USER_ID },
+        },
         data: {
           categoriaId: null,
           bucketId: BUCKET_IDS[Bucket.SinCategoria],
         },
       });
-      // No categoría involved anywhere in the batch → no lookup query at all.
-      expect(findMany).not.toHaveBeenCalled();
     });
 
     // ---------------------------------------------------------------------
-    // US-037 (CAT037-03/design.md §4.2): la resolución categoría → id físico
-    // ahora pasa por UN findMany({where:{userId}}) del usuario dueño de la
-    // ingesta, nunca por CATEGORIA_IDS (mapa global).
+    // ADR-037/Q5: la resolución categoría → id físico ya ocurrió río arriba
+    // (CategorizarTransaccionUseCase, contra el catálogo real del usuario).
+    // El writer NUNCA consulta `categoria` — ni siquiera un solo lookup.
     // ---------------------------------------------------------------------
-    it('category lookup is where: { userId }, select { id, nombre } — exactly one call regardless of group count', async () => {
+    it('never issues a categoria.findMany — no lookup, no map, no throw (Q5)', async () => {
       const prisma = makePrismaMock();
       const findMany = prisma.categoria.findMany as Mock;
       const repo = new PrismaTransaccionBucketRepository(prisma);
@@ -302,50 +281,17 @@ describe('PrismaTransaccionBucketRepository', () => {
       await repo.asignarCategorizacion(USER_ID, 'ingesta-1', [
         {
           transaccionId: 'tx-1',
-          categoria: Categoria.Supermercado,
+          categoriaId: 'own-supermercado-row-id',
           bucket: Bucket.Necesidades,
         },
         {
           transaccionId: 'tx-2',
-          categoria: Categoria.Streaming,
+          categoriaId: 'own-streaming-row-id',
           bucket: Bucket.Deseos,
         },
       ]);
 
-      expect(findMany).toHaveBeenCalledTimes(1);
-      expect(findMany).toHaveBeenCalledWith({
-        where: { userId: USER_ID },
-        select: { id: true, nombre: true },
-      });
-    });
-
-    it('a category missing from the userId lookup degrades to Result.fail(CategorizacionFallidaError) — never throws', async () => {
-      // Catálogo del usuario NO incluye Streaming (p.ej. copia corrupta) —
-      // el writer debe degradar, nunca lanzar hacia el caller.
-      const prisma = makePrismaMock({
-        categorias: [Categoria.Supermercado],
-      });
-      const repo = new PrismaTransaccionBucketRepository(prisma);
-
-      const asignaciones = [
-        {
-          transaccionId: 'tx-1',
-          categoria: Categoria.Streaming,
-          bucket: Bucket.Deseos,
-        },
-      ];
-
-      await expect(
-        repo.asignarCategorizacion(USER_ID, 'ingesta-1', asignaciones),
-      ).resolves.toBeDefined();
-      const result = await repo.asignarCategorizacion(
-        USER_ID,
-        'ingesta-1',
-        asignaciones,
-      );
-
-      expect(result.isFail()).toBe(true);
-      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+      expect(findMany).not.toHaveBeenCalled();
     });
   });
 });

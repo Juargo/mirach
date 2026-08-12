@@ -7,32 +7,57 @@ import {
   copiarCatalogoTemplate,
   type CatalogoTemplateClient,
 } from './catalogo-template';
-import {
-  Categoria,
-  CATEGORIA_BUCKET,
-} from '../../domain/value-objects/categoria';
+import { Bucket } from '../../domain/value-objects/bucket';
 import { BUCKET_IDS } from './bucket-ids';
 
+/**
+ * CATEGORIA_TEMPLATE — pinning test (ADR-037/D-02).
+ *
+ * Antes de este cambio la plantilla se DERIVABA de `Object.values(Categoria)`
+ * (un enum cerrado); tras el retiro del enum, la plantilla es la única
+ * fuente que fija qué 8 categorías y qué bucket llevan — este test las FIJA
+ * por nombre+bucket. Editar la plantilla ahora requiere editar este test a
+ * propósito, que es exactamente el punto (design.md §8.3).
+ */
 describe('CATEGORIA_TEMPLATE', () => {
-  it('covers exactly the 8 Categoria enum values', () => {
+  const ESPERADAS: ReadonlyArray<{ nombre: string; bucket: Bucket }> = [
+    { nombre: 'Supermercado', bucket: Bucket.Necesidades },
+    { nombre: 'Combustible', bucket: Bucket.Necesidades },
+    { nombre: 'Farmacia', bucket: Bucket.Necesidades },
+    { nombre: 'Salud', bucket: Bucket.Necesidades },
+    { nombre: 'Transporte', bucket: Bucket.Necesidades },
+    { nombre: 'Streaming', bucket: Bucket.Deseos },
+    { nombre: 'Delivery', bucket: Bucket.Deseos },
+    { nombre: 'Ahorro', bucket: Bucket.Ahorro },
+  ];
+
+  it('pins exactly 8 categorías por nombre+bucket', () => {
     expect(CATEGORIA_TEMPLATE_SIZE).toBe(8);
     expect(CATEGORIA_TEMPLATE).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
-    const nombres = CATEGORIA_TEMPLATE.map((entry) => entry.nombre).sort();
-    expect(nombres).toEqual([...Object.values(Categoria)].sort());
+    const actual = CATEGORIA_TEMPLATE.map((entry) => ({
+      nombre: entry.nombre,
+      bucket: entry.bucket,
+    })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const esperadas = [...ESPERADAS].sort((a, b) =>
+      a.nombre.localeCompare(b.nombre),
+    );
+    expect(actual).toEqual(esperadas);
   });
 
-  it('derives each bucketId from CATEGORIA_BUCKET + BUCKET_IDS — never a literal', () => {
+  it('cada bucket de la plantilla resuelve a un id físico vía BUCKET_IDS — BUCKET_IDS sigue siendo la única autoridad de ids', () => {
     for (const entry of CATEGORIA_TEMPLATE) {
-      expect(entry.bucketId).toBe(BUCKET_IDS[CATEGORIA_BUCKET[entry.nombre]]);
+      expect(BUCKET_IDS[entry.bucket]).toEqual(expect.any(String));
     }
   });
 });
 
 describe('PATRON_TEMPLATE', () => {
-  it('every entry has a valid enum categoria', () => {
-    const categoriasValidas = new Set<string>(Object.values(Categoria));
+  it('cada entrada referencia un nombre de categoría que existe en la plantilla', () => {
+    const nombresTemplate = new Set(
+      CATEGORIA_TEMPLATE.map((entry) => entry.nombre),
+    );
     for (const entry of PATRON_TEMPLATE) {
-      expect(categoriasValidas.has(entry.categoria)).toBe(true);
+      expect(nombresTemplate.has(entry.categoria)).toBe(true);
     }
   });
 
