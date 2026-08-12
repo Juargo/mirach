@@ -7,10 +7,22 @@ import { CATEGORIA_IDS } from './categoria-ids';
 import { BUCKET_IDS } from './bucket-ids';
 import { USER_ID_FIJO } from './constants';
 import {
-  Categoria,
-  CATEGORIA_BUCKET,
-} from '../../domain/value-objects/categoria';
+  CATEGORIA_TEMPLATE,
+  CATEGORIA_TEMPLATE_SIZE,
+  type CategoriaTemplateNombre,
+} from './catalogo-template';
+import { Bucket } from '../../domain/value-objects/bucket';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+
+/**
+ * Mapa nombre → bucket derivado de CATEGORIA_TEMPLATE (ADR-037/D-02) —
+ * reemplaza el `CATEGORIA_BUCKET` del enum retirado como fuente de verdad
+ * para verificar que el seed escribió el `bucketId` correcto.
+ */
+const BUCKET_DE_TEMPLATE: Record<CategoriaTemplateNombre, Bucket> =
+  Object.fromEntries(
+    CATEGORIA_TEMPLATE.map((entry) => [entry.nombre, entry.bucket]),
+  ) as Record<CategoriaTemplateNombre, Bucket>;
 
 /**
  * Seed-integrity unit tests (CAT-01, CAT-04) — no DB involved.
@@ -99,29 +111,28 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
     process.env.ENCRYPTION_KEY = originalEncryptionKey;
   });
 
-  it('CATEGORIA_IDS cubre exactamente las 8 categorías del enum', () => {
-    expect(Object.keys(CATEGORIA_IDS)).toHaveLength(
-      Object.values(Categoria).length,
-    );
-    for (const categoria of Object.values(Categoria)) {
-      expect(typeof CATEGORIA_IDS[categoria]).toBe('string');
-      expect(CATEGORIA_IDS[categoria].length).toBeGreaterThan(0);
+  it('CATEGORIA_IDS cubre exactamente las 8 categorías de la plantilla', () => {
+    expect(Object.keys(CATEGORIA_IDS)).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
+    for (const entry of CATEGORIA_TEMPLATE) {
+      const id = CATEGORIA_IDS[entry.nombre];
+      expect(typeof id).toBe('string');
+      expect(id.length).toBeGreaterThan(0);
     }
   });
 
   it('CATEGORIA_CATALOG_SIZE coincide con el tamaño real del catálogo (mirror de PATRON_CATALOG_SIZE)', () => {
-    expect(CATEGORIA_CATALOG_SIZE).toBe(Object.values(Categoria).length);
+    expect(CATEGORIA_CATALOG_SIZE).toBe(CATEGORIA_TEMPLATE_SIZE);
   });
 
-  it('sembrar produce cada Categoria.bucketId === BUCKET_IDS[CATEGORIA_BUCKET[nombre]]', async () => {
+  it('sembrar produce cada Categoria.bucketId === BUCKET_IDS[bucket de la plantilla]', async () => {
     const { prisma, stores } = makeFakeSeedClient();
     await runSeed(prisma);
 
     expect(stores.categoria.rows.size).toBe(CATEGORIA_CATALOG_SIZE);
     for (const row of stores.categoria.rows.values()) {
-      const categoriaEsperada = row.nombre as Categoria;
+      const categoriaEsperada = row.nombre as CategoriaTemplateNombre;
       expect(row.bucketId).toBe(
-        BUCKET_IDS[CATEGORIA_BUCKET[categoriaEsperada]],
+        BUCKET_IDS[BUCKET_DE_TEMPLATE[categoriaEsperada]],
       );
       expect(row.id).toBe(CATEGORIA_IDS[categoriaEsperada]);
     }
@@ -197,8 +208,6 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
     const patronLider = stores.patronClasificacion.rows.get('pat-lider');
     expect(patronLider).toBeDefined();
     expect(patronLider?.patron).toBe('lider');
-    expect(patronLider?.categoriaId).toBe(
-      CATEGORIA_IDS[Categoria.Supermercado],
-    );
+    expect(patronLider?.categoriaId).toBe(CATEGORIA_IDS.Supermercado);
   });
 });

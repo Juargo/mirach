@@ -3,10 +3,8 @@ import {
   main,
   type BackfillClient,
 } from '../../../prisma/backfill-categorias';
-import { CATEGORIA_IDS } from './categoria-ids';
 import { BUCKET_IDS } from './bucket-ids';
 import { USER_ID_FIJO } from './constants';
-import { Categoria } from '../../domain/value-objects/categoria';
 import { Bucket } from '../../domain/value-objects/bucket';
 import type { ICryptoService } from '../../application/ports/crypto-service.port';
 import { AesGcmCryptoService } from './aes-gcm-crypto.service';
@@ -21,16 +19,29 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
  * `categoriaId IS NULL` sin una conexión Postgres real (mismo patrón que
  * seed-catalog.spec.ts, ADR-015).
  *
+ * ADR-037/Q5 (us-038): `categoriaId` YA NO se resuelve vía un mapa global de
+ * ids fijos — viene de la fila REAL de `categoria` que el `include` widened
+ * del pattern trae (`{ categoria: { include: { bucket: true } } }`, §3.5).
+ * Estos ids de fixture son arbitrarios (no `CATEGORIA_IDS`) — la prueba es
+ * que `runBackfill` los propaga verbatim, nunca los resuelve por su cuenta.
+ *
  * Los tests gated contra BD real (T3.1-T3.3, idempotencia/dry-run/scope
  * integration) viven en test/backfill-categorias.int-spec.ts.
  */
+
+const CATEGORIA_ROW_IDS: Record<string, string> = {
+  Supermercado: 'cat-row-supermercado',
+  Combustible: 'cat-row-combustible',
+  Streaming: 'cat-row-streaming',
+  Ahorro: 'cat-row-ahorro',
+};
 
 interface FakePatron {
   id: string;
   patron: string;
   matchType: string;
   prioridad: number;
-  categoria: { nombre: string };
+  categoria: { id: string; nombre: string; bucket: { nombre: string } };
 }
 
 interface FakeTransaccion {
@@ -117,7 +128,11 @@ const PAT_LIDER: FakePatron = {
   patron: 'lider',
   matchType: 'CONTAINS',
   prioridad: 10,
-  categoria: { nombre: Categoria.Supermercado },
+  categoria: {
+    id: CATEGORIA_ROW_IDS.Supermercado,
+    nombre: 'Supermercado',
+    bucket: { nombre: Bucket.Necesidades },
+  },
 };
 
 describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
@@ -139,17 +154,15 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
     const summary = await runBackfill(client, { dryRun: false });
 
     expect(summary.totalRows).toBe(1);
-    expect(summary.porCategoria[Categoria.Supermercado]).toBe(1);
+    expect(summary.porCategoria['Supermercado']).toBe(1);
     expect(summary.bucketChanges).toBe(1);
     expect(updateManyCalls).toHaveLength(1);
     expect(updateManyCalls[0]).toMatchObject({
       ids: ['tx-1'],
-      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      categoriaId: CATEGORIA_ROW_IDS.Supermercado,
       bucketId: BUCKET_IDS[Bucket.Necesidades],
     });
-    expect(transacciones[0].categoriaId).toBe(
-      CATEGORIA_IDS[Categoria.Supermercado],
-    );
+    expect(transacciones[0].categoriaId).toBe(CATEGORIA_ROW_IDS.Supermercado);
     expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
   });
 
@@ -213,7 +226,7 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
           descripcion: 'Compra Lider',
           cargo: 9500n,
           abono: 0n,
-          categoriaId: CATEGORIA_IDS[Categoria.Ahorro], // manually reclassified, would NOT match "lider"→Supermercado
+          categoriaId: CATEGORIA_ROW_IDS.Ahorro, // manually reclassified, would NOT match "lider"→Supermercado
           bucketId: BUCKET_IDS[Bucket.Ahorro],
         },
       ],
@@ -224,17 +237,21 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
     expect(summary.totalRows).toBe(0);
     expect(updateManyCalls).toHaveLength(0);
     // Untouched — manual edit preserved.
-    expect(transacciones[0].categoriaId).toBe(CATEGORIA_IDS[Categoria.Ahorro]);
+    expect(transacciones[0].categoriaId).toBe(CATEGORIA_ROW_IDS.Ahorro);
     expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Ahorro]);
   });
 
-  it('agrupa por (categoria, bucket): dos categorías distintas al mismo bucket generan updateMany separados', async () => {
+  it('agrupa por (categoriaId, bucket): dos categorías distintas al mismo bucket generan updateMany separados', async () => {
     const PAT_COPEC: FakePatron = {
       id: 'pat-copec',
       patron: 'copec',
       matchType: 'CONTAINS',
       prioridad: 15,
-      categoria: { nombre: Categoria.Combustible },
+      categoria: {
+        id: CATEGORIA_ROW_IDS.Combustible,
+        nombre: 'Combustible',
+        bucket: { nombre: Bucket.Necesidades },
+      },
     };
     const { client, updateManyCalls } = makeFakeClient(
       [PAT_LIDER, PAT_COPEC],
@@ -264,10 +281,7 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
     expect(updateManyCalls).toHaveLength(2);
     const categoriaIds = updateManyCalls.map((c) => c.categoriaId).sort();
     expect(categoriaIds).toEqual(
-      [
-        CATEGORIA_IDS[Categoria.Combustible],
-        CATEGORIA_IDS[Categoria.Supermercado],
-      ].sort(),
+      [CATEGORIA_ROW_IDS.Combustible, CATEGORIA_ROW_IDS.Supermercado].sort(),
     );
   });
 });
@@ -277,7 +291,11 @@ const PAT_NETFLIX: FakePatron = {
   patron: 'netflix',
   matchType: 'CONTAINS',
   prioridad: 20,
-  categoria: { nombre: Categoria.Streaming },
+  categoria: {
+    id: CATEGORIA_ROW_IDS.Streaming,
+    nombre: 'Streaming',
+    bucket: { nombre: Bucket.Deseos },
+  },
 };
 
 describe('runBackfill — preservación de bucket existente (fix/backfill-preserve-bucket)', () => {
@@ -301,12 +319,10 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
     expect(updateManyCalls).toHaveLength(1);
     expect(updateManyCalls[0]).toMatchObject({
       ids: ['tx-consistente'],
-      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      categoriaId: CATEGORIA_ROW_IDS.Supermercado,
       bucketId: BUCKET_IDS[Bucket.Necesidades],
     });
-    expect(transacciones[0].categoriaId).toBe(
-      CATEGORIA_IDS[Categoria.Supermercado],
-    );
+    expect(transacciones[0].categoriaId).toBe(CATEGORIA_ROW_IDS.Supermercado);
     // Bucket unchanged — same value it already had.
     expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
     expect(summary.categoriaAgregadaBucketPreservado).toBe(1);
@@ -340,7 +356,7 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
     expect(summary.bucketAsignadoDesdeNulo).toBe(0);
     expect(summary.bucketChanges).toBe(0);
     // Classification outcome is still reported for visibility, even though unwritten.
-    expect(summary.porCategoria[Categoria.Streaming]).toBe(1);
+    expect(summary.porCategoria['Streaming']).toBe(1);
   });
 
   it('fila ya bucketeada como SinCategoria con cualquier match: se queda en SinCategoria, categoriaId null', async () => {
@@ -451,13 +467,13 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
 
     // tx-a gains a categoria, bucket unchanged.
     expect(transacciones.find((t) => t.id === 'tx-a')?.categoriaId).toBe(
-      CATEGORIA_IDS[Categoria.Supermercado],
+      CATEGORIA_ROW_IDS.Supermercado,
     );
     // tx-b untouched.
     expect(transacciones.find((t) => t.id === 'tx-b')?.categoriaId).toBeNull();
     // tx-c gets full classification (bucket previously null).
     expect(transacciones.find((t) => t.id === 'tx-c')?.categoriaId).toBe(
-      CATEGORIA_IDS[Categoria.Supermercado],
+      CATEGORIA_ROW_IDS.Supermercado,
     );
     expect(transacciones.find((t) => t.id === 'tx-c')?.bucketId).toBe(
       BUCKET_IDS[Bucket.Necesidades],
@@ -491,7 +507,7 @@ describe('runBackfill — ADR-013: descifrado de descripcion antes de clasificar
     await runBackfill(client, { dryRun: false });
 
     expect(updateManyCalls[0]).toMatchObject({
-      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      categoriaId: CATEGORIA_ROW_IDS.Supermercado,
     });
   });
 
@@ -518,10 +534,10 @@ describe('runBackfill — ADR-013: descifrado de descripcion antes de clasificar
 
     const summary = await runBackfill(client, { dryRun: false, crypto });
 
-    expect(summary.porCategoria[Categoria.Supermercado]).toBe(1);
+    expect(summary.porCategoria['Supermercado']).toBe(1);
     expect(updateManyCalls[0]).toMatchObject({
       ids: ['tx-cifrado'],
-      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      categoriaId: CATEGORIA_ROW_IDS.Supermercado,
       bucketId: BUCKET_IDS[Bucket.Necesidades],
     });
   });
@@ -556,10 +572,10 @@ describe('runBackfill — ADR-013: descifrado de descripcion antes de clasificar
     // (no solo que decrypt() se llama): un ciphertext escrito por
     // AesGcmCryptoService.encrypt() se descifra correctamente acá y el
     // pattern matching corre sobre "Compra Lider", no sobre el ciphertext.
-    expect(summary.porCategoria[Categoria.Supermercado]).toBe(1);
+    expect(summary.porCategoria['Supermercado']).toBe(1);
     expect(updateManyCalls[0]).toMatchObject({
       ids: ['tx-adapter-real'],
-      categoriaId: CATEGORIA_IDS[Categoria.Supermercado],
+      categoriaId: CATEGORIA_ROW_IDS.Supermercado,
       bucketId: BUCKET_IDS[Bucket.Necesidades],
     });
   });
@@ -611,7 +627,7 @@ describe('runBackfill — dry-run (CAT-05, unit, sin BD)', () => {
     const summary = await runBackfill(client, { dryRun: true });
 
     expect(summary.totalRows).toBe(1);
-    expect(summary.porCategoria[Categoria.Supermercado]).toBe(1);
+    expect(summary.porCategoria['Supermercado']).toBe(1);
     expect(summary.bucketChanges).toBe(1);
     expect(updateManyCalls).toHaveLength(0);
     // Nothing persisted.

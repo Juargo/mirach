@@ -8,12 +8,12 @@ import {
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
-import { Categoria } from '../src/domain/value-objects/categoria';
 import {
   CATEGORIA_TEMPLATE,
   CATEGORIA_TEMPLATE_SIZE,
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
+  type CategoriaTemplateNombre,
 } from '../src/infrastructure/persistence/catalogo-template';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
@@ -55,12 +55,15 @@ type SeedClient = Pick<
 // para su garantía de idempotencia (D-07: dos escritores, un contenido).
 const CATEGORIA_CATALOG: Array<{
   id: string;
-  nombre: Categoria;
+  nombre: CategoriaTemplateNombre;
   bucketId: string;
 }> = CATEGORIA_TEMPLATE.map((categoria) => ({
   id: CATEGORIA_IDS[categoria.nombre],
   nombre: categoria.nombre,
-  bucketId: categoria.bucketId,
+  // bucketId SIEMPRE derivado en el write site (ADR-037 D-02) — BUCKET_IDS
+  // sigue siendo la única autoridad de ids físicos, igual que
+  // copiarCatalogoTemplate.
+  bucketId: BUCKET_IDS[categoria.bucket],
 }));
 
 /**

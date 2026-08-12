@@ -2,7 +2,6 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
-import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
 import {
@@ -13,7 +12,6 @@ import {
   PatronClasificacion,
   MatchType,
 } from '../src/domain/value-objects/patron-clasificacion';
-import { Categoria } from '../src/domain/value-objects/categoria';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import type { ICryptoService } from '../src/application/ports/crypto-service.port';
 import type { ILogger } from '../src/application/ports/logger.port';
@@ -47,21 +45,27 @@ import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
  *
  * ⚠️ FROZEN, bootstrap-user-only (US-037 D-10, CAT037-05 "legacy backfill
  * script" scenario), on BOTH the read and the write side. Pre-US-037 this
- * scanned `categoriaId IS NULL` GLOBALLY and wrote `CATEGORIA_IDS[categoria]`
- * — a fixed id that only ever belonged to the bootstrap user. Post-US-037
- * every `Categoria`/`PatronClasificacion` row is per-user, so an unscoped
- * WRITE would stamp the bootstrap user's category ids onto other users'
- * transactions (cross-tenant corruption, the exact inverse of RNF-SEC-006);
- * an unscoped READ of `patronClasificacion` is just as dangerous — it would
- * merge every user's patterns into one `prioridad`-sorted list, letting an
- * attacker's own catalog (e.g. a `PatronClasificacion` row they fully own,
- * repointed to a different `categoria` with a lower `prioridad`) SHADOW the
- * bootstrap user's pattern and hijack what the bootstrap user's own
- * transactions get classified as. Both scopes are now hard-pinned to
- * `userId: USER_ID_FIJO` — this script must NEVER be generalized to run for
- * an arbitrary `userId` without re-deriving `categoriaId` through that
- * user's own catalog (the way `PrismaReclasificarCategoriaRepository` does),
- * not through `CATEGORIA_IDS`.
+ * scanned `categoriaId IS NULL` GLOBALLY and wrote a fixed id that only ever
+ * belonged to the bootstrap user. Post-US-037 every `Categoria`/
+ * `PatronClasificacion` row is per-user, so an unscoped WRITE would stamp
+ * the bootstrap user's category ids onto other users' transactions
+ * (cross-tenant corruption, the exact inverse of RNF-SEC-006); an unscoped
+ * READ of `patronClasificacion` is just as dangerous — it would merge every
+ * user's patterns into one `prioridad`-sorted list, letting an attacker's
+ * own catalog (e.g. a `PatronClasificacion` row they fully own, repointed to
+ * a different `categoria` with a lower `prioridad`) SHADOW the bootstrap
+ * user's pattern and hijack what the bootstrap user's own transactions get
+ * classified as. Both scopes are now hard-pinned to `userId: USER_ID_FIJO`
+ * — this script must NEVER be generalized to run for an arbitrary `userId`
+ * without re-deriving `categoriaId` through that user's own catalog (the
+ * way `PrismaReclasificarCategoriaRepository` does).
+ *
+ * ADR-037/Q5 (us-038): `categoriaId` is no longer resolved through a global
+ * fixed-id map — it comes straight from the matched pattern's own
+ * `categoria.id` (the `BackfillClient` include widens to
+ * `{ categoria: { include: { bucket: true } } }` so the nested VO can be
+ * built the same way `PrismaCatalogoClasificacionRepository` does). §3.5,
+ * §4.4 correction 2.
  */
 
 /** Cliente mínimo requerido por el backfill (mirror de SeedClient en seed.ts). */
@@ -69,7 +73,7 @@ export interface BackfillClient {
   patronClasificacion: {
     findMany(args: {
       where: { userId: string };
-      include: { categoria: true };
+      include: { categoria: { include: { bucket: true } } };
       orderBy: { prioridad: 'asc' };
     }): Promise<
       Array<{
@@ -77,7 +81,7 @@ export interface BackfillClient {
         patron: string;
         matchType: string;
         prioridad: number;
-        categoria: { nombre: string };
+        categoria: { id: string; nombre: string; bucket: { nombre: string } };
       }>
     >;
   };
@@ -135,22 +139,22 @@ export interface BackfillSummary {
  *  - `bucketIdAnterior !== null` (fila YA bucketeada — incluye
  *    SinCategoria/Necesidades/Deseos/Ahorro/Ingreso): el bucket NUNCA se
  *    toca. Solo se agrega categoriaId si el match tiene categoría (no
- *    null) Y el bucket que esa categoría deriva (CATEGORIA_BUCKET) es
- *    EXACTAMENTE el bucket que la fila ya tiene. En cualquier otro caso
- *    (sin match, o match a un bucket distinto) la fila queda intacta —
- *    nunca se mueve una fila ya bucketeada a otro bucket.
+ *    null) Y el bucket que esa categoría deriva es EXACTAMENTE el bucket
+ *    que la fila ya tiene. En cualquier otro caso (sin match, o match a
+ *    un bucket distinto) la fila queda intacta — nunca se mueve una fila
+ *    ya bucketeada a otro bucket.
  */
 function decidirEscritura(c: {
   id: string;
-  categoria: Categoria | null;
+  categoriaId: string | null;
   bucket: Bucket;
   bucketIdAnterior: string | null;
 }): AsignacionCategoriaBucket | null {
   if (c.bucketIdAnterior === null) {
-    return { id: c.id, categoria: c.categoria, bucket: c.bucket };
+    return { id: c.id, categoriaId: c.categoriaId, bucket: c.bucket };
   }
-  if (c.categoria !== null && BUCKET_IDS[c.bucket] === c.bucketIdAnterior) {
-    return { id: c.id, categoria: c.categoria, bucket: c.bucket };
+  if (c.categoriaId !== null && BUCKET_IDS[c.bucket] === c.bucketIdAnterior) {
+    return { id: c.id, categoriaId: c.categoriaId, bucket: c.bucket };
   }
   return null;
 }
@@ -180,7 +184,7 @@ export async function runBackfill(
   // la clasificación de las transacciones del usuario bootstrap.
   const patronRows = await prisma.patronClasificacion.findMany({
     where: { userId: USER_ID_FIJO },
-    include: { categoria: true },
+    include: { categoria: { include: { bucket: true } } },
     orderBy: { prioridad: 'asc' },
   });
   const patrones: ReadonlyArray<PatronClasificacion> = patronRows.map(
@@ -189,16 +193,20 @@ export async function runBackfill(
         id: row.id,
         patron: row.patron,
         matchType: row.matchType as MatchType,
-        categoria: row.categoria.nombre as Categoria,
+        categoria: {
+          id: row.categoria.id,
+          nombre: row.categoria.nombre,
+          bucket: row.categoria.bucket.nombre as Bucket,
+        },
         prioridad: row.prioridad,
       }),
   );
 
   // 2. Scope: solo filas nunca tocadas manualmente (categoriaId IS NULL, S4)
   // Y pertenecientes al usuario bootstrap (US-037 D-10, CAT037-05) — el
-  // único usuario cuyos ids físicos coinciden con CATEGORIA_IDS. OJO: dentro
-  // de este scope el bucketId puede ya ser NO nulo (filas categorizadas por
-  // bucket antes de US-013) — de ahí la regla de preservación de abajo.
+  // único usuario cuyo catálogo este script conoce. OJO: dentro de este
+  // scope el bucketId puede ya ser NO nulo (filas categorizadas por bucket
+  // antes de US-013) — de ahí la regla de preservación de abajo.
   const rows = await prisma.transaccion.findMany({
     where: { categoriaId: null, account: { userId: USER_ID_FIJO } },
   });
@@ -209,7 +217,13 @@ export async function runBackfill(
     const { categoria, bucket } = useCase
       .execute({ descripcion, cargo: row.cargo, abono: row.abono }, patrones)
       .getValue();
-    return { id: row.id, categoria, bucket, bucketIdAnterior: row.bucketId };
+    return {
+      id: row.id,
+      categoria,
+      categoriaId: categoria?.id ?? null,
+      bucket,
+      bucketIdAnterior: row.bucketId,
+    };
   });
 
   // 3. Resumen + decisión de escritura por fila (siempre calculado — dry-run
@@ -221,7 +235,7 @@ export async function runBackfill(
   const aEscribir: AsignacionCategoriaBucket[] = [];
 
   for (const c of clasificadas) {
-    const key = c.categoria ?? 'null';
+    const key = c.categoria?.nombre ?? 'null';
     porCategoria[key] = (porCategoria[key] ?? 0) + 1;
 
     const asignacion = decidirEscritura(c);
@@ -236,21 +250,24 @@ export async function runBackfill(
     }
   }
 
-  // 4. Escritura (omitida en dry-run) — agrupada por (categoria,bucket) igual
-  // que PrismaTransaccionBucketRepository: dos categorías distintas que
-  // derivan al mismo bucket deben seguir siendo grupos separados. Grouping
-  // es lógica pura compartida (DRY, ver agrupar-por-categoria-bucket.ts);
-  // el WHERE (id IN, sin ingestaId — scope global del backfill) es propio.
-  // Solo entran `aEscribir` — filas sin decisión (ver decidirEscritura)
-  // quedan completamente fuera de este paso, nunca se les escribe nada.
+  // 4. Escritura (omitida en dry-run) — agrupada por (categoriaId,bucket)
+  // igual que PrismaTransaccionBucketRepository: dos categorías distintas
+  // que derivan al mismo bucket deben seguir siendo grupos separados.
+  // Grouping es lógica pura compartida (DRY, ver
+  // agrupar-por-categoria-bucket.ts); el WHERE (id IN, sin ingestaId — scope
+  // global del backfill) es propio. Solo entran `aEscribir` — filas sin
+  // decisión (ver decidirEscritura) quedan completamente fuera de este
+  // paso, nunca se les escribe nada. `categoriaId` YA viene resuelto (la
+  // fila real del pattern que matcheó) — ADR-037/Q5, ya no hay lookup vía
+  // un mapa de ids fijos.
   if (!options.dryRun && aEscribir.length > 0) {
     const grupos = agruparPorCategoriaBucket(aEscribir);
 
-    const operaciones = grupos.map(({ categoria, bucket, ids }) =>
+    const operaciones = grupos.map(({ categoriaId, bucket, ids }) =>
       prisma.transaccion.updateMany({
         where: { id: { in: ids } },
         data: {
-          categoriaId: categoria ? CATEGORIA_IDS[categoria] : null,
+          categoriaId,
           bucketId: BUCKET_IDS[bucket],
         },
       }),
