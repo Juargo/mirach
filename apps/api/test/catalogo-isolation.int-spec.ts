@@ -131,6 +131,7 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     const liderPatternB = await prisma.patronClasificacion.findFirstOrThrow({
       where: { userId: USER_ID_B, patron: 'lider' },
     });
+    const originalCategoriaIdB = liderPatternB.categoriaId;
     const ahorroCategoriaB = await prisma.categoria.findUniqueOrThrow({
       where: { userId_nombre: { userId: USER_ID_B, nombre: Categoria.Ahorro } },
     });
@@ -139,9 +140,18 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
       data: { categoriaId: ahorroCategoriaB.id },
     });
 
-    const result = await catalogoRepo.findAll(USER_ID_A);
-    const liderPatternA = result.getValue().find((p) => p.patron === 'lider');
-    expect(liderPatternA?.categoria).toBe(Categoria.Supermercado);
+    try {
+      const result = await catalogoRepo.findAll(USER_ID_A);
+      const liderPatternA = result.getValue().find((p) => p.patron === 'lider');
+      expect(liderPatternA?.categoria).toBe(Categoria.Supermercado);
+    } finally {
+      // Restore B's mutated pattern — this test must not leak state into
+      // later tests in this file (afterAll only tears down at suite end).
+      await prisma.patronClasificacion.update({
+        where: { id: liderPatternB.id },
+        data: { categoriaId: originalCategoriaIdB },
+      });
+    }
   });
 
   it("B reclassifying a transaction writes B's OWN Categoria row id, never A's (CAT037-04)", async () => {
@@ -202,14 +212,30 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
   // branch) — a raw cross-tenant INSERT must be rejected by
   // "PatronClasificacion_categoriaId_userId_fkey", not merely by
   // application-level code paths.
-  it("invariant (D-06 composite FK): a raw INSERT of a pattern with A's categoriaId + B's userId is rejected by the FK", async () => {
+  it("invariant (D-06 composite FK): a raw INSERT of a pattern with A's categoriaId + B's userId is rejected by the FK ('PatronClasificacion_categoriaId_userId_fkey', Prisma P2010)", async () => {
     const categoriaRowA = await prisma.categoria.findFirstOrThrow({
       where: { userId: USER_ID_A },
     });
 
-    await expect(
-      prisma.$executeRaw`INSERT INTO "PatronClasificacion" (id, patron, "matchType", "categoriaId", "userId", prioridad)
-        VALUES (${`bad-cross-tenant-${RUN_ID}`}, ${'cross-tenant-probe'}, ${'CONTAINS'}, ${categoriaRowA.id}, ${USER_ID_B}, ${999})`,
-    ).rejects.toThrow();
+    let caughtError: unknown;
+    try {
+      await prisma.$executeRaw`INSERT INTO "PatronClasificacion" (id, patron, "matchType", "categoriaId", "userId", prioridad)
+        VALUES (${`bad-cross-tenant-${RUN_ID}`}, ${'cross-tenant-probe'}, ${'CONTAINS'}, ${categoriaRowA.id}, ${USER_ID_B}, ${999})`;
+    } catch (error) {
+      caughtError = error;
+    }
+
+    // Empirically confirmed shape (probed against the real local DB): raw
+    // FK violations surface as PrismaClientKnownRequestError with code
+    // P2010 ("raw query failed"), NOT a Prisma-generated P2003 — assert on
+    // that specific code plus the composite constraint name in the message,
+    // not just "something threw" (a bare `.rejects.toThrow()` would also
+    // pass for an unrelated raw-query error, e.g. a typo in the SQL).
+    expect(caughtError).toBeInstanceOf(Error);
+    const prismaError = caughtError as { code?: string; message: string };
+    expect(prismaError.code).toBe('P2010');
+    expect(prismaError.message).toContain(
+      'PatronClasificacion_categoriaId_userId_fkey',
+    );
   });
 });
