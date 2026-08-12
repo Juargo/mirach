@@ -26,6 +26,7 @@ import {
 } from './crear-auth-google-mobile';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
+import { crearCatalogo, type CatalogoGraph } from './crear-catalogo';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
@@ -74,6 +75,8 @@ export interface Container {
   readonly eliminarIngesta: EliminarIngestaUseCase;
   /** Listado de ingestas del usuario — GET /api/ingestas. */
   readonly listarIngestas: ListarIngestasUseCase;
+  /** Catálogo CRUD (US-038) — `/api/categorias` + `/api/patrones`. */
+  readonly catalogo: CatalogoGraph;
   /** Login por credenciales — POST /api/auth/login. */
   readonly login: LoginUseCase;
   /** Revocar sesión — POST /api/auth/logout. */
@@ -189,6 +192,7 @@ export function createContainer(
     new PrismaListarIngestasReader(prisma),
     logger,
   );
+  const catalogo = crearCatalogo(prisma);
 
   return {
     validarSesion: auth.validarSesion,
@@ -201,6 +205,7 @@ export function createContainer(
     previewIngesta,
     eliminarIngesta,
     listarIngestas,
+    catalogo,
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
