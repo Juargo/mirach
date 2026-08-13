@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { crearPerfil } from './crear-perfil';
 import { ActualizarPerfilUseCase } from '../application/use-cases/actualizar-perfil.use-case';
+import { CambiarPasswordUseCase } from '../application/use-cases/cambiar-password.use-case';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 import { NoOpLogger } from '../../test/support/logger.double';
@@ -21,7 +22,7 @@ describe('crearPerfil', () => {
     } as unknown as PrismaClient;
   }
 
-  it('ensambla PerfilGraph con ActualizarPerfilUseCase', () => {
+  it('ensambla PerfilGraph con ActualizarPerfilUseCase y CambiarPasswordUseCase', () => {
     const prisma = fakePrisma(null);
     const crypto: ICryptoService = { encrypt: (v) => v, decrypt: (v) => v };
     const blindIndex: IBlindIndexService = { compute: (v) => v };
@@ -29,6 +30,40 @@ describe('crearPerfil', () => {
     const graph = crearPerfil(prisma, crypto, blindIndex, new NoOpLogger());
 
     expect(graph.actualizarPerfil).toBeInstanceOf(ActualizarPerfilUseCase);
+    expect(graph.cambiarPassword).toBeInstanceOf(CambiarPasswordUseCase);
+  });
+
+  it('cambiarPassword llega hasta prisma.session.deleteMany y prisma.user.update a través del grafo ensamblado (wiring end-to-end, PERF040-06)', async () => {
+    const prisma = {
+      user: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue({ id: 'user-1', passwordHash: '$argon2id$hash' }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      session: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    } as unknown as PrismaClient;
+    const crypto: ICryptoService = { encrypt: (v) => v, decrypt: (v) => v };
+    const blindIndex: IBlindIndexService = { compute: (v) => v };
+
+    const graph = crearPerfil(prisma, crypto, blindIndex, new NoOpLogger());
+    // El hasher real (argon2) rechaza este hash — el flujo se detiene en la
+    // verificación de password actual, pero llegar hasta `findUnique` ya
+    // prueba que `crearPerfil` conectó `PrismaSessionRepository` con la
+    // MISMA instancia de `prisma`, no una propia.
+    await graph.cambiarPassword.execute({
+      userId: 'user-1',
+      esDemo: false,
+      tokenHashActual: 'hash-de-la-sesion-actual',
+      passwordActual: 'lo-que-sea',
+      passwordNueva: 'password-nueva-valida',
+    });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      select: { id: true, passwordHash: true },
+    });
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled();
   });
 
   it('la escritura nombre-only llega hasta prisma.user.update() a través del grafo ensamblado (wiring end-to-end)', async () => {

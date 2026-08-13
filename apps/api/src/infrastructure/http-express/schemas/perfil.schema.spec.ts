@@ -1,6 +1,7 @@
 import {
   perfilUpdateRequestSchema,
   perfilErrorResponseSchema,
+  passwordUpdateRequestSchema,
 } from './perfil.schema';
 
 /**
@@ -68,5 +69,51 @@ describe('perfilErrorResponseSchema', () => {
       code: 'PERFIL_RECHAZADO',
     });
     expect(parsed).toEqual({ message: 'x', code: 'PERFIL_RECHAZADO' });
+  });
+});
+
+/**
+ * LAYER-HONESTY GATE (design.md §5.4): no length is enforced here —
+ * `passwordNueva`'s 8-128 rule is the `Password` VO's job.
+ */
+describe('passwordUpdateRequestSchema', () => {
+  it('accepts { passwordActual, passwordNueva }', () => {
+    expect(
+      passwordUpdateRequestSchema.safeParse({
+        passwordActual: 'actual',
+        passwordNueva: 'nueva',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a missing passwordActual', () => {
+    expect(
+      passwordUpdateRequestSchema.safeParse({ passwordNueva: 'nueva' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a missing passwordNueva', () => {
+    expect(
+      passwordUpdateRequestSchema.safeParse({ passwordActual: 'actual' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('rejects an unknown/extra field — .strict()', () => {
+    expect(
+      passwordUpdateRequestSchema.safeParse({
+        passwordActual: 'actual',
+        passwordNueva: 'nueva',
+        userId: 'otro-usuario',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('does NOT enforce passwordNueva length here — layer-honesty gate: un passwordNueva de 3 caracteres parsea bien, el dominio la rechaza', () => {
+    const result = passwordUpdateRequestSchema.safeParse({
+      passwordActual: 'actual',
+      passwordNueva: 'abc',
+    });
+    expect(result.success).toBe(true);
   });
 });
