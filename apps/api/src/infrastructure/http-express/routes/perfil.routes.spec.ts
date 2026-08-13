@@ -98,7 +98,7 @@ describe('registrarPerfil — PATCH /api/perfil', () => {
   });
 
   it.each([
-    [new NombrePerfilInvalidoError('x'), 400, 'NOMBRE_INVALIDO'],
+    [new NombrePerfilInvalidoError(), 400, 'NOMBRE_INVALIDO'],
     [new EmailInvalidoError('x'), 400, 'EMAIL_INVALIDO'],
     [new PerfilDemoSoloLecturaError(), 403, 'DEMO_SOLO_LECTURA'],
     [new PerfilRechazadoError(), 403, 'PERFIL_RECHAZADO'],
