@@ -550,8 +550,11 @@ describe('PrismaUserCredentialRepository', () => {
       });
     });
 
-    it('usa update (no updateMany), así una fila borrada (F8) es ruidosa', async () => {
-      const prisma = makePrismaUpdateMock();
+    it('usa update (no updateMany) — nunca llama a updateMany', async () => {
+      const updateMany = vi.fn();
+      const prisma = {
+        user: { update: vi.fn().mockResolvedValue({}), updateMany },
+      } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(
         prisma,
         makeCrypto(),
@@ -560,10 +563,26 @@ describe('PrismaUserCredentialRepository', () => {
 
       await repo.actualizarPassword('user-1', '$argon2id$nuevo-hash');
 
-      expect(
-        (prisma.user as unknown as { updateMany?: unknown }).updateMany,
-      ).toBeUndefined();
+      expect(updateMany).not.toHaveBeenCalled();
       expect(prisma.user.update as Mock).toHaveBeenCalledTimes(1);
+    });
+
+    it('fila borrada (F8): update() rechaza con P2025 y actualizarPassword propaga (es ruidosa, nunca silenciosa)', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError(
+        'An operation failed because it depends on one or more records that were required but not found.',
+        { code: 'P2025', clientVersion: '7.8.0' },
+      );
+      const update = vi.fn().mockRejectedValue(p2025);
+      const prisma = { user: { update } } as unknown as PrismaClient;
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto(),
+        makeBlindIndex(),
+      );
+
+      await expect(
+        repo.actualizarPassword('user-1', '$argon2id$nuevo-hash'),
+      ).rejects.toThrow(p2025);
     });
   });
 });
