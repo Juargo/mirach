@@ -44,6 +44,7 @@ export function sessionMiddleware(
     const sesion = result.getValue();
     req.userId = sesion.userId;
     req.esDemo = sesion.esDemo;
+    req.sessionTokenHash = sesion.tokenHash;
     next();
   };
 }

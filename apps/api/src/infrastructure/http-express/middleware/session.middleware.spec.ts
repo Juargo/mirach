@@ -20,7 +20,11 @@ function probeApp(validar: ValidarDoble): Express {
   const app = express();
   app.use(sessionMiddleware(validar as ValidarSesionUseCase));
   app.get('/probe', (req, res) =>
-    res.status(200).json({ userId: req.userId, esDemo: req.esDemo }),
+    res.status(200).json({
+      userId: req.userId,
+      esDemo: req.esDemo,
+      sessionTokenHash: req.sessionTokenHash ?? null,
+    }),
   );
   return app;
 }
@@ -33,7 +37,7 @@ describe('sessionMiddleware', () => {
     expect(validar.execute).not.toHaveBeenCalled();
   });
 
-  it('401 si el token es inválido/expirado', async () => {
+  it('401 si el token es inválido/expirado — req.sessionTokenHash queda undefined', async () => {
     const validar = {
       execute: vi
         .fn()
@@ -47,35 +51,88 @@ describe('sessionMiddleware', () => {
 
   it('deja pasar (200) y expone req.userId con token válido (Bearer)', async () => {
     const validar = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.ok({ userId: 'user-123', esDemo: false })),
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'user-123',
+          esDemo: false,
+          tokenHash: 'hash-bueno',
+        }),
+      ),
     };
     const res = await request(probeApp(validar))
       .get('/probe')
       .set('Authorization', 'Bearer token-bueno');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ userId: 'user-123', esDemo: false });
+    expect(res.body).toEqual({
+      userId: 'user-123',
+      esDemo: false,
+      sessionTokenHash: 'hash-bueno',
+    });
   });
 
   it('expone req.esDemo = true para una sesión demo (CAT038-08)', async () => {
     const validar = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.ok({ userId: 'user-demo', esDemo: true })),
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'user-demo',
+          esDemo: true,
+          tokenHash: 'hash-demo',
+        }),
+      ),
     };
     const res = await request(probeApp(validar))
       .get('/probe')
       .set('Authorization', 'Bearer token-demo');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ userId: 'user-demo', esDemo: true });
+    expect(res.body).toEqual({
+      userId: 'user-demo',
+      esDemo: true,
+      sessionTokenHash: 'hash-demo',
+    });
+  });
+
+  it('expone req.sessionTokenHash = sesion.tokenHash en éxito (PERF040-06)', async () => {
+    const validar = {
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'user-1',
+          esDemo: false,
+          tokenHash: 'el-hash-de-la-sesion',
+        }),
+      ),
+    };
+    const res = await request(probeApp(validar))
+      .get('/probe')
+      .set('Authorization', 'Bearer token-valido');
+    expect(res.body.sessionTokenHash).toBe('el-hash-de-la-sesion');
+  });
+
+  it('req.sessionTokenHash queda sin definir en el path 401 sin token', async () => {
+    const app = express();
+    app.use(
+      sessionMiddleware({
+        execute: vi.fn(),
+      } as unknown as ValidarSesionUseCase),
+    );
+    app.get('/probe', (req, res) => {
+      // La respuesta 401 la escribe el middleware; este handler no debería
+      // correr, pero si corriera, sessionTokenHash tiene que ser undefined.
+      res.status(200).json({ sessionTokenHash: req.sessionTokenHash });
+    });
+
+    const res = await request(app).get('/probe');
+    expect(res.status).toBe(401);
   });
 
   it('la cookie md_session tiene precedencia sobre Bearer (AUTH-05)', async () => {
     const validar = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.ok({ userId: 'from-cookie', esDemo: false })),
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'from-cookie',
+          esDemo: false,
+          tokenHash: 'hash-cookie',
+        }),
+      ),
     };
     await request(probeApp(validar))
       .get('/probe')
