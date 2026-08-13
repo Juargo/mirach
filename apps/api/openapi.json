@@ -1774,6 +1774,58 @@
         "summary": "Update the current user profile (nombre and/or email)"
       }
     },
+    "/api/perfil/google/desvincular": {
+      "post": {
+        "description": "Authenticated endpoint (US-041, VINC041-05) that re-verifies the current password and clears the CALLER's own googleSub. Idempotent: a second call after success still responds 204. Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 PERFIL_RECHAZADO), and when the account has no passwordHash (403 VINCULO_REQUIERE_PASSWORD — CA-03: an account may never be left without an access method). Mounted unconditionally, independent of whether Google login is currently active.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "passwordActual": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "passwordActual"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The Google identity is no longer linked."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed body."
+          },
+          "401": {
+            "description": "No valid session (missing, expired, or invalid token)."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Demo session, an incorrect current password, or the account has no passwordHash to fall back on."
+          }
+        },
+        "summary": "Unlink the Google identity from the current account"
+      }
+    },
     "/api/perfil/google/vincular": {
       "post": {
         "description": "Authenticated endpoint (US-041, VINC041-01/02) that re-verifies the current password and starts the OIDC round trip that will bind a Google identity to the CALLER's own account — no email matching is involved. Responds with the authorization URL and sets the short-lived `md_oauth` cookie carrying an HMAC-signed link intent; the client performs a top-level navigation to that URL. Completion happens at GET /api/auth/google/callback, which redirects to `/configuracion?google=vinculado` or `/configuracion?google=error` and issues NO new session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 PERFIL_RECHAZADO), and when the account already carries a Google identity (409 GOOGLE_YA_VINCULADO — unlink first). 404 when Google login is not active (AUTH-16).",
