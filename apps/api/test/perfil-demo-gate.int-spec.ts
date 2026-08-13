@@ -125,4 +125,32 @@ describe('Perfil demo gate (PERF040-08) — mutation rejected, /auth/me still al
       .set('Authorization', authDemo)
       .expect(200);
   });
+
+  it('POST /api/perfil/google/desvincular → 403 DEMO_SOLO_LECTURA (VINC041-09) — montado siempre, sin gate de Google', async () => {
+    if (!ALLOW) return;
+
+    const res = await request(app)
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authDemo)
+      .send({ passwordActual: 'lo-que-sea' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('el intento de desvincular demo no cambió googleSub ni revocó la sesión demo', async () => {
+    if (!ALLOW) return;
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: DEMO_USER_ID },
+    });
+    expect(user.googleSub).toBeNull();
+
+    await request(app)
+      .get('/api/auth/me')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authDemo)
+      .expect(200);
+  });
 });
