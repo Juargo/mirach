@@ -60,6 +60,15 @@ export interface IUserCredentialRepository {
     nombre?: string;
     email?: Email;
   }): Promise<Result<IdentidadUsuario, EmailNoDisponibleError>>;
+
+  /**
+   * PERF040-05. `passwordHash` YA viene hasheado por `IPasswordHasher` — este
+   * puerto nunca ve texto plano. `void`: no queda falla de negocio que
+   * modelar en este punto (la fila ya se leyó dos pasos antes). Usa `update`
+   * (no `updateMany`) para que una fila borrada a mitad de camino (F8) sea
+   * ruidosa (throw) en vez de silenciosa.
+   */
+  actualizarPassword(userId: string, passwordHash: string): Promise<void>;
 }
 
 /** Injection token — interfaces are erased at runtime; mirrors RESUMEN_MES_READER. */

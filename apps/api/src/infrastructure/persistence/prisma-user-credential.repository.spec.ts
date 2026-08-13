@@ -27,6 +27,12 @@ function makePrismaMock(userFindUniqueResult: unknown) {
   } as unknown as PrismaClient;
 }
 
+function makePrismaUpdateMock() {
+  return {
+    user: { update: vi.fn().mockResolvedValue({}) },
+  } as unknown as PrismaClient;
+}
+
 function makeCrypto(decryptFn?: (v: string) => string): ICryptoService {
   return {
     encrypt: (v: string) => v,
@@ -524,6 +530,40 @@ describe('PrismaUserCredentialRepository', () => {
       await expect(
         repo.actualizarPerfil({ userId: 'user-1', nombre: 'Jorge' }),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('actualizarPassword() — PERF040-05', () => {
+    it('update() con where: {id}, data: {passwordHash} y NINGUNA otra clave', async () => {
+      const prisma = makePrismaUpdateMock();
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto(),
+        makeBlindIndex(),
+      );
+
+      await repo.actualizarPassword('user-1', '$argon2id$nuevo-hash');
+
+      expect(prisma.user.update as Mock).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { passwordHash: '$argon2id$nuevo-hash' },
+      });
+    });
+
+    it('usa update (no updateMany), así una fila borrada (F8) es ruidosa', async () => {
+      const prisma = makePrismaUpdateMock();
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto(),
+        makeBlindIndex(),
+      );
+
+      await repo.actualizarPassword('user-1', '$argon2id$nuevo-hash');
+
+      expect(
+        (prisma.user as unknown as { updateMany?: unknown }).updateMany,
+      ).toBeUndefined();
+      expect(prisma.user.update as Mock).toHaveBeenCalledTimes(1);
     });
   });
 });

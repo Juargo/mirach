@@ -18,6 +18,7 @@ function makeMockCreds(
     buscarIdentidad: vi.fn().mockResolvedValue(identidad),
     buscarCredencialPorId: vi.fn(),
     actualizarPerfil: vi.fn(),
+    actualizarPassword: vi.fn(),
   };
 }
 

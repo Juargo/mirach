@@ -127,6 +127,22 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
   }
 
   /**
+   * PERF040-05. `passwordHash` YA viene hasheado (`IPasswordHasher`) — este
+   * método nunca ve texto plano. `update` (no `updateMany`) a propósito: si
+   * la fila fue borrada entre el lookup y esta llamada (F8, design.md §4.3),
+   * Prisma lanza P2025 en vez de fallar en silencio.
+   */
+  async actualizarPassword(
+    userId: string,
+    passwordHash: string,
+  ): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+  }
+
+  /**
    * camposEmail — la ÚNICA derivación del par (email, emailBlindIndex) en
    * toda la app (PERF040-02, ADR-013), junto con `buscarPorEmail` arriba
    * (misma clase, mismo archivo — derivación simétrica). Ambas columnas

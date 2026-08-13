@@ -20,6 +20,13 @@ export interface ISessionRepository {
   }): Promise<void>;
   buscarPorTokenHash(tokenHash: string): Promise<SesionPersistida | null>;
   revocarPorTokenHash(tokenHash: string): Promise<void>;
+  /**
+   * PERF040-06. Revoca TODAS las sesiones del usuario MENOS la del hash
+   * dado. Idempotente (`deleteMany`). `tokenHashActual` vacío borraría
+   * también la del llamador — ver design.md §4.3/F7 (degradado, no
+   * peligroso: el nuevo password igual funciona).
+   */
+  revocarOtrasPorUserId(userId: string, tokenHashActual: string): Promise<void>;
 }
 
 /** Injection token — interfaces are erased at runtime. */
