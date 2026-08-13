@@ -51,7 +51,13 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
   async buscarIdentidad(userId: string): Promise<IdentidadUsuario | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, nombre: true, email: true, esDemo: true },
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        esDemo: true,
+        googleSub: true,
+      },
     });
 
     if (user === null) {
@@ -100,7 +106,13 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
           ...(input.nombre === undefined ? {} : { nombre: input.nombre }),
           ...this.camposEmail(input.email),
         },
-        select: { id: true, nombre: true, email: true, esDemo: true },
+        select: {
+          id: true,
+          nombre: true,
+          email: true,
+          esDemo: true,
+          googleSub: true,
+        },
       });
 
       const identidad = this.aIdentidadUsuario(row);
@@ -180,6 +192,7 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
     nombre: string;
     email: string | null;
     esDemo: boolean;
+    googleSub: string | null;
   }): IdentidadUsuario | null {
     if (!user.esDemo && user.email === null) {
       return null;
@@ -190,7 +203,14 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
     // sobre un valor real.
     const email = user.email === null ? null : this.crypto.decrypt(user.email);
 
-    return { userId: user.id, nombre: user.nombre, email, esDemo: user.esDemo };
+    return {
+      userId: user.id,
+      nombre: user.nombre,
+      email,
+      esDemo: user.esDemo,
+      // VINC041-08. Derivado, nunca el `googleSub` crudo.
+      googleVinculado: user.googleSub !== null,
+    };
   }
 }
 

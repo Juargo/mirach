@@ -19,6 +19,7 @@ const IDENTIDAD_OK: IdentidadUsuario = {
   nombre: 'Jorge',
   email: 'jorge@example.com',
   esDemo: false,
+  googleVinculado: false,
 };
 
 const CREDENCIAL_OK: CredencialUsuario = {

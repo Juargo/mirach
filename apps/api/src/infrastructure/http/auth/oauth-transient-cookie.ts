@@ -1,3 +1,5 @@
+import type { LinkIntent } from './link-intent';
+
 /** Nombre de la cookie transitoria OIDC — namespace distinto de `md_session` (design §3). */
 export const OAUTH_COOKIE_NAME = 'md_oauth';
 
@@ -17,6 +19,14 @@ export interface OauthTransientState {
   readonly state: string;
   readonly nonce: string;
   readonly codeVerifier: string;
+  /**
+   * VINC041-03. Presente ÚNICAMENTE cuando este round-trip OIDC es un LINK
+   * explícito (`POST /api/perfil/google/vincular`), no un login — ausente en
+   * el flujo de login, byte-idéntico a antes de US-041 (design §6.2, pin).
+   * `LinkIntent` (`link-intent.ts`) es el `userId` destino + su MAC,
+   * verificable contra `state` con `verificarLinkIntent`.
+   */
+  readonly link?: LinkIntent;
 }
 
 function buildOauthCookie(
@@ -46,11 +56,22 @@ function buildOauthCookie(
 /**
  * serializeOauthCookie — cabecera `Set-Cookie` para `md_oauth` (design §3).
  *
- * Valor: `base64url(JSON.stringify({state, nonce, codeVerifier}))`. Nombres
- * de campo explícitos (KISS) en vez de claves cortas — ~280 bytes, muy por
- * debajo del límite de 4 KB. Sin firma ni cifrado (design §3 — razonado ahí:
- * un atacante que puede setear una cookie en el dominio no necesita forjar
- * contenido, puede obtener una válida iniciando su propio flujo).
+ * Valor: `base64url(JSON.stringify({state, nonce, codeVerifier, link?}))`.
+ * Nombres de campo explícitos (KISS) en vez de claves cortas — sigue muy por
+ * debajo del límite de 4 KB incluso con `link` presente.
+ *
+ * **`state`/`nonce`/`codeVerifier` siguen sin firma ni cifrado** (design §3 —
+ * razonado ahí: "un atacante que puede setear una cookie en el dominio no
+ * necesita forjar contenido, puede obtener una válida iniciando su propio
+ * flujo"). **Eso deja de aplicar al campo `link` (US-041, design §1/D-03)**:
+ * `link` es el ÚNICO campo de este payload que NOMBRA UNA CUENTA
+ * (`userId`) — un atacante que inicia su propio flujo obtiene un `state`
+ * válido para SU PROPIA sesión, nunca un `link.userId` apuntando a la
+ * víctima. Por eso `link.mac` SÍ lleva integridad (`link-intent.ts`,
+ * `firmarLinkIntent`/`verificarLinkIntent`), mientras que esta función sigue
+ * sin firmar el resto del payload — la firma vive DENTRO de `link`, no
+ * envuelve la cookie entera (D-01: la ruta firma, esta función solo
+ * serializa lo que ya recibe).
  */
 export function serializeOauthCookie(
   payload: OauthTransientState,
@@ -117,9 +138,28 @@ function isOauthTransientState(value: unknown): value is OauthTransientState {
     return false;
   }
   const candidato = value as Record<string, unknown>;
-  return (
-    typeof candidato.state === 'string' &&
-    typeof candidato.nonce === 'string' &&
-    typeof candidato.codeVerifier === 'string'
-  );
+  if (
+    typeof candidato.state !== 'string' ||
+    typeof candidato.nonce !== 'string' ||
+    typeof candidato.codeVerifier !== 'string'
+  ) {
+    return false;
+  }
+
+  // `link` es opcional, pero si está presente DEBE tener la forma correcta —
+  // un `link` malformado invalida la cookie ENTERA (design D-03: "present
+  // but malformed ⇒ the whole cookie parses to undefined ⇒ the state check
+  // fails ⇒ generic failure"), nunca solo el campo.
+  if (candidato.link === undefined) {
+    return true;
+  }
+  if (
+    typeof candidato.link !== 'object' ||
+    candidato.link === null ||
+    Array.isArray(candidato.link)
+  ) {
+    return false;
+  }
+  const link = candidato.link as Record<string, unknown>;
+  return typeof link.userId === 'string' && typeof link.mac === 'string';
 }

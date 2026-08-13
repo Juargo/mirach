@@ -20,7 +20,9 @@ function fakeContainer(): Container {
     validarSesion: {
       execute: vi
         .fn()
-        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
+        .mockResolvedValue(
+          Result.ok({ userId: 'user-de-sesion', esDemo: false }),
+        ),
     },
     calcularResumenMes: stub,
     calcularResumenAnual: stub,
@@ -43,6 +45,7 @@ function fakeContainer(): Container {
           nombre: 'Jorge',
           email: 'a@b.cl',
           esDemo: false,
+          googleVinculado: false,
         }),
       ),
     },
@@ -59,6 +62,13 @@ function fakeContainer(): Container {
       recordFailure: vi.fn(),
     },
     demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
+    perfil: {
+      actualizarPerfil: stub,
+      cambiarPassword: stub,
+      desvincularGoogle: {
+        execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+      },
+    },
     shutdown: async () => {},
   } as unknown as Container;
 }
@@ -120,6 +130,115 @@ describe('/api/auth — session-public vs protegido', () => {
 
     expect(res.status).toBe(200);
     expect(() => authMeResponseSchema.parse(res.body)).not.toThrow();
+  });
+});
+
+/**
+ * `POST /api/perfil/google/vincular` — el gate de activación split (US-041,
+ * design §1/Q2b, binding item #4). `fakeContainer()` no setea `googleAuth`
+ * (queda `undefined`, feature apagada) — este es EXACTAMENTE el estado que
+ * el entorno de test de la propia API tiene por defecto, el mismo caso que
+ * la propuesta habría dejado como un `500`.
+ */
+describe('POST /api/perfil/google/vincular — AUTH-16 parity (US-041)', () => {
+  const KEY = 'k'.repeat(64);
+  const testEnv = buildTestEnv({ API_KEY: KEY });
+
+  it('404 (no 500, no 401) cuando container.googleAuth es undefined — feature apagada', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .post('/api/perfil/google/vincular')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido')
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('401 sin sesión, incluso apagada (api-key global pero sin token — el gate de activación no se salta la sesión)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .post('/api/perfil/google/vincular')
+      .set('x-api-key', KEY)
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('200 { urlAutorizacion } cuando container.googleAuth SÍ está definido — mounted, iniciarVinculacion invocado con la sesión', async () => {
+    const iniciarVinculacion = {
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          urlAutorizacion: 'https://accounts.google.com/o/oauth2/v2/auth?x=1',
+          state: 's1',
+          nonce: 'n1',
+          codeVerifier: 'v1',
+        }),
+      ),
+    };
+    const c = {
+      ...fakeContainer(),
+      googleAuth: {
+        iniciador: { iniciar: vi.fn() },
+        verificador: { verificar: vi.fn() },
+        loginConGoogle: { execute: vi.fn() },
+        vincularGoogle: { execute: vi.fn() },
+        googleRateLimiter: { isBlocked: vi.fn(), recordFailure: vi.fn() },
+        iniciarVinculacion,
+        linkIntentKey: Buffer.alloc(32, 8),
+      },
+    } as unknown as Container;
+
+    const res = await request(createApp(c, testEnv))
+      .post('/api/perfil/google/vincular')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido')
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.urlAutorizacion).toBe(
+      'https://accounts.google.com/o/oauth2/v2/auth?x=1',
+    );
+    expect(iniciarVinculacion.execute).toHaveBeenCalledWith({
+      userId: 'user-de-sesion',
+      esDemo: false,
+      passwordActual: 'x',
+    });
+  });
+});
+
+/**
+ * `POST /api/perfil/google/desvincular` — task 3.9, design §1/Q2b. A
+ * diferencia del link, esta ruta se monta SIEMPRE en `protectedApi`, sin
+ * el gate `container.googleAuth !== undefined` — `fakeContainer()` no
+ * setea `googleAuth` (feature de login con Google apagada) y aun así este
+ * endpoint responde, no un `404`.
+ */
+describe('POST /api/perfil/google/desvincular — mounted always, no activation gate (US-041 PR#3)', () => {
+  const KEY = 'k'.repeat(64);
+  const testEnv = buildTestEnv({ API_KEY: KEY });
+
+  it('204 cuando container.googleAuth es undefined (Google apagado) — unlink sigue montado', async () => {
+    const c = fakeContainer();
+    const res = await request(createApp(c, testEnv))
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido')
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(204);
+    expect(c.perfil.desvincularGoogle.execute).toHaveBeenCalledWith({
+      userId: 'user-de-sesion',
+      esDemo: false,
+      passwordActual: 'x',
+    });
+  });
+
+  it('401 sin sesión (api-key global pero sin token)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', KEY)
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(401);
   });
 });
 

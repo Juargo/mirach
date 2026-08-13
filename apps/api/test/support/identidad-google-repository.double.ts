@@ -13,6 +13,8 @@ export function makeMockIdentidadGoogleRepository(overrides?: {
   porGoogleSub?: UsuarioVinculable | null;
   porEmail?: UsuarioVinculable | null;
   vincular?: boolean;
+  porId?: UsuarioVinculable | null;
+  desvincular?: boolean;
 }): IIdentidadGoogleRepository {
   return {
     buscarPorGoogleSub: vi
@@ -20,5 +22,9 @@ export function makeMockIdentidadGoogleRepository(overrides?: {
       .mockResolvedValue(overrides?.porGoogleSub ?? null),
     buscarPorEmail: vi.fn().mockResolvedValue(overrides?.porEmail ?? null),
     vincularGoogleSub: vi.fn().mockResolvedValue(overrides?.vincular ?? true),
+    buscarPorId: vi.fn().mockResolvedValue(overrides?.porId ?? null),
+    desvincularGoogleSub: vi
+      .fn()
+      .mockResolvedValue(overrides?.desvincular ?? true),
   };
 }

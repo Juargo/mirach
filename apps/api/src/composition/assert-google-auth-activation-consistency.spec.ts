@@ -29,6 +29,9 @@ describe('assertGoogleAuthActivationConsistency (C2.6a)', () => {
       verificador: { verificar: vi.fn() },
       loginConGoogle: {} as never,
       googleRateLimiter: {} as never,
+      iniciarVinculacion: {} as never,
+      vincularGoogle: {} as never,
+      linkIntentKey: Buffer.alloc(32, 1),
     };
   }
 
