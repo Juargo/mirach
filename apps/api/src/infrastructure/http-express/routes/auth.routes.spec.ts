@@ -188,19 +188,23 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
     return app;
   }
 
-  it('200 con la identidad del usuario autenticado', async () => {
+  it('200 con la identidad del usuario autenticado, incluyendo nombre (US-040/AUTH-09)', async () => {
     const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.ok({ userId: 'user-x', email: 'a@b.cl', esDemo: false }),
-        ),
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'user-x',
+          nombre: 'Jorge',
+          email: 'a@b.cl',
+          esDemo: false,
+        }),
+      ),
     };
     const res = await request(meApp(uc)).get('/api/auth/me');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       userId: 'user-x',
+      nombre: 'Jorge',
       email: 'a@b.cl',
       esDemo: false,
     });

@@ -10,6 +10,16 @@ export interface ValidarSesionResult {
   readonly userId: string;
   /** CAT038-08: si la sesión pertenece a un usuario demo — el catálogo es de solo lectura. */
   readonly esDemo: boolean;
+  /**
+   * PERF040-06 (design.md §4.3). El hash SHA-256 del token de la sesión que
+   * llamó — el mismo valor que `tokens.hashToken(input.token)` YA computó en
+   * la línea de arriba, no un re-hash. Único consumidor: `sessionMiddleware`
+   * lo copia a `req.sessionTokenHash` para que
+   * `CambiarPasswordUseCase.revocarOtrasPorUserId` sepa a quién NO revocar.
+   * Es la forma que ya vive en la BD (`Session.tokenHash`) — nunca el token
+   * crudo, nunca logueado, nunca serializado a una respuesta.
+   */
+  readonly tokenHash: string;
 }
 
 /**
@@ -46,6 +56,10 @@ export class ValidarSesionUseCase {
       return Result.fail(new SesionInvalidaError());
     }
 
-    return Result.ok({ userId: sesion.userId, esDemo: sesion.esDemo });
+    return Result.ok({
+      userId: sesion.userId,
+      esDemo: sesion.esDemo,
+      tokenHash,
+    });
   }
 }

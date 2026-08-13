@@ -16,6 +16,9 @@ function makeMockCreds(
   return {
     buscarPorEmail: vi.fn(),
     buscarIdentidad: vi.fn().mockResolvedValue(identidad),
+    buscarCredencialPorId: vi.fn(),
+    actualizarPerfil: vi.fn(),
+    actualizarPassword: vi.fn(),
   };
 }
 
@@ -23,6 +26,7 @@ describe('ObtenerIdentidadUseCase', () => {
   it('found → Result.ok({ userId, email })', async () => {
     const identidad: IdentidadUsuario = {
       userId: 'user-1',
+      nombre: 'Jorge',
       email: 'jorge@example.com',
       esDemo: false,
     };
@@ -49,6 +53,7 @@ describe('ObtenerIdentidadUseCase', () => {
   it('found (usuario demo) → pasa esDemo=true y email=null tal cual del repositorio (DEMO-AUTH-05)', async () => {
     const identidad: IdentidadUsuario = {
       userId: 'user-demo-1',
+      nombre: 'Demo',
       email: null,
       esDemo: true,
     };
@@ -65,6 +70,7 @@ describe('ObtenerIdentidadUseCase', () => {
     it('NUNCA incluye el email en los contexts logueados', async () => {
       const identidad: IdentidadUsuario = {
         userId: 'user-1',
+        nombre: 'Jorge',
         email: 'jorge@example.com',
         esDemo: false,
       };

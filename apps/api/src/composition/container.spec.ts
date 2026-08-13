@@ -31,6 +31,15 @@ describe('createContainer', () => {
     expect(container.validarSesion).toBeInstanceOf(ValidarSesionUseCase);
   });
 
+  it('ensambla el grafo perfil (US-040, PATCH /api/perfil)', () => {
+    const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
+
+    const container = createContainer(buildTestEnv(), fakePrisma);
+
+    expect(container.perfil).toBeDefined();
+    expect(container.perfil.actualizarPerfil).toBeDefined();
+  });
+
   describe('googleAuth (design §4.3/§4.4 — seam de activación)', () => {
     it('es undefined cuando GOOGLE_CLIENT_ID/SECRET están ausentes (feature apagada por defecto)', () => {
       const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;

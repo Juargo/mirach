@@ -42,4 +42,21 @@ describe('PinoLogger — redacción de datos sensibles (ADR-013)', () => {
     expect(output()).toContain('/api/resumen');
     expect(output()).toContain('200');
   });
+
+  it('redacta nombre (D-07, US-040) — plaintext PII, no cifrado por ADR-013', () => {
+    const { logger, output } = captureLogger();
+
+    logger.debug('actualizar-perfil', { nombre: 'Jorge Secreto' });
+
+    expect(output()).toContain('[REDACTED]');
+    expect(output()).not.toContain('Jorge Secreto');
+  });
+
+  it('redacta nombre anidado un nivel (*.nombre)', () => {
+    const { logger, output } = captureLogger();
+
+    logger.debug('identidad', { identidad: { nombre: 'Anidado Secreto' } });
+
+    expect(output()).not.toContain('Anidado Secreto');
+  });
 });

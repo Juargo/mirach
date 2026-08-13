@@ -17,6 +17,7 @@ function makeMockSessions(found: SesionPersistida | null): ISessionRepository {
     crear: vi.fn(),
     buscarPorTokenHash: vi.fn().mockResolvedValue(found),
     revocarPorTokenHash: vi.fn(),
+    revocarOtrasPorUserId: vi.fn(),
   };
 }
 
@@ -32,7 +33,7 @@ function makeFakeReloj(ahora: Date): IReloj {
 }
 
 describe('ValidarSesionUseCase', () => {
-  it('valid token (not expired) → Result.ok({ userId, esDemo })', async () => {
+  it('valid token (not expired) → Result.ok({ userId, esDemo, tokenHash })', async () => {
     const sesion: SesionPersistida = {
       userId: 'user-1',
       expiresAt: new Date('2026-07-22T00:00:00.000Z'),
@@ -51,12 +52,38 @@ describe('ValidarSesionUseCase', () => {
     const result = await uc.execute({ token: 'raw-token' });
 
     expect(result.isOk()).toBe(true);
-    expect(result.getValue()).toEqual({ userId: 'user-1', esDemo: false });
+    expect(result.getValue()).toEqual({
+      userId: 'user-1',
+      esDemo: false,
+      tokenHash: 'hashed-token',
+    });
     expect(tokens.hashToken).toHaveBeenCalledWith('raw-token');
     expect(sessions.buscarPorTokenHash).toHaveBeenCalledWith('hashed-token');
   });
 
-  it('sesión demo (not expired) → Result.ok({ userId, esDemo: true }) (CAT038-08)', async () => {
+  it('tokenHash devuelto ES el valor que tokens.hashToken() ya computó — no es un re-hash (PERF040-06)', async () => {
+    const sesion: SesionPersistida = {
+      userId: 'user-1',
+      expiresAt: new Date('2026-07-22T00:00:00.000Z'),
+      esDemo: false,
+    };
+    const sessions = makeMockSessions(sesion);
+    const tokens = makeMockTokens('el-hash-ya-computado');
+    const reloj = makeFakeReloj(new Date('2026-07-15T00:00:00.000Z'));
+    const uc = new ValidarSesionUseCase(
+      sessions,
+      tokens,
+      reloj,
+      new NoOpLogger(),
+    );
+
+    const result = await uc.execute({ token: 'raw-token' });
+
+    expect(result.getValue().tokenHash).toBe('el-hash-ya-computado');
+    expect(tokens.hashToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('sesión demo (not expired) → Result.ok({ userId, esDemo: true, tokenHash }) (CAT038-08)', async () => {
     const sesion: SesionPersistida = {
       userId: 'user-demo',
       expiresAt: new Date('2026-07-22T00:00:00.000Z'),
@@ -75,7 +102,11 @@ describe('ValidarSesionUseCase', () => {
     const result = await uc.execute({ token: 'raw-token' });
 
     expect(result.isOk()).toBe(true);
-    expect(result.getValue()).toEqual({ userId: 'user-demo', esDemo: true });
+    expect(result.getValue()).toEqual({
+      userId: 'user-demo',
+      esDemo: true,
+      tokenHash: 'hashed-token',
+    });
   });
 
   it('unknown tokenHash (no matching session) → Result.fail(SesionInvalidaError)', async () => {

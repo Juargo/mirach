@@ -23,6 +23,9 @@ function makeMockCreds(
   return {
     buscarPorEmail: vi.fn().mockResolvedValue(row),
     buscarIdentidad: vi.fn(),
+    buscarCredencialPorId: vi.fn(),
+    actualizarPerfil: vi.fn(),
+    actualizarPassword: vi.fn(),
   };
 }
 
@@ -38,6 +41,7 @@ function makeMockSessions(): ISessionRepository {
     crear: vi.fn().mockResolvedValue(undefined),
     buscarPorTokenHash: vi.fn(),
     revocarPorTokenHash: vi.fn(),
+    revocarOtrasPorUserId: vi.fn(),
   };
 }
 
