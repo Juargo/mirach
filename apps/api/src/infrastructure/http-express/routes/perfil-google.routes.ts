@@ -1,6 +1,10 @@
 import type { Router } from 'express';
 import type { IniciarVinculacionGoogleUseCase } from '../../../application/use-cases/iniciar-vinculacion-google.use-case';
-import { vincularGoogleRequestSchema } from '../schemas/perfil-google.schema';
+import type { DesvincularGoogleUseCase } from '../../../application/use-cases/desvincular-google.use-case';
+import {
+  vincularGoogleRequestSchema,
+  desvincularGoogleRequestSchema,
+} from '../schemas/perfil-google.schema';
 import { firmarLinkIntent } from '../../http/auth/link-intent';
 import { serializeOauthCookie } from '../../http/auth/oauth-transient-cookie';
 import { aPerfilHttpError } from './perfil-http-error';
@@ -13,7 +17,7 @@ const BODY_INVALIDO = {
 /**
  * Dependencias de `POST /api/perfil/google/vincular` (US-041, design.md
  * §1/Q2b/§4.1). Solo la mitad LINK del leg 1 — `registrarPerfilGoogleDesvincular`
- * (sin gate de activación) se agrega en PR #3.
+ * (sin gate de activación) vive más abajo en este archivo.
  */
 export interface PerfilGoogleDeps {
   readonly iniciarVinculacion: IniciarVinculacionGoogleUseCase;
@@ -108,5 +112,51 @@ export function registrarPerfilGoogleVincularDeshabilitado(
 ): void {
   router.post('/perfil/google/vincular', (_req, res) => {
     res.status(404).end();
+  });
+}
+
+/**
+ * registrarPerfilGoogleDesvincular — `POST /api/perfil/google/desvincular`
+ * (US-041, VINC041-05, design.md §1/Q2b/§4.3).
+ *
+ * **GUARD note (binding item #4, second half — deliberate, not an
+ * omission)**: montada en `protectedApi` SIEMPRE, sin gate de activación —
+ * a diferencia de `registrarPerfilGoogleVincular`. Un usuario que se
+ * vinculó mientras Google estaba prendido debe poder desvincular después
+ * de que se apague; limpiar `googleSub` no necesita cliente OIDC ni
+ * discovery, así que no hay nada que gatear.
+ *
+ * Mismo idioma que `registrarPerfilGoogleVincular`: `.safeParse()` en el
+ * boundary, nunca ecoa el body ni los issues de Zod; `esDemo`/`userId`
+ * siempre desde `req` (sesión), nunca desde el body.
+ */
+export function registrarPerfilGoogleDesvincular(
+  router: Router,
+  desvincularGoogle: DesvincularGoogleUseCase,
+): void {
+  router.post('/perfil/google/desvincular', async (req, res, next) => {
+    try {
+      const parsed = desvincularGoogleRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json(BODY_INVALIDO);
+        return;
+      }
+
+      const result = await desvincularGoogle.execute({
+        userId: req.userId!,
+        esDemo: req.esDemo!,
+        passwordActual: parsed.data.passwordActual,
+      });
+
+      if (result.isFail()) {
+        const { status, code, message } = aPerfilHttpError(result.getError());
+        res.status(status).json({ message, code });
+        return;
+      }
+
+      res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
   });
 }
