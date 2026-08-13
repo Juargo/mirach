@@ -63,6 +63,10 @@ import {
   perfilErrorResponseSchema,
   passwordUpdateRequestSchema,
 } from './perfil.schema';
+import {
+  vincularGoogleRequestSchema,
+  vincularGoogleResponseSchema,
+} from './perfil-google.schema';
 
 /**
  * `buildOpenApiDocument()` is the single source of the OpenAPI 3.1.0 contract
@@ -461,7 +465,13 @@ const authGoogleCallbackOperation: ZodOpenApiOperationObject = {
     'exp/nonce) before any identity resolution (AUTH-12), then resolves the identity to an existing ' +
     'user (find-only, AUTH-14) and issues a session equivalent to password login (AUTH-13). Every ' +
     'failure cause — bad state, bad token, no matching user, an unexpected infra fault — produces the ' +
-    'identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them.',
+    'identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them. ' +
+    'DUAL MODE (US-041, VINC041-02/03): when `md_oauth` carries a signed `link` marker (set by ' +
+    'POST /api/perfil/google/vincular), this same endpoint completes an EXPLICIT LINK instead of a ' +
+    "login — it binds a Google identity to the CALLER's own account, issues NO new session, and " +
+    'redirects to `/configuracion?google=vinculado` on success or `/configuracion?google=error` on a ' +
+    'modelled failure. A `link` marker that fails its integrity check rejects the WHOLE callback to ' +
+    'the generic `/login?error=google` — it never falls back to the login path.',
   responses: {
     '302': {
       description:
@@ -936,6 +946,61 @@ const perfilPasswordUpdateOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `POST /api/perfil/google/vincular` (US-041, VINC041-01, design.md §5.5) —
+ * starts the explicit Google link round trip. Reuses `perfilErrorResponseSchema`
+ * for every non-2xx body (same `/api/perfil` family, third occurrence —
+ * `perfil-google.schema.ts` records the rule-of-three decision).
+ */
+const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
+  summary: 'Start linking a Google identity to the current account',
+  description:
+    'Authenticated endpoint (US-041, VINC041-01/02) that re-verifies the current password and starts ' +
+    "the OIDC round trip that will bind a Google identity to the CALLER's own account — no email " +
+    'matching is involved. Responds with the authorization URL and sets the short-lived `md_oauth` ' +
+    'cookie carrying an HMAC-signed link intent; the client performs a top-level navigation to that ' +
+    'URL. Completion happens at GET /api/auth/google/callback, which redirects to ' +
+    '`/configuracion?google=vinculado` or `/configuracion?google=error` and issues NO new session. ' +
+    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 ' +
+    'PERFIL_RECHAZADO), and when the account already carries a Google identity (409 ' +
+    'GOOGLE_YA_VINCULADO — unlink first). 404 when Google login is not active (AUTH-16).',
+  requestBody: {
+    content: { 'application/json': { schema: vincularGoogleRequestSchema } },
+  },
+  responses: {
+    '200': {
+      description:
+        'The Google OAuth authorization URL to navigate to. Sets Set-Cookie: md_oauth (state, nonce, codeVerifier, signed link).',
+      content: {
+        'application/json': { schema: vincularGoogleResponseSchema },
+      },
+    },
+    '400': {
+      description: 'Malformed body.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '403': {
+      description: 'Demo session, or an incorrect current password.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '409': {
+      description: 'The account already has a linked Google identity.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '503': {
+      description: 'Google authorization is temporarily unreachable.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '401': {
+      description: 'No valid session (missing, expired, or invalid token).',
+    },
+    '404': {
+      description:
+        'Google login is not active — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are not both configured (AUTH-16).',
+    },
+  },
+};
+
+/**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
  * appending future endpoints (Slice 1+) must append here, never reorder
@@ -977,6 +1042,7 @@ const paths: ZodOpenApiPathsObject = {
   },
   '/api/perfil': { patch: perfilUpdateOperation },
   '/api/perfil/password': { patch: perfilPasswordUpdateOperation },
+  '/api/perfil/google/vincular': { post: perfilGoogleVincularOperation },
 };
 
 export function buildOpenApiDocument() {

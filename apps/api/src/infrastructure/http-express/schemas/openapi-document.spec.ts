@@ -232,6 +232,39 @@ describe('buildOpenApiDocument', () => {
     expect(passwordPath?.patch?.responses?.['401']).toBeDefined();
   });
 
+  it('registers POST /api/perfil/google/vincular with a JSON requestBody and 200/400/403/409/503/401/404 responses (US-041, VINC041-01)', () => {
+    const document = buildOpenApiDocument();
+
+    const vincularPath = document.paths?.['/api/perfil/google/vincular'];
+    expect(vincularPath).toBeDefined();
+    expect(vincularPath?.post).toBeDefined();
+    const requestBody = vincularPath?.post?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+    expect(vincularPath?.post?.responses?.['200']).toBeDefined();
+    expect(vincularPath?.post?.responses?.['400']).toBeDefined();
+    expect(vincularPath?.post?.responses?.['403']).toBeDefined();
+    expect(vincularPath?.post?.responses?.['409']).toBeDefined();
+    expect(vincularPath?.post?.responses?.['503']).toBeDefined();
+    expect(vincularPath?.post?.responses?.['401']).toBeDefined();
+    expect(vincularPath?.post?.responses?.['404']).toBeDefined();
+  });
+
+  it('authGoogleCallbackOperation description documents the dual mode and both link redirect targets (US-041, no response-shape change)', () => {
+    const document = buildOpenApiDocument();
+
+    const callbackPath = document.paths?.['/api/auth/google/callback'];
+    expect(callbackPath?.get?.description).toContain(
+      'configuracion?google=vinculado',
+    );
+    expect(callbackPath?.get?.description).toContain(
+      'configuracion?google=error',
+    );
+    // Additivity (design §5.5): la respuesta 302 sigue documentada, sin cambio de forma.
+    expect(callbackPath?.get?.responses?.['302']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();
