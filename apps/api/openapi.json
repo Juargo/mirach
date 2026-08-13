@@ -44,7 +44,7 @@
       },
       "AuthMeResponse": {
         "additionalProperties": false,
-        "description": "GET /api/auth/me and PATCH /api/perfil — the authenticated user identity (AUTH-09, US-040).",
+        "description": "GET /api/auth/me and PATCH /api/perfil — the authenticated user identity, including whether Google is linked (AUTH-09, US-040, VINC041-08).",
         "properties": {
           "email": {
             "anyOf": [
@@ -60,6 +60,10 @@
           "esDemo": {
             "type": "boolean"
           },
+          "googleVinculado": {
+            "description": "VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.",
+            "type": "boolean"
+          },
           "nombre": {
             "type": "string"
           },
@@ -71,7 +75,8 @@
           "userId",
           "nombre",
           "esDemo",
-          "email"
+          "email",
+          "googleVinculado"
         ],
         "type": "object"
       },
