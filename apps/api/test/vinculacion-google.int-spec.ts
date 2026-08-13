@@ -592,6 +592,69 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
   });
 });
 
+describe('★ BINDING PROOF (b) — CA-03: un usuario sin passwordHash NUNCA queda desvinculado', () => {
+  let prisma: PrismaClient;
+  let app: Express;
+  let userSoloGoogleId: string;
+  let authSoloGoogle: string;
+  const soloGoogleSub = `google-sub-solo-${RUN_ID}`;
+
+  beforeAll(async () => {
+    if (!ALLOW) return;
+
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+    app = createApp(createContainer(env, prisma), env);
+
+    // Usuario solo-Google: passwordHash NULL, googleSub presente. No hay
+    // flujo de producto que produzca esta fila hoy vía password (el link
+    // explícito exige re-verificar la password actual, VINC041-01) — se
+    // sembra directo para aislar el invariante de la superficie HTTP que lo
+    // produciría, mismo patrón que el resto de los binding proofs de este
+    // archivo.
+    const user = await prisma.user.create({
+      data: {
+        nombre: `Vinculacion SoloGoogle ${RUN_ID}`,
+        passwordHash: null,
+        googleSub: soloGoogleSub,
+      },
+    });
+    userSoloGoogleId = user.id;
+    const session = await crearSesionParaUsuario(prisma, userSoloGoogleId);
+    authSoloGoogle = `Bearer ${session.token}`;
+  });
+
+  afterAll(async () => {
+    if (!ALLOW) return;
+
+    await prisma.session.deleteMany({ where: { userId: userSoloGoogleId } });
+    await prisma.user.deleteMany({ where: { id: userSoloGoogleId } });
+    await prisma.$disconnect();
+  });
+
+  it('desvincular sin passwordHash ⇒ 403 VINCULO_REQUIERE_PASSWORD, googleSub SIN CAMBIOS (snapshot before/after byte-idéntico)', async () => {
+    if (!ALLOW) return;
+
+    const before = await snapshotUser(prisma, userSoloGoogleId);
+    expect(before.googleSub).toBe(soloGoogleSub);
+    expect(before.passwordHash).toBeNull();
+
+    const res = await request(app)
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authSoloGoogle)
+      .send({ passwordActual: 'lo-que-sea' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('VINCULO_REQUIERE_PASSWORD');
+
+    const after = await snapshotUser(prisma, userSoloGoogleId);
+    expect(after).toEqual(before);
+    expect(after.googleSub).toBe(soloGoogleSub);
+  });
+});
+
 describe('AUTH-16 parity — POST /api/perfil/google/vincular sin GOOGLE_CLIENT_ID (US-041, binding item #4)', () => {
   it('un container SIN GOOGLE_CLIENT_ID responde 404 (NUNCA 500) — el bug exacto que la propuesta habría dejado pasar', async () => {
     if (!ALLOW) return;
