@@ -26,6 +26,11 @@ import { registrarVersion } from './routes/version.routes';
 import { registrarCategorias } from './routes/categorias.routes';
 import { registrarPatrones } from './routes/patrones.routes';
 import { registrarPerfil } from './routes/perfil.routes';
+import {
+  registrarPerfilGoogleVincular,
+  registrarPerfilGoogleVincularDeshabilitado,
+  registrarPerfilGoogleDesvincular,
+} from './routes/perfil-google.routes';
 
 /**
  * createApp — ensambla la app Express SIN escuchar en un puerto (ADR-028/029).
@@ -176,6 +181,24 @@ export function createApp(container: Container, env: Env): Express {
   registrarCategorias(protectedApi, container.catalogo);
   registrarPatrones(protectedApi, container.catalogo);
   registrarPerfil(protectedApi, container.perfil);
+  // Vinculación explícita de Google (US-041, design §1/Q2b, binding item
+  // #4): MISMO gate `container.googleAuth !== undefined` que
+  // `registrarAuthGoogle`/`registrarAuthGoogleDeshabilitado` arriba —
+  // montar la ruta real sin condición produciría un `TypeError` → `500` en
+  // cualquier entorno sin `GOOGLE_CLIENT_ID` (incluyendo el propio entorno
+  // de test de la API). El unlink (PR #3) se monta SIEMPRE, sin este gate.
+  if (container.googleAuth !== undefined) {
+    registrarPerfilGoogleVincular(protectedApi, {
+      iniciarVinculacion: container.googleAuth.iniciarVinculacion,
+      linkIntentKey: container.googleAuth.linkIntentKey,
+      cookieSecure,
+    });
+  } else {
+    registrarPerfilGoogleVincularDeshabilitado(protectedApi);
+  }
+  // Desvinculación (PR #3, task 3.9, design §1/Q2b): montada SIEMPRE, sin
+  // el gate de arriba — limpiar googleSub no necesita cliente OIDC.
+  registrarPerfilGoogleDesvincular(protectedApi, container.perfil);
   app.use('/api', protectedApi);
 
   app.use(errorMiddleware);

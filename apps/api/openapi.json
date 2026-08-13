@@ -839,6 +839,19 @@
           "builtAt"
         ],
         "type": "object"
+      },
+      "VincularGoogleResponse": {
+        "additionalProperties": false,
+        "description": "POST /api/perfil/google/vincular — the Google OAuth authorization URL to navigate to (VINC041-01).",
+        "properties": {
+          "urlAutorizacion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "urlAutorizacion"
+        ],
+        "type": "object"
       }
     }
   },
@@ -925,7 +938,7 @@
     },
     "/api/auth/google/callback": {
       "get": {
-        "description": "Public endpoint (requires x-api-key only, session-public) — Google's redirect target after consent. Validates `state` against the `md_oauth` cookie and the `id_token` (signature/iss/aud/exp/nonce) before any identity resolution (AUTH-12), then resolves the identity to an existing user (find-only, AUTH-14) and issues a session equivalent to password login (AUTH-13). Every failure cause — bad state, bad token, no matching user, an unexpected infra fault — produces the identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them.",
+        "description": "Public endpoint (requires x-api-key only, session-public) — Google's redirect target after consent. Validates `state` against the `md_oauth` cookie and the `id_token` (signature/iss/aud/exp/nonce) before any identity resolution (AUTH-12), then resolves the identity to an existing user (find-only, AUTH-14) and issues a session equivalent to password login (AUTH-13). Every failure cause — bad state, bad token, no matching user, an unexpected infra fault — produces the identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them. DUAL MODE (US-041, VINC041-02/03): when `md_oauth` carries a signed `link` marker (set by POST /api/perfil/google/vincular), this same endpoint completes an EXPLICIT LINK instead of a login — it binds a Google identity to the CALLER's own account, issues NO new session, and redirects to `/configuracion?google=vinculado` on success or `/configuracion?google=error` on a modelled failure. A `link` marker that fails its integrity check rejects the WHOLE callback to the generic `/login?error=google` — it never falls back to the login path.",
         "responses": {
           "302": {
             "description": "Success: sets `md_session` and redirects to \"/\". Failure (any cause): redirects to \"/login?error=google\" with no session — see AUTH-15.",
@@ -1759,6 +1772,140 @@
           }
         },
         "summary": "Update the current user profile (nombre and/or email)"
+      }
+    },
+    "/api/perfil/google/desvincular": {
+      "post": {
+        "description": "Authenticated endpoint (US-041, VINC041-05) that re-verifies the current password and clears the CALLER's own googleSub. Idempotent: a second call after success still responds 204. Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 PERFIL_RECHAZADO), and when the account has no passwordHash (403 VINCULO_REQUIERE_PASSWORD — CA-03: an account may never be left without an access method). Mounted unconditionally, independent of whether Google login is currently active.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "passwordActual": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "passwordActual"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The Google identity is no longer linked."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed body."
+          },
+          "401": {
+            "description": "No valid session (missing, expired, or invalid token)."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Demo session, an incorrect current password, or the account has no passwordHash to fall back on."
+          }
+        },
+        "summary": "Unlink the Google identity from the current account"
+      }
+    },
+    "/api/perfil/google/vincular": {
+      "post": {
+        "description": "Authenticated endpoint (US-041, VINC041-01/02) that re-verifies the current password and starts the OIDC round trip that will bind a Google identity to the CALLER's own account — no email matching is involved. Responds with the authorization URL and sets the short-lived `md_oauth` cookie carrying an HMAC-signed link intent; the client performs a top-level navigation to that URL. Completion happens at GET /api/auth/google/callback, which redirects to `/configuracion?google=vinculado` or `/configuracion?google=error` and issues NO new session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 PERFIL_RECHAZADO), and when the account already carries a Google identity (409 GOOGLE_YA_VINCULADO — unlink first). 404 when Google login is not active (AUTH-16).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "passwordActual": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "passwordActual"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VincularGoogleResponse"
+                }
+              }
+            },
+            "description": "The Google OAuth authorization URL to navigate to. Sets Set-Cookie: md_oauth (state, nonce, codeVerifier, signed link)."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed body."
+          },
+          "401": {
+            "description": "No valid session (missing, expired, or invalid token)."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Demo session, or an incorrect current password."
+          },
+          "404": {
+            "description": "Google login is not active — GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are not both configured (AUTH-16)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "The account already has a linked Google identity."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Google authorization is temporarily unreachable."
+          }
+        },
+        "summary": "Start linking a Google identity to the current account"
       }
     },
     "/api/perfil/password": {

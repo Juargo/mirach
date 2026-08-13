@@ -148,6 +148,7 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       nombre: 'E2E Auth User',
       email: EMAIL,
       esDemo: false,
+      googleVinculado: false,
     });
   });
 
@@ -171,6 +172,7 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       nombre: 'E2E Auth User',
       email: EMAIL,
       esDemo: false,
+      googleVinculado: false,
     });
   });
 
