@@ -555,6 +555,41 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
     await prisma.session.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
   });
+
+  it('VINC041-05: unlink feliz — 204, googleSub null; segundo unlink es idempotente (204, sin más cambios); GET /api/auth/me pasa a googleVinculado false', async () => {
+    if (!ALLOW) return;
+
+    // A ya está linkeada a GOOGLE_SUB_A desde VINC041-03 — no requiere setup.
+    const linked = await snapshotUser(prisma, userIdA);
+    expect(linked.googleSub).toBe(GOOGLE_SUB_A);
+
+    const res1 = await request(app)
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA)
+      .send({ passwordActual: PASSWORD });
+
+    expect(res1.status).toBe(204);
+    expect(res1.body).toEqual({});
+
+    const unlinked = await snapshotUser(prisma, userIdA);
+    expect(unlinked.googleSub).toBeNull();
+
+    const res2 = await request(app)
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA)
+      .send({ passwordActual: PASSWORD });
+
+    expect(res2.status).toBe(204);
+    expect(await snapshotUser(prisma, userIdA)).toEqual(unlinked);
+
+    const me = await request(app)
+      .get('/api/auth/me')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA);
+    expect(me.body.googleVinculado).toBe(false);
+  });
 });
 
 describe('AUTH-16 parity — POST /api/perfil/google/vincular sin GOOGLE_CLIENT_ID (US-041, binding item #4)', () => {
