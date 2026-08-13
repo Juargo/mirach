@@ -196,6 +196,7 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
           nombre: 'Jorge',
           email: 'a@b.cl',
           esDemo: false,
+          googleVinculado: false,
         }),
       ),
     };
@@ -207,7 +208,26 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
       nombre: 'Jorge',
       email: 'a@b.cl',
       esDemo: false,
+      googleVinculado: false,
     });
     expect(uc.execute).toHaveBeenCalledWith({ userId: 'user-x' });
+  });
+
+  it('200 con googleVinculado: true cuando la identidad tiene Google vinculado (VINC041-08)', async () => {
+    const uc = {
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'user-x',
+          nombre: 'Jorge',
+          email: 'a@b.cl',
+          esDemo: false,
+          googleVinculado: true,
+        }),
+      ),
+    };
+    const res = await request(meApp(uc)).get('/api/auth/me');
+
+    expect(res.status).toBe(200);
+    expect(res.body.googleVinculado).toBe(true);
   });
 });

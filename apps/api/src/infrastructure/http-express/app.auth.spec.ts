@@ -43,6 +43,7 @@ function fakeContainer(): Container {
           nombre: 'Jorge',
           email: 'a@b.cl',
           esDemo: false,
+          googleVinculado: false,
         }),
       ),
     },
