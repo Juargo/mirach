@@ -203,4 +203,58 @@ describe('PrismaIdentidadGoogleRepository', () => {
       expect(await repo.buscarPorId('nadie')).toBeNull();
     });
   });
+
+  describe('desvincularGoogleSub (VINC041-05, CA-03 — design §1/Q4, D-06)', () => {
+    it('usa updateMany condicional cuyo argumento es EXACTAMENTE el invariante CA-03 (WHERE passwordHash NOT NULL + googleSub NOT NULL) y devuelve true si count === 1', async () => {
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const prisma = { user: { updateMany } } as unknown as PrismaClient;
+      const repo = new PrismaIdentidadGoogleRepository(
+        prisma,
+        makeBlindIndex(),
+      );
+
+      const resultado = await repo.desvincularGoogleSub('user-4');
+
+      // Este literal ES el invariante: una spec que solo comprobara
+      // `count === 1` pasaría contra un update sin predicado — por eso se
+      // pinéa el argumento completo, no solo el resultado (task 3.3).
+      expect(updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'user-4',
+          passwordHash: { not: null },
+          googleSub: { not: null },
+        },
+        data: { googleSub: null },
+      });
+      expect(resultado).toBe(true);
+    });
+
+    it('devuelve false cuando count === 0 (nada que limpiar — idempotente)', async () => {
+      const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+      const prisma = { user: { updateMany } } as unknown as PrismaClient;
+      const repo = new PrismaIdentidadGoogleRepository(
+        prisma,
+        makeBlindIndex(),
+      );
+
+      const resultado = await repo.desvincularGoogleSub('user-4');
+
+      expect(resultado).toBe(false);
+    });
+
+    it('propaga cualquier error de Prisma sin capturarlo (no toca ninguna columna única — cualquier rechazo es una falla real de infraestructura)', async () => {
+      const updateMany = vi
+        .fn()
+        .mockRejectedValue(new Error('conexión perdida'));
+      const prisma = { user: { updateMany } } as unknown as PrismaClient;
+      const repo = new PrismaIdentidadGoogleRepository(
+        prisma,
+        makeBlindIndex(),
+      );
+
+      await expect(repo.desvincularGoogleSub('user-4')).rejects.toThrow(
+        'conexión perdida',
+      );
+    });
+  });
 });

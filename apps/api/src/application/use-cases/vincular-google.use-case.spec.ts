@@ -14,6 +14,7 @@ function makeIdentidades(
     buscarPorEmail: vi.fn(),
     vincularGoogleSub: vi.fn().mockResolvedValue(true),
     buscarPorId: vi.fn(),
+    desvincularGoogleSub: vi.fn(),
     ...overrides,
   };
 }

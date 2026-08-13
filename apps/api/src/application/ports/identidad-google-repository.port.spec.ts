@@ -56,4 +56,16 @@ describe('identidad-google-repository.port', () => {
 
     await expect(repo.buscarPorId('nadie')).resolves.toBeNull();
   });
+
+  it('desvincularGoogleSub (VINC041-05, CA-03) resuelve un boolean (true si limpió, false si no había nada que limpiar)', async () => {
+    const repoLimpio = makeMockIdentidadGoogleRepository({
+      desvincular: true,
+    });
+    const repoNoop = makeMockIdentidadGoogleRepository({
+      desvincular: false,
+    });
+
+    await expect(repoLimpio.desvincularGoogleSub('user-1')).resolves.toBe(true);
+    await expect(repoNoop.desvincularGoogleSub('user-1')).resolves.toBe(false);
+  });
 });
