@@ -127,19 +127,6 @@ describe('/api/auth — session-public vs protegido', () => {
 });
 
 /**
- * Gate de seguridad (ADR-013/029): `createApp` deriva `cookieSecure` de
- * `env.NODE_ENV === 'production' || env.COOKIE_SECURE`. Este derive no tenía
- * cobertura propia tras el refactor de Slice 5 — solo se probaba el flujo de
- * la cookie a partir de un `cookieSecure: boolean` ya resuelto
- * (`auth.routes.spec.ts`), nunca la regla que lo calcula desde `env`.
- *
- * `buildTestEnv` construye un `Env` real vía `loadEnv()` y luego aplica los
- * overrides SIN volver a pasar por `superRefine` — por eso puede construir el
- * estado `production + COOKIE_SECURE=false`, que `loadEnv()` real rechazaría
- * en boot (ver env.fixture.ts). Es exactamente el estado que este test
- * necesita para probar la rama `NODE_ENV === 'production'` del `||`.
- */
-/**
  * `POST /api/perfil/google/vincular` — el gate de activación split (US-041,
  * design §1/Q2b, binding item #4). `fakeContainer()` no setea `googleAuth`
  * (queda `undefined`, feature apagada) — este es EXACTAMENTE el estado que
@@ -211,6 +198,19 @@ describe('POST /api/perfil/google/vincular — AUTH-16 parity (US-041)', () => {
   });
 });
 
+/**
+ * Gate de seguridad (ADR-013/029): `createApp` deriva `cookieSecure` de
+ * `env.NODE_ENV === 'production' || env.COOKIE_SECURE`. Este derive no tenía
+ * cobertura propia tras el refactor de Slice 5 — solo se probaba el flujo de
+ * la cookie a partir de un `cookieSecure: boolean` ya resuelto
+ * (`auth.routes.spec.ts`), nunca la regla que lo calcula desde `env`.
+ *
+ * `buildTestEnv` construye un `Env` real vía `loadEnv()` y luego aplica los
+ * overrides SIN volver a pasar por `superRefine` — por eso puede construir el
+ * estado `production + COOKIE_SECURE=false`, que `loadEnv()` real rechazaría
+ * en boot (ver env.fixture.ts). Es exactamente el estado que este test
+ * necesita para probar la rama `NODE_ENV === 'production'` del `||`.
+ */
 describe('createApp — derivación de cookieSecure (env.NODE_ENV || env.COOKIE_SECURE)', () => {
   const KEY = 'k'.repeat(64);
 
