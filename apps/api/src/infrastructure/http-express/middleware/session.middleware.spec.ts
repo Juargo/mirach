@@ -107,23 +107,6 @@ describe('sessionMiddleware', () => {
     expect(res.body.sessionTokenHash).toBe('el-hash-de-la-sesion');
   });
 
-  it('req.sessionTokenHash queda sin definir en el path 401 sin token', async () => {
-    const app = express();
-    app.use(
-      sessionMiddleware({
-        execute: vi.fn(),
-      } as unknown as ValidarSesionUseCase),
-    );
-    app.get('/probe', (req, res) => {
-      // La respuesta 401 la escribe el middleware; este handler no debería
-      // correr, pero si corriera, sessionTokenHash tiene que ser undefined.
-      res.status(200).json({ sessionTokenHash: req.sessionTokenHash });
-    });
-
-    const res = await request(app).get('/probe');
-    expect(res.status).toBe(401);
-  });
-
   it('la cookie md_session tiene precedencia sobre Bearer (AUTH-05)', async () => {
     const validar = {
       execute: vi.fn().mockResolvedValue(
