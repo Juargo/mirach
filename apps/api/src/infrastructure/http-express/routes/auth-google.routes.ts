@@ -1,13 +1,15 @@
-import type { Router } from 'express';
+import type { Response, Router } from 'express';
 import type {
   IIniciadorLoginExterno,
   IVerificadorIdentidadExterna,
 } from '../../../application/ports/verificador-identidad-externa.port';
 import type { LoginConGoogleUseCase } from '../../../application/use-cases/login-con-google.use-case';
+import type { VincularGoogleUseCase } from '../../../application/use-cases/vincular-google.use-case';
 import type { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 import { esNavegacionDeNivelSuperior } from '../../http/auth/sec-fetch-guard';
 import { getClientIp } from '../../http/auth/client-ip';
 import { serializeSessionCookie } from '../../http/auth/cookie';
+import { verificarLinkIntent } from '../../http/auth/link-intent';
 import {
   serializeOauthCookie,
   parseOauthCookie,
@@ -18,9 +20,16 @@ import { appLogger } from '../../logging/app-logger';
 /**
  * Único valor de `error=` que el flujo produce, para TODA causa de fallo
  * (AUTH-15 — no enumeración). Nunca derivado de `motivo`, nunca un código
- * distinto por causa.
+ * distinto por causa. También el destino de UN link-intent inválido
+ * (US-041, design §1/Q1c) — NUNCA `…configuracion?google=error`, porque el
+ * campo `link` no autenticó y por lo tanto no puede elegir su propio
+ * destino de rechazo.
  */
 const GENERIC_FAILURE_REDIRECT = '/login?error=google';
+
+/** Destinos del modo LINK (US-041, design §4.2) — SOLO alcanzables tras un MAC verificado. */
+const LINK_SUCCESS_REDIRECT = '/configuracion?google=vinculado';
+const LINK_FAILURE_REDIRECT = '/configuracion?google=error';
 
 const REJECTED_TOP_LEVEL_NAV_MESSAGE = {
   message: 'Solicitud rechazada: se requiere navegación directa.',
@@ -30,11 +39,13 @@ const RATE_LIMITED_MESSAGE = {
   message: 'Demasiadas solicitudes. Intenta más tarde.',
 };
 
-/** Dependencias de las dos rutas reales de Google (design §4.3, C2.3/C2.4). */
+/** Dependencias de las dos rutas reales de Google (design §4.3, C2.3/C2.4, ampliado US-041). */
 export interface AuthGoogleDeps {
   readonly iniciador: IIniciadorLoginExterno;
   readonly verificador: IVerificadorIdentidadExterna;
   readonly loginConGoogle: LoginConGoogleUseCase;
+  /** US-041, VINC041-02. Solo se invoca cuando `md_oauth.link` verificó su MAC. */
+  readonly vincularGoogle: VincularGoogleUseCase;
   readonly googleRateLimiter: IpRateLimiter;
   /** Atributo Secure de AMBAS cookies (md_oauth y md_session) — mismo derivado que cookieSecure de AuthPublicDeps. */
   readonly cookieSecure: boolean;
@@ -46,6 +57,8 @@ export interface AuthGoogleDeps {
    * query string de la request entrante se le agrega.
    */
   readonly redirectUri: string;
+  /** US-041, design §3.4. Pass-through de `container.googleAuth.linkIntentKey` — verifica el MAC de `md_oauth.link`. */
+  readonly linkIntentKey: Buffer;
 }
 
 /**
@@ -84,9 +97,11 @@ export function registrarAuthGoogle(
     iniciador,
     verificador,
     loginConGoogle,
+    vincularGoogle,
     googleRateLimiter,
     cookieSecure,
     redirectUri,
+    linkIntentKey,
   } = deps;
 
   // GET /api/auth/google
@@ -203,6 +218,40 @@ export function registrarAuthGoogle(
         return;
       }
 
+      // US-041 (design §1/Q1c, §4.2): el MAC de `link` se verifica INMEDIATAMENTE
+      // después del chequeo de `state` (el binding solo tiene sentido una vez
+      // que `state` ya fue validado contra el query param) y ANTES de
+      // `verificador.verificar()` (una cookie forjada nunca debe gastar una
+      // llamada de red a Google — mismo razonamiento de amplificación DoS que
+      // ya puso el callback detrás de `googleRateLimiter`; el `code` de
+      // autorización tampoco se consume en una request que iba a rechazarse
+      // de todos modos).
+      //
+      // REJECT, NUNCA fallback a login (binding item #3, non-negotiable): un
+      // `link` presente con MAC inválido rechaza el callback ENTERO con el
+      // redirect genérico — nunca `…configuracion?google=error` (ese destino
+      // solo es alcanzable tras un MAC verificado) y nunca continúa hacia el
+      // camino de login. Caer al login use case ejecutaría la resolución
+      // implícita por email — que puede escribir un `googleSub` por una
+      // regla completamente distinta a la solicitada Y emite una sesión, que
+      // el modo link deliberadamente no emite — eso no es "un resultado
+      // levemente peor", es una escalada de privilegio de "sin sesión
+      // emitida" a "sesión emitida", elegida por un byte que un atacante
+      // puede voltear. Rechazar no le cuesta nada a un usuario legítimo:
+      // cualquiera que quiera loguearse puede iniciar un flujo de login.
+      if (
+        oauthCookie.link !== undefined &&
+        !verificarLinkIntent(linkIntentKey, oauthCookie.state, oauthCookie.link)
+      ) {
+        // Ningún userId/mac/state en el log — en este instante ninguno de
+        // esos valores es confiable (design §1/Q1c, D-09).
+        appLogger.warn('Google callback rechazado (link-intent inválido)', {
+          path: req.path,
+        });
+        res.redirect(302, GENERIC_FAILURE_REDIRECT);
+        return;
+      }
+
       // Debug: engloba el intercambio de código por token + la validación
       // del id_token (aud/iss/nonce) — ambos pasos viven dentro del adapter
       // OIDC, así que la ruta solo puede observar el outcome agregado, nunca
@@ -217,7 +266,15 @@ export function registrarAuthGoogle(
         codeVerifier: oauthCookie.codeVerifier,
       });
 
+      // A partir de acá, `esLink` decide únicamente entre las DOS colas
+      // extraídas — todo lo de arriba (guards, state, MAC, verificación
+      // OIDC) es compartido y byte-idéntico entre ambos modos (design §1/Q2a).
+      const linkTarget = oauthCookie.link;
+
       if (verificacion.isFail()) {
+        // Byte-idéntico en ambos modos (design §6.1): un id_token inválido
+        // nunca llegó a resolver identidad, así que el modo (link o login)
+        // es irrelevante — AUTH-15 sigue aplicando también acá.
         appLogger.warn(
           'Google callback rechazado (verificación de identidad falló)',
           {
@@ -233,34 +290,23 @@ export function registrarAuthGoogle(
         emailVerificado: verificacion.getValue().emailVerificado,
       });
 
-      const resultado = await loginConGoogle.execute(verificacion.getValue());
-
-      if (resultado.isFail()) {
-        appLogger.warn(
-          'Google callback rechazado (resolución de identidad falló)',
-          {
-            path: req.path,
-            motivo: resultado.getError().motivo,
-          },
+      if (linkTarget !== undefined) {
+        await completarVinculacion(
+          res,
+          { vincularGoogle },
+          linkTarget.userId,
+          verificacion.getValue().sub,
+          req.path,
         );
-        res.redirect(302, GENERIC_FAILURE_REDIRECT);
         return;
       }
 
-      // "identity match outcome" se fusiona acá (no un debug aparte): tras
-      // pasar `resultado.isFail()` arriba, un `ok: true` en su propio evento
-      // sería una señal muerta (siempre true en este punto) — el mismo dato
-      // real (sesión emitida para `userId`) ya lo cubre este evento.
-      const { token, userId, expiresAt } = resultado.getValue();
-      appLogger.debug('Google callback: session emitted', {
-        userId,
-        expiresAt: expiresAt.toISOString(),
-      });
-      res.setHeader('Set-Cookie', [
-        clearOauthCookie(cookieSecure),
-        serializeSessionCookie(token, expiresAt, cookieSecure),
-      ]);
-      res.redirect(302, '/');
+      await completarLogin(
+        res,
+        { loginConGoogle, cookieSecure },
+        verificacion.getValue(),
+        req.path,
+      );
     } catch (err) {
       // Infra fault mid-flow (4R carry-forward, C2.3/C2.4): cualquier throw
       // inesperado de un colaborador (verificador/loginConGoogle/etc.) —
@@ -279,6 +325,79 @@ export function registrarAuthGoogle(
       res.redirect(302, GENERIC_FAILURE_REDIRECT);
     }
   });
+}
+
+/**
+ * completarLogin — la cola de LOGIN del callback (design §1/Q2a). Diff PURO
+ * de mover, byte-idéntico al comportamiento pre-US-041 (§6.1) — ningún
+ * `expect(...)` de `auth-google-callback.int-spec.ts`/`auth-google.routes.spec.ts`
+ * cambia.
+ */
+async function completarLogin(
+  res: Response,
+  deps: { loginConGoogle: LoginConGoogleUseCase; cookieSecure: boolean },
+  identidad: Parameters<LoginConGoogleUseCase['execute']>[0],
+  path: string,
+): Promise<void> {
+  const resultado = await deps.loginConGoogle.execute(identidad);
+
+  if (resultado.isFail()) {
+    appLogger.warn(
+      'Google callback rechazado (resolución de identidad falló)',
+      {
+        path,
+        motivo: resultado.getError().motivo,
+      },
+    );
+    res.redirect(302, GENERIC_FAILURE_REDIRECT);
+    return;
+  }
+
+  // "identity match outcome" se fusiona acá (no un debug aparte): tras
+  // pasar `resultado.isFail()` arriba, un `ok: true` en su propio evento
+  // sería una señal muerta (siempre true en este punto) — el mismo dato
+  // real (sesión emitida para `userId`) ya lo cubre este evento.
+  const { token, userId, expiresAt } = resultado.getValue();
+  appLogger.debug('Google callback: session emitted', {
+    userId,
+    expiresAt: expiresAt.toISOString(),
+  });
+  res.setHeader('Set-Cookie', [
+    clearOauthCookie(deps.cookieSecure),
+    serializeSessionCookie(token, expiresAt, deps.cookieSecure),
+  ]);
+  res.redirect(302, '/');
+}
+
+/**
+ * completarVinculacion — la cola de LINK del callback (US-041, VINC041-02,
+ * design §4.2). Solo se alcanza tras un MAC de `link` verificado — `userId`
+ * viene del `md_oauth.link` FIRMADO (nunca de la sesión: no hay ninguna en
+ * el callback), `sub` viene del `id_token` YA validado por `verificador`.
+ * `completarVinculacion` NUNCA emite `md_session` (§1/Q2c) — el usuario
+ * sigue logueado con su sesión same-site preexistente, que el cross-site
+ * hop a Google solo retuvo, nunca borró.
+ */
+async function completarVinculacion(
+  res: Response,
+  deps: { vincularGoogle: VincularGoogleUseCase },
+  userId: string,
+  sub: string,
+  path: string,
+): Promise<void> {
+  const resultado = await deps.vincularGoogle.execute({ userId, sub });
+
+  if (resultado.isFail()) {
+    appLogger.warn('Google callback (link) rechazado — vinculación falló', {
+      path,
+      motivo: resultado.getError().motivo,
+    });
+    res.redirect(302, LINK_FAILURE_REDIRECT);
+    return;
+  }
+
+  appLogger.debug('Google callback: vinculación aplicada, sin nueva sesión');
+  res.redirect(302, LINK_SUCCESS_REDIRECT);
 }
 
 /**
