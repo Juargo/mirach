@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import { crearPerfil } from './crear-perfil';
 import { ActualizarPerfilUseCase } from '../application/use-cases/actualizar-perfil.use-case';
 import { CambiarPasswordUseCase } from '../application/use-cases/cambiar-password.use-case';
+import { DesvincularGoogleUseCase } from '../application/use-cases/desvincular-google.use-case';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 import { NoOpLogger } from '../../test/support/logger.double';
@@ -41,6 +42,36 @@ describe('crearPerfil', () => {
 
     expect(graph.actualizarPerfil).toBeInstanceOf(ActualizarPerfilUseCase);
     expect(graph.cambiarPassword).toBeInstanceOf(CambiarPasswordUseCase);
+    expect(graph.desvincularGoogle).toBeInstanceOf(DesvincularGoogleUseCase);
+  });
+
+  it('desvincularGoogle vive en PerfilGraph, no en GoogleAuthGraph — funciona sin cliente OIDC (design D-04, §3.4)', async () => {
+    const prisma = {
+      user: {
+        findUnique: vi
+          .fn()
+          .mockResolvedValue({ id: 'user-1', passwordHash: '$argon2id$hash' }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    } as unknown as PrismaClient;
+    const crypto: ICryptoService = { encrypt: (v) => v, decrypt: (v) => v };
+    const blindIndex: IBlindIndexService = { compute: (v) => v };
+
+    const graph = crearPerfil(prisma, crypto, blindIndex, new NoOpLogger());
+    // El hasher real (argon2) rechaza este hash — el flujo se detiene en la
+    // verificación de `passwordActual`. Llegar hasta `findUnique` prueba que
+    // `crearPerfil` conectó `PrismaUserCredentialRepository` con esta MISMA
+    // instancia de `prisma`.
+    await graph.desvincularGoogle.execute({
+      userId: 'user-1',
+      esDemo: false,
+      passwordActual: 'lo-que-sea',
+    });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      select: { id: true, passwordHash: true },
+    });
   });
 
   it('cambiarPassword llega hasta prisma.user.findUnique — el repositorio de sesiones/credenciales recibió la MISMA instancia de prisma, no una propia (PERF040-06)', async () => {

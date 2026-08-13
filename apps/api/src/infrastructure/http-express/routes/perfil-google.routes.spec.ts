@@ -3,6 +3,7 @@ import request from 'supertest';
 import {
   registrarPerfilGoogleVincular,
   registrarPerfilGoogleVincularDeshabilitado,
+  registrarPerfilGoogleDesvincular,
   type PerfilGoogleDeps,
 } from './perfil-google.routes';
 import { errorMiddleware } from '../middleware/error.middleware';
@@ -11,9 +12,11 @@ import { PerfilRechazadoError } from '../../../domain/errors/perfil-rechazado.er
 import { PerfilDemoSoloLecturaError } from '../../../domain/errors/perfil-demo-solo-lectura.error';
 import { GoogleYaVinculadoError } from '../../../domain/errors/google-ya-vinculado.error';
 import { VinculacionGoogleNoDisponibleError } from '../../../domain/errors/vinculacion-google-no-disponible.error';
+import { VinculoRequierePasswordError } from '../../../domain/errors/vinculo-requiere-password.error';
 import { verificarLinkIntent } from '../../http/auth/link-intent';
 import { parseOauthCookie } from '../../http/auth/oauth-transient-cookie';
 import type { IniciarVinculacionGoogleUseCase } from '../../../application/use-cases/iniciar-vinculacion-google.use-case';
+import type { PerfilGraph } from '../../../composition/crear-perfil';
 
 const LINK_INTENT_KEY = Buffer.alloc(32, 4);
 
@@ -55,6 +58,29 @@ function appDeshabilitado(): Express {
   const router = express.Router();
   registrarPerfilGoogleVincularDeshabilitado(router);
   expressApp.use('/api', router);
+  return expressApp;
+}
+
+function makePerfilGraph(
+  execute = vi.fn().mockResolvedValue(Result.ok(undefined)),
+): PerfilGraph {
+  return {
+    desvincularGoogle: { execute },
+  } as unknown as PerfilGraph;
+}
+
+function appDesvincular(perfil: PerfilGraph): Express {
+  const expressApp = express();
+  expressApp.use(express.json());
+  const router = express.Router();
+  router.use((req, _res, next) => {
+    req.userId = 'user-x';
+    req.esDemo = false;
+    next();
+  });
+  registrarPerfilGoogleDesvincular(router, perfil);
+  expressApp.use('/api', router);
+  expressApp.use(errorMiddleware);
   return expressApp;
 }
 
@@ -192,5 +218,93 @@ describe('registrarPerfilGoogleVincularDeshabilitado — AUTH-16 parity', () => 
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({});
+  });
+});
+
+describe('registrarPerfilGoogleDesvincular — POST /api/perfil/google/desvincular (VINC041-05, task 3.7)', () => {
+  it('204 sin body en éxito', async () => {
+    const useCase = makePerfilGraph();
+    const res = await request(appDesvincular(useCase))
+      .post('/api/perfil/google/desvincular')
+      .send({ passwordActual: 'correcta' });
+
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+  });
+
+  it('esDemo/userId se hilvanan SIEMPRE desde req, nunca desde el body', async () => {
+    const execute = vi.fn().mockResolvedValue(Result.ok(undefined));
+    const useCase = makePerfilGraph(execute);
+    await request(appDesvincular(useCase))
+      .post('/api/perfil/google/desvincular')
+      .send({ passwordActual: 'correcta' });
+
+    expect(execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      esDemo: false,
+      passwordActual: 'correcta',
+    });
+  });
+
+  it('400 BODY_INVALIDO para body vacío ({})', async () => {
+    const execute = vi.fn();
+    const useCase = makePerfilGraph(execute);
+    const res = await request(appDesvincular(useCase))
+      .post('/api/perfil/google/desvincular')
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('BODY_INVALIDO');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('400 BODY_INVALIDO para { passwordActual, userId: "otro" } — .strict() rechaza el campo extra', async () => {
+    const execute = vi.fn();
+    const useCase = makePerfilGraph(execute);
+    const res = await request(appDesvincular(useCase))
+      .post('/api/perfil/google/desvincular')
+      .send({ passwordActual: 'x', userId: 'otro' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('BODY_INVALIDO');
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('403 DEMO_SOLO_LECTURA cuando el use case rechaza por demo', async () => {
+    const useCase = makePerfilGraph(
+      vi.fn().mockResolvedValue(Result.fail(new PerfilDemoSoloLecturaError())),
+    );
+    const res = await request(appDesvincular(useCase))
+      .post('/api/perfil/google/desvincular')
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('403 VINCULO_REQUIERE_PASSWORD cuando el use case rechaza por falta de passwordHash (binding proof (b))', async () => {
+    const useCase = makePerfilGraph(
+      vi
+        .fn()
+        .mockResolvedValue(Result.fail(new VinculoRequierePasswordError())),
+    );
+    const res = await request(appDesvincular(useCase))
+      .post('/api/perfil/google/desvincular')
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('VINCULO_REQUIERE_PASSWORD');
+  });
+
+  it('403 PERFIL_RECHAZADO cuando el use case rechaza por password incorrecta', async () => {
+    const useCase = makePerfilGraph(
+      vi.fn().mockResolvedValue(Result.fail(new PerfilRechazadoError())),
+    );
+    const res = await request(appDesvincular(useCase))
+      .post('/api/perfil/google/desvincular')
+      .send({ passwordActual: 'incorrecta' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('PERFIL_RECHAZADO');
   });
 });

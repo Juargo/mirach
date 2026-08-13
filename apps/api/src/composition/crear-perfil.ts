@@ -6,19 +6,27 @@ import type { ILogger } from '../application/ports/logger.port';
 
 import { ActualizarPerfilUseCase } from '../application/use-cases/actualizar-perfil.use-case';
 import { CambiarPasswordUseCase } from '../application/use-cases/cambiar-password.use-case';
+import { DesvincularGoogleUseCase } from '../application/use-cases/desvincular-google.use-case';
 
 import { Argon2PasswordHasher } from '../infrastructure/http/auth/argon2-password-hasher';
 import { PrismaUserCredentialRepository } from '../infrastructure/persistence/prisma-user-credential.repository';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
+import { PrismaIdentidadGoogleRepository } from '../infrastructure/persistence/prisma-identidad-google.repository';
 
 /**
  * PerfilGraph — las piezas de `/api/perfil*` que consume `registrarPerfil`
  * (US-040). Un único objeto (mirrors `CatalogoGraph`) en vez de parámetros
  * sueltos.
+ *
+ * `desvincularGoogle` vive ACÁ, no en `GoogleAuthGraph` (US-041, design
+ * D-04, §3.4): debe funcionar cuando Google está apagado (sin
+ * `GOOGLE_CLIENT_ID`), porque un usuario que se vinculó mientras Google
+ * estaba activo debe poder desvincular después de un cambio de config.
  */
 export interface PerfilGraph {
   readonly actualizarPerfil: ActualizarPerfilUseCase;
   readonly cambiarPassword: CambiarPasswordUseCase;
+  readonly desvincularGoogle: DesvincularGoogleUseCase;
 }
 
 /**
@@ -42,6 +50,7 @@ export function crearPerfil(
 ): PerfilGraph {
   const creds = new PrismaUserCredentialRepository(prisma, crypto, blindIndex);
   const sessions = new PrismaSessionRepository(prisma);
+  const identidades = new PrismaIdentidadGoogleRepository(prisma, blindIndex);
   const hasher = new Argon2PasswordHasher();
 
   return {
@@ -49,6 +58,12 @@ export function crearPerfil(
     cambiarPassword: new CambiarPasswordUseCase(
       creds,
       sessions,
+      hasher,
+      logger,
+    ),
+    desvincularGoogle: new DesvincularGoogleUseCase(
+      creds,
+      identidades,
       hasher,
       logger,
     ),

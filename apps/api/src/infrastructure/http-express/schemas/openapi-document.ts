@@ -66,6 +66,7 @@ import {
 import {
   vincularGoogleRequestSchema,
   vincularGoogleResponseSchema,
+  desvincularGoogleRequestSchema,
 } from './perfil-google.schema';
 
 /**
@@ -1001,6 +1002,42 @@ const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `POST /api/perfil/google/desvincular` (US-041, VINC041-05, design.md
+ * §5.5). No activation gate — unlike vincular, this endpoint stays mounted
+ * even when Google login is off, so no 404 branch exists here.
+ */
+const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
+  summary: 'Unlink the Google identity from the current account',
+  description:
+    'Authenticated endpoint (US-041, VINC041-05) that re-verifies the current password and clears ' +
+    "the CALLER's own googleSub. Idempotent: a second call after success still responds 204. " +
+    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 ' +
+    'PERFIL_RECHAZADO), and when the account has no passwordHash (403 VINCULO_REQUIERE_PASSWORD — ' +
+    'CA-03: an account may never be left without an access method). Mounted unconditionally, ' +
+    'independent of whether Google login is currently active.',
+  requestBody: {
+    content: {
+      'application/json': { schema: desvincularGoogleRequestSchema },
+    },
+  },
+  responses: {
+    '204': { description: 'The Google identity is no longer linked.' },
+    '400': {
+      description: 'Malformed body.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '403': {
+      description:
+        'Demo session, an incorrect current password, or the account has no passwordHash to fall back on.',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+    '401': {
+      description: 'No valid session (missing, expired, or invalid token).',
+    },
+  },
+};
+
+/**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
  * appending future endpoints (Slice 1+) must append here, never reorder
@@ -1043,6 +1080,9 @@ const paths: ZodOpenApiPathsObject = {
   '/api/perfil': { patch: perfilUpdateOperation },
   '/api/perfil/password': { patch: perfilPasswordUpdateOperation },
   '/api/perfil/google/vincular': { post: perfilGoogleVincularOperation },
+  '/api/perfil/google/desvincular': {
+    post: perfilGoogleDesvincularOperation,
+  },
 };
 
 export function buildOpenApiDocument() {

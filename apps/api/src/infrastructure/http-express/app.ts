@@ -29,6 +29,7 @@ import { registrarPerfil } from './routes/perfil.routes';
 import {
   registrarPerfilGoogleVincular,
   registrarPerfilGoogleVincularDeshabilitado,
+  registrarPerfilGoogleDesvincular,
 } from './routes/perfil-google.routes';
 
 /**
@@ -195,6 +196,9 @@ export function createApp(container: Container, env: Env): Express {
   } else {
     registrarPerfilGoogleVincularDeshabilitado(protectedApi);
   }
+  // Desvinculación (PR #3, task 3.9, design §1/Q2b): montada SIEMPRE, sin
+  // el gate de arriba — limpiar googleSub no necesita cliente OIDC.
+  registrarPerfilGoogleDesvincular(protectedApi, container.perfil);
   app.use('/api', protectedApi);
 
   app.use(errorMiddleware);

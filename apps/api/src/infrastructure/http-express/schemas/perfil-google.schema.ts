@@ -2,8 +2,7 @@ import { z } from 'zod';
 
 /**
  * Transport-shape contracts for `/api/perfil/google/*` (US-041, design.md
- * §5.4). `desvincularGoogleRequestSchema` is added in PR #3 — this file
- * currently covers the LINK leg only.
+ * §5.4). Covers both the LINK leg (PR #2) and the UNLINK leg (PR #3).
  *
  * LAYER-HONESTY GATE (`perfil.schema.ts` / `categorias.schema.ts`
  * precedent): no `.min()` on `passwordActual` — the current password is
@@ -24,6 +23,16 @@ export const vincularGoogleResponseSchema = z
     description:
       'POST /api/perfil/google/vincular — the Google OAuth authorization URL to navigate to (VINC041-01).',
   });
+
+/**
+ * `POST /api/perfil/google/desvincular` (VINC041-05). Same layer-honesty
+ * gate as `vincularGoogleRequestSchema`: no `.min()` on `passwordActual` —
+ * it is verified, not validated. `.strict()` for the same reason
+ * (VINC041-08): a `userId` extra field cannot ride along.
+ */
+export const desvincularGoogleRequestSchema = z
+  .object({ passwordActual: z.string() })
+  .strict();
 
 /**
  * `dry` rule-of-three, RECORDED not silently deferred (design.md §5.4,

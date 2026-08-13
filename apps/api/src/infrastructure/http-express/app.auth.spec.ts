@@ -62,6 +62,13 @@ function fakeContainer(): Container {
       recordFailure: vi.fn(),
     },
     demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
+    perfil: {
+      actualizarPerfil: stub,
+      cambiarPassword: stub,
+      desvincularGoogle: {
+        execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+      },
+    },
     shutdown: async () => {},
   } as unknown as Container;
 }
@@ -195,6 +202,43 @@ describe('POST /api/perfil/google/vincular — AUTH-16 parity (US-041)', () => {
       esDemo: false,
       passwordActual: 'x',
     });
+  });
+});
+
+/**
+ * `POST /api/perfil/google/desvincular` — task 3.9, design §1/Q2b. A
+ * diferencia del link, esta ruta se monta SIEMPRE en `protectedApi`, sin
+ * el gate `container.googleAuth !== undefined` — `fakeContainer()` no
+ * setea `googleAuth` (feature de login con Google apagada) y aun así este
+ * endpoint responde, no un `404`.
+ */
+describe('POST /api/perfil/google/desvincular — mounted always, no activation gate (US-041 PR#3)', () => {
+  const KEY = 'k'.repeat(64);
+  const testEnv = buildTestEnv({ API_KEY: KEY });
+
+  it('204 cuando container.googleAuth es undefined (Google apagado) — unlink sigue montado', async () => {
+    const c = fakeContainer();
+    const res = await request(createApp(c, testEnv))
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido')
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(204);
+    expect(c.perfil.desvincularGoogle.execute).toHaveBeenCalledWith({
+      userId: 'user-de-sesion',
+      esDemo: false,
+      passwordActual: 'x',
+    });
+  });
+
+  it('401 sin sesión (api-key global pero sin token)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', KEY)
+      .send({ passwordActual: 'x' });
+
+    expect(res.status).toBe(401);
   });
 });
 

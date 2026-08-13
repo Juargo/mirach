@@ -38,6 +38,16 @@ export interface IIdentidadGoogleRepository {
    * el gate demo se DERIVA de la fila, no de un input (design §2/D-05).
    */
   buscarPorId(userId: string): Promise<UsuarioVinculable | null>;
+
+  /**
+   * VINC041-05, CA-03. Escritura condicional única — nunca lee-y-luego-escribe:
+   * `true` si limpió `googleSub` (la fila tenía password Y googleSub); `false`
+   * si no había nada que limpiar (idempotente: la fila no tenía googleSub, o
+   * no tiene passwordHash — en ese último caso el invariante "nunca sin
+   * método de acceso" vive en esta escritura, no en un pre-check de
+   * aplicación).
+   */
+  desvincularGoogleSub(userId: string): Promise<boolean>;
 }
 
 /** Injection token — interfaces are erased at runtime. */

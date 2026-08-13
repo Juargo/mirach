@@ -251,6 +251,22 @@ describe('buildOpenApiDocument', () => {
     expect(vincularPath?.post?.responses?.['404']).toBeDefined();
   });
 
+  it('registers POST /api/perfil/google/desvincular with a JSON requestBody and 204/400/403/401 responses (US-041, VINC041-05)', () => {
+    const document = buildOpenApiDocument();
+
+    const desvincularPath = document.paths?.['/api/perfil/google/desvincular'];
+    expect(desvincularPath).toBeDefined();
+    expect(desvincularPath?.post).toBeDefined();
+    const requestBody = desvincularPath?.post?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+    expect(desvincularPath?.post?.responses?.['204']).toBeDefined();
+    expect(desvincularPath?.post?.responses?.['400']).toBeDefined();
+    expect(desvincularPath?.post?.responses?.['403']).toBeDefined();
+    expect(desvincularPath?.post?.responses?.['401']).toBeDefined();
+  });
+
   it('authGoogleCallbackOperation description documents the dual mode and both link redirect targets (US-041, no response-shape change)', () => {
     const document = buildOpenApiDocument();
 
