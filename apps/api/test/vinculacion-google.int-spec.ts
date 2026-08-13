@@ -38,7 +38,7 @@ import type {
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
 const REDIRECT_URI = 'https://app.moneydiary.cl/api/auth/google/callback';
-const PASSWORD = 'correcto-123-clave-vinculacion';
+const PASSWORD = 'password-de-prueba-us041'; // gitleaks:allow — fixture de test, no es un secreto
 
 const RUN_ID = `vinculacion-google-int-${Date.now()}`;
 const EMAIL_A = `${RUN_ID}-a@example.com`;
