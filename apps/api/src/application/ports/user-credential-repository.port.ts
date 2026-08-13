@@ -25,6 +25,10 @@ export interface IdentidadUsuario {
   readonly nombre: string;
   readonly email: string | null;
   readonly esDemo: boolean;
+  /** VINC041-08. Derivado de `googleSub !== null`. El `googleSub` CRUDO nunca
+   *  cruza este puerto: es un identificador estable de una identidad externa
+   *  y no tiene ninguna razón para estar en un tipo que se serializa al wire. */
+  readonly googleVinculado: boolean;
 }
 
 /**

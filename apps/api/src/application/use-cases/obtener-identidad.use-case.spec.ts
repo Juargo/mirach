@@ -29,6 +29,7 @@ describe('ObtenerIdentidadUseCase', () => {
       nombre: 'Jorge',
       email: 'jorge@example.com',
       esDemo: false,
+      googleVinculado: false,
     };
     const creds = makeMockCreds(identidad);
     const uc = new ObtenerIdentidadUseCase(creds, new NoOpLogger());
@@ -56,6 +57,7 @@ describe('ObtenerIdentidadUseCase', () => {
       nombre: 'Demo',
       email: null,
       esDemo: true,
+      googleVinculado: false,
     };
     const creds = makeMockCreds(identidad);
     const uc = new ObtenerIdentidadUseCase(creds, new NoOpLogger());
@@ -73,6 +75,7 @@ describe('ObtenerIdentidadUseCase', () => {
         nombre: 'Jorge',
         email: 'jorge@example.com',
         esDemo: false,
+        googleVinculado: false,
       };
       const creds = makeMockCreds(identidad);
       const logger = new FakeLogger();
