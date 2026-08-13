@@ -3,3 +3,9 @@
 99b792bb4a530fcc1e1db1c04fbe7c2c42646051:openspec/changes/auth-google-login-mobile/design.md:generic-api-key:389
 # self-referential FP: a prior version of this file quoted the matched prose in its comment
 6d3e033d753da7cf2a9de8402c02367e65698dc4:.gitleaksignore:generic-api-key:2
+# US-041 (PR #318): fixture de test, nunca un secreto real. El valor se siembra
+# y se descarta en cada corrida de `vinculacion-google.int-spec.ts`; la regla
+# saltó por entropía (3.74) sobre una constante llamada PASSWORD. En el tip de
+# la rama el literal ya fue reemplazado por uno obviamente falso y de baja
+# entropía — este fingerprint cubre solo el commit histórico que lo introdujo.
+42a1fddc876091ff1d00234e287a491e57c772df:apps/api/test/vinculacion-google.int-spec.ts:generic-api-key:41
