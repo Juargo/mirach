@@ -1,6 +1,7 @@
 import {
   vincularGoogleRequestSchema,
   vincularGoogleResponseSchema,
+  desvincularGoogleRequestSchema,
 } from './perfil-google.schema';
 
 /**
@@ -55,5 +56,32 @@ describe('vincularGoogleResponseSchema', () => {
 
   it('rejects a missing urlAutorizacion', () => {
     expect(vincularGoogleResponseSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('desvincularGoogleRequestSchema (VINC041-05, task 3.6)', () => {
+  it('accepts { passwordActual }', () => {
+    expect(
+      desvincularGoogleRequestSchema.safeParse({ passwordActual: 'x' }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an empty body', () => {
+    expect(desvincularGoogleRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('rejects an extra field (.strict(), VINC041-08 — a userId cannot ride along)', () => {
+    expect(
+      desvincularGoogleRequestSchema.safeParse({
+        passwordActual: 'x',
+        userId: 'otro-usuario',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('does NOT enforce a minimum length on passwordActual — layer-honesty gate', () => {
+    expect(
+      desvincularGoogleRequestSchema.safeParse({ passwordActual: '' }).success,
+    ).toBe(true);
   });
 });
