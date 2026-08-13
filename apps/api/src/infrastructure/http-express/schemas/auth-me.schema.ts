@@ -34,9 +34,14 @@ export const authMeResponseSchema = z
       .describe(
         'null only for esDemo=true (demo) accounts — a domain invariant, not enforced by this schema.',
       ),
+    googleVinculado: z
+      .boolean()
+      .describe(
+        'VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.',
+      ),
   })
   .meta({
     id: 'AuthMeResponse',
     description:
-      'GET /api/auth/me and PATCH /api/perfil — the authenticated user identity (AUTH-09, US-040).',
+      'GET /api/auth/me and PATCH /api/perfil — the authenticated user identity, including whether Google is linked (AUTH-09, US-040, VINC041-08).',
   });
