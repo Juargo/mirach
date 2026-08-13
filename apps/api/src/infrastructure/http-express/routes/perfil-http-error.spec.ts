@@ -6,8 +6,9 @@ import { PerfilRechazadoError } from '../../../domain/errors/perfil-rechazado.er
 import { PasswordInvalidaError } from '../../../domain/errors/password-invalida.error';
 import { GoogleYaVinculadoError } from '../../../domain/errors/google-ya-vinculado.error';
 import { VinculacionGoogleNoDisponibleError } from '../../../domain/errors/vinculacion-google-no-disponible.error';
+import { VinculoRequierePasswordError } from '../../../domain/errors/vinculo-requiere-password.error';
 
-describe('aPerfilHttpError — one class, exactly one status + code (union ampliada PR#2)', () => {
+describe('aPerfilHttpError — one class, exactly one status + code (union ampliada PR#2/PR#3)', () => {
   it.each([
     [new NombrePerfilInvalidoError(), 400, 'NOMBRE_INVALIDO'],
     [new EmailInvalidoError('x'), 400, 'EMAIL_INVALIDO'],
@@ -16,6 +17,7 @@ describe('aPerfilHttpError — one class, exactly one status + code (union ampli
     [new PasswordInvalidaError(), 400, 'PASSWORD_INVALIDA'],
     [new GoogleYaVinculadoError(), 409, 'GOOGLE_YA_VINCULADO'],
     [new VinculacionGoogleNoDisponibleError(), 503, 'GOOGLE_NO_DISPONIBLE'],
+    [new VinculoRequierePasswordError(), 403, 'VINCULO_REQUIERE_PASSWORD'],
   ] as const)('%p -> status %i, code %s', (error, status, code) => {
     const result = aPerfilHttpError(error);
     expect(result.status).toBe(status);
