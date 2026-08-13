@@ -156,6 +156,14 @@ describe('GET /api/auth/google/callback (int) — LoginConGoogleUseCase against 
         1000,
         900_000,
       ),
+      // US-041: este spec cubre SOLO el camino de login (sin `link` en la
+      // cookie) — deps/graph literal growth únicamente (design §6.1), NINGÚN
+      // escenario/expect de este archivo cambia. `iniciarVinculacion`/
+      // `vincularGoogle`/`linkIntentKey` no se ejercitan acá; su cobertura
+      // real vive en `test/vinculacion-google.int-spec.ts`.
+      iniciarVinculacion: { execute: vi.fn() } as never,
+      vincularGoogle: { execute: vi.fn() } as never,
+      linkIntentKey: Buffer.alloc(32, 5),
     };
 
     const baseContainer: Container = createContainer(env, prisma);

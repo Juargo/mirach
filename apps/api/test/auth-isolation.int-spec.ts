@@ -390,4 +390,25 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     });
     expect(afterA.nombre).not.toBe('Intento Cruzado');
   });
+
+  it("POST /api/perfil/google/desvincular (cookie A): a body naming B's id is rejected 400 by .strict() — B's row is byte-identical afterward (VINC041-08)", async () => {
+    if (!ALLOW) return;
+
+    const beforeB = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdB },
+    });
+
+    const res = await request(app)
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', API_KEY)
+      .set('Cookie', cookieA)
+      .send({ passwordActual: PASSWORD, userId: userIdB });
+
+    expect(res.status).toBe(400);
+
+    const afterB = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdB },
+    });
+    expect(afterB).toEqual(beforeB);
+  });
 });

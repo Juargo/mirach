@@ -58,6 +58,7 @@ export function registrarPerfil(router: Router, perfil: PerfilGraph): void {
         nombre: identidad.nombre,
         email: identidad.email,
         esDemo: identidad.esDemo,
+        googleVinculado: identidad.googleVinculado,
       });
     } catch (err) {
       next(err);

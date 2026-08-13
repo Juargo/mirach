@@ -119,4 +119,66 @@ describe('oauth-transient-cookie', () => {
       expect(clearOauthCookie(true)).toContain('Secure');
     });
   });
+
+  /**
+   * `link` opcional (US-041, design §1/Q1/§3.3, D-03). El campo NO cruza la
+   * capa application — esto es puramente serialización/parseo.
+   */
+  describe('link opcional (US-041)', () => {
+    const LINK = { userId: 'user-1', mac: 'a'.repeat(43) };
+
+    it('BYTE-IDENTICAL PIN (§6.2): una cookie SIN link serializa exactamente a los mismos bytes que antes de este cambio — el login path no cambia de forma', () => {
+      const header = serializeOauthCookie(PAYLOAD, false);
+
+      // Literal capturado del comportamiento pre-US-041 (ver los tests de
+      // arriba, que ya lo pinnean atributo por atributo) — acá se pinnea el
+      // VALOR completo, byte a byte.
+      expect(header).toBe(
+        `md_oauth=${Buffer.from(JSON.stringify(PAYLOAD), 'utf8').toString('base64url')}; Max-Age=600; Path=/api/auth/google; HttpOnly; SameSite=Lax`,
+      );
+    });
+
+    it('round-trip CON link: serializeOauthCookie + parseOauthCookie preservan el campo link completo', () => {
+      const header = serializeOauthCookie({ ...PAYLOAD, link: LINK }, false);
+      const valor = header.split(';')[0].split('=')[1];
+
+      const parsed = parseOauthCookie(`${OAUTH_COOKIE_NAME}=${valor}`);
+
+      expect(parsed).toEqual({ ...PAYLOAD, link: LINK });
+    });
+
+    it('round-trip SIN link: el campo simplemente está ausente (no un link: undefined explícito)', () => {
+      const header = serializeOauthCookie(PAYLOAD, false);
+      const valor = header.split(';')[0].split('=')[1];
+
+      const parsed = parseOauthCookie(`${OAUTH_COOKIE_NAME}=${valor}`);
+
+      expect(parsed).toEqual(PAYLOAD);
+      expect(parsed).not.toHaveProperty('link');
+    });
+
+    it.each([
+      ['no es un objeto', { ...PAYLOAD, link: 'not-an-object' }],
+      ['falta mac', { ...PAYLOAD, link: { userId: 'user-1' } }],
+      ['falta userId', { ...PAYLOAD, link: { mac: 'x'.repeat(43) } }],
+      [
+        'userId no es string',
+        { ...PAYLOAD, link: { userId: 1, mac: 'x'.repeat(43) } },
+      ],
+      ['mac no es string', { ...PAYLOAD, link: { userId: 'user-1', mac: 42 } }],
+      ['link es null', { ...PAYLOAD, link: null }],
+    ])(
+      'link malformado (%s) ⇒ la cookie ENTERA parsea a undefined, no solo el campo link',
+      (_desc, malformedPayload) => {
+        const valor = Buffer.from(
+          JSON.stringify(malformedPayload),
+          'utf8',
+        ).toString('base64url');
+
+        expect(
+          parseOauthCookie(`${OAUTH_COOKIE_NAME}=${valor}`),
+        ).toBeUndefined();
+      },
+    );
+  });
 });

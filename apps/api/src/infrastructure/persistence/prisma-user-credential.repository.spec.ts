@@ -112,6 +112,7 @@ describe('PrismaUserCredentialRepository', () => {
             nombre: 'Jorge',
             email: 'cifrado-xyz',
             esDemo: false,
+            googleSub: null,
           }),
         },
       } as unknown as PrismaClient;
@@ -128,12 +129,43 @@ describe('PrismaUserCredentialRepository', () => {
         nombre: 'Jorge',
         email: 'plano:cifrado-xyz',
         esDemo: false,
+        googleVinculado: false,
       });
       expect((prisma.user.findUnique as Mock).mock.calls[0][0]).toEqual(
         expect.objectContaining({
-          select: expect.objectContaining({ nombre: true }),
+          select: expect.objectContaining({ nombre: true, googleSub: true }),
         }),
       );
+    });
+
+    it('retorna googleVinculado=true cuando la fila tiene googleSub — VINC041-08, y NUNCA expone el googleSub crudo', async () => {
+      const prisma = {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'user-1',
+            nombre: 'Jorge',
+            email: 'cifrado-xyz',
+            esDemo: false,
+            googleSub: 'google-sub-123',
+          }),
+        },
+      } as unknown as PrismaClient;
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto((v) => `plano:${v}`),
+        makeBlindIndex(),
+      );
+
+      const result = await repo.buscarIdentidad('user-1');
+
+      expect(result).toEqual({
+        userId: 'user-1',
+        nombre: 'Jorge',
+        email: 'plano:cifrado-xyz',
+        esDemo: false,
+        googleVinculado: true,
+      });
+      expect(JSON.stringify(result)).not.toContain('google-sub-123');
     });
 
     it('retorna null cuando el userId no existe', async () => {
@@ -159,6 +191,7 @@ describe('PrismaUserCredentialRepository', () => {
             nombre: 'Alguien',
             email: null,
             esDemo: false,
+            googleSub: null,
           }),
         },
       } as unknown as PrismaClient;
@@ -184,6 +217,7 @@ describe('PrismaUserCredentialRepository', () => {
             nombre: 'Demo',
             email: null,
             esDemo: true,
+            googleSub: null,
           }),
         },
       } as unknown as PrismaClient;
@@ -202,6 +236,7 @@ describe('PrismaUserCredentialRepository', () => {
         nombre: 'Demo',
         email: null,
         esDemo: true,
+        googleVinculado: false,
       });
       expect(decryptSpy).not.toHaveBeenCalled();
     });
@@ -290,6 +325,7 @@ describe('PrismaUserCredentialRepository', () => {
         nombre: 'Nuevo Nombre',
         email: 'cipher:jorge@example.com',
         esDemo: false,
+        googleSub: null,
       });
       const prisma = { user: { update } } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(
@@ -303,9 +339,13 @@ describe('PrismaUserCredentialRepository', () => {
       const callArgs = update.mock.calls[0][0] as {
         where: unknown;
         data: object;
+        select: object;
       };
       expect(callArgs.where).toEqual({ id: 'user-1' });
       expect(Object.keys(callArgs.data)).toEqual(['nombre']);
+      expect(callArgs.select).toEqual(
+        expect.objectContaining({ googleSub: true }),
+      );
     });
 
     it('email presente: data.email y data.emailBlindIndex derivan del MISMO email.valor, usando crypto/blindIndex inyectados (G1)', async () => {
@@ -314,6 +354,7 @@ describe('PrismaUserCredentialRepository', () => {
         nombre: 'Jorge',
         email: 'cipher:jorge@example.com',
         esDemo: false,
+        googleSub: null,
       });
       const prisma = { user: { update } } as unknown as PrismaClient;
       const encryptSpy = vi.fn((v: string) => `cipher:${v}`);
@@ -342,6 +383,7 @@ describe('PrismaUserCredentialRepository', () => {
         nombre: 'Jorge',
         email: 'cipher:jorge@example.com',
         esDemo: false,
+        googleSub: null,
       });
       const prisma = { user: { update } } as unknown as PrismaClient;
       const repo = new PrismaUserCredentialRepository(
@@ -361,6 +403,37 @@ describe('PrismaUserCredentialRepository', () => {
         nombre: 'Jorge',
         email: 'plano:cipher:jorge@example.com',
         esDemo: false,
+        googleVinculado: false,
+      });
+    });
+
+    it('devuelve googleVinculado=true cuando la fila retornada por update() ya tiene googleSub (identidad compartida con VINC041-08)', async () => {
+      const update = vi.fn().mockResolvedValue({
+        id: 'user-1',
+        nombre: 'Jorge',
+        email: 'cipher:jorge@example.com',
+        esDemo: false,
+        googleSub: 'google-sub-abc',
+      });
+      const prisma = { user: { update } } as unknown as PrismaClient;
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto((v) => `plano:${v}`),
+        makeBlindIndex(),
+      );
+
+      const result = await repo.actualizarPerfil({
+        userId: 'user-1',
+        nombre: 'Jorge',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue()).toEqual({
+        userId: 'user-1',
+        nombre: 'Jorge',
+        email: 'plano:cipher:jorge@example.com',
+        esDemo: false,
+        googleVinculado: true,
       });
     });
 

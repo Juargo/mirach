@@ -125,4 +125,57 @@ describe('Perfil demo gate (PERF040-08) — mutation rejected, /auth/me still al
       .set('Authorization', authDemo)
       .expect(200);
   });
+
+  it('POST /api/perfil/google/desvincular → 403 DEMO_SOLO_LECTURA (VINC041-09) — montado siempre, sin gate de Google', async () => {
+    if (!ALLOW) return;
+
+    const res = await request(app)
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authDemo)
+      .send({ passwordActual: 'lo-que-sea' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  /**
+   * NOTE on discriminating power (same limitation flagged for VINC041-07 in
+   * vinculacion-google.int-spec.ts): this demo user has no `passwordHash`
+   * (demo users never do). That means even if `DEMO_SOLO_LECTURA` failed to
+   * fire, `DesvincularGoogleUseCase`'s own password re-verification would
+   * ALSO reject the request (`VINCULO_REQUIERE_PASSWORD`) before touching
+   * `googleSub` — so a byte-identical row after the call does not by itself
+   * prove the demo gate specifically ran; it proves no side effect occurred
+   * either way. The 403 body assertion in the previous test
+   * (`code: 'DEMO_SOLO_LECTURA'`) is what actually pins the demo gate as the
+   * one that fired.
+   */
+  it('el intento de desvincular demo no cambió ninguna columna de User ni revocó la sesión demo', async () => {
+    if (!ALLOW) return;
+
+    const before = await prisma.user.findUniqueOrThrow({
+      where: { id: DEMO_USER_ID },
+    });
+
+    const res = await request(app)
+      .post('/api/perfil/google/desvincular')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authDemo)
+      .send({ passwordActual: 'lo-que-sea' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+
+    const after = await prisma.user.findUniqueOrThrow({
+      where: { id: DEMO_USER_ID },
+    });
+    expect(after).toEqual(before);
+
+    await request(app)
+      .get('/api/auth/me')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authDemo)
+      .expect(200);
+  });
 });

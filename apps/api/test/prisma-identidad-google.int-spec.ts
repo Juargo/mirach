@@ -45,6 +45,8 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
   const userIdRaceMismaFila = `user-race-same-${RUN_ID}`;
   const userIdRaceFilaA = `user-race-a-${RUN_ID}`;
   const userIdRaceFilaB = `user-race-b-${RUN_ID}`;
+  const userIdDesvincularSinPassword = `user-unlink-no-pw-${RUN_ID}`;
+  const userIdDesvincularConPassword = `user-unlink-with-pw-${RUN_ID}`;
 
   const emailPorEmail = `by-email-${RUN_ID}@example.com`;
 
@@ -55,6 +57,8 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
     userIdRaceMismaFila,
     userIdRaceFilaA,
     userIdRaceFilaB,
+    userIdDesvincularSinPassword,
+    userIdDesvincularConPassword,
   ];
 
   beforeAll(async () => {
@@ -106,6 +110,25 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
     });
     await prisma.user.create({
       data: { id: userIdRaceFilaB, nombre: 'Race — fila B', esDemo: false },
+    });
+
+    await prisma.user.create({
+      data: {
+        id: userIdDesvincularSinPassword,
+        nombre: 'Desvincular — sin password',
+        passwordHash: null,
+        googleSub: `sub-unlink-no-pw-${RUN_ID}`,
+        esDemo: false,
+      },
+    });
+    await prisma.user.create({
+      data: {
+        id: userIdDesvincularConPassword,
+        nombre: 'Desvincular — con password',
+        passwordHash: 'irrelevant-hash-for-this-test',
+        googleSub: `sub-unlink-with-pw-${RUN_ID}`,
+        esDemo: false,
+      },
     });
   });
 
@@ -227,5 +250,46 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
       googleSubsFinales.filter((v) => v === googleSubDisputado),
     ).toHaveLength(1);
     expect(googleSubsFinales.filter((v) => v === null)).toHaveLength(1);
+  });
+
+  /**
+   * CA-03's WHERE (`passwordHash: { not: null }, googleSub: { not: null }`,
+   * repository docblock above `desvincularGoogleSub`) is the ONLY thing
+   * preventing an account from being left with no way to log in. Until now
+   * only a mocked unit spec asserted the call *arguments* — nothing proved
+   * Postgres actually enforces that WHERE. These two tests call the
+   * repository method DIRECTLY (bypassing `DesvincularGoogleUseCase`'s own
+   * application-layer password check) against real seeded rows: a negative
+   * control (passwordHash null — must be blocked) and a positive control
+   * (passwordHash set — must succeed), so a broken WHERE that always
+   * returns `false`, or one that never blocks, is distinguishable from a
+   * genuinely-working predicate.
+   */
+  it('desvincularGoogleSub — fila SIN passwordHash: el WHERE bloquea, count 0, googleSub sin cambios (negative control)', async () => {
+    const resultado = await repo.desvincularGoogleSub(
+      userIdDesvincularSinPassword,
+    );
+
+    expect(resultado).toBe(false);
+
+    const fila = await prisma.user.findUnique({
+      where: { id: userIdDesvincularSinPassword },
+      select: { googleSub: true },
+    });
+    expect(fila?.googleSub).toBe(`sub-unlink-no-pw-${RUN_ID}`);
+  });
+
+  it('desvincularGoogleSub — fila CON passwordHash: el WHERE matchea, count 1, googleSub queda null (positive control)', async () => {
+    const resultado = await repo.desvincularGoogleSub(
+      userIdDesvincularConPassword,
+    );
+
+    expect(resultado).toBe(true);
+
+    const fila = await prisma.user.findUnique({
+      where: { id: userIdDesvincularConPassword },
+      select: { googleSub: true },
+    });
+    expect(fila?.googleSub).toBeNull();
   });
 });

@@ -16,6 +16,7 @@ const IDENTIDAD = {
   nombre: 'Jorge',
   email: 'jorge@example.com',
   esDemo: false,
+  googleVinculado: false,
 };
 
 function app(
@@ -51,6 +52,20 @@ describe('registrarPerfil — PATCH /api/perfil', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(IDENTIDAD);
+  });
+
+  it('200 con googleVinculado: true cuando la identidad devuelta ya tiene Google vinculado (VINC041-08)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ ...IDENTIDAD, googleVinculado: true })),
+    };
+    const res = await request(app(uc))
+      .patch('/api/perfil')
+      .send({ nombre: 'Jorge' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.googleVinculado).toBe(true);
   });
 
   it('400 BODY_INVALIDO para body vacío ({})', async () => {

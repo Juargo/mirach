@@ -19,6 +19,7 @@ describe('authMeResponseSchema', () => {
       nombre: 'Jorge',
       esDemo: false,
       email: 'a@b.cl',
+      googleVinculado: false,
     });
 
     expect(parsed).toEqual({
@@ -26,6 +27,7 @@ describe('authMeResponseSchema', () => {
       nombre: 'Jorge',
       esDemo: false,
       email: 'a@b.cl',
+      googleVinculado: false,
     });
   });
 
@@ -35,6 +37,7 @@ describe('authMeResponseSchema', () => {
       nombre: 'Demo',
       esDemo: true,
       email: null,
+      googleVinculado: false,
     });
 
     expect(parsed.email).toBeNull();
@@ -42,7 +45,47 @@ describe('authMeResponseSchema', () => {
 
   it('rejects a body missing nombre (US-040 delta — now required)', () => {
     expect(() =>
-      authMeResponseSchema.parse({ userId: 'u1', esDemo: false, email: null }),
+      authMeResponseSchema.parse({
+        userId: 'u1',
+        esDemo: false,
+        email: null,
+        googleVinculado: false,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a body missing googleVinculado (VINC041-08 — required, not optional)', () => {
+    expect(() =>
+      authMeResponseSchema.parse({
+        userId: 'u1',
+        nombre: 'Jorge',
+        esDemo: false,
+        email: null,
+      }),
+    ).toThrow();
+  });
+
+  it('parses a linked-account shape with googleVinculado: true', () => {
+    const parsed = authMeResponseSchema.parse({
+      userId: 'u1',
+      nombre: 'Jorge',
+      esDemo: false,
+      email: 'a@b.cl',
+      googleVinculado: true,
+    });
+
+    expect(parsed.googleVinculado).toBe(true);
+  });
+
+  it('rejects googleVinculado as a non-boolean', () => {
+    expect(() =>
+      authMeResponseSchema.parse({
+        userId: 'u1',
+        nombre: 'Jorge',
+        esDemo: false,
+        email: null,
+        googleVinculado: 'false',
+      }),
     ).toThrow();
   });
 
@@ -56,6 +99,7 @@ describe('authMeResponseSchema', () => {
         nombre: 'Jorge',
         esDemo: false,
         email: null,
+        googleVinculado: false,
       });
 
       expect(result.success).toBe(true);
@@ -64,7 +108,11 @@ describe('authMeResponseSchema', () => {
 
   it('rejects a payload missing esDemo', () => {
     expect(() =>
-      authMeResponseSchema.parse({ userId: 'u1', email: 'a@b.cl' }),
+      authMeResponseSchema.parse({
+        userId: 'u1',
+        email: 'a@b.cl',
+        googleVinculado: false,
+      }),
     ).toThrow();
   });
 

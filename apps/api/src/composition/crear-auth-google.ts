@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import type { Env } from '../config/env';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { ILogger } from '../application/ports/logger.port';
 import type {
   IIniciadorLoginExterno,
@@ -9,13 +10,17 @@ import type {
 } from '../application/ports/verificador-identidad-externa.port';
 
 import { LoginConGoogleUseCase } from '../application/use-cases/login-con-google.use-case';
+import { IniciarVinculacionGoogleUseCase } from '../application/use-cases/iniciar-vinculacion-google.use-case';
+import { VincularGoogleUseCase } from '../application/use-cases/vincular-google.use-case';
 
 import { OpenIdClientGoogleAdapter } from '../infrastructure/oidc/openid-client-google.adapter';
 import { PrismaIdentidadGoogleRepository } from '../infrastructure/persistence/prisma-identidad-google.repository';
+import { PrismaUserCredentialRepository } from '../infrastructure/persistence/prisma-user-credential.repository';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
 import { Sha256SessionTokenService } from '../infrastructure/http/auth/sha256-session-token.service';
 import { SystemReloj } from '../infrastructure/http/auth/system-reloj';
 import { IpRateLimiter } from '../infrastructure/http/auth/ip-rate-limiter';
+import { Argon2PasswordHasher } from '../infrastructure/http/auth/argon2-password-hasher';
 
 /** Prefijo de claves + presupuesto del limitador compartido initiate+callback (design §6.4). */
 const GOOGLE_RATE_LIMIT_KEY_PREFIX = 'google:ip:';
@@ -44,6 +49,24 @@ export interface GoogleAuthGraph {
   readonly verificador: IVerificadorIdentidadExterna;
   readonly loginConGoogle: LoginConGoogleUseCase;
   readonly googleRateLimiter: IpRateLimiter;
+  /**
+   * US-041, design §2/D-04. Vive en `GoogleAuthGraph`, NO en `PerfilGraph`
+   * con un campo opcional: ambos use cases son inútiles sin Google, ambos
+   * mueren con la MISMA gate (`container.googleAuth !== undefined`), y
+   * ningún segundo campo opcional se introduce en ningún lado — "¿cuál
+   * campo opcional chequeo?" es cómo un `404` se convierte en un `500` un
+   * refactor después.
+   */
+  readonly iniciarVinculacion: IniciarVinculacionGoogleUseCase;
+  readonly vincularGoogle: VincularGoogleUseCase;
+  /**
+   * US-041, design §3.4. Pass-through de la clave derivada UNA vez en
+   * `container.ts` — este archivo NUNCA la deriva. Vive acá (no como campo
+   * separado de `Container`) para que `app.ts` la reciba con el mismo
+   * `{ ...container.googleAuth, cookieSecure, redirectUri }` spread que ya
+   * usa para armar `AuthGoogleDeps`, sin un segundo punto de acceso.
+   */
+  readonly linkIntentKey: Buffer;
 }
 
 /**
@@ -65,6 +88,19 @@ export interface GoogleAuthGraph {
  * ADR-033 slice A: `logger` es una segunda excepción a "todo se construye
  * acá" — misma instancia única del composition root que `crearAuth` recibe,
  * propagada a `LoginConGoogleUseCase` para el debug step logging.
+ *
+ * US-041 (design §2/D-04, §3.4): `crypto` es una TERCERA excepción — recibida
+ * porque debe ser la MISMA instancia que el resto del composition root, para
+ * construir `PrismaUserCredentialRepository` (verificación de password en
+ * `IniciarVinculacionGoogleUseCase`). `linkIntentKey` es la CUARTA: derivada
+ * UNA vez en `container.ts` (`deriveLinkIntentKey`), nunca acá — este
+ * archivo NUNCA llama `deriveBlindIndexKey`/`deriveLinkIntentKey` ni
+ * instancia `AesGcmCryptoService`/`HmacBlindIndexService` (mismo hazard que
+ * el incidente de producción de 2026-08-02, GUARD non-negotiable).
+ * `linkIntentKey` no se CONSUME dentro de este helper (ni firma ni verifica
+ * nada acá — eso es responsabilidad de la ruta HTTP, D-01) — solo pasa a
+ * través del `GoogleAuthGraph` retornado, para que `app.ts` lo reciba junto
+ * con el resto de las dependencias de `AuthGoogleDeps`/`perfil-google.routes`.
  */
 export function crearAuthGoogle(
   prisma: PrismaClient,
@@ -72,7 +108,9 @@ export function crearAuthGoogle(
     Env,
     'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET' | 'GOOGLE_REDIRECT_URI'
   >,
+  crypto: ICryptoService,
   blindIndex: IBlindIndexService,
+  linkIntentKey: Buffer,
   logger: ILogger,
 ): GoogleAuthGraph | undefined {
   if (
@@ -90,6 +128,8 @@ export function crearAuthGoogle(
   const reloj = new SystemReloj();
   const tokens = new Sha256SessionTokenService();
   const sessions = new PrismaSessionRepository(prisma);
+  const hasher = new Argon2PasswordHasher();
+  const creds = new PrismaUserCredentialRepository(prisma, crypto, blindIndex);
 
   const adapter = new OpenIdClientGoogleAdapter(
     env.GOOGLE_CLIENT_ID,
@@ -113,5 +153,14 @@ export function crearAuthGoogle(
       GOOGLE_RATE_LIMIT_MAX_ATTEMPTS_PER_IP,
       GOOGLE_RATE_LIMIT_WINDOW_MS,
     ),
+    iniciarVinculacion: new IniciarVinculacionGoogleUseCase(
+      creds,
+      identidades,
+      adapter,
+      hasher,
+      logger,
+    ),
+    vincularGoogle: new VincularGoogleUseCase(identidades, logger),
+    linkIntentKey,
   };
 }

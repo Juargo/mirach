@@ -55,6 +55,15 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
     return user === null ? null : this.aUsuarioVinculable(user);
   }
 
+  async buscarPorId(userId: string): Promise<UsuarioVinculable | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, esDemo: true, googleSub: true },
+    });
+
+    return user === null ? null : this.aUsuarioVinculable(user);
+  }
+
   async vincularGoogleSub(userId: string, googleSub: string): Promise<boolean> {
     try {
       const { count } = await this.prisma.user.updateMany({
@@ -72,6 +81,28 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
       }
       throw error;
     }
+  }
+
+  /**
+   * VINC041-05, CA-03. Una sola sentencia, no lee-y-luego-escribe: el
+   * invariante "una cuenta nunca queda sin método de acceso" vive en este
+   * `WHERE`, no en un pre-check de aplicación — un read-then-write dejaría
+   * una ventana TOCTOU y anularía la garantía por completo (design §1/Q4).
+   * Ninguna columna única entra en juego, así que no hay `try/catch`: un
+   * rechazo de Prisma aquí es siempre una falla real de infraestructura y
+   * debe propagar a `errorMiddleware` (500).
+   */
+  async desvincularGoogleSub(userId: string): Promise<boolean> {
+    const { count } = await this.prisma.user.updateMany({
+      where: {
+        id: userId,
+        passwordHash: { not: null },
+        googleSub: { not: null },
+      },
+      data: { googleSub: null },
+    });
+
+    return count === 1;
   }
 
   private aUsuarioVinculable(user: {
