@@ -1,6 +1,6 @@
 import type { Router } from 'express';
 import type { IniciarVinculacionGoogleUseCase } from '../../../application/use-cases/iniciar-vinculacion-google.use-case';
-import type { DesvincularGoogleUseCase } from '../../../application/use-cases/desvincular-google.use-case';
+import type { PerfilGraph } from '../../../composition/crear-perfil';
 import {
   vincularGoogleRequestSchema,
   desvincularGoogleRequestSchema,
@@ -129,10 +129,15 @@ export function registrarPerfilGoogleVincularDeshabilitado(
  * Mismo idioma que `registrarPerfilGoogleVincular`: `.safeParse()` en el
  * boundary, nunca ecoa el body ni los issues de Zod; `esDemo`/`userId`
  * siempre desde `req` (sesión), nunca desde el body.
+ *
+ * Recibe el `PerfilGraph` completo (mirrors `registrarPerfil`) — no solo el
+ * use case — y lo destructura DENTRO del handler, no al montar la ruta: un
+ * `container.perfil` incompleto en un test double no debe explotar
+ * `createApp()` para rutas que ni siquiera lo ejercitan.
  */
 export function registrarPerfilGoogleDesvincular(
   router: Router,
-  desvincularGoogle: DesvincularGoogleUseCase,
+  perfil: PerfilGraph,
 ): void {
   router.post('/perfil/google/desvincular', async (req, res, next) => {
     try {
@@ -142,7 +147,7 @@ export function registrarPerfilGoogleDesvincular(
         return;
       }
 
-      const result = await desvincularGoogle.execute({
+      const result = await perfil.desvincularGoogle.execute({
         userId: req.userId!,
         esDemo: req.esDemo!,
         passwordActual: parsed.data.passwordActual,
