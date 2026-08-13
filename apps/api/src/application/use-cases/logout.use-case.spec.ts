@@ -12,6 +12,7 @@ function makeMockSessions(): ISessionRepository {
     crear: vi.fn(),
     buscarPorTokenHash: vi.fn(),
     revocarPorTokenHash: vi.fn().mockResolvedValue(undefined),
+    revocarOtrasPorUserId: vi.fn(),
   };
 }
 

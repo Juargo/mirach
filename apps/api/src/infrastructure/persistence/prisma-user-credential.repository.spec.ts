@@ -27,6 +27,12 @@ function makePrismaMock(userFindUniqueResult: unknown) {
   } as unknown as PrismaClient;
 }
 
+function makePrismaUpdateMock() {
+  return {
+    user: { update: vi.fn().mockResolvedValue({}) },
+  } as unknown as PrismaClient;
+}
+
 function makeCrypto(decryptFn?: (v: string) => string): ICryptoService {
   return {
     encrypt: (v: string) => v,
@@ -524,6 +530,59 @@ describe('PrismaUserCredentialRepository', () => {
       await expect(
         repo.actualizarPerfil({ userId: 'user-1', nombre: 'Jorge' }),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('actualizarPassword() — PERF040-05', () => {
+    it('update() con where: {id}, data: {passwordHash} y NINGUNA otra clave', async () => {
+      const prisma = makePrismaUpdateMock();
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto(),
+        makeBlindIndex(),
+      );
+
+      await repo.actualizarPassword('user-1', '$argon2id$nuevo-hash');
+
+      expect(prisma.user.update as Mock).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { passwordHash: '$argon2id$nuevo-hash' },
+      });
+    });
+
+    it('usa update (no updateMany) — nunca llama a updateMany', async () => {
+      const updateMany = vi.fn();
+      const prisma = {
+        user: { update: vi.fn().mockResolvedValue({}), updateMany },
+      } as unknown as PrismaClient;
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto(),
+        makeBlindIndex(),
+      );
+
+      await repo.actualizarPassword('user-1', '$argon2id$nuevo-hash');
+
+      expect(updateMany).not.toHaveBeenCalled();
+      expect(prisma.user.update as Mock).toHaveBeenCalledTimes(1);
+    });
+
+    it('fila borrada (F8): update() rechaza con P2025 y actualizarPassword propaga (es ruidosa, nunca silenciosa)', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError(
+        'An operation failed because it depends on one or more records that were required but not found.',
+        { code: 'P2025', clientVersion: '7.8.0' },
+      );
+      const update = vi.fn().mockRejectedValue(p2025);
+      const prisma = { user: { update } } as unknown as PrismaClient;
+      const repo = new PrismaUserCredentialRepository(
+        prisma,
+        makeCrypto(),
+        makeBlindIndex(),
+      );
+
+      await expect(
+        repo.actualizarPassword('user-1', '$argon2id$nuevo-hash'),
+      ).rejects.toThrow(p2025);
     });
   });
 });

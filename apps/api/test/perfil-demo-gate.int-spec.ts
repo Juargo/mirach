@@ -1,10 +1,11 @@
 /**
- * perfil-demo-gate.int-spec.ts — US-040 (Phase 7.2, PERF040-08). Scaffolded
- * from `catalogo-demo-gate.int-spec.ts`.
+ * perfil-demo-gate.int-spec.ts — US-040 (Phase 7.2, PERF040-08; extended
+ * Phase 15.3 for /password). Scaffolded from `catalogo-demo-gate.int-spec.ts`.
  *
- * A demo (`esDemo: true`) session's PATCH /api/perfil MUST return 403 with
- * `code: "DEMO_SOLO_LECTURA"`; `GET /api/auth/me` MUST remain available
- * (200) to that same demo session; nothing is written.
+ * A demo (`esDemo: true`) session's PATCH /api/perfil and PATCH
+ * /api/perfil/password MUST both return 403 with `code: "DEMO_SOLO_LECTURA"`;
+ * `GET /api/auth/me` MUST remain available (200) to that same demo session;
+ * nothing is written.
  *
  * Requires a real DB. Run via
  * `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration -- perfil-demo-gate`.
@@ -92,5 +93,36 @@ describe('Perfil demo gate (PERF040-08) — mutation rejected, /auth/me still al
     expect(user.nombre).toBe(`Perfil Demo ${RUN_ID}`);
     expect(user.email).toBeNull();
     expect(user.emailBlindIndex).toBeNull();
+  });
+
+  it('PATCH /api/perfil/password → 403 DEMO_SOLO_LECTURA (PERF040-08, Phase 15.3)', async () => {
+    if (!ALLOW) return;
+
+    const res = await request(app)
+      .patch('/api/perfil/password')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authDemo)
+      .send({
+        passwordActual: 'lo-que-sea',
+        passwordNueva: 'lo-que-sea-valida',
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('el intento de password demo no dejó passwordHash ni revocó la sesión demo', async () => {
+    if (!ALLOW) return;
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: DEMO_USER_ID },
+    });
+    expect(user.passwordHash).toBeNull();
+
+    await request(app)
+      .get('/api/auth/me')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authDemo)
+      .expect(200);
   });
 });

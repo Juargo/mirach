@@ -52,7 +52,7 @@ export class ActualizarPerfilUseCase {
     if (input.nombre !== undefined) {
       const trimmed = input.nombre.trim();
       if (trimmed.length < NOMBRE_MIN || trimmed.length > NOMBRE_MAX) {
-        return Result.fail(new NombrePerfilInvalidoError(input.nombre));
+        return Result.fail(new NombrePerfilInvalidoError());
       }
       nombre = trimmed;
     }

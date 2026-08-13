@@ -216,6 +216,22 @@ describe('buildOpenApiDocument', () => {
     expect(perfilPath?.patch?.responses?.['401']).toBeDefined();
   });
 
+  it('registers PATCH /api/perfil/password with a JSON requestBody and 204/400/403/401 responses (US-040)', () => {
+    const document = buildOpenApiDocument();
+
+    const passwordPath = document.paths?.['/api/perfil/password'];
+    expect(passwordPath).toBeDefined();
+    expect(passwordPath?.patch).toBeDefined();
+    const requestBody = passwordPath?.patch?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+    expect(passwordPath?.patch?.responses?.['204']).toBeDefined();
+    expect(passwordPath?.patch?.responses?.['400']).toBeDefined();
+    expect(passwordPath?.patch?.responses?.['403']).toBeDefined();
+    expect(passwordPath?.patch?.responses?.['401']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

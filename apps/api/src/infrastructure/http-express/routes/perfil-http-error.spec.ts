@@ -3,13 +3,15 @@ import { NombrePerfilInvalidoError } from '../../../domain/errors/nombre-perfil-
 import { EmailInvalidoError } from '../../../domain/errors/email-invalido.error';
 import { PerfilDemoSoloLecturaError } from '../../../domain/errors/perfil-demo-solo-lectura.error';
 import { PerfilRechazadoError } from '../../../domain/errors/perfil-rechazado.error';
+import { PasswordInvalidaError } from '../../../domain/errors/password-invalida.error';
 
-describe('aPerfilHttpError — one class, exactly one status + code (PR#1 union)', () => {
+describe('aPerfilHttpError — one class, exactly one status + code (union ampliada PR#2)', () => {
   it.each([
-    [new NombrePerfilInvalidoError('x'), 400, 'NOMBRE_INVALIDO'],
+    [new NombrePerfilInvalidoError(), 400, 'NOMBRE_INVALIDO'],
     [new EmailInvalidoError('x'), 400, 'EMAIL_INVALIDO'],
     [new PerfilDemoSoloLecturaError(), 403, 'DEMO_SOLO_LECTURA'],
     [new PerfilRechazadoError(), 403, 'PERFIL_RECHAZADO'],
+    [new PasswordInvalidaError(), 400, 'PASSWORD_INVALIDA'],
   ] as const)('%p -> status %i, code %s', (error, status, code) => {
     const result = aPerfilHttpError(error);
     expect(result.status).toBe(status);

@@ -30,6 +30,20 @@ export const perfilUpdateRequestSchema = z
   );
 
 /**
+ * Transport-shape contract for `PATCH /api/perfil/password` (US-040,
+ * design.md §5.4). LAYER-HONESTY GATE: no `.min(8)`/`.max(128)` on
+ * `passwordNueva` — that rule is the `Password` VO's job
+ * (`PasswordInvalidaError`, domain). `.strict()` rejects any extra field
+ * (same PERF040-07 barrier as `perfilUpdateRequestSchema`).
+ */
+export const passwordUpdateRequestSchema = z
+  .object({
+    passwordActual: z.string(),
+    passwordNueva: z.string(),
+  })
+  .strict();
+
+/**
  * perfilErrorResponseSchema — shared non-2xx body for `/api/perfil*`
  * (US-040, design.md §5.4). Duplicates `catalogoErrorResponseSchema`'s
  * SHAPE but not its knowledge (different code sets, different operations —

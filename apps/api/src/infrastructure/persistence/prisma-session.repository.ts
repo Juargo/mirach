@@ -60,4 +60,18 @@ export class PrismaSessionRepository implements ISessionRepository {
   async revocarPorTokenHash(tokenHash: string): Promise<void> {
     await this.prisma.session.deleteMany({ where: { tokenHash } });
   }
+
+  /**
+   * PERF040-06. El `not` es el punto entero: revoca todas las sesiones del
+   * usuario MENOS la del llamador. `deleteMany` — idempotente, 0 filas
+   * borradas es éxito (mismo idioma que `revocarPorTokenHash`).
+   */
+  async revocarOtrasPorUserId(
+    userId: string,
+    tokenHashActual: string,
+  ): Promise<void> {
+    await this.prisma.session.deleteMany({
+      where: { userId, tokenHash: { not: tokenHashActual } },
+    });
+  }
 }

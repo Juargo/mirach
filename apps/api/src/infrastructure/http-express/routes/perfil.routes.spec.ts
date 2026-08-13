@@ -7,7 +7,9 @@ import { PerfilRechazadoError } from '../../../domain/errors/perfil-rechazado.er
 import { PerfilDemoSoloLecturaError } from '../../../domain/errors/perfil-demo-solo-lectura.error';
 import { NombrePerfilInvalidoError } from '../../../domain/errors/nombre-perfil-invalido.error';
 import { EmailInvalidoError } from '../../../domain/errors/email-invalido.error';
+import { PasswordInvalidaError } from '../../../domain/errors/password-invalida.error';
 import type { ActualizarPerfilUseCase } from '../../../application/use-cases/actualizar-perfil.use-case';
+import type { CambiarPasswordUseCase } from '../../../application/use-cases/cambiar-password.use-case';
 
 const IDENTIDAD = {
   userId: 'user-x',
@@ -18,6 +20,9 @@ const IDENTIDAD = {
 
 function app(
   actualizarPerfil: Pick<ActualizarPerfilUseCase, 'execute'>,
+  cambiarPassword: Pick<CambiarPasswordUseCase, 'execute'> = {
+    execute: vi.fn(),
+  },
 ): Express {
   const expressApp = express();
   expressApp.use(express.json());
@@ -25,10 +30,12 @@ function app(
   router.use((req, _res, next) => {
     req.userId = 'user-x';
     req.esDemo = false;
+    req.sessionTokenHash = 'hash-de-la-sesion-actual';
     next();
   });
   registrarPerfil(router, {
     actualizarPerfil: actualizarPerfil as ActualizarPerfilUseCase,
+    cambiarPassword: cambiarPassword as CambiarPasswordUseCase,
   });
   expressApp.use('/api', router);
   expressApp.use(errorMiddleware);
@@ -91,7 +98,7 @@ describe('registrarPerfil — PATCH /api/perfil', () => {
   });
 
   it.each([
-    [new NombrePerfilInvalidoError('x'), 400, 'NOMBRE_INVALIDO'],
+    [new NombrePerfilInvalidoError(), 400, 'NOMBRE_INVALIDO'],
     [new EmailInvalidoError('x'), 400, 'EMAIL_INVALIDO'],
     [new PerfilDemoSoloLecturaError(), 403, 'DEMO_SOLO_LECTURA'],
     [new PerfilRechazadoError(), 403, 'PERFIL_RECHAZADO'],
@@ -112,5 +119,72 @@ describe('registrarPerfil — PATCH /api/perfil', () => {
       .send({ nombre: 'Jorge', userId: 'sneaky-value-12345' });
 
     expect(JSON.stringify(res.body)).not.toContain('sneaky-value-12345');
+  });
+});
+
+describe('registrarPerfil — PATCH /api/perfil/password', () => {
+  const BODY = {
+    passwordActual: 'actual-valida',
+    passwordNueva: 'nueva-valida',
+  };
+
+  it('204 sin body cuando el use case retorna ok', async () => {
+    const actualizarPerfil = { execute: vi.fn() };
+    const cambiarPassword = {
+      execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    };
+    const res = await request(app(actualizarPerfil, cambiarPassword))
+      .patch('/api/perfil/password')
+      .send(BODY);
+
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+  });
+
+  it('esDemo Y tokenHashActual se hilvanan desde req (nunca desde el body)', async () => {
+    const actualizarPerfil = { execute: vi.fn() };
+    const cambiarPassword = {
+      execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    };
+    await request(app(actualizarPerfil, cambiarPassword))
+      .patch('/api/perfil/password')
+      .send(BODY);
+
+    expect(cambiarPassword.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      esDemo: false,
+      tokenHashActual: 'hash-de-la-sesion-actual',
+      passwordActual: BODY.passwordActual,
+      passwordNueva: BODY.passwordNueva,
+    });
+  });
+
+  it('400 BODY_INVALIDO cuando falta passwordActual o passwordNueva', async () => {
+    const actualizarPerfil = { execute: vi.fn() };
+    const cambiarPassword = { execute: vi.fn() };
+    const res = await request(app(actualizarPerfil, cambiarPassword))
+      .patch('/api/perfil/password')
+      .send({ passwordNueva: 'nueva-valida' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('BODY_INVALIDO');
+    expect(cambiarPassword.execute).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [new PerfilDemoSoloLecturaError(), 403, 'DEMO_SOLO_LECTURA'],
+    [new PerfilRechazadoError(), 403, 'PERFIL_RECHAZADO'],
+    [new PasswordInvalidaError(), 400, 'PASSWORD_INVALIDA'],
+  ] as const)('mapea %p a status %i / code %s', async (error, status, code) => {
+    const actualizarPerfil = { execute: vi.fn() };
+    const cambiarPassword = {
+      execute: vi.fn().mockResolvedValue(Result.fail(error)),
+    };
+    const res = await request(app(actualizarPerfil, cambiarPassword))
+      .patch('/api/perfil/password')
+      .send(BODY);
+
+    expect(res.status).toBe(status);
+    expect(res.body.code).toBe(code);
   });
 });

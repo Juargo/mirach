@@ -103,4 +103,28 @@ describe('PrismaSessionRepository', () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  describe('revocarOtrasPorUserId() — PERF040-06', () => {
+    it('deleteMany where deep-equals {userId, tokenHash: {not: tokenHashActual}} — el "not" es el punto entero', async () => {
+      const deleteMany = vi.fn().mockResolvedValue({ count: 2 });
+      const prisma = { session: { deleteMany } } as unknown as PrismaClient;
+      const repo = new PrismaSessionRepository(prisma);
+
+      await repo.revocarOtrasPorUserId('user-1', 'hash-de-a');
+
+      expect(deleteMany as Mock).toHaveBeenCalledWith({
+        where: { userId: 'user-1', tokenHash: { not: 'hash-de-a' } },
+      });
+    });
+
+    it('es idempotente: 0 filas borradas es éxito, no falla', async () => {
+      const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+      const prisma = { session: { deleteMany } } as unknown as PrismaClient;
+      const repo = new PrismaSessionRepository(prisma);
+
+      await expect(
+        repo.revocarOtrasPorUserId('user-1', 'hash-de-a'),
+      ).resolves.toBeUndefined();
+    });
+  });
 });

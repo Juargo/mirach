@@ -34,6 +34,7 @@ function makeRepo(
     buscarIdentidad: vi.fn(),
     buscarCredencialPorId: vi.fn().mockResolvedValue(CREDENCIAL_OK),
     actualizarPerfil: vi.fn().mockResolvedValue(Result.ok(IDENTIDAD_OK)),
+    actualizarPassword: vi.fn(),
     ...overrides,
   };
 }
