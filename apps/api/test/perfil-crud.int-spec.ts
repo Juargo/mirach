@@ -1,11 +1,12 @@
 /**
- * perfil-crud.int-spec.ts — US-040 (Phase 7.1).
+ * perfil-crud.int-spec.ts — US-040 (Phase 7.1, extended Phase 15.2).
  *
  * PERF040-01 (nombre-only leaves the email columns byte-identical; nombre +
  * email together reflected in /auth/me), PERF040-03 (email half: wrong
- * passwordActual on an email change), PERF040-04 (email already taken is
- * byte-identical to the wrong-password response), AUTH-09 (/auth/me
- * returns nombre).
+ * passwordActual on an email change; password half: wrong passwordActual on
+ * /password), PERF040-04 (email already taken is byte-identical to the
+ * wrong-password response), PERF040-05 (passwordNueva validation + hashed
+ * storage), AUTH-09 (/auth/me returns nombre).
  *
  * Requires a real DB. Run via
  * `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration -- perfil-crud`.
@@ -36,6 +37,7 @@ describe('PATCH /api/perfil — CRUD (PERF040-01/03/04, AUTH-09)', () => {
   let userIdA: string;
   let userIdB: string;
   let authA: string;
+  let authASecundaria: string;
 
   beforeAll(async () => {
     if (!ALLOW) return;
@@ -66,6 +68,11 @@ describe('PATCH /api/perfil — CRUD (PERF040-01/03/04, AUTH-09)', () => {
 
     const sessionA = await crearSesionParaUsuario(prisma, userIdA);
     authA = `Bearer ${sessionA.token}`;
+
+    // Segunda sesión de A — solo para la aserción PERF040-03 de que un
+    // passwordActual incorrecto en /password no revoca NINGUNA sesión.
+    const sessionASecundaria = await crearSesionParaUsuario(prisma, userIdA);
+    authASecundaria = `Bearer ${sessionASecundaria.token}`;
   });
 
   afterAll(async () => {
@@ -191,5 +198,87 @@ describe('PATCH /api/perfil — CRUD (PERF040-01/03/04, AUTH-09)', () => {
     });
     expect(afterB.email).toBe(beforeB.email);
     expect(afterB.emailBlindIndex).toBe(beforeB.emailBlindIndex);
+  });
+
+  it('passwordActual incorrecto en /password ⇒ 403 PERFIL_RECHAZADO, passwordHash sin cambios Y ambas sesiones de A siguen vivas (PERF040-03)', async () => {
+    if (!ALLOW) return;
+
+    const before = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdA },
+      select: { passwordHash: true },
+    });
+
+    const res = await request(app)
+      .patch('/api/perfil/password')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA)
+      .send({
+        passwordActual: 'incorrecta',
+        passwordNueva: 'lo-que-sea-valida',
+      })
+      .expect(403);
+
+    expect(res.body.code).toBe('PERFIL_RECHAZADO');
+
+    const after = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdA },
+      select: { passwordHash: true },
+    });
+    expect(after.passwordHash).toBe(before.passwordHash);
+
+    await request(app)
+      .get('/api/auth/me')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA)
+      .expect(200);
+    await request(app)
+      .get('/api/auth/me')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authASecundaria)
+      .expect(200);
+  });
+
+  it('passwordNueva de 7 caracteres ⇒ 400 PASSWORD_INVALIDA, hash sin cambios (PERF040-05)', async () => {
+    if (!ALLOW) return;
+
+    const before = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdA },
+      select: { passwordHash: true },
+    });
+
+    const res = await request(app)
+      .patch('/api/perfil/password')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authA)
+      .send({ passwordActual: PASSWORD, passwordNueva: 'corta12' })
+      .expect(400);
+
+    expect(res.body.code).toBe('PASSWORD_INVALIDA');
+
+    const after = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdA },
+      select: { passwordHash: true },
+    });
+    expect(after.passwordHash).toBe(before.passwordHash);
+  });
+
+  it('passwordNueva válida ⇒ 204, el hash almacenado empieza con $argon2id$ y nunca es el texto plano (PERF040-05)', async () => {
+    if (!ALLOW) return;
+
+    const passwordNueva = 'password-nueva-valida-crud-789';
+
+    await request(app)
+      .patch('/api/perfil/password')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authASecundaria)
+      .send({ passwordActual: PASSWORD, passwordNueva })
+      .expect(204);
+
+    const after = await prisma.user.findUniqueOrThrow({
+      where: { id: userIdA },
+      select: { passwordHash: true },
+    });
+    expect(after.passwordHash).toMatch(/^\$argon2id\$/);
+    expect(after.passwordHash).not.toBe(passwordNueva);
   });
 });
