@@ -38,7 +38,10 @@ import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/p
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
 import { AesGcmCryptoService } from '../infrastructure/persistence/aes-gcm-crypto.service';
 import { HmacBlindIndexService } from '../infrastructure/persistence/hmac-blind-index.service';
-import { deriveBlindIndexKey } from './derive-blind-index-key';
+import {
+  deriveBlindIndexKey,
+  deriveLinkIntentKey,
+} from './derive-blind-index-key';
 import { createPinoLogger } from '../infrastructure/logging/pino-logger';
 
 /**
@@ -136,6 +139,12 @@ export function createContainer(
   const blindIndex = new HmacBlindIndexService(
     deriveBlindIndexKey(encryptionKey),
   );
+  // Link-intent (US-041, design §3.4): SEGUNDA clave derivada del MISMO
+  // ENCRYPTION_KEY, purpose-separada de blindIndex por `info`
+  // (`derive-blind-index-key.ts`). Sitio único de derivación — nunca dentro
+  // de `crearAuthGoogle` (GUARD non-negotiable, mismo hazard que el
+  // incidente de producción de 2026-08-02).
+  const linkIntentKey = deriveLinkIntentKey(encryptionKey);
 
   // Logging estructurado (ADR-033 slice 2/A): UNA instancia para todo el
   // composition root — pretty en development (legible en consola local),
@@ -154,7 +163,14 @@ export function createContainer(
   // Login con Google (design §4.3): `blindIndex` es la MISMA instancia
   // recién derivada arriba — nunca una segunda derivación (4R carry-forward,
   // design §5.5). `undefined` cuando GOOGLE_CLIENT_ID/SECRET están ausentes.
-  const googleAuth = crearAuthGoogle(prisma, env, blindIndex, logger);
+  const googleAuth = crearAuthGoogle(
+    prisma,
+    env,
+    crypto,
+    blindIndex,
+    linkIntentKey,
+    logger,
+  );
   // Login con Google mobile (design §7): gate independiente de `googleAuth`
   // (AUTH-22) — misma instancia de `blindIndex`, nunca una re-derivación.
   const googleAuthMobile = crearAuthGoogleMobile(

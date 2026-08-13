@@ -105,7 +105,9 @@ describe('crearAuthGoogleMobile (design §7)', () => {
     const webGraph = crearAuthGoogle(
       fakePrisma(),
       envWeb,
+      { encrypt: (v) => v, decrypt: (v) => v },
       blindIndex,
+      Buffer.alloc(32, 2),
       new NoOpLogger(),
     );
 
