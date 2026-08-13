@@ -40,6 +40,7 @@ function fakeContainer(): Container {
       execute: vi.fn().mockResolvedValue(
         Result.ok({
           userId: 'user-de-sesion',
+          nombre: 'Jorge',
           email: 'a@b.cl',
           esDemo: false,
         }),

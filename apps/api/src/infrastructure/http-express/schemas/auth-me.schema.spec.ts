@@ -16,21 +16,34 @@ describe('authMeResponseSchema', () => {
   it('parses a real (non-demo) user shape', () => {
     const parsed = authMeResponseSchema.parse({
       userId: 'u1',
+      nombre: 'Jorge',
       esDemo: false,
       email: 'a@b.cl',
     });
 
-    expect(parsed).toEqual({ userId: 'u1', esDemo: false, email: 'a@b.cl' });
+    expect(parsed).toEqual({
+      userId: 'u1',
+      nombre: 'Jorge',
+      esDemo: false,
+      email: 'a@b.cl',
+    });
   });
 
   it('parses a demo user shape with email: null', () => {
     const parsed = authMeResponseSchema.parse({
       userId: 'demo-1',
+      nombre: 'Demo',
       esDemo: true,
       email: null,
     });
 
     expect(parsed.email).toBeNull();
+  });
+
+  it('rejects a body missing nombre (US-040 delta — now required)', () => {
+    expect(() =>
+      authMeResponseSchema.parse({ userId: 'u1', esDemo: false, email: null }),
+    ).toThrow();
   });
 
   it(
@@ -40,6 +53,7 @@ describe('authMeResponseSchema', () => {
     () => {
       const result = authMeResponseSchema.safeParse({
         userId: 'u1',
+        nombre: 'Jorge',
         esDemo: false,
         email: null,
       });

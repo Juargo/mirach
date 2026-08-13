@@ -15,6 +15,11 @@ export const SENSITIVE_REDACT_PATHS = [
   'numeroCuenta',
   'rut',
   'password',
+  // US-040 (D-07): `nombre` es PII en claro — ADR-013 solo cifra
+  // email/numeroCuenta, no `User.nombre`. Defensa en profundidad: la regla
+  // real sigue siendo loguear nombres de campo/booleans, nunca el valor
+  // (ver `ActualizarPerfilUseCase`/`CambiarPasswordUseCase`).
+  'nombre',
   'authorization',
   'cookie',
   '*.cargo',
@@ -24,6 +29,7 @@ export const SENSITIVE_REDACT_PATHS = [
   '*.numeroCuenta',
   '*.rut',
   '*.password',
+  '*.nombre',
   'req.headers.authorization',
   'req.headers.cookie',
   // `x-api-key` es hyphenated → requiere notación de corchetes (sintaxis de

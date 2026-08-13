@@ -44,7 +44,7 @@
       },
       "AuthMeResponse": {
         "additionalProperties": false,
-        "description": "GET /api/auth/me — the authenticated user identity (AUTH-09).",
+        "description": "GET /api/auth/me and PATCH /api/perfil — the authenticated user identity (AUTH-09, US-040).",
         "properties": {
           "email": {
             "anyOf": [
@@ -60,12 +60,16 @@
           "esDemo": {
             "type": "boolean"
           },
+          "nombre": {
+            "type": "string"
+          },
           "userId": {
             "type": "string"
           }
         },
         "required": [
           "userId",
+          "nombre",
           "esDemo",
           "email"
         ],
@@ -540,6 +544,23 @@
           "patron",
           "matchType",
           "prioridad"
+        ],
+        "type": "object"
+      },
+      "PerfilErrorResponse": {
+        "additionalProperties": false,
+        "description": "Error body for the /api/perfil* endpoints (US-040).",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
         ],
         "type": "object"
       },
@@ -1671,6 +1692,124 @@
           }
         },
         "summary": "Update a classification pattern"
+      }
+    },
+    "/api/perfil": {
+      "patch": {
+        "description": "Authenticated endpoint that updates the caller's own nombre and/or email (US-040, PERF040-01/02/03/04/07). `passwordActual` is REQUIRED whenever `email` is present. On an email change the ciphertext and blind index are rewritten together in one atomic update, so login keeps working with the NEW address and stops working with the old one. A wrong `passwordActual` and an email already claimed by another account return the SAME generic 403 PERFIL_RECHAZADO (anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "nombre": {
+                    "type": "string"
+                  },
+                  "passwordActual": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMeResponse"
+                }
+              }
+            },
+            "description": "Profile updated; the full updated identity is returned."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed body, or an invalid nombre/email."
+          },
+          "401": {
+            "description": "No valid session (missing, expired, or invalid token)."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Demo session, wrong current password, or the email is already in use."
+          }
+        },
+        "summary": "Update the current user profile (nombre and/or email)"
+      }
+    },
+    "/api/perfil/password": {
+      "patch": {
+        "description": "Authenticated endpoint that changes the caller's own password (US-040, PERF040-03/05/06). `passwordActual` is REQUIRED. On success, EVERY OTHER active session belonging to the caller's user is revoked — the session that made this request stays valid. A wrong `passwordActual` returns the SAME generic 403 PERFIL_RECHAZADO used by `PATCH /api/perfil` (anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. `passwordNueva` must satisfy the domain password rules (8-128 characters) — an invalid one is rejected with 400 PASSWORD_INVALIDA before any write. Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "passwordActual": {
+                    "type": "string"
+                  },
+                  "passwordNueva": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "passwordActual",
+                  "passwordNueva"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed. No response body — every other session was revoked."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed body, or an invalid passwordNueva."
+          },
+          "401": {
+            "description": "No valid session (missing, expired, or invalid token)."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PerfilErrorResponse"
+                }
+              }
+            },
+            "description": "Demo session, or an incorrect current password."
+          }
+        },
+        "summary": "Change the current user's password"
       }
     },
     "/api/resumen": {

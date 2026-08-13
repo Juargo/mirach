@@ -195,6 +195,7 @@ export function registrarAuthMe(
       const identidad = result.getValue();
       res.status(200).json({
         userId: identidad.userId,
+        nombre: identidad.nombre,
         email: identidad.email,
         esDemo: identidad.esDemo,
       });

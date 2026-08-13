@@ -141,7 +141,14 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       .set('Cookie', cookie)
       .expect(200);
 
-    expect(meRes.body).toEqual({ userId, email: EMAIL, esDemo: false });
+    // nombre: US-040/AUTH-09 delta — /auth/me now returns the identity's
+    // nombre; the exact toEqual() forces this file to name it explicitly.
+    expect(meRes.body).toEqual({
+      userId,
+      nombre: 'E2E Auth User',
+      email: EMAIL,
+      esDemo: false,
+    });
   });
 
   it('transporte Bearer: mismo endpoint 200 con Authorization: Bearer <body.token>, sin cookie (AUTH-05)', async () => {
@@ -159,7 +166,12 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       .set('Authorization', `Bearer ${loginRes.body.token}`)
       .expect(200);
 
-    expect(meRes.body).toEqual({ userId, email: EMAIL, esDemo: false });
+    expect(meRes.body).toEqual({
+      userId,
+      nombre: 'E2E Auth User',
+      email: EMAIL,
+      esDemo: false,
+    });
   });
 
   it('precedencia de cookie: cookie válida + Bearer basura → sigue funcionando (usa la cookie, AUTH-05)', async () => {
