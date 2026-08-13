@@ -9,6 +9,15 @@
  * password: B is rejected afterward, A still works, exactly one session
  * survives (A's), and the new password logs in while the old one fails.
  *
+ * A third, UNRELATED user C (own row, own session) is also seeded — RNF-SEC-006
+ * requires a DB-level isolation test for exactly this claim: A's password
+ * change must not touch C's session. This is deliberately absent from
+ * `prisma-session.repository.spec.ts` (mocked `where`-shape only) — without
+ * it, a regression that dropped `userId` from `revocarOtrasPorUserId`'s
+ * `where` (revoking globally instead of per-user) would pass this suite,
+ * since A/B alone can't distinguish "other sessions of A" from "all other
+ * sessions in the table".
+ *
  * Requires a real DB. Run via
  * `ALLOW_DESTRUCTIVE_DB=1 pnpm api test:integration -- perfil-password-sessions`.
  */
@@ -31,6 +40,7 @@ const PASSWORD_NUEVA = 'password-nueva-valida-456';
 
 const RUN_ID = `perfil-password-sessions-int-${Date.now()}`;
 const EMAIL = `${RUN_ID}@example.com`;
+const EMAIL_C = `${RUN_ID}-c@example.com`;
 
 describe('PATCH /api/perfil/password — revocación de otras sesiones (PERF040-06)', () => {
   let app: Express;
@@ -39,6 +49,9 @@ describe('PATCH /api/perfil/password — revocación de otras sesiones (PERF040-
   let authA: string;
   let authB: string;
   let tokenHashB: string;
+  let userIdC: string;
+  let authC: string;
+  let tokenHashC: string;
 
   beforeAll(async () => {
     if (!ALLOW) return;
@@ -68,6 +81,25 @@ describe('PATCH /api/perfil/password — revocación de otras sesiones (PERF040-
         where: { id: sessionB.sessionId },
       })
     ).tokenHash;
+
+    // Usuario C — sin relación con A/B. Prueba de aislamiento entre usuarios
+    // (RNF-SEC-006), no solo entre sesiones del mismo usuario.
+    const userC = await prisma.user.create({
+      data: {
+        nombre: `Perfil Password Sessions C ${RUN_ID}`,
+        ...buildEncryptedEmailFields(EMAIL_C, env),
+        passwordHash,
+      },
+    });
+    userIdC = userC.id;
+
+    const sessionC = await crearSesionParaUsuario(prisma, userIdC);
+    authC = `Bearer ${sessionC.token}`;
+    tokenHashC = (
+      await prisma.session.findUniqueOrThrow({
+        where: { id: sessionC.sessionId },
+      })
+    ).tokenHash;
   });
 
   afterAll(async () => {
@@ -75,6 +107,8 @@ describe('PATCH /api/perfil/password — revocación de otras sesiones (PERF040-
 
     await prisma.session.deleteMany({ where: { userId } });
     await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.session.deleteMany({ where: { userId: userIdC } });
+    await prisma.user.deleteMany({ where: { id: userIdC } });
     await prisma.$disconnect();
   });
 
@@ -131,6 +165,21 @@ describe('PATCH /api/perfil/password — revocación de otras sesiones (PERF040-
     const sesiones = await prisma.session.findMany({ where: { userId } });
     expect(sesiones).toHaveLength(1);
     expect(sesiones[0].tokenHash).not.toBe(tokenHashB);
+  });
+
+  it('la sesión de C (usuario NO relacionado) sigue existiendo y funcionando (RNF-SEC-006)', async () => {
+    if (!ALLOW) return;
+
+    const sesionC = await prisma.session.findUniqueOrThrow({
+      where: { tokenHash: tokenHashC },
+    });
+    expect(sesionC.userId).toBe(userIdC);
+
+    await request(app)
+      .get('/api/auth/me')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', authC)
+      .expect(200);
   });
 
   it('login con la password NUEVA ⇒ 200; con la VIEJA ⇒ 401', async () => {
