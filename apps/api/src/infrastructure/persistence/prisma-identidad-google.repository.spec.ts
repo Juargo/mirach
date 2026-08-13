@@ -165,4 +165,42 @@ describe('PrismaIdentidadGoogleRepository', () => {
       ).rejects.toThrow('conexión perdida');
     });
   });
+
+  describe('buscarPorId (VINC041-03/04, design §3.3)', () => {
+    it('busca por PK (findUnique where id) con el mismo select y mapea a UsuarioVinculable', async () => {
+      const findUnique = vi.fn().mockResolvedValue({
+        id: 'user-3',
+        esDemo: false,
+        googleSub: 'google-sub-3',
+      });
+      const prisma = { user: { findUnique } } as unknown as PrismaClient;
+      const repo = new PrismaIdentidadGoogleRepository(
+        prisma,
+        makeBlindIndex(),
+      );
+
+      const resultado = await repo.buscarPorId('user-3');
+
+      expect(findUnique).toHaveBeenCalledWith({
+        where: { id: 'user-3' },
+        select: { id: true, esDemo: true, googleSub: true },
+      });
+      expect(resultado).toEqual({
+        userId: 'user-3',
+        esDemo: false,
+        googleSub: 'google-sub-3',
+      });
+    });
+
+    it('devuelve null cuando no hay match', async () => {
+      const findUnique = vi.fn().mockResolvedValue(null);
+      const prisma = { user: { findUnique } } as unknown as PrismaClient;
+      const repo = new PrismaIdentidadGoogleRepository(
+        prisma,
+        makeBlindIndex(),
+      );
+
+      expect(await repo.buscarPorId('nadie')).toBeNull();
+    });
+  });
 });

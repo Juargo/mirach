@@ -30,6 +30,14 @@ export interface IIdentidadGoogleRepository {
    * infraestructura.
    */
   vincularGoogleSub(userId: string, googleSub: string): Promise<boolean>;
+
+  /**
+   * VINC041-03/04. Proyección por PK — el vínculo explícito conoce su propio
+   * `userId` (viene firmado, `link-intent.ts`) y no busca por email ni por
+   * sub. `esDemo` viaja en la proyección porque el callback NO tiene sesión:
+   * el gate demo se DERIVA de la fila, no de un input (design §2/D-05).
+   */
+  buscarPorId(userId: string): Promise<UsuarioVinculable | null>;
 }
 
 /** Injection token — interfaces are erased at runtime. */

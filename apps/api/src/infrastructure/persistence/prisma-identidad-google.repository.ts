@@ -55,6 +55,15 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
     return user === null ? null : this.aUsuarioVinculable(user);
   }
 
+  async buscarPorId(userId: string): Promise<UsuarioVinculable | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, esDemo: true, googleSub: true },
+    });
+
+    return user === null ? null : this.aUsuarioVinculable(user);
+  }
+
   async vincularGoogleSub(userId: string, googleSub: string): Promise<boolean> {
     try {
       const { count } = await this.prisma.user.updateMany({

@@ -37,4 +37,23 @@ describe('identidad-google-repository.port', () => {
       repoPierde.vincularGoogleSub('user-1', 'sub-abc'),
     ).resolves.toBe(false);
   });
+
+  it('buscarPorId (VINC041-03/04) resuelve un UsuarioVinculable o null — proyección por PK', async () => {
+    const usuario: UsuarioVinculable = {
+      userId: 'user-1',
+      esDemo: false,
+      googleSub: null,
+    };
+    const repo = makeMockIdentidadGoogleRepository({ porId: usuario });
+
+    const result = await repo.buscarPorId('user-1');
+
+    expect(result).toEqual(usuario);
+  });
+
+  it('buscarPorId resuelve null cuando el usuario no existe', async () => {
+    const repo = makeMockIdentidadGoogleRepository({ porId: null });
+
+    await expect(repo.buscarPorId('nadie')).resolves.toBeNull();
+  });
 });
