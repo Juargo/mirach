@@ -250,6 +250,8 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
   it('VINC041-07: sesión demo ⇒ 403 DEMO_SOLO_LECTURA, nada escrito', async () => {
     if (!ALLOW) return;
 
+    const before = await snapshotUser(prisma, userIdDemo);
+
     const res = await request(app)
       .post('/api/perfil/google/vincular')
       .set('x-api-key', API_KEY)
@@ -258,6 +260,11 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+
+    const setCookie = [res.headers['set-cookie']].flat();
+    expect(setCookie.some((c) => c?.startsWith('md_oauth='))).toBe(false);
+
+    expect(await snapshotUser(prisma, userIdDemo)).toEqual(before);
   });
 
   describe('★ BINDING PROOF (a) — un link forjado escribe NADA y no loguea a nadie', () => {
