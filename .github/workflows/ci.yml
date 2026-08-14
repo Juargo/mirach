@@ -548,6 +548,79 @@ jobs:
           test -d apps/web/dist
           ! grep -rEn 'x-api-key' apps/web/dist
 
+  # NEW job (US-063 D-11/D-12) — the ONLY acceptance layer for the M2/M3
+  # mobile-viewport work: D-08 chose CSS-only responsive behaviour, so
+  # `pnpm web test` (jsdom, no layout engine) cannot assert any of it as a
+  # user-visible outcome (design.md §1.4). A SEPARATE job from `web`, not
+  # extra steps appended to it — a geometry failure must be distinguishable
+  # at a glance from a unit failure, and the Chromium download must not
+  # slow that job's fast gate. Same path filter as `web` (this suite lives
+  # entirely under `apps/web/e2e`).
+  #
+  # ⚠️ Hand-off (maintainer decision D-B, US-063 tasks.md task 7): this job
+  # is delivered here as a workflow addition ONLY. Making it a BLOCKING
+  # required status check on `main`'s branch protection is a repository-
+  # admin action (ADR-030 C.7) that cannot be performed from a PR — it is
+  # NOT yet enforced by this change. The maintainer must add "E2E
+  # (Playwright, web)" to the required-checks list before US-063 PR #2
+  # merges; until that happens, this job is informational only, exactly
+  # like every other check in this file that is not yet required.
+  web-e2e:
+    name: E2E (Playwright, web)
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Cache key follows the RESOLVED `@playwright/test` version, not the
+      # lockfile hash — the browser binaries this step downloads are tied
+      # to that exact version, so it is the correct invalidation signal.
+      - name: Resolve installed Playwright version
+        id: playwright-version
+        run: |
+          VERSION=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ steps.playwright-version.outputs.version }}
+
+      # On a cache hit the browser binary is already present — only the OS
+      # packages (`install-deps`) still need to be (re)applied on a fresh
+      # runner image. On a miss, `install --with-deps` does both in one
+      # step. Chromium only (design.md D-11): every criterion here is a
+      # layout fact of one CSS engine.
+      - name: Install Chromium browser (Playwright)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @moneydiary/web exec playwright install --with-deps chromium
+
+      - name: Install Chromium's OS dependencies (Playwright, cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @moneydiary/web exec playwright install-deps chromium
+
+      - name: E2E tests (web, Chromium, 3 viewport projects)
+        run: pnpm web test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
   # NEW job (ADR-017) — jest-expo/RNTL had no CI job before this slice.
   mobile:
     name: Typecheck & unit tests (mobile)
@@ -683,7 +756,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, api, integration, dast, api-client, web, mobile, landing, security]
+    needs: [changes, commitlint, release-please-config-check, api, integration, dast, api-client, web, web-e2e, mobile, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed
