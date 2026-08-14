@@ -542,8 +542,7 @@ BigInt-safe strings.
 
 ## Non-Goals
 
-- Any web or mobile UI for catalog management — deferred to future work
-  (US-043).
+- Mobile UI for catalog management — deferred to future work.
 - Bulk reassignment of a deleted category's transactions to **another**
   category — a different product feature (a migration wizard), not a
   safety net for delete.
