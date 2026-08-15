@@ -102,6 +102,24 @@ jobs:
       # --no-wait returns as soon as the build is enqueued (no Actions
       # minutes burned waiting on the EAS queue). Submission to the stores
       # stays a manual step (ADR-022) — out of scope here.
+      #
+      # `--platform android`, not `all`. ADR-022 names "APK Android firmado,
+      # compartido por URL/QR" as the target and states that store publication
+      # "deja de ser prioridad y no bloquea nada" — but this command asked for
+      # iOS too, which needs an Apple Developer distribution certificate.
+      #
+      # That is not a soft failure: `eas build` sets up credentials for EVERY
+      # requested platform BEFORE enqueuing anything, so the missing iOS
+      # certificate aborted the whole command and **no Android build was
+      # enqueued either**. Observed on the first run that ever reached this
+      # step (31913809257, 2026-08-15): Android completed keystore selection,
+      # versionCode 1→2, a 6.2 MB upload and fingerprinting — then all of it
+      # was discarded by `Distribution Certificate is not validated for
+      # non-interactive builds`.
+      #
+      # Add iOS back when there is an Apple Developer account and store
+      # publication becomes a priority; `eas credentials` must be run
+      # interactively once first, since --non-interactive cannot create them.
       - name: EAS build (production)
         working-directory: apps/mobile
-        run: eas build --platform all --profile production --non-interactive --no-wait
+        run: eas build --platform android --profile production --non-interactive --no-wait
