@@ -45,25 +45,22 @@ jobs:
   eas-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # As of 2026-08-15 this repository has NO secrets configured at all
-      # (`gh api repos/:owner/:repo/actions/secrets` → total_count 0), so
-      # EXPO_TOKEN is absent and every build would die inside
-      # expo-github-action with an authentication error that does not name
-      # the cause. This fails first, and says what to do. ADR-030 lists
-      # EXPO_TOKEN under "pendiente: activación en plataformas" — it is still
-      # pending, and the trigger fix alone does not make this CD work.
+      # FIRST step, deliberately — before checkout, before Node, before a
+      # `pnpm install`. As of 2026-08-15 this repository has NO secrets
+      # configured at all (`gh api repos/:owner/:repo/actions/secrets` →
+      # total_count 0), so EXPO_TOKEN is absent and every build would die
+      # inside expo-github-action with an authentication error that does not
+      # name the cause. This fails first, and says what to do.
+      #
+      # It was originally placed after `Install dependencies`; the first real
+      # dispatch (run 31875285090) showed a doomed run still paying for
+      # checkout + setup-node + a full install before failing on an empty
+      # variable. A precondition that needs nothing from the repo belongs
+      # before the work, not after it.
+      #
+      # ADR-030 lists EXPO_TOKEN under "pendiente: activación en plataformas"
+      # — it is still pending, and the trigger fix alone does not make this
+      # CD work.
       - name: Preflight — EXPO_TOKEN must be configured
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -75,6 +72,18 @@ jobs:
             exit 1
           fi
           echo "OK: EXPO_TOKEN present."
+
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       # Pinned to a commit SHA (not the mutable @v9 tag): this step holds
       # secrets.EXPO_TOKEN, so it matches the repo's supply-chain posture
