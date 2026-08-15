@@ -1,1 +1,8 @@
+# Untracked SDD artifacts are invisible to CI — a CI checkout is a clone, so
+# files that were never `git add`-ed do not exist there and any CI check would
+# pass vacuously in exactly the case worth catching. This is the only place the
+# signal exists. Runs first: it is instant, and a failing push should say so
+# before the test suite spends a minute.
+./scripts/check-openspec-artifacts.sh untracked
+
 pnpm --filter "...[origin/main]" test
