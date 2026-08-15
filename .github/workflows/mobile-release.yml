@@ -6,10 +6,31 @@ name: mobile-release
 # vercel.json, apps/landing/vercel.json). A `mobile-v*` tag is the CD
 # trigger; release-please cuts that tag when a mobile release PR merges
 # (release-please-config.json > apps/mobile > release-type: expo).
+# ⚠️ THE TAG TRIGGER BELOW CANNOT FIRE FOR RELEASE-PLEASE TAGS, and this
+# workflow had **zero runs in its entire history** because of it (found
+# 2026-08-15, while merging the four pending release PRs).
+#
+# GitHub does not start new workflow runs from events created with
+# `GITHUB_TOKEN` — a deliberate guard against recursive workflow loops.
+# release-please.yml pushes its tags with `secrets.GITHUB_TOKEN`, so
+# `mobile-v0.2.0` was created and no build ever happened. The tag existed;
+# the CD did not.
+#
+# `workflow_call` is the fix: release-please.yml invokes this workflow
+# directly, in the SAME run, when it releases `apps/mobile`. That path needs
+# no new credential — unlike the usual remedy of swapping `GITHUB_TOKEN` for
+# a PAT, which would put a repo-write credential in CI just to re-enable an
+# event.
+#
+# The tag trigger is kept, not deleted: it still works for a tag pushed with
+# a human's credentials (`git push origin mobile-vX.Y.Z`). It is simply not
+# the path release-please takes.
 on:
   push:
     tags:
       - 'mobile-v*'
+  workflow_call:
+  workflow_dispatch:
 
 # Least-privilege: this workflow only needs to read the repo to build. It
 # does not open PRs or write releases (that is release-please.yml).
@@ -35,6 +56,25 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # As of 2026-08-15 this repository has NO secrets configured at all
+      # (`gh api repos/:owner/:repo/actions/secrets` → total_count 0), so
+      # EXPO_TOKEN is absent and every build would die inside
+      # expo-github-action with an authentication error that does not name
+      # the cause. This fails first, and says what to do. ADR-030 lists
+      # EXPO_TOKEN under "pendiente: activación en plataformas" — it is still
+      # pending, and the trigger fix alone does not make this CD work.
+      - name: Preflight — EXPO_TOKEN must be configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN is not set. The EAS build cannot authenticate."
+            echo "Add it as a repository secret: Settings → Secrets and variables → Actions → New repository secret."
+            echo "Generate the token at https://expo.dev/accounts/[account]/settings/access-tokens (ADR-022, ADR-030)."
+            exit 1
+          fi
+          echo "OK: EXPO_TOKEN present."
 
       # Pinned to a commit SHA (not the mutable @v9 tag): this step holds
       # secrets.EXPO_TOKEN, so it matches the repo's supply-chain posture
