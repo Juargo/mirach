@@ -7,6 +7,7 @@ import {
   IResumenAnualReader,
   BucketSumRowAnual,
 } from '../ports/resumen-anual.port';
+import { ILogger } from '../ports/logger.port';
 import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
 
 /** Tipo de retorno del use case en caso de éxito — mirrors CalcularResumenMesResult. */
@@ -38,7 +39,10 @@ export interface CalcularResumenAnualResult {
 const FORMATO_ANIO = /^\d{4}$/;
 
 export class CalcularResumenAnualUseCase {
-  constructor(private readonly reader: IResumenAnualReader) {}
+  constructor(
+    private readonly reader: IResumenAnualReader,
+    private readonly logger: ILogger,
+  ) {}
 
   async execute(input: {
     userId: string;
@@ -71,6 +75,13 @@ export class CalcularResumenAnualUseCase {
     }
 
     const rows = await this.reader.sumarPorBucketAnual(input.userId, anioVO);
+    // Counts only — never amounts (ADR-013). rows spans up to 12 months x 5
+    // buckets in a single query.
+    this.logger.debug('calcular-resumen-anual: repo fetch', {
+      userId: input.userId,
+      anio: anioVO.anio,
+      rows: rows.length,
+    });
 
     // Group rows by "YYYY-MM" for O(1) lookup per month
     const rowsPorMes = new Map<string, BucketSumRowAnual[]>();
@@ -90,6 +101,12 @@ export class CalcularResumenAnualUseCase {
     if (resultadoResumenAnual.isFail()) {
       return Result.fail(resultadoResumenAnual.getError());
     }
+
+    this.logger.debug('calcular-resumen-anual: computed', {
+      anio: anioVO.anio,
+      meses: meses.length,
+      mesesConIngreso: meses.filter((m) => !m.sinIngreso).length,
+    });
 
     return Result.ok({
       anio: anioVO.anio,

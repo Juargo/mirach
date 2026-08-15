@@ -6,6 +6,7 @@ import {
 } from '../ports/movimientos-mes.port';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 const makeRow = (
   overrides: Partial<MovimientoMesRow> = {},
@@ -31,7 +32,7 @@ describe('ObtenerMovimientosMesUseCase', () => {
     readerMock = {
       findByPeriodo: vi.fn(),
     };
-    useCase = new ObtenerMovimientosMesUseCase(readerMock);
+    useCase = new ObtenerMovimientosMesUseCase(readerMock, new NoOpLogger());
   });
 
   afterEach(() => {
@@ -151,6 +152,33 @@ describe('ObtenerMovimientosMesUseCase', () => {
       expect(readerMock.findByPeriodo).toHaveBeenCalledTimes(1);
       const [, calledPeriodo] = readerMock.findByPeriodo.mock.calls[0];
       expect(calledPeriodo.valor).toBe('2026-07');
+    });
+  });
+
+  describe('debug logging (ADR-033 slice C — redaction contract, ADR-013)', () => {
+    it('NUNCA incluye montos, descripción ni numeroCuenta en los contexts logueados', async () => {
+      readerMock.findByPeriodo.mockResolvedValue([makeRow()]);
+      const logger = new FakeLogger();
+      const useCaseWithFakeLogger = new ObtenerMovimientosMesUseCase(
+        readerMock,
+        logger,
+      );
+
+      await useCaseWithFakeLogger.execute({
+        userId: 'user-1',
+        periodo: '2026-07',
+      });
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      expect(serializedContexts).not.toContain('50000');
+      expect(serializedContexts).not.toContain('Compra supermercado');
+      expect(serializedContexts).not.toContain('12345678');
+      expect(serializedContexts).not.toContain('@');
     });
   });
 });

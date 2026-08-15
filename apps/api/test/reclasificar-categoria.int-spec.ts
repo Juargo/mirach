@@ -4,6 +4,7 @@ import { loadEnv } from '../src/config/env';
 import { PrismaReclasificarCategoriaRepository } from '../src/infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaResumenMesRepository } from '../src/infrastructure/persistence/prisma-resumen-mes.repository';
 import { CalcularResumenMesUseCase } from '../src/application/use-cases/calcular-resumen-mes.use-case';
+import { NoOpLogger } from './support/logger.double';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { EstadoSemaforo } from '../src/domain/value-objects/estado-semaforo';
@@ -36,7 +37,10 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
   const prisma = createPrismaClient(loadEnv());
   const repo = new PrismaReclasificarCategoriaRepository(prisma);
   const resumenReader = new PrismaResumenMesRepository(prisma);
-  const calcularResumen = new CalcularResumenMesUseCase(resumenReader);
+  const calcularResumen = new CalcularResumenMesUseCase(
+    resumenReader,
+    new NoOpLogger(),
+  );
 
   let accountIdA: string;
   let accountIdB: string;

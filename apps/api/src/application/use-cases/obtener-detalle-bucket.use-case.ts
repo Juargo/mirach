@@ -7,6 +7,7 @@ import {
   IDetalleBucketReader,
   DetalleBucketRow,
 } from '../ports/detalle-bucket.port';
+import { ILogger } from '../ports/logger.port';
 
 /** Tipo de retorno del use case en caso de éxito. */
 export interface ObtenerDetalleBucketResult {
@@ -28,7 +29,10 @@ const BUCKETS_VALIDOS: ReadonlySet<string> = new Set(Object.values(Bucket));
  * Un resultado vacío (sin transacciones) es éxito, no error. Nunca lanza.
  */
 export class ObtenerDetalleBucketUseCase {
-  constructor(private readonly reader: IDetalleBucketReader) {}
+  constructor(
+    private readonly reader: IDetalleBucketReader,
+    private readonly logger: ILogger,
+  ) {}
 
   async execute(input: {
     userId: string;
@@ -63,6 +67,13 @@ export class ObtenerDetalleBucketUseCase {
       periodoVO,
       bucket,
     );
+    // Counts only — never montos/descripcion/numeroCuenta (ADR-013).
+    this.logger.debug('obtener-detalle-bucket: repo fetch', {
+      userId: input.userId,
+      periodo: periodoVO.valor,
+      bucket,
+      transacciones: transacciones.length,
+    });
 
     return Result.ok({
       periodo: periodoVO.valor,
