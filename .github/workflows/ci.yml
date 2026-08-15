@@ -37,6 +37,7 @@ jobs:
       packages: ${{ steps.f.outputs.packages }}
       shared: ${{ steps.f.outputs.shared }}
       release-please-config: ${{ steps.f.outputs.release-please-config }}
+      openspec: ${{ steps.f.outputs.openspec }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
@@ -56,6 +57,7 @@ jobs:
             # skip; they can't affect build or security.
             shared:  ['pnpm-lock.yaml', 'package.json', 'pnpm-workspace.yaml', '.node-version', '.npmrc', '.lintstagedrc.json', 'commitlint.config.js', 'render.yaml', '.github/workflows/**']
             release-please-config: ['release-please-config.json', '.release-please-manifest.json']
+            openspec: ['openspec/changes/**', 'scripts/check-openspec-artifacts.sh']
 
   # ADR-020: the REAL commit-message enforcement (local husky hooks are
   # --no-verify-skippable, this is not). Runs on every PR/push — NOT
@@ -121,6 +123,30 @@ jobs:
             exit 1
           fi
           echo "OK: key sets match."
+
+  # US-063 postmortem: US-043 and US-063 both shipped with their
+  # `openspec/changes/<name>/` artifacts never `git add`-ed. Four PRs were
+  # reviewed against a frozen spec that existed on one laptop and nowhere else.
+  #
+  # NOTE ON WHAT THIS JOB CAN AND CANNOT DO. It CANNOT catch that case: a CI
+  # checkout is a clone, so untracked files do not exist here and any such check
+  # would pass vacuously in precisely the situation worth catching. That half
+  # lives in `.husky/pre-push`, the only place the signal exists — and per
+  # ADR-020 a hook is convenience, not enforcement.
+  #
+  # What this job DOES catch is the partial commit: a change directory that is
+  # in git but missing `tasks.md`, so sdd-apply/sdd-verify and every reviewer
+  # cite a contract the repo does not contain. That is fully visible to CI.
+  openspec-artifacts:
+    name: Validate openspec change artifacts
+    needs: changes
+    if: ${{ needs.changes.outputs.openspec == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Assert every tracked change carries its required artifacts
+        run: ./scripts/check-openspec-artifacts.sh structure
 
   api:
     name: Typecheck & unit tests (api)
@@ -756,7 +782,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, api, integration, dast, api-client, web, web-e2e, mobile, landing, security]
+    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, api-client, web, web-e2e, mobile, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed
