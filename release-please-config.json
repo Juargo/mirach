@@ -17,7 +17,12 @@
     { "type": "chore", "section": "Chores", "hidden": true }
   ],
   "packages": {
-    "apps/api": { "component": "api" },
+    "apps/api": {
+      "component": "api",
+      "extra-files": [
+        { "type": "json", "path": "openapi.json", "jsonpath": "$.info.version" }
+      ]
+    },
     "apps/web": { "component": "web" },
     "apps/landing": { "component": "landing" },
     "apps/mobile": { "component": "mobile", "release-type": "expo" }

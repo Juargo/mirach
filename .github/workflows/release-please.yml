@@ -3,6 +3,13 @@ name: release-please
 on:
   push:
     branches: [main]
+  # Manual trigger. Release PRs all touch `.release-please-manifest.json`, so
+  # merging one leaves the others conflicting on generated files — and
+  # `gh pr update-branch` cannot resolve those. Without this, the only way to
+  # ask release-please to regenerate them was to push something to `main`,
+  # which meant inventing a commit just to unstick the bot (hit 2026-08-15,
+  # when merging `landing 0.2.0` left `web`/`mobile` DIRTY with no way out).
+  workflow_dispatch:
 
 permissions:
   contents: write
