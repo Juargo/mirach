@@ -2,6 +2,7 @@ import { CalcularResumenMesUseCase } from './calcular-resumen-mes.use-case';
 import { IResumenMesReader, BucketSumRow } from '../ports/resumen-mes.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
+import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-05: Unit tests — CalcularResumenMesUseCase (mocked IResumenMesReader)
@@ -36,7 +37,7 @@ describe('CalcularResumenMesUseCase', () => {
   describe('happy path (SC-01): all buckets, income present', () => {
     it('returns ok with correct totalIngreso and porcentajeBp for all buckets', async () => {
       const reader = makeMockReader(allBucketRows());
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -54,7 +55,7 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('returns the resolved periodo string', async () => {
       const reader = makeMockReader(allBucketRows());
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -72,7 +73,7 @@ describe('CalcularResumenMesUseCase', () => {
         { bucket: Bucket.SinCategoria, totalCargo: 200_000n, totalAbono: 0n },
       ];
       const reader = makeMockReader(rows);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -92,7 +93,7 @@ describe('CalcularResumenMesUseCase', () => {
         { bucket: Bucket.Necesidades, totalCargo: 100_000n, totalAbono: 0n },
       ];
       const reader = makeMockReader(rows);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -107,7 +108,7 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('is NOT a Result.fail — sinIngreso is a valid data state, not an error (SC-04)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -118,7 +119,7 @@ describe('CalcularResumenMesUseCase', () => {
   describe('empty month (SC-05)', () => {
     it('returns ok with all zeros and sinIngreso=true when reader returns empty array', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -139,7 +140,7 @@ describe('CalcularResumenMesUseCase', () => {
       const expectedPeriodo = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: undefined });
 
@@ -149,7 +150,7 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('invalid periodo → Result.fail(PeriodoInvalidoError) (SC-08)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({
         userId: 'user-a',
@@ -162,7 +163,7 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('periodo with invalid month (13) → Result.fail (SC-08)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-13' });
 
@@ -172,7 +173,7 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('periodo with month 00 → Result.fail (SC-08)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-00' });
 
@@ -188,7 +189,7 @@ describe('CalcularResumenMesUseCase', () => {
         { bucket: Bucket.Necesidades, totalCargo: 500_000n, totalAbono: 0n },
       ];
       const reader = makeMockReader(rows);
-      const uc = new CalcularResumenMesUseCase(reader);
+      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -199,6 +200,30 @@ describe('CalcularResumenMesUseCase', () => {
         (b) => b.bucket === Bucket.Necesidades,
       );
       expect(necesidades?.porcentajeBp).toBe(5000n); // 500000/1000000 = 5000bp
+    });
+  });
+
+  describe('debug logging (ADR-033 slice C — redaction contract, ADR-013)', () => {
+    it('NUNCA incluye montos ni descripción en los contexts logueados', async () => {
+      const reader = makeMockReader(allBucketRows());
+      const logger = new FakeLogger();
+      const uc = new CalcularResumenMesUseCase(reader, logger);
+
+      await uc.execute({ userId: 'user-a', periodo: '2026-07' });
+
+      const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+      expect(debugCalls.length).toBeGreaterThan(0);
+
+      const serializedContexts = JSON.stringify(
+        debugCalls.map((c) => c.context),
+      );
+      // Fixture montos used in allBucketRows() must never leak — only counts.
+      expect(serializedContexts).not.toContain('1500000');
+      expect(serializedContexts).not.toContain('750000');
+      expect(serializedContexts).not.toContain('360000');
+      expect(serializedContexts).not.toContain('300000');
+      expect(serializedContexts).not.toContain('90000');
+      expect(serializedContexts).not.toContain('@');
     });
   });
 });

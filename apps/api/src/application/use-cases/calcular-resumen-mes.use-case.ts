@@ -3,6 +3,7 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { ResumenMes } from '../../domain/value-objects/resumen-mes';
 import { IResumenMesReader } from '../ports/resumen-mes.port';
+import { ILogger } from '../ports/logger.port';
 import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
 
 /** Tipo de retorno del use case en caso de éxito — mirrors US-014 pattern. */
@@ -28,7 +29,10 @@ export interface CalcularResumenMesResult {
  * Never throws. Never imports from infrastructure.
  */
 export class CalcularResumenMesUseCase {
-  constructor(private readonly reader: IResumenMesReader) {}
+  constructor(
+    private readonly reader: IResumenMesReader,
+    private readonly logger: ILogger,
+  ) {}
 
   async execute(input: {
     userId: string;
@@ -49,7 +53,20 @@ export class CalcularResumenMesUseCase {
     }
 
     const rows = await this.reader.sumarPorBucket(input.userId, periodoVO);
+    // Counts only — never amounts (ADR-013). Row count reflects how many of
+    // the up-to-5 bucket-sum rows the reader returned for this period.
+    this.logger.debug('calcular-resumen-mes: repo fetch', {
+      userId: input.userId,
+      periodo: periodoVO.valor,
+      rows: rows.length,
+    });
+
     const resumen = construirResumenMesDesdeFilas(rows);
+    this.logger.debug('calcular-resumen-mes: computed', {
+      periodo: periodoVO.valor,
+      estadoGlobal: resumen.estadoGlobal,
+      bucketsConDatos: resumen.buckets.filter((b) => b.total > 0n).length,
+    });
 
     return Result.ok({
       periodo: periodoVO.valor,

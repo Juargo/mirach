@@ -182,16 +182,20 @@ export function createContainer(
 
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),
+    logger,
   );
   const calcularResumenAnual = new CalcularResumenAnualUseCase(
     new PrismaResumenAnualRepository(prisma),
+    logger,
   );
 
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
     new PrismaDetalleBucketRepository(prisma, crypto),
+    logger,
   );
   const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
     new PrismaMovimientosMesRepository(prisma, crypto),
+    logger,
   );
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(
     new PrismaReclasificarCategoriaRepository(prisma),
