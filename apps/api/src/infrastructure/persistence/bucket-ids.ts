@@ -37,9 +37,11 @@ export const BUCKET_ID_TO_BUCKET: ReadonlyMap<string, Bucket> = new Map(
  * null bucketId → SinCategoria (degradation from US-012).
  * Unrecognized non-null bucketId → also SinCategoria (defensive).
  *
- * Single source of truth for the fold rule, shared by every repository that
- * needs it (`prisma-resumen-mes.repository.ts`, `prisma-resumen-anual.repository.ts`)
- * — a single resolver is the structural mitigation for the "null-bucket and
+ * Shared fold rule for the two resumen repositories
+ * (`prisma-resumen-mes.repository.ts`, `prisma-resumen-anual.repository.ts`).
+ * Note: `prisma-movimientos-mes.repository.ts` still inlines the same mapping
+ * over `BUCKET_ID_TO_BUCKET`; migrating it here is pending follow-up work.
+ * A single resolver is the structural mitigation for the "null-bucket and
  * real SinCategoria groups must ADD, never overwrite" rule (SC-03): if each
  * call site re-implemented this mapping, one could silently drift from the
  * others.
