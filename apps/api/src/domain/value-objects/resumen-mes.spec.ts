@@ -301,10 +301,8 @@ describe('ResumenMes VO', () => {
     // D-04 ISP guard: BucketSlice must NEVER gain a per-bucket count field —
     // only the top-level VO carries cantidadSinCategoria.
     it('D-04: BucketSlice type has no count key (compile-time ISP guard)', () => {
-      expectTypeOf<keyof BucketSlice>().not.toMatchTypeOf<'cantidadCargos'>();
-      expectTypeOf<
-        keyof BucketSlice
-      >().not.toMatchTypeOf<'cantidadSinCategoria'>();
+      expectTypeOf<BucketSlice>().not.toHaveProperty('cantidadCargos');
+      expectTypeOf<BucketSlice>().not.toHaveProperty('cantidadSinCategoria');
     });
   });
 });
