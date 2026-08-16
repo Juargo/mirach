@@ -1,17 +1,21 @@
 /**
- * Integration tests for PrismaResumenMesRepository (T-07).
+ * Integration tests for PrismaResumenMesRepository (T-07, extended by US-045).
  *
  * Requires a real DB connection. Run via `pnpm api test:integration`
  * (sets ALLOW_DESTRUCTIVE_DB=1). Seeds and cleans up its own rows.
  * Each test uses per-run unique account ids to avoid cross-test pollution.
  *
  * Covered scenarios:
- *   - groupBy correctness (SC-01): per-bucket cargo/abono sums
+ *   - groupBy correctness (SC-01): per-bucket cargo/abono sums + cantidadCargos
  *   - null→SinCategoria fold (SC-03): HIGHEST RISK — both null-bucket and
- *     real SinCategoria rows MUST be ADDED, not overwritten
- *   - Empty month (SC-05): no rows → all buckets 0n
+ *     real SinCategoria rows MUST be ADDED, not overwritten (sums AND counts)
+ *   - Empty month (SC-05): no rows → all buckets 0n / 0 cantidadCargos
  *   - No-income month (SC-04): spends present but Ingreso row absent
- *   - User isolation (SC-09, RNF-SEC-006): user B's data must NOT bleed into user A
+ *   - User isolation (SC-09, RNF-SEC-006): user B's data must NOT bleed into
+ *     user A (sums AND cantidadCargos)
+ *   - Cargos-only count (SC-10, US-045 D-05 R-2): an uncategorized abono row
+ *     must NOT be counted, and must NOT corrupt totalAbono — proves the
+ *     `cargo: { gt: 0 }` filter is scoped to the count query only
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaResumenMesRepository } from './prisma-resumen-mes.repository';
@@ -175,6 +179,14 @@ describe('PrismaResumenMesRepository (integration)', () => {
     expect(byBucket.get(Bucket.Deseos)?.totalCargo).toBe(360_000n);
     expect(byBucket.get(Bucket.Ahorro)?.totalCargo).toBe(300_000n);
     expect(byBucket.get(Bucket.SinCategoria)?.totalCargo).toBe(90_000n);
+
+    // US-045 SC-01 extended: per-bucket cargo counts match the seeded cargo
+    // rows. Ingreso's only row is an abono, so its count must be 0.
+    expect(byBucket.get(Bucket.Ingreso)?.cantidadCargos).toBe(0);
+    expect(byBucket.get(Bucket.Necesidades)?.cantidadCargos).toBe(1);
+    expect(byBucket.get(Bucket.Deseos)?.cantidadCargos).toBe(1);
+    expect(byBucket.get(Bucket.Ahorro)?.cantidadCargos).toBe(1);
+    expect(byBucket.get(Bucket.SinCategoria)?.cantidadCargos).toBe(1);
   });
 
   // ─── SC-03: null→SinCategoria fold (HIGHEST RISK) ─────────────────────────
@@ -216,6 +228,47 @@ describe('PrismaResumenMesRepository (integration)', () => {
 
     // CRITICAL: must be 150000 + 50000 = 200000, not just one of them
     expect(byBucket.get(Bucket.SinCategoria)?.totalCargo).toBe(200_000n);
+    // US-045 SC-03 extended: the same ADD-not-overwrite rule now applies to
+    // counts — null-bucket row + real SinCategoria row = 2 cargos, not 1.
+    expect(byBucket.get(Bucket.SinCategoria)?.cantidadCargos).toBe(2);
+  });
+
+  // ─── SC-10: cargos-only count, does not leak into sums (US-045 D-05 R-2) ──
+
+  it('SC-10: an uncategorized abono row is not counted, and does not corrupt totalAbono', async () => {
+    if (!ALLOW) return;
+
+    const accountId = await seedAccount('sc10');
+    const userId = `${RUN_ID}-user-sc10`;
+    const ingestaId = await seedIngesta(accountId, 'sc10');
+
+    // Uncategorized cargo row — counted.
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: null,
+      cargo: 20_000n,
+      abono: 0n,
+    });
+    // Uncategorized abono row — NOT counted, and must not corrupt totalAbono.
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: null,
+      cargo: 0n,
+      abono: 50_000n,
+    });
+
+    const rows = await repo.sumarPorBucket(userId, periodoVO);
+    const byBucket = new Map(rows.map((r) => [r.bucket, r]));
+
+    // Only the cargo row is counted — the abono row is excluded by the
+    // `cargo: { gt: 0 }` scope of the count query.
+    expect(byBucket.get(Bucket.SinCategoria)?.cantidadCargos).toBe(1);
+    // The sums query must be untouched by the count query's filter — this is
+    // the assert that catches `cargo: { gt: 0 }` leaking into the sums
+    // `where` and silently dropping the abono from totalAbono (R-2).
+    expect(byBucket.get(Bucket.SinCategoria)?.totalAbono).toBe(50_000n);
   });
 
   // ─── SC-05: empty month ────────────────────────────────────────────────────
@@ -234,6 +287,8 @@ describe('PrismaResumenMesRepository (integration)', () => {
     for (const bucket of Object.values(Bucket)) {
       expect(byBucket.get(bucket)?.totalCargo).toBe(0n);
       expect(byBucket.get(bucket)?.totalAbono).toBe(0n);
+      // US-045 SC-05 extended: cantidadCargos is also present and 0.
+      expect(byBucket.get(bucket)?.cantidadCargos).toBe(0);
     }
   });
 
@@ -289,6 +344,15 @@ describe('PrismaResumenMesRepository (integration)', () => {
       cargo: 500_000n,
       abono: 0n,
     });
+    // User A: 1 uncategorized cargo — distinct count from B's, for the
+    // US-045 cantidadCargos isolation delta (ISO-02).
+    await seedTransaccion({
+      accountId: accountIdA,
+      ingestaId: ingestaIdA,
+      bucketId: null,
+      cargo: 10_000n,
+      abono: 0n,
+    });
 
     // User B: Ingreso=9_000_000, Necesidades=4_500_000 — must NOT appear in A's query
     await seedTransaccion({
@@ -305,6 +369,21 @@ describe('PrismaResumenMesRepository (integration)', () => {
       cargo: 4_500_000n,
       abono: 0n,
     });
+    // User B: 2 uncategorized cargos — must NOT bleed into A's count.
+    await seedTransaccion({
+      accountId: accountIdB,
+      ingestaId: ingestaIdB,
+      bucketId: null,
+      cargo: 20_000n,
+      abono: 0n,
+    });
+    await seedTransaccion({
+      accountId: accountIdB,
+      ingestaId: ingestaIdB,
+      bucketId: null,
+      cargo: 30_000n,
+      abono: 0n,
+    });
 
     const rows = await repo.sumarPorBucket(userIdA, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
@@ -312,5 +391,8 @@ describe('PrismaResumenMesRepository (integration)', () => {
     // User A sees ONLY user A's data
     expect(byBucket.get(Bucket.Ingreso)?.totalAbono).toBe(1_000_000n); // NOT 10_000_000n
     expect(byBucket.get(Bucket.Necesidades)?.totalCargo).toBe(500_000n); // NOT 5_000_000n
+    // US-045 SC-09 extended: A's cantidadCargos is A's own count (1), never
+    // B's (2) nor the A+B sum (3).
+    expect(byBucket.get(Bucket.SinCategoria)?.cantidadCargos).toBe(1);
   });
 });
