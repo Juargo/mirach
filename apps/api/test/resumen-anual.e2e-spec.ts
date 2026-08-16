@@ -342,4 +342,61 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     // cargo row — never B's 3 (isolation at the annual endpoint boundary).
     expect(marzo.cantidadSinCategoria).toBe(1);
   });
+
+  // ── US-046/CA-02: months with no transactions are explicitly empty ─────────
+
+  it('CA-02 (US-046): a month with no transactions renders explicitly empty — sinIngreso true, estadoGlobal null, zeroed buckets', async () => {
+    if (!ALLOW) return; // Skip if no real DB
+
+    const PASSWORD = 'ca02-empty-password-123';
+    const { email } = await seedUserWithCredentials('ca02-empty', PASSWORD);
+    const user = `${RUN_ID}-ca02-empty`;
+    const account = await seedAccount(user, 'ca02-empty');
+    const ingesta = await seedIngesta(account, 'ca02-empty', user);
+
+    // Seed data ONLY in March: for this fresh user every other month of the
+    // year is genuinely empty (a fixed-user month could be polluted by other
+    // spec files sharing USER_ID_FIJO).
+    await seedTx({
+      accountId: account,
+      ingestaId: ingesta,
+      bucketId: BUCKET_IDS[Bucket.Ingreso],
+      cargo: 0n,
+      abono: 500_000n,
+      fecha: new Date(Date.UTC(CURRENT_YEAR, 2, 15)),
+    });
+
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .set('x-api-key', API_KEY)
+      .send({ email, password: PASSWORD })
+      .expect(200);
+    const setCookie = loginRes.headers['set-cookie'] as unknown as string[];
+    const cookie = setCookie[0].split(';')[0];
+
+    const res = await request(app)
+      .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)
+      .set('x-api-key', API_KEY)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    // December (no rows) must be EXPLICITLY empty: no semáforo state, no
+    // ambiguous partial data — the client can render "sin datos" from this
+    // shape alone (US-046 CA-02).
+    const diciembre = res.body.meses[11];
+    expect(diciembre.sinIngreso).toBe(true);
+    expect(diciembre.estadoGlobal).toBeNull();
+    expect(diciembre.totalIngreso).toBe('0');
+    expect(diciembre.cantidadSinCategoria).toBe(0);
+    for (const bucket of diciembre.buckets) {
+      expect(bucket.total).toBe('0');
+      expect(bucket.porcentajeBp).toBeNull();
+      expect(bucket.estadoSemaforo).toBeNull();
+    }
+
+    // The seeded month is the contrast: with income present the semáforo
+    // DOES resolve — the emptiness signal is per-month, not year-global.
+    expect(res.body.meses[2].sinIngreso).toBe(false);
+    expect(res.body.meses[2].estadoGlobal).not.toBeNull();
+  });
 });
