@@ -5,7 +5,7 @@ import {
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
 import type { PrismaClient } from '@prisma/client';
-import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
+import { resolverBucket } from './bucket-ids';
 
 /** "YYYY-MM" label for a UTC date, matching PeriodoMes.valor format. */
 function mesLabel(fecha: Date): string {
@@ -74,13 +74,7 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
 
     for (const t of transacciones) {
       const mesStr = mesLabel(t.fecha);
-      // Resolve physical bucketId → domain Bucket enum.
-      // null bucketId → SinCategoria (degradation from US-012).
-      // Unrecognized non-null bucketId → also SinCategoria (defensive).
-      const bucket: Bucket =
-        t.bucketId === null
-          ? Bucket.SinCategoria
-          : (BUCKET_ID_TO_BUCKET.get(t.bucketId) ?? Bucket.SinCategoria);
+      const bucket: Bucket = resolverBucket(t.bucketId);
 
       const key = `${mesStr}|${bucket}`;
       const current = accum.get(key);

@@ -31,3 +31,21 @@ export const BUCKET_ID_TO_BUCKET: ReadonlyMap<string, Bucket> = new Map(
     ([bucket, id]) => [id, bucket] as [string, Bucket],
   ),
 );
+
+/**
+ * Resolve a physical Prisma bucketId → domain Bucket enum.
+ * null bucketId → SinCategoria (degradation from US-012).
+ * Unrecognized non-null bucketId → also SinCategoria (defensive).
+ *
+ * Single source of truth for the fold rule, shared by every repository that
+ * needs it (`prisma-resumen-mes.repository.ts`, `prisma-resumen-anual.repository.ts`)
+ * — a single resolver is the structural mitigation for the "null-bucket and
+ * real SinCategoria groups must ADD, never overwrite" rule (SC-03): if each
+ * call site re-implemented this mapping, one could silently drift from the
+ * others.
+ */
+export function resolverBucket(bucketId: string | null): Bucket {
+  return bucketId === null
+    ? Bucket.SinCategoria
+    : (BUCKET_ID_TO_BUCKET.get(bucketId) ?? Bucket.SinCategoria);
+}
