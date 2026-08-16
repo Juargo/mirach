@@ -153,16 +153,17 @@ export function diagnosticar(resumen: ResumenMes): string {
  * current Amarillo/Rojo state).
  */
 function mensajeConsejo(
-  bucket: Bucket,
+  // Judgment-day hardening: the 3-member union (not the full Bucket enum)
+  // makes an Ingreso/SinCategoria call a COMPILE error — a stray call could
+  // otherwise render the literal "undefined" inside user-facing copy.
+  bucket: (typeof BUCKETS_SEMAFORO_ORDEN)[number],
   caso: CasoConsejo,
   direccion: DireccionConsejo,
 ): string {
   if (caso === 'ahorro-alto') {
     return 'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Verde.';
   }
-  const etiqueta =
-    ETIQUETA_BUCKET_COPY[bucket as keyof typeof ETIQUETA_BUCKET_COPY];
-  return `Para volver a Verde, ${VERBO[direccion]} {monto} en ${etiqueta} este mes.`;
+  return `Para volver a Verde, ${VERBO[direccion]} {monto} en ${ETIQUETA_BUCKET_COPY[bucket]} este mes.`;
 }
 
 /**
@@ -181,14 +182,23 @@ function mensajeConsejo(
  * rather than ever shipping wrong advice — fail-closed, same discipline as
  * the rest of the money code (R1 mitigation).
  */
+// Judgment-day hardening: type predicate so the SinCategoria/Ingreso guard
+// also NARROWS at compile time — downstream copy helpers take the 3-member
+// union and a stray call can never render "undefined" in user-facing text.
+function esBucketSemaforo(
+  bucket: Bucket,
+): bucket is (typeof BUCKETS_SEMAFORO_ORDEN)[number] {
+  return (BUCKETS_SEMAFORO_ORDEN as readonly Bucket[]).includes(bucket);
+}
+
 export function montoParaVerde(
   bucket: Bucket,
   total: bigint,
   base: bigint,
 ): ConsejoVerde | null {
   if (base === 0n) return null; // sinIngreso — nothing to advise
-  const bandas = BANDAS_SEMAFORO[bucket as keyof typeof BANDAS_SEMAFORO];
-  if (bandas === undefined) return null; // SinCategoria / Ingreso — no rule defined
+  if (!esBucketSemaforo(bucket)) return null; // SinCategoria / Ingreso — no rule defined
+  const bandas = BANDAS_SEMAFORO[bucket];
 
   const bp = porcentajeBasisPoints(total, base);
   const estado = calcularEstadoBucket(bucket, bp);
