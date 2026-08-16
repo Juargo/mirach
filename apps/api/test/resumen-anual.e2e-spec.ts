@@ -24,6 +24,7 @@ import { Bucket } from '../src/domain/value-objects/bucket';
 import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
 import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
+import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -207,6 +208,29 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
   // ── DTO shape ────────────────────────────────────────────────────────────
 
   it('DTO shape — 12 months, Jan→Dec periodo labels, reused ResumenMesDto shape', async () => {
+    // US-045/D-07: seed an uncategorized cargo row for USER_ID_FIJO (the
+    // account `sesion` authenticates as) in a known month (May) FIRST — the
+    // shared loginAsSeededUser fixture is NOT guaranteed to contain one for
+    // the current UTC year, so a zero-default assertion would not catch a
+    // placeholder-0 regression in the annual reduce.
+    if (ALLOW) {
+      const mayoFecha = new Date(Date.UTC(CURRENT_YEAR, 4, 10)); // May
+      const accountFijo = await seedAccount(USER_ID_FIJO, 'anual-dto-shape');
+      const ingestaFijo = await seedIngesta(
+        accountFijo,
+        'anual-dto-shape',
+        USER_ID_FIJO,
+      );
+      await seedTx({
+        accountId: accountFijo,
+        ingestaId: ingestaFijo,
+        bucketId: null, // uncategorized — cargo counted, D-07
+        cargo: 12_000n,
+        abono: 0n,
+        fecha: mayoFecha,
+      });
+    }
+
     const res = await request(app)
       .get(`/api/resumen/anual?anio=${CURRENT_YEAR}`)
       .set('x-api-key', API_KEY)
@@ -223,6 +247,13 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
       expect(typeof mes.totalIngreso).toBe('string');
       expect(typeof mes.sinIngreso).toBe('boolean');
       expect(mes.buckets).toHaveLength(4);
+      expect(typeof mes.cantidadSinCategoria).toBe('number');
+    }
+
+    if (ALLOW) {
+      // Index 4 = May — proves the annual reduce carries the REAL count
+      // through per-month, not a placeholder 0 (D-07).
+      expect(res.body.meses[4].cantidadSinCategoria).toBeGreaterThan(0);
     }
   });
 
@@ -263,6 +294,28 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
       fecha,
     });
 
+    // US-045/CA-08: 1 uncategorized cargo row for A, distinct from B's 3 —
+    // proves cantidadSinCategoria is isolated by userId at the annual
+    // endpoint boundary, not just totalIngreso/bucket totals.
+    await seedTx({
+      accountId: accountA,
+      ingestaId: ingestaA,
+      bucketId: null,
+      cargo: 5_000n,
+      abono: 0n,
+      fecha,
+    });
+    for (let i = 0; i < 3; i++) {
+      await seedTx({
+        accountId: accountB,
+        ingestaId: ingestaB,
+        bucketId: null,
+        cargo: BigInt(6_000 + i),
+        abono: 0n,
+        fecha,
+      });
+    }
+
     // Authenticate AS user A (not the shared USER_ID_FIJO session) so this
     // is a real cross-user isolation check: user A's own session must never
     // see user B's data, even though both have March income rows.
@@ -285,5 +338,8 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     // isolation were broken, user B's 9M would leak in, either replacing or
     // summing with A's total, so an exact match rules out both failure modes.
     expect(BigInt(marzo.totalIngreso)).toBe(1_000_000n);
+    // US-045/CA-08: A's cantidadSinCategoria reflects only A's 1 uncategorized
+    // cargo row — never B's 3 (isolation at the annual endpoint boundary).
+    expect(marzo.cantidadSinCategoria).toBe(1);
   });
 });
