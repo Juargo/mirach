@@ -155,6 +155,11 @@ describe('PrismaResumenAnualRepository (integration)', () => {
 
     expect(enero?.totalAbono).toBe(1_500_000n);
     expect(junio?.totalCargo).toBe(750_000n);
+    // US-045 D-07: the in-memory reduce increments cantidadCargos for cargo
+    // rows (Necesidades' row is a cargo) and leaves it at 0 for abono-only
+    // rows (Ingreso's row is an abono, never a cargo).
+    expect(enero?.cantidadCargos).toBe(0);
+    expect(junio?.cantidadCargos).toBe(1);
   });
 
   // ─── SC-03: null→SinCategoria fold (HIGHEST RISK) ─────────────────────────
@@ -190,6 +195,9 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     );
 
     expect(marzo?.totalCargo).toBe(200_000n);
+    // US-045 D-07: both cargo rows fold into the same (month, bucket) key
+    // and must ADD their counts too — 2, not 1.
+    expect(marzo?.cantidadCargos).toBe(2);
   });
 
   // ─── SC-05: empty year ─────────────────────────────────────────────────────
@@ -204,6 +212,8 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     for (const row of rows) {
       expect(row.totalCargo).toBe(0n);
       expect(row.totalAbono).toBe(0n);
+      // US-045 D-07: cantidadCargos is also pre-seeded at 0.
+      expect(row.cantidadCargos).toBe(0);
     }
   });
 

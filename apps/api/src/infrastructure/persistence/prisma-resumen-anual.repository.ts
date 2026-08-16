@@ -51,7 +51,13 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
     // always return a full set of rows (mirrors monthly repo's SC-05).
     const accum = new Map<
       string,
-      { mes: string; bucket: Bucket; totalCargo: bigint; totalAbono: bigint }
+      {
+        mes: string;
+        bucket: Bucket;
+        totalCargo: bigint;
+        totalAbono: bigint;
+        cantidadCargos: number;
+      }
     >();
     for (let mes = 1; mes <= 12; mes++) {
       const mesStr = `${anio.anio}-${String(mes).padStart(2, '0')}`;
@@ -61,6 +67,7 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
           bucket,
           totalCargo: 0n,
           totalAbono: 0n,
+          cantidadCargos: 0,
         });
       }
     }
@@ -84,11 +91,14 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
       }
 
       // CRITICAL: ADD into accumulator — do NOT overwrite (same rule as
-      // PrismaResumenMesRepository SC-03).
+      // PrismaResumenMesRepository SC-03, now including cantidadCargos —
+      // US-045 D-07). No new query: cargo > 0n is evaluated in memory
+      // against rows already fetched by the single findMany above.
       accum.set(key, {
         ...current,
         totalCargo: current.totalCargo + t.cargo,
         totalAbono: current.totalAbono + t.abono,
+        cantidadCargos: current.cantidadCargos + (t.cargo > 0n ? 1 : 0),
       });
     }
 
