@@ -307,6 +307,10 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     // rows — never B's 5 (proves isolation at the HTTP boundary, not just
     // the repository — the repository-level SC-09 already covers that).
     expect(res.body.cantidadSinCategoria).toBe(2);
+    const sinCategoria = res.body.buckets.find(
+      (b: { bucket: string }) => b.bucket === Bucket.SinCategoria,
+    );
+    expect(sinCategoria.total).toBe('25000');
   });
 
   it('GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)', async () => {
@@ -319,6 +323,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       .expect(200);
 
     expect(res.body.totalIngreso).toBe('1000000');
+    expect(res.body.cantidadSinCategoria).toBe(2);
   });
 
   it('GET /api/resumen: valid x-api-key but NO session (neither cookie nor Bearer) → 401 — no keyless fallback (ISO-01)', async () => {
