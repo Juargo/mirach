@@ -16,6 +16,13 @@ export interface BucketSumRowAnual {
   readonly bucket: Bucket;
   readonly totalCargo: bigint;
   readonly totalAbono: bigint;
+  /**
+   * US-045 (D-07): count of rows with `cargo > 0` in this bucket — never
+   * abono rows. Widens in lockstep with BucketSumRow so this type stays
+   * structurally assignable to it (CalcularResumenAnualUseCase depends on
+   * that assignability to reuse the shared monthly assembly).
+   */
+  readonly cantidadCargos: number;
 }
 
 /**

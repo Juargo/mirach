@@ -5,7 +5,7 @@ import {
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
 import type { PrismaClient } from '@prisma/client';
-import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
+import { resolverBucket } from './bucket-ids';
 
 /** "YYYY-MM" label for a UTC date, matching PeriodoMes.valor format. */
 function mesLabel(fecha: Date): string {
@@ -51,7 +51,13 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
     // always return a full set of rows (mirrors monthly repo's SC-05).
     const accum = new Map<
       string,
-      { mes: string; bucket: Bucket; totalCargo: bigint; totalAbono: bigint }
+      {
+        mes: string;
+        bucket: Bucket;
+        totalCargo: bigint;
+        totalAbono: bigint;
+        cantidadCargos: number;
+      }
     >();
     for (let mes = 1; mes <= 12; mes++) {
       const mesStr = `${anio.anio}-${String(mes).padStart(2, '0')}`;
@@ -61,19 +67,14 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
           bucket,
           totalCargo: 0n,
           totalAbono: 0n,
+          cantidadCargos: 0,
         });
       }
     }
 
     for (const t of transacciones) {
       const mesStr = mesLabel(t.fecha);
-      // Resolve physical bucketId → domain Bucket enum.
-      // null bucketId → SinCategoria (degradation from US-012).
-      // Unrecognized non-null bucketId → also SinCategoria (defensive).
-      const bucket: Bucket =
-        t.bucketId === null
-          ? Bucket.SinCategoria
-          : (BUCKET_ID_TO_BUCKET.get(t.bucketId) ?? Bucket.SinCategoria);
+      const bucket: Bucket = resolverBucket(t.bucketId);
 
       const key = `${mesStr}|${bucket}`;
       const current = accum.get(key);
@@ -84,11 +85,14 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
       }
 
       // CRITICAL: ADD into accumulator — do NOT overwrite (same rule as
-      // PrismaResumenMesRepository SC-03).
+      // PrismaResumenMesRepository SC-03, now including cantidadCargos —
+      // US-045 D-07). No new query: cargo > 0n is evaluated in memory
+      // against rows already fetched by the single findMany above.
       accum.set(key, {
         ...current,
         totalCargo: current.totalCargo + t.cargo,
         totalAbono: current.totalAbono + t.abono,
+        cantidadCargos: current.cantidadCargos + (t.cargo > 0n ? 1 : 0),
       });
     }
 

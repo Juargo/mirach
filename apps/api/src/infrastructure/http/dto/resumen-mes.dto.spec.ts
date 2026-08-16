@@ -21,6 +21,7 @@ function makeResumen(opts: {
     deseos: opts.deseos ?? 0n,
     ahorro: opts.ahorro ?? 0n,
     sinCategoria: opts.sinCategoria ?? 0n,
+    cantidadSinCategoria: 0,
   });
 }
 

@@ -29,11 +29,18 @@ export function construirResumenMesDesdeFilas(
   const ahorro = rowMap.get(Bucket.Ahorro)?.totalCargo ?? 0n;
   const sinCategoria = rowMap.get(Bucket.SinCategoria)?.totalCargo ?? 0n;
 
+  // US-045 (D-04): only SinCategoria's count is modelled onto the VO —
+  // the port carries cantidadCargos for every bucket, but the product
+  // decision narrows it down to this single slice here.
+  const cantidadSinCategoria =
+    rowMap.get(Bucket.SinCategoria)?.cantidadCargos ?? 0;
+
   return ResumenMes.crear({
     totalIngreso,
     necesidades,
     deseos,
     ahorro,
     sinCategoria,
+    cantidadSinCategoria,
   });
 }

@@ -70,6 +70,16 @@ export interface ResumenMesInput {
   readonly deseos: bigint;
   readonly ahorro: bigint;
   readonly sinCategoria: bigint;
+  /**
+   * US-045: count of uncategorized cargo transactions (cargos only — never
+   * abonos). Required, not optional (D-04): `tsc` must force every
+   * construction site to state a value rather than let a forgotten wiring
+   * path ship a silent, permanent `0` on the wire. Carried verbatim onto the
+   * VO — no computation happens here. Income-independent (D-08): must stay
+   * populated even when totalIngreso === 0n (unlike porcentajeBp, which goes
+   * null with no base to divide by).
+   */
+  readonly cantidadSinCategoria: number;
 }
 
 /**
@@ -91,16 +101,20 @@ export class ResumenMes {
   readonly buckets: ReadonlyArray<BucketSlice>;
   /** Worst traffic-light estado across Necesidades/Deseos/Ahorro (US-016). null when sinIngreso. */
   readonly estadoGlobal: EstadoSemaforo | null;
+  /** US-045: count of uncategorized cargo transactions. Carried verbatim from input — see ResumenMesInput. */
+  readonly cantidadSinCategoria: number;
 
   private constructor(
     totalIngreso: bigint,
     buckets: ReadonlyArray<BucketSlice>,
     estadoGlobal: EstadoSemaforo | null,
+    cantidadSinCategoria: number,
   ) {
     this.totalIngreso = totalIngreso;
     this.sinIngreso = totalIngreso === 0n;
     this.buckets = buckets;
     this.estadoGlobal = estadoGlobal;
+    this.cantidadSinCategoria = cantidadSinCategoria;
   }
 
   /**
@@ -130,6 +144,11 @@ export class ResumenMes {
       buckets.map((b) => b.estadoSemaforo),
     );
 
-    return new ResumenMes(input.totalIngreso, buckets, estadoGlobal);
+    return new ResumenMes(
+      input.totalIngreso,
+      buckets,
+      estadoGlobal,
+      input.cantidadSinCategoria,
+    );
   }
 }
