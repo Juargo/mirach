@@ -1,6 +1,8 @@
+import { expectTypeOf } from 'vitest';
 import { Bucket } from './bucket';
 import { EstadoSemaforo } from './estado-semaforo';
 import {
+  BucketSlice,
   porcentajeBasisPoints,
   ResumenMes,
   TARGETS_503020,
@@ -71,6 +73,7 @@ describe('ResumenMes VO', () => {
     deseos: 360_000n,
     ahorro: 300_000n,
     sinCategoria: 90_000n,
+    cantidadSinCategoria: 7,
   };
 
   it('creates a VO with correct totalIngreso and sinIngreso=false when income > 0', () => {
@@ -131,6 +134,7 @@ describe('ResumenMes VO', () => {
       deseos: 0n,
       ahorro: 0n,
       sinCategoria: 0n,
+      cantidadSinCategoria: 0,
     });
     expect(resumen.sinIngreso).toBe(true);
     expect(resumen.totalIngreso).toBe(0n);
@@ -143,6 +147,7 @@ describe('ResumenMes VO', () => {
       deseos: 50_000n,
       ahorro: 0n,
       sinCategoria: 0n,
+      cantidadSinCategoria: 0,
     });
     expect(resumen.sinIngreso).toBe(true);
     for (const slice of resumen.buckets) {
@@ -158,6 +163,7 @@ describe('ResumenMes VO', () => {
       deseos: 50_000n,
       ahorro: 0n,
       sinCategoria: 0n,
+      cantidadSinCategoria: 0,
     });
     for (const slice of resumen.buckets) {
       expect(slice.estadoSemaforo).toBeNull();
@@ -172,6 +178,7 @@ describe('ResumenMes VO', () => {
       deseos: 50_000n,
       ahorro: 0n,
       sinCategoria: 0n,
+      cantidadSinCategoria: 0,
     });
     expect(resumen.buckets[0].total).toBe(100_000n);
     expect(resumen.buckets[1].total).toBe(50_000n);
@@ -196,6 +203,7 @@ describe('ResumenMes VO', () => {
       deseos: 0n,
       ahorro: 0n,
       sinCategoria: 0n,
+      cantidadSinCategoria: 0,
     });
     expect(resumen.totalIngreso).toBe(0n);
     expect(resumen.sinIngreso).toBe(true);
@@ -214,6 +222,7 @@ describe('ResumenMes VO', () => {
       deseos: 1_000n, // 1000 bp → Verde (< 3000)
       ahorro: 2_000n, // 2000 bp → Verde (boundary)
       sinCategoria: 999n,
+      cantidadSinCategoria: 0,
     });
     expect(resumen.buckets[0].estadoSemaforo).toBe(EstadoSemaforo.Rojo);
     expect(resumen.estadoGlobal).toBe(EstadoSemaforo.Rojo);
@@ -228,8 +237,74 @@ describe('ResumenMes VO', () => {
       deseos: 3_001n, // 3001 bp → Amarillo
       ahorro: 2_000n, // 2000 bp → Verde (boundary)
       sinCategoria: 999n,
+      cantidadSinCategoria: 0,
     });
     expect(resumen.buckets[1].estadoSemaforo).toBe(EstadoSemaforo.Amarillo);
     expect(resumen.estadoGlobal).toBe(EstadoSemaforo.Amarillo);
+  });
+
+  // US-045: cantidadSinCategoria — count of uncategorized cargo transactions
+  describe('US-045: cantidadSinCategoria', () => {
+    it('is carried verbatim onto the VO (no computation)', () => {
+      const resumen = ResumenMes.crear({
+        ...spendBase,
+        cantidadSinCategoria: 7,
+      });
+      expect(resumen.cantidadSinCategoria).toBe(7);
+    });
+
+    it('defaults present (not undefined) when input is 0', () => {
+      const resumen = ResumenMes.crear({
+        ...spendBase,
+        cantidadSinCategoria: 0,
+      });
+      expect(resumen.cantidadSinCategoria).toBe(0);
+      expect('cantidadSinCategoria' in resumen).toBe(true);
+    });
+
+    // D-08: the count is income-independent — must NOT be nulled alongside
+    // the SinCategoria percentage when totalIngreso === 0n.
+    it('D-08: 0-income month with uncategorized cargos still reports the real count', () => {
+      const resumen = ResumenMes.crear({
+        totalIngreso: 0n,
+        necesidades: 0n,
+        deseos: 0n,
+        ahorro: 0n,
+        sinCategoria: 90_000n,
+        cantidadSinCategoria: 7,
+      });
+      const sinCategoria = resumen.buckets.find(
+        (b) => b.bucket === Bucket.SinCategoria,
+      );
+      expect(resumen.sinIngreso).toBe(true);
+      expect(sinCategoria?.porcentajeBp).toBeNull();
+      expect(resumen.cantidadSinCategoria).toBe(7);
+    });
+
+    // D-09 regression guard: the count must never perturb the semáforo.
+    it('D-09: identical resumenes differing only by the count produce identical semáforo output', () => {
+      const conCount = ResumenMes.crear({
+        ...spendBase,
+        cantidadSinCategoria: 7,
+      });
+      const sinCount = ResumenMes.crear({
+        ...spendBase,
+        cantidadSinCategoria: 0,
+      });
+
+      expect(conCount.estadoGlobal).toBe(sinCount.estadoGlobal);
+      conCount.buckets.forEach((slice, i) => {
+        expect(slice.estadoSemaforo).toBe(sinCount.buckets[i].estadoSemaforo);
+      });
+    });
+
+    // D-04 ISP guard: BucketSlice must NEVER gain a per-bucket count field —
+    // only the top-level VO carries cantidadSinCategoria.
+    it('D-04: BucketSlice type has no count key (compile-time ISP guard)', () => {
+      expectTypeOf<keyof BucketSlice>().not.toMatchTypeOf<'cantidadCargos'>();
+      expectTypeOf<
+        keyof BucketSlice
+      >().not.toMatchTypeOf<'cantidadSinCategoria'>();
+    });
   });
 });

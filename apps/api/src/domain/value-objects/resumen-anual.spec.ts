@@ -16,6 +16,7 @@ function unResumenMesVacio(): ResumenMes {
     deseos: 0n,
     ahorro: 0n,
     sinCategoria: 0n,
+    cantidadSinCategoria: 0,
   });
 }
 
