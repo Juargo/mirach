@@ -14,6 +14,7 @@ function makeResumen(opts: {
   deseos?: bigint;
   ahorro?: bigint;
   sinCategoria?: bigint;
+  cantidadSinCategoria?: number;
 }): ResumenMes {
   return ResumenMes.crear({
     totalIngreso: opts.totalIngreso,
@@ -21,7 +22,7 @@ function makeResumen(opts: {
     deseos: opts.deseos ?? 0n,
     ahorro: opts.ahorro ?? 0n,
     sinCategoria: opts.sinCategoria ?? 0n,
-    cantidadSinCategoria: 0,
+    cantidadSinCategoria: opts.cantidadSinCategoria ?? 0,
   });
 }
 
@@ -235,6 +236,56 @@ describe('aResumenMesDto', () => {
 
       for (const bucket of dto.buckets) {
         expect(typeof bucket.total).toBe('string');
+      }
+    });
+  });
+
+  // ── US-045: cantidadSinCategoria (Phase 5, design D-02) ────────────────────
+
+  describe('US-045: cantidadSinCategoria top-level scalar (D-02)', () => {
+    it('is always present as a key, even when 0', () => {
+      const resumen = makeResumen({ totalIngreso: 1_000_000n });
+      const dto = aResumenMesDto('2026-07', resumen);
+
+      expect('cantidadSinCategoria' in dto).toBe(true);
+      expect(dto.cantidadSinCategoria).toBe(0);
+    });
+
+    it('is a JS number, never a string', () => {
+      const resumen = makeResumen({
+        totalIngreso: 1_000_000n,
+        sinCategoria: 90_000n,
+        cantidadSinCategoria: 7,
+      });
+      const dto = aResumenMesDto('2026-07', resumen);
+
+      expect(typeof dto.cantidadSinCategoria).toBe('number');
+    });
+
+    it('equals the VO value verbatim', () => {
+      const resumen = makeResumen({
+        totalIngreso: 1_000_000n,
+        sinCategoria: 90_000n,
+        cantidadSinCategoria: 7,
+      });
+      const dto = aResumenMesDto('2026-07', resumen);
+
+      expect(dto.cantidadSinCategoria).toBe(resumen.cantidadSinCategoria);
+      expect(dto.cantidadSinCategoria).toBe(7);
+    });
+
+    it('BucketResumenDto entries still have exactly the 4 known keys (ISP boundary, D-02)', () => {
+      const resumen = makeResumen({
+        totalIngreso: 1_000_000n,
+        sinCategoria: 90_000n,
+        cantidadSinCategoria: 7,
+      });
+      const dto = aResumenMesDto('2026-07', resumen);
+
+      for (const bucket of dto.buckets) {
+        expect(Object.keys(bucket).sort()).toEqual(
+          ['bucket', 'estadoSemaforo', 'porcentajeBp', 'total'].sort(),
+        );
       }
     });
   });
