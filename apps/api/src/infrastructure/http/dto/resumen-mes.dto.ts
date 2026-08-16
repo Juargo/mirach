@@ -32,6 +32,10 @@ export interface BucketResumenDto {
  * estadoGlobal: worst traffic-light state across measured buckets (US-016).
  *   - lowercase: 'verde' | 'amarillo' | 'rojo' | null
  *   - null when sinIngreso=true.
+ * cantidadSinCategoria: US-045 — count of uncategorized cargo transactions.
+ *   - top-level scalar (design D-02), NOT a field on BucketResumenDto — keeps
+ *     that shape uniform across all four bucket slices (ISP).
+ *   - always present, JS number (row count, not money — D-03).
  */
 export interface ResumenMesDto {
   readonly periodo: string;
@@ -44,6 +48,7 @@ export interface ResumenMesDto {
     readonly Ahorro: number;
   };
   readonly estadoGlobal: string | null;
+  readonly cantidadSinCategoria: number;
 }
 
 /**
@@ -92,5 +97,6 @@ export function aResumenMesDto(
       [Bucket.Ahorro]: TARGETS_503020[Bucket.Ahorro]!,
     },
     estadoGlobal: aWire(resumen.estadoGlobal),
+    cantidadSinCategoria: resumen.cantidadSinCategoria,
   };
 }

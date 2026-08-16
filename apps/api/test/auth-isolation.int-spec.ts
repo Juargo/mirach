@@ -165,7 +165,9 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       })
     ).id;
 
-    // A's data — modest amounts.
+    // A's data — modest amounts. Includes 2 uncategorized (null-bucket)
+    // cargo rows — ISO-02 delta (US-045): A's cantidadSinCategoria must be
+    // 2, never contaminated by B's count below.
     await prisma.transaccion.createMany({
       data: [
         {
@@ -186,10 +188,31 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
           fecha: MID_MONTH_DATE,
           descripcion: crypto.encrypt(`Necesidad A ${RUN_ID}`),
         },
+        {
+          accountId: accountIdA,
+          ingestaId: ingestaIdA,
+          bucketId: null,
+          cargo: 10_000n,
+          abono: 0n,
+          fecha: MID_MONTH_DATE,
+          descripcion: crypto.encrypt(`SinCategoria A 1 ${RUN_ID}`),
+        },
+        {
+          accountId: accountIdA,
+          ingestaId: ingestaIdA,
+          bucketId: null,
+          cargo: 15_000n,
+          abono: 0n,
+          fecha: MID_MONTH_DATE,
+          descripcion: crypto.encrypt(`SinCategoria A 2 ${RUN_ID}`),
+        },
       ],
     });
 
-    // B's data — large amounts, must NEVER leak into A's results.
+    // B's data — large amounts, must NEVER leak into A's results. 5
+    // uncategorized cargo rows (deliberately a DIFFERENT count than A's 2)
+    // so the isolation assert genuinely proves per-user scoping, not a
+    // coincidental match.
     await prisma.transaccion.createMany({
       data: [
         {
@@ -210,6 +233,15 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
           fecha: MID_MONTH_DATE,
           descripcion: crypto.encrypt(`Necesidad B ${RUN_ID}`),
         },
+        ...Array.from({ length: 5 }, (_, i) => ({
+          accountId: accountIdB,
+          ingestaId: ingestaIdB,
+          bucketId: null,
+          cargo: BigInt(20_000 + i),
+          abono: 0n,
+          fecha: MID_MONTH_DATE,
+          descripcion: crypto.encrypt(`SinCategoria B ${i} ${RUN_ID}`),
+        })),
       ],
     });
 
@@ -271,6 +303,14 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       (b: { bucket: string }) => b.bucket === Bucket.Necesidades,
     );
     expect(necesidades.total).toBe('200000');
+    // US-045 ISO-02 delta: A's count reflects only A's 2 uncategorized cargo
+    // rows — never B's 5 (proves isolation at the HTTP boundary, not just
+    // the repository — the repository-level SC-09 already covers that).
+    expect(res.body.cantidadSinCategoria).toBe(2);
+    const sinCategoria = res.body.buckets.find(
+      (b: { bucket: string }) => b.bucket === Bucket.SinCategoria,
+    );
+    expect(sinCategoria.total).toBe('25000');
   });
 
   it('GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)', async () => {
@@ -283,6 +323,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       .expect(200);
 
     expect(res.body.totalIngreso).toBe('1000000');
+    expect(res.body.cantidadSinCategoria).toBe(2);
   });
 
   it('GET /api/resumen: valid x-api-key but NO session (neither cookie nor Bearer) → 401 — no keyless fallback (ISO-01)', async () => {

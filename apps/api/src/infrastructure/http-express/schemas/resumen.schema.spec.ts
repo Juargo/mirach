@@ -48,6 +48,7 @@ function makeResumen(opts: {
   deseos?: bigint;
   ahorro?: bigint;
   sinCategoria?: bigint;
+  cantidadSinCategoria?: number;
 }): ResumenMes {
   return ResumenMes.crear({
     totalIngreso: opts.totalIngreso,
@@ -55,7 +56,7 @@ function makeResumen(opts: {
     deseos: opts.deseos ?? 0n,
     ahorro: opts.ahorro ?? 0n,
     sinCategoria: opts.sinCategoria ?? 0n,
-    cantidadSinCategoria: 0,
+    cantidadSinCategoria: opts.cantidadSinCategoria ?? 0,
   });
 }
 
@@ -129,5 +130,34 @@ describe('resumenResponseSchema (sync guarantee)', () => {
     };
 
     expect(() => resumenResponseSchema.parse(invalid)).toThrow();
+  });
+
+  // ── US-045: cantidadSinCategoria (Phase 6, design D-06) ────────────────────
+
+  describe('US-045: cantidadSinCategoria (D-06 — required field)', () => {
+    const validPayload = {
+      periodo: '2026-07',
+      totalIngreso: '1500000',
+      sinIngreso: false,
+      buckets: [],
+      targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
+      estadoGlobal: null,
+      cantidadSinCategoria: 7,
+    };
+
+    it('rejects a payload where cantidadSinCategoria is a string', () => {
+      const invalid = { ...validPayload, cantidadSinCategoria: '7' };
+      expect(() => resumenResponseSchema.parse(invalid)).toThrow();
+    });
+
+    it('rejects a payload missing cantidadSinCategoria (proves required)', () => {
+      const { cantidadSinCategoria: _omit, ...withoutField } = validPayload;
+      expect(() => resumenResponseSchema.parse(withoutField)).toThrow();
+    });
+
+    it('accepts 0', () => {
+      const payload = { ...validPayload, cantidadSinCategoria: 0 };
+      expect(() => resumenResponseSchema.parse(payload)).not.toThrow();
+    });
   });
 });

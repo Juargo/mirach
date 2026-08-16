@@ -20,6 +20,7 @@ const RESUMEN_MES_OK = {
   sinIngreso: true,
   buckets: [],
   estadoGlobal: null,
+  cantidadSinCategoria: 0,
 };
 
 function fakeContainer(): Container {

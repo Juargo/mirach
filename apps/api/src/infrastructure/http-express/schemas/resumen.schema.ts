@@ -68,6 +68,13 @@ export const resumenResponseSchema = z
       .enum(['verde', 'amarillo', 'rojo'])
       .nullable()
       .describe('Worst traffic-light state across measured buckets, or null.'),
+    cantidadSinCategoria: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe(
+        'US-045: count of uncategorized cargo transactions (row count, not money). Always present.',
+      ),
   })
   .meta({
     id: 'ResumenMesResponse',

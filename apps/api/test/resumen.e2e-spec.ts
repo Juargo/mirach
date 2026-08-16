@@ -287,6 +287,8 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     if (res.body.estadoGlobal !== null) {
       expect(['verde', 'amarillo', 'rojo']).toContain(res.body.estadoGlobal);
     }
+    // US-045: cantidadSinCategoria top-level scalar, always a JS number (D-02/D-03)
+    expect(typeof res.body.cantidadSinCategoria).toBe('number');
   });
 
   // ── SC-04: sinIngreso=true shape ───────────────────────────────────────────
@@ -310,6 +312,9 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     }
     // US-016 SC-SI-01: estadoGlobal null when sinIngreso=true
     expect(res.body.estadoGlobal).toBeNull();
+    // US-045/CA-01: cantidadSinCategoria present and 0 on an empty month —
+    // never omitted, never null (D-01's "always present" evidence).
+    expect(res.body.cantidadSinCategoria).toBe(0);
   });
 
   // ── SC-09: user isolation (MANDATORY RNF-SEC-006) ─────────────────────────

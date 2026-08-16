@@ -717,6 +717,12 @@
             },
             "type": "array"
           },
+          "cantidadSinCategoria": {
+            "description": "US-045: count of uncategorized cargo transactions (row count, not money). Always present.",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
           "estadoGlobal": {
             "anyOf": [
               {
@@ -772,7 +778,8 @@
           "sinIngreso",
           "buckets",
           "targets",
-          "estadoGlobal"
+          "estadoGlobal",
+          "cantidadSinCategoria"
         ],
         "type": "object"
       },
