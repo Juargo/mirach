@@ -27,37 +27,72 @@ const SEVERIDAD: Record<EstadoSemaforo, number> = {
 };
 
 /**
- * estadoUnilateral — one-sided "≤ target is best" rule for Necesidades and Deseos.
+ * BandasBucket — the zone-band edges (and 50/30/20 target center) for a
+ * single spend bucket, in basis points.
  *
- *   bp ≤ verdeMax            → Verde
- *   verdeMax < bp ≤ amarMax  → Amarillo
- *   bp > amarMax             → Rojo
- *
- * Greener boundary is INCLUSIVE (design locked decision).
+ * null on `verdeMin`/`amarilloMin` means "no lower bound" — the unilateral
+ * "≤ target is best" buckets (Necesidades, Deseos). Ahorro is bidirectional
+ * and uses all 4 edges.
  */
-function estadoUnilateral(
-  bp: bigint,
-  verdeMax: bigint,
-  amarMax: bigint,
-): EstadoSemaforo {
-  if (bp <= verdeMax) return EstadoSemaforo.Verde;
-  if (bp <= amarMax) return EstadoSemaforo.Amarillo;
-  return EstadoSemaforo.Rojo;
+export interface BandasBucket {
+  /** null ⇒ no lower bound (unilateral "≤ target is best" buckets). */
+  readonly verdeMin: bigint | null;
+  readonly verdeMax: bigint;
+  /** null ⇒ no lower amarillo band (unilateral buckets). */
+  readonly amarilloMin: bigint | null;
+  readonly amarilloMax: bigint;
+  /** 50/30/20 target CENTER in basis points. */
+  readonly metaBp: bigint;
 }
 
 /**
- * estadoAhorro — bidirectional band rule for Ahorro (20% target = 2000bp).
- *
- * Verde zone: 2000 ≤ bp ≤ 4000  (within ±10% of target)
- * Amarillo:   1000 ≤ bp < 2000  OR  4000 < bp ≤ 5000  (within ±10% warning band)
- * Rojo:       bp < 1000  OR  bp > 5000  (critically off-target)
- *
- * All 4 band edges are INCLUSIVE on the greener side (spec SC-A-01..08).
+ * BANDAS_SEMAFORO — the SINGLE source of truth for zone-band edges and
+ * 50/30/20 targets, per spend bucket. `calcularEstadoBucket` below reads
+ * this table directly (US-049 design §1.1) — there is no second,
+ * independently-derived copy of these 8 threshold constants anywhere.
  */
-function estadoAhorro(bp: bigint): EstadoSemaforo {
-  if (bp >= 2000n && bp <= 4000n) return EstadoSemaforo.Verde;
-  if ((bp >= 1000n && bp < 2000n) || (bp > 4000n && bp <= 5000n))
-    return EstadoSemaforo.Amarillo;
+export const BANDAS_SEMAFORO = Object.freeze({
+  [Bucket.Necesidades]: {
+    verdeMin: null,
+    verdeMax: 5000n,
+    amarilloMin: null,
+    amarilloMax: 6000n,
+    metaBp: 5000n,
+  },
+  [Bucket.Deseos]: {
+    verdeMin: null,
+    verdeMax: 3000n,
+    amarilloMin: null,
+    amarilloMax: 4000n,
+    metaBp: 3000n,
+  },
+  [Bucket.Ahorro]: {
+    verdeMin: 2000n,
+    verdeMax: 4000n,
+    amarilloMin: 1000n,
+    amarilloMax: 5000n,
+    metaBp: 2000n,
+  },
+} as const satisfies Record<
+  Bucket.Necesidades | Bucket.Deseos | Bucket.Ahorro,
+  BandasBucket
+>);
+
+/**
+ * estadoDesdeBandas — table-driven traffic-light classification.
+ *
+ * Reads a single `BandasBucket` and applies the SAME greener-side-inclusive
+ * rule for both the unilateral case (`verdeMin`/`amarilloMin` null) and the
+ * bidirectional Ahorro case (all 4 edges set) — replacing the former
+ * `estadoUnilateral`/`estadoAhorro` pair (US-049 design §1.1, equivalence
+ * table verified case by case against the 33 pre-existing tests).
+ */
+function estadoDesdeBandas(bp: bigint, b: BandasBucket): EstadoSemaforo {
+  const enVerde = (b.verdeMin === null || bp >= b.verdeMin) && bp <= b.verdeMax;
+  if (enVerde) return EstadoSemaforo.Verde;
+  const enAmarillo =
+    (b.amarilloMin === null || bp >= b.amarilloMin) && bp <= b.amarilloMax;
+  if (enAmarillo) return EstadoSemaforo.Amarillo;
   return EstadoSemaforo.Rojo;
 }
 
@@ -66,27 +101,16 @@ function estadoAhorro(bp: bigint): EstadoSemaforo {
  *
  * Rules:
  * - porcentajeBp === null (sinIngreso)   → null (no income, no meaningful state)
- * - Bucket.SinCategoria (any bp)         → null (no rule defined in MVP)
- * - Bucket.Necesidades                   → estadoUnilateral(bp, 5000n, 6000n)
- * - Bucket.Deseos                        → estadoUnilateral(bp, 3000n, 4000n)
- * - Bucket.Ahorro                        → estadoAhorro(bp)
- * - Any other bucket (Ingreso, etc.)     → null (not a spend bucket with a rule)
+ * - bucket not in BANDAS_SEMAFORO        → null (SinCategoria, Ingreso, etc. — no rule defined)
+ * - bucket in BANDAS_SEMAFORO            → estadoDesdeBandas(bp, BANDAS_SEMAFORO[bucket])
  */
 export function calcularEstadoBucket(
   bucket: Bucket,
   porcentajeBp: bigint | null,
 ): EstadoSemaforo | null {
   if (porcentajeBp === null) return null;
-  switch (bucket) {
-    case Bucket.Necesidades:
-      return estadoUnilateral(porcentajeBp, 5000n, 6000n);
-    case Bucket.Deseos:
-      return estadoUnilateral(porcentajeBp, 3000n, 4000n);
-    case Bucket.Ahorro:
-      return estadoAhorro(porcentajeBp);
-    default:
-      return null;
-  }
+  const bandas = BANDAS_SEMAFORO[bucket as keyof typeof BANDAS_SEMAFORO];
+  return bandas === undefined ? null : estadoDesdeBandas(porcentajeBp, bandas);
 }
 
 /**

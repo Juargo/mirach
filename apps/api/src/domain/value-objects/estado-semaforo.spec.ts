@@ -1,5 +1,7 @@
 import { Bucket } from './bucket';
+import { TARGETS_503020 } from './resumen-mes';
 import {
+  BANDAS_SEMAFORO,
   EstadoSemaforo,
   calcularEstadoBucket,
   calcularEstadoGlobal,
@@ -223,5 +225,56 @@ describe('calcularEstadoGlobal (SC-G-01..07)', () => {
     expect(calcularEstadoGlobal([null, null, EstadoSemaforo.Verde])).toBe(
       EstadoSemaforo.Verde,
     );
+  });
+});
+
+describe('BANDAS_SEMAFORO — single threshold table (US-049 design §1.1)', () => {
+  it('has exactly 3 entries (Necesidades, Deseos, Ahorro)', () => {
+    expect(Object.keys(BANDAS_SEMAFORO)).toHaveLength(3);
+    expect(Object.keys(BANDAS_SEMAFORO).sort()).toEqual(
+      [Bucket.Necesidades, Bucket.Deseos, Bucket.Ahorro].sort(),
+    );
+  });
+
+  it('Necesidades matches the 8 documented constants: verdeMin=null, verdeMax=5000, amarilloMin=null, amarilloMax=6000, metaBp=5000', () => {
+    expect(BANDAS_SEMAFORO[Bucket.Necesidades]).toEqual({
+      verdeMin: null,
+      verdeMax: 5000n,
+      amarilloMin: null,
+      amarilloMax: 6000n,
+      metaBp: 5000n,
+    });
+  });
+
+  it('Deseos matches the 8 documented constants: verdeMin=null, verdeMax=3000, amarilloMin=null, amarilloMax=4000, metaBp=3000', () => {
+    expect(BANDAS_SEMAFORO[Bucket.Deseos]).toEqual({
+      verdeMin: null,
+      verdeMax: 3000n,
+      amarilloMin: null,
+      amarilloMax: 4000n,
+      metaBp: 3000n,
+    });
+  });
+
+  it('Ahorro matches the 8 documented constants: verdeMin=2000, verdeMax=4000, amarilloMin=1000, amarilloMax=5000, metaBp=2000', () => {
+    expect(BANDAS_SEMAFORO[Bucket.Ahorro]).toEqual({
+      verdeMin: 2000n,
+      verdeMax: 4000n,
+      amarilloMin: 1000n,
+      amarilloMax: 5000n,
+      metaBp: 2000n,
+    });
+  });
+
+  it('metaBp matches TARGETS_503020*100 for all 3 buckets (no drift between the two 50/30/20 sources)', () => {
+    for (const bucket of [
+      Bucket.Necesidades,
+      Bucket.Deseos,
+      Bucket.Ahorro,
+    ] as const) {
+      expect(TARGETS_503020[bucket]! * 100).toBe(
+        Number(BANDAS_SEMAFORO[bucket].metaBp),
+      );
+    }
   });
 });
