@@ -14,6 +14,13 @@ export interface BucketSumRow {
   readonly bucket: Bucket;
   readonly totalCargo: bigint;
   readonly totalAbono: bigint;
+  /**
+   * US-045 (D-05): count of rows with `cargo > 0` in this bucket — never
+   * abono rows. Reported uniformly for all five buckets (a raw aggregation
+   * row does not pick and choose); the domain layer narrows this down to
+   * only SinCategoria (D-04).
+   */
+  readonly cantidadCargos: number;
 }
 
 /**

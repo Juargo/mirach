@@ -20,11 +20,41 @@ function makeMockReader(rows: BucketSumRowAnual[]): IResumenAnualReader {
 
 function rowsFor(mes: string): BucketSumRowAnual[] {
   return [
-    { mes, bucket: Bucket.Ingreso, totalCargo: 0n, totalAbono: 1_000_000n },
-    { mes, bucket: Bucket.Necesidades, totalCargo: 500_000n, totalAbono: 0n },
-    { mes, bucket: Bucket.Deseos, totalCargo: 300_000n, totalAbono: 0n },
-    { mes, bucket: Bucket.Ahorro, totalCargo: 200_000n, totalAbono: 0n },
-    { mes, bucket: Bucket.SinCategoria, totalCargo: 0n, totalAbono: 0n },
+    {
+      mes,
+      bucket: Bucket.Ingreso,
+      totalCargo: 0n,
+      totalAbono: 1_000_000n,
+      cantidadCargos: 0,
+    },
+    {
+      mes,
+      bucket: Bucket.Necesidades,
+      totalCargo: 500_000n,
+      totalAbono: 0n,
+      cantidadCargos: 2,
+    },
+    {
+      mes,
+      bucket: Bucket.Deseos,
+      totalCargo: 300_000n,
+      totalAbono: 0n,
+      cantidadCargos: 1,
+    },
+    {
+      mes,
+      bucket: Bucket.Ahorro,
+      totalCargo: 200_000n,
+      totalAbono: 0n,
+      cantidadCargos: 1,
+    },
+    {
+      mes,
+      bucket: Bucket.SinCategoria,
+      totalCargo: 0n,
+      totalAbono: 0n,
+      cantidadCargos: 3,
+    },
   ];
 }
 
@@ -47,6 +77,9 @@ describe('CalcularResumenAnualUseCase', () => {
       for (const mes of resumenAnual.meses) {
         expect(mes.totalIngreso).toBe(1_000_000n);
         expect(mes.sinIngreso).toBe(false);
+        // US-045 (D-07): cantidadCargos widens BucketSumRowAnual and
+        // propagates through the shared assembly, per month.
+        expect(mes.cantidadSinCategoria).toBe(3);
       }
     });
 
@@ -73,12 +106,14 @@ describe('CalcularResumenAnualUseCase', () => {
           bucket: Bucket.Ingreso,
           totalCargo: 0n,
           totalAbono: 1_000_000n,
+          cantidadCargos: 0,
         },
         {
           mes: '2026-01',
           bucket: Bucket.Necesidades,
           totalCargo: 500_000n,
           totalAbono: 0n,
+          cantidadCargos: 2,
         },
       ];
       const reader = makeMockReader(rows);
@@ -109,6 +144,8 @@ describe('CalcularResumenAnualUseCase', () => {
       expect(ahorro?.porcentajeBp).toBe(0n);
       expect(sinCategoria?.total).toBe(0n);
       expect(sinCategoria?.porcentajeBp).toBe(0n);
+      // SinCategoria row genuinely absent from the reader's result → count defaults to 0
+      expect(enero.cantidadSinCategoria).toBe(0);
     });
   });
 
@@ -126,9 +163,11 @@ describe('CalcularResumenAnualUseCase', () => {
 
       expect(enero.totalIngreso).toBe(1_000_000n);
       expect(enero.sinIngreso).toBe(false);
+      expect(enero.cantidadSinCategoria).toBe(3);
 
       expect(febrero.totalIngreso).toBe(0n);
       expect(febrero.sinIngreso).toBe(true);
+      expect(febrero.cantidadSinCategoria).toBe(0);
 
       for (const mes of resto) {
         expect(mes.sinIngreso).toBe(true);

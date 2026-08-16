@@ -16,20 +16,27 @@ function makeMockReader(rows: BucketSumRow[]): IResumenMesReader {
 }
 
 function allBucketRows(
-  overrides: Partial<Record<Bucket, { cargo?: bigint; abono?: bigint }>> = {},
+  overrides: Partial<
+    Record<Bucket, { cargo?: bigint; abono?: bigint; cantidadCargos?: number }>
+  > = {},
 ): BucketSumRow[] {
-  const defaults: Record<Bucket, { cargo: bigint; abono: bigint }> = {
-    [Bucket.Ingreso]: { cargo: 0n, abono: 1_500_000n },
-    [Bucket.Necesidades]: { cargo: 750_000n, abono: 0n },
-    [Bucket.Deseos]: { cargo: 360_000n, abono: 0n },
-    [Bucket.Ahorro]: { cargo: 300_000n, abono: 0n },
-    [Bucket.SinCategoria]: { cargo: 90_000n, abono: 0n },
+  const defaults: Record<
+    Bucket,
+    { cargo: bigint; abono: bigint; cantidadCargos: number }
+  > = {
+    [Bucket.Ingreso]: { cargo: 0n, abono: 1_500_000n, cantidadCargos: 0 },
+    [Bucket.Necesidades]: { cargo: 750_000n, abono: 0n, cantidadCargos: 3 },
+    [Bucket.Deseos]: { cargo: 360_000n, abono: 0n, cantidadCargos: 2 },
+    [Bucket.Ahorro]: { cargo: 300_000n, abono: 0n, cantidadCargos: 1 },
+    [Bucket.SinCategoria]: { cargo: 90_000n, abono: 0n, cantidadCargos: 7 },
   };
 
   return (Object.keys(defaults) as Bucket[]).map((bucket) => ({
     bucket,
     totalCargo: overrides[bucket]?.cargo ?? defaults[bucket].cargo,
     totalAbono: overrides[bucket]?.abono ?? defaults[bucket].abono,
+    cantidadCargos:
+      overrides[bucket]?.cantidadCargos ?? defaults[bucket].cantidadCargos,
   }));
 }
 
@@ -51,6 +58,8 @@ describe('CalcularResumenMesUseCase', () => {
       expect(deseos.porcentajeBp).toBe(2400n); // 24.00%
       expect(ahorro.porcentajeBp).toBe(2000n); // 20.00%
       expect(sinCat.porcentajeBp).toBe(600n); // 6.00%
+      // US-045: SinCategoria's cantidadCargos row value carries onto the VO
+      expect(resumen.cantidadSinCategoria).toBe(7);
     });
 
     it('returns the resolved periodo string', async () => {
@@ -69,8 +78,18 @@ describe('CalcularResumenMesUseCase', () => {
       // The use case receives already-folded rows from the reader (port contract).
       // Fold correctness is tested at the repository layer.
       const rows: BucketSumRow[] = [
-        { bucket: Bucket.Ingreso, totalCargo: 0n, totalAbono: 1_000_000n },
-        { bucket: Bucket.SinCategoria, totalCargo: 200_000n, totalAbono: 0n },
+        {
+          bucket: Bucket.Ingreso,
+          totalCargo: 0n,
+          totalAbono: 1_000_000n,
+          cantidadCargos: 0,
+        },
+        {
+          bucket: Bucket.SinCategoria,
+          totalCargo: 200_000n,
+          totalAbono: 0n,
+          cantidadCargos: 4,
+        },
       ];
       const reader = makeMockReader(rows);
       const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
@@ -84,13 +103,19 @@ describe('CalcularResumenMesUseCase', () => {
       );
       expect(sinCat?.total).toBe(200_000n);
       expect(sinCat?.porcentajeBp).toBe(2000n); // 200000/1000000 = 20.00%
+      expect(resumen.cantidadSinCategoria).toBe(4);
     });
   });
 
   describe('sinIngreso path (SC-04): no income', () => {
     it('returns ok with sinIngreso=true and all porcentajeBp=null when no Ingreso row', async () => {
       const rows: BucketSumRow[] = [
-        { bucket: Bucket.Necesidades, totalCargo: 100_000n, totalAbono: 0n },
+        {
+          bucket: Bucket.Necesidades,
+          totalCargo: 100_000n,
+          totalAbono: 0n,
+          cantidadCargos: 1,
+        },
       ];
       const reader = makeMockReader(rows);
       const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
@@ -104,6 +129,8 @@ describe('CalcularResumenMesUseCase', () => {
       for (const slice of resumen.buckets) {
         expect(slice.porcentajeBp).toBeNull();
       }
+      // No SinCategoria row in the reader's result → count defaults to 0
+      expect(resumen.cantidadSinCategoria).toBe(0);
     });
 
     it('is NOT a Result.fail — sinIngreso is a valid data state, not an error (SC-04)', async () => {
@@ -185,8 +212,18 @@ describe('CalcularResumenMesUseCase', () => {
     it('base is computed from Ingreso totalAbono, NOT totalCargo', async () => {
       // Ingreso row has cargo=999n (should be ignored for base) and abono=1_000_000n
       const rows: BucketSumRow[] = [
-        { bucket: Bucket.Ingreso, totalCargo: 999n, totalAbono: 1_000_000n },
-        { bucket: Bucket.Necesidades, totalCargo: 500_000n, totalAbono: 0n },
+        {
+          bucket: Bucket.Ingreso,
+          totalCargo: 999n,
+          totalAbono: 1_000_000n,
+          cantidadCargos: 0,
+        },
+        {
+          bucket: Bucket.Necesidades,
+          totalCargo: 500_000n,
+          totalAbono: 0n,
+          cantidadCargos: 2,
+        },
       ];
       const reader = makeMockReader(rows);
       const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
