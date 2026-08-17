@@ -15,6 +15,9 @@ allowBuilds:
 # @commitlint/cli (ADR-020) — cosmiconfig→js-yaml y config-validator→ajv→fast-uri
 overrides:
   uuid: '>=11.1.1'
+  # GHSA advisory 2026-08-17: stack exhaustion on recursive object graphs (high).
+  # Pulled in via @prisma/config -> prisma; v8 patches it.
+  deepmerge-ts: '>=8.0.0'
   # Piso subido a 4.3.1: GHSA-5p4m-2wfm-xmqj (!!omap CPU cuadrático, high)
   js-yaml: '>=4.3.1 <5.0.0'
   fast-uri: '>=3.1.4 <4.0.0'
