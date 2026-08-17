@@ -281,6 +281,18 @@ describe('buildOpenApiDocument', () => {
     expect(callbackPath?.get?.responses?.['302']).toBeDefined();
   });
 
+  it('registers GET /api/resumen/semaforo with a periodo query param and a response schema (US-049)', () => {
+    const document = buildOpenApiDocument();
+
+    const semaforoPath = document.paths?.['/api/resumen/semaforo'];
+    expect(semaforoPath).toBeDefined();
+    expect(semaforoPath?.get).toBeDefined();
+    expect(semaforoPath?.get?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'periodo' })]),
+    );
+    expect(semaforoPath?.get?.responses?.['200']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

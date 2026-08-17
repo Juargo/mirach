@@ -10,6 +10,10 @@ import {
 import { versionResponseSchema } from './version.schema';
 import { resumenQuerySchema, resumenResponseSchema } from './resumen.schema';
 import {
+  semaforoDetalleQuerySchema,
+  semaforoDetalleResponseSchema,
+} from './semaforo-detalle.schema';
+import {
   resumenAnualQuerySchema,
   resumenAnualResponseSchema,
 } from './resumen-anual.schema';
@@ -1037,6 +1041,32 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const semaforoDetalleOperation: ZodOpenApiOperationObject = {
+  summary:
+    'Semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice',
+  description:
+    'Authenticated sibling detail endpoint to GET /api/resumen (US-049): exposes the semáforo ' +
+    "classification's WHY and WHAT-TO-DO — per-bucket zone-band edges, a backend-generated " +
+    'Spanish diagnosis naming the driving bucket(s), and a CLP amount+direction that would ' +
+    'return each Amarillo/Rojo bucket to Verde. Requires x-api-key + a valid session ' +
+    '(RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
+  requestParams: {
+    query: semaforoDetalleQuerySchema,
+  },
+  responses: {
+    '200': {
+      description: 'Semáforo detail for the resolved period.',
+      content: {
+        'application/json': { schema: semaforoDetalleResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO).',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -1083,6 +1113,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/perfil/google/desvincular': {
     post: perfilGoogleDesvincularOperation,
   },
+  '/api/resumen/semaforo': { get: semaforoDetalleOperation },
 };
 
 export function buildOpenApiDocument() {
