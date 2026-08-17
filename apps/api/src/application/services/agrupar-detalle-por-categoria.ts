@@ -1,6 +1,25 @@
 import { DetalleBucketRow } from '../ports/detalle-bucket.port';
 
 /**
+ * TransaccionDetalleBucketMes — proyección de transacción del detalle
+ * MES-BUCKET en el borde de la aplicación (US-051).
+ *
+ * Gate PR1 (MBD-08/ADR-015): SOLO {id, fecha, descripcion, monto} — la PII de
+ * la cuenta (banco/tipoCuenta/numeroCuenta) se recorta AQUÍ, en el límite
+ * application/infrastructure, no en el DTO: cualquier caller del use case
+ * nunca puede verla. `monto` = cargo del row (el DTO lo serializa como
+ * String — D-06).
+ */
+export interface TransaccionDetalleBucketMes {
+  readonly id: string;
+  readonly fecha: Date;
+  readonly descripcion: string;
+  /** Monto = cargo del row. El allowlist del use case excluye Ingreso, así
+   *  que nunca hay abono aquí (D-08). BigInt hasta el DTO (CA-05). */
+  readonly monto: bigint;
+}
+
+/**
  * GrupoDetalleCategoria — grupo de transacciones del detalle MES-BUCKET
  * (US-051) con el subtotal en BigInt (la serialización a string ocurre solo
  * en el DTO HTTP — D-06).
@@ -11,15 +30,16 @@ export interface GrupoDetalleCategoria {
   readonly nombre: string;
   readonly subtotal: bigint;
   readonly conteo: number;
-  /** Orden del reader preservado (fecha asc, id asc) — no se re-ordena. */
-  readonly transacciones: ReadonlyArray<DetalleBucketRow>;
+  /** Proyección recortada sin PII (MBD-08); orden del reader preservado
+   *  (fecha asc, id asc) — no se re-ordena. */
+  readonly transacciones: ReadonlyArray<TransaccionDetalleBucketMes>;
 }
 
 interface GrupoAcumulador {
   readonly categoriaId: string | null;
   readonly nombre: string;
   subtotal: bigint;
-  readonly transacciones: DetalleBucketRow[];
+  readonly transacciones: TransaccionDetalleBucketMes[];
 }
 
 const NOMBRE_SIN_CATEGORIA = 'Sin categoría';
@@ -37,6 +57,18 @@ function compararGrupos(a: string, b: string): number {
   return a.localeCompare(b, 'es-CL');
 }
 
+/** Proyección recortada (MBD-08): solo la forma que el cliente necesita. */
+function recortarTransaccion(
+  fila: DetalleBucketRow,
+): TransaccionDetalleBucketMes {
+  return {
+    id: fila.id,
+    fecha: fila.fecha,
+    descripcion: fila.descripcion,
+    monto: fila.cargo,
+  };
+}
+
 /**
  * agruparDetallePorCategoria — servicio puro que agrupa las transacciones de
  * UN bucket (ya validadas por el use case, D-08) por `categoriaId` (D-03).
@@ -50,7 +82,8 @@ function compararGrupos(a: string, b: string): number {
  *   Ingreso, así que no hay rama defensiva abono — D-03);
  * - grupos ordenados por `nombre` es-CL, "Sin categoría" siempre al final;
  * - solo categorías presentes (nunca grupos vacíos); input vacío → `[]`;
- * - las `transacciones` de cada grupo preservan el orden del reader.
+ * - las `transacciones` de cada grupo preservan el orden del reader y son la
+ *   proyección recortada sin PII (MBD-08).
  *
  * Pura: sin I/O, sin excepciones, sin math float (ADR-015).
  */
@@ -64,14 +97,14 @@ export function agruparDetallePorCategoria(
     const existente = grupos.get(clave);
     if (existente) {
       existente.subtotal += fila.cargo;
-      existente.transacciones.push(fila);
+      existente.transacciones.push(recortarTransaccion(fila));
       continue;
     }
     grupos.set(clave, {
       categoriaId: fila.categoria?.id ?? null,
       nombre: fila.categoria?.nombre ?? NOMBRE_SIN_CATEGORIA,
       subtotal: fila.cargo,
-      transacciones: [fila],
+      transacciones: [recortarTransaccion(fila)],
     });
   }
 

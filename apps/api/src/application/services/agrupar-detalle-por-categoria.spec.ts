@@ -62,6 +62,41 @@ describe('agruparDetallePorCategoria', () => {
     expect(transporte?.conteo).toBe(1);
   });
 
+  it('gate PR1 (MBD-08/ADR-015): las transacciones del grupo son la proyección recortada {id, fecha, descripcion, monto} — sin PII de cuenta', () => {
+    const filas = [
+      makeRow({
+        id: 'tx-1',
+        cargo: 90000n,
+        categoria: conCategoria('cat-comida', 'Comida'),
+      }),
+      makeRow({
+        id: 'tx-2',
+        cargo: 60000n,
+        categoria: conCategoria('cat-comida', 'Comida'),
+      }),
+    ];
+
+    const grupos = agruparDetallePorCategoria(filas);
+
+    expect(grupos[0].transacciones[0]).toEqual({
+      id: 'tx-1',
+      fecha: new Date('2026-07-03T00:00:00.000Z'),
+      descripcion: 'Compra supermercado',
+      monto: 90000n,
+    });
+    // La PII del row de entrada (banco/tipoCuenta/numeroCuenta) jamás llega
+    // al output — el stringify es solo para inspeccionar claves, no el wire.
+    const serialized = JSON.stringify(grupos, (_clave, valor) =>
+      typeof valor === 'bigint' ? valor.toString() : valor,
+    );
+    expect(serialized).not.toContain('banco');
+    expect(serialized).not.toContain('tipoCuenta');
+    expect(serialized).not.toContain('numeroCuenta');
+    expect(serialized).not.toContain('BCI');
+    expect(serialized).not.toContain('Cuenta Corriente');
+    expect(serialized).not.toContain('12345678');
+  });
+
   it('filas con categoria null caen en el grupo sintético "Sin categoría" (categoriaId null)', () => {
     const filas = [
       makeRow({ id: 'tx-1', cargo: 40000n, categoria: null }),
