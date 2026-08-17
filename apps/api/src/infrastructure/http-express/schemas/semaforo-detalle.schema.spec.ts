@@ -100,7 +100,12 @@ describe('semaforoDetalleResponseSchema (sync guarantee)', () => {
     expect(() => semaforoDetalleResponseSchema.parse(invalid)).toThrow();
   });
 
-  it('D-11: parses a bucket with estadoSemaforo=amarillo AND consejo=null — the nullable holds for the fail-closed degenerate case, not just Verde', () => {
+  // SEM-03's EXCEPTION clause made concrete on the wire: an Amarillo/Rojo
+  // bucket MAY legitimately carry consejo=null when the D-11 re-apply guard
+  // fails (pathological near-zero income base). Making consejo required for
+  // non-Verde buckets would break the fail-closed contract — this test
+  // exists so that "fix" fails loudly.
+  it('D-11 (SEM-03 exception): parses a bucket with estadoSemaforo=amarillo AND consejo=null — the nullable holds for the fail-closed degenerate case, not just Verde', () => {
     const detalle = makeDetalle();
     const detalleConNullDegenerado: SemaforoDetalle = {
       ...detalle,

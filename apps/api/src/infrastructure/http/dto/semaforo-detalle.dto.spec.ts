@@ -122,7 +122,7 @@ describe('aSemaforoDetalleDto', () => {
     expect(dto.buckets[2]?.bandas.verdeMin).toBe(2000);
   });
 
-  it('D-11: keeps consejo null when a bucket is non-Verde (amarillo) — the fail-closed degenerate case, not just the Verde happy path', () => {
+  it('D-11 (SEM-03 exception): keeps consejo null when a bucket is non-Verde (amarillo) — the fail-closed degenerate case, not just the Verde happy path', () => {
     // SEM-03/D-11: `montoParaVerde`'s unconditional post-condition can
     // degrade to `null` even for a non-Verde bucket (e.g. pathological
     // small-base granularity). The mapper must pass that `null` through
