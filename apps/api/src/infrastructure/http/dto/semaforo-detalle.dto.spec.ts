@@ -121,4 +121,33 @@ describe('aSemaforoDetalleDto', () => {
     expect(dto.buckets[1]?.bandas.verdeMin).toBeNull();
     expect(dto.buckets[2]?.bandas.verdeMin).toBe(2000);
   });
+
+  it('D-11: keeps consejo null when a bucket is non-Verde (amarillo) — the fail-closed degenerate case, not just the Verde happy path', () => {
+    // SEM-03/D-11: `montoParaVerde`'s unconditional post-condition can
+    // degrade to `null` even for a non-Verde bucket (e.g. pathological
+    // small-base granularity). The mapper must pass that `null` through
+    // verbatim, never synthesize a placeholder advice object.
+    const detalle = makeDetalle();
+    const detalleConNullDegenerado = {
+      ...detalle,
+      buckets: [
+        { ...detalle.buckets[0], consejo: null },
+        detalle.buckets[1],
+        detalle.buckets[2],
+      ],
+    };
+
+    const dto = aSemaforoDetalleDto('2026-07', detalleConNullDegenerado);
+
+    expect(dto.buckets[0]?.estadoSemaforo).toBe('amarillo');
+    expect(dto.buckets[0]?.consejo).toBeNull();
+  });
+
+  it('passes the mensaje template with the literal {monto} placeholder through unchanged (SEM-10 passthrough)', () => {
+    const dto = aSemaforoDetalleDto('2026-07', makeDetalle());
+
+    expect(dto.buckets[0]?.consejo?.mensaje).toBe(
+      'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+    );
+  });
 });

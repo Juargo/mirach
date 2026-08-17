@@ -99,4 +99,23 @@ describe('semaforoDetalleResponseSchema (sync guarantee)', () => {
 
     expect(() => semaforoDetalleResponseSchema.parse(invalid)).toThrow();
   });
+
+  it('D-11: parses a bucket with estadoSemaforo=amarillo AND consejo=null — the nullable holds for the fail-closed degenerate case, not just Verde', () => {
+    const detalle = makeDetalle();
+    const detalleConNullDegenerado: SemaforoDetalle = {
+      ...detalle,
+      buckets: [
+        { ...detalle.buckets[0], consejo: null },
+        detalle.buckets[1],
+        detalle.buckets[2],
+      ],
+    };
+
+    const dto = aSemaforoDetalleDto('2026-07', detalleConNullDegenerado);
+
+    expect(() => semaforoDetalleResponseSchema.parse(dto)).not.toThrow();
+    const parsed = semaforoDetalleResponseSchema.parse(dto);
+    expect(parsed.buckets[0].estadoSemaforo).toBe('amarillo');
+    expect(parsed.buckets[0].consejo).toBeNull();
+  });
 });
