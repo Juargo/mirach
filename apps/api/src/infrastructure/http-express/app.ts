@@ -167,6 +167,7 @@ export function createApp(container: Container, env: Env): Express {
     protectedApi,
     container.calcularResumenMes,
     container.calcularResumenAnual,
+    container.obtenerSemaforoDetalle,
   );
   registrarBuckets(protectedApi, container.obtenerDetalleBucket);
   registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
