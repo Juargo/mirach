@@ -562,6 +562,62 @@
         ],
         "type": "object"
       },
+      "IngresosMesResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/ingresos/mes — monthly income list by origin (bank/Manual): header total, count, and ALL transactions (US-052).",
+        "properties": {
+          "conteo": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "description": "BigInt-safe decimal string amount (never a JSON number).",
+            "type": "string"
+          },
+          "transacciones": {
+            "description": "Complete list — never truncated or paged (MID-01).",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "descripcion": {
+                  "type": "string"
+                },
+                "fecha": {
+                  "description": "ISO-8601 UTC timestamp.",
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "monto": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "origen": {
+                  "description": "Bank name verbatim ('BCI', 'BancoEstado', ...) or 'Manual' fallback (MID-02 / CA-02).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "fecha",
+                "descripcion",
+                "origen",
+                "monto"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "total",
+          "conteo",
+          "transacciones"
+        ],
+        "type": "object"
+      },
       "MovimientosMesResponse": {
         "additionalProperties": false,
         "description": "GET /api/movimientos — monthly transaction list (US-014).",
@@ -1866,6 +1922,38 @@
           }
         },
         "summary": "Preview a bank statement (dry run)"
+      }
+    },
+    "/api/ingresos/mes": {
+      "get": {
+        "description": "Authenticated sibling endpoint to GET /api/buckets/{bucket}/detalle (US-052): returns the monthly income detail — a header with the total Σ abono (BigInt-safe string) and count, and ALL transactions with their origin = bank NAME verbatim (CA-02, MID-02) or \"Manual\", never account PII (tipoCuenta/numeroCuenta, MID-06). Top-level path, NOT a buckets sub-resource: GET /api/buckets/Ingresos/detalle keeps rejecting Ingresos with its own scrubbed 400 (MBD-07, US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
+        "parameters": [
+          {
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "in": "query",
+            "name": "periodo",
+            "schema": {
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngresosMesResponse"
+                }
+              }
+            },
+            "description": "Monthly income list for the resolved period — exactly {total, conteo, transacciones} with origen = bank name verbatim or \"Manual\" (MID-01/02/03/05)."
+          },
+          "400": {
+            "description": "Invalid periodo — malformed YYYY-MM value (domain-level, PeriodoMes VO → PeriodoInvalidoError, MID-04); the scrubbed message never echoes the raw input."
+          }
+        },
+        "summary": "Monthly income list by origin (bank/Manual)"
       }
     },
     "/api/movimientos": {
