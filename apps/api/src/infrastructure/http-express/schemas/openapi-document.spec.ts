@@ -293,6 +293,22 @@ describe('buildOpenApiDocument', () => {
     expect(semaforoPath?.get?.responses?.['200']).toBeDefined();
   });
 
+  it('registers GET /api/buckets/{bucket}/detalle with a bucket path param, a periodo query param, and 200/400 responses (US-051)', () => {
+    const document = buildOpenApiDocument();
+
+    const detallePath = document.paths?.['/api/buckets/{bucket}/detalle'];
+    expect(detallePath).toBeDefined();
+    expect(detallePath?.get).toBeDefined();
+    expect(detallePath?.get?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'bucket', in: 'path' }),
+        expect.objectContaining({ name: 'periodo', in: 'query' }),
+      ]),
+    );
+    expect(detallePath?.get?.responses?.['200']).toBeDefined();
+    expect(detallePath?.get?.responses?.['400']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

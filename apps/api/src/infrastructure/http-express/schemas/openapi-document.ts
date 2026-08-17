@@ -26,6 +26,10 @@ import {
   bucketsQuerySchema,
   bucketsResponseSchema,
 } from './buckets.schema';
+import {
+  bucketDetalleMesQuerySchema,
+  bucketDetalleMesResponseSchema,
+} from './bucket-detalle-mes.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
 import {
   ingestaUploadRequestSchema,
@@ -1067,6 +1071,34 @@ const semaforoDetalleOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const bucketDetalleMesOperation: ZodOpenApiOperationObject = {
+  summary: 'Bucket detail grouped by category for a month',
+  description:
+    'Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the ' +
+    'month×bucket detail GROUPED by category — a header with totals and % vs meta, and category ' +
+    'groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). ' +
+    'Accepts only the four spend buckets (Necesidades, Deseos, Ahorro, SinCategoria); Ingresos ' +
+    'is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid ' +
+    'session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
+  requestParams: {
+    path: bucketsPathParamsSchema,
+    query: bucketDetalleMesQuerySchema,
+  },
+  responses: {
+    '200': {
+      description:
+        'Month×bucket detail grouped by category for the resolved period (MBD-01/02/03/05/08).',
+      content: {
+        'application/json': { schema: bucketDetalleMesResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid bucket (outside the 4-bucket allowlist, e.g. Ingresos) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError), scrubbed messages.',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -1114,6 +1146,7 @@ const paths: ZodOpenApiPathsObject = {
     post: perfilGoogleDesvincularOperation,
   },
   '/api/resumen/semaforo': { get: semaforoDetalleOperation },
+  '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
 };
 
 export function buildOpenApiDocument() {
