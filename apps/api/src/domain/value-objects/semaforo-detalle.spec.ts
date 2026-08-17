@@ -1,11 +1,44 @@
 import { Bucket } from './bucket';
-import { EstadoSemaforo, calcularEstadoBucket } from './estado-semaforo';
-import { porcentajeBasisPoints } from './resumen-mes';
 import {
+  BANDAS_SEMAFORO,
+  EstadoSemaforo,
+  calcularEstadoBucket,
+} from './estado-semaforo';
+import { ResumenMes, porcentajeBasisPoints } from './resumen-mes';
+import {
+  ETIQUETA_BUCKET_COPY,
+  construirSemaforoDetalle,
+  diagnosticar,
   montoMaximoConBpHasta,
   montoMinimoConBpDesde,
   montoParaVerde,
 } from './semaforo-detalle';
+
+const DIAGNOSTICO_SIN_INGRESO =
+  'Este mes no registramos ingresos, así que no podemos calcular tus porcentajes.';
+const DIAGNOSTICO_VERDE =
+  'Tu mes está en verde: los tres grupos están dentro de su rango.';
+
+/** Convenience factory — mirrors ResumenMes.crear's field order, base income 1_000_000n. */
+function resumenCon(
+  fields: Partial<{
+    totalIngreso: bigint;
+    necesidades: bigint;
+    deseos: bigint;
+    ahorro: bigint;
+    sinCategoria: bigint;
+    cantidadSinCategoria: number;
+  }>,
+): ResumenMes {
+  return ResumenMes.crear({
+    totalIngreso: fields.totalIngreso ?? 1_000_000n,
+    necesidades: fields.necesidades ?? 0n,
+    deseos: fields.deseos ?? 0n,
+    ahorro: fields.ahorro ?? 0n,
+    sinCategoria: fields.sinCategoria ?? 0n,
+    cantidadSinCategoria: fields.cantidadSinCategoria ?? 0,
+  });
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // US-049 (PR2a): CLP-to-Verde arithmetic — Groups A/B/C per design.md §1.3 and
@@ -238,6 +271,209 @@ describe('montoParaVerde (Group C — R1/R2/D-05/D-09/D-11)', () => {
       // (3) Ahorro above the band.
       const totalAlto = montoMinimoConBpDesde(base, 4001n);
       expect(montoParaVerde(Bucket.Ahorro, totalAlto, base)).not.toBeNull();
+    }
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// US-049 (PR2b): copy + assembly — Groups D/E/F/G per design.md §1.4/§1.2 and
+// tasks.md Phase 3. Fixture income is 1_000_000n throughout so bp === total/100
+// (e.g. 700_000n → 7000bp), matching the band edges in BANDAS_SEMAFORO.
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('diagnosticar (Group D — SEM-01, D-10)', () => {
+  it('D1: estadoGlobal === null (sinIngreso) → the no-income diagnosis', () => {
+    const resumen = resumenCon({ totalIngreso: 0n });
+    expect(resumen.estadoGlobal).toBeNull();
+    expect(diagnosticar(resumen)).toBe(DIAGNOSTICO_SIN_INGRESO);
+  });
+
+  it('D2: all three buckets Verde → the healthy-month diagnosis', () => {
+    const resumen = resumenCon({
+      necesidades: 500_000n, // bp 5000 — Verde
+      deseos: 300_000n, // bp 3000 — Verde
+      ahorro: 300_000n, // bp 3000 — Verde (within [2000,4000])
+    });
+    expect(resumen.estadoGlobal).toBe(EstadoSemaforo.Verde);
+    expect(diagnosticar(resumen)).toBe(DIAGNOSTICO_VERDE);
+  });
+
+  it('one driving bucket (Necesidades Rojo) → names only Necesidades', () => {
+    const resumen = resumenCon({
+      necesidades: 700_000n, // bp 7000 — Rojo
+      deseos: 200_000n, // bp 2000 — Verde
+      ahorro: 250_000n, // bp 2500 — Verde
+    });
+    expect(diagnosticar(resumen)).toBe('Tu mes está en rojo por Necesidades.');
+  });
+
+  it('Deseos driving → uses the product label "Gustos", not "Deseos"', () => {
+    const resumen = resumenCon({
+      necesidades: 400_000n, // bp 4000 — Verde
+      deseos: 450_000n, // bp 4500 — Rojo (Deseos rojo is bp > 4000)
+      ahorro: 250_000n, // bp 2500 — Verde
+    });
+    expect(diagnosticar(resumen)).toBe('Tu mes está en rojo por Gustos.');
+  });
+
+  it('two-way tie (Necesidades + Deseos both Rojo) → names both, fixed order', () => {
+    const resumen = resumenCon({
+      necesidades: 700_000n, // Rojo
+      deseos: 450_000n, // Rojo
+      ahorro: 250_000n, // Verde
+    });
+    expect(diagnosticar(resumen)).toBe(
+      'Tu mes está en rojo por Necesidades y Gustos.',
+    );
+  });
+
+  it('three-way tie (all Rojo) → names all three, fixed order', () => {
+    const resumen = resumenCon({
+      necesidades: 700_000n, // Rojo
+      deseos: 450_000n, // Rojo
+      ahorro: 600_000n, // bp 6000 — Rojo (Ahorro rojo is bp > 5000)
+    });
+    expect(diagnosticar(resumen)).toBe(
+      'Tu mes está en rojo por Necesidades, Gustos y Ahorro.',
+    );
+  });
+
+  it('Rojo + Amarillo mix → names only the Rojo bucket', () => {
+    const resumen = resumenCon({
+      necesidades: 700_000n, // Rojo
+      deseos: 350_000n, // bp 3500 — Amarillo (Deseos amarillo is 3001..4000)
+      ahorro: 250_000n, // Verde
+    });
+    expect(diagnosticar(resumen)).toBe('Tu mes está en rojo por Necesidades.');
+  });
+
+  it('listing order is fixed (Necesidades → Deseos → Ahorro) for any tied subset, not input-dependent', () => {
+    // ResumenMes.crear always assembles buckets in a fixed internal order
+    // (SPEND_BUCKETS); this test demonstrates the tie-naming order is the
+    // fixed product order even for a subset that SKIPS the middle bucket
+    // (Necesidades + Ahorro tied, Deseos Verde) — not an artifact of
+    // whichever bucket happened to be set first in this fixture.
+    const resumen = resumenCon({
+      necesidades: 700_000n, // Rojo
+      deseos: 200_000n, // Verde
+      ahorro: 600_000n, // Rojo
+    });
+    expect(diagnosticar(resumen)).toBe(
+      'Tu mes está en rojo por Necesidades y Ahorro.',
+    );
+  });
+
+  it('never contains the {monto} placeholder — money lives in per-bucket advice, not the diagnosis', () => {
+    const resumen = resumenCon({ necesidades: 700_000n, ahorro: 600_000n });
+    expect(diagnosticar(resumen)).not.toContain('{monto}');
+  });
+});
+
+describe('ETIQUETA_BUCKET_COPY (Group E — cross-workspace copy pin)', () => {
+  it('Deseos maps to "Gustos", matching apps/web/src/lib/bucket-colors.ts ETIQUETA_BUCKET', () => {
+    expect(ETIQUETA_BUCKET_COPY[Bucket.Deseos]).toBe('Gustos');
+  });
+});
+
+describe('mensajeConsejo via montoParaVerde (Group F — SEM-10, D-05, D-08)', () => {
+  it('"excede" case: exact A1 template with the Necesidades label', () => {
+    const consejo = montoParaVerde(Bucket.Necesidades, 550_000n, 1_000_000n);
+    expect(consejo?.caso).toBe('excede');
+    expect(consejo?.mensaje).toBe(
+      'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+    );
+  });
+
+  it('"ahorro-bajo" case: exact A1 template with the Ahorro label and "aumenta"', () => {
+    const consejo = montoParaVerde(Bucket.Ahorro, 150_000n, 1_000_000n);
+    expect(consejo?.caso).toBe('ahorro-bajo');
+    expect(consejo?.mensaje).toBe(
+      'Para volver a Verde, aumenta {monto} en Ahorro este mes.',
+    );
+  });
+
+  it('"ahorro-alto" case: exact A2 template, ceiling semantics (D-09/D-08b)', () => {
+    const consejo = montoParaVerde(Bucket.Ahorro, 450_000n, 1_000_000n);
+    expect(consejo?.caso).toBe('ahorro-alto');
+    expect(consejo?.mensaje).toBe(
+      'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Verde.',
+    );
+  });
+
+  it('every mensaje contains the {monto} placeholder exactly once', () => {
+    const mensajes = [
+      montoParaVerde(Bucket.Necesidades, 550_000n, 1_000_000n)?.mensaje,
+      montoParaVerde(Bucket.Deseos, 450_000n, 1_000_000n)?.mensaje,
+      montoParaVerde(Bucket.Ahorro, 150_000n, 1_000_000n)?.mensaje,
+      montoParaVerde(Bucket.Ahorro, 450_000n, 1_000_000n)?.mensaje,
+    ];
+    for (const mensaje of mensajes) {
+      expect(mensaje).toBeDefined();
+      expect(mensaje?.split('{monto}').length).toBe(2); // exactly 1 occurrence
+    }
+  });
+});
+
+describe('construirSemaforoDetalle (Group G — SEM-01/02/05/06, D-01/D-03)', () => {
+  it('exactly 3 buckets, fixed order Necesidades → Deseos → Ahorro', () => {
+    const detalle = construirSemaforoDetalle(resumenCon({}));
+    expect(detalle.buckets.map((b) => b.bucket)).toEqual([
+      Bucket.Necesidades,
+      Bucket.Deseos,
+      Bucket.Ahorro,
+    ]);
+  });
+
+  it('bandas are carried per bucket from the single BANDAS_SEMAFORO table', () => {
+    const detalle = construirSemaforoDetalle(resumenCon({}));
+    for (const b of detalle.buckets) {
+      expect(b.bandas).toBe(
+        BANDAS_SEMAFORO[b.bucket as keyof typeof BANDAS_SEMAFORO],
+      );
+    }
+  });
+
+  it('metaBp is 5000/3000/2000 for Necesidades/Deseos/Ahorro', () => {
+    const detalle = construirSemaforoDetalle(resumenCon({}));
+    expect(detalle.buckets[0].bandas.metaBp).toBe(5000n);
+    expect(detalle.buckets[1].bandas.metaBp).toBe(3000n);
+    expect(detalle.buckets[2].bandas.metaBp).toBe(2000n);
+  });
+
+  it('bucketsCriticos is [] when the month is all-Verde', () => {
+    const detalle = construirSemaforoDetalle(
+      resumenCon({ necesidades: 500_000n, deseos: 300_000n, ahorro: 300_000n }),
+    );
+    expect(detalle.bucketsCriticos).toEqual([]);
+  });
+
+  it('bucketsCriticos names the driving buckets, matching diagnosticar', () => {
+    const resumen = resumenCon({
+      necesidades: 700_000n, // Rojo
+      deseos: 450_000n, // Rojo
+      ahorro: 250_000n, // Verde
+    });
+    const detalle = construirSemaforoDetalle(resumen);
+    expect(detalle.bucketsCriticos).toEqual([
+      Bucket.Necesidades,
+      Bucket.Deseos,
+    ]);
+  });
+
+  it('sinCategoria {cantidad,total} is carried verbatim from ResumenMes, not recomputed (SEM-05)', () => {
+    const detalle = construirSemaforoDetalle(
+      resumenCon({ sinCategoria: 12_345n, cantidadSinCategoria: 7 }),
+    );
+    expect(detalle.sinCategoria).toEqual({ cantidad: 7, total: 12_345n });
+  });
+
+  it('sinIngreso → every consejo/estado null, diagnostico is D1 (SEM-06/CA-07)', () => {
+    const detalle = construirSemaforoDetalle(resumenCon({ totalIngreso: 0n }));
+    expect(detalle.sinIngreso).toBe(true);
+    expect(detalle.diagnostico).toBe(DIAGNOSTICO_SIN_INGRESO);
+    for (const b of detalle.buckets) {
+      expect(b.estadoSemaforo).toBeNull();
+      expect(b.consejo).toBeNull();
     }
   });
 });
