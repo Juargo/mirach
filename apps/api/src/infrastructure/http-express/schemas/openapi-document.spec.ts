@@ -309,6 +309,19 @@ describe('buildOpenApiDocument', () => {
     expect(detallePath?.get?.responses?.['400']).toBeDefined();
   });
 
+  it('registers GET /api/ingresos/mes with a periodo query param and 200/400 responses (US-052)', () => {
+    const document = buildOpenApiDocument();
+
+    const ingresosMesPath = document.paths?.['/api/ingresos/mes'];
+    expect(ingresosMesPath).toBeDefined();
+    expect(ingresosMesPath?.get).toBeDefined();
+    expect(ingresosMesPath?.get?.parameters).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'periodo' })]),
+    );
+    expect(ingresosMesPath?.get?.responses?.['200']).toBeDefined();
+    expect(ingresosMesPath?.get?.responses?.['400']).toBeDefined();
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();
