@@ -783,6 +783,224 @@
         ],
         "type": "object"
       },
+      "SemaforoDetalleResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/resumen/semaforo — semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice (US-049).",
+        "properties": {
+          "buckets": {
+            "description": "Always exactly 3 entries: Necesidades, Deseos, Ahorro (D-03).",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "bandas": {
+                  "additionalProperties": false,
+                  "description": "Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).",
+                  "properties": {
+                    "amarilloMax": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "amarilloMin": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "verdeMax": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "verdeMin": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "verdeMin",
+                    "verdeMax",
+                    "amarilloMin",
+                    "amarilloMax"
+                  ],
+                  "type": "object"
+                },
+                "bucket": {
+                  "description": "Bucket name (Bucket domain enum value).",
+                  "type": "string"
+                },
+                "consejo": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "direccion": {
+                          "enum": [
+                            "reducir",
+                            "aumentar"
+                          ],
+                          "type": "string"
+                        },
+                        "mensaje": {
+                          "description": "Spanish sentence containing the literal `{monto}` placeholder exactly once (SEM-10).",
+                          "type": "string"
+                        },
+                        "monto": {
+                          "description": "BigInt-safe decimal string amount (never a JSON number).",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "direccion",
+                        "monto",
+                        "mensaje"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null."
+                },
+                "estadoSemaforo": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "verde",
+                        "amarillo",
+                        "rojo"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Traffic-light health state, lowercase wire enum, or null."
+                },
+                "metaBp": {
+                  "description": "Bucket's 50/30/20 target center, in basis points (SEM-02).",
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "porcentajeBp": {
+                  "anyOf": [
+                    {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Basis-point percentage (0-10000). null when sinIngreso=true."
+                },
+                "total": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "bucket",
+                "total",
+                "porcentajeBp",
+                "estadoSemaforo",
+                "metaBp",
+                "bandas",
+                "consejo"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "bucketsCriticos": {
+            "description": "Bucket names sharing estadoGlobal severity. [] when Verde or sinIngreso.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "diagnostico": {
+            "description": "Backend-generated Spanish sentence naming the driving bucket(s) (SEM-01). Never contains {monto}.",
+            "type": "string"
+          },
+          "estadoGlobal": {
+            "anyOf": [
+              {
+                "enum": [
+                  "verde",
+                  "amarillo",
+                  "rojo"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Worst traffic-light state across the 3 spend buckets, or null."
+          },
+          "periodo": {
+            "description": "Resolved period, format YYYY-MM.",
+            "type": "string"
+          },
+          "sinCategoria": {
+            "additionalProperties": false,
+            "description": "Re-exposed from /api/resumen, never recomputed independently (SEM-05).",
+            "properties": {
+              "cantidad": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "total": {
+                "description": "BigInt-safe decimal string amount (never a JSON number).",
+                "type": "string"
+              }
+            },
+            "required": [
+              "cantidad",
+              "total"
+            ],
+            "type": "object"
+          },
+          "sinIngreso": {
+            "type": "boolean"
+          },
+          "totalIngreso": {
+            "description": "BigInt-safe decimal string amount (never a JSON number).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "periodo",
+          "totalIngreso",
+          "sinIngreso",
+          "estadoGlobal",
+          "diagnostico",
+          "bucketsCriticos",
+          "buckets",
+          "sinCategoria"
+        ],
+        "type": "object"
+      },
       "TransaccionesCategoriaResponse": {
         "additionalProperties": false,
         "description": "PATCH /api/transacciones/:id/categoria — manual reclassification result (US-013 S4).",
@@ -2033,6 +2251,38 @@
           }
         },
         "summary": "Annual 50/30/20 breakdown"
+      }
+    },
+    "/api/resumen/semaforo": {
+      "get": {
+        "description": "Authenticated sibling detail endpoint to GET /api/resumen (US-049): exposes the semáforo classification's WHY and WHAT-TO-DO — per-bucket zone-band edges, a backend-generated Spanish diagnosis naming the driving bucket(s), and a CLP amount+direction that would return each Amarillo/Rojo bucket to Verde. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
+        "parameters": [
+          {
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "in": "query",
+            "name": "periodo",
+            "schema": {
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SemaforoDetalleResponse"
+                }
+              }
+            },
+            "description": "Semáforo detail for the resolved period."
+          },
+          "400": {
+            "description": "Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO)."
+          }
+        },
+        "summary": "Semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice"
       }
     },
     "/api/transacciones/{id}/categoria": {
