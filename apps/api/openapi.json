@@ -80,6 +80,142 @@
         ],
         "type": "object"
       },
+      "BucketDetalleMesResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/buckets/:bucket/detalle — month×bucket detail grouped by category: header totals, % vs meta, and category groups with ALL their transactions (US-051).",
+        "properties": {
+          "bucket": {
+            "description": "Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).",
+            "type": "string"
+          },
+          "grupos": {
+            "description": "One entry per present category, es-CL alphabetical, \"Sin categoría\" last. [] for an empty bucket month (MBD-01).",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "categoriaId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "null for the synthetic group."
+                },
+                "conteo": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "nombre": {
+                  "type": "string"
+                },
+                "subtotal": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "transacciones": {
+                  "description": "Complete list — never truncated or paged (MBD-02).",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "descripcion": {
+                        "type": "string"
+                      },
+                      "fecha": {
+                        "description": "ISO-8601 UTC timestamp.",
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "monto": {
+                        "description": "BigInt-safe decimal string amount (never a JSON number).",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "fecha",
+                      "descripcion",
+                      "monto"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "categoriaId",
+                "nombre",
+                "subtotal",
+                "conteo",
+                "transacciones"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "metaBp": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05)."
+          },
+          "periodo": {
+            "description": "Resolved period, format YYYY-MM.",
+            "type": "string"
+          },
+          "porcentajeBp": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Basis-point percentage, round-half-up. null when the bucket has no meta rule (SinCategoria) or the month has no income (D-05)."
+          },
+          "total": {
+            "description": "BigInt-safe decimal string amount (never a JSON number).",
+            "type": "string"
+          },
+          "totalCategorias": {
+            "description": "Includes the synthetic Sin categoría group when present (D-09).",
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "totalTransacciones": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "periodo",
+          "bucket",
+          "total",
+          "totalTransacciones",
+          "totalCategorias",
+          "porcentajeBp",
+          "metaBp",
+          "grupos"
+        ],
+        "type": "object"
+      },
       "CatalogoErrorResponse": {
         "additionalProperties": false,
         "description": "Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations.",
@@ -1350,6 +1486,48 @@
           }
         },
         "summary": "Bucket drill-down"
+      }
+    },
+    "/api/buckets/{bucket}/detalle": {
+      "get": {
+        "description": "Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the month×bucket detail GROUPED by category — a header with totals and % vs meta, and category groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). Accepts only the four spend buckets (Necesidades, Deseos, Ahorro, SinCategoria); Ingresos is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
+        "parameters": [
+          {
+            "description": "Bucket name (raw path param). Validated against the domain enum by the use case, not this schema.",
+            "in": "path",
+            "name": "bucket",
+            "required": true,
+            "schema": {
+              "description": "Bucket name (raw path param). Validated against the domain enum by the use case, not this schema.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "in": "query",
+            "name": "periodo",
+            "schema": {
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BucketDetalleMesResponse"
+                }
+              }
+            },
+            "description": "Month×bucket detail grouped by category for the resolved period (MBD-01/02/03/05/08)."
+          },
+          "400": {
+            "description": "Invalid bucket (outside the 4-bucket allowlist, e.g. Ingresos) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError), scrubbed messages."
+          }
+        },
+        "summary": "Bucket detail grouped by category for a month"
       }
     },
     "/api/categorias": {
