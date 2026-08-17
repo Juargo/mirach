@@ -1,13 +1,16 @@
 import type { Router } from 'express';
 import { CalcularResumenMesUseCase } from '../../../application/use-cases/calcular-resumen-mes.use-case';
 import { CalcularResumenAnualUseCase } from '../../../application/use-cases/calcular-resumen-anual.use-case';
+import { ObtenerSemaforoDetalleUseCase } from '../../../application/use-cases/obtener-semaforo-detalle.use-case';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { AnioInvalidoError } from '../../../domain/errors/anio-invalido.error';
 import { ResumenAnualInvalidoError } from '../../../domain/errors/resumen-anual-invalido.error';
 import { aResumenMesDto } from '../../http/dto/resumen-mes.dto';
 import { aResumenAnualDto } from '../../http/dto/resumen-anual.dto';
+import { aSemaforoDetalleDto } from '../../http/dto/semaforo-detalle.dto';
 import { resumenQuerySchema } from '../schemas/resumen.schema';
 import { resumenAnualQuerySchema } from '../schemas/resumen-anual.schema';
+import { semaforoDetalleQuerySchema } from '../schemas/semaforo-detalle.schema';
 import { appLogger } from '../../logging/app-logger';
 
 /**
@@ -15,6 +18,7 @@ import { appLogger } from '../../logging/app-logger';
  *
  * GET /api/resumen?periodo=YYYY-MM        → 50/30/20 mensual (US-015/016)
  * GET /api/resumen/anual?anio=YYYY        → 50/30/20 anual (US-030)
+ * GET /api/resumen/semaforo?periodo=YYYY-MM → semáforo detail (US-049)
  *
  * closure-DI: recibe los use cases del container. El `userId` lo pone el
  * session middleware en `req.userId` (aislamiento por usuario, RNF-SEC-006).
@@ -25,6 +29,7 @@ export function registrarResumen(
   router: Router,
   calcularResumenMes: CalcularResumenMesUseCase,
   calcularResumenAnual: CalcularResumenAnualUseCase,
+  obtenerSemaforoDetalle: ObtenerSemaforoDetalleUseCase,
 ): void {
   router.get('/resumen', async (req, res, next) => {
     try {
@@ -117,6 +122,46 @@ export function registrarResumen(
 
       const { resumenAnual } = result.getValue();
       res.status(200).json(aResumenAnualDto(resumenAnual));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/resumen/semaforo', async (req, res, next) => {
+    try {
+      // Boundary schema validates TRANSPORT SHAPE ONLY (same layer-honesty
+      // gate as /resumen above) — the YYYY-MM format rule stays a domain
+      // concern (PeriodoInvalidoError) handled below.
+      const parsedQuery = semaforoDetalleQuerySchema.safeParse(req.query);
+      if (!parsedQuery.success) {
+        res.status(400).json({
+          message: 'Parámetros de consulta inválidos.',
+        });
+        return;
+      }
+
+      const result = await obtenerSemaforoDetalle.execute({
+        userId: req.userId!, // garantizado por el session middleware previo
+        periodo: parsedQuery.data.periodo,
+      });
+
+      if (result.isFail()) {
+        const error = result.getError();
+        if (error instanceof PeriodoInvalidoError) {
+          res.status(400).json({
+            message:
+              'El período no es válido. Formato esperado: YYYY-MM (ej: 2026-07).',
+          });
+          return;
+        }
+        const _exhaustive: never = error;
+        void _exhaustive;
+        res.status(500).json({ message: 'Error inesperado' });
+        return;
+      }
+
+      const { periodo, detalle } = result.getValue();
+      res.status(200).json(aSemaforoDetalleDto(periodo, detalle));
     } catch (err) {
       next(err);
     }

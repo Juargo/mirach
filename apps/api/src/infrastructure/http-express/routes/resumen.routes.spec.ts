@@ -5,8 +5,10 @@ import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { AnioInvalidoError } from '../../../domain/errors/anio-invalido.error';
+import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import type { CalcularResumenMesUseCase } from '../../../application/use-cases/calcular-resumen-mes.use-case';
 import type { CalcularResumenAnualUseCase } from '../../../application/use-cases/calcular-resumen-anual.use-case';
+import type { ObtenerSemaforoDetalleUseCase } from '../../../application/use-cases/obtener-semaforo-detalle.use-case';
 
 /**
  * Traducción Result<T,E> → HTTP del endpoint resumen (port del ResumenController).
@@ -16,6 +18,7 @@ import type { CalcularResumenAnualUseCase } from '../../../application/use-cases
  */
 type MesDoble = Pick<CalcularResumenMesUseCase, 'execute'>;
 type AnualDoble = Pick<CalcularResumenAnualUseCase, 'execute'>;
+type SemaforoDoble = Pick<ObtenerSemaforoDetalleUseCase, 'execute'>;
 
 const RESUMEN_MES_OK = {
   totalIngreso: 100000n,
@@ -25,8 +28,23 @@ const RESUMEN_MES_OK = {
   cantidadSinCategoria: 0,
 };
 const RESUMEN_ANUAL_OK = { anio: 2026, meses: [] };
+const SEMAFORO_DETALLE_OK = {
+  totalIngreso: 100000n,
+  sinIngreso: false,
+  estadoGlobal: EstadoSemaforo.Verde,
+  diagnostico:
+    'Tu mes está en verde: los tres grupos están dentro de su rango.',
+  bucketsCriticos: [],
+  buckets: [],
+  sinCategoria: { cantidad: 0, total: 0n },
+};
+const semaforoNoop: SemaforoDoble = { execute: vi.fn() };
 
-function probeApp(mes: MesDoble, anual: AnualDoble): Express {
+function probeApp(
+  mes: MesDoble,
+  anual: AnualDoble,
+  semaforo: SemaforoDoble = semaforoNoop,
+): Express {
   const app = express();
   const router = express.Router();
   router.use((req, _res, next) => {
@@ -37,6 +55,7 @@ function probeApp(mes: MesDoble, anual: AnualDoble): Express {
     router,
     mes as CalcularResumenMesUseCase,
     anual as CalcularResumenAnualUseCase,
+    semaforo as ObtenerSemaforoDetalleUseCase,
   );
   app.use('/api', router);
   app.use(errorMiddleware);
@@ -159,6 +178,84 @@ describe('registrarResumen', () => {
       expect(res.status).toBe(400);
       expect(anual.execute).not.toHaveBeenCalled();
       expect(JSON.stringify(res.body)).not.toContain('2027');
+    });
+  });
+
+  describe('GET /api/resumen/semaforo (US-049)', () => {
+    it('200 con el DTO y llama al use case con userId + periodo', async () => {
+      const semaforo = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.ok({ periodo: '2026-07', detalle: SEMAFORO_DETALLE_OK }),
+          ),
+      };
+      const res = await request(
+        probeApp({ execute: vi.fn() }, { execute: vi.fn() }, semaforo),
+      ).get('/api/resumen/semaforo?periodo=2026-07');
+
+      expect(res.status).toBe(200);
+      expect(res.body.periodo).toBe('2026-07');
+      expect(semaforo.execute).toHaveBeenCalledWith({
+        userId: 'user-x',
+        periodo: '2026-07',
+      });
+    });
+
+    it('sin periodo → llama con periodo undefined', async () => {
+      const semaforo = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.ok({ periodo: '2026-07', detalle: SEMAFORO_DETALLE_OK }),
+          ),
+      };
+      await request(
+        probeApp({ execute: vi.fn() }, { execute: vi.fn() }, semaforo),
+      ).get('/api/resumen/semaforo');
+
+      expect(semaforo.execute).toHaveBeenCalledWith({
+        userId: 'user-x',
+        periodo: undefined,
+      });
+    });
+
+    it('400 scrubbeado si el periodo es inválido (nunca refleja el input)', async () => {
+      const semaforo = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(new PeriodoInvalidoError('input-malo')),
+          ),
+      };
+      const res = await request(
+        probeApp({ execute: vi.fn() }, { execute: vi.fn() }, semaforo),
+      ).get('/api/resumen/semaforo?periodo=input-malo');
+
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).not.toContain('input-malo');
+    });
+
+    it('500 ante error inesperado (rejection → error middleware)', async () => {
+      const semaforo = {
+        execute: vi.fn().mockRejectedValue(new Error('DB caída')),
+      };
+      const res = await request(
+        probeApp({ execute: vi.fn() }, { execute: vi.fn() }, semaforo),
+      ).get('/api/resumen/semaforo');
+
+      expect(res.status).toBe(500);
+    });
+
+    it('400 scrubbeado si periodo llega como shape de transporte inválido (array), sin llamar al use case', async () => {
+      const semaforo = { execute: vi.fn() };
+      const res = await request(
+        probeApp({ execute: vi.fn() }, { execute: vi.fn() }, semaforo),
+      ).get('/api/resumen/semaforo?periodo=2026-07&periodo=2026-08');
+
+      expect(res.status).toBe(400);
+      expect(semaforo.execute).not.toHaveBeenCalled();
+      expect(JSON.stringify(res.body)).not.toContain('2026-08');
     });
   });
 });

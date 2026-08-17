@@ -9,6 +9,7 @@ import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identi
 import { CrearDemoUseCase } from '../application/use-cases/crear-demo.use-case';
 import { CalcularResumenMesUseCase } from '../application/use-cases/calcular-resumen-mes.use-case';
 import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-resumen-anual.use-case';
+import { ObtenerSemaforoDetalleUseCase } from '../application/use-cases/obtener-semaforo-detalle.use-case';
 import { ObtenerDetalleBucketUseCase } from '../application/use-cases/obtener-detalle-bucket.use-case';
 import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-movimientos-mes.use-case';
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
@@ -63,6 +64,8 @@ export interface Container {
   readonly calcularResumenMes: CalcularResumenMesUseCase;
   /** 50/30/20 anual — GET /api/resumen/anual. */
   readonly calcularResumenAnual: CalcularResumenAnualUseCase;
+  /** Detalle de semáforo (US-049) — GET /api/resumen/semaforo. */
+  readonly obtenerSemaforoDetalle: ObtenerSemaforoDetalleUseCase;
   /** Detalle de un bucket — GET /api/buckets/:bucket. */
   readonly obtenerDetalleBucket: ObtenerDetalleBucketUseCase;
   /** Lista mensual consolidada — GET /api/movimientos. */
@@ -188,6 +191,14 @@ export function createContainer(
     new PrismaResumenAnualRepository(prisma),
     logger,
   );
+  // US-049, D-12: segunda instancia de PrismaResumenMesRepository (stateless,
+  // sin costo) — matches el estilo un-`new`-por-use-case del archivo; no hay
+  // helper `crear-*` para wiring de una sola línea (helpers son para
+  // sub-grafos grandes como auth/ingesta).
+  const obtenerSemaforoDetalle = new ObtenerSemaforoDetalleUseCase(
+    new PrismaResumenMesRepository(prisma),
+    logger,
+  );
 
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
     new PrismaDetalleBucketRepository(prisma, crypto),
@@ -224,6 +235,7 @@ export function createContainer(
     validarSesion: auth.validarSesion,
     calcularResumenMes,
     calcularResumenAnual,
+    obtenerSemaforoDetalle,
     obtenerDetalleBucket,
     obtenerMovimientosMes,
     reclasificarTransaccion,
