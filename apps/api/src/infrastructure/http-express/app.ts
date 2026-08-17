@@ -12,6 +12,7 @@ import {
   registrarBuckets,
   registrarBucketDetalleMes,
 } from './routes/buckets.routes';
+import { registrarIngresosMes } from './routes/ingresos.routes';
 import { registrarMovimientos } from './routes/movimientos.routes';
 import { registrarTransacciones } from './routes/transacciones.routes';
 import { registrarIngestas } from './routes/ingesta.routes';
@@ -174,6 +175,7 @@ export function createApp(container: Container, env: Env): Express {
   );
   registrarBuckets(protectedApi, container.obtenerDetalleBucket);
   registrarBucketDetalleMes(protectedApi, container.obtenerDetalleBucketMes);
+  registrarIngresosMes(protectedApi, container.obtenerIngresosMes);
   registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
   registrarTransacciones(protectedApi, container.reclasificarTransaccion);
   registrarIngestas(protectedApi, {
