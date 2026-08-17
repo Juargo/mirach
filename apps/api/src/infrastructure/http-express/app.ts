@@ -8,7 +8,10 @@ import { createRequestLoggerMiddleware } from './middleware/request-logger.middl
 import { sessionMiddleware } from './middleware/session.middleware';
 import { createPinoLogger } from '../logging/pino-logger';
 import { registrarResumen } from './routes/resumen.routes';
-import { registrarBuckets } from './routes/buckets.routes';
+import {
+  registrarBuckets,
+  registrarBucketDetalleMes,
+} from './routes/buckets.routes';
 import { registrarMovimientos } from './routes/movimientos.routes';
 import { registrarTransacciones } from './routes/transacciones.routes';
 import { registrarIngestas } from './routes/ingesta.routes';
@@ -170,6 +173,7 @@ export function createApp(container: Container, env: Env): Express {
     container.obtenerSemaforoDetalle,
   );
   registrarBuckets(protectedApi, container.obtenerDetalleBucket);
+  registrarBucketDetalleMes(protectedApi, container.obtenerDetalleBucketMes);
   registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
   registrarTransacciones(protectedApi, container.reclasificarTransaccion);
   registrarIngestas(protectedApi, {
