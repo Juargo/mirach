@@ -377,7 +377,9 @@ describe('BucketDetalleMes (e2e) — GET /api/buckets/:bucket/detalle', () => {
       expect(typeof tx.monto).toBe('string');
     }
     // Las descripciones cifradas round-trippan (ADR-013).
-    const descripciones = JSON.stringify(todas.map((t) => t.descripcion));
+    const descripciones = JSON.stringify(
+      todas.map((t: Record<string, unknown>) => t.descripcion),
+    );
     expect(descripciones).toContain(`Jumbo W1 ${RUN_ID}`);
     expect(descripciones).toContain(`Giro W1 ${RUN_ID}`);
 
