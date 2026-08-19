@@ -12,6 +12,7 @@ import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-r
 import { ObtenerSemaforoDetalleUseCase } from '../application/use-cases/obtener-semaforo-detalle.use-case';
 import { ObtenerDetalleBucketUseCase } from '../application/use-cases/obtener-detalle-bucket.use-case';
 import { ObtenerDetalleBucketMesUseCase } from '../application/use-cases/obtener-detalle-bucket-mes.use-case';
+import { ObtenerIngresosMesUseCase } from '../application/use-cases/obtener-ingresos-mes.use-case';
 import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-movimientos-mes.use-case';
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
@@ -71,6 +72,8 @@ export interface Container {
   readonly obtenerDetalleBucket: ObtenerDetalleBucketUseCase;
   /** Detalle MES-BUCKET agrupado por categoría (US-051) — GET /api/buckets/:bucket/detalle. */
   readonly obtenerDetalleBucketMes: ObtenerDetalleBucketMesUseCase;
+  /** Detalle MES-INGRESOS por origen (US-052) — GET /api/ingresos/mes. */
+  readonly obtenerIngresosMes: ObtenerIngresosMesUseCase;
   /** Lista mensual consolidada — GET /api/movimientos. */
   readonly obtenerMovimientosMes: ObtenerMovimientosMesUseCase;
   /** Reclasificación manual — PATCH /api/transacciones/:id/categoria. */
@@ -217,6 +220,16 @@ export function createContainer(
     new PrismaResumenMesRepository(prisma),
     logger,
   );
+  // US-052, D-07: TERCERA instancia de PrismaDetalleBucketRepository (misma
+  // disciplina un-`new`-por-use-case de US-049 D-12 / US-051 D-10 — las
+  // instancias son stateless, sin costo; el patrón del archivo es una por use
+  // case, NO una compartida) + UNA de ObtenerIngresosMesUseCase. Sin helper
+  // `crear-*`: helpers son para sub-grafos grandes; este wiring es de una
+  // línea por repository.
+  const obtenerIngresosMes = new ObtenerIngresosMesUseCase(
+    new PrismaDetalleBucketRepository(prisma, crypto),
+    logger,
+  );
   const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
     new PrismaMovimientosMesRepository(prisma, crypto),
     logger,
@@ -251,6 +264,7 @@ export function createContainer(
     obtenerSemaforoDetalle,
     obtenerDetalleBucket,
     obtenerDetalleBucketMes,
+    obtenerIngresosMes,
     obtenerMovimientosMes,
     reclasificarTransaccion,
     processIngesta,

@@ -30,6 +30,10 @@ import {
   bucketDetalleMesQuerySchema,
   bucketDetalleMesResponseSchema,
 } from './bucket-detalle-mes.schema';
+import {
+  ingresosMesQuerySchema,
+  ingresosMesResponseSchema,
+} from './ingresos-mes.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
 import {
   ingestaUploadRequestSchema,
@@ -1099,6 +1103,35 @@ const bucketDetalleMesOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const ingresosMesOperation: ZodOpenApiOperationObject = {
+  summary: 'Monthly income list by origin (bank/Manual)',
+  description:
+    'Authenticated sibling endpoint to GET /api/buckets/{bucket}/detalle (US-052): returns the ' +
+    'monthly income detail — a header with the total Σ abono (BigInt-safe string) and count, and ' +
+    'ALL transactions with their origin = bank NAME verbatim (CA-02, MID-02) or "Manual", never ' +
+    'account PII (tipoCuenta/numeroCuenta, MID-06). Top-level path, NOT a buckets sub-resource: ' +
+    'GET /api/buckets/Ingresos/detalle keeps rejecting Ingresos with its own scrubbed 400 (MBD-07, ' +
+    'US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
+  requestParams: {
+    query: ingresosMesQuerySchema,
+  },
+  responses: {
+    '200': {
+      description:
+        'Monthly income list for the resolved period — exactly {total, conteo, transacciones} ' +
+        'with origen = bank name verbatim or "Manual" (MID-01/02/03/05).',
+      content: {
+        'application/json': { schema: ingresosMesResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid periodo — malformed YYYY-MM value (domain-level, PeriodoMes VO → ' +
+        'PeriodoInvalidoError, MID-04); the scrubbed message never echoes the raw input.',
+    },
+  },
+};
+
 /**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
@@ -1147,6 +1180,7 @@ const paths: ZodOpenApiPathsObject = {
   },
   '/api/resumen/semaforo': { get: semaforoDetalleOperation },
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
+  '/api/ingresos/mes': { get: ingresosMesOperation },
 };
 
 export function buildOpenApiDocument() {
