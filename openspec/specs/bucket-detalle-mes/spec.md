@@ -5,9 +5,9 @@
 Defines the observable contract of `GET /api/buckets/:bucket/detalle?periodo=` — a sibling detail
 endpoint to the flat `GET /api/buckets/:bucket?periodo=` (US-017 drill-down) that returns the
 month×bucket detail GROUPED by category: a header with totals and % vs meta, and category groups
-carrying ALL their transactions. It is additive: the flat endpoint, dashboard panel and interim
-drill-down keep working until US-053 (retirement registered in this change's proposal). Ingresos
-is out of scope (US-052) and rejected on this route. This spec covers what the response MUST
+carrying ALL their transactions. It is additive: the flat US-017 endpoint stays deployed and
+behaviorally unchanged — its only web consumer, the dashboard's interim US-047 panel, was retired
+by US-053 (MBD-09). Ingresos is out of scope (US-052) and rejected on this route. This spec covers what the response MUST
 contain and how each value MUST be computed; DTO field names and JSON layout are design-phase
 decisions. Client-side rendering is covered by `web-app` (US-053, separate change).
 
@@ -174,3 +174,18 @@ proposal's PII decision.
 - GIVEN a period whose source transactions have bank, account-type, and account-number values
 - WHEN a client calls `GET /api/buckets/Necesidades/detalle?periodo=<period>`
 - THEN no `banco`, `tipoCuenta`, or `numeroCuenta` key appears anywhere in the response
+
+### Requirement: MBD-09 — The flat US-017 endpoint loses its sole web consumer when US-053 retires the interim panel (informational note)
+
+As of US-053, `apps/web`'s `/buckets/:bucket` page consumes the grouped endpoint (MBD-01..08) and the
+dashboard's inline US-047 panel — the flat US-017 endpoint's only web consumer — is retired (web-app
+WDM-06/WCAT-01). The flat endpoint MUST remain deployed and behaviorally unchanged (US-053 rollback path):
+no backend contract, implementation, or test in this spec changes; its consumer count is a web-app
+concern, not a backend behavior.
+
+#### Scenario: The flat endpoint responds unchanged after US-053 ships
+
+- GIVEN US-053 is shipped and the dashboard panel is retired
+- WHEN a client calls `GET /api/buckets/Necesidades?periodo=<period>`
+- THEN it responds exactly as its own (unchanged) contract specifies — this spec's MBD-01..08 are
+  unaffected
