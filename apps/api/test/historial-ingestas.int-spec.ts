@@ -11,6 +11,7 @@ import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-c
 import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { Transaccion } from '../src/domain/value-objects/transaccion';
+import { TransaccionAPersistir } from '../src/application/ports/ingesta-repository.port';
 import { PersistenciaFallidaError } from '../src/domain/errors/persistencia-fallida.error';
 import { IFileReader } from '../src/application/ports/file-reader.port';
 import { createPinoLogger } from '../src/infrastructure/logging/pino-logger';
@@ -263,23 +264,32 @@ describe('Historial de ingestas (US-004, integration — real dev DB)', () => {
         where: { accountId: accountIdA! },
       });
 
+      // US-057 retype: transacciones is now ReadonlyArray<TransaccionAPersistir>.
       // Cast DELIBERADO (mismo patrón que el W3 case retirado): evade el
       // invariante del dominio para probar la CHECK de Postgres como defensa
       // física de última línea sobre datos que llegan sin pasar por
       // `Transaccion.crear`.
-      const txs: Transaccion[] = [
-        Transaccion.crear({
-          fecha: new Date('2026-05-14T00:00:00.000Z'),
-          descripcion: 'ok',
-          cargo: 100n,
-          abono: 0n,
-        }).getValue(),
+      const txs: TransaccionAPersistir[] = [
         {
-          fecha: new Date('2026-05-15T00:00:00.000Z'),
-          descripcion: 'bad',
-          cargo: -1n,
-          abono: 0n,
-        } as unknown as Transaccion,
+          transaccion: Transaccion.crear({
+            fecha: new Date('2026-05-14T00:00:00.000Z'),
+            descripcion: 'ok',
+            cargo: 100n,
+            abono: 0n,
+          }).getValue(),
+          bucket: null,
+          categoriaId: null,
+        },
+        {
+          transaccion: {
+            fecha: new Date('2026-05-15T00:00:00.000Z'),
+            descripcion: 'bad',
+            cargo: -1n,
+            abono: 0n,
+          } as unknown as Transaccion,
+          bucket: null,
+          categoriaId: null,
+        },
       ];
 
       const result = await ingestaRepo.persistirProcesada({

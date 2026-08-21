@@ -15,13 +15,7 @@ import { IAccountRepository } from '../ports/account-repository.port';
 import { ICatalogoClasificacion } from '../ports/catalogo-clasificacion.port';
 import { ITransaccionBucketWriter } from '../ports/transaccion-bucket-writer.port';
 import { ITransaccionParaClasificarReader } from '../ports/transaccion-para-clasificar.port';
-import { IngestFileUseCase } from './ingest-file.use-case';
-import { DetectBankUseCase } from './detect-bank.use-case';
-import { DetectPdfBankUseCase } from './detect-pdf-bank.use-case';
-import { ValidateStructureUseCase } from './validate-structure.use-case';
-import { ValidatePdfStructureUseCase } from './validate-pdf-structure.use-case';
-import { NormalizeTransactionsUseCase } from './normalize-transactions.use-case';
-import { NormalizePdfTransactionsUseCase } from './normalize-pdf-transactions.use-case';
+import { EjecutarPipelineIngestaUseCase } from './ejecutar-pipeline-ingesta.use-case';
 import { PersistTransactionsUseCase } from './persist-transactions.use-case';
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
@@ -98,14 +92,9 @@ export type ProcessIngestaError =
  */
 export class ProcessIngestaUseCase {
   constructor(
-    private readonly ingestFileUseCase: IngestFileUseCase,
-    private readonly detectBankUseCase: DetectBankUseCase,
-    private readonly detectPdfBankUseCase: DetectPdfBankUseCase,
+    /** US-057 D-01: shared front pipeline (ingest→detect→validate→normalize). */
+    private readonly ejecutarPipelineUseCase: EjecutarPipelineIngestaUseCase,
     private readonly accountRepository: IAccountRepository,
-    private readonly validateStructureUseCase: ValidateStructureUseCase,
-    private readonly validatePdfStructureUseCase: ValidatePdfStructureUseCase,
-    private readonly normalizeTransactionsUseCase: NormalizeTransactionsUseCase,
-    private readonly normalizePdfTransactionsUseCase: NormalizePdfTransactionsUseCase,
     private readonly persistTransactionsUseCase: PersistTransactionsUseCase,
     private readonly catalogoClasificacion: ICatalogoClasificacion,
     private readonly transaccionBucketWriter: ITransaccionBucketWriter,
@@ -182,30 +171,28 @@ export class ProcessIngestaUseCase {
   private async runPipeline(
     input: ProcessIngestaInput,
   ): Promise<Result<ProcessIngestaResult, ProcessIngestaError>> {
-    const ingestResult = this.ingestFileUseCase.execute(input.fileReader);
-    if (ingestResult.isFail()) {
-      return Result.fail(ingestResult.getError());
+    // US-057 D-01: delegate the shared front (ingest→detect→validate→normalize)
+    // to EjecutarPipelineIngestaUseCase. ensure() + dedup + persist tail stay here.
+    const pipelineResult = await this.ejecutarPipelineUseCase.execute({
+      fileReader: input.fileReader,
+    });
+    if (pipelineResult.isFail()) {
+      return Result.fail(pipelineResult.getError());
     }
-    const archivo = ingestResult.getValue();
+    const { banco, estructura, transacciones, nombreArchivo } =
+      pipelineResult.getValue();
 
-    // Routing (design.md decisión #1): un único branch de extensión elige el
-    // trio PDF o Excel. A partir de acá el pipeline es idéntico para ambos —
-    // ambos trios emiten la misma forma canónica (DetectedBank, Transaccion[]).
-    const esPdf = archivo.extension === '.pdf';
-
-    const detectResult = esPdf
-      ? await this.detectPdfBankUseCase.execute(
-          archivo.buffer,
-          archivo.originalName,
-        )
-      : await this.detectBankUseCase.execute(
-          archivo.buffer,
-          archivo.originalName,
-        );
-    if (detectResult.isFail()) {
-      return Result.fail(detectResult.getError());
-    }
-    const banco = detectResult.getValue();
+    // archivo shape for the result response (originalName + sizeInBytes + extension
+    // were available from the shared pipeline's archive; reconstruct minimally).
+    const archivo = {
+      originalName: nombreArchivo,
+      // sizeInBytes: kept for backward compat with ProcessIngestaResult; read from
+      // fileReader directly since EjecutarPipelineIngestaUseCase doesn't return it.
+      sizeInBytes: input.fileReader.getSizeInBytes(),
+      extension: input.fileReader.getOriginalName().endsWith('.pdf')
+        ? '.pdf'
+        : '.xlsx',
+    };
 
     const accountResult = await this.accountRepository.ensure(
       input.userId,
@@ -215,34 +202,6 @@ export class ProcessIngestaUseCase {
       return Result.fail(accountResult.getError());
     }
     const { accountId } = accountResult.getValue();
-
-    const validateResult = esPdf
-      ? await this.validatePdfStructureUseCase.execute(
-          archivo.buffer,
-          banco.banco,
-        )
-      : await this.validateStructureUseCase.execute(
-          archivo.buffer,
-          banco.banco,
-        );
-    if (validateResult.isFail()) {
-      return Result.fail(validateResult.getError());
-    }
-    const estructura = validateResult.getValue();
-
-    const normalizeResult = esPdf
-      ? await this.normalizePdfTransactionsUseCase.execute(
-          archivo.buffer,
-          banco.banco,
-        )
-      : await this.normalizeTransactionsUseCase.execute(
-          archivo.buffer,
-          banco.banco,
-        );
-    if (normalizeResult.isFail()) {
-      return Result.fail(normalizeResult.getError());
-    }
-    const transacciones = normalizeResult.getValue();
 
     // US-005: detecta duplicados contra la BD ANTES de persistir — solo
     // `nuevas` llegan a PersistTransactionsUseCase; `duplicadas` se cuenta
@@ -260,12 +219,20 @@ export class ProcessIngestaUseCase {
     }
     const { nuevas, duplicadas } = dedupeResult.getValue();
 
+    // US-057 D-11: wrap each nueva row as TransaccionAPersistir with
+    // bucket: null, categoriaId: null — byte-for-byte identical persisted result
+    // to pre-retype (aPersistencia maps null bucket → bucketId: null).
+    // Post-persist runCategorizacion island resolves the real bucket via ITransaccionBucketWriter.
     const persistResult = await this.persistTransactionsUseCase.execute({
       userId: input.userId,
       accountId,
       banco: banco.banco,
-      nombreArchivo: archivo.originalName,
-      transacciones: nuevas,
+      nombreArchivo,
+      transacciones: nuevas.map((tx) => ({
+        transaccion: tx,
+        bucket: null,
+        categoriaId: null,
+      })),
       duplicadosOmitidos: duplicadas,
     });
     if (persistResult.isFail()) {

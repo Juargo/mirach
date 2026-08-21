@@ -4,6 +4,7 @@ import type { IBlindIndexService } from '../application/ports/blind-index-servic
 import type { ILogger } from '../application/ports/logger.port';
 
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
+import { EjecutarPipelineIngestaUseCase } from '../application/use-cases/ejecutar-pipeline-ingesta.use-case';
 import { IngestFileUseCase } from '../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../application/use-cases/detect-bank.use-case';
 import { DetectPdfBankUseCase } from '../application/use-cases/detect-pdf-bank.use-case';
@@ -85,11 +86,12 @@ export function crearProcessIngesta(
     crypto,
   );
 
-  return new ProcessIngestaUseCase(
+  // US-057 D-01: wrap the 7 individual front-pipeline UCs into the shared
+  // EjecutarPipelineIngestaUseCase before passing to ProcessIngestaUseCase.
+  const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
     new IngestFileUseCase(logger),
     new DetectBankUseCase(new ExcelBankDetectorService(), logger),
     new DetectPdfBankUseCase(new PdfjsBankDetectorService(), logger),
-    accountRepository,
     new ValidateStructureUseCase(new ExcelStructureValidatorService(), logger),
     new ValidatePdfStructureUseCase(
       new PdfjsStructureValidatorService(),
@@ -103,6 +105,12 @@ export function crearProcessIngesta(
       new PdfjsTransactionNormalizerService(),
       logger,
     ),
+    logger,
+  );
+
+  return new ProcessIngestaUseCase(
+    ejecutarPipelineUseCase,
+    accountRepository,
     new PersistTransactionsUseCase(ingestaRepository, logger),
     catalogoClasificacion,
     transaccionBucketWriter,

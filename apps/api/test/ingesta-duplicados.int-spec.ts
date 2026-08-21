@@ -24,6 +24,7 @@ import { PersistTransactionsUseCase } from '../src/application/use-cases/persist
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
 import { DetectarDuplicadosUseCase } from '../src/application/use-cases/detectar-duplicados.use-case';
 import { ProcessIngestaUseCase } from '../src/application/use-cases/process-ingesta.use-case';
+import { EjecutarPipelineIngestaUseCase } from '../src/application/use-cases/ejecutar-pipeline-ingesta.use-case';
 import { ExcelBankDetectorService } from '../src/infrastructure/excel/excel-bank-detector.service';
 import { ExcelStructureValidatorService } from '../src/infrastructure/excel/excel-structure-validator.service';
 import { ExcelTransactionNormalizerService } from '../src/infrastructure/excel/excel-transaction-normalizer.service';
@@ -80,11 +81,11 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
 
   const logger = createPinoLogger({ pretty: false });
 
-  const processIngesta = new ProcessIngestaUseCase(
+  // US-057 D-01: wrap the 7 front-pipeline UCs into EjecutarPipelineIngestaUseCase.
+  const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
     new IngestFileUseCase(logger),
     new DetectBankUseCase(new ExcelBankDetectorService(), logger),
     new DetectPdfBankUseCase(new PdfjsBankDetectorService(), logger),
-    new PrismaAccountRepository(prisma, crypto, blindIndex),
     new ValidateStructureUseCase(new ExcelStructureValidatorService(), logger),
     new ValidatePdfStructureUseCase(
       new PdfjsStructureValidatorService(),
@@ -98,6 +99,12 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
       new PdfjsTransactionNormalizerService(),
       logger,
     ),
+    logger,
+  );
+
+  const processIngesta = new ProcessIngestaUseCase(
+    ejecutarPipelineUseCase,
+    new PrismaAccountRepository(prisma, crypto, blindIndex),
     new PersistTransactionsUseCase(
       new PrismaIngestaRepository(prisma, crypto),
       logger,

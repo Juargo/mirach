@@ -1,6 +1,30 @@
 import { Result } from '../../shared/result';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { Transaccion } from '../../domain/value-objects/transaccion';
+import { Bucket } from '../../domain/value-objects/bucket';
+
+/**
+ * TransaccionAPersistir — envuelve una transacción de dominio con la
+ * clasificación resuelta EN MEMORIA por el use case caller (US-057, D-11).
+ *
+ * `bucket` es el enum de DOMINIO (nunca la FK física). La resolución
+ * `Bucket → BUCKET_IDS[bucket]` vive EXCLUSIVAMENTE en el adapter
+ * `aPersistencia` (transaccion.mapper.ts, D-15 / ADR-005: la application
+ * layer no puede importar BUCKET_IDS que vive en infrastructure).
+ *
+ * One-shot callers (`ProcessIngestaUseCase`) pasan `{ transaccion, bucket: null,
+ * categoriaId: null }` → `aPersistencia` produce `{ bucketId: null, categoriaId: null }`,
+ * byte-for-byte idéntico al comportamiento previo (regression guard D-11).
+ * Commit callers (`CommitIngestaUseCase`) pasan el bucket y categoría resueltos
+ * en memoria antes de llamar a `PersistTransactionsUseCase`.
+ */
+export interface TransaccionAPersistir {
+  transaccion: Transaccion;
+  /** Bucket de dominio resuelto en memoria. `null` = categorización pendiente/fallida (one-shot). */
+  bucket: Bucket | null;
+  /** Id de categoría propio del usuario. `null` = sin categoría asignada. */
+  categoriaId: string | null;
+}
 
 /**
  * CrearIngestaProcesadaInput — datos completos de una Ingesta EXITOSA
@@ -13,7 +37,8 @@ export interface CrearIngestaProcesadaInput {
   accountId: string;
   banco: string;
   nombreArchivo: string;
-  transacciones: ReadonlyArray<Transaccion>;
+  /** US-057 retype: cada entrada envuelve la transacción + clasificación resuelta. */
+  transacciones: ReadonlyArray<TransaccionAPersistir>;
   /** Conteo de duplicados detectados y omitidos ANTES de persistir (US-005). */
   duplicadosOmitidos: number;
 }

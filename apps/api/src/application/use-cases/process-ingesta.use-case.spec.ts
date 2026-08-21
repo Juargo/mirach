@@ -1,4 +1,5 @@
 import { ProcessIngestaUseCase } from './process-ingesta.use-case';
+import { EjecutarPipelineIngestaUseCase } from './ejecutar-pipeline-ingesta.use-case';
 import { IngestFileUseCase } from './ingest-file.use-case';
 import { DetectBankUseCase } from './detect-bank.use-case';
 import { DetectPdfBankUseCase } from './detect-pdf-bank.use-case';
@@ -39,6 +40,7 @@ import { IAccountRepository } from '../ports/account-repository.port';
 import {
   CrearIngestaProcesadaInput,
   IIngestaRepository,
+  TransaccionAPersistir,
 } from '../ports/ingesta-repository.port';
 import {
   IRegistrarIngestaFallidaWriter,
@@ -220,8 +222,9 @@ class FakeIngestaStore implements IIngestaRepository, ITransaccionRepository {
   private seq = 0;
   readonly ingestas = new Map<string, IngestaRecord>();
   failWith?: PersistenciaFallidaError;
-  /** Transacciones REALMENTE recibidas por persistirProcesada() (para probar que solo `nuevas` llegan). */
-  readonly commitTransacciones: Array<ReadonlyArray<Transaccion>> = [];
+  /** TransaccionAPersistir[] REALMENTE recibidas por persistirProcesada() (para probar que solo `nuevas` llegan, US-057 retype). */
+  readonly commitTransacciones: Array<ReadonlyArray<TransaccionAPersistir>> =
+    [];
   readonly persistCalls: CrearIngestaProcesadaInput[] = [];
 
   async persistirProcesada(
@@ -386,15 +389,23 @@ function buildUseCase(opts?: BuildOptions) {
   const ingestaFallidaWriter =
     opts?.ingestaFallidaWriter ?? new FakeRegistrarIngestaFallidaWriter();
 
-  const useCase = new ProcessIngestaUseCase(
+  // US-057 D-01: wrap the 7 individual front-pipeline UCs into
+  // EjecutarPipelineIngestaUseCase, matching the new 10-arg ProcessIngestaUseCase
+  // constructor (refactored to accept the shared pipeline UC in place of the 7).
+  const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
     new IngestFileUseCase(logger),
     new DetectBankUseCase(bankDetector, logger),
     new DetectPdfBankUseCase(pdfBankDetector, logger),
-    accountRepository,
     new ValidateStructureUseCase(structureValidator, logger),
     new ValidatePdfStructureUseCase(pdfStructureValidator, logger),
     new NormalizeTransactionsUseCase(normalizer, logger),
     new NormalizePdfTransactionsUseCase(pdfNormalizer, logger),
+    logger,
+  );
+
+  const useCase = new ProcessIngestaUseCase(
+    ejecutarPipelineUseCase,
+    accountRepository,
     new PersistTransactionsUseCase(ingestaStore, logger),
     catalogo,
     bucketWriter,
@@ -536,12 +547,17 @@ describe('ProcessIngestaUseCase', () => {
     });
   });
 
-  it('falla el aseguramiento de cuenta: retorna fail sin validar/normalizar/persistir, Y registra FALLIDA', async () => {
+  it('falla el aseguramiento de cuenta: retorna fail sin persistir, Y registra FALLIDA', async () => {
+    // US-057 D-01: EjecutarPipelineIngestaUseCase runs the full front pipeline
+    // (detect→validate→normalize) BEFORE accountRepository.ensure(). So when
+    // ensure() fails, structureValidator and normalizer have already been called.
+    // This test was updated to reflect the new sequencing: pipeline-first, then ensure.
     const {
       useCase,
       structureValidator,
       normalizer,
       accountRepository,
+      ingestaStore,
       ingestaFallidaWriter,
     } = buildUseCase();
     const error = new PersistenciaFallidaError('no se pudo asegurar la cuenta');
@@ -554,8 +570,11 @@ describe('ProcessIngestaUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
-    expect(structureValidator.called).toBe(false);
-    expect(normalizer.called).toBe(false);
+    // Pipeline ran first — validate and normalize ran before ensure.
+    expect(structureValidator.called).toBe(true);
+    expect(normalizer.called).toBe(true);
+    // Persist was NOT called — ensure failed before reaching persist.
+    expect(ingestaStore.ingestas.size).toBe(0);
 
     expect(ingestaFallidaWriter.calls).toHaveLength(1);
     expect(ingestaFallidaWriter.calls[0].motivo).toBe(error.message);
@@ -952,8 +971,13 @@ describe('ProcessIngestaUseCase', () => {
       expect(value.duplicadosOmitidos).toBe(1);
       expect(value.total).toBe(1);
       expect(value.transacciones).toEqual([TXS[1]]);
-      // persistirProcesada() solo recibe la transacción NUEVA (Sueldo), no la duplicada (Compra).
-      expect(ingestaStore.commitTransacciones[0]).toEqual([TXS[1]]);
+      // persistirProcesada() solo recibe la transacción NUEVA (Sueldo), envuelta como TransaccionAPersistir.
+      expect(ingestaStore.commitTransacciones[0]).toHaveLength(1);
+      expect(ingestaStore.commitTransacciones[0][0]).toMatchObject({
+        transaccion: TXS[1],
+        bucket: null,
+        categoriaId: null,
+      });
       const [record] = Array.from(ingestaStore.ingestas.values());
       expect(record.duplicadosOmitidos).toBe(1);
     });
@@ -1153,6 +1177,36 @@ describe('ProcessIngestaUseCase', () => {
       expect(serializedContexts).not.toContain('1500000');
       expect(serializedContexts).not.toContain('movimientos.xlsx');
       expect(serializedContexts).not.toContain(USER_ID);
+    });
+  });
+
+  describe('US-057 PR2 one-shot regression guard (TransaccionAPersistir retype)', () => {
+    it('wraps each nueva row as { transaccion, bucket: null, categoriaId: null } before passing to PersistTransactionsUseCase (domain-layer boundary, §7 TDD constraint b)', async () => {
+      // Spy on FakeIngestaStore.persistirProcesada to inspect the shapes received.
+      const { useCase, ingestaStore } = buildUseCase();
+      const persistSpy = vi.spyOn(ingestaStore, 'persistirProcesada');
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(persistSpy).toHaveBeenCalledOnce();
+
+      // Each element must be { transaccion: Transaccion, bucket: null, categoriaId: null }
+      const call = persistSpy.mock.calls[0][0];
+      const txArray = call.transacciones as ReadonlyArray<{
+        transaccion: unknown;
+        bucket: null;
+        categoriaId: null;
+      }>;
+      expect(txArray).toHaveLength(TXS.length);
+      for (const entry of txArray) {
+        expect(entry.bucket).toBeNull();
+        expect(entry.categoriaId).toBeNull();
+        expect(entry).toHaveProperty('transaccion');
+      }
     });
   });
 });

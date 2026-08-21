@@ -5,6 +5,7 @@ import { PersistenciaFallidaError } from '../../domain/errors/persistencia-falli
 import {
   CrearIngestaProcesadaInput,
   IIngestaRepository,
+  TransaccionAPersistir,
 } from '../ports/ingesta-repository.port';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
@@ -36,7 +37,8 @@ class FakeIngestaRepository implements IIngestaRepository {
   }
 }
 
-const TXS: Transaccion[] = [
+/** Raw domain transactions (for building TransaccionAPersistir entries). */
+const RAW_TXS: Transaccion[] = [
   Transaccion.crear({
     fecha: new Date('2026-05-14T00:00:00.000Z'),
     descripcion: 'Compra',
@@ -50,6 +52,17 @@ const TXS: Transaccion[] = [
     abono: 1500000n,
   }).getValue(),
 ];
+
+/**
+ * US-057 retype: PersistTransactionsInput.transacciones is now
+ * ReadonlyArray<TransaccionAPersistir>. One-shot callers wrap each row as
+ * { transaccion, bucket: null, categoriaId: null }.
+ */
+const TXS: TransaccionAPersistir[] = RAW_TXS.map((tx) => ({
+  transaccion: tx,
+  bucket: null,
+  categoriaId: null,
+}));
 
 const baseInput = {
   userId: 'user-1',
@@ -185,6 +198,25 @@ describe('PersistTransactionsUseCase (US-004 — persist-path collapse)', () => 
           context: { persistido: false, accountId: 'acc-1' },
         },
       ]);
+    });
+  });
+
+  describe('US-057 PR2 regression guard — ReadonlyArray<TransaccionAPersistir> forwarded verbatim (Fix 1)', () => {
+    it('forwards TransaccionAPersistir[] untouched to persistirProcesada — no per-row transformation', async () => {
+      const repo = new FakeIngestaRepository();
+      const useCase = new PersistTransactionsUseCase(repo, new NoOpLogger());
+
+      await useCase.execute({
+        ...baseInput,
+        transacciones: TXS,
+        duplicadosOmitidos: 0,
+      });
+
+      expect(repo.calls).toHaveLength(1);
+      // The entire array reference is passed through unchanged
+      const received = repo.calls[0].transacciones;
+      expect(received).toHaveLength(TXS.length);
+      expect(received).toEqual(TXS);
     });
   });
 });
