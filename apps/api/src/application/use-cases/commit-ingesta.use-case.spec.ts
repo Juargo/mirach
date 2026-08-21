@@ -34,6 +34,7 @@ import { NormalizePdfTransactionsUseCase } from './normalize-pdf-transactions.us
 import { Result } from '../../shared/result';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
@@ -227,9 +228,11 @@ class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
 // ---------------------------------------------------------------------------
 class FakeCatalogoClasificacion implements ICatalogoClasificacion {
   failWith?: CategorizacionFallidaError;
+  /** Injected auto-classification patterns; empty by default → SinCategoria. */
+  patrones: ReadonlyArray<PatronClasificacion> = [];
   async findAll(): Promise<Result<any, CategorizacionFallidaError>> {
     if (this.failWith) return Result.fail(this.failWith);
-    return Result.ok([]); // empty patterns → auto-classify to SinCategoria
+    return Result.ok(this.patrones);
   }
 }
 
@@ -518,6 +521,141 @@ describe('CommitIngestaUseCase', () => {
       expect(filaTX1!.bucket).toBe(Bucket.Necesidades);
       // TX2 must NOT have received the overlay (it was rowIndex 2, not 1).
       expect(filaTX2!.categoriaId).toBeNull();
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // (k) Product rulings (2026-08-21): overlay null = DES-CLASIFICAR;
+  //     Ingreso rule is IMMUTABLE (overlay ignored on Ingreso rows).
+  // --------------------------------------------------------------------------
+  describe('(k) overlay null = des-clasificar + Ingreso immutability (2026-08-21)', () => {
+    // A pattern that auto-classifies TX0 ('Supermercado', cargo) to Necesidades.
+    // Used to prove overlay-null DISCARDS the auto suggestion.
+    function patronSupermercado(): PatronClasificacion {
+      return new PatronClasificacion({
+        id: 'p-supermercado',
+        patron: 'supermercado',
+        matchType: 'CONTAINS',
+        categoria: {
+          id: CAT_NECESIDADES_ID,
+          nombre: 'Supermercado',
+          bucket: Bucket.Necesidades,
+        },
+        prioridad: 10,
+      });
+    }
+
+    it('rule 1a: pattern-matched row + overlay null ⇒ persists {SinCategoria, null}, auto discarded', async () => {
+      // Auto-classification WOULD put TX0 in Necesidades; overlay null must override to SinCategoria.
+      const catalogoClasificacion = new FakeCatalogoClasificacion();
+      catalogoClasificacion.patrones = [patronSupermercado()];
+      const categoriaRepo = new FakeCategoriaRepository();
+      categoriaRepo.categorias = [
+        makeCategoria(CAT_NECESIDADES_ID, Bucket.Necesidades),
+      ];
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({
+        catalogoClasificacion,
+        categoriaRepo,
+        ingestaRepo,
+      });
+
+      const edits: CommitEdit[] = [{ rowIndex: 0, categoriaId: null }];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const txs = ingestaRepo.calls[0].transacciones;
+      // TX0 — overlay null DES-CLASIFICA: SinCategoria bucket + null categoria (auto Necesidades discarded)
+      expect(txs[0].bucket).toBe(Bucket.SinCategoria);
+      expect(txs[0].categoriaId).toBeNull();
+    });
+
+    it('rule 1b: already-SinCategoria row + overlay null ⇒ {SinCategoria, null}, no error', async () => {
+      // TX1 ('Netflix', cargo) has no matching pattern → auto SinCategoria. Overlay null is a no-op-equivalent.
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({ ingestaRepo });
+
+      const edits: CommitEdit[] = [{ rowIndex: 1, categoriaId: null }];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const txs = ingestaRepo.calls[0].transacciones;
+      expect(txs[1].bucket).toBe(Bucket.SinCategoria);
+      expect(txs[1].categoriaId).toBeNull();
+    });
+
+    it('rule 2a: Ingreso row + overlay with a valid own categoriaId ⇒ Ingreso persists, overlay ignored', async () => {
+      // TX2 ('Deposito ingreso', abono>0 cargo===0) is an Ingreso row. Overlay must be IGNORED.
+      const categoriaRepo = new FakeCategoriaRepository();
+      categoriaRepo.categorias = [
+        makeCategoria(CAT_NECESIDADES_ID, Bucket.Necesidades),
+      ];
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({ categoriaRepo, ingestaRepo });
+
+      const edits: CommitEdit[] = [
+        { rowIndex: 2, categoriaId: CAT_NECESIDADES_ID },
+      ];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+      });
+
+      expect(result.isOk()).toBe(true); // silently ignored, not an error
+      const txs = ingestaRepo.calls[0].transacciones;
+      // TX2 — Ingreso is IMMUTABLE: bucket Ingreso, categoria null, overlay ignored
+      expect(txs[2].bucket).toBe(Bucket.Ingreso);
+      expect(txs[2].categoriaId).toBeNull();
+    });
+
+    it('rule 2b: Ingreso row + overlay null ⇒ Ingreso persists (overlay ignored)', async () => {
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({ ingestaRepo });
+
+      const edits: CommitEdit[] = [{ rowIndex: 2, categoriaId: null }];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const txs = ingestaRepo.calls[0].transacciones;
+      expect(txs[2].bucket).toBe(Bucket.Ingreso);
+      expect(txs[2].categoriaId).toBeNull();
+    });
+
+    it('rule 2 + D-10: cross-tenant categoriaId targeting an Ingreso row STILL 400s (global validation precedes per-row application)', async () => {
+      // The overlay targets the Ingreso row (TX2) with a FOREIGN categoriaId. Even though the
+      // per-row rule would ignore the overlay, cross-tenant validation runs GLOBALLY first ⇒ 400.
+      const categoriaRepo = new FakeCategoriaRepository();
+      categoriaRepo.categorias = [
+        makeCategoria(CAT_NECESIDADES_ID, Bucket.Necesidades),
+      ];
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({ categoriaRepo, ingestaRepo });
+
+      const edits: CommitEdit[] = [
+        { rowIndex: 2, categoriaId: 'cat-de-otro-usuario' },
+      ];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategoriaFueraDeCatalogoError);
+      expect(ingestaRepo.calls).toHaveLength(0); // nothing persisted
     });
   });
 

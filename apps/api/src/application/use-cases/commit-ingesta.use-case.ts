@@ -329,28 +329,53 @@ export class CommitIngestaUseCase {
       }
     }
 
-    // ── 12. Auto-classify each surviving row, apply overlay, build TransaccionAPersistir[] ─
+    // ── 12. Apply the two product rulings + auto-classify → TransaccionAPersistir[] ─
+    //
+    // Overlay-application rules (product decisions, 2026-08-21 — see D-11):
+    //
+    //   Rule 2 (Ingreso is IMMUTABLE): a row satisfying the Ingreso rule
+    //     (abono > 0 && cargo === 0) ALWAYS persists { Ingreso, null }. ANY overlay
+    //     on it (null OR non-null categoriaId) is silently IGNORED — not an error
+    //     (advisory-overlay doctrine, consistent with preview giving Ingreso rows a
+    //     null, non-editable suggestion). Checked FIRST, so it wins over the overlay.
+    //
+    //   Rule 1 (overlay null = DES-CLASIFICAR): a non-Ingreso row with an overlay
+    //     whose categoriaId is null persists { SinCategoria, null } — the user
+    //     explicitly cleared the suggestion; the auto-classification result is
+    //     DISCARDED for that row (no auto bucket fallback).
+    //
+    //   Non-null overlay: bucket from the Map<categoriaId, Bucket> (D-15).
+    //   No overlay: auto-classify (SinCategoria stays a real FK, D-11/j).
+    //
+    // Cross-tenant validation (D-10, step 7 above) already ran GLOBALLY over every
+    // overlay entry BEFORE this per-row loop — a foreign categoriaId 400s even when
+    // it targets an Ingreso row (global validation, per-row application).
     const transaccionesAPersistir: TransaccionAPersistir[] = nuevas.map(
       (tx, idx) => {
+        // Rule 2: Ingreso is immutable — overlay ignored, never re-derived.
+        if (tx.esIngreso()) {
+          return { transaccion: tx, bucket: Bucket.Ingreso, categoriaId: null };
+        }
+
         const rowIndex = rowIndexDeNuevas[idx];
         const overlay = overlayPorRowIndex.get(rowIndex);
 
         if (overlay !== undefined) {
-          // Overlay present (D-15). When categoriaId is non-null, bucket comes from the
-          // Map<categoriaId, Bucket> built from listarConPatrones — no auto-classification
-          // needed (KISS: only classify when the overlay does NOT resolve the bucket).
-          // When categoriaId is null, the user is de-assigning — auto-classify wins.
-          const resolvedBucket =
-            overlay.categoriaId !== null
-              ? (bucketPorCategoria.get(overlay.categoriaId) ??
-                Bucket.SinCategoria)
-              : this.categorizarTransaccionUseCase
-                  .execute(tx, patrones)
-                  .getValue().bucket;
-
+          if (overlay.categoriaId === null) {
+            // Rule 1: DES-CLASIFICAR — discard the auto suggestion, persist SinCategoria.
+            return {
+              transaccion: tx,
+              bucket: Bucket.SinCategoria,
+              categoriaId: null,
+            };
+          }
+          // Non-null overlay: bucket from the category map (D-15), not re-classification.
+          // The categoriaId is guaranteed in the map by the D-10 validation gate above.
           return {
             transaccion: tx,
-            bucket: resolvedBucket,
+            bucket:
+              bucketPorCategoria.get(overlay.categoriaId) ??
+              Bucket.SinCategoria,
             categoriaId: overlay.categoriaId,
           };
         }
