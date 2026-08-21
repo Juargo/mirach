@@ -44,7 +44,7 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-023](ADR-023-topologia-de-despliegue.md) | Topología de Despliegue: actual (PaaS free tier, mono-usuario) y evolución hacia clientes | 🔵 En discusión |
 | [ADR-024](ADR-024-arquitectura-de-clientes.md) | Arquitectura de Clientes: backend rico + clientes delgados contract-first | ✅ Decidido |
 | [ADR-025](ADR-025-landing-page-con-astro.md) | Landing page: workspace propio `apps/landing` con Astro estático | ✅ Decidido |
-| [ADR-026](ADR-026-ingesta-desde-mobile.md) | Ingesta desde mobile: la app gana una única capacidad de escritura (subir cartola), acotada | ✅ Decidido (regla de alcance supersedida por ADR-038; la capacidad de ingesta sigue vigente) |
+| [ADR-026](ADR-026-ingesta-desde-mobile.md) | Ingesta desde mobile: la app gana una única capacidad de escritura (subir cartola), acotada | ✅ Decidido (regla de alcance supersedida por ADR-038; la capacidad de ingesta sigue vigente). `POST /api/ingestas` (one-shot) deprecado en US-057; eliminación física pendiente en US-061 |
 | [ADR-027](ADR-027-set-de-iconos-web-y-mobile.md) | Set de iconos unificado para web y mobile | ✅ Decidido |
 | [ADR-028](ADR-028-migracion-backend-a-express.md) | Migración del Backend de NestJS a Express | ✅ Decidido |
 | [ADR-029](ADR-029-ambientes-y-validacion-de-entorno.md) | Ambientes (Develop / Testing / Producción) y Validación de Entorno con Zod | ✅ Decidido |
