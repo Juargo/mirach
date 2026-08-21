@@ -53,19 +53,19 @@ describe('IngestaController (e2e) — POST /api/ingestas/preview', () => {
     expect(response.body.banco).toBe('BCI');
     expect(typeof response.body.tipoCuenta).toBe('string');
     expect(typeof response.body.numeroCuenta).toBe('string');
-    expect(response.body.estructura.totalFilasDatos).toEqual(
-      expect.any(Number),
-    );
-    expect(response.body.estructura.totalFilasDatos).toBeGreaterThan(0);
-    expect(response.body.muestra.length).toBeLessThanOrEqual(50);
-    expect(response.body.muestra.length).toBe(
-      Math.min(50, response.body.estructura.totalFilasDatos),
-    );
-    for (const tx of response.body.muestra) {
+    expect(response.body.resumen.totalFilas).toEqual(expect.any(Number));
+    expect(response.body.resumen.totalFilas).toBeGreaterThan(0);
+    for (const tx of response.body.filas) {
       expect(typeof tx.cargo).toBe('string');
       expect(typeof tx.abono).toBe('string');
       expect(typeof tx.fecha).toBe('string');
       expect(typeof tx.descripcion).toBe('string');
+      expect(typeof tx.rowIndex).toBe('number');
+      expect(typeof tx.esDuplicado).toBe('boolean');
+      expect(
+        tx.sugerido === null ||
+          (typeof tx.sugerido === 'object' && tx.sugerido !== null),
+      ).toBe(true);
     }
   });
 
@@ -78,11 +78,16 @@ describe('IngestaController (e2e) — POST /api/ingestas/preview', () => {
       .expect(200);
 
     expect(response.body.banco).toBe('Banco de Chile');
-    expect(response.body.estructura.totalFilasDatos).toBeGreaterThan(0);
-    expect(response.body.muestra.length).toBeLessThanOrEqual(50);
-    for (const tx of response.body.muestra) {
+    expect(response.body.resumen.totalFilas).toBeGreaterThan(0);
+    for (const tx of response.body.filas) {
       expect(typeof tx.cargo).toBe('string');
       expect(typeof tx.abono).toBe('string');
+      expect(typeof tx.rowIndex).toBe('number');
+      expect(typeof tx.esDuplicado).toBe('boolean');
+      expect(
+        tx.sugerido === null ||
+          (typeof tx.sugerido === 'object' && tx.sugerido !== null),
+      ).toBe(true);
     }
   });
 
