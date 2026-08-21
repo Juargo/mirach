@@ -79,8 +79,11 @@ describe('previewIngestaResponseSchema (sync guarantee)', () => {
     const dto = aPreviewIngestaDto(unResultado([]));
 
     const parsed = previewIngestaResponseSchema.parse(dto);
+    // resumen/filas are `.optional()` at the wire level (compat shim: legacy
+    // clients may send only estructura/muestra) but the server ALWAYS emits
+    // them — assert presence, then value.
     expect(parsed.filas).toEqual([]);
-    expect(parsed.resumen.totalFilas).toBe(0);
+    expect(parsed.resumen?.totalFilas).toBe(0);
   });
 
   it('parses the real DTO output for a filas row with a BigInt beyond MAX_SAFE_INTEGER', () => {
@@ -89,8 +92,8 @@ describe('previewIngestaResponseSchema (sync guarantee)', () => {
     const dto = aPreviewIngestaDto(unResultado([unaFila(tx)]));
 
     const parsed = previewIngestaResponseSchema.parse(dto);
-    expect(parsed.filas[0]?.abono).toBe('9007199254740993');
-    expect(parsed.filas[0]?.cargo).toBe('0');
+    expect(parsed.filas?.[0]?.abono).toBe('9007199254740993');
+    expect(parsed.filas?.[0]?.cargo).toBe('0');
   });
 
   it('parses esDuplicado and sugerido fields correctly', () => {
@@ -104,11 +107,26 @@ describe('previewIngestaResponseSchema (sync guarantee)', () => {
     const dto = aPreviewIngestaDto(unResultado([filaConSugerido]));
 
     const parsed = previewIngestaResponseSchema.parse(dto);
-    expect(parsed.filas[0]?.esDuplicado).toBe(true);
-    expect(parsed.filas[0]?.sugerido).toEqual({
+    expect(parsed.filas?.[0]?.esDuplicado).toBe(true);
+    expect(parsed.filas?.[0]?.sugerido).toEqual({
       bucket: 'Necesidades',
       categoriaId: 'cat-x',
     });
+  });
+
+  it('parses the deprecated legacy estructura/muestra mirror (compat shim, US-061)', () => {
+    const tx = unaTransaccion(8103n, 0n);
+    const dto = aPreviewIngestaDto(unResultado([unaFila(tx)]));
+
+    const parsed = previewIngestaResponseSchema.parse(dto);
+    expect(parsed.estructura.totalFilasDatos).toBe(1);
+    expect(parsed.muestra).toHaveLength(1);
+    expect(Object.keys(parsed.muestra[0] ?? {}).sort()).toEqual([
+      'abono',
+      'cargo',
+      'descripcion',
+      'fecha',
+    ]);
   });
 
   it('rejects a payload where abono is a JSON number (never a string)', () => {
