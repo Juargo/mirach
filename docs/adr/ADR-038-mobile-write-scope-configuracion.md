@@ -5,18 +5,17 @@ tags:
   - mobile
   - configuracion
 proyecto: MoneyDiary
-estado: 🔵 Propuesto
+estado: ✅ Decidido
 fecha_creacion: 2026-08-17
-fecha_actualizacion: 2026-08-17
+fecha_actualizacion: 2026-08-20
 ---
 
 # ADR-038 — Alcance de escritura de la app mobile: perfil propio y catálogo de clasificación
 
 ## Estado
 
-🔵 **Propuesto** (2026-08-17, fase de diseño de US-044) — **supersede la regla de alcance de
-ADR-026**. Se revisa y se acepta en el PR que implementa la primera slice de US-044 (CQ-1 del
-proposal de `us-044-mobile-configuracion`).
+✅ **Decidido** (2026-08-20, PR8 de us-044-mobile-configuracion) — **supersede la regla de alcance de
+ADR-026**.
 
 > [!info] Relación con ADR-026
 > No reemplaza a ADR-026 Ingesta desde mobile: la capacidad de subir cartola, el transporte, el
@@ -218,4 +217,4 @@ dos pantallas y sin dependencias nativas más allá del set de iconos ya decidid
 
 ---
 
-*Fecha de decisión: pendiente — se acepta al mergear la primera slice de US-044*
+*Fecha de decisión: 2026-08-20 — aceptado en PR8 de us-044-mobile-configuracion.*
