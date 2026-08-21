@@ -80,9 +80,12 @@ export interface Container {
   readonly reclasificarTransaccion: ReclasificarTransaccionUseCase;
   /** Pipeline de ingesta xlsx/pdf — POST /api/ingestas. */
   readonly processIngesta: ProcessIngestaUseCase;
-  /** Seam de solo-lectura detect→validate→normalize, sin persistir (US-003,
-   * CA-04) — POST /api/ingestas/preview. Ni prisma ni crypto: no tiene cómo
-   * alcanzar la BD. */
+  /** Seam de solo-lectura (US-003, US-057 D-12) — POST /api/ingestas/preview.
+   * Recibe prisma/crypto/blindIndex pero cablea SOLO adapters de lectura
+   * (PrismaAccountReader — sin upsert; PrismaTransaccionExistenteReader —
+   * SELECT; catálogo reader). La garantía "nada se persiste" la imponen los
+   * tipos de puerto read-only y el test de composición MANDATORY-BLOCKING de
+   * PR4 (T-25). */
   readonly previewIngesta: PreviewIngestaUseCase;
   /** Borrado en cascada userId-isolado — DELETE /api/ingestas/:id. */
   readonly eliminarIngesta: EliminarIngestaUseCase;

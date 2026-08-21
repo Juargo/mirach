@@ -45,11 +45,11 @@ const previewFilaSchema = z.object({
  * Resumen agregado del preview (US-057 PR2).
  */
 const previewResumenSchema = z.object({
-  totalFilasDatos: z
+  totalFilas: z
     .number()
     .int()
     .describe('Row count PRE-dedupe, not money — plain JSON number.'),
-  duplicados: z.number().int(),
+  duplicadosDetectados: z.number().int(),
   nuevas: z.number().int(),
 });
 

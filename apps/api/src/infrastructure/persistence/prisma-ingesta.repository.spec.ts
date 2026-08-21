@@ -92,6 +92,7 @@ describe('PrismaIngestaRepository.persistirProcesada (US-004)', () => {
       abono: 0n,
       accountId: 'acc-1',
       bucketId: null,
+      categoriaId: null,
     });
     expect(createManyData[1]).toMatchObject({
       descripcion: 'enc(Sueldo)',

@@ -2,7 +2,6 @@ import {
   PreviewIngestaResult,
   PreviewFila,
 } from '../../../application/use-cases/preview-ingesta.use-case';
-import { Bucket } from '../../../domain/value-objects/bucket';
 
 /**
  * PreviewTransaccionDto — HTTP form of a single preview row (US-057 PR2).
@@ -26,10 +25,10 @@ export interface PreviewTransaccionDto {
   sugerido: { bucket: string; categoriaId: string | null } | null;
 }
 
-/** Resumen agregado HTTP mirror of PreviewResumen. */
+/** Resumen agregado HTTP mirror of PreviewResumen (spec PREV-EXT-01). */
 export interface PreviewResumenDto {
-  totalFilasDatos: number;
-  duplicados: number;
+  totalFilas: number;
+  duplicadosDetectados: number;
   nuevas: number;
 }
 
@@ -55,7 +54,8 @@ function aPreviewFilaDto(fila: PreviewFila): PreviewTransaccionDto {
     sugerido:
       sugerido !== null
         ? {
-            bucket: Bucket[sugerido.bucket],
+            // Bucket is a string enum — its value IS the wire string (no reverse lookup).
+            bucket: sugerido.bucket,
             categoriaId: sugerido.categoriaId,
           }
         : null,
@@ -80,8 +80,8 @@ export function aPreviewIngestaDto(
     tipoCuenta: data.banco.tipoCuenta,
     numeroCuenta: data.banco.numeroCuenta,
     resumen: {
-      totalFilasDatos: data.resumen.totalFilasDatos,
-      duplicados: data.resumen.duplicados,
+      totalFilas: data.resumen.totalFilas,
+      duplicadosDetectados: data.resumen.duplicadosDetectados,
       nuevas: data.resumen.nuevas,
     },
     filas: data.filas.map(aPreviewFilaDto),

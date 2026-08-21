@@ -5,6 +5,7 @@ import type { ILogger } from '../application/ports/logger.port';
 
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { EjecutarPipelineIngestaUseCase } from '../application/use-cases/ejecutar-pipeline-ingesta.use-case';
+import { CategorizarTransaccionUseCase } from '../application/use-cases/categorizar-transaccion.use-case';
 import { IngestFileUseCase } from '../application/use-cases/ingest-file.use-case';
 import { DetectBankUseCase } from '../application/use-cases/detect-bank.use-case';
 import { DetectPdfBankUseCase } from '../application/use-cases/detect-pdf-bank.use-case';
@@ -72,6 +73,7 @@ export function crearPreviewIngesta(
     new PrismaAccountReader(prisma, blindIndex),
     new PrismaTransaccionExistenteReader(prisma, crypto),
     new PrismaCatalogoClasificacionRepository(prisma),
+    new CategorizarTransaccionUseCase(logger),
     logger,
   );
 }

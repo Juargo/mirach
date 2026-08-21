@@ -41,12 +41,12 @@ export interface PreviewFila {
   sugerido: SugeridoClasificacion | null;
 }
 
-/** Resumen agregado del preview. */
+/** Resumen agregado del preview (spec PREV-EXT-01). */
 export interface PreviewResumen {
   /** Conteo de filas en el archivo (PRE-dedupe, D-05). */
-  totalFilasDatos: number;
+  totalFilas: number;
   /** Cuántas filas son duplicadas. */
-  duplicados: number;
+  duplicadosDetectados: number;
   /** Cuántas filas serían nuevas si se confirma la ingesta. */
   nuevas: number;
 }
@@ -101,6 +101,8 @@ export class PreviewIngestaUseCase {
     private readonly txExistenteReader: ITransaccionExistenteReader,
     /** D-09: catalog for classification suggestions. */
     private readonly catalogoClasificacion: ICatalogoClasificacion,
+    /** D-09: per-row classifier — injected (matches ProcessIngestaUseCase pattern, not per-request new). */
+    private readonly categorizarTransaccionUseCase: CategorizarTransaccionUseCase,
     private readonly logger: ILogger,
   ) {}
 
@@ -132,7 +134,19 @@ export class PreviewIngestaUseCase {
     if (pipelineResult.isFail()) {
       return Result.fail(pipelineResult.getError());
     }
-    const { banco, transacciones } = pipelineResult.getValue();
+    const { banco, estructura, transacciones } = pipelineResult.getValue();
+
+    // spec PREV-EXT-01: `totalFilas` is the total row count of the normalized
+    // set as reported by the structure step — same discrimination as
+    // ProcessIngestaUseCase.estructuraResumen. Excel's validator reports its own
+    // `totalFilasDatos` (can exceed the normalized count if some rows were
+    // dropped downstream); PDF has no pre-normalize count, so it uses
+    // `transacciones.length`. `duplicadosDetectados`/`nuevas` still derive from
+    // the dedup mask over `transacciones`.
+    const totalFilas =
+      'paginaInicioTabla' in estructura
+        ? transacciones.length
+        : estructura.totalFilasDatos;
 
     // 2. Load catalog (best-effort island — D-09 degradation)
     let patrones: ReadonlyArray<PatronClasificacion> = [];
@@ -162,15 +176,15 @@ export class PreviewIngestaUseCase {
     const mask = maskResult.getValue();
 
     // 4. Build filas — sugerido + esDuplicado per row (D-08: no cap)
-    const categorizarUC = new CategorizarTransaccionUseCase(this.logger);
     const filas: PreviewFila[] = transacciones.map((tx, i) => {
-      const { bucket: bucketSugerido, categoria } = categorizarUC
-        .execute(
-          { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
-          // catalog-down: pass [] so Ingreso rule still fires (abono>0,cargo=0 → Ingreso)
-          catalogoDisponible ? patrones : [],
-        )
-        .getValue();
+      const { bucket: bucketSugerido, categoria } =
+        this.categorizarTransaccionUseCase
+          .execute(
+            { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
+            // catalog-down: pass [] so Ingreso rule still fires (abono>0,cargo=0 → Ingreso)
+            catalogoDisponible ? patrones : [],
+          )
+          .getValue();
 
       // D-09: SinCategoria → null; Ingreso/Necesidades/etc → { bucket, categoriaId }
       const sugerido: SugeridoClasificacion | null =
@@ -186,22 +200,22 @@ export class PreviewIngestaUseCase {
       };
     });
 
-    const duplicados = mask.filter(Boolean).length;
-    const nuevas = transacciones.length - duplicados;
+    const duplicadosDetectados = mask.filter(Boolean).length;
+    const nuevas = transacciones.length - duplicadosDetectados;
 
     // Solo conteos + banco (enum) — nunca las transacciones ni userId (ADR-013).
     this.logger.debug('preview-ingesta: preview generated', {
       banco: banco.banco,
-      totalFilasDatos: transacciones.length,
-      duplicados,
+      totalFilas,
+      duplicadosDetectados,
       nuevas,
     });
 
     return Result.ok({
       banco,
       resumen: {
-        totalFilasDatos: transacciones.length,
-        duplicados,
+        totalFilas,
+        duplicadosDetectados,
         nuevas,
       },
       filas,
@@ -237,17 +251,15 @@ export class PreviewIngestaUseCase {
       return Result.ok(transacciones.map(() => false));
     }
 
-    // D-07: account exists → compute rango and query reader
-    const rango = rangoFechas(transacciones);
-    if (rango === null) {
-      // Should not happen (length guard above), but defensive
-      return Result.ok(transacciones.map(() => false));
-    }
+    // D-07: account exists → compute rango and query reader.
+    // rangoFechas returns null only for empty input — the length guard above
+    // ensures we never reach here empty (same pattern as detectar-duplicados.use-case.ts:62).
+    const { desde, hasta } = rangoFechas(transacciones)!;
 
     const existentesResult = await this.txExistenteReader.buscarPorCuentaYRango(
       accountData.accountId,
-      rango.desde,
-      rango.hasta,
+      desde,
+      hasta,
     );
     if (existentesResult.isFail()) {
       return Result.fail(existentesResult.getError());

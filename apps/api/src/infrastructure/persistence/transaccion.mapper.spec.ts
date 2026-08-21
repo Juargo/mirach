@@ -1,6 +1,7 @@
 import { aPersistencia, aDominio } from './transaccion.mapper';
 import { NoOpCryptoService } from './no-op-crypto.service';
 import { Transaccion } from '../../domain/value-objects/transaccion';
+import { Bucket } from '../../domain/value-objects/bucket';
 
 const crypto = new NoOpCryptoService();
 
@@ -147,8 +148,7 @@ describe('transaccion.mapper', () => {
 
       const entry = {
         transaccion: tx,
-        bucket:
-          'Necesidades' as import('../../domain/value-objects/bucket').Bucket,
+        bucket: Bucket.Necesidades,
         categoriaId: 'cat-abc',
       };
       const row = aPersistencia(entry, crypto);
@@ -167,12 +167,31 @@ describe('transaccion.mapper', () => {
 
       const entry = {
         transaccion: tx,
-        bucket: 'Ingreso' as import('../../domain/value-objects/bucket').Bucket,
+        bucket: Bucket.Ingreso,
         categoriaId: null,
       };
       const row = aPersistencia(entry, crypto);
 
       expect(row.bucketId).toBe('bucket-ingreso');
+      expect(row.categoriaId).toBeNull();
+    });
+
+    it('aPersistencia with bucket: SinCategoria resolves to bucket-sincategoria FK (Fix 9)', () => {
+      const tx = Transaccion.crear({
+        fecha: new Date('2026-06-03T00:00:00.000Z'),
+        descripcion: 'Movimiento sin clasificar',
+        cargo: 42000n,
+        abono: 0n,
+      }).getValue();
+
+      const entry = {
+        transaccion: tx,
+        bucket: Bucket.SinCategoria,
+        categoriaId: null,
+      };
+      const row = aPersistencia(entry, crypto);
+
+      expect(row.bucketId).toBe('bucket-sincategoria');
       expect(row.categoriaId).toBeNull();
     });
   });

@@ -237,7 +237,7 @@ const PREVIEW_OK = {
   },
   // US-057 PR2: new PreviewIngestaResult shape ({ resumen, filas } replaces
   // { estructura, muestra }). Per-row dedup and classification included.
-  resumen: { totalFilasDatos: 2, duplicados: 0, nuevas: 2 },
+  resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
   filas: [],
 };
 
@@ -253,7 +253,7 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
       banco: 'BancoEstado',
       tipoCuenta: 'CuentaRUT',
       numeroCuenta: '****',
-      resumen: { totalFilasDatos: 2, duplicados: 0, nuevas: 2 },
+      resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
       filas: [],
     });
     // US-057 PR2: userId is forwarded for per-row dedup scoping (D-06).

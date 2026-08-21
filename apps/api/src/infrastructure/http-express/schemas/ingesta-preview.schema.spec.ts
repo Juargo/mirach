@@ -61,8 +61,8 @@ function unResultado(filas: ReadonlyArray<PreviewFila>): PreviewIngestaResult {
       numeroCuenta: '****5678',
     },
     resumen: {
-      totalFilasDatos: filas.length,
-      duplicados: 0,
+      totalFilas: filas.length,
+      duplicadosDetectados: 0,
       nuevas: filas.length,
     },
     filas,
@@ -80,7 +80,7 @@ describe('previewIngestaResponseSchema (sync guarantee)', () => {
 
     const parsed = previewIngestaResponseSchema.parse(dto);
     expect(parsed.filas).toEqual([]);
-    expect(parsed.resumen.totalFilasDatos).toBe(0);
+    expect(parsed.resumen.totalFilas).toBe(0);
   });
 
   it('parses the real DTO output for a filas row with a BigInt beyond MAX_SAFE_INTEGER', () => {
@@ -116,7 +116,7 @@ describe('previewIngestaResponseSchema (sync guarantee)', () => {
       banco: 'BCI',
       tipoCuenta: 'Corriente',
       numeroCuenta: '****5678',
-      resumen: { totalFilasDatos: 1, duplicados: 0, nuevas: 1 },
+      resumen: { totalFilas: 1, duplicadosDetectados: 0, nuevas: 1 },
       filas: [
         {
           rowIndex: 0,

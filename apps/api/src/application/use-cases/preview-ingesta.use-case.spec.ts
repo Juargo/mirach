@@ -1,5 +1,6 @@
 import { PreviewIngestaUseCase } from './preview-ingesta.use-case';
 import { EjecutarPipelineIngestaUseCase } from './ejecutar-pipeline-ingesta.use-case';
+import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { IngestFileUseCase } from './ingest-file.use-case';
 import { DetectBankUseCase } from './detect-bank.use-case';
 import { DetectPdfBankUseCase } from './detect-pdf-bank.use-case';
@@ -94,12 +95,14 @@ const ESTRUCTURA: ValidatedStructure = {
 class FakeStructureValidator implements IStructureValidator {
   called = false;
   failWith?: EstructuraInvalidaError;
+  /** Overridable so tests can force estructura.totalFilasDatos to diverge from the normalized row count. */
+  estructura: ValidatedStructure = ESTRUCTURA;
   async validate(): Promise<
     Result<ValidatedStructure, EstructuraInvalidaError>
   > {
     this.called = true;
     if (this.failWith) return Result.fail(this.failWith);
-    return Result.ok(ESTRUCTURA);
+    return Result.ok(this.estructura);
   }
 }
 
@@ -245,6 +248,7 @@ interface BuildOptions {
   pdfStructureValidator?: FakePdfStructureValidator;
   pdfNormalizer?: FakePdfTransactionNormalizer;
   normalizer?: FakeTransactionNormalizer;
+  structureValidator?: FakeStructureValidator;
   accountReader?: FakeAccountReader;
   txExistenteReader?: FakeTransaccionExistenteReader;
   catalogo?: FakeCatalogo;
@@ -252,7 +256,8 @@ interface BuildOptions {
 
 function buildUseCase(opts?: BuildOptions) {
   const bankDetector = new FakeBankDetector();
-  const structureValidator = new FakeStructureValidator();
+  const structureValidator =
+    opts?.structureValidator ?? new FakeStructureValidator();
   const normalizer = opts?.normalizer ?? new FakeTransactionNormalizer();
   const pdfBankDetector = opts?.pdfBankDetector ?? new FakePdfBankDetector();
   const pdfStructureValidator =
@@ -281,6 +286,7 @@ function buildUseCase(opts?: BuildOptions) {
     accountReader,
     txExistenteReader,
     catalogo,
+    new CategorizarTransaccionUseCase(new NoOpLogger()),
     new NoOpLogger(),
   );
 
@@ -317,7 +323,7 @@ describe('PreviewIngestaUseCase', () => {
     // Structural shape
     expect(Object.keys(value).sort()).toEqual(['banco', 'filas', 'resumen']);
     expect(value.banco).toEqual(BANCO);
-    expect(value.resumen.totalFilasDatos).toBe(TXS.length);
+    expect(value.resumen.totalFilas).toBe(TXS.length);
     expect(value.filas).toHaveLength(TXS.length);
     // Each fila has rowIndex, transaccion, esDuplicado, sugerido
     value.filas.forEach((fila, i) => {
@@ -361,7 +367,7 @@ describe('PreviewIngestaUseCase', () => {
     expect(result.isOk()).toBe(true);
     const value = result.getValue();
     expect(value.banco).toEqual(BANCO);
-    expect(value.resumen.totalFilasDatos).toBe(TXS.length);
+    expect(value.resumen.totalFilas).toBe(TXS.length);
 
     expect(bankDetector.called).toBe(true);
     expect(structureValidator.called).toBe(true);
@@ -390,7 +396,7 @@ describe('PreviewIngestaUseCase', () => {
     expect(result.isOk()).toBe(true);
     const value = result.getValue();
     expect(value.filas).toHaveLength(TXS_PDF.length);
-    expect(value.resumen.totalFilasDatos).toBe(TXS_PDF.length);
+    expect(value.resumen.totalFilas).toBe(TXS_PDF.length);
 
     expect(pdfBankDetector.called).toBe(true);
     expect(pdfStructureValidator.called).toBe(true);
@@ -400,10 +406,13 @@ describe('PreviewIngestaUseCase', () => {
     expect(normalizer.called).toBe(false);
   });
 
-  it('no-cap: normalize retorna 120 filas → filas tiene ALL 120, totalFilasDatos es 120 (D-08: no 50-cap)', async () => {
+  it('no-cap: normalize retorna 120 filas → filas tiene ALL 120, totalFilas es 120 (D-08: no 50-cap)', async () => {
     const normalizer = new FakeTransactionNormalizer();
     normalizer.transacciones = crearTxs(120);
-    const { useCase } = buildUseCase({ normalizer });
+    // Excel validator reports the same count as the normalized set (no drop).
+    const structureValidator = new FakeStructureValidator();
+    structureValidator.estructura = { ...ESTRUCTURA, totalFilasDatos: 120 };
+    const { useCase } = buildUseCase({ normalizer, structureValidator });
 
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
@@ -414,7 +423,28 @@ describe('PreviewIngestaUseCase', () => {
     const value = result.getValue();
     // D-08: no server-side cap — all 120 rows returned
     expect(value.filas.length).toBe(120);
-    expect(value.resumen.totalFilasDatos).toBe(120);
+    expect(value.resumen.totalFilas).toBe(120);
+  });
+
+  it('spec PREV-EXT-01: totalFilas comes from estructura.totalFilasDatos (Excel), even when it exceeds the normalized row count', async () => {
+    // Excel validator reports 5 data rows, but normalize yields only 3 (2 rows
+    // dropped downstream). resumen.totalFilas MUST equal the estructura value (5),
+    // while filas.length equals the normalized count (3).
+    const normalizer = new FakeTransactionNormalizer();
+    normalizer.transacciones = crearTxs(3);
+    const structureValidator = new FakeStructureValidator();
+    structureValidator.estructura = { ...ESTRUCTURA, totalFilasDatos: 5 };
+    const { useCase } = buildUseCase({ normalizer, structureValidator });
+
+    const result = await useCase.execute({
+      fileReader: new FakeFileReader(),
+      userId: USER_ID,
+    });
+
+    expect(result.isOk()).toBe(true);
+    const value = result.getValue();
+    expect(value.resumen.totalFilas).toBe(5); // from estructura, not filas.length
+    expect(value.filas.length).toBe(3); // normalized rows
   });
 
   it('rowIndex is 0-based contiguous for all filas', async () => {
@@ -433,10 +463,13 @@ describe('PreviewIngestaUseCase', () => {
     });
   });
 
-  it('archivo con 0 filas de datos: retorna ok con totalFilasDatos:0 y filas:[] (200 legítimo)', async () => {
+  it('archivo con 0 filas de datos: retorna ok con totalFilas:0 y filas:[] (200 legítimo)', async () => {
     const normalizer = new FakeTransactionNormalizer();
     normalizer.transacciones = [];
-    const { useCase } = buildUseCase({ normalizer });
+    // Structure validator also reports 0 data rows (coherent empty file).
+    const structureValidator = new FakeStructureValidator();
+    structureValidator.estructura = { ...ESTRUCTURA, totalFilasDatos: 0 };
+    const { useCase } = buildUseCase({ normalizer, structureValidator });
 
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
@@ -445,7 +478,7 @@ describe('PreviewIngestaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     const value = result.getValue();
-    expect(value.resumen.totalFilasDatos).toBe(0);
+    expect(value.resumen.totalFilas).toBe(0);
     expect(value.filas).toEqual([]);
   });
 
@@ -505,7 +538,7 @@ describe('PreviewIngestaUseCase', () => {
       const { filas, resumen } = result.getValue();
       expect(filas[0].esDuplicado).toBe(true);
       expect(filas[1].esDuplicado).toBe(false);
-      expect(resumen.duplicados).toBe(1);
+      expect(resumen.duplicadosDetectados).toBe(1);
       expect(resumen.nuevas).toBe(1);
     });
 
@@ -527,8 +560,48 @@ describe('PreviewIngestaUseCase', () => {
       expect(result.isOk()).toBe(true);
       const { filas, resumen } = result.getValue();
       filas.forEach((fila) => expect(fila.esDuplicado).toBe(true));
-      expect(resumen.duplicados).toBe(TXS.length);
+      expect(resumen.duplicadosDetectados).toBe(TXS.length);
       expect(resumen.nuevas).toBe(0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Reader failure paths (Fix 7): a reader Result.fail propagates as fail
+  // ---------------------------------------------------------------------------
+  describe('reader failure propagation', () => {
+    it('accountReader.findByBanco fails → execute returns that PersistenciaFallidaError, existenteReader not queried', async () => {
+      const accountReader = new FakeAccountReader();
+      accountReader.failWith = new PersistenciaFallidaError(
+        'fallo leyendo la cuenta',
+      );
+      const txExistenteReader = new FakeTransaccionExistenteReader();
+      const { useCase } = buildUseCase({ accountReader, txExistenteReader });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBe(accountReader.failWith);
+      // Short-circuits before querying existing transactions.
+      expect(txExistenteReader.called).toBe(false);
+    });
+
+    it('txExistenteReader.buscarPorCuentaYRango fails → execute returns that PersistenciaFallidaError', async () => {
+      const txExistenteReader = new FakeTransaccionExistenteReader();
+      txExistenteReader.failWith = new PersistenciaFallidaError(
+        'fallo consultando transacciones existentes',
+      );
+      const { useCase } = buildUseCase({ txExistenteReader });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBe(txExistenteReader.failWith);
     });
   });
 
@@ -693,6 +766,7 @@ describe('PreviewIngestaUseCase', () => {
       new FakeAccountReader(),
       new FakeTransaccionExistenteReader(),
       new FakeCatalogo(),
+      new CategorizarTransaccionUseCase(new NoOpLogger()),
       new NoOpLogger(),
     );
 
@@ -859,6 +933,7 @@ describe('PreviewIngestaUseCase', () => {
       new FakeAccountReader(),
       new FakeTransaccionExistenteReader(),
       new FakeCatalogo(),
+      new CategorizarTransaccionUseCase(new NoOpLogger()),
       new NoOpLogger(),
     );
 
@@ -875,11 +950,11 @@ describe('PreviewIngestaUseCase', () => {
     ).toBeInstanceOf(Error);
   });
 
-  it('D-05: totalFilasDatos is PRE-dedupe count (preview shows all rows including duplicates)', async () => {
+  it('D-05: totalFilas is PRE-dedupe count (preview shows all rows including duplicates)', async () => {
     const normalizer = new FakeTransactionNormalizer();
     normalizer.transacciones = TXS;
     const txExistenteReader = new FakeTransaccionExistenteReader();
-    // One row is a duplicate — but totalFilasDatos still counts all
+    // One row is a duplicate — but totalFilas still counts all
     txExistenteReader.existentes = [
       {
         fecha: TXS[0].fecha,
@@ -897,14 +972,25 @@ describe('PreviewIngestaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     const value = result.getValue();
-    // totalFilasDatos = all rows (PRE-dedupe); filas.length = same (D-08: no cap)
-    expect(value.resumen.totalFilasDatos).toBe(TXS.length);
+    // totalFilas = all rows (PRE-dedupe); filas.length = same (D-08: no cap)
+    expect(value.resumen.totalFilas).toBe(TXS.length);
     expect(value.filas.length).toBe(TXS.length);
   });
 
   describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {
-    it('loguea banco/totalFilasDatos, nunca transacciones ni userId', async () => {
+    it('loguea banco/totalFilas, nunca transacciones ni userId', async () => {
       const normalizer = new FakeTransactionNormalizer();
+      // Seed a distinctive, collision-free sensitive payload so the redaction
+      // assertion is meaningful (the seeded amount 987654321 and descripcion
+      // 'PagoSecreto' cannot collide with aggregate counts like totalFilas).
+      normalizer.transacciones = [
+        Transaccion.crear({
+          fecha: new Date('2026-05-14T00:00:00.000Z'),
+          descripcion: 'PagoSecreto',
+          cargo: 987654321n,
+          abono: 0n,
+        }).getValue(),
+      ];
       const logger = new FakeLogger();
       const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
         new IngestFileUseCase(new NoOpLogger()),
@@ -930,6 +1016,7 @@ describe('PreviewIngestaUseCase', () => {
         new FakeAccountReader(),
         new FakeTransaccionExistenteReader(),
         new FakeCatalogo(),
+        new CategorizarTransaccionUseCase(new NoOpLogger()),
         logger,
       );
 
@@ -941,12 +1028,17 @@ describe('PreviewIngestaUseCase', () => {
       expect(result.isOk()).toBe(true);
       const debugCalls = logger.calls.filter((c) => c.level === 'debug');
       expect(debugCalls.length).toBeGreaterThan(0);
-      const serializedContexts = JSON.stringify(
-        debugCalls.map((c) => c.context),
-      );
-      // Must not leak transaction descriptions or amounts
-      expect(serializedContexts).not.toContain('Movimiento');
-      expect(serializedContexts).not.toContain(USER_ID);
+      // Fix 5: assert over EVERY debug call — neither the message nor the
+      // serialized context may leak the seeded descripcion, the amount, or the
+      // userId (ADR-013). Robust to the pipeline UC's extra debug line: iterate
+      // all calls instead of collapsing them into one blob (which could mask a
+      // leak in a single call behind clean text in another).
+      for (const call of debugCalls) {
+        const haystack = `${call.message} ${JSON.stringify(call.context ?? {})}`;
+        expect(haystack).not.toContain('PagoSecreto');
+        expect(haystack).not.toContain('987654321');
+        expect(haystack).not.toContain(USER_ID);
+      }
     });
   });
 });

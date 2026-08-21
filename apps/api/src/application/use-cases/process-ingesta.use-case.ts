@@ -189,7 +189,13 @@ export class ProcessIngestaUseCase {
       // sizeInBytes: kept for backward compat with ProcessIngestaResult; read from
       // fileReader directly since EjecutarPipelineIngestaUseCase doesn't return it.
       sizeInBytes: input.fileReader.getSizeInBytes(),
-      extension: input.fileReader.getOriginalName().endsWith('.pdf')
+      // Case-insensitive: uppercase extensions (`.PDF`) must still resolve. The
+      // Extension VO already guaranteed only .xlsx/.pdf reached this far, so the
+      // else branch is safely .xlsx.
+      extension: input.fileReader
+        .getOriginalName()
+        .toLowerCase()
+        .endsWith('.pdf')
         ? '.pdf'
         : '.xlsx',
     };

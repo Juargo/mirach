@@ -27,7 +27,7 @@ const BANCO = {
 
 const DATA: PreviewIngestaResult = {
   banco: BANCO,
-  resumen: { totalFilasDatos: 2, duplicados: 0, nuevas: 2 },
+  resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
   filas: [
     {
       rowIndex: 0,
@@ -52,7 +52,7 @@ describe('aPreviewIngestaDto', () => {
       banco: 'BCI',
       tipoCuenta: 'Cuenta Corriente',
       numeroCuenta: '123456',
-      resumen: { totalFilasDatos: 2, duplicados: 0, nuevas: 2 },
+      resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
       filas: [
         {
           rowIndex: 0,
@@ -88,7 +88,7 @@ describe('aPreviewIngestaDto', () => {
   it('filas vacías: mapea a array vacío sin lanzar', () => {
     const dto = aPreviewIngestaDto({
       ...DATA,
-      resumen: { totalFilasDatos: 0, duplicados: 0, nuevas: 0 },
+      resumen: { totalFilas: 0, duplicadosDetectados: 0, nuevas: 0 },
       filas: [],
     });
 
@@ -105,7 +105,7 @@ describe('aPreviewIngestaDto', () => {
     }));
     const dto = aPreviewIngestaDto({
       ...DATA,
-      resumen: { totalFilasDatos: 51, duplicados: 0, nuevas: 51 },
+      resumen: { totalFilas: 51, duplicadosDetectados: 0, nuevas: 51 },
       filas: muchasFilas,
     });
 
@@ -133,7 +133,7 @@ describe('aPreviewIngestaDto', () => {
   it('esDuplicado se serializa correctamente', () => {
     const filaConDuplicado: PreviewIngestaResult = {
       ...DATA,
-      resumen: { totalFilasDatos: 1, duplicados: 1, nuevas: 0 },
+      resumen: { totalFilas: 1, duplicadosDetectados: 1, nuevas: 0 },
       filas: [
         {
           rowIndex: 0,
@@ -147,6 +147,6 @@ describe('aPreviewIngestaDto', () => {
     const dto = aPreviewIngestaDto(filaConDuplicado);
 
     expect(dto.filas[0]?.esDuplicado).toBe(true);
-    expect(dto.resumen.duplicados).toBe(1);
+    expect(dto.resumen.duplicadosDetectados).toBe(1);
   });
 });

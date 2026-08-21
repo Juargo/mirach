@@ -57,6 +57,22 @@ describe('PrismaAccountReader', () => {
     expect(computeSpy).toHaveBeenCalledWith('111222333');
   });
 
+  it('NO lowercasea el numeroCuenta: la caja se preserva (normalizeNumeroCuenta = trim only)', async () => {
+    const findUnique = vi.fn().mockResolvedValue(null);
+    const prisma = { account: { findUnique } } as unknown as PrismaClient;
+    const computeSpy = vi.fn((v: string) => `blind:${v}`);
+    const reader = new PrismaAccountReader(prisma, { compute: computeSpy });
+
+    await reader.findByBanco('user-1', {
+      ...BANCO_CLEAN,
+      numeroCuenta: 'ABC123',
+    });
+
+    // Chilean account numbers are case-sensitive — normalizeNumeroCuenta must
+    // NOT lowercase (unlike email). 'ABC123' reaches compute verbatim.
+    expect(computeSpy).toHaveBeenCalledWith('ABC123');
+  });
+
   it('retorna Result.ok(null) cuando la cuenta no existe (findUnique retorna null)', async () => {
     const findUnique = vi.fn().mockResolvedValue(null);
     const prisma = { account: { findUnique } } as unknown as PrismaClient;
