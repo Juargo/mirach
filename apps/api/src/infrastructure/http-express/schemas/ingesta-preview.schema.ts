@@ -54,24 +54,68 @@ const previewResumenSchema = z.object({
 });
 
 /**
+ * LEGACY row shape — the pre-US-057 `muestra[]` element. Only the four original
+ * fields. @deprecated compat shim, removed by US-061.
+ */
+const previewMuestraLegacySchema = z.object({
+  fecha: z.string().describe('ISO-8601 UTC timestamp.'),
+  descripcion: z.string(),
+  cargo: z
+    .string()
+    .describe('BigInt-safe decimal string amount (never a JSON number).'),
+  abono: z
+    .string()
+    .describe('BigInt-safe decimal string amount (never a JSON number).'),
+});
+
+/**
+ * LEGACY aggregate — the pre-US-057 `estructura` object. @deprecated compat
+ * shim, removed by US-061.
+ */
+const previewEstructuraLegacySchema = z.object({
+  totalFilasDatos: z
+    .number()
+    .int()
+    .describe(
+      'DEPRECATED (US-061): mirror of resumen.totalFilas. Kept for shipped clients.',
+    ),
+});
+
+/**
  * Response contract for `POST /api/ingestas/preview` (mirrors
  * `PreviewIngestaDto`, `infrastructure/http/dto/preview-ingesta.dto.ts`).
  * The `aPreviewIngestaDto()` mapper is the sync guarantee this schema is
  * checked against — see `ingesta-preview.schema.spec.ts`.
  *
- * US-057 PR2: shape changed from { banco, estructura, muestra } to
- * { banco, resumen, filas } with per-row dedup and classification suggestion.
+ * BACKWARD-COMPATIBLE (product decision 2026-08-21): carries BOTH shapes.
+ * - CANONICAL (US-057): `resumen` + `filas` — marked `.optional()` at the wire
+ *   level ONLY so the generated api-client type stays assignable from legacy
+ *   client literals (deployed mobile APK, pre-migration web/mobile) that build
+ *   a preview object with just the legacy fields. The server ALWAYS emits both
+ *   (see the mapper + sync-guarantee spec).
+ * - LEGACY (@deprecated, removed by US-061): `estructura` + `muestra` — required
+ *   so shipped consumers that read them keep typechecking.
  */
 export const previewIngestaResponseSchema = z
   .object({
     banco: z.string(),
     tipoCuenta: z.string(),
     numeroCuenta: z.string(),
-    resumen: previewResumenSchema,
-    filas: z.array(previewFilaSchema),
+    resumen: previewResumenSchema.optional(),
+    filas: z.array(previewFilaSchema).optional(),
+    estructura: previewEstructuraLegacySchema.describe(
+      'DEPRECATED (US-061): legacy aggregate. Use resumen.',
+    ),
+    muestra: z
+      .array(previewMuestraLegacySchema)
+      .describe(
+        'DEPRECATED (US-061): legacy first-50-rows sample in the old 4-field shape. Use filas.',
+      ),
   })
   .meta({
     id: 'PreviewIngestaResponse',
     description:
-      'POST /api/ingestas/preview — dry-run preview with per-row dedup and classification (US-057).',
+      'POST /api/ingestas/preview — dry-run preview. CANONICAL: resumen + filas ' +
+      '(full set, per-row dedup and classification, US-057). DEPRECATED (removed by ' +
+      'US-061): estructura + muestra (first 50 rows, old shape) kept for shipped clients.',
   });
