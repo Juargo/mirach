@@ -763,27 +763,12 @@
       },
       "PreviewIngestaResponse": {
         "additionalProperties": false,
-        "description": "POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003).",
+        "description": "POST /api/ingestas/preview — dry-run preview with per-row dedup and classification (US-057).",
         "properties": {
           "banco": {
             "type": "string"
           },
-          "estructura": {
-            "additionalProperties": false,
-            "properties": {
-              "totalFilasDatos": {
-                "description": "Row count PRE-dedupe, not money — plain JSON number.",
-                "maximum": 9007199254740991,
-                "minimum": -9007199254740991,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "totalFilasDatos"
-            ],
-            "type": "object"
-          },
-          "muestra": {
+          "filas": {
             "items": {
               "additionalProperties": false,
               "properties": {
@@ -798,16 +783,57 @@
                 "descripcion": {
                   "type": "string"
                 },
+                "esDuplicado": {
+                  "type": "boolean"
+                },
                 "fecha": {
                   "description": "ISO-8601 UTC timestamp.",
                   "type": "string"
+                },
+                "rowIndex": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sugerido": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "bucket": {
+                          "type": "string"
+                        },
+                        "categoriaId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "bucket",
+                        "categoriaId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
+                "rowIndex",
                 "fecha",
                 "descripcion",
                 "cargo",
-                "abono"
+                "abono",
+                "esDuplicado",
+                "sugerido"
               ],
               "type": "object"
             },
@@ -815,6 +841,33 @@
           },
           "numeroCuenta": {
             "type": "string"
+          },
+          "resumen": {
+            "additionalProperties": false,
+            "properties": {
+              "duplicadosDetectados": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "nuevas": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "totalFilas": {
+                "description": "Row count PRE-dedupe, not money — plain JSON number.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "totalFilas",
+              "duplicadosDetectados",
+              "nuevas"
+            ],
+            "type": "object"
           },
           "tipoCuenta": {
             "type": "string"
@@ -824,8 +877,8 @@
           "banco",
           "tipoCuenta",
           "numeroCuenta",
-          "estructura",
-          "muestra"
+          "resumen",
+          "filas"
         ],
         "type": "object"
       },
