@@ -4,6 +4,7 @@ import { Transaccion } from '../../domain/value-objects/transaccion';
 import { construirClaveDuplicado } from '../../domain/value-objects/clave-duplicado';
 import { ITransaccionExistenteReader } from '../ports/transaccion-existente-reader.port';
 import { ILogger } from '../ports/logger.port';
+import { rangoFechas } from './marcar-duplicados.helper';
 
 /** Datos mínimos para detectar duplicados en un batch entrante (US-005). */
 export interface DetectarDuplicadosInput {
@@ -56,12 +57,7 @@ export class DetectarDuplicadosUseCase {
       return Result.ok({ nuevas: [], duplicadas: 0 });
     }
 
-    let fechaDesde = transacciones[0].fecha;
-    let fechaHasta = transacciones[0].fecha;
-    for (const tx of transacciones) {
-      if (tx.fecha.getTime() < fechaDesde.getTime()) fechaDesde = tx.fecha;
-      if (tx.fecha.getTime() > fechaHasta.getTime()) fechaHasta = tx.fecha;
-    }
+    const { desde: fechaDesde, hasta: fechaHasta } = rangoFechas(transacciones);
 
     const existentesResult = await this.reader.buscarPorCuentaYRango(
       accountId,
