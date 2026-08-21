@@ -4,9 +4,13 @@
  * Covers spec scenarios CMT-01 through CMT-05 and design constraints
  * D-01/D-03/D-04/D-10/D-11/D-11a/D-13/D-15/D-16/D-17/D-18.
  *
- * Strategy: real PersistTransactionsUseCase wired with FakeIngestaRepository
- * so we can inspect both the TransaccionAPersistir[] array (application boundary)
- * and the behaviour of aPersistencia (which resolves bucket→FK in the adapter).
+ * Strategy: real PersistTransactionsUseCase wired with a FakeIngestaRepository,
+ * so we inspect the TransaccionAPersistir[] array at the APPLICATION boundary
+ * (persistirProcesada input). These assertions check the DOMAIN `Bucket` enum
+ * (e.g. Bucket.Necesidades), NOT the physical FK string — this use-case test does
+ * NOT exercise `aPersistencia`. FK resolution (Bucket enum → 'bucket-necesidades'
+ * via BUCKET_IDS) lives in the infra adapter and is tested in transaccion.mapper.spec.ts
+ * (PR2), per ADR-005/D-15.
  *
  * Pipeline fakes are wrapped in their concrete use-case classes (same pattern
  * as preview-ingesta.use-case.spec.ts, D-01 sibling).
@@ -209,9 +213,11 @@ class FakeAccountRepository implements IAccountRepository {
 // ---------------------------------------------------------------------------
 class FakeTransaccionExistenteReader implements ITransaccionExistenteReader {
   existentes: TransaccionExistente[] = [];
+  failWith?: PersistenciaFallidaError;
   async buscarPorCuentaYRango(): Promise<
     Result<TransaccionExistente[], PersistenciaFallidaError>
   > {
+    if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(this.existentes);
   }
 }
@@ -426,6 +432,92 @@ describe('CommitIngestaUseCase', () => {
       // TX2 (index 2) — Ingreso rule (abono>0, cargo===0); no overlay
       expect(txs[2].bucket).toBe(Bucket.Ingreso);
       expect(txs[2].categoriaId).toBeNull();
+    });
+
+    it('multi-overlay: each named row gets its own categoria; unnamed rows keep auto-classification', async () => {
+      const categoriaRepo = new FakeCategoriaRepository();
+      categoriaRepo.categorias = [
+        makeCategoria(CAT_NECESIDADES_ID, Bucket.Necesidades),
+        makeCategoria(CAT_AHORRO_ID, Bucket.Ahorro),
+      ];
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({ categoriaRepo, ingestaRepo });
+
+      // Two overlays on different rows: TX0 → Necesidades, TX1 → Ahorro. TX2 unnamed.
+      const edits: CommitEdit[] = [
+        { rowIndex: 0, categoriaId: CAT_NECESIDADES_ID },
+        { rowIndex: 1, categoriaId: CAT_AHORRO_ID },
+      ];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const txs = ingestaRepo.calls[0].transacciones;
+      // TX0 — overlay Necesidades
+      expect(txs[0].bucket).toBe(Bucket.Necesidades);
+      expect(txs[0].categoriaId).toBe(CAT_NECESIDADES_ID);
+      // TX1 — overlay Ahorro (proves overlays are applied per-row, not last-wins)
+      expect(txs[1].bucket).toBe(Bucket.Ahorro);
+      expect(txs[1].categoriaId).toBe(CAT_AHORRO_ID);
+      // TX2 — unnamed → auto-classification (Ingreso rule)
+      expect(txs[2].bucket).toBe(Bucket.Ingreso);
+      expect(txs[2].categoriaId).toBeNull();
+    });
+
+    it('dedup-shift: overlay rowIndex maps to the ORIGINAL filas index, not the post-dedup idx', async () => {
+      // TX0 is a DB duplicate at commit time — it is omitted. `nuevas` = [TX1, TX2].
+      // The overlay names rowIndex:1 (TX1 in the pre-dedup `filas`). If the impl mistakenly
+      // keyed the overlay by the post-dedup array index (idx), it would land on TX2 instead.
+      // This pins `rowIndexDeNuevas` against an idx-vs-original-index regression.
+      const txExistenteReader = new FakeTransaccionExistenteReader();
+      txExistenteReader.existentes = [
+        {
+          fecha: TX0.fecha,
+          descripcion: TX0.descripcion,
+          cargo: TX0.cargo,
+          abono: TX0.abono,
+        },
+      ];
+      const categoriaRepo = new FakeCategoriaRepository();
+      categoriaRepo.categorias = [
+        makeCategoria(CAT_NECESIDADES_ID, Bucket.Necesidades),
+      ];
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({
+        txExistenteReader,
+        categoriaRepo,
+        ingestaRepo,
+      });
+
+      const edits: CommitEdit[] = [
+        { rowIndex: 1, categoriaId: CAT_NECESIDADES_ID },
+      ];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const txs = ingestaRepo.calls[0].transacciones;
+      // Exactly 2 rows persisted (TX0 dropped as duplicate).
+      expect(txs).toHaveLength(2);
+      // The row whose descripcion matches TX1 carries the overlaid categoria.
+      const filaTX1 = txs.find(
+        (t) => t.transaccion.descripcion === TX1.descripcion,
+      );
+      const filaTX2 = txs.find(
+        (t) => t.transaccion.descripcion === TX2.descripcion,
+      );
+      expect(filaTX1).toBeDefined();
+      expect(filaTX2).toBeDefined();
+      expect(filaTX1!.categoriaId).toBe(CAT_NECESIDADES_ID);
+      expect(filaTX1!.bucket).toBe(Bucket.Necesidades);
+      // TX2 must NOT have received the overlay (it was rowIndex 2, not 1).
+      expect(filaTX2!.categoriaId).toBeNull();
     });
   });
 
@@ -717,6 +809,31 @@ describe('CommitIngestaUseCase', () => {
       expect(accountRepo.called).toBe(true);
     });
 
+    it('ensure() failure → that PersistenciaFallidaError; nothing persisted; FALLIDA NOT registered', async () => {
+      // D-11/D-18: ensure() returns Result.fail(PersistenciaFallidaError) as a normal early
+      // return (not a throw). Per D-11 the FALLIDA writer is invoked ONLY for pipeline failures
+      // (parse/detect/validate, before ensure) and by the OUTER catch backstop for unexpected
+      // THROWS after the pipeline. A post-pipeline infra Result.fail (ensure/dedup/catalog) is a
+      // retryable request error — "nothing was ingested" — so FALLIDA is NOT registered.
+      const accountRepo = new FakeAccountRepository();
+      const ensureError = new PersistenciaFallidaError('ensure DB fault');
+      accountRepo.failWith = ensureError;
+      const ingestaRepo = new FakeIngestaRepository();
+      const fallidaWriter = new FakeFallidaWriter();
+      const { sut } = buildSut({ accountRepo, ingestaRepo, fallidaWriter });
+
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits: NO_EDITS,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBe(ensureError); // exactly that error, propagated
+      expect(ingestaRepo.calls).toHaveLength(0); // persistirProcesada NOT called
+      expect(fallidaWriter.calls).toHaveLength(0); // NO FALLIDA (post-pipeline Result.fail)
+    });
+
     it('pipeline failure (BancoNoReconocidoError) → FALLIDA registered with nombreArchivo', async () => {
       const bankDetector = new FakeBankDetector();
       bankDetector.failWith = new BancoNoReconocidoError('cartola.xlsx');
@@ -825,6 +942,32 @@ describe('CommitIngestaUseCase', () => {
       });
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
+    });
+
+    it('dedup reader failure → PersistenciaFallidaError propagates; nothing persisted; NO FALLIDA', async () => {
+      // DetectarDuplicadosUseCase surfaces the reader's Result.fail (post-pipeline infra
+      // fault). Like ensure-failure, this is a retryable request error → no FALLIDA (D-11).
+      const txExistenteReader = new FakeTransaccionExistenteReader();
+      const dedupError = new PersistenciaFallidaError('dedup reader DB fault');
+      txExistenteReader.failWith = dedupError;
+      const ingestaRepo = new FakeIngestaRepository();
+      const fallidaWriter = new FakeFallidaWriter();
+      const { sut } = buildSut({
+        txExistenteReader,
+        ingestaRepo,
+        fallidaWriter,
+      });
+
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits: NO_EDITS,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBe(dedupError);
+      expect(ingestaRepo.calls).toHaveLength(0); // nothing persisted
+      expect(fallidaWriter.calls).toHaveLength(0); // NO FALLIDA
     });
   });
 

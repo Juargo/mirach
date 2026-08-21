@@ -214,7 +214,35 @@ export class CommitIngestaUseCase {
     // Mark pipeline succeeded so the outer catch knows to register FALLIDA on explosion
     markPipelineSucceeded(true);
 
-    // ── 2. ensure() — create/find Account ────────────────────────────────────
+    // ── 2. Validate ALL overlay rowIndex values — BEFORE any DB round-trip (D-04/5a) ──
+    // This is a pure function of `filas.length` and the edits; it needs no catalog.
+    // Running it FIRST means an invalid request never costs an ensure/dedup/catalog
+    // round-trip (D-11 step 3a is satisfied — validation still precedes classification;
+    // hoisting it ahead of the catalog loads is a safe optimization, same fail-closed 400).
+    const vistosRowIndex = new Set<number>();
+    for (const edit of input.edits) {
+      if (vistosRowIndex.has(edit.rowIndex)) {
+        return Result.fail(
+          new RowIndexFueraDeRangoError(
+            edit.rowIndex,
+            filas.length,
+            'duplicado',
+          ),
+        );
+      }
+      vistosRowIndex.add(edit.rowIndex);
+      if (edit.rowIndex < 0 || edit.rowIndex >= filas.length) {
+        return Result.fail(
+          new RowIndexFueraDeRangoError(
+            edit.rowIndex,
+            filas.length,
+            'fuera-de-rango',
+          ),
+        );
+      }
+    }
+
+    // ── 3. ensure() — create/find Account ────────────────────────────────────
     const accountResult = await this.accountRepository.ensure(
       input.userId,
       banco,
@@ -269,37 +297,13 @@ export class CommitIngestaUseCase {
     }
     const patrones = patronesResult.getValue();
 
-    // ── 7. Build Map<categoriaId, Bucket> for overlay bucket lookup (D-15) ────
+    // ── 6. Build Map<categoriaId, Bucket> for overlay bucket lookup (D-15) ────
     const bucketPorCategoria = new Map<string, Bucket>(
       categorias.map((cat) => [cat.id, cat.bucket]),
     );
     const categoriaIds = new Set<string>(categorias.map((cat) => cat.id));
 
-    // ── 8. Validate ALL overlay rowIndex values — BEFORE classification (D-04/5a) ──
-    const vistosRowIndex = new Set<number>();
-    for (const edit of input.edits) {
-      if (vistosRowIndex.has(edit.rowIndex)) {
-        return Result.fail(
-          new RowIndexFueraDeRangoError(
-            edit.rowIndex,
-            filas.length,
-            'duplicado',
-          ),
-        );
-      }
-      vistosRowIndex.add(edit.rowIndex);
-      if (edit.rowIndex < 0 || edit.rowIndex >= filas.length) {
-        return Result.fail(
-          new RowIndexFueraDeRangoError(
-            edit.rowIndex,
-            filas.length,
-            'fuera-de-rango',
-          ),
-        );
-      }
-    }
-
-    // ── 9. Validate overlay categoriaId ∈ own category set (D-10, RNF-SEC-006) ─
+    // ── 7. Validate overlay categoriaId ∈ own category set (D-10, RNF-SEC-006) ─
     for (const edit of input.edits) {
       if (edit.categoriaId !== null && !categoriaIds.has(edit.categoriaId)) {
         return Result.fail(new CategoriaFueraDeCatalogoError(edit.categoriaId));
@@ -333,20 +337,16 @@ export class CommitIngestaUseCase {
 
         if (overlay !== undefined) {
           // Overlay present (D-15). When categoriaId is non-null, bucket comes from the
-          // Map<categoriaId, Bucket> built from listarConPatrones. When null, the user is
-          // de-assigning — auto-classify wins (to respect the Ingreso rule).
-          const autoResult = this.categorizarTransaccionUseCase
-            .execute(tx, patrones)
-            .getValue();
-
-          // resolvedBucket: non-null categoriaId → Map lookup (falls back to SinCategoria if
-          // somehow not found, which cannot happen after the validation gate above).
-          // null categoriaId → auto bucket (Ingreso rule preserved).
+          // Map<categoriaId, Bucket> built from listarConPatrones — no auto-classification
+          // needed (KISS: only classify when the overlay does NOT resolve the bucket).
+          // When categoriaId is null, the user is de-assigning — auto-classify wins.
           const resolvedBucket =
             overlay.categoriaId !== null
               ? (bucketPorCategoria.get(overlay.categoriaId) ??
                 Bucket.SinCategoria)
-              : autoResult.bucket;
+              : this.categorizarTransaccionUseCase
+                  .execute(tx, patrones)
+                  .getValue().bucket;
 
           return {
             transaccion: tx,

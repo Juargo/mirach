@@ -9,13 +9,25 @@ describe('CategoriaFueraDeCatalogoError', () => {
     expect(error.name).toBe('CategoriaFueraDeCatalogoError');
   });
 
-  it('el mensaje menciona la categoría pero no expone datos sensibles (montos)', () => {
+  it('el mensaje es una constante fija: no interpola el categoriaId ni datos del request', () => {
     const error = new CategoriaFueraDeCatalogoError('cat_ajeno');
 
     expect(error.message).toContain('categoría');
+    // El categoriaId (texto provisto por el caller) NUNCA aparece en el mensaje (ADR-013).
+    expect(error.message).not.toContain('cat_ajeno');
     // No debe contener montos ni datos financieros crudos
     expect(error.message).not.toContain('1500000');
     expect(error.message).not.toContain('amount');
+  });
+
+  it('el mensaje es idéntico para cualquier categoriaId (constante de compilación)', () => {
+    const a = new CategoriaFueraDeCatalogoError('cat_ajeno_a');
+    const b = new CategoriaFueraDeCatalogoError(
+      'clm_cat_user_b_totalmente_distinto',
+    );
+
+    // El mensaje no depende del input — es fijo, como RowIndexFueraDeRangoError.
+    expect(a.message).toBe(b.message);
   });
 
   it('expone el categoriaId como propiedad', () => {
