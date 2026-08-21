@@ -100,7 +100,11 @@ export function registrarIngestas(
       }
 
       const fileReader = new MulterFileReaderAdapter(file);
-      const result = await deps.previewIngesta.execute({ fileReader });
+      // US-057 PR2: PreviewIngestaInput now requires userId for per-row dedup scoping (D-06).
+      const result = await deps.previewIngesta.execute({
+        fileReader,
+        userId: req.userId!,
+      });
 
       if (result.isFail()) {
         const { status, message } = aHttpError(result.getError());

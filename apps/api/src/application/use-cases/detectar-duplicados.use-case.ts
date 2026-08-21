@@ -57,7 +57,10 @@ export class DetectarDuplicadosUseCase {
       return Result.ok({ nuevas: [], duplicadas: 0 });
     }
 
-    const { desde: fechaDesde, hasta: fechaHasta } = rangoFechas(transacciones);
+    // rangoFechas returns null only for empty input — guard above ensures we never reach here empty.
+
+    const { desde: fechaDesde, hasta: fechaHasta } =
+      rangoFechas(transacciones)!;
 
     const existentesResult = await this.reader.buscarPorCuentaYRango(
       accountId,

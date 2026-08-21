@@ -1,34 +1,76 @@
-import { PreviewIngestaResult } from '../../../application/use-cases/preview-ingesta.use-case';
+import {
+  PreviewIngestaResult,
+  PreviewFila,
+} from '../../../application/use-cases/preview-ingesta.use-case';
+import { Bucket } from '../../../domain/value-objects/bucket';
 
 /**
- * PreviewTransaccionDto — forma HTTP de una fila de la muestra de preview.
+ * PreviewTransaccionDto — HTTP form of a single preview row (US-057 PR2).
  *
- * cargo/abono viajan como STRING (BigInt-safe), mismo contrato que
- * `TransaccionResponseDto` (ingesta-response.dto.ts) — deliberadamente NO se
- * comparte esa función (D7, design §5.2): confirm queda intocado, la
- * duplicación de 4 líneas triviales es preferible al acoplamiento entre
- * features.
+ * cargo/abono travel as STRING (BigInt-safe), same contract as
+ * `TransaccionResponseDto` (ingesta-response.dto.ts) — deliberately NOT
+ * shared (D7: trivial duplication is preferable to coupling two features).
+ *
+ * US-057 PR2: extended with dedup status and classification suggestion.
+ * The `sugerido` field is null when there is no match or the bucket is
+ * SinCategoria (D-09). Full HTTP contract formalisation is PR4/5
+ * (openapi.json + zod schemas updated there).
  */
 export interface PreviewTransaccionDto {
+  rowIndex: number;
   fecha: string;
   descripcion: string;
   cargo: string;
   abono: string;
+  esDuplicado: boolean;
+  sugerido: { bucket: string; categoriaId: string | null } | null;
 }
 
-/** PreviewIngestaDto — contrato HTTP de POST /api/ingestas/preview. */
+/** Resumen agregado HTTP mirror of PreviewResumen. */
+export interface PreviewResumenDto {
+  totalFilasDatos: number;
+  duplicados: number;
+  nuevas: number;
+}
+
+/** PreviewIngestaDto — HTTP contract for POST /api/ingestas/preview (US-057 PR2). */
 export interface PreviewIngestaDto {
   banco: string;
   tipoCuenta: string;
   numeroCuenta: string;
-  estructura: { totalFilasDatos: number };
-  muestra: ReadonlyArray<PreviewTransaccionDto>;
+  resumen: PreviewResumenDto;
+  filas: ReadonlyArray<PreviewTransaccionDto>;
+}
+
+/** Maps PreviewFila to its HTTP representation. */
+function aPreviewFilaDto(fila: PreviewFila): PreviewTransaccionDto {
+  const { rowIndex, transaccion: tx, esDuplicado, sugerido } = fila;
+  return {
+    rowIndex,
+    fecha: tx.fecha.toISOString(),
+    descripcion: tx.descripcion,
+    cargo: String(tx.cargo),
+    abono: String(tx.abono),
+    esDuplicado,
+    sugerido:
+      sugerido !== null
+        ? {
+            bucket: Bucket[sugerido.bucket],
+            categoriaId: sugerido.categoriaId,
+          }
+        : null,
+  };
 }
 
 /**
- * Mapea PreviewIngestaResult al contrato HTTP. NO re-capa `muestra` (D8): el
- * tope ≤50 es una decisión del use case (`PREVIEW_SAMPLE_MAX`), este mapper
- * solo serializa lo que recibe.
+ * Maps PreviewIngestaResult to the HTTP contract.
+ *
+ * US-057 PR2: result shape changed from { banco, estructura, muestra } to
+ * { banco, resumen, filas } with per-row dedup and classification suggestion.
+ * The 50-cap (PREVIEW_SAMPLE_MAX) was removed in US-057 — all rows are
+ * returned. This mapper serialises what it receives without re-capping.
+ *
+ * Full HTTP formalisation (openapi.json, zod schemas) is PR4/5.
  */
 export function aPreviewIngestaDto(
   data: PreviewIngestaResult,
@@ -37,12 +79,11 @@ export function aPreviewIngestaDto(
     banco: data.banco.banco,
     tipoCuenta: data.banco.tipoCuenta,
     numeroCuenta: data.banco.numeroCuenta,
-    estructura: { totalFilasDatos: data.estructura.totalFilasDatos },
-    muestra: data.muestra.map((tx) => ({
-      fecha: tx.fecha.toISOString(),
-      descripcion: tx.descripcion,
-      cargo: String(tx.cargo),
-      abono: String(tx.abono),
-    })),
+    resumen: {
+      totalFilasDatos: data.resumen.totalFilasDatos,
+      duplicados: data.resumen.duplicados,
+      nuevas: data.resumen.nuevas,
+    },
+    filas: data.filas.map(aPreviewFilaDto),
   };
 }

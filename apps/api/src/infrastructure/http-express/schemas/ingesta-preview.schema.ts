@@ -18,10 +18,12 @@ export const previewIngestaRequestSchema = z.object({
 });
 
 /**
- * `PreviewTransaccionDto` mirror — money as BigInt-safe decimal strings, same
- * contract as the upload endpoint's transaction rows.
+ * PreviewTransaccionDto mirror — money as BigInt-safe decimal strings (US-057 PR2).
+ * Includes per-row dedup status and classification suggestion (D-09).
+ * Full formalisation in openapi.json is PR4/5.
  */
-const previewTransaccionSchema = z.object({
+const previewFilaSchema = z.object({
+  rowIndex: z.number().int().nonnegative(),
   fecha: z.string().describe('ISO-8601 UTC timestamp.'),
   descripcion: z.string(),
   cargo: z
@@ -30,31 +32,46 @@ const previewTransaccionSchema = z.object({
   abono: z
     .string()
     .describe('BigInt-safe decimal string amount (never a JSON number).'),
+  esDuplicado: z.boolean(),
+  sugerido: z
+    .object({
+      bucket: z.string(),
+      categoriaId: z.string().nullable(),
+    })
+    .nullable(),
+});
+
+/**
+ * Resumen agregado del preview (US-057 PR2).
+ */
+const previewResumenSchema = z.object({
+  totalFilasDatos: z
+    .number()
+    .int()
+    .describe('Row count PRE-dedupe, not money — plain JSON number.'),
+  duplicados: z.number().int(),
+  nuevas: z.number().int(),
 });
 
 /**
  * Response contract for `POST /api/ingestas/preview` (mirrors
  * `PreviewIngestaDto`, `infrastructure/http/dto/preview-ingesta.dto.ts`).
  * The `aPreviewIngestaDto()` mapper is the sync guarantee this schema is
- * checked against — see `ingesta-preview.schema.spec.ts`. `muestra` is
- * capped by the use case (`PREVIEW_SAMPLE_MAX`) — this schema documents the
- * shape only, not the cap.
+ * checked against — see `ingesta-preview.schema.spec.ts`.
+ *
+ * US-057 PR2: shape changed from { banco, estructura, muestra } to
+ * { banco, resumen, filas } with per-row dedup and classification suggestion.
  */
 export const previewIngestaResponseSchema = z
   .object({
     banco: z.string(),
     tipoCuenta: z.string(),
     numeroCuenta: z.string(),
-    estructura: z.object({
-      totalFilasDatos: z
-        .number()
-        .int()
-        .describe('Row count PRE-dedupe, not money — plain JSON number.'),
-    }),
-    muestra: z.array(previewTransaccionSchema),
+    resumen: previewResumenSchema,
+    filas: z.array(previewFilaSchema),
   })
   .meta({
     id: 'PreviewIngestaResponse',
     description:
-      'POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003).',
+      'POST /api/ingestas/preview — dry-run preview with per-row dedup and classification (US-057).',
   });

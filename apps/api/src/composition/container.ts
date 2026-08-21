@@ -243,7 +243,12 @@ export function createContainer(
     blindIndex,
     logger,
   );
-  const previewIngesta = crearPreviewIngesta(logger);
+  const previewIngesta = crearPreviewIngesta(
+    prisma,
+    crypto,
+    blindIndex,
+    logger,
+  );
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),
     logger,
