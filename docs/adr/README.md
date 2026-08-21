@@ -56,4 +56,4 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-035](ADR-035-login-google-mobile-token-exchange.md) | Login con Google en mobile: verificación nativa de `id_token` (M1) | ✅ Decidido |
 | [ADR-036](ADR-036-catalogo-clasificacion-por-usuario.md) | Catálogo de clasificación por usuario (copy-on-signup): `Categoria`/`PatronClasificacion` dejan de ser globales | ✅ Decidido e implementado |
 | [ADR-037](ADR-037-identidad-de-categoria-como-fila-del-usuario.md) | Identidad de categoría como fila del usuario: retiro del enum cerrado `Categoria` y de `CATEGORIA_BUCKET` | ✅ Decidido |
-| [ADR-038](ADR-038-mobile-write-scope-configuracion.md) | Alcance de escritura de la app mobile: perfil propio y catálogo de clasificación (supersede la regla de alcance de ADR-026) | 🔵 Propuesto |
+| [ADR-038](ADR-038-mobile-write-scope-configuracion.md) | Alcance de escritura de la app mobile: perfil propio y catálogo de clasificación (supersede la regla de alcance de ADR-026) | ✅ Decidido |
