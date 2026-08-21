@@ -7,10 +7,18 @@ import {
 import { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
 import { ListarIngestasUseCase } from '../../../application/use-cases/listar-ingestas.use-case';
 import { PreviewIngestaUseCase } from '../../../application/use-cases/preview-ingesta.use-case';
+import {
+  CommitIngestaUseCase,
+  CommitIngestaError,
+} from '../../../application/use-cases/commit-ingesta.use-case';
 import { MulterFileReaderAdapter } from '../../http/multer-file-reader.adapter';
 import { aIngestaResponseDto } from '../../http/dto/ingesta-response.dto';
 import { aIngestaListItemDto } from '../../http/dto/ingesta-list.dto';
 import { aPreviewIngestaDto } from '../../http/dto/preview-ingesta.dto';
+import {
+  parseEdits,
+  aCommitIngestaResponseDto,
+} from '../../http/dto/commit-ingesta.dto';
 import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
 import { ExtensionNoPermitidaError } from '../../../domain/errors/extension-no-permitida.error';
 import { BancoNoReconocidoError } from '../../../domain/errors/banco-no-reconocido.error';
@@ -20,17 +28,23 @@ import { PdfInvalidoError } from '../../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../../domain/errors/pdf-sin-texto.error';
 import { EstructuraPdfInvalidaError } from '../../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../../domain/errors/rango-fechas-invalido.error';
+import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
+import { EdicionesInvalidasError } from '../../../domain/errors/ediciones-invalidas.error';
+import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
+import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 /** Deps de `registrarIngestas` (US-018, design.md §6.1; +previewIngesta
- * US-003) — objeto por legibilidad, mirrors `registrarAuthPublic`. */
+ * US-003; +commitIngesta US-057 PR4). */
 export interface IngestaRoutesDeps {
   processIngesta: ProcessIngestaUseCase;
   eliminarIngesta: EliminarIngestaUseCase;
   listarIngestas: ListarIngestasUseCase;
   previewIngesta: PreviewIngestaUseCase;
+  /** Commit use case — the ONLY writer in the preview→commit split (US-057). */
+  commitIngesta: CommitIngestaUseCase;
 }
 
 /**
@@ -119,6 +133,56 @@ export function registrarIngestas(
     }
   });
 
+  // POST /api/ingestas/commit (US-057, design §1/D-02/D-03/D-13/D-18):
+  // uses subirArchivoConEdits() — own multer instance with fieldSize: 256 KB (D-02).
+  // Handler: parseEdits → 400 on fail; commitIngesta.execute → 201 with CommitIngestaResponseDto.
+  router.post(
+    '/ingestas/commit',
+    subirArchivoConEdits(),
+    async (req, res, next) => {
+      try {
+        const file = req.file;
+        if (!file) {
+          res.status(400).json({
+            message:
+              'No se recibió ningún archivo. Envía el archivo en el campo "file".',
+          });
+          return;
+        }
+
+        // Parse + shape-validate edits at the infra boundary (D-03).
+        // req.body is typed as `any` by Express; narrow explicitly before passing.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const rawEdits: unknown = req.body?.edits;
+        const editsResult = parseEdits(
+          typeof rawEdits === 'string' ? rawEdits : undefined,
+        );
+        if (editsResult.isFail()) {
+          const { status, message } = aCommitHttpError(editsResult.getError());
+          res.status(status).json({ message });
+          return;
+        }
+
+        const fileReader = new MulterFileReaderAdapter(file);
+        const result = await deps.commitIngesta.execute({
+          fileReader,
+          userId: req.userId!,
+          edits: editsResult.getValue(),
+        });
+
+        if (result.isFail()) {
+          const { status, message } = aCommitHttpError(result.getError());
+          res.status(status).json({ message });
+          return;
+        }
+
+        res.status(201).json(aCommitIngestaResponseDto(result.getValue()));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
   router.get('/ingestas', async (req, res, next) => {
     try {
       const ingestas = await deps.listarIngestas.execute(req.userId!);
@@ -184,6 +248,91 @@ function subirArchivo(): RequestHandler {
       next();
     });
   };
+}
+
+/**
+ * subirArchivoConEdits — own multer instance for the commit route (D-02).
+ *
+ * Distinct from subirArchivo() — adds fieldSize: 256 KB for the `edits` text
+ * field (≈ 4000 edit entries at ~64 B each). The shared subirArchivo() is NOT
+ * modified; it keeps only fileSize and is used by the one-shot and preview routes.
+ */
+function subirArchivoConEdits(): RequestHandler {
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: MAX_FILE_SIZE,
+      fieldSize: 256 * 1024, // 256 KB cap for the edits JSON text field (D-02)
+    },
+  }).single('file');
+
+  return (req, res, next) => {
+    upload(req, res, (err: unknown) => {
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        res.status(400).json({
+          message: 'El archivo excede el tamaño máximo permitido (10 MB).',
+        });
+        return;
+      }
+      // Un `edits` sobre el cap de `fieldSize` (256 KB) es validación del request
+      // del cliente (no un fallo de infra): mapea a 400 con mensaje fijo, NUNCA
+      // el payload. Multer emite el código `LIMIT_FIELD_VALUE` ("Field value too
+      // long") cuando un valor de campo de texto supera `limits.fieldSize`.
+      if (
+        err instanceof multer.MulterError &&
+        err.code === 'LIMIT_FIELD_VALUE'
+      ) {
+        res.status(400).json({
+          message: 'El campo edits excede el tamaño máximo permitido (256 KB).',
+        });
+        return;
+      }
+      if (err) {
+        next(err);
+        return;
+      }
+      next();
+    });
+  };
+}
+
+/**
+ * aCommitHttpError — maps CommitIngestaError union to HTTP status + message.
+ *
+ * Exhaustive never guard (mirrors aHttpError above) — any new CommitIngestaError
+ * member not handled here will produce a compile error (D-18).
+ * Pipeline + overlay-validation errors → 400; infra errors → 500.
+ */
+function aCommitHttpError(error: CommitIngestaError): {
+  status: number;
+  message: string;
+} {
+  // Infrastructure errors → 500
+  if (error instanceof PersistenciaFallidaError) {
+    return { status: 500, message: error.message };
+  }
+  if (error instanceof CategorizacionFallidaError) {
+    return { status: 500, message: error.message };
+  }
+  // Client errors (file + overlay validation) → 400
+  if (
+    error instanceof ExtensionNoPermitidaError ||
+    error instanceof BancoNoReconocidoError ||
+    error instanceof EstructuraInvalidaError ||
+    error instanceof NormalizacionInvalidaError ||
+    error instanceof PdfInvalidoError ||
+    error instanceof PdfSinTextoError ||
+    error instanceof EstructuraPdfInvalidaError ||
+    error instanceof RangoFechasInvalidoError ||
+    error instanceof EdicionesInvalidasError ||
+    error instanceof RowIndexFueraDeRangoError ||
+    error instanceof CategoriaFueraDeCatalogoError
+  ) {
+    return { status: 400, message: error.message };
+  }
+  const _exhaustive: never = error;
+  void _exhaustive;
+  return { status: 500, message: 'Error inesperado' };
 }
 
 /**

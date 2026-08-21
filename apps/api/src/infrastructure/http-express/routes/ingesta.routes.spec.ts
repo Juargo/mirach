@@ -5,11 +5,16 @@ import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
 import { ExtensionNoPermitidaError } from '../../../domain/errors/extension-no-permitida.error';
 import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
+import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
+import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
+import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
+import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
 import type { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
 import type { ListarIngestasUseCase } from '../../../application/use-cases/listar-ingestas.use-case';
 import type { PreviewIngestaUseCase } from '../../../application/use-cases/preview-ingesta.use-case';
+import type { CommitIngestaUseCase } from '../../../application/use-cases/commit-ingesta.use-case';
 import { BancoConocido } from '../../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../../domain/value-objects/tipo-cuenta';
 
@@ -26,6 +31,7 @@ type ProcessDoble = Pick<ProcessIngestaUseCase, 'execute'>;
 type EliminarDoble = Pick<EliminarIngestaUseCase, 'execute'>;
 type ListarDoble = Pick<ListarIngestasUseCase, 'execute'>;
 type PreviewDoble = Pick<PreviewIngestaUseCase, 'execute'>;
+type CommitDoble = Pick<CommitIngestaUseCase, 'execute'>;
 
 const INGESTA_OK = {
   ingestaId: 'ing-1',
@@ -49,6 +55,7 @@ function probeApp(deps: {
   eliminarIngesta?: EliminarDoble;
   listarIngestas?: ListarDoble;
   previewIngesta?: PreviewDoble;
+  commitIngesta?: CommitDoble;
 }): Express {
   const app = express();
   app.use(express.json());
@@ -70,6 +77,9 @@ function probeApp(deps: {
     previewIngesta: (deps.previewIngesta ?? {
       execute: vi.fn(),
     }) as PreviewIngestaUseCase,
+    commitIngesta: (deps.commitIngesta ?? {
+      execute: vi.fn(),
+    }) as CommitIngestaUseCase,
   });
   app.use('/api', router);
   app.use(errorMiddleware);
@@ -316,6 +326,196 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
     const res = await request(probeApp({ previewIngesta: uc }))
       .post('/api/ingestas/preview')
       .attach('file', Buffer.from('x'), 'cartola.xlsx');
+
+    expect(res.status).toBe(500);
+  });
+});
+
+const COMMIT_OK = {
+  ingestaId: 'ing-commit-1',
+  totalTransacciones: 2,
+  duplicadosOmitidos: 1,
+  transacciones: [
+    {
+      fecha: new Date('2024-01-15T00:00:00.000Z'),
+      descripcion: 'SUPERMERCADO',
+      cargo: 50000n,
+      abono: 0n,
+      bucket: Bucket.Necesidades,
+      categoriaId: 'cat-necesidades',
+    },
+    {
+      fecha: new Date('2024-01-15T00:00:00.000Z'),
+      descripcion: 'SUELDO',
+      cargo: 0n,
+      abono: 1500000n,
+      bucket: Bucket.Ingreso,
+      categoriaId: null,
+    },
+  ],
+};
+
+describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
+  it('201 con el CommitIngestaResponseDto (montos string, bucket serializado)', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(COMMIT_OK)) };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .field(
+        'edits',
+        JSON.stringify([{ rowIndex: 0, categoriaId: 'cat-necesidades' }]),
+      )
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({
+      ingestaId: 'ing-commit-1',
+      totalTransacciones: 2,
+      duplicadosOmitidos: 1,
+      transacciones: [
+        {
+          fecha: '2024-01-15T00:00:00.000Z',
+          descripcion: 'SUPERMERCADO',
+          cargo: '50000',
+          abono: '0',
+          bucket: 'Necesidades',
+          categoriaId: 'cat-necesidades',
+        },
+        {
+          fecha: '2024-01-15T00:00:00.000Z',
+          descripcion: 'SUELDO',
+          cargo: '0',
+          abono: '1500000',
+          bucket: 'Ingreso',
+          categoriaId: null,
+        },
+      ],
+    });
+    // El overlay parseado + userId llegan al use case.
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileReader: expect.anything(),
+        userId: 'user-x',
+        edits: [{ rowIndex: 0, categoriaId: 'cat-necesidades' }],
+      }),
+    );
+  });
+
+  it('201 con edits ausente ⇒ overlay vacío (commit de pura auto-clasificación)', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(COMMIT_OK)) };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(201);
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ edits: [] }),
+    );
+  });
+
+  it('400 si no se envía archivo', async () => {
+    const uc = { execute: vi.fn() };
+    const res = await request(probeApp({ commitIngesta: uc })).post(
+      '/api/ingestas/commit',
+    );
+
+    expect(res.status).toBe(400);
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('400 ante edits con JSON malformado (EdicionesInvalidasError) — no llama al use case', async () => {
+    const uc = { execute: vi.fn() };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .field('edits', '{ not valid json')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('edits');
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('400 cuando el archivo excede el límite de multer (10 MB)', async () => {
+    const uc = { execute: vi.fn() };
+    const grande = Buffer.alloc(10 * 1024 * 1024 + 1);
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', grande, 'grande.xlsx');
+
+    expect(res.status).toBe(400);
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('400 cuando el campo edits excede el cap de 256 KB (LIMIT_FIELD_SIZE)', async () => {
+    const uc = { execute: vi.fn() };
+    // Un edits > 256 KB dispara LIMIT_FIELD_SIZE en multer — debe mapear a 400,
+    // no caer al error middleware (500). Mensaje fijo, sin echo del payload.
+    const editsGrande = 'x'.repeat(256 * 1024 + 1);
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .field('edits', editsGrande)
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('256 KB');
+    // El mensaje NUNCA debe contener el payload crudo del campo.
+    expect(res.body.message).not.toContain(editsGrande);
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('400 ante RowIndexFueraDeRangoError (mapeo de aCommitHttpError)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new RowIndexFueraDeRangoError(99, 2))),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('400 ante CategoriaFueraDeCatalogoError (cross-tenant, RNF-SEC-006)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new CategoriaFueraDeCatalogoError('cat-de-otro')),
+        ),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(400);
+  });
+
+  it('500 ante PersistenciaFallidaError (fallo de infra)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new PersistenciaFallidaError('DB caída')),
+        ),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(500);
+  });
+
+  it('500 ante CategorizacionFallidaError (catalog-load fail, fail-closed)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new CategorizacionFallidaError('catálogo caído')),
+        ),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
 
     expect(res.status).toBe(500);
   });

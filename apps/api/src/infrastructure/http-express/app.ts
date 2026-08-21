@@ -183,6 +183,7 @@ export function createApp(container: Container, env: Env): Express {
     eliminarIngesta: container.eliminarIngesta,
     listarIngestas: container.listarIngestas,
     previewIngesta: container.previewIngesta,
+    commitIngesta: container.commitIngesta,
   });
   registrarAuthMe(protectedApi, container.obtenerIdentidad);
   registrarCategorias(protectedApi, container.catalogo);
