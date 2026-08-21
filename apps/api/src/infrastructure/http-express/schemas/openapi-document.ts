@@ -43,6 +43,10 @@ import {
   previewIngestaRequestSchema,
   previewIngestaResponseSchema,
 } from './ingesta-preview.schema';
+import {
+  commitIngestaRequestSchema,
+  commitIngestaResponseSchema,
+} from './ingesta-commit.schema';
 import { ingestaDeletePathParamsSchema } from './ingesta-delete.schema';
 import { authMeResponseSchema } from './auth-me.schema';
 import {
@@ -215,11 +219,16 @@ const ingestasOperation: ZodOpenApiOperationObject = {
 };
 
 const ingestaUploadOperation: ZodOpenApiOperationObject = {
-  summary: 'Upload a bank statement',
+  deprecated: true,
+  summary:
+    'Upload a bank statement (deprecated — use POST /api/ingestas/commit)',
   description:
     'Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and ' +
     'categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session ' +
-    '(RNF-SEC-006, per-user isolation).',
+    '(RNF-SEC-006, per-user isolation). ' +
+    'DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step ' +
+    'POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by ' +
+    'US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.',
   requestBody: {
     content: {
       'multipart/form-data': { schema: ingestaUploadRequestSchema },
@@ -245,11 +254,13 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
 };
 
 const ingestaPreviewOperation: ZodOpenApiOperationObject = {
-  summary: 'Preview a bank statement (dry run)',
+  summary: 'Preview a bank statement (dry run, US-057)',
   description:
-    'Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a ' +
-    'would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the ' +
-    'result itself is not scoped by user (no tenant data is touched).',
+    'Authenticated endpoint that detects the bank, validates structure, normalizes, deduplicates and ' +
+    'auto-classifies a bank statement WITHOUT persisting anything (US-057). Returns all rows ' +
+    '(no sample cap — the 50-row limit is removed) with per-row dedup status (`esDuplicado`) and ' +
+    'classification suggestion (`sugerido`). Requires x-api-key + a valid session ' +
+    "(RNF-SEC-006, per-user isolation — dedup is scoped to the calling user's history).",
   requestBody: {
     content: {
       'multipart/form-data': { schema: previewIngestaRequestSchema },
@@ -266,6 +277,57 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
       description:
         'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
         'structure/normalization, or an oversized file (>10 MB).',
+    },
+  },
+};
+
+/**
+ * `POST /api/ingestas/commit` (US-057, CMT-01..05) — stateless re-upload +
+ * edits overlay. The client re-sends the previewed file plus an optional JSON
+ * `edits` overlay; the server re-parses, deduplicates, applies the overlay
+ * over auto-classification, and persists atomically. Absent/empty edits ⇒
+ * pure auto-classify (same result as the deprecated one-shot, without the file
+ * metadata response fields). Never persists on overlay-validation errors
+ * (D-03/D-04/D-10 — fail-closed).
+ *
+ * Supersedes `POST /api/ingestas` (deprecated at US-057, D-14/CA-05).
+ */
+const ingestaCommitOperation: ZodOpenApiOperationObject = {
+  summary:
+    'Commit a bank statement import with optional edits overlay (US-057)',
+  description:
+    'Authenticated endpoint — the second step of the preview → commit flow. ' +
+    "Re-parses the same file, deduplicates against the calling user's history, applies the " +
+    'optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies ' +
+    'remaining rows, and persists atomically. New duplicates found at commit time are omitted and ' +
+    'counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). ' +
+    'Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the ' +
+    'transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
+    'Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 ' +
+    'and persist nothing (D-03/D-04/D-10).',
+  requestBody: {
+    content: {
+      'multipart/form-data': { schema: commitIngestaRequestSchema },
+    },
+  },
+  responses: {
+    '201': {
+      description:
+        'Import committed and persisted. Response carries per-row bucket + categoriaId.',
+      content: {
+        'application/json': { schema: commitIngestaResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits ' +
+        '(EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). ' +
+        'Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
+    },
+    '500': {
+      description:
+        'Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure ' +
+        '(PersistenciaFallidaError / CategorizacionFallidaError). Retryable.',
     },
   },
 };
@@ -1181,6 +1243,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/resumen/semaforo': { get: semaforoDetalleOperation },
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
   '/api/ingresos/mes': { get: ingresosMesOperation },
+  '/api/ingestas/commit': { post: ingestaCommitOperation },
 };
 
 export function buildOpenApiDocument() {
