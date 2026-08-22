@@ -231,7 +231,7 @@ describe('PrismaRegistrarMovimientoManualRepository', () => {
       );
     });
 
-    it('resuelve bucket → BUCKET_IDS[bucket] (bucketId físico correcto)', async () => {
+    it('resuelve bucket → BUCKET_IDS[bucket] (bucketId físico correcto) — Gasto Deseos', async () => {
       const create = vi.fn().mockResolvedValue({ id: 'tx-1' });
       const repo = makeRepo({ transaccion: { create } });
       const tx = makeTransaccion(12_000n, 0n); // Gasto
@@ -248,6 +248,28 @@ describe('PrismaRegistrarMovimientoManualRepository', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             bucketId: BUCKET_IDS[Bucket.Deseos],
+          }),
+        }),
+      );
+    });
+
+    it('resuelve bucket → BUCKET_IDS[bucket] (bucketId físico correcto) — Ingreso', async () => {
+      const create = vi.fn().mockResolvedValue({ id: 'tx-2' });
+      const repo = makeRepo({ transaccion: { create } });
+      const tx = makeTransaccion(0n, 50_000n); // Ingreso
+
+      await repo.registrar({
+        userId: 'user-1',
+        accountId: 'acc-sentinel',
+        transaccion: tx,
+        bucket: Bucket.Ingreso,
+        categoriaId: null,
+      });
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            bucketId: BUCKET_IDS[Bucket.Ingreso],
           }),
         }),
       );

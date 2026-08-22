@@ -149,18 +149,17 @@ describe('MovimientoManual.crear', () => {
       expect(r.isOk()).toBe(true);
     });
 
-    it('descripcion válida se reenvía tal cual a Transaccion.crear (sin re-validar allá)', () => {
+    it('descripcion válida se pasa a Transaccion.crear en su forma recortada (trim aplicado)', () => {
       const r = MovimientoManual.crear({
         tipo: 'Ingreso',
         fecha: FECHA_HOY,
-        descripcion: 'Descripción válida con espacios',
+        descripcion: '  valid  ',
         monto: '1000',
         clock: clockHoy,
       });
       expect(r.isOk()).toBe(true);
-      expect(r.getValue().transaccion.descripcion).toBe(
-        'Descripción válida con espacios',
-      );
+      // trim is applied before forwarding to Transaccion.crear
+      expect(r.getValue().transaccion.descripcion).toBe('valid');
     });
   });
 
