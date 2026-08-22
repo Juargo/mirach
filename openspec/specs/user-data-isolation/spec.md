@@ -87,3 +87,38 @@ A user authenticated as A MUST NOT be able to read data belonging to user B thro
 - WHEN a client logged in as A calls `GET /api/ingresos/mes?periodo=<period>`
 - THEN the `total`/`conteo` header and every `transacciones` entry (`id`, `fecha`, `descripcion`, `origen`, `monto`) reflect only A's income rows
 - AND none of B's income rows, amounts, or origin names are present or reflected in A's response, regardless of transport (cookie or Bearer)
+
+### Requirement: ISO-03 — Preview and commit ingesta operations are scoped by userId (US-057, new)
+
+The new `POST /api/ingestas/preview` and `POST /api/ingestas/commit` endpoints MUST scope all reads and writes by the authenticated user's `userId`. Preview MUST NOT create any database row, including an `Account` row, and MUST perform read-only operations only (dedup lookup, category lookup). Commit MUST validate that every category ID in the edits overlay belongs to the caller's own catalog (RNF-SEC-006).
+
+#### Scenario: User B's preview cannot observe user A's transactions (new, US-057)
+
+- GIVEN user A has a BancoEstado transaction with natural key K
+- AND user B uploads a cartola that contains a row with the same natural key K
+- WHEN user B calls `POST /api/ingestas/preview` with their own account
+- THEN user B's dedup lookup reports `esDuplicado: false` for that row
+- AND user A's data is not read, modified, or exposed in the preview response or side effects
+
+#### Scenario: User B's preview creates no Account row (new, US-057)
+
+- GIVEN user B calls `POST /api/ingestas/preview` with a valid cartola for a bank B has never imported from
+- WHEN the preview returns successfully
+- THEN zero `Account` rows exist for that `userId` + bank after the call
+- AND all reads (dedup, catalog) are scoped by user B's `userId` only
+
+#### Scenario: User B cannot commit into user A's category catalog (new, US-057)
+
+- GIVEN user A has a `Categoria` with id `cat_A` belonging to user A's catalog
+- AND user B sends `POST /api/ingestas/commit` with `edits: [{ "rowIndex": 0, "categoriaId": "cat_A" }]`
+- WHEN the commit is processed
+- THEN the response is 400 identifying the invalid `categoriaId`
+- AND no rows are persisted for user B
+- AND user A's category remains accessible only to user A
+
+#### Scenario: User B's commit cannot modify user A's transactions (new, US-057)
+
+- GIVEN user A has an `Account` with transaction history
+- WHEN user B calls `POST /api/ingestas/commit` with a valid cartola and overlay
+- THEN all persisted `Ingesta` and `Transaccion` rows belong exclusively to user B
+- AND user A's `Account`, `Ingesta`, or `Transaccion` rows are not read, modified, or exposed
