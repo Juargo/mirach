@@ -3,6 +3,7 @@ import {
   MovimientoManualInvalidoError,
   MotivoMovimientoManualInvalido,
 } from '../errors/movimiento-manual-invalido.error';
+import { MotivoTransaccionInvalida } from '../errors/transaccion-invalida.error';
 import { Transaccion } from './transaccion';
 
 /**
@@ -51,7 +52,7 @@ export class MovimientoManual {
     const { tipo, fecha, descripcion, monto } = props;
     const ahora = (props.clock ?? (() => new Date()))();
 
-    // (a) Descripcion — validar antes del monto para detectar errores obvios primero
+    // (c) Descripcion — validar antes del monto para early-exit en errores obvios (D-01-c)
     const descripcionTrimmed = descripcion.trim();
     if (descripcionTrimmed.length === 0) {
       return Result.fail(
@@ -86,7 +87,7 @@ export class MovimientoManual {
 
     const montoBigInt = BigInt(monto);
 
-    // (c) Fecha ≤ hoy en fecha UTC (D-01-d / D-02)
+    // (d) Fecha ≤ hoy en fecha UTC (D-01-d / D-02)
     // Comparación por fecha calendario UTC para evitar el foot-gun de timezone del servidor.
     const fechaUtc = Date.UTC(
       fecha.getUTCFullYear(),
@@ -115,15 +116,16 @@ export class MovimientoManual {
 
     if (txResult.isFail()) {
       // Mapear todos los TransaccionInvalidaError al error de surface del VO (D-09)
-      const mapa: Record<string, MotivoMovimientoManualInvalido> = {
+      const mapa: Record<
+        MotivoTransaccionInvalida,
+        MotivoMovimientoManualInvalido
+      > = {
         SIN_MONTOS: 'SIN_MONTOS',
         MONTO_NEGATIVO: 'MONTO_NEGATIVO',
         CARGO_Y_ABONO: 'CARGO_Y_ABONO', // estructuralmente inalcanzable (D-09)
       };
       const motivo = txResult.getError().motivo;
-      return Result.fail(
-        new MovimientoManualInvalidoError(mapa[motivo] ?? 'MONTO_INVALIDO'),
-      );
+      return Result.fail(new MovimientoManualInvalidoError(mapa[motivo]));
     }
 
     return Result.ok(new MovimientoManual(txResult.getValue(), tipo));

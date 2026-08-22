@@ -86,6 +86,10 @@ describe('MovimientoManual.crear', () => {
       );
     });
 
+    it('monto vacío ("") ⇒ MONTO_INVALIDO', () => {
+      expect(failCode('Ingreso', FECHA_HOY, 'x', '')).toBe('MONTO_INVALIDO');
+    });
+
     it('monto cuya magnitud numérica supera Number.MAX_SAFE_INTEGER ⇒ MONTO_OVERFLOW', () => {
       const overflowStr = String(Number.MAX_SAFE_INTEGER + 1);
       expect(failCode('Ingreso', FECHA_HOY, 'x', overflowStr)).toBe(
@@ -131,6 +135,18 @@ describe('MovimientoManual.crear', () => {
       expect(failCode('Ingreso', FECHA_HOY, larga, '1000')).toBe(
         'DESCRIPCION_LARGA',
       );
+    });
+
+    it('descripcion de exactamente 500 chars ⇒ ok (límite inclusivo)', () => {
+      const exacta = 'a'.repeat(500);
+      const r = MovimientoManual.crear({
+        tipo: 'Ingreso',
+        fecha: FECHA_HOY,
+        descripcion: exacta,
+        monto: '1000',
+        clock: clockHoy,
+      });
+      expect(r.isOk()).toBe(true);
     });
 
     it('descripcion válida se reenvía tal cual a Transaccion.crear (sin re-validar allá)', () => {

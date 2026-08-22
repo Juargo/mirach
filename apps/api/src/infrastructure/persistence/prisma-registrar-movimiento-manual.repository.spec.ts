@@ -140,6 +140,16 @@ describe('PrismaRegistrarMovimientoManualRepository', () => {
       expect(callArg.create.numeroCuenta).toMatch(/^cifrado:/);
     });
 
+    it('el create del upsert lleva el userId del caller (aislamiento multi-tenant RNF-SEC-006)', async () => {
+      const upsert = vi.fn().mockResolvedValue({ id: 'acc-sentinel' });
+      const repo = makeRepo({ account: { upsert } });
+
+      await repo.asegurarCuentaManual('user-1');
+
+      const callArg = upsert.mock.calls[0][0];
+      expect(callArg.create.userId).toBe('user-1');
+    });
+
     it('devuelve Result.ok con accountId cuando el upsert tiene éxito', async () => {
       const upsert = vi.fn().mockResolvedValue({ id: 'acc-xyz' });
       const repo = makeRepo({ account: { upsert } });
@@ -179,6 +189,25 @@ describe('PrismaRegistrarMovimientoManualRepository', () => {
         expect.objectContaining({
           data: expect.objectContaining({ ingestaId: null }),
         }),
+      );
+    });
+
+    it('escribe accountId del caller en data (aislamiento multi-tenant RNF-SEC-006)', async () => {
+      const create = vi.fn().mockResolvedValue({ id: 'tx-1' });
+      const repo = makeRepo({ transaccion: { create } });
+      const tx = makeTransaccion(0n, 50_000n);
+
+      await repo.registrar({
+        userId: 'user-1',
+        accountId: 'acc-sentinel',
+        transaccion: tx,
+        bucket: Bucket.Ingreso,
+        categoriaId: null,
+      });
+
+      const callArg = create.mock.calls[0][0];
+      expect(callArg.data).toEqual(
+        expect.objectContaining({ accountId: 'acc-sentinel' }),
       );
     });
 
