@@ -11,14 +11,16 @@
  * patrones) en lugar de `ICatalogoClasificacion.findAll` (que solo retorna las que
  * tienen al menos un patrón, D-10).
  *
- * El mensaje es FIJO: no interpola datos sensibles ni montos del archivo (ADR-013).
- * Solo incluye el categoriaId rechazado (ID opaco, no dato financiero).
+ * El mensaje es una CONSTANTE de compilación: NO interpola el `categoriaId` ni
+ * ningún dato del request (ADR-013, misma doctrina que RowIndexFueraDeRangoError).
+ * El `categoriaId` rechazado se conserva como propiedad para logging/diagnóstico,
+ * pero nunca alcanza `.message` (que termina, sin envolver, en respuestas HTTP 400).
  */
 export class CategoriaFueraDeCatalogoError extends Error {
   constructor(public readonly categoriaId: string) {
     super(
-      `la categoría "${categoriaId}" no pertenece al catálogo del usuario; ` +
-        `verifique que el categoriaId corresponda a una categoría propia`,
+      'una edición referencia una categoría que no pertenece al catálogo del ' +
+        'usuario; verifique que el categoriaId corresponda a una categoría propia',
     );
     this.name = 'CategoriaFueraDeCatalogoError';
   }
