@@ -378,10 +378,16 @@ This spec extends the existing user-data-isolation requirement from `user-data-i
 
 ---
 
+## Client Consumers
+
+- **Web UI (US-059)** — `SubirCartola` state machine (`apps/web/src/components/SubirCartola.tsx`) is the first consumer of the preview+commit endpoints; deployed at main `74dafdd0` (2026-08-22). Specification at `openspec/specs/web-import-preview/spec.md`.
+- **Mobile UI** — not yet implemented; tracked by US-061. The deprecated one-shot `POST /api/ingestas` (ADR-026) remains the mobile path until US-061.
+
+---
+
 ## Out of Scope
 
-- **Web UI (US-059) and mobile UI (US-061)** — this change ships the backend
-  contract only; client consumption is a separate story.
+- **Mobile UI (US-061)** — this change ships the backend contract only; mobile client consumption is a separate story.
 - **Bank parsing strategies** — no change to detection, validation, or
   normalization for any bank. Preview and commit reuse the existing pipeline.
 - **Row exclusion** — the edits overlay can only reassign
