@@ -1004,6 +1004,61 @@
         ],
         "type": "object"
       },
+      "RegistrarMovimientoManualResponse": {
+        "additionalProperties": false,
+        "description": "POST /api/movimientos 201 — the persisted manual movement (US-058, D-12). Amounts are BigInt-safe strings. `origen` is always \"Manual\".",
+        "properties": {
+          "abono": {
+            "description": "BigInt-safe decimal string; \"0\" for Gasto rows.",
+            "type": "string"
+          },
+          "bucket": {
+            "description": "Bucket enum value (Ingreso | Necesidades | Deseos | Ahorro). Ingreso rows always carry \"Ingreso\"; Gasto rows carry the caller-supplied bucket.",
+            "type": "string"
+          },
+          "cargo": {
+            "description": "BigInt-safe decimal string; \"0\" for Ingreso rows.",
+            "type": "string"
+          },
+          "categoriaId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null for Ingreso rows; the caller-supplied categoriaId for Gasto rows."
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "fecha": {
+            "description": "ISO-8601 UTC timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "origen": {
+            "const": "Manual",
+            "description": "Provenance marker — always \"Manual\" for this endpoint (C-a, D-13).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fecha",
+          "descripcion",
+          "cargo",
+          "abono",
+          "bucket",
+          "categoriaId",
+          "origen"
+        ],
+        "type": "object"
+      },
       "ResumenAnualResponse": {
         "additionalProperties": false,
         "description": "GET /api/resumen/anual — 50/30/20 annual breakdown (US-030).",
@@ -2210,6 +2265,107 @@
           }
         },
         "summary": "Monthly transaction list"
+      },
+      "post": {
+        "description": "Authenticated endpoint that registers a single hand-typed movement with no cartola (US-058, D-12). Type-first: `tipo=Ingreso` auto-classifies to {bucket=Ingreso, categoriaId=null}; `tipo=Gasto` requires `bucket` ∈ {Necesidades, Deseos, Ahorro} and a `categoriaId` from the caller's own catalog. The Ingreso variant is strict (stray `bucket`/`categoriaId` ⇒ 400, Q3 resolution). `monto` is a BigInt-safe decimal string (JSON number ⇒ 400). `fecha` must be YYYY-MM-DD; domain enforces ≤ today (future ⇒ 400). A per-user sentinel Account (banco='Manual') is created lazily (MAN-04). The persisted row has `ingestaId=null`, `origen='Manual'`, and is immune to `DELETE /api/ingestas/:id` (SQL NULL-equality, CA-04). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "description": "Ingreso variant — strict (stray bucket/categoriaId ⇒ 400, Q3 resolution). Auto-classified to {bucket=Ingreso, categoriaId=null} by construction (D-10).",
+                    "properties": {
+                      "descripcion": {
+                        "type": "string"
+                      },
+                      "fecha": {
+                        "description": "Date of the movement, YYYY-MM-DD. Domain enforces ≤ today (future ⇒ 400).",
+                        "type": "string"
+                      },
+                      "monto": {
+                        "description": "BigInt-safe decimal string (never a JSON number). Domain enforces: positive integer, no float, overflow guard (> Number.MAX_SAFE_INTEGER ⇒ 400).",
+                        "type": "string"
+                      },
+                      "tipo": {
+                        "const": "Ingreso",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "tipo",
+                      "fecha",
+                      "descripcion",
+                      "monto"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "description": "Gasto variant — requires bucket ∈ {Necesidades, Deseos, Ahorro} and categoriaId.",
+                    "properties": {
+                      "bucket": {
+                        "description": "Required for Gasto. One of Necesidades | Deseos | Ahorro. Ingreso and SinCategoria are invalid here (D-12).",
+                        "enum": [
+                          "Necesidades",
+                          "Deseos",
+                          "Ahorro"
+                        ],
+                        "type": "string"
+                      },
+                      "categoriaId": {
+                        "description": "Required for Gasto. Must belong to the calling user catalog AND map to the supplied bucket (CategoriaFueraDeCatalogoError / BucketCategoriaNoConcuerdaError => 400).",
+                        "type": "string"
+                      },
+                      "descripcion": {
+                        "type": "string"
+                      },
+                      "fecha": {
+                        "description": "Date of the movement, YYYY-MM-DD.",
+                        "type": "string"
+                      },
+                      "monto": {
+                        "description": "BigInt-safe decimal string.",
+                        "type": "string"
+                      },
+                      "tipo": {
+                        "const": "Gasto",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "tipo",
+                      "fecha",
+                      "descripcion",
+                      "monto",
+                      "bucket",
+                      "categoriaId"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrarMovimientoManualResponse"
+                }
+              }
+            },
+            "description": "Movement registered. Response carries id, fecha (ISO), descripcion (plaintext), cargo/abono (BigInt-safe strings), bucket, categoriaId, and origen=\"Manual\" (D-08/D-12). No DB read-back — values sourced from the in-memory VO."
+          },
+          "400": {
+            "description": "Shape mismatch (Zod: stray fields on Ingreso, missing bucket/categoriaId on Gasto, monto as JSON number, wrong fecha format) OR domain validation failure (MovimientoManualInvalidoError: FECHA_FUTURA, DESCRIPCION_VACIA/LARGA, MONTO_INVALIDO/OVERFLOW, SIN_MONTOS, MONTO_NEGATIVO) OR catalog cascade failure (CategoriaFueraDeCatalogoError, BucketCategoriaNoConcuerdaError). Amounts are scrubbed from every error message (ADR-013)."
+          },
+          "500": {
+            "description": "Infrastructure fault — sentinel upsert, catalog load, or Transaccion.create failed (PersistenciaFallidaError). Retryable."
+          }
+        },
+        "summary": "Register a manual movement (type-first: Ingreso or Gasto)"
       }
     },
     "/api/patrones": {

@@ -403,6 +403,8 @@ describe('RegistrarMovimientoManualUseCase', () => {
       expect(result.getError()).toBeInstanceOf(CategoriaFueraDeCatalogoError);
       // D-11 step ordering: asegurar (step 2) completed before the catalog rejection (step 3)
       expect(writer.asegurarCalls).toHaveLength(1);
+      // writer.registrar must NOT have been called (no write on catalog-validation failure)
+      expect(writer.registrarCalls).toHaveLength(0);
     });
   });
 

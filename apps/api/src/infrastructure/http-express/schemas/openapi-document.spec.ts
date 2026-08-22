@@ -366,4 +366,40 @@ describe('buildOpenApiDocument', () => {
 
     expect(first).toEqual(second);
   });
+
+  // ── US-058 POST /api/movimientos (T-20) ────────────────────────────────────
+
+  it('registers POST /api/movimientos with a 201 response (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const movimientosPath = document.paths?.['/api/movimientos'];
+    expect(movimientosPath).toBeDefined();
+    expect(movimientosPath?.post).toBeDefined();
+    expect(movimientosPath?.post?.responses?.['201']).toBeDefined();
+  });
+
+  it('POST /api/movimientos request body is application/json (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    const requestBody = postOp?.requestBody as
+      | { content: Record<string, unknown> }
+      | undefined;
+    expect(requestBody).toBeDefined();
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+  });
+
+  it('POST /api/movimientos has a 400 error response documented (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    expect(postOp?.responses?.['400']).toBeDefined();
+  });
+
+  it('POST /api/movimientos has a 500 error response documented (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    expect(postOp?.responses?.['500']).toBeDefined();
+  });
 });
