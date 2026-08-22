@@ -9,6 +9,8 @@
  *                  BucketCategoriaNoConcuerdaError | PersistenciaFallidaError
  *   - Never-throw: outer try/catch wraps any unexpected throw
  *   - No Ingesta write on any path (D-09)
+ *   - execute() returns { id, vo } so the route can build the response DTO
+ *     without a DB read-back (T-16/D-08)
  *
  * Strategy: all collaborators are fakes (no DB, no infra). We inject:
  *   - IRegistrarMovimientoManualWriter  → FakeWriter (records calls)
@@ -16,7 +18,11 @@
  *   - ILogger                           → NoOpLogger
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RegistrarMovimientoManualUseCase } from './registrar-movimiento-manual.use-case';
+import {
+  RegistrarMovimientoManualUseCase,
+  type RegistrarMovimientoManualCommand,
+  type RegistrarMovimientoManualError,
+} from './registrar-movimiento-manual.use-case';
 import type {
   IRegistrarMovimientoManualWriter,
   RegistrarMovimientoManualInput,
@@ -32,6 +38,7 @@ import { PersistenciaFallidaError } from '../../domain/errors/persistencia-falli
 import { MovimientoManualInvalidoError } from '../../domain/errors/movimiento-manual-invalido.error';
 import { CategoriaFueraDeCatalogoError } from '../../domain/errors/categoria-fuera-de-catalogo.error';
 import { BucketCategoriaNoConcuerdaError } from '../../domain/errors/bucket-categoria-no-concuerda.error';
+import { MovimientoManual } from '../../domain/value-objects/movimiento-manual';
 
 // ---------------------------------------------------------------------------
 // Test doubles
@@ -113,18 +120,18 @@ function makeThrowingCategoriaRepo(): ICategoriaRepository {
 const FECHA_HOY = new Date('2026-08-21T12:00:00.000Z');
 const FIXED_CLOCK = () => FECHA_HOY;
 
-const BASE_INGRESO = {
+const BASE_INGRESO: RegistrarMovimientoManualCommand = {
   userId: 'user-1',
-  tipo: 'Ingreso' as const,
+  tipo: 'Ingreso',
   fecha: new Date('2026-08-21T00:00:00.000Z'),
   descripcion: 'Sueldo agosto',
   monto: '1500000',
   clock: FIXED_CLOCK,
 };
 
-const BASE_GASTO = {
+const BASE_GASTO: RegistrarMovimientoManualCommand = {
   userId: 'user-1',
-  tipo: 'Gasto' as const,
+  tipo: 'Gasto',
   fecha: new Date('2026-08-21T00:00:00.000Z'),
   descripcion: 'Feria',
   monto: '12990',
@@ -202,6 +209,32 @@ describe('RegistrarMovimientoManualUseCase', () => {
       expect(writer.registrarCalls[0].categoriaId).toBeNull();
     });
 
+    it('writer.registrar recibe el accountId del centinela', async () => {
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        makeCategoriaRepo(),
+        logger,
+      );
+
+      await useCase.execute(BASE_INGRESO);
+
+      expect(writer.registrarCalls[0].accountId).toBe('acc-sentinel');
+    });
+
+    it('writer.registrar recibe transaccion con cargo=0n y abono=monto (Ingreso XOR)', async () => {
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        makeCategoriaRepo(),
+        logger,
+      );
+
+      await useCase.execute(BASE_INGRESO);
+
+      const { transaccion } = writer.registrarCalls[0];
+      expect(transaccion.cargo).toBe(0n);
+      expect(transaccion.abono).toBe(1500000n);
+    });
+
     it('NO invoca ICategoriaRepository.listarConPatrones para Ingreso', async () => {
       const catalogoSpy = makeCategoriaRepo();
       const useCase = new RegistrarMovimientoManualUseCase(
@@ -215,7 +248,7 @@ describe('RegistrarMovimientoManualUseCase', () => {
       expect(catalogoSpy.listarConPatrones).not.toHaveBeenCalled();
     });
 
-    it('retorna Result.ok con el id de la transacción creada', async () => {
+    it('retorna Result.ok con { id, vo } donde vo es el MovimientoManual construido (T-16/D-08)', async () => {
       const useCase = new RegistrarMovimientoManualUseCase(
         writer,
         makeCategoriaRepo(),
@@ -225,7 +258,11 @@ describe('RegistrarMovimientoManualUseCase', () => {
       const result = await useCase.execute(BASE_INGRESO);
 
       expect(result.isOk()).toBe(true);
-      expect(result.getValue()).toEqual({ id: 'tx-new' });
+      const value = result.getValue();
+      expect(value.id).toBe('tx-new');
+      expect(value.vo).toBeInstanceOf(MovimientoManual);
+      // vo.transaccion matches the transaccion forwarded to writer.registrar
+      expect(value.vo.transaccion).toBe(writer.registrarCalls[0].transaccion);
     });
 
     it('writer.registrar recibe el userId correcto (aislamiento multi-tenant RNF-SEC-006)', async () => {
@@ -270,6 +307,48 @@ describe('RegistrarMovimientoManualUseCase', () => {
       expect(writer.registrarCalls).toHaveLength(1);
       expect(writer.registrarCalls[0].bucket).toBe(Bucket.Deseos);
       expect(writer.registrarCalls[0].categoriaId).toBe('cat-alimentacion');
+    });
+
+    it('writer.registrar recibe el accountId del centinela (Gasto)', async () => {
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        makeCategoriaRepo([CAT_ALIMENTACION]),
+        logger,
+      );
+
+      await useCase.execute(BASE_GASTO);
+
+      expect(writer.registrarCalls[0].accountId).toBe('acc-sentinel');
+    });
+
+    it('writer.registrar recibe transaccion con cargo=monto y abono=0n (Gasto XOR)', async () => {
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        makeCategoriaRepo([CAT_ALIMENTACION]),
+        logger,
+      );
+
+      await useCase.execute(BASE_GASTO);
+
+      const { transaccion } = writer.registrarCalls[0];
+      expect(transaccion.cargo).toBe(12990n);
+      expect(transaccion.abono).toBe(0n);
+    });
+
+    it('retorna Result.ok con { id, vo } en el happy path Gasto (T-16/D-08)', async () => {
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        makeCategoriaRepo([CAT_ALIMENTACION]),
+        logger,
+      );
+
+      const result = await useCase.execute(BASE_GASTO);
+
+      expect(result.isOk()).toBe(true);
+      const value = result.getValue();
+      expect(value.id).toBe('tx-new');
+      expect(value.vo).toBeInstanceOf(MovimientoManual);
+      expect(value.vo.transaccion).toBe(writer.registrarCalls[0].transaccion);
     });
 
     it('Gasto: categoriaId no está en el catálogo → CategoriaFueraDeCatalogoError, writer.registrar NO invocado', async () => {
@@ -419,6 +498,30 @@ describe('RegistrarMovimientoManualUseCase', () => {
     });
   });
 
+  // ── D-11: asegurarCuentaManual falla en Gasto — catalog NOT called (D-11 step ordering) ──
+
+  describe('asegurarCuentaManual falla en Gasto — catálogo NO invocado (D-11 paso 2 antes de 3)', () => {
+    it('si asegurarCuentaManual falla en un Gasto, listarConPatrones NO se llama y registrar NO se llama', async () => {
+      writer.setAsegurarResult(
+        Result.fail(new PersistenciaFallidaError('connection refused')),
+      );
+      const catalogoSpy = makeCategoriaRepo([CAT_ALIMENTACION]);
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        catalogoSpy,
+        logger,
+      );
+
+      const result = await useCase.execute(BASE_GASTO);
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
+      // Step 3 (catalog) must NOT run when step 2 (sentinel) fails (D-11)
+      expect(catalogoSpy.listarConPatrones).not.toHaveBeenCalled();
+      expect(writer.registrarCalls).toHaveLength(0);
+    });
+  });
+
   describe('catálogo listarConPatrones lanza → PersistenciaFallidaError (inner try/catch D-11)', () => {
     it('un throw en listarConPatrones se envuelve en PersistenciaFallidaError; writer.registrar NO invocado', async () => {
       const useCase = new RegistrarMovimientoManualUseCase(
@@ -478,21 +581,57 @@ describe('RegistrarMovimientoManualUseCase', () => {
   });
 
   // ── No Ingesta write (D-09) ──────────────────────────────────────────────
+  //
+  // D-09: failed manual attempts register nothing — no Ingesta row, no historial.
+  // The use case's port (IRegistrarMovimientoManualWriter) has NO createIngesta /
+  // persistirProcesada / registrarFallida method — this is a compile-time guarantee.
+  // The behavioral guarantee: on both happy and failure paths, ONLY
+  // `asegurarCuentaManual` and `registrar` are ever invoked; `registrar` is
+  // skipped entirely on failure paths.
 
   describe('sin escritura de Ingesta en ningún path (D-09)', () => {
-    it('el use case no provee ningún método ni port para crear Ingesta rows', () => {
-      // The use case constructor accepts IRegistrarMovimientoManualWriter
-      // which has NO createIngesta / persistirProcesada / registrarFallida.
-      // This is a structural / TypeScript-level assertion — verified at compile time.
-      // Runtime assertion: writer.registrar does NOT receive an ingestaId.
-      // (useCase instantiation is the structural proof; the writer shape is checked below)
-      new RegistrarMovimientoManualUseCase(writer, makeCategoriaRepo(), logger);
+    it('happy path Ingreso: solo asegurarCuentaManual + registrar son invocados (call log completo)', async () => {
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        makeCategoriaRepo(),
+        logger,
+      );
 
-      // Checking the port shape: neither 'ingesta' nor 'historial' on the writer
-      expect('registrar' in writer).toBe(true);
-      expect('asegurarCuentaManual' in writer).toBe(true);
-      // The FakeWriter records no ingesta calls because the port has no such method
+      const result = await useCase.execute(BASE_INGRESO);
+
+      expect(result.isOk()).toBe(true);
+      // Exactly one asegurar call, exactly one registrar call — nothing else
+      expect(writer.asegurarCalls).toHaveLength(1);
+      expect(writer.asegurarCalls[0]).toBe('user-1');
+      expect(writer.registrarCalls).toHaveLength(1);
+      // The writer shape has no ingesta method — structural compile-time guarantee
       expect(writer).not.toHaveProperty('ingestaCreate');
+      expect(writer).not.toHaveProperty('persistirProcesada');
+      expect(writer).not.toHaveProperty('registrarFallida');
+    });
+
+    it('failure path (VO invalido): registrar NO es invocado — call log completo', async () => {
+      const useCase = new RegistrarMovimientoManualUseCase(
+        writer,
+        makeCategoriaRepo(),
+        logger,
+      );
+
+      // VO will fail: future date
+      const result = await useCase.execute({
+        ...BASE_INGRESO,
+        fecha: new Date('2030-01-01T00:00:00.000Z'),
+      });
+
+      expect(result.isFail()).toBe(true);
+      // Compile-time error-union check: assign getError() to the full union type
+      // so tsc enforces T-09's exhaustiveness deliverable (D-09).
+      const _errUnion: RegistrarMovimientoManualError = result.getError();
+      void _errUnion;
+
+      // No write calls on any failure path
+      expect(writer.asegurarCalls).toHaveLength(0);
+      expect(writer.registrarCalls).toHaveLength(0);
     });
   });
 });

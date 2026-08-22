@@ -10,26 +10,40 @@ import type { ICategoriaRepository } from '../ports/categoria-repository.port';
 import type { ILogger } from '../ports/logger.port';
 
 /**
- * Parámetros de entrada del use case (D-11).
+ * Comando de entrada del use case (D-11) — discriminated union on `tipo`.
  *
- * - `tipo` discrimina el flujo: Ingreso → clasificación automática (D-10);
- *   Gasto → validación de catálogo + bucket (D-11 paso 3).
- * - `monto` se recibe como string decimal positivo (BigInt-safe) — la
- *   conversión y guarda de overflow ocurren en `MovimientoManual.crear` (D-01-a).
- * - `fecha` ya viene parseada desde el ISO `YYYY-MM-DD` de la capa HTTP.
- * - `bucket` y `categoriaId` son opcionales: requeridos solo para Gasto.
- * - `clock` es inyectable para tests (default: `() => new Date()`).
+ * Distinct name from `RegistrarMovimientoManualInput` (the port's writer
+ * input type) to avoid collision: both have different shapes and roles.
+ *
+ * - Variant `tipo: 'Ingreso'` — NO `bucket`, NO `categoriaId`.
+ *   Ingreso is classified by construction (D-10).
+ * - Variant `tipo: 'Gasto'`  — `bucket: Bucket` and `categoriaId: string`
+ *   are REQUIRED. Both must pass the catalog cascade (D-11, step 3).
+ *
+ * `monto` is received as a positive decimal string (BigInt-safe) — the
+ * conversion and overflow guard happen in `MovimientoManual.crear` (D-01-a).
+ * `fecha` is already parsed from the ISO `YYYY-MM-DD` HTTP layer.
+ * `clock` is injectable for tests (default: `() => new Date()`).
  */
-export interface RegistrarMovimientoManualInput {
-  readonly userId: string;
-  readonly tipo: 'Ingreso' | 'Gasto';
-  readonly fecha: Date;
-  readonly descripcion: string;
-  readonly monto: string;
-  readonly bucket?: Bucket;
-  readonly categoriaId?: string | null;
-  readonly clock?: () => Date;
-}
+export type RegistrarMovimientoManualCommand =
+  | {
+      readonly userId: string;
+      readonly tipo: 'Ingreso';
+      readonly fecha: Date;
+      readonly descripcion: string;
+      readonly monto: string;
+      readonly clock?: () => Date;
+    }
+  | {
+      readonly userId: string;
+      readonly tipo: 'Gasto';
+      readonly fecha: Date;
+      readonly descripcion: string;
+      readonly monto: string;
+      readonly bucket: Bucket;
+      readonly categoriaId: string;
+      readonly clock?: () => Date;
+    };
 
 /**
  * RegistrarMovimientoManualError — unión cerrada de errores posibles (D-09).
@@ -58,7 +72,8 @@ export type RegistrarMovimientoManualError =
  *        Ingreso → `{Bucket.Ingreso, null}` BY CONSTRUCTION (D-10)
  *        Gasto   → `{requestedBucket, categoriaId}`
  *   5. `writer.registrar(...)` → single Transaccion.create.
- *   6. `Result.ok({ id })`.
+ *   6. `Result.ok({ id, vo })` — the VO is returned so the route can build
+ *      the response DTO without a DB read-back (T-16/D-08).
  *
  * El cuerpo completo está envuelto en un outer try/catch (D-09): cualquier
  * throw inesperado se convierte en `Result.fail(PersistenciaFallidaError)`.
@@ -74,8 +89,10 @@ export class RegistrarMovimientoManualUseCase {
   ) {}
 
   async execute(
-    input: RegistrarMovimientoManualInput,
-  ): Promise<Result<{ id: string }, RegistrarMovimientoManualError>> {
+    input: RegistrarMovimientoManualCommand,
+  ): Promise<
+    Result<{ id: string; vo: MovimientoManual }, RegistrarMovimientoManualError>
+  > {
     try {
       // ── 1. Build and validate the VO ────────────────────────────────────
       const voResult = MovimientoManual.crear({
@@ -112,8 +129,9 @@ export class RegistrarMovimientoManualUseCase {
       let categoriaIdFinal: string | null;
 
       if (input.tipo === 'Gasto') {
-        const requestedBucket = input.bucket!;
-        const requestedCategoriaId = input.categoriaId ?? null;
+        // Both are required on the Gasto variant — no assertions needed.
+        const requestedBucket = input.bucket;
+        const requestedCategoriaId = input.categoriaId;
 
         let categorias;
         try {
@@ -141,19 +159,18 @@ export class RegistrarMovimientoManualUseCase {
           categorias.map((cat) => [cat.id, cat.bucket]),
         );
 
-        if (!categoriaIds.has(requestedCategoriaId!)) {
+        if (!categoriaIds.has(requestedCategoriaId)) {
           return Result.fail(
-            new CategoriaFueraDeCatalogoError(requestedCategoriaId ?? ''),
+            new CategoriaFueraDeCatalogoError(requestedCategoriaId),
           );
         }
 
-        const bucketDeLaCategoria = bucketPorCategoria.get(
-          requestedCategoriaId!,
-        );
+        const bucketDeLaCategoria =
+          bucketPorCategoria.get(requestedCategoriaId);
         if (bucketDeLaCategoria !== requestedBucket) {
           return Result.fail(
             new BucketCategoriaNoConcuerdaError(
-              requestedCategoriaId!,
+              requestedCategoriaId,
               requestedBucket,
             ),
           );
@@ -185,8 +202,11 @@ export class RegistrarMovimientoManualUseCase {
         return Result.fail(registrarResult.getError());
       }
 
-      // ── 6. Return ────────────────────────────────────────────────────────
-      return Result.ok({ id: registrarResult.getValue().id });
+      // ── 6. Return VO + id ─────────────────────────────────────────────────
+      // The VO is returned so the route can call aRegistrarMovimientoManualResponseDto(vo, id)
+      // without a DB read-back (T-16/D-08): vo.transaccion.descripcion is the plaintext string
+      // already in memory — no decrypt round-trip needed.
+      return Result.ok({ id: registrarResult.getValue().id, vo });
     } catch (error) {
       // Outer safety net (D-09): translate any unexpected throw into a
       // PersistenciaFallidaError. The use case NEVER re-throws.

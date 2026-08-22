@@ -21,7 +21,7 @@ import { normalizeNumeroCuenta } from './normalize-numero-cuenta';
 const SENTINEL_BANCO = 'Manual';
 const SENTINEL_TIPO_CUENTA = 'Manual';
 const SENTINEL_NUMERO_CUENTA_RAW = 'MANUAL';
-/** Stamped on every manual Transaccion row (D-05, C-a). Never an inline literal. */
+/** Stamped on every manual Transaccion row as origin marker (US-058 C-a, D-13). Never an inline literal. */
 const SENTINEL_ORIGEN = 'Manual';
 
 /**
