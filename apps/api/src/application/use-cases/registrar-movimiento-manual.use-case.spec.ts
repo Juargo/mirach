@@ -362,6 +362,11 @@ describe('RegistrarMovimientoManualUseCase', () => {
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategoriaFueraDeCatalogoError);
+      // Compile-time error-union check: covers the full union assignability on a Gasto failure path.
+      const _errUnion: RegistrarMovimientoManualError = result.getError();
+      void _errUnion;
+      // D-11 step ordering: asegurar (step 2) completed before the catalog rejection (step 3)
+      expect(writer.asegurarCalls).toHaveLength(1);
       expect(writer.registrarCalls).toHaveLength(0);
     });
 
@@ -380,6 +385,8 @@ describe('RegistrarMovimientoManualUseCase', () => {
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(BucketCategoriaNoConcuerdaError);
+      // D-11 step ordering: asegurar (step 2) completed before the bucket-mismatch rejection (step 3)
+      expect(writer.asegurarCalls).toHaveLength(1);
       expect(writer.registrarCalls).toHaveLength(0);
     });
 
@@ -407,9 +414,13 @@ describe('RegistrarMovimientoManualUseCase', () => {
         logger,
       );
 
+      // Derived from the fixed clock so a future change of FECHA_HOY cannot
+      // silently invert this test's meaning (D-09 behavioral test).
+      const fechaFutura = new Date(FECHA_HOY.getTime() + 24 * 60 * 60 * 1000);
+
       const result = await useCase.execute({
         ...BASE_INGRESO,
-        fecha: new Date('2026-08-22T00:00:00.000Z'), // mañana
+        fecha: fechaFutura,
       });
 
       expect(result.isFail()).toBe(true);
@@ -553,6 +564,8 @@ describe('RegistrarMovimientoManualUseCase', () => {
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
+      // D-11 step ordering: asegurar (step 2) completed before registrar (step 5) failed
+      expect(writer.asegurarCalls).toHaveLength(1);
     });
   });
 
