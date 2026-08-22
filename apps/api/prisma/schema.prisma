@@ -181,8 +181,11 @@ model PatronClasificacion {
 
 model Transaccion {
   id          String             @id @default(cuid())
-  ingestaId   String
-  ingesta     Ingesta            @relation(fields: [ingestaId], references: [id])
+  // US-058: ingestaId es nullable — un movimiento manual no tiene ingesta.
+  // onDelete: Restrict se pina explícitamente para evitar que Prisma derive
+  // el default SetNull para relaciones opcionales (D-13 nota de design.md).
+  ingestaId   String?
+  ingesta     Ingesta?           @relation(fields: [ingestaId], references: [id], onDelete: Restrict)
   accountId   String
   account     Account            @relation(fields: [accountId], references: [id])
   fecha       DateTime
@@ -197,6 +200,10 @@ model Transaccion {
   // fuente de verdad del 50/30/20 (ver design.md §1.1).
   categoriaId String?
   categoria   Categoria?         @relation(fields: [categoriaId], references: [id], onDelete: SetNull)
+  // US-058 C-a: null = nacido de ingesta (ingestaId NOT NULL); 'Manual' = manual (US-058, C-a).
+  // La invariante (ingestaId IS NULL) ↔ (origen = 'Manual') se aplica via CHECK
+  // en la migración (raw SQL — Prisma no modela CHECK, house pattern).
+  origen      String?
   creadoEn    DateTime           @default(now())
 
   // US-005: acota la lectura de detección de duplicados por (accountId,
