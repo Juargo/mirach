@@ -231,4 +231,19 @@ describe('registrarMovimientoManualSchema', () => {
       expect(result.success).toBe(false);
     });
   });
+
+  describe('categoriaId field — shape constraint min(1)', () => {
+    it('rejects a Gasto body with an empty categoriaId string', () => {
+      const result = registrarMovimientoManualSchema.safeParse({
+        tipo: 'Gasto',
+        fecha: '2026-08-10',
+        descripcion: 'Feria',
+        monto: '12990',
+        bucket: 'Deseos',
+        categoriaId: '', // empty string is not a valid id at the transport layer
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
 });

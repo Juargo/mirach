@@ -2274,6 +2274,7 @@
               "schema": {
                 "anyOf": [
                   {
+                    "additionalProperties": false,
                     "description": "Ingreso variant — strict (stray bucket/categoriaId ⇒ 400, Q3 resolution). Auto-classified to {bucket=Ingreso, categoriaId=null} by construction (D-10).",
                     "properties": {
                       "descripcion": {
@@ -2313,7 +2314,8 @@
                         "type": "string"
                       },
                       "categoriaId": {
-                        "description": "Required for Gasto. Must belong to the calling user catalog AND map to the supplied bucket (CategoriaFueraDeCatalogoError / BucketCategoriaNoConcuerdaError => 400).",
+                        "description": "Required for Gasto. Must be a non-empty string belonging to the calling user catalog AND map to the supplied bucket (CategoriaFueraDeCatalogoError / BucketCategoriaNoConcuerdaError => 400).",
+                        "minLength": 1,
                         "type": "string"
                       },
                       "descripcion": {

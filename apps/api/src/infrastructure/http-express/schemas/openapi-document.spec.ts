@@ -402,4 +402,63 @@ describe('buildOpenApiDocument', () => {
     const postOp = document.paths?.['/api/movimientos']?.post;
     expect(postOp?.responses?.['500']).toBeDefined();
   });
+
+  it('POST /api/movimientos Ingreso variant emits additionalProperties:false (US-058, T-20 contract)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    const requestBody = postOp?.requestBody as
+      | { content: { 'application/json': { schema: { anyOf: unknown[] } } } }
+      | undefined;
+    const schema = requestBody?.content?.['application/json']?.schema as
+      | { anyOf?: Array<{ additionalProperties?: boolean }> }
+      | undefined;
+
+    expect(schema?.anyOf).toBeDefined();
+    expect(schema?.anyOf?.length).toBeGreaterThanOrEqual(2);
+    // The Ingreso variant (anyOf[0]) must carry additionalProperties:false —
+    // proving .strict() is in effect and the document matches the runtime rejection.
+    const ingresoVariant = schema?.anyOf?.[0];
+    expect(ingresoVariant?.additionalProperties).toBe(false);
+  });
+
+  it('POST /api/movimientos Gasto variant required array includes bucket and categoriaId (US-058, T-20 contract)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    const requestBody = postOp?.requestBody as
+      | { content: { 'application/json': { schema: { anyOf: unknown[] } } } }
+      | undefined;
+    const schema = requestBody?.content?.['application/json']?.schema as
+      | { anyOf?: Array<{ required?: string[] }> }
+      | undefined;
+
+    expect(schema?.anyOf).toBeDefined();
+    const gastoVariant = schema?.anyOf?.[1];
+    expect(gastoVariant?.required).toContain('bucket');
+    expect(gastoVariant?.required).toContain('categoriaId');
+  });
+
+  it('POST /api/movimientos 201 response schema required array includes all 8 DTO fields (US-058, T-20 contract)', () => {
+    const document = buildOpenApiDocument();
+
+    // zod-openapi hoists named schemas to components/schemas (via .meta({ id })).
+    // The 201 body schema is a $ref to RegistrarMovimientoManualResponse — navigate there.
+    const components = document.components as
+      | Record<string, Record<string, { required?: string[] }>>
+      | undefined;
+    const responseSchema =
+      components?.schemas?.['RegistrarMovimientoManualResponse'];
+    const required = responseSchema?.required ?? [];
+
+    // All 8 fields from RegistrarMovimientoManualResponseDto must be in required.
+    expect(required).toContain('id');
+    expect(required).toContain('fecha');
+    expect(required).toContain('descripcion');
+    expect(required).toContain('cargo');
+    expect(required).toContain('abono');
+    expect(required).toContain('bucket');
+    expect(required).toContain('categoriaId');
+    expect(required).toContain('origen');
+  });
 });

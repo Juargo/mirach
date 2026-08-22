@@ -34,13 +34,10 @@ export interface RegistrarMovimientoManualResponseDto {
  * aRegistrarMovimientoManualResponseDto — maps a MovimientoManual VO + id to
  * the HTTP response DTO.
  *
- * The `bucket` and `categoriaId` parameters come from the use case result — the
- * route already has them resolved (D-11 step 6) and passes them here so the
- * mapper stays a pure data-shape function.
- *
- * For Ingreso rows: bucket = "Ingreso", categoriaId = null (defaults below).
- * For Gasto rows:  bucket = the chosen BucketDeGasto enum value, categoriaId
- *                  provided by the caller.
+ * For Ingreso rows: `categoriaId` defaults to null and `bucket` defaults to
+ * "Ingreso" by construction (D-10). For Gasto rows both MUST be supplied
+ * explicitly — the runtime guard throws if `bucket` is omitted or empty on a
+ * Gasto VO, making the invalid state impossible at runtime.
  *
  * NO DB read-back, NO ICryptoService dependency (D-08).
  */
@@ -48,8 +45,24 @@ export function aRegistrarMovimientoManualResponseDto(
   vo: MovimientoManual,
   id: string,
   categoriaId: string | null = null,
-  bucket: string = vo.tipo === 'Ingreso' ? 'Ingreso' : '',
+  bucket?: string,
 ): RegistrarMovimientoManualResponseDto {
+  const resolvedBucket =
+    bucket !== undefined && bucket !== ''
+      ? bucket
+      : vo.tipo === 'Ingreso'
+        ? 'Ingreso'
+        : undefined;
+
+  if (resolvedBucket === undefined) {
+    // Gasto callers must supply a non-empty bucket explicitly.
+    // An empty-string or missing bucket on a Gasto VO is a programmer error —
+    // the route always resolves bucket before calling this mapper (D-12).
+    throw new Error(
+      'aRegistrarMovimientoManualResponseDto: bucket is required for Gasto rows',
+    );
+  }
+
   const tx = vo.transaccion;
   return {
     id,
@@ -57,7 +70,7 @@ export function aRegistrarMovimientoManualResponseDto(
     descripcion: tx.descripcion,
     cargo: String(tx.cargo),
     abono: String(tx.abono),
-    bucket,
+    bucket: resolvedBucket,
     categoriaId,
     origen: 'Manual',
   };

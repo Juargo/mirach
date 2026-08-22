@@ -72,14 +72,17 @@ const ingresoSchema = z
 
 /**
  * Gasto variant — requires `bucket` ∈ {Necesidades, Deseos, Ahorro} and
- * a non-empty `categoriaId` string. Both are REQUIRED: missing either
- * produces a 400 before the use case runs.
+ * a non-empty `categoriaId` string. Both are REQUIRED: missing either or
+ * supplying an empty categoriaId produces a 400 before the use case runs.
+ *
+ * `.min(1)` is a shape constraint (empty string is not a valid id), NOT
+ * a business rule — catalog membership stays in the use case.
  */
 const gastoSchema = z.object({
   tipo: z.literal(tipoGasto),
   ...baseFields,
   bucket: z.enum(GASTO_BUCKETS),
-  categoriaId: z.string(),
+  categoriaId: z.string().min(1),
 });
 
 /**

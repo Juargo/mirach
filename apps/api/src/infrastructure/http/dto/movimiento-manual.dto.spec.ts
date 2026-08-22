@@ -140,6 +140,24 @@ describe('aRegistrarMovimientoManualResponseDto', () => {
     });
   });
 
+  describe('Gasto variant — runtime guard for missing bucket', () => {
+    it('throws when called on a Gasto VO without supplying a bucket', () => {
+      const vo = makeGasto();
+      // Calling without bucket on a Gasto VO is a programmer error — the guard
+      // must throw rather than silently yielding bucket:"" (fix for dangerous default).
+      expect(() =>
+        aRegistrarMovimientoManualResponseDto(vo, 'id-guard-1', 'cat-1'),
+      ).toThrow('bucket is required for Gasto rows');
+    });
+
+    it('throws when called on a Gasto VO with an empty bucket string', () => {
+      const vo = makeGasto();
+      expect(() =>
+        aRegistrarMovimientoManualResponseDto(vo, 'id-guard-2', 'cat-1', ''),
+      ).toThrow('bucket is required for Gasto rows');
+    });
+  });
+
   describe('BigInt-safe serialization', () => {
     it('serializes BigInt monto as a plain string without loss', () => {
       // Number.MAX_SAFE_INTEGER as a monto — must survive as exact string
