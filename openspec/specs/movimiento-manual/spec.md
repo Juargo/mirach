@@ -274,3 +274,9 @@ includes `userId`. A user can never register a movement into another user's spac
 | Unit — composition | `crearRegistrarMovimientoManual` has no read-only-only restriction violations (SOLID/ISP: narrow writer port) |
 | Integration | Persisted row feeds resumen/percentages/semáforo; sentinel account find-or-create; delete-ingesta immunity; user B cannot register into or read user A's movement; migration backward-compatibility of ingesta-born rows |
 | Contract | `openapi.json` includes `POST /api/movimientos` with correct schemas; CI contract check green |
+
+---
+
+## Client Consumers
+
+- **Web UI (US-060)** — `RegistrarMovimientoForm` (`apps/web/src/components/RegistrarMovimientoForm.tsx`) at `/registrar` is the first consumer of `POST /api/movimientos`; deployed at main `110407f3` (2026-08-22). Specification at `openspec/specs/web-registro-manual/spec.md`.
