@@ -416,9 +416,17 @@ describe('buildOpenApiDocument', () => {
 
     expect(schema?.anyOf).toBeDefined();
     expect(schema?.anyOf?.length).toBeGreaterThanOrEqual(2);
-    // The Ingreso variant (anyOf[0]) must carry additionalProperties:false —
+    // Find the Ingreso variant by its discriminant rather than by position — positional
+    // indexing breaks if zod-openapi reorders the variants.
+    const ingresoVariant = (
+      schema?.anyOf as Array<{
+        additionalProperties?: boolean;
+        properties?: { tipo?: { const?: string } };
+      }>
+    )?.find((v) => v.properties?.tipo?.const === 'Ingreso');
+    expect(ingresoVariant).toBeDefined();
+    // The Ingreso variant must carry additionalProperties:false —
     // proving .strict() is in effect and the document matches the runtime rejection.
-    const ingresoVariant = schema?.anyOf?.[0];
     expect(ingresoVariant?.additionalProperties).toBe(false);
   });
 
@@ -434,7 +442,14 @@ describe('buildOpenApiDocument', () => {
       | undefined;
 
     expect(schema?.anyOf).toBeDefined();
-    const gastoVariant = schema?.anyOf?.[1];
+    // Find the Gasto variant by its discriminant rather than by position.
+    const gastoVariant = (
+      schema?.anyOf as Array<{
+        required?: string[];
+        properties?: { tipo?: { const?: string } };
+      }>
+    )?.find((v) => v.properties?.tipo?.const === 'Gasto');
+    expect(gastoVariant).toBeDefined();
     expect(gastoVariant?.required).toContain('bucket');
     expect(gastoVariant?.required).toContain('categoriaId');
   });

@@ -159,6 +159,10 @@ export function registrarMovimientoManual(
       const { id, vo } = result.getValue();
 
       // Build response DTO from the in-memory VO — no DB read-back (D-08).
+      // NOTE: the 201 response reflects the Zod-parsed request values for categoriaId
+      // and bucket. This is safe only because the use case is validate-only on those
+      // fields (D-11 resolves them identically to the request). If the use case ever
+      // transforms categoriaId or bucket, the response must switch to use-case output.
       const categoriaId = body.tipo === 'Gasto' ? body.categoriaId : null;
       const bucket = body.tipo === 'Gasto' ? body.bucket : 'Ingreso';
 

@@ -191,6 +191,9 @@ describe('registrarMovimientoManual — POST /api/movimientos', () => {
         });
 
       expect(res.status).toBe(400);
+      // Neither the categoriaId nor the monto must appear in the error response (ADR-013 scrub)
+      expect(JSON.stringify(res.body)).not.toContain('cat-1');
+      expect(JSON.stringify(res.body)).not.toContain('12990');
     });
   });
 
@@ -236,9 +239,10 @@ describe('registrarMovimientoManual — POST /api/movimientos', () => {
 
   describe('ISO-01 — userId always comes from the session, never from the body', () => {
     it('uses req.userId from session middleware even if the body contains a different userId (Gasto variant)', async () => {
-      // The Gasto variant is not .strict(), so extra body fields like userId pass
-      // the Zod boundary check. This proves the route explicitly ignores any userId
-      // in the body and always uses req.userId from the session middleware.
+      // The Gasto variant uses Zod's default strip mode, so an unknown `userId`
+      // field is discarded from `parsed.data`; the route uses `req.userId` from
+      // the session middleware regardless. This proves the route never reads userId
+      // from the body.
       const vo = makeManualVo('Gasto');
       const uc: RegistrarDoble = {
         execute: vi.fn().mockResolvedValue(Result.ok({ id: 'tx-iso-1', vo })),
