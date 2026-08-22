@@ -401,6 +401,8 @@ describe('RegistrarMovimientoManualUseCase', () => {
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategoriaFueraDeCatalogoError);
+      // D-11 step ordering: asegurar (step 2) completed before the catalog rejection (step 3)
+      expect(writer.asegurarCalls).toHaveLength(1);
     });
   });
 
@@ -545,6 +547,8 @@ describe('RegistrarMovimientoManualUseCase', () => {
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
+      // D-11 step ordering: asegurar (step 2) completed before the catalog throw (step 3)
+      expect(writer.asegurarCalls).toHaveLength(1);
       expect(writer.registrarCalls).toHaveLength(0);
     });
   });
@@ -630,10 +634,10 @@ describe('RegistrarMovimientoManualUseCase', () => {
         logger,
       );
 
-      // VO will fail: future date
+      // VO will fail: future date — derived from fixed clock so FECHA_HOY changes don't silently pass
       const result = await useCase.execute({
         ...BASE_INGRESO,
-        fecha: new Date('2030-01-01T00:00:00.000Z'),
+        fecha: new Date(FECHA_HOY.getTime() + 365 * 24 * 60 * 60 * 1000),
       });
 
       expect(result.isFail()).toBe(true);
