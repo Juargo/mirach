@@ -265,6 +265,9 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
       numeroCuenta: '****',
       resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
       filas: [],
+      // Legacy mirror (@deprecated compat shim, removed by US-061).
+      estructura: { totalFilasDatos: 2 },
+      muestra: [],
     });
     // US-057 PR2: userId is forwarded for per-row dedup scoping (D-06).
     expect(uc.execute).toHaveBeenCalledWith(
