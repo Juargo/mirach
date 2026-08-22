@@ -8,9 +8,9 @@ Defines that the 7 data-bearing endpoints (`resumen`, `movimientos`, `detalle-bu
 
 ### Requirement: ISO-01 — `userId` is derived from the session, not a fixed constant, for every client
 
-(Previously: web-implicit. Revised: explicitly no keyless fallback for `/api/resumen` now that mobile authenticates via session too. Revised again, US-049: the count of session-guarded controllers grows from 4 to 5 with `resumen/semaforo`, which derives `userId` identically via the SAME session middleware already covering `resumen` — the rule itself is unchanged, only the count of controllers it applies to. Revised again, US-051: the count grows from 5 to 6 with the `detalle-bucket-mes` controller serving `GET /api/buckets/:bucket/detalle` — the rule remains unchanged, only the count of controllers it applies to. Revised again, US-052: the count grows from 6 to 7 with the `ingresos-mes` controller serving `GET /api/ingresos/mes` — the rule remains unchanged, only the count of controllers it applies to.)
+(Previously: web-implicit. Revised: explicitly no keyless fallback for `/api/resumen` now that mobile authenticates via session too. Revised again, US-049: the count of session-guarded controllers grows from 4 to 5 with `resumen/semaforo`, which derives `userId` identically via the SAME session middleware already covering `resumen` — the rule itself is unchanged, only the count of controllers it applies to. Revised again, US-051: the count grows from 5 to 6 with the `detalle-bucket-mes` controller serving `GET /api/buckets/:bucket/detalle` — the rule remains unchanged, only the count of controllers it applies to. Revised again, US-052: the count grows from 6 to 7 with the `ingresos-mes` controller serving `GET /api/ingresos/mes` — the rule remains unchanged, only the count of controllers it applies to. Revised again, US-058: the count grows from 7 to 8 with the `POST /api/movimientos` handler — the rule is unchanged, only the endpoint count increases.)
 
-Each of the 7 controllers (`resumen`, `movimientos`, `detalle-bucket`, `ingesta`, `resumen/semaforo`, `detalle-bucket-mes`, `ingresos-mes`) MUST resolve `userId` from the request's validated session (as exposed by `SessionGuard`, from either the cookie or `Authorization: Bearer` transport). None of them MUST inject or fall back to a hardcoded user id, and none MUST accept `x-api-key` alone as sufficient identity — a valid session is required on top of it, for both web and mobile callers.
+Each of the 8 controllers (`resumen`, `movimientos`, `detalle-bucket`, `ingesta`, `resumen/semaforo`, `detalle-bucket-mes`, `ingresos-mes`, and the new `POST /api/movimientos` handler) MUST resolve `userId` from the request's validated session (as exposed by `SessionGuard`, from either the cookie or `Authorization: Bearer` transport). None of them MUST inject or fall back to a hardcoded user id, and none MUST accept `x-api-key` alone as sufficient identity — a valid session is required on top of it, for both web and mobile callers.
 
 #### Scenario: Data endpoint uses the session's userId
 
@@ -25,9 +25,9 @@ Each of the 7 controllers (`resumen`, `movimientos`, `detalle-bucket`, `ingesta`
 - THEN the response status is 401
 - AND no data is returned under a fallback/default `userId`
 
-### Requirement: ISO-02 — Cross-user isolation across all 7 data endpoints, for both clients
+### Requirement: ISO-02 — Cross-user isolation across all 8 data endpoints, for both clients
 
-A user authenticated as A MUST NOT be able to read data belonging to user B through any of the 7 data endpoints — `resumen`, `movimientos`, `detalle-bucket`, `ingesta`, `resumen/semaforo` (US-049), `detalle-bucket-mes` (US-051), and `ingresos-mes` (US-052) — regardless of request parameters or transport (cookie or Bearer). This isolation MUST hold for every value the `resumen` endpoint exposes, including the Sin categoría transaction count introduced by US-045 — the count aggregation MUST filter by the authenticated user's `userId` in the same WHERE clause as the existing per-bucket sums, never in application memory. This isolation MUST also hold for every value `resumen/semaforo` exposes (US-049) — the diagnosis sentence, the per-bucket CLP-to-Verde advice amounts and directions, the zone-band edges, and the Sin categoría count/total it re-exposes — for every value `detalle-bucket-mes` exposes (US-051): the header's `total`, `totalTransacciones`, `totalCategorias`, `porcentajeBp` and `metaBp`, and each category group's `subtotal`, `conteo` and transactions — and for every value `ingresos-mes` exposes (US-052): the header's `total` and `conteo`, and each `transacciones` entry's `id`, `fecha`, `descripcion`, `origen` and `monto` — none of which MUST ever be derived from, or reflect, another user's transactions.
+A user authenticated as A MUST NOT be able to read or write data belonging to user B through any of the 8 data endpoints — `resumen`, `movimientos`, `detalle-bucket`, `ingesta`, `resumen/semaforo` (US-049), `detalle-bucket-mes` (US-051), `ingresos-mes` (US-052), and `POST /api/movimientos` (US-058) — regardless of request parameters or transport (cookie or Bearer). This isolation MUST hold for every value the `resumen` endpoint exposes, including the Sin categoría transaction count introduced by US-045 — the count aggregation MUST filter by the authenticated user's `userId` in the same WHERE clause as the existing per-bucket sums, never in application memory. This isolation MUST also hold for every value `resumen/semaforo` exposes (US-049) — the diagnosis sentence, the per-bucket CLP-to-Verde advice amounts and directions, the zone-band edges, and the Sin categoría count/total it re-exposes — for every value `detalle-bucket-mes` exposes (US-051): the header's `total`, `totalTransacciones`, `totalCategorias`, `porcentajeBp` and `metaBp`, and each category group's `subtotal`, `conteo` and transactions — for every value `ingresos-mes` exposes (US-052): the header's `total` and `conteo`, and each `transacciones` entry's `id`, `fecha`, `descripcion`, `origen` and `monto` — and for the `POST /api/movimientos` write (US-058): user B's manual movement MUST NOT appear in user A's resumen, bucket totals, movement list, or any aggregation — none of which MUST ever be derived from, or reflect, another user's transactions.
 
 #### Scenario: User A cannot read user B's resumen (web cookie session)
 
@@ -87,6 +87,14 @@ A user authenticated as A MUST NOT be able to read data belonging to user B thro
 - WHEN a client logged in as A calls `GET /api/ingresos/mes?periodo=<period>`
 - THEN the `total`/`conteo` header and every `transacciones` entry (`id`, `fecha`, `descripcion`, `origen`, `monto`) reflect only A's income rows
 - AND none of B's income rows, amounts, or origin names are present or reflected in A's response, regardless of transport (cookie or Bearer)
+
+#### Scenario: User B's manual movement does not appear in user A's resumen (new, US-058)
+
+- GIVEN user A has existing transactions in period M
+- WHEN user B calls `POST /api/movimientos` with a valid manual movement request
+- THEN `GET /api/resumen?periodo=M` for user A returns the same values as before
+- AND user B's manual movement row belongs exclusively to user B
+- AND user A's data is neither read nor modified by user B's write operation
 
 ### Requirement: ISO-03 — Preview and commit ingesta operations are scoped by userId (US-057, new)
 
