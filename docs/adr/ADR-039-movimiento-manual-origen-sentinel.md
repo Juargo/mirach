@@ -5,7 +5,7 @@ tags:
   - movimientos
   - backend
 proyecto: MoneyDiary
-estado: ✅ Aceptado
+estado: ✅ Decidido
 fecha_creacion: 2026-08-21
 fecha_actualizacion: 2026-08-21
 ---
@@ -14,7 +14,7 @@ fecha_actualizacion: 2026-08-21
 
 ## Estado
 
-✅ **Aceptado** (2026-08-21, PR4 de us-058-registro-manual, US-058).
+✅ **Decidido** (2026-08-21, PR4 de us-058-registro-manual, US-058).
 
 > [!info] Relación con ADR-026
 > Este ADR **enmienda ADR-026** en una premisa de dato: desde ADR-026 toda `Transaccion`
@@ -149,9 +149,11 @@ no depende de ningún comportamiento de Prisma.
 ### Derivación de `origen` para el reader US-052 (D-06, zero reader changes)
 
 `ObtenerIngresosMesUseCase` ya derivaba `origen: fila.banco || 'Manual'` desde el campo
-`row.account.banco`. Como la cuenta centinela tiene `banco='Manual'` (cadena truthy), la
-expresión `fila.banco || 'Manual'` devuelve `'Manual'` por la rama truthy — sin necesidad
-de leer la nueva columna `origen` en ningún reader. El reader no fue modificado (CA-05,
+`row.account.banco`. Como la cuenta centinela tiene `banco='Manual'` (cadena truthy), el
+operador `||` devuelve el operando izquierdo (`fila.banco`, cuyo valor es `'Manual'`) — no
+el literal `'Manual'` del lado derecho, que solo se devolvería en la rama falsy. El
+resultado es el mismo, pero la ruta es la truthy: sin necesidad de leer la nueva columna
+`origen` en ningún reader. El reader no fue modificado (CA-05,
 D-06, D-07). La columna `origen` es proveniencia durable en la BD y el trigger del
 invariante de paridad, no la fuente de verdad para la UI en este sprint.
 
@@ -259,4 +261,4 @@ semántica C-a.
 
 ---
 
-*Fecha de decisión: 2026-08-21 — aceptado en PR4 de us-058-registro-manual.*
+*Fecha de decisión: 2026-08-21 — decidido en PR4 de us-058-registro-manual.*
