@@ -322,6 +322,44 @@ describe('buildOpenApiDocument', () => {
     expect(ingresosMesPath?.get?.responses?.['400']).toBeDefined();
   });
 
+  it('registers POST /api/ingestas/commit with a multipart/form-data requestBody and 201/400/500 responses (US-057 PR5)', () => {
+    const document = buildOpenApiDocument();
+
+    const commitPath = document.paths?.['/api/ingestas/commit'];
+    expect(commitPath).toBeDefined();
+    expect(commitPath?.post).toBeDefined();
+    const requestBody = commitPath?.post?.requestBody as
+      | { content?: Record<string, unknown> }
+      | undefined;
+    expect(requestBody?.content?.['multipart/form-data']).toBeDefined();
+    expect(commitPath?.post?.responses?.['201']).toBeDefined();
+    expect(commitPath?.post?.responses?.['400']).toBeDefined();
+    expect(commitPath?.post?.responses?.['500']).toBeDefined();
+  });
+
+  it('marks POST /api/ingestas (one-shot upload) as deprecated (US-057 CA-05)', () => {
+    const document = buildOpenApiDocument();
+
+    const ingestasPath = document.paths?.['/api/ingestas'];
+    // The one-shot POST must carry deprecated: true (D-14) — behavior unchanged.
+    expect(
+      (ingestasPath?.post as { deprecated?: boolean } | undefined)?.deprecated,
+    ).toBe(true);
+  });
+
+  it('preview operation description mentions full rows (not a sample) after US-057 PR5 update', () => {
+    const document = buildOpenApiDocument();
+
+    const previewPath = document.paths?.['/api/ingestas/preview'];
+    // Description must reflect that all rows are returned (no 50-cap) and include
+    // per-row dedup status + classification suggestion. Compat shim (US-057 PR2,
+    // D-08a): it must also flag the deprecated legacy fields removed by US-061.
+    expect(previewPath?.post?.description).toContain('ALL rows');
+    expect(previewPath?.post?.description).toContain('esDuplicado');
+    expect(previewPath?.post?.description).toContain('DEPRECATED');
+    expect(previewPath?.post?.description).toContain('US-061');
+  });
+
   it('is pure: calling it twice yields deep-equal documents', () => {
     const first = buildOpenApiDocument();
     const second = buildOpenApiDocument();

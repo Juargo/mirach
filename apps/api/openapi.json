@@ -306,6 +306,81 @@
         ],
         "type": "object"
       },
+      "CommitIngestaResponse": {
+        "additionalProperties": false,
+        "description": "POST /api/ingestas/commit — commit result with per-row bucket + categoriaId (US-057, CMT-05).",
+        "properties": {
+          "duplicadosOmitidos": {
+            "description": "New duplicates found at commit-time dedup — reported, never aborts (D-13/CA-03).",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "ingestaId": {
+            "type": "string"
+          },
+          "totalTransacciones": {
+            "description": "Rows actually persisted (excludes duplicates omitted at commit). Not money — plain JSON number.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "transacciones": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "abono": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "bucket": {
+                  "description": "Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso|SinCategoria). Always present for commit rows — classification is resolved pre-persist (D-11).",
+                  "type": "string"
+                },
+                "cargo": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "categoriaId": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Final category assigned, or null for Ingreso rows and DES-CLASIFICAR entries (D-11)."
+                },
+                "descripcion": {
+                  "type": "string"
+                },
+                "fecha": {
+                  "description": "ISO-8601 UTC timestamp.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "fecha",
+                "descripcion",
+                "cargo",
+                "abono",
+                "bucket",
+                "categoriaId"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ingestaId",
+          "totalTransacciones",
+          "duplicadosOmitidos",
+          "transacciones"
+        ],
+        "type": "object"
+      },
       "DetalleBucketResponse": {
         "additionalProperties": false,
         "description": "GET /api/buckets/:bucket — bucket drill-down (US-017).",
@@ -1915,7 +1990,8 @@
         "summary": "List ingestas"
       },
       "post": {
-        "description": "Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "deprecated": true,
+        "description": "Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -1954,7 +2030,7 @@
             "description": "Persistence failure (infrastructure fault, not the uploaded file)."
           }
         },
-        "summary": "Upload a bank statement"
+        "summary": "Upload a bank statement (deprecated — use POST /api/ingestas/commit)"
       }
     },
     "/api/ingestas/{id}": {
@@ -1981,6 +2057,54 @@
           }
         },
         "summary": "Delete an ingesta"
+      }
+    },
+    "/api/ingestas/commit": {
+      "post": {
+        "description": "Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "edits": {
+                    "description": "JSON text field carrying the edit overlay: Array<{ rowIndex: number, categoriaId: string | null }>. Absent or empty ⇒ empty overlay (pure auto-classify commit). Max 256 KB, enforced by multer limits.fieldSize (D-02).",
+                    "type": "string"
+                  },
+                  "file": {
+                    "contentEncoding": "binary",
+                    "description": "Bank statement file (.xlsx or .pdf). Extension/bank-format validation is a domain rule (ExtensionNoPermitidaError / BancoNoReconocidoError), not this schema.",
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitIngestaResponse"
+                }
+              }
+            },
+            "description": "Import committed and persisted. Response carries per-row bucket + categoriaId."
+          },
+          "400": {
+            "description": "Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits (EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). Nothing is persisted. Amounts are scrubbed from every error message (ADR-013)."
+          },
+          "500": {
+            "description": "Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure (PersistenciaFallidaError / CategorizacionFallidaError). Retryable."
+          }
+        },
+        "summary": "Commit a bank statement import with optional edits overlay (US-057)"
       }
     },
     "/api/ingestas/preview": {
@@ -2021,7 +2145,7 @@
             "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
           }
         },
-        "summary": "Preview a bank statement (dry run)"
+        "summary": "Preview a bank statement (dry run, US-057)"
       }
     },
     "/api/ingresos/mes": {
