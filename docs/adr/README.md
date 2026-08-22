@@ -44,7 +44,7 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-023](ADR-023-topologia-de-despliegue.md) | Topología de Despliegue: actual (PaaS free tier, mono-usuario) y evolución hacia clientes | 🔵 En discusión |
 | [ADR-024](ADR-024-arquitectura-de-clientes.md) | Arquitectura de Clientes: backend rico + clientes delgados contract-first | ✅ Decidido |
 | [ADR-025](ADR-025-landing-page-con-astro.md) | Landing page: workspace propio `apps/landing` con Astro estático | ✅ Decidido |
-| [ADR-026](ADR-026-ingesta-desde-mobile.md) | Ingesta desde mobile: la app gana una única capacidad de escritura (subir cartola), acotada | ✅ Decidido (regla de alcance supersedida por ADR-038; la capacidad de ingesta sigue vigente). `POST /api/ingestas` (one-shot) deprecado en US-057; eliminación física pendiente en US-061 |
+| [ADR-026](ADR-026-ingesta-desde-mobile.md) | Ingesta desde mobile: la app gana una única capacidad de escritura (subir cartola), acotada | ✅ Decidido (regla de alcance supersedida por ADR-038; la capacidad de ingesta sigue vigente). `POST /api/ingestas` (one-shot) deprecado en US-057; eliminación física pendiente en US-061. Premisa "toda Transacción nace de una Ingesta" enmendada por ADR-039 (US-058) |
 | [ADR-027](ADR-027-set-de-iconos-web-y-mobile.md) | Set de iconos unificado para web y mobile | ✅ Decidido |
 | [ADR-028](ADR-028-migracion-backend-a-express.md) | Migración del Backend de NestJS a Express | ✅ Decidido |
 | [ADR-029](ADR-029-ambientes-y-validacion-de-entorno.md) | Ambientes (Develop / Testing / Producción) y Validación de Entorno con Zod | ✅ Decidido |
@@ -57,3 +57,4 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-036](ADR-036-catalogo-clasificacion-por-usuario.md) | Catálogo de clasificación por usuario (copy-on-signup): `Categoria`/`PatronClasificacion` dejan de ser globales | ✅ Decidido e implementado |
 | [ADR-037](ADR-037-identidad-de-categoria-como-fila-del-usuario.md) | Identidad de categoría como fila del usuario: retiro del enum cerrado `Categoria` y de `CATEGORIA_BUCKET` | ✅ Decidido |
 | [ADR-038](ADR-038-mobile-write-scope-configuracion.md) | Alcance de escritura de la app mobile: perfil propio y catálogo de clasificación (supersede la regla de alcance de ADR-026) | ✅ Decidido |
+| [ADR-039](ADR-039-movimiento-manual-origen-sentinel.md) | Movimientos manuales: columna `origen`, cuenta centinela per-user y semántica de identidad de origen (enmienda premisa de ADR-026: una `Transaccion` ya no siempre nace de una `Ingesta`) | ✅ Aceptado |
