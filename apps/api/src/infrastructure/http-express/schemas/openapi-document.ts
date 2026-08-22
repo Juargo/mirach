@@ -256,11 +256,13 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
 const ingestaPreviewOperation: ZodOpenApiOperationObject = {
   summary: 'Preview a bank statement (dry run, US-057)',
   description:
-    'Authenticated endpoint that detects the bank, validates structure, normalizes, deduplicates and ' +
-    'auto-classifies a bank statement WITHOUT persisting anything (US-057). Returns all rows ' +
-    '(no sample cap — the 50-row limit is removed) with per-row dedup status (`esDuplicado`) and ' +
-    'classification suggestion (`sugerido`). Requires x-api-key + a valid session ' +
-    "(RNF-SEC-006, per-user isolation — dedup is scoped to the calling user's history).",
+    'Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies ' +
+    'a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` ' +
+    '(ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). ' +
+    'DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): `estructura` (mirror of ' +
+    '`resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped ' +
+    'clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; ' +
+    'dedup is scoped to the calling user (RNF-SEC-006).',
   requestBody: {
     content: {
       'multipart/form-data': { schema: previewIngestaRequestSchema },

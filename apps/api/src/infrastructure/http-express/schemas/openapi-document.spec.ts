@@ -352,9 +352,12 @@ describe('buildOpenApiDocument', () => {
 
     const previewPath = document.paths?.['/api/ingestas/preview'];
     // Description must reflect that all rows are returned (no 50-cap) and include
-    // per-row dedup status + classification suggestion.
-    expect(previewPath?.post?.description).toContain('all rows');
+    // per-row dedup status + classification suggestion. Compat shim (US-057 PR2,
+    // D-08a): it must also flag the deprecated legacy fields removed by US-061.
+    expect(previewPath?.post?.description).toContain('ALL rows');
     expect(previewPath?.post?.description).toContain('esDuplicado');
+    expect(previewPath?.post?.description).toContain('DEPRECATED');
+    expect(previewPath?.post?.description).toContain('US-061');
   });
 
   it('is pure: calling it twice yields deep-equal documents', () => {
