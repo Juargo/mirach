@@ -1,12 +1,18 @@
 import { aPersistencia, aDominio } from './transaccion.mapper';
 import { NoOpCryptoService } from './no-op-crypto.service';
 import { Transaccion } from '../../domain/value-objects/transaccion';
+import { Bucket } from '../../domain/value-objects/bucket';
 
 const crypto = new NoOpCryptoService();
 
+/** Helper: wrap a domain Transaccion as a one-shot TransaccionAPersistir (bucket:null, categoriaId:null). */
+function oneShot(tx: Transaccion) {
+  return { transaccion: tx, bucket: null, categoriaId: null } as const;
+}
+
 describe('transaccion.mapper', () => {
   describe('aPersistencia', () => {
-    it('convierte cargo/abono numéricos a BigInt y deja bucketId nulo', () => {
+    it('convierte cargo/abono numéricos a BigInt y deja bucketId y categoriaId nulos (one-shot path)', () => {
       const tx: Transaccion = Transaccion.crear({
         fecha: new Date('2026-05-14T00:00:00.000Z'),
         descripcion: 'Compra',
@@ -14,13 +20,14 @@ describe('transaccion.mapper', () => {
         abono: 0n,
       }).getValue();
 
-      const row = aPersistencia(tx, crypto);
+      const row = aPersistencia(oneShot(tx), crypto);
 
       expect(row.cargo).toBe(8103n);
       expect(row.abono).toBe(0n);
       expect(typeof row.cargo).toBe('bigint');
       expect(typeof row.abono).toBe('bigint');
       expect(row.bucketId).toBeNull();
+      expect(row.categoriaId).toBeNull();
       expect(row.fecha).toEqual(tx.fecha);
     });
 
@@ -32,7 +39,7 @@ describe('transaccion.mapper', () => {
         abono: 1500000n,
       }).getValue();
 
-      const row = aPersistencia(tx, crypto);
+      const row = aPersistencia(oneShot(tx), crypto);
 
       expect(row.descripcion).toBe('Sueldo');
       expect(row.abono).toBe(1500000n);
@@ -49,7 +56,7 @@ describe('transaccion.mapper', () => {
         abono: 0n,
       }).getValue();
 
-      const roundTripped = aDominio(aPersistencia(tx, crypto), crypto);
+      const roundTripped = aDominio(aPersistencia(oneShot(tx), crypto), crypto);
 
       expect(roundTripped).toEqual(tx);
       expect(roundTripped.cargo).toBe(1234567n);
@@ -64,7 +71,7 @@ describe('transaccion.mapper', () => {
         abono: 999999999n,
       }).getValue();
 
-      const roundTripped = aDominio(aPersistencia(tx, crypto), crypto);
+      const roundTripped = aDominio(aPersistencia(oneShot(tx), crypto), crypto);
 
       expect(roundTripped).toEqual(tx);
       expect(typeof roundTripped.cargo).toBe('bigint');
@@ -80,6 +87,7 @@ describe('transaccion.mapper', () => {
         cargo: 50000n,
         abono: 0n,
         bucketId: null,
+        categoriaId: null,
       };
 
       const tx = aDominio(row, crypto);
@@ -104,9 +112,87 @@ describe('transaccion.mapper', () => {
         cargo: 0n,
         abono: 0n,
         bucketId: null,
+        categoriaId: null,
       };
 
       expect(() => aDominio(row, crypto)).toThrow();
+    });
+  });
+
+  describe('US-057 PR2 regression guard — TransaccionAPersistir retype (§7 TDD constraint b)', () => {
+    it('aPersistencia with { transaccion, bucket: null, categoriaId: null } produces { bucketId: null, categoriaId: null } — byte-for-byte identical to pre-retype behavior', () => {
+      const tx = Transaccion.crear({
+        fecha: new Date('2026-05-14T00:00:00.000Z'),
+        descripcion: 'Compra',
+        cargo: 8103n,
+        abono: 0n,
+      }).getValue();
+
+      const entry = { transaccion: tx, bucket: null, categoriaId: null };
+      const row = aPersistencia(entry, crypto);
+
+      expect(row.bucketId).toBeNull();
+      expect(row.categoriaId).toBeNull();
+      expect(row.cargo).toBe(8103n);
+      expect(row.abono).toBe(0n);
+      expect(row.fecha).toEqual(tx.fecha);
+    });
+
+    it('aPersistencia with a non-null bucket resolves to the correct physical FK via BUCKET_IDS', () => {
+      const tx = Transaccion.crear({
+        fecha: new Date('2026-06-01T00:00:00.000Z'),
+        descripcion: 'Supermercado',
+        cargo: 15000n,
+        abono: 0n,
+      }).getValue();
+
+      const entry = {
+        transaccion: tx,
+        bucket: Bucket.Necesidades,
+        categoriaId: 'cat-abc',
+      };
+      const row = aPersistencia(entry, crypto);
+
+      expect(row.bucketId).toBe('bucket-necesidades');
+      expect(row.categoriaId).toBe('cat-abc');
+    });
+
+    it('aPersistencia with bucket: Ingreso resolves to bucket-ingreso FK', () => {
+      const tx = Transaccion.crear({
+        fecha: new Date('2026-06-02T00:00:00.000Z'),
+        descripcion: 'Sueldo',
+        cargo: 0n,
+        abono: 1500000n,
+      }).getValue();
+
+      const entry = {
+        transaccion: tx,
+        bucket: Bucket.Ingreso,
+        categoriaId: null,
+      };
+      const row = aPersistencia(entry, crypto);
+
+      expect(row.bucketId).toBe('bucket-ingreso');
+      expect(row.categoriaId).toBeNull();
+    });
+
+    it('aPersistencia with bucket: SinCategoria resolves to bucket-sincategoria FK (Fix 9)', () => {
+      const tx = Transaccion.crear({
+        fecha: new Date('2026-06-03T00:00:00.000Z'),
+        descripcion: 'Movimiento sin clasificar',
+        cargo: 42000n,
+        abono: 0n,
+      }).getValue();
+
+      const entry = {
+        transaccion: tx,
+        bucket: Bucket.SinCategoria,
+        categoriaId: null,
+      };
+      const row = aPersistencia(entry, crypto);
+
+      expect(row.bucketId).toBe('bucket-sincategoria');
+      expect(row.categoriaId).toBeNull();
     });
   });
 });

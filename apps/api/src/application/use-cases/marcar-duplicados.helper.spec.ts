@@ -39,8 +39,9 @@ describe('rangoFechas', () => {
 
     const resultado = rangoFechas(txs);
 
-    expect(resultado.desde).toEqual(fecha);
-    expect(resultado.hasta).toEqual(fecha);
+    expect(resultado).not.toBeNull();
+    expect(resultado!.desde).toEqual(fecha);
+    expect(resultado!.hasta).toEqual(fecha);
   });
 
   it('retorna la fecha mínima en desde y la máxima en hasta con múltiples transacciones', () => {
@@ -55,13 +56,16 @@ describe('rangoFechas', () => {
 
     const resultado = rangoFechas(txs);
 
-    expect(resultado.desde).toEqual(fechaMin);
-    expect(resultado.hasta).toEqual(fechaMax);
+    expect(resultado).not.toBeNull();
+    expect(resultado!.desde).toEqual(fechaMin);
+    expect(resultado!.hasta).toEqual(fechaMax);
   });
 
-  it('lanza cuando el arreglo está vacío (contrato: no llamar con arreglo vacío)', () => {
-    // El caller debe verificar que hay transacciones antes de llamar a rangoFechas
-    expect(() => rangoFechas([])).toThrow();
+  it('retorna null para arreglo vacío (PR2 carried-over obligation: non-throwing for empty input)', () => {
+    // US-057 PR2: rangoFechas is now non-throwing for empty input — returns null.
+    // PreviewIngestaUseCase and DetectarDuplicadosUseCase guard the empty case
+    // before calling, but the helper itself must not throw (application-layer discipline).
+    expect(rangoFechas([])).toBeNull();
   });
 
   it('preserva el orden de las fechas independientemente del orden del input', () => {
@@ -74,8 +78,9 @@ describe('rangoFechas', () => {
 
     const resultado = rangoFechas(txs);
 
-    expect(resultado.desde).toEqual(new Date('2024-01-05'));
-    expect(resultado.hasta).toEqual(new Date('2024-06-15'));
+    expect(resultado).not.toBeNull();
+    expect(resultado!.desde).toEqual(new Date('2024-01-05'));
+    expect(resultado!.hasta).toEqual(new Date('2024-06-15'));
   });
 });
 

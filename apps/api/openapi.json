@@ -763,16 +763,17 @@
       },
       "PreviewIngestaResponse": {
         "additionalProperties": false,
-        "description": "POST /api/ingestas/preview — dry-run sample of a would-be upload (US-003).",
+        "description": "POST /api/ingestas/preview — dry-run preview. CANONICAL: resumen + filas (full set, per-row dedup and classification, US-057). DEPRECATED (removed by US-061): estructura + muestra (first 50 rows, old shape) kept for shipped clients.",
         "properties": {
           "banco": {
             "type": "string"
           },
           "estructura": {
             "additionalProperties": false,
+            "description": "DEPRECATED (US-061): legacy aggregate. Use resumen.",
             "properties": {
               "totalFilasDatos": {
-                "description": "Row count PRE-dedupe, not money — plain JSON number.",
+                "description": "DEPRECATED (US-061): mirror of resumen.totalFilas. Kept for shipped clients.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
@@ -783,7 +784,79 @@
             ],
             "type": "object"
           },
+          "filas": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "abono": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "cargo": {
+                  "description": "BigInt-safe decimal string amount (never a JSON number).",
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                },
+                "esDuplicado": {
+                  "type": "boolean"
+                },
+                "fecha": {
+                  "description": "ISO-8601 UTC timestamp.",
+                  "type": "string"
+                },
+                "rowIndex": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "sugerido": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "bucket": {
+                          "type": "string"
+                        },
+                        "categoriaId": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "bucket",
+                        "categoriaId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "rowIndex",
+                "fecha",
+                "descripcion",
+                "cargo",
+                "abono",
+                "esDuplicado",
+                "sugerido"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "muestra": {
+            "description": "DEPRECATED (US-061): legacy first-50-rows sample in the old 4-field shape. Use filas.",
             "items": {
               "additionalProperties": false,
               "properties": {
@@ -815,6 +888,33 @@
           },
           "numeroCuenta": {
             "type": "string"
+          },
+          "resumen": {
+            "additionalProperties": false,
+            "properties": {
+              "duplicadosDetectados": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "nuevas": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "totalFilas": {
+                "description": "Row count PRE-dedupe, not money — plain JSON number.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "totalFilas",
+              "duplicadosDetectados",
+              "nuevas"
+            ],
+            "type": "object"
           },
           "tipoCuenta": {
             "type": "string"
@@ -1885,7 +1985,7 @@
     },
     "/api/ingestas/preview": {
       "post": {
-        "description": "Authenticated endpoint that detects the bank, validates structure, and normalizes a sample of a would-be upload WITHOUT persisting anything (US-003). Requires x-api-key + a valid session; the result itself is not scoped by user (no tenant data is touched).",
+        "description": "Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` (ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): `estructura` (mirror of `resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).",
         "requestBody": {
           "content": {
             "multipart/form-data": {

@@ -85,9 +85,10 @@ export function registrarIngestas(
 
   // POST /api/ingestas/preview (US-003, design.md §8, D1): sub-path distinto
   // (no un flag ?dryRun) — reusa el mismo gate multipart (`subirArchivo`) y el
-  // mismo `aHttpError`. NO forwarda `userId`: el input de PreviewIngestaUseCase
-  // no tiene ese campo (design §3.3) — refuerza a nivel de firma que este
-  // camino no escopa por tenant porque no toca datos de tenant.
+  // mismo `aHttpError`. US-057 (D-12): preview AHORA escopa por tenant — el
+  // dedup y las sugerencias del catálogo son per-usuario, así que forwarda
+  // `userId` (deriva de sessionMiddleware, req.userId). Esto reemplaza la nota
+  // §3.3 previa ("no forwarda userId") que quedó obsoleta con la extensión.
   router.post('/ingestas/preview', subirArchivo(), async (req, res, next) => {
     try {
       const file = req.file;
@@ -100,7 +101,11 @@ export function registrarIngestas(
       }
 
       const fileReader = new MulterFileReaderAdapter(file);
-      const result = await deps.previewIngesta.execute({ fileReader });
+      // US-057 PR2: PreviewIngestaInput now requires userId for per-row dedup scoping (D-06).
+      const result = await deps.previewIngesta.execute({
+        fileReader,
+        userId: req.userId!,
+      });
 
       if (result.isFail()) {
         const { status, message } = aHttpError(result.getError());

@@ -31,6 +31,9 @@ export class PrismaTransaccionRepository implements ITransaccionRepository {
           cargo: row.cargo,
           abono: row.abono,
           bucketId: row.bucketId,
+          // US-057 D-11: categoriaId is a read-through field (not used by aDominio
+          // to reconstruct the Transaccion VO, but required by TransaccionPersistencia).
+          categoriaId: row.categoriaId,
         },
         this.crypto,
       ),

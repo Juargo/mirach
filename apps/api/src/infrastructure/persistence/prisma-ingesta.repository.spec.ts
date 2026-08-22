@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
+import { TransaccionAPersistir } from '../../application/ports/ingesta-repository.port';
 
 /**
  * Unit tests for PrismaIngestaRepository.persistirProcesada — mocked
@@ -18,19 +19,27 @@ describe('PrismaIngestaRepository.persistirProcesada (US-004)', () => {
     return { encrypt: (v: string) => `enc(${v})`, decrypt: (v: string) => v };
   }
 
-  const TXS: Transaccion[] = [
-    Transaccion.crear({
-      fecha: new Date('2026-07-10T00:00:00.000Z'),
-      descripcion: 'Compra',
-      cargo: 5000n,
-      abono: 0n,
-    }).getValue(),
-    Transaccion.crear({
-      fecha: new Date('2026-07-11T00:00:00.000Z'),
-      descripcion: 'Sueldo',
-      cargo: 0n,
-      abono: 900000n,
-    }).getValue(),
+  const TXS: TransaccionAPersistir[] = [
+    {
+      transaccion: Transaccion.crear({
+        fecha: new Date('2026-07-10T00:00:00.000Z'),
+        descripcion: 'Compra',
+        cargo: 5000n,
+        abono: 0n,
+      }).getValue(),
+      bucket: null,
+      categoriaId: null,
+    },
+    {
+      transaccion: Transaccion.crear({
+        fecha: new Date('2026-07-11T00:00:00.000Z'),
+        descripcion: 'Sueldo',
+        cargo: 0n,
+        abono: 900000n,
+      }).getValue(),
+      bucket: null,
+      categoriaId: null,
+    },
   ];
 
   const baseInput = {
@@ -83,6 +92,7 @@ describe('PrismaIngestaRepository.persistirProcesada (US-004)', () => {
       abono: 0n,
       accountId: 'acc-1',
       bucketId: null,
+      categoriaId: null,
     });
     expect(createManyData[1]).toMatchObject({
       descripcion: 'enc(Sueldo)',

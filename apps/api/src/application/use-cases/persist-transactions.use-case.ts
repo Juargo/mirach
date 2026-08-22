@@ -1,7 +1,9 @@
 import { Result } from '../../shared/result';
-import { Transaccion } from '../../domain/value-objects/transaccion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
-import { IIngestaRepository } from '../ports/ingesta-repository.port';
+import {
+  IIngestaRepository,
+  TransaccionAPersistir,
+} from '../ports/ingesta-repository.port';
 import { ILogger } from '../ports/logger.port';
 
 /** Entrada del use case. `userId` viaja explícito (US-004) — ya disponible
@@ -12,7 +14,8 @@ export interface PersistTransactionsInput {
   accountId: string;
   banco: string;
   nombreArchivo: string;
-  transacciones: ReadonlyArray<Transaccion>;
+  /** US-057 retype: ReadonlyArray<TransaccionAPersistir> (D-11). Pass-through: no per-row logic. */
+  transacciones: ReadonlyArray<TransaccionAPersistir>;
   /** Conteo de duplicados detectados y omitidos ANTES de persistir (US-005). */
   duplicadosOmitidos: number;
 }

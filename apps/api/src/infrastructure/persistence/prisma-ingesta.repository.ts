@@ -48,8 +48,11 @@ export class PrismaIngestaRepository implements IIngestaRepository {
           procesadoEn: new Date(),
           transacciones: {
             createMany: {
-              data: input.transacciones.map((tx) => ({
-                ...aPersistencia(tx, this.crypto),
+              // US-057: input.transacciones is ReadonlyArray<TransaccionAPersistir>.
+              // aPersistencia resolves entry.bucket → BUCKET_IDS FK internally (D-15).
+              // TransaccionPersistencia is scalar-only (no VO nested objects — Fix 2/spread hazard).
+              data: input.transacciones.map((entry) => ({
+                ...aPersistencia(entry, this.crypto),
                 accountId: input.accountId,
               })),
             },

@@ -10,20 +10,17 @@ import { construirClaveDuplicado } from '../../domain/value-objects/clave-duplic
  * 59-63) para que tanto el use case de dedup como la vista previa usen la
  * MISMA derivación del rango (DRY — D-07).
  *
- * Precondición: `transacciones` debe tener al menos un elemento (el caller
- * debe hacer el guard vacío antes de invocar esta función — igual que
- * `DetectarDuplicadosUseCase` que retorna early cuando `transacciones.length === 0`).
- * Si se invoca con arreglo vacío, lanza un Error (detección temprana de bug
- * del caller, no un caso de uso válido).
+ * US-057 PR2 (carried-over obligation): la función es NON-THROWING para arreglo
+ * vacío — retorna `null`. El caller (`DetectarDuplicadosUseCase`, ya guarda el
+ * caso vacío antes de invocar; `PreviewIngestaUseCase`, guarda con `accountId`
+ * `null` en D-06) simplifica su lógica: puede invocar directamente y verificar
+ * el retorno en vez de mantener el guard separado.
  */
-export function rangoFechas(transacciones: ReadonlyArray<Transaccion>): {
-  desde: Date;
-  hasta: Date;
-} {
+export function rangoFechas(
+  transacciones: ReadonlyArray<Transaccion>,
+): { desde: Date; hasta: Date } | null {
   if (transacciones.length === 0) {
-    throw new Error(
-      'rangoFechas: se invocó con un arreglo vacío; el caller debe hacer el guard antes.',
-    );
+    return null;
   }
 
   let desde = transacciones[0].fecha;

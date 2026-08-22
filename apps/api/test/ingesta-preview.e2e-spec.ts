@@ -53,19 +53,40 @@ describe('IngestaController (e2e) — POST /api/ingestas/preview', () => {
     expect(response.body.banco).toBe('BCI');
     expect(typeof response.body.tipoCuenta).toBe('string');
     expect(typeof response.body.numeroCuenta).toBe('string');
-    expect(response.body.estructura.totalFilasDatos).toEqual(
-      expect.any(Number),
-    );
-    expect(response.body.estructura.totalFilasDatos).toBeGreaterThan(0);
-    expect(response.body.muestra.length).toBeLessThanOrEqual(50);
-    expect(response.body.muestra.length).toBe(
-      Math.min(50, response.body.estructura.totalFilasDatos),
-    );
-    for (const tx of response.body.muestra) {
+    // --- CANONICAL shape (US-057): resumen + filas (full set) ---
+    expect(response.body.resumen.totalFilas).toEqual(expect.any(Number));
+    expect(response.body.resumen.totalFilas).toBeGreaterThan(0);
+    for (const tx of response.body.filas) {
       expect(typeof tx.cargo).toBe('string');
       expect(typeof tx.abono).toBe('string');
       expect(typeof tx.fecha).toBe('string');
       expect(typeof tx.descripcion).toBe('string');
+      expect(typeof tx.rowIndex).toBe('number');
+      expect(typeof tx.esDuplicado).toBe('boolean');
+      expect(
+        tx.sugerido === null ||
+          (typeof tx.sugerido === 'object' && tx.sugerido !== null),
+      ).toBe(true);
+    }
+    // --- LEGACY shape (@deprecated compat shim, removed by US-061): must be
+    //     present and consistent with the canonical shape ---
+    expect(response.body.estructura.totalFilasDatos).toBe(
+      response.body.resumen.totalFilas,
+    );
+    expect(response.body.muestra.length).toBeLessThanOrEqual(50);
+    expect(response.body.muestra.length).toBe(
+      Math.min(50, response.body.filas.length),
+    );
+    for (const fila of response.body.muestra) {
+      // Legacy rows carry ONLY the four original fields — no new fields.
+      expect(Object.keys(fila).sort()).toEqual([
+        'abono',
+        'cargo',
+        'descripcion',
+        'fecha',
+      ]);
+      expect(typeof fila.cargo).toBe('string');
+      expect(typeof fila.abono).toBe('string');
     }
   });
 
@@ -78,11 +99,32 @@ describe('IngestaController (e2e) — POST /api/ingestas/preview', () => {
       .expect(200);
 
     expect(response.body.banco).toBe('Banco de Chile');
-    expect(response.body.estructura.totalFilasDatos).toBeGreaterThan(0);
-    expect(response.body.muestra.length).toBeLessThanOrEqual(50);
-    for (const tx of response.body.muestra) {
+    // --- CANONICAL shape (US-057) ---
+    expect(response.body.resumen.totalFilas).toBeGreaterThan(0);
+    for (const tx of response.body.filas) {
       expect(typeof tx.cargo).toBe('string');
       expect(typeof tx.abono).toBe('string');
+      expect(typeof tx.rowIndex).toBe('number');
+      expect(typeof tx.esDuplicado).toBe('boolean');
+      expect(
+        tx.sugerido === null ||
+          (typeof tx.sugerido === 'object' && tx.sugerido !== null),
+      ).toBe(true);
+    }
+    // --- LEGACY shape (@deprecated compat shim, removed by US-061) ---
+    expect(response.body.estructura.totalFilasDatos).toBe(
+      response.body.resumen.totalFilas,
+    );
+    expect(response.body.muestra.length).toBeLessThanOrEqual(50);
+    for (const fila of response.body.muestra) {
+      expect(Object.keys(fila).sort()).toEqual([
+        'abono',
+        'cargo',
+        'descripcion',
+        'fecha',
+      ]);
+      expect(typeof fila.cargo).toBe('string');
+      expect(typeof fila.abono).toBe('string');
     }
   });
 

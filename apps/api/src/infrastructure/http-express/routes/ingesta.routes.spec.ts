@@ -235,12 +235,14 @@ const PREVIEW_OK = {
     tipoCuenta: TipoCuentaConocido.CuentaRut,
     numeroCuenta: '****',
   },
-  estructura: { totalFilasDatos: 2 },
-  muestra: [],
+  // US-057 PR2: new PreviewIngestaResult shape ({ resumen, filas } replaces
+  // { estructura, muestra }). Per-row dedup and classification included.
+  resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+  filas: [],
 };
 
 describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
-  it('200 con el PreviewIngestaDto en Result.ok — sin userId en el input', async () => {
+  it('200 con el PreviewIngestaDto en Result.ok — con userId forwarded (US-057 PR2)', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(PREVIEW_OK)) };
     const res = await request(probeApp({ previewIngesta: uc }))
       .post('/api/ingestas/preview')
@@ -251,15 +253,18 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
       banco: 'BancoEstado',
       tipoCuenta: 'CuentaRUT',
       numeroCuenta: '****',
+      resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+      filas: [],
+      // Legacy mirror (@deprecated compat shim, removed by US-061).
       estructura: { totalFilasDatos: 2 },
       muestra: [],
     });
+    // US-057 PR2: userId is forwarded for per-row dedup scoping (D-06).
     expect(uc.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ fileReader: expect.anything() }),
-    );
-    // No userId forwarded — the preview input type has none (design §3.3).
-    expect(uc.execute).not.toHaveBeenCalledWith(
-      expect.objectContaining({ userId: expect.anything() }),
+      expect.objectContaining({
+        fileReader: expect.anything(),
+        userId: 'user-x',
+      }),
     );
   });
 
