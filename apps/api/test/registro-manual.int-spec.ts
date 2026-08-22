@@ -733,7 +733,7 @@ describe('CA-04 — delete-ingesta immunity (manual row with ingestaId=null surv
       .delete(`/api/ingestas/${ingestaId}`)
       .set('x-api-key', API_KEY)
       .set('Cookie', cookie)
-      .expect(200);
+      .expect(204);
 
     // Ingesta-born transaction MUST be gone
     const ingestaTx = await prisma.transaccion.findUnique({
@@ -970,9 +970,10 @@ describe('REG-01 — migration CHECK truth table (Transaccion_origen_ingesta_con
 
     // Insert a valid ingesta-born row (ingestaId set, origen=null) —
     // truth table row 3: PASSES
+    const idRow3 = `${RUN_ID}-reg01-row3`;
     await prisma.$executeRaw`
-      INSERT INTO "Transaccion" ("accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
-      VALUES (${accountId}, ${ingesta.id}, NULL, NOW(), 0, 10000, 'ingesta-born-reg01')
+      INSERT INTO "Transaccion" ("id", "accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
+      VALUES (${idRow3}, ${accountId}, ${ingesta.id}, NULL, NOW(), 0, 10000, 'ingesta-born-reg01')
     `;
   });
 
@@ -989,10 +990,11 @@ describe('REG-01 — migration CHECK truth table (Transaccion_origen_ingesta_con
   it('REG-01 (row 2): valid manual row (ingestaId=null, origen=Manual) PASSES CHECK', async () => {
     if (!ALLOW) return;
     // This insert must succeed — row 2 of the truth table: PASSES
+    const idRow2 = `${RUN_ID}-reg01-row2`;
     await expect(
       prisma.$executeRaw`
-        INSERT INTO "Transaccion" ("accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
-        VALUES (${accountId}, NULL, 'Manual', NOW(), 0, 20000, 'manual-row-reg01')
+        INSERT INTO "Transaccion" ("id", "accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
+        VALUES (${idRow2}, ${accountId}, NULL, 'Manual', NOW(), 0, 20000, 'manual-row-reg01')
       `,
     ).resolves.toBeDefined();
   });
@@ -1002,12 +1004,13 @@ describe('REG-01 — migration CHECK truth table (Transaccion_origen_ingesta_con
     // Row 1: ingestaId=NULL, origen=NULL → LHS TRUE, RHS FALSE → REJECTED.
     // The naive form (origen = 'Manual') would silently pass this (NULL = 'Manual' is NULL → passes).
     // The null-safe IS NOT DISTINCT FROM form correctly rejects it.
+    const idRow1 = `${RUN_ID}-reg01-row1`;
     await expect(
       prisma.$executeRaw`
-        INSERT INTO "Transaccion" ("accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
-        VALUES (${accountId}, NULL, NULL, NOW(), 0, 30000, 'check-violation-row1')
+        INSERT INTO "Transaccion" ("id", "accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
+        VALUES (${idRow1}, ${accountId}, NULL, NULL, NOW(), 0, 30000, 'check-violation-row1')
       `,
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Transaccion_origen_ingesta_consistency|23514/);
   });
 
   it('REG-01 (row 4): REJECTED — (ingestaId set, origen=Manual) violates CHECK', async () => {
@@ -1024,12 +1027,13 @@ describe('REG-01 — migration CHECK truth table (Transaccion_origen_ingesta_con
         totalTransacciones: 0,
       },
     });
+    const idRow4 = `${RUN_ID}-reg01-row4`;
     await expect(
       prisma.$executeRaw`
-        INSERT INTO "Transaccion" ("accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
-        VALUES (${accountId}, ${ingesta.id}, 'Manual', NOW(), 0, 40000, 'check-violation-row4')
+        INSERT INTO "Transaccion" ("id", "accountId", "ingestaId", "origen", "fecha", "cargo", "abono", "descripcion")
+        VALUES (${idRow4}, ${accountId}, ${ingesta.id}, 'Manual', NOW(), 0, 40000, 'check-violation-row4')
       `,
-    ).rejects.toThrow();
+    ).rejects.toThrow(/Transaccion_origen_ingesta_consistency|23514/);
 
     // Cleanup the ingesta row
     await prisma.ingesta.delete({ where: { id: ingesta.id } });
