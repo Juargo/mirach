@@ -29,9 +29,11 @@ import {
 } from './crear-auth-google-mobile';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
+import { crearCommitIngesta } from './crear-commit-ingesta';
 import { crearCatalogo, type CatalogoGraph } from './crear-catalogo';
 import { crearPerfil, type PerfilGraph } from './crear-perfil';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
+import { CommitIngestaUseCase } from '../application/use-cases/commit-ingesta.use-case';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
@@ -87,6 +89,10 @@ export interface Container {
    * tipos de puerto read-only y el test de composición MANDATORY-BLOCKING de
    * PR4 (T-25). */
   readonly previewIngesta: PreviewIngestaUseCase;
+  /** Único escritor del split preview→commit (US-057 PR4) — POST /api/ingestas/commit.
+   * Wired with write adapters (PrismaAccountRepository, PrismaIngestaRepository)
+   * via crearCommitIngesta; no-write guarantee belongs to previewIngesta. */
+  readonly commitIngesta: CommitIngestaUseCase;
   /** Borrado en cascada userId-isolado — DELETE /api/ingestas/:id. */
   readonly eliminarIngesta: EliminarIngestaUseCase;
   /** Listado de ingestas del usuario — GET /api/ingestas. */
@@ -252,6 +258,7 @@ export function createContainer(
     blindIndex,
     logger,
   );
+  const commitIngesta = crearCommitIngesta(prisma, crypto, blindIndex, logger);
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),
     logger,
@@ -277,6 +284,7 @@ export function createContainer(
     reclasificarTransaccion,
     processIngesta,
     previewIngesta,
+    commitIngesta,
     eliminarIngesta,
     listarIngestas,
     catalogo,
