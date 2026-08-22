@@ -1,10 +1,20 @@
 import express, { type Express } from 'express';
 import request from 'supertest';
-import { registrarMovimientos } from './movimientos.routes';
+import {
+  registrarMovimientos,
+  registrarMovimientoManual,
+} from './movimientos.routes';
 import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
+import { MovimientoManualInvalidoError } from '../../../domain/errors/movimiento-manual-invalido.error';
+import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
+import { BucketCategoriaNoConcuerdaError } from '../../../domain/errors/bucket-categoria-no-concuerda.error';
+import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
+import { MovimientoManual } from '../../../domain/value-objects/movimiento-manual';
+import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ObtenerMovimientosMesUseCase } from '../../../application/use-cases/obtener-movimientos-mes.use-case';
+import type { RegistrarMovimientoManualUseCase } from '../../../application/use-cases/registrar-movimiento-manual.use-case';
 
 /**
  * Traducción Result<T,E> → HTTP de la lista mensual (port del
@@ -26,6 +36,237 @@ function probeApp(uc: Doble): Express {
   app.use(errorMiddleware);
   return app;
 }
+
+// ---------------------------------------------------------------------------
+// Helpers for POST /api/movimientos tests
+// ---------------------------------------------------------------------------
+
+type RegistrarDoble = Pick<RegistrarMovimientoManualUseCase, 'execute'>;
+
+function makeManualVo(tipo: 'Ingreso' | 'Gasto' = 'Ingreso'): MovimientoManual {
+  const result = MovimientoManual.crear({
+    tipo,
+    fecha: new Date('2026-08-10'),
+    descripcion: tipo === 'Ingreso' ? 'Reembolso caja chica' : 'Feria',
+    monto: tipo === 'Ingreso' ? '45000' : '12990',
+    clock: () => new Date('2026-08-10'),
+  });
+  if (result.isFail()) throw new Error('unexpected VO failure in test fixture');
+  return result.getValue();
+}
+
+function probePostApp(uc: RegistrarDoble): Express {
+  const app = express();
+  app.use(express.json());
+  const router = express.Router();
+  router.use((req, _res, next) => {
+    req.userId = 'user-x';
+    next();
+  });
+  registrarMovimientoManual(router, uc as RegistrarMovimientoManualUseCase);
+  app.use('/api', router);
+  app.use(errorMiddleware);
+  return app;
+}
+
+describe('registrarMovimientoManual — POST /api/movimientos', () => {
+  describe('201 happy paths', () => {
+    it('201 Ingreso — returns full DTO body with origen:Manual and money as strings', async () => {
+      const vo = makeManualVo('Ingreso');
+      const uc: RegistrarDoble = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(Result.ok({ id: 'tx-ingreso-1', vo })),
+      };
+      const res = await request(probePostApp(uc))
+        .post('/api/movimientos')
+        .send({
+          tipo: 'Ingreso',
+          fecha: '2026-08-10',
+          descripcion: 'Reembolso caja chica',
+          monto: '45000',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.id).toBe('tx-ingreso-1');
+      expect(res.body.origen).toBe('Manual');
+      expect(res.body.bucket).toBe('Ingreso');
+      expect(res.body.categoriaId).toBeNull();
+      expect(res.body.abono).toBe('45000');
+      expect(res.body.cargo).toBe('0');
+      expect(typeof res.body.abono).toBe('string'); // BigInt-safe — never a JS number
+    });
+
+    it('201 Gasto — returns full DTO body with caller-supplied bucket and categoriaId', async () => {
+      const vo = makeManualVo('Gasto');
+      const uc: RegistrarDoble = {
+        execute: vi.fn().mockResolvedValue(Result.ok({ id: 'tx-gasto-1', vo })),
+      };
+      const res = await request(probePostApp(uc))
+        .post('/api/movimientos')
+        .send({
+          tipo: 'Gasto',
+          fecha: '2026-08-10',
+          descripcion: 'Feria',
+          monto: '12990',
+          bucket: 'Deseos',
+          categoriaId: 'cat-deseos-1',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.id).toBe('tx-gasto-1');
+      expect(res.body.origen).toBe('Manual');
+      expect(res.body.bucket).toBe('Deseos');
+      expect(res.body.categoriaId).toBe('cat-deseos-1');
+      expect(res.body.cargo).toBe('12990');
+      expect(res.body.abono).toBe('0');
+    });
+  });
+
+  describe('400 domain errors — scrubbed (ADR-013)', () => {
+    it('400 on MovimientoManualInvalidoError — response body contains no raw amounts', async () => {
+      const uc: RegistrarDoble = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(new MovimientoManualInvalidoError('FECHA_FUTURA')),
+          ),
+      };
+      const res = await request(probePostApp(uc))
+        .post('/api/movimientos')
+        .send({
+          tipo: 'Ingreso',
+          fecha: '2099-01-01',
+          descripcion: 'Test futuro',
+          monto: '99999',
+        });
+
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).not.toContain('99999');
+    });
+
+    it('400 on CategoriaFueraDeCatalogoError — response body contains no categoriaId', async () => {
+      const uc: RegistrarDoble = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(new CategoriaFueraDeCatalogoError('cat-otro-usuario')),
+          ),
+      };
+      const res = await request(probePostApp(uc))
+        .post('/api/movimientos')
+        .send({
+          tipo: 'Gasto',
+          fecha: '2026-08-10',
+          descripcion: 'Feria',
+          monto: '12990',
+          bucket: 'Deseos',
+          categoriaId: 'cat-otro-usuario',
+        });
+
+      expect(res.status).toBe(400);
+      // The categoriaId must NOT appear in the error response body (ADR-013)
+      expect(JSON.stringify(res.body)).not.toContain('cat-otro-usuario');
+    });
+
+    it('400 on BucketCategoriaNoConcuerdaError — response body carries no raw fields', async () => {
+      const uc: RegistrarDoble = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(
+              new BucketCategoriaNoConcuerdaError('cat-1', Bucket.Deseos),
+            ),
+          ),
+      };
+      const res = await request(probePostApp(uc))
+        .post('/api/movimientos')
+        .send({
+          tipo: 'Gasto',
+          fecha: '2026-08-10',
+          descripcion: 'Feria',
+          monto: '12990',
+          bucket: 'Necesidades',
+          categoriaId: 'cat-1',
+        });
+
+      expect(res.status).toBe(400);
+      // Neither the categoriaId nor the monto must appear in the error response (ADR-013 scrub)
+      expect(JSON.stringify(res.body)).not.toContain('cat-1');
+      expect(JSON.stringify(res.body)).not.toContain('12990');
+    });
+  });
+
+  describe('500 infrastructure error', () => {
+    it('500 on PersistenciaFallidaError', async () => {
+      const uc: RegistrarDoble = {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(new PersistenciaFallidaError('sentinel upsert failed')),
+          ),
+      };
+      const res = await request(probePostApp(uc))
+        .post('/api/movimientos')
+        .send({
+          tipo: 'Ingreso',
+          fecha: '2026-08-10',
+          descripcion: 'Reembolso',
+          monto: '45000',
+        });
+
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('400 on Zod shape failure', () => {
+    it('400 when Ingreso body carries stray bucket field (.strict() enforcement)', async () => {
+      const uc: RegistrarDoble = { execute: vi.fn() };
+      const res = await request(probePostApp(uc))
+        .post('/api/movimientos')
+        .send({
+          tipo: 'Ingreso',
+          fecha: '2026-08-10',
+          descripcion: 'Sueldo',
+          monto: '1000000',
+          bucket: 'Deseos', // stray — Ingreso is strict
+        });
+
+      expect(res.status).toBe(400);
+      expect(uc.execute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ISO-01 — userId always comes from the session, never from the body', () => {
+    it('uses req.userId from session middleware even if the body contains a different userId (Gasto variant)', async () => {
+      // The Gasto variant uses Zod's default strip mode, so an unknown `userId`
+      // field is discarded from `parsed.data`; the route uses `req.userId` from
+      // the session middleware regardless. This proves the route never reads userId
+      // from the body.
+      const vo = makeManualVo('Gasto');
+      const uc: RegistrarDoble = {
+        execute: vi.fn().mockResolvedValue(Result.ok({ id: 'tx-iso-1', vo })),
+      };
+      await request(probePostApp(uc)).post('/api/movimientos').send({
+        tipo: 'Gasto',
+        fecha: '2026-08-10',
+        descripcion: 'Feria',
+        monto: '12990',
+        bucket: 'Deseos',
+        categoriaId: 'cat-deseos-1',
+        userId: 'attacker-user-id', // stray body field — must be ignored by the route
+      });
+
+      // The use case must have been called with the session userId, not the body one.
+      expect(uc.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-x' }),
+      );
+      expect(uc.execute).not.toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'attacker-user-id' }),
+      );
+    });
+  });
+});
 
 describe('registrarMovimientos — GET /api/movimientos', () => {
   it('200 con el DTO y llama con userId + periodo', async () => {

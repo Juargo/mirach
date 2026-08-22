@@ -30,10 +30,12 @@ import {
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { crearCommitIngesta } from './crear-commit-ingesta';
+import { crearRegistrarMovimientoManual } from './crear-registrar-movimiento-manual';
 import { crearCatalogo, type CatalogoGraph } from './crear-catalogo';
 import { crearPerfil, type PerfilGraph } from './crear-perfil';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { CommitIngestaUseCase } from '../application/use-cases/commit-ingesta.use-case';
+import { RegistrarMovimientoManualUseCase } from '../application/use-cases/registrar-movimiento-manual.use-case';
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
@@ -93,6 +95,10 @@ export interface Container {
    * Wired with write adapters (PrismaAccountRepository, PrismaIngestaRepository)
    * via crearCommitIngesta; no-write guarantee belongs to previewIngesta. */
   readonly commitIngesta: CommitIngestaUseCase;
+  /** Registro de movimiento manual (US-058) — POST /api/movimientos.
+   * Narrow port: sentinel upsert + single Transaccion.create.
+   * No Ingesta row, no file — type-first (Ingreso/Gasto discriminant). */
+  readonly registrarMovimientoManual: RegistrarMovimientoManualUseCase;
   /** Borrado en cascada userId-isolado — DELETE /api/ingestas/:id. */
   readonly eliminarIngesta: EliminarIngestaUseCase;
   /** Listado de ingestas del usuario — GET /api/ingestas. */
@@ -259,6 +265,12 @@ export function createContainer(
     logger,
   );
   const commitIngesta = crearCommitIngesta(prisma, crypto, blindIndex, logger);
+  const registrarMovimientoManual = crearRegistrarMovimientoManual(
+    prisma,
+    crypto,
+    blindIndex,
+    logger,
+  );
   const eliminarIngesta = new EliminarIngestaUseCase(
     new PrismaEliminarIngestaRepository(prisma),
     logger,
@@ -285,6 +297,7 @@ export function createContainer(
     processIngesta,
     previewIngesta,
     commitIngesta,
+    registrarMovimientoManual,
     eliminarIngesta,
     listarIngestas,
     catalogo,

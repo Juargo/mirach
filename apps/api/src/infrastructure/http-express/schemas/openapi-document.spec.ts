@@ -366,4 +366,114 @@ describe('buildOpenApiDocument', () => {
 
     expect(first).toEqual(second);
   });
+
+  // ── US-058 POST /api/movimientos (T-20) ────────────────────────────────────
+
+  it('registers POST /api/movimientos with a 201 response (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const movimientosPath = document.paths?.['/api/movimientos'];
+    expect(movimientosPath).toBeDefined();
+    expect(movimientosPath?.post).toBeDefined();
+    expect(movimientosPath?.post?.responses?.['201']).toBeDefined();
+  });
+
+  it('POST /api/movimientos request body is application/json (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    const requestBody = postOp?.requestBody as
+      | { content: Record<string, unknown> }
+      | undefined;
+    expect(requestBody).toBeDefined();
+    expect(requestBody?.content?.['application/json']).toBeDefined();
+  });
+
+  it('POST /api/movimientos has a 400 error response documented (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    expect(postOp?.responses?.['400']).toBeDefined();
+  });
+
+  it('POST /api/movimientos has a 500 error response documented (US-058, T-20)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    expect(postOp?.responses?.['500']).toBeDefined();
+  });
+
+  it('POST /api/movimientos Ingreso variant emits additionalProperties:false (US-058, T-20 contract)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    const requestBody = postOp?.requestBody as
+      | { content: { 'application/json': { schema: { anyOf: unknown[] } } } }
+      | undefined;
+    const schema = requestBody?.content?.['application/json']?.schema as
+      | { anyOf?: Array<{ additionalProperties?: boolean }> }
+      | undefined;
+
+    expect(schema?.anyOf).toBeDefined();
+    expect(schema?.anyOf?.length).toBeGreaterThanOrEqual(2);
+    // Find the Ingreso variant by its discriminant rather than by position — positional
+    // indexing breaks if zod-openapi reorders the variants.
+    const ingresoVariant = (
+      schema?.anyOf as Array<{
+        additionalProperties?: boolean;
+        properties?: { tipo?: { const?: string } };
+      }>
+    )?.find((v) => v.properties?.tipo?.const === 'Ingreso');
+    expect(ingresoVariant).toBeDefined();
+    // The Ingreso variant must carry additionalProperties:false —
+    // proving .strict() is in effect and the document matches the runtime rejection.
+    expect(ingresoVariant?.additionalProperties).toBe(false);
+  });
+
+  it('POST /api/movimientos Gasto variant required array includes bucket and categoriaId (US-058, T-20 contract)', () => {
+    const document = buildOpenApiDocument();
+
+    const postOp = document.paths?.['/api/movimientos']?.post;
+    const requestBody = postOp?.requestBody as
+      | { content: { 'application/json': { schema: { anyOf: unknown[] } } } }
+      | undefined;
+    const schema = requestBody?.content?.['application/json']?.schema as
+      | { anyOf?: Array<{ required?: string[] }> }
+      | undefined;
+
+    expect(schema?.anyOf).toBeDefined();
+    // Find the Gasto variant by its discriminant rather than by position.
+    const gastoVariant = (
+      schema?.anyOf as Array<{
+        required?: string[];
+        properties?: { tipo?: { const?: string } };
+      }>
+    )?.find((v) => v.properties?.tipo?.const === 'Gasto');
+    expect(gastoVariant).toBeDefined();
+    expect(gastoVariant?.required).toContain('bucket');
+    expect(gastoVariant?.required).toContain('categoriaId');
+  });
+
+  it('POST /api/movimientos 201 response schema required array includes all 8 DTO fields (US-058, T-20 contract)', () => {
+    const document = buildOpenApiDocument();
+
+    // zod-openapi hoists named schemas to components/schemas (via .meta({ id })).
+    // The 201 body schema is a $ref to RegistrarMovimientoManualResponse — navigate there.
+    const components = document.components as
+      | Record<string, Record<string, { required?: string[] }>>
+      | undefined;
+    const responseSchema =
+      components?.schemas?.['RegistrarMovimientoManualResponse'];
+    const required = responseSchema?.required ?? [];
+
+    // All 8 fields from RegistrarMovimientoManualResponseDto must be in required.
+    expect(required).toContain('id');
+    expect(required).toContain('fecha');
+    expect(required).toContain('descripcion');
+    expect(required).toContain('cargo');
+    expect(required).toContain('abono');
+    expect(required).toContain('bucket');
+    expect(required).toContain('categoriaId');
+    expect(required).toContain('origen');
+  });
 });
