@@ -1,5 +1,98 @@
 # Changelog
 
+## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.3.0...api-v0.4.0) (2026-08-22)
+
+
+### Features
+
+* **api:** add agruparDetallePorCategoria grouping service (US-051 PR1) ([689a9c6](https://github.com/Juargo/MoneyDiary/commit/689a9c6e496f297865d1b3036e86681fba278be0))
+* **api:** add BucketDetalleMesResponse schema reusing buckets path params (US-051 PR2) ([0f238b5](https://github.com/Juargo/MoneyDiary/commit/0f238b59b569df677cad54c4db07e1e730b3c0e5))
+* **api:** add cantidadSinCategoria to ResumenMes domain VO ([f826777](https://github.com/Juargo/MoneyDiary/commit/f826777d5e00c27aacb7717a9dcd25f674d131a0))
+* **api:** add cantidadSinCategoria to ResumenMesDto ([d844d6b](https://github.com/Juargo/MoneyDiary/commit/d844d6bef01b0b8d7d7b45dae1dd97a0e896a352))
+* **api:** add cantidadSinCategoria to resumenResponseSchema ([e970689](https://github.com/Juargo/MoneyDiary/commit/e97068994d78c136e96bd7aed4cfb7849cc257a6))
+* **api:** add cargos-only count to PrismaResumenMesRepository ([6961e68](https://github.com/Juargo/MoneyDiary/commit/6961e68baaf9811eb32537de5eddf047ee320ab2))
+* **api:** add CLP-to-Verde arithmetic for semáforo detail (US-049) ([c63c469](https://github.com/Juargo/MoneyDiary/commit/c63c469f7a2910a8311ded8d2bb6db8e6419382b))
+* **api:** add DetalleBucketMesDto mapper with BigInt strings and PII trim (US-051 PR2) ([ac697c9](https://github.com/Juargo/MoneyDiary/commit/ac697c9f7643a3e5389270338c32ac4d6662c3d3))
+* **api:** add ingresos-mes app spec and e2e isolation suite (US-052 PR4, 4/4) ([d2749b1](https://github.com/Juargo/MoneyDiary/commit/d2749b1860d1db9225edf3ee8b2cc0b317c3db57))
+* **api:** add ingresos-mes operation to OpenAPI appended at end (US-052 PR3) ([e1f7670](https://github.com/Juargo/MoneyDiary/commit/e1f7670d28215491b3ffb0a68905622b3af30b83))
+* **api:** add IngresosMesDto mapping monthly incomes (US-052 PR2) ([9ca48c7](https://github.com/Juargo/MoneyDiary/commit/9ca48c7c201a40180025d7e69c75c63434ad1fd9))
+* **api:** add IngresosMesResponse schema with strict PII guard (US-052 PR2) ([f43f3f7](https://github.com/Juargo/MoneyDiary/commit/f43f3f7196cdb36726f9a6014e8b3322b5ca327d))
+* **api:** add ObtenerDetalleBucketMesUseCase composing both readers (US-051 PR1) ([b38cb32](https://github.com/Juargo/MoneyDiary/commit/b38cb32427a1c2d7f74abae27f6430d7a428423a))
+* **api:** add ObtenerIngresosMesUseCase composing the detalle bucket reader (US-052 PR1, 1/4) ([a7939d0](https://github.com/Juargo/MoneyDiary/commit/a7939d04c30ed1fe8fb4392c5b1a39bfdbbe5458))
+* **api:** add ObtenerIngresosMesUseCase composing the detalle bucket reader (US-052 PR1) ([81cf80c](https://github.com/Juargo/MoneyDiary/commit/81cf80c53b46a1477f21981ea51a3f5f7c55846c))
+* **api:** add ObtenerSemaforoDetalleUseCase (US-049) ([6860280](https://github.com/Juargo/MoneyDiary/commit/686028043fa54e42e35104f7f4169adc08969928))
+* **api:** add semáforo detalle DTO, Zod schema, and OpenAPI registration (US-049) ([9ef2deb](https://github.com/Juargo/MoneyDiary/commit/9ef2deb684a6d6e9e3a302ecb275b0f8b9283663))
+* **api:** add semáforo diagnosis, advice copy, and detail assembly (US-049) ([012d7fb](https://github.com/Juargo/MoneyDiary/commit/012d7fb033e538b89b866f40fcee06f50d12240e))
+* **api:** CLP-to-Verde arithmetic with unconditional re-apply guard (US-049 PR2a, 2/7) ([6dbb8a2](https://github.com/Juargo/MoneyDiary/commit/6dbb8a241ec8388d5e4e5a54e3a84c2a1613f688))
+* **api:** commit DTO/routes, composition helpers, MANDATORY no-write test (US-057 PR4) ([ca681f9](https://github.com/Juargo/MoneyDiary/commit/ca681f977887ff1048a7f1f3fe05cb76163b621d))
+* **api:** commitIngestaUseCase test-first, full D-11 algorithm (US-057 PR3) ([25222fa](https://github.com/Juargo/MoneyDiary/commit/25222fa222c66854e5fd101c205edfc31a0b1f25))
+* **api:** count uncategorized cargos in resumen (US-045 PR-A, 1/2) ([d4651f3](https://github.com/Juargo/MoneyDiary/commit/d4651f3e3bb41afedbb7e1bbe10b984eb9ddde93))
+* **api:** domain errors and MovimientoManual VO (US-058 PR1) ([689f5c8](https://github.com/Juargo/MoneyDiary/commit/689f5c85c770e86c2e0199a003ea2dc2764e7a89))
+* **api:** domain errors, dedup helpers, shared pipeline use case (US-057 PR1) ([33b7114](https://github.com/Juargo/MoneyDiary/commit/33b7114c50683330cde03b818521fed325245bc2))
+* **api:** expose cantidadSinCategoria on the resumen contract (US-045 PR-B, 2/2) ([162cbe8](https://github.com/Juargo/MoneyDiary/commit/162cbe8d56929cb66e3a1b79447d5c3158018961))
+* **api:** extend preview use case — full rows, dedup status, suggestions (US-057 PR2-atomic-A2) ([856ffa8](https://github.com/Juargo/MoneyDiary/commit/856ffa8c7f5311dfddb6c030d5b195fc55d5f803))
+* **api:** GET /api/resumen/semaforo — HTTP boundary and contract chain (US-049 PR4, 5/7) ([26376e1](https://github.com/Juargo/MoneyDiary/commit/26376e1fdb37b36d92ea3b8d494c738f519322cd))
+* **api:** hermetic isolation spec + e2e for bucket detalle mes (US-051 PR4, 4/4) ([17d7f93](https://github.com/Juargo/MoneyDiary/commit/17d7f937d4f948dfae57f0b6391b8c4acb4faf7b))
+* **api:** http DTO, Zod schema, routes sibling, composition wiring, OpenAPI (US-058 PR3) ([2630b22](https://github.com/Juargo/MoneyDiary/commit/2630b2295f9c8ef662fce97c710b22db0c539307))
+* **api:** integration tests, one-shot regression guard, ADR-026 deprecation note (US-057 PR6) ([0b81c24](https://github.com/Juargo/MoneyDiary/commit/0b81c245d14b743624d51ec7def3ffe30958e97f))
+* **api:** MES-BUCKET detail DTO, route, OpenAPI + e2e (US-051 PR2-4, chain correction) ([57b4c01](https://github.com/Juargo/MoneyDiary/commit/57b4c019e134756fd4340b690133d28ca918c3ca))
+* **api:** MES-BUCKET grouped detail — application layer (US-051 PR1, 1/4) ([480dad6](https://github.com/Juargo/MoneyDiary/commit/480dad6f50ad28fd02015e24926673fca1925213))
+* **api:** MES-INGRESOS detail DTO, route, OpenAPI + e2e (US-052 PR2-4, chain correction) ([9b3c16e](https://github.com/Juargo/MoneyDiary/commit/9b3c16ed118a540f3ed6d7951eb3e1ddd98a3c61))
+* **api:** migration relax ingestaId, sentinel adapter, origen column (US-058 PR1-atomic) ([c60ff2d](https://github.com/Juargo/MoneyDiary/commit/c60ff2da62008c33c44009a29b1fd5e25b45d677))
+* **api:** ObtenerSemaforoDetalleUseCase (US-049 PR3, 4/7) ([6a46f2b](https://github.com/Juargo/MoneyDiary/commit/6a46f2bd2db8aff085b58d08ae9063f859d8a5ca))
+* **api:** openapi schemas + document update, deprecated one-shot, commit path (US-057 PR5) ([c17497d](https://github.com/Juargo/MoneyDiary/commit/c17497df99ed7aa24af2b46ebe1219d186c6a1e4))
+* **api:** pin overlay null-categoria and Ingreso immutability semantics (US-057 PR3) ([b7678c8](https://github.com/Juargo/MoneyDiary/commit/b7678c8c19a229f984960b95e2ad435becb4e4f5))
+* **api:** regenerate openapi.json and api-client types for cantidadSinCategoria ([464677c](https://github.com/Juargo/MoneyDiary/commit/464677c2af8c2b7d277c9ad559b6067b55ffb8cb))
+* **api:** register bucket detalle mes OpenAPI operation (US-051) ([6138ac6](https://github.com/Juargo/MoneyDiary/commit/6138ac69e99e9eefe8e854cd2f2832b232577a97))
+* **api:** semáforo diagnosis, advice copy and domain assembly (US-049 PR2b, 3/7) ([5963a99](https://github.com/Juargo/MoneyDiary/commit/5963a9998af72492a14a5d6483e0a02438b0951a))
+* **api:** US-057 PR1 — domain errors, dedup helpers, extracted pipeline front ([8627465](https://github.com/Juargo/MoneyDiary/commit/8627465a2524293f0253e9b1f6279a885098bc65))
+* **api:** US-057 PR2 — persistence-chain retype + preview extension ([73379ce](https://github.com/Juargo/MoneyDiary/commit/73379ce191f611284deb635406748b717a53e5ca))
+* **api:** US-057 PR3 — CommitIngestaUseCase (overlay, dedup re-run, fail-closed catalog) ([4b0762d](https://github.com/Juargo/MoneyDiary/commit/4b0762d3a3176554e6d5ee4d2d2427c0f81c8e8e))
+* **api:** US-057 PR4 — commit HTTP route, edits boundary, MANDATORY no-write test ([6f1b189](https://github.com/Juargo/MoneyDiary/commit/6f1b18983698bf972ac3e5250cfdd008a17a6e73))
+* **api:** US-057 PR5 — OpenAPI contract: commit operation, extended preview, one-shot deprecated ([233d5c0](https://github.com/Juargo/MoneyDiary/commit/233d5c0de057cb574ca553696c1a2efbb40e54de))
+* **api:** US-058 PR1 — domain errors, MovimientoManual VO, sentinel adapter, migration ([13dd840](https://github.com/Juargo/MoneyDiary/commit/13dd8402189040a4d29fab163d4a133dfa07f18f))
+* **api:** US-058 PR2 — RegistrarMovimientoManualUseCase (type-first, discriminated union) ([16e6678](https://github.com/Juargo/MoneyDiary/commit/16e66784c65dcc09cc307f3179fdfb01796fa5af))
+* **api:** US-058 PR3 — POST /api/movimientos (Zod discriminated union, honest OpenAPI) ([29a2a79](https://github.com/Juargo/MoneyDiary/commit/29a2a79433a53abd2c3683865d2905a7db160ab8))
+* **api:** use case for manual movement — Ingreso auto-classify + Gasto cascade (US-058 PR2) ([5154b7b](https://github.com/Juargo/MoneyDiary/commit/5154b7bd897b5686f09875c203c7fb80ae7f3452))
+* **api:** widen PrismaResumenAnualRepository with cantidadCargos ([bc677db](https://github.com/Juargo/MoneyDiary/commit/bc677db21d2422664278362d02fcd431b2d88255))
+* **api:** widen resumen ports with cantidadCargos, wire through assembly ([f2dc96e](https://github.com/Juargo/MoneyDiary/commit/f2dc96e13798e0e8d01e11cfdd53a66706da01c1))
+* **api:** wire GET /api/buckets/:bucket/detalle route + container (US-051) ([e26906b](https://github.com/Juargo/MoneyDiary/commit/e26906bc88ccd2190611d4899a485be7c5eef7e1))
+* **api:** wire GET /api/ingresos/mes — route, container, app mount (US-052 PR3) ([722ccad](https://github.com/Juargo/MoneyDiary/commit/722ccadb23d6b838f805ee95761403f85a048b91))
+* **api:** wire GET /api/resumen/semaforo route + container (US-049) ([2e9bdd4](https://github.com/Juargo/MoneyDiary/commit/2e9bdd4a06fcbe84227cdd89765970be56aaeb36))
+
+
+### Bug Fixes
+
+* **api:** address PR1 judgment-day review nits (US-058) ([7c8d9bc](https://github.com/Juargo/MoneyDiary/commit/7c8d9bc0827c72de90ac1f72c262ad28f1b25bca))
+* **api:** align preview e2e spec and openapi.json with US-057 contract (US-057 PR2) ([a110a27](https://github.com/Juargo/MoneyDiary/commit/a110a27507dd1ebb8421bd670cbde93fb27e21fb))
+* **api:** backward-compatible preview response — legacy estructura/muestra until US-061 (US-057 PR2) ([de29580](https://github.com/Juargo/MoneyDiary/commit/de295806428623b9cc2aa35a1c0966b43748dc12))
+* **api:** correct CA-05 resumen accessor, parameterized raw SQL, ADR vocabulary (US-058 PR4 review) ([16f37c9](https://github.com/Juargo/MoneyDiary/commit/16f37c9ccf885ed35e1675f0933f8dae0f1106b8))
+* **api:** discriminated-union input, return VO, behavioral D-09 tests (US-058 PR2 review) ([dee8ab3](https://github.com/Juargo/MoneyDiary/commit/dee8ab3a1e4c8fffe219ac10e8a24d72b541ba96))
+* **api:** exhaustive error map and isolation test assertions (US-058 PR1 review) ([34ccb95](https://github.com/Juargo/MoneyDiary/commit/34ccb950bf3bfcf4f2b39c9e9907096296b9fb33))
+* **api:** honest OpenAPI contract, route tests, safe DTO mapper (US-058 PR3 review) ([22bff50](https://github.com/Juargo/MoneyDiary/commit/22bff5025d21f89a2c186a4d7242aaa0857a8ab8))
+* **api:** narrow Gasto bucket type, sync tasks, harden tests (US-058 PR2 R2) ([9254c9b](https://github.com/Juargo/MoneyDiary/commit/9254c9b99ff17a62b915983b46e87ca5e4cd0d9d))
+* **api:** replace vacuous ISP type guard in resumen-mes.spec.ts ([b0798b8](https://github.com/Juargo/MoneyDiary/commit/b0798b89564dfeef95d6438e41ea4aefeb62b508))
+* **api:** satisfy tsc for ResumenMes fixtures forced by cantidadSinCategoria ([c5d15a7](https://github.com/Juargo/MoneyDiary/commit/c5d15a7dd6c5790a4d12cfaa53c5bb89fbb6f47f))
+* **api:** spec wording and D-11 ordering asserts — US-058 PR2 review R3 ([a770aa9](https://github.com/Juargo/MoneyDiary/commit/a770aa9d4f5103cdb98c57cd39205c41dc64da22))
+* **api:** supply NOT NULL columns in REG-01 raw inserts, expect 204 on delete (US-058 PR4 CI) ([9a7ec37](https://github.com/Juargo/MoneyDiary/commit/9a7ec3764084b87e4cfc872389454d5cb83f9a14))
+* **api:** trim account PII at application boundary for detalle mes-bucket (US-051 PR2) ([743e7af](https://github.com/Juargo/MoneyDiary/commit/743e7af5d07b129296612cd913f225c311e51287))
+
+
+### Refactors
+
+* **api:** apply PR2 review fixes — resumen contract, stale docs, DI (US-057 PR2) ([50906e7](https://github.com/Juargo/MoneyDiary/commit/50906e7c55dc487060e0c73fee0dcdbc6a332f63))
+* **api:** collapse semaforo band thresholds into BANDAS_SEMAFORO table ([b38d714](https://github.com/Juargo/MoneyDiary/commit/b38d71475fcf6a78ca93465e2f179f9a983beeac))
+* **api:** compile-time narrow semaforo copy helpers via type predicate ([f0f2d2c](https://github.com/Juargo/MoneyDiary/commit/f0f2d2c092ea7ffbc1fc96e6d49165a2eba4d2ef))
+* **api:** restore $transaction atomicity, dedupe resolverBucket ([68e888d](https://github.com/Juargo/MoneyDiary/commit/68e888d111b8438b3ea134661edbd08551d3a2a5))
+* **api:** retype persistence chain to TransaccionAPersistir (US-057 PR2-atomic-A) ([75fda80](https://github.com/Juargo/MoneyDiary/commit/75fda805eee9321142d63f5892c4ba9e767b7986))
+* **api:** table-driven semáforo bands with exported BANDAS_SEMAFORO (US-049 PR1, 1/7) ([caa440e](https://github.com/Juargo/MoneyDiary/commit/caa440eb5f863e3c290f0860c482101aac1ef95e))
+
+
+### Documentation
+
+* **openspec:** track us-045 SDD artifacts, scope PR-A boundary in design ([7f75176](https://github.com/Juargo/MoneyDiary/commit/7f75176b8a122284e0bfd1c9e6c384160dcb5779))
+* **us-049:** correct ledger counts and name the SEM-03 exception in D-11 tests ([2a0ace6](https://github.com/Juargo/MoneyDiary/commit/2a0ace68373d9f6b892fa8d6ef90313478ce8989))
+
 ## [0.3.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.2.0...api-v0.3.0) (2026-08-15)
 
 
