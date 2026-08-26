@@ -31,3 +31,33 @@ openapi-dast.json
 zap-report.json
 schemathesis-dast.log
 
+# Claude Code transient worktrees — working dirs, never committed
+.claude/worktrees/
+
+# Third-party agent skills installed via the skills CLI — content lives in
+# .agents/skills/ and .claude/skills/ holds symlinks into it (no trailing
+# slash on the entries below: they must match symlinks, not directories).
+# Reproducible from skills-lock.json (committed), like node_modules from a
+# lockfile.
+# NOTE: project-authored skills (solid, dry, kiss, yagni, ...) ARE tracked;
+# when installing a NEW third-party skill, add its entry here — new dirs under
+# .claude/skills/ are tracked by default on purpose.
+.agents/
+.claude/skills/design-taste-frontend
+.claude/skills/design-taste-frontend-v1
+.claude/skills/frontend-design
+.claude/skills/full-output-enforcement
+.claude/skills/gpt-taste
+.claude/skills/high-end-visual-design
+.claude/skills/image-to-code
+.claude/skills/imagegen-frontend-mobile
+.claude/skills/imagegen-frontend-web
+.claude/skills/industrial-brutalist-ui
+.claude/skills/minimalist-ui
+.claude/skills/redesign-existing-projects
+.claude/skills/stitch-design-taste
+.claude/skills/web-design-guidelines
+
+# Generated OpenAPI HTML preview (source of truth: apps/api/openapi.json, ADR-011)
+openapi.html
+
