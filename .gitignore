@@ -61,3 +61,4 @@ schemathesis-dast.log
 # Generated OpenAPI HTML preview (source of truth: apps/api/openapi.json, ADR-011)
 openapi.html
 
+.claude/settings.local.json
