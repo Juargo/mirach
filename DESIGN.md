@@ -27,6 +27,20 @@ colors:
   sin-categoria: '#aeb4c4'
   ingreso: '#d1fae5'
   ingreso-foreground: '#065f46'
+  semaforo-verde: '#d0fae5'
+  semaforo-verde-foreground: '#007a55'
+  semaforo-amarillo: '#fef3c6'
+  semaforo-amarillo-foreground: '#bb4d00'
+  semaforo-rojo: '#ffe4e6'
+  semaforo-rojo-foreground: '#c70036'
+  semaforo-verde-band: '#5ee9b5'
+  semaforo-amarillo-band: '#ffd230'
+  semaforo-rojo-band: '#ffa1ad'
+  warning: '#fffbeb'
+  warning-border: '#fee685'
+  warning-foreground: '#973c00'
+  warning-accent: '#fef3c6'
+  exito-foreground: '#065f46'
 typography:
   display:
     fontFamily: 'Inter Variable, system-ui, Segoe UI, Roboto, sans-serif'
@@ -151,6 +165,16 @@ Soft pastels differentiate the 50/30/20 buckets while a strong cobalt/lavanda pa
 
 **The One Action Color Rule.** Cobalt (#2260b2) is the only color that means "you can act here." Bucket pastels never appear on buttons or links.
 
+### Status Families (design-token debt burn-down, 2026-08-27)
+
+Three more `-foreground`-paired families cover semantic states that aren't bucket data, following the same literal-values-not-aliases discipline as `ingreso`/`vinculo-activo`:
+
+- **Semáforo** (`semaforo-verde`/`semaforo-amarillo`/`semaforo-rojo`, each with a `-foreground`): the estado chip pairs for `SemaforoBadge`/`SemaforoTag`/`MiniSemaforoTag` — exact Tailwind v4 default-palette hexes (emerald-100/700, amber-100/700, rose-100/700), all verified AA (4.52:1–5.02:1). A separate `-band` variant (`semaforo-verde-band`/`semaforo-amarillo-band`/`semaforo-rojo-band`, the -300 shades) fills `ZonaBar`'s zone track — fills only, no text, so no `-foreground` pair.
+- **Warning** (`warning` surface + `warning-border` + `warning-foreground` + `warning-accent` hover wash): the amber notice family for demo banners, the "sin categoría" callout, and inline validation hints. Unifies what used to be a mix of amber-800/900 text into one `warning-foreground`.
+- **Éxito** (`exito-foreground`): the "guardado" success-copy text color across perfil/registro-movimiento forms. Same literal as `ingreso-foreground` (#065f46) but a distinct token — generic success copy must never silently follow the income card's color if that one changes.
+
+The "sin datos" semáforo state (no estado to color) reuses the existing shadcn `muted`/`muted-foreground` pair instead of minting a fourth semáforo token — it isn't a semáforo color, it's the generic neutral-empty state.
+
 ## Typography
 
 **Display Font:** Inter Variable (with system-ui, Segoe UI, Roboto fallbacks)
@@ -241,7 +265,7 @@ Confirmations render as an inline, non-modal `role="alertdialog"` card in docume
 
 ### Don't:
 - **Don't** put white or pastel text on bucket pastels — every pastel fails AA as a text background.
-- **Don't** introduce new ad-hoc Tailwind palette colors (amber/emerald/rose/slate literals) for semantic states; the existing ones are documented debt, not the pattern to extend.
+- **Don't** introduce new ad-hoc Tailwind palette colors (amber/emerald/rose/slate literals) for semantic states — the semáforo, warning, and éxito tokens above exist precisely to cover those states; use them instead of a fresh literal.
 - **Don't** elevate anything past `shadow-md`, and reserve `shadow-md` for popovers.
 - **Don't** hand-roll a new confirmation dialog variant; reuse the inline alertdialog recipe (8px radius, Mist border, `shadow-sm`, no overlay).
-- **Don't** use the `.dark` block or `--font-mono` as if they were live — both are defined but inert (no theme toggle, no mono usage).
+- **Note:** dark mode is unimplemented by decision — there is no theme toggle. The inert `.dark` override block and the unused `--font-mono` token were removed from `index.css` (design-token debt burn-down, 2026-08-27); git history keeps them if that decision ever reverses.
