@@ -1,179 +1,247 @@
 ---
 name: Serene Finance
+description: Calm pastel finance companion — pastel data fills over a pale blue surface, with a confident cobalt action layer.
 colors:
-  surface: '#f9f9f9'
-  surface-dim: '#dadada'
-  surface-bright: '#f9f9f9'
-  surface-container-lowest: '#ffffff'
-  surface-container-low: '#f3f3f3'
-  surface-container: '#eeeeee'
-  surface-container-high: '#e8e8e8'
-  surface-container-highest: '#e2e2e2'
-  on-surface: '#1a1c1c'
-  on-surface-variant: '#44474e'
-  inverse-surface: '#2f3131'
-  inverse-on-surface: '#f1f1f1'
-  outline: '#74777f'
-  outline-variant: '#c4c6cf'
-  surface-tint: '#475f85'
-  primary: '#475f85'
-  on-primary: '#ffffff'
-  primary-container: '#8fa7d1'
-  on-primary-container: '#233c60'
-  inverse-primary: '#afc7f3'
+  background: '#e8f0fa'
+  foreground: '#1a1c1c'
+  card: '#ffffff'
+  card-foreground: '#1a1c1c'
+  popover: '#ffffff'
+  popover-foreground: '#1a1c1c'
+  primary: '#2260b2'
+  primary-foreground: '#ffffff'
   secondary: '#61597f'
-  on-secondary: '#ffffff'
-  secondary-container: '#dcd1fd'
-  on-secondary-container: '#60587d'
-  tertiary: '#6c5d2b'
-  on-tertiary: '#ffffff'
-  tertiary-container: '#b8a56c'
-  on-tertiary-container: '#483b0b'
-  error: '#ba1a1a'
-  on-error: '#ffffff'
-  error-container: '#ffdad6'
-  on-error-container: '#93000a'
-  primary-fixed: '#d5e3ff'
-  primary-fixed-dim: '#afc7f3'
-  on-primary-fixed: '#001b3c'
-  on-primary-fixed-variant: '#2f476c'
-  secondary-fixed: '#e7deff'
-  secondary-fixed-dim: '#cbc1ec'
-  on-secondary-fixed: '#1d1638'
-  on-secondary-fixed-variant: '#494266'
-  tertiary-fixed: '#f7e1a3'
-  tertiary-fixed-dim: '#dac589'
-  on-tertiary-fixed: '#231b00'
-  on-tertiary-fixed-variant: '#534616'
-  background: '#f9f9f9'
-  on-background: '#1a1c1c'
-  surface-variant: '#e2e2e2'
+  secondary-foreground: '#ffffff'
+  muted: '#f3f3f3'
+  muted-foreground: '#44474e'
+  accent: '#eeeeee'
+  accent-foreground: '#1a1c1c'
+  destructive: '#ba1a1a'
+  border: '#c4c6cf'
+  input: '#c4c6cf'
+  ring: '#1a1c1c'
+  necesidades: '#8fa7d1'
+  gustos: '#b1a7d1'
+  ahorro: '#e6d194'
+  exceso: '#e88a8a'
+  sin-categoria: '#aeb4c4'
+  ingreso: '#d1fae5'
+  ingreso-foreground: '#065f46'
 typography:
-  display-lg:
-    fontFamily: Inter
-    fontSize: 40px
-    fontWeight: '700'
-    lineHeight: 48px
-    letterSpacing: -0.02em
-  headline-lg:
-    fontFamily: Inter
-    fontSize: 32px
-    fontWeight: '600'
+  display:
+    fontFamily: 'Inter Variable, system-ui, Segoe UI, Roboto, sans-serif'
+    fontSize: 36px
+    fontWeight: '800'
     lineHeight: 40px
-    letterSpacing: -0.01em
-  headline-lg-mobile:
-    fontFamily: Inter
+  headline:
+    fontFamily: 'Inter Variable, system-ui, Segoe UI, Roboto, sans-serif'
     fontSize: 24px
-    fontWeight: '600'
+    fontWeight: '700'
     lineHeight: 32px
-  title-md:
-    fontFamily: Inter
-    fontSize: 18px
+  title:
+    fontFamily: 'Inter Variable, system-ui, Segoe UI, Roboto, sans-serif'
+    fontSize: 14px
     fontWeight: '600'
-    lineHeight: 24px
-  body-lg:
-    fontFamily: Inter
-    fontSize: 16px
-    fontWeight: '400'
-    lineHeight: 24px
-  body-sm:
-    fontFamily: Inter
+    lineHeight: 20px
+  body:
+    fontFamily: 'Inter Variable, system-ui, Segoe UI, Roboto, sans-serif'
     fontSize: 14px
     fontWeight: '400'
     lineHeight: 20px
-  label-caps:
-    fontFamily: Inter
+  label:
+    fontFamily: 'Inter Variable, system-ui, Segoe UI, Roboto, sans-serif'
     fontSize: 12px
     fontWeight: '600'
     lineHeight: 16px
-    letterSpacing: 0.05em
+    letterSpacing: 0.1em
 rounded:
-  sm: 0.25rem
-  DEFAULT: 0.5rem
-  md: 0.75rem
-  lg: 1rem
-  xl: 1.5rem
+  sm: 4px
+  md: 6px
+  lg: 8px
+  xl: 12px
   full: 9999px
 spacing:
-  base: 8px
-  container-padding: 24px
-  stack-gap: 16px
-  grid-gutter: 16px
+  xs: 8px
+  sm: 12px
+  md: 16px
+  lg: 24px
+components:
+  button-primary:
+    backgroundColor: '{colors.primary}'
+    textColor: '{colors.primary-foreground}'
+    rounded: '{rounded.md}'
+    padding: '8px 16px'
+    height: '36px'
+  button-primary-hover:
+    backgroundColor: 'rgba(34, 96, 178, 0.9)'
+    textColor: '{colors.primary-foreground}'
+  button-outline:
+    backgroundColor: '{colors.background}'
+    textColor: '{colors.foreground}'
+    rounded: '{rounded.md}'
+    padding: '8px 16px'
+    height: '36px'
+  button-outline-hover:
+    backgroundColor: '{colors.accent}'
+    textColor: '{colors.accent-foreground}'
+  button-ghost-hover:
+    backgroundColor: '{colors.accent}'
+    textColor: '{colors.accent-foreground}'
+  badge-default:
+    backgroundColor: '{colors.primary}'
+    textColor: '{colors.primary-foreground}'
+    rounded: '{rounded.full}'
+    padding: '2px 8px'
+  card:
+    backgroundColor: '{colors.card}'
+    textColor: '{colors.card-foreground}'
+    rounded: '{rounded.xl}'
+    padding: '24px'
+  input:
+    backgroundColor: '{colors.card}'
+    textColor: '{colors.foreground}'
+    rounded: '{rounded.md}'
+    padding: '8px 12px'
 ---
 
-## Brand & Style
+# Design System: Serene Finance
 
-This design system is built for personal finance management with a focus on emotional clarity and cognitive ease. By utilizing a "Soft Modernism" approach, it transforms typically stressful financial data into an approachable, calm experience. 
+## Overview
 
-The aesthetic is characterized by a "clean and modern" surface philosophy, using generous whitespace and a light-filled interface to reduce data density anxiety. It targets a modern audience that values intentional spending and mindful saving. The emotional response is one of stability and optimism, moving away from traditional "bank-like" coldness toward a lifestyle-centric financial companion.
+**Creative North Star: "Serene Finance"**
+
+A calm, non-bank-like financial companion. The system turns stressful financial data into an approachable monthly verdict: a pale pastel-blue surface (#e8f0fa) holds white cards where soft pastel bucket colors carry the data, while a single confident cobalt (#2260b2) carries every action. Density anxiety is the enemy — generous whitespace, one clear signal per screen, and weight-driven hierarchy keep the experience serene without becoming vague.
+
+The palette is two-tier by doctrine: desaturated pastels (Soft Blue, Lavanda, Pastel Yellow, Coral) exist only as fills for charts, bars, and chips backgrounds; text always uses strong, WCAG-AA foreground colors. The result is soft to look at and precise to read.
+
+**Key Characteristics:**
+- Pale blue ambient surface with pure-white cards; depth is tonal, not shadowed.
+- Pastel bucket colors as fills only; cobalt primary reserved for actions and active states.
+- Weight contrast over size contrast: extrabold verdict figures, semibold labels, regular body.
+- Neutral, professional Spanish UI copy; domain vocabulary (cartola, semáforo, buckets) is the interface.
 
 ## Colors
 
-The palette is derived from soft, desaturated pastels that provide clear semantic differentiation without visual fatigue. 
+Soft pastels differentiate the 50/30/20 buckets while a strong cobalt/lavanda pair does the interactive work.
 
-- **Soft Blue (#8FA7D1):** Assigned to **Needs**. Evokes trust and essential stability.
-- **Lavanda (#B1A7D1):** Assigned to **Wants/Lifestyle**. Represents personal fulfillment and flexibility.
-- **Pastel Yellow (#E6D194):** Assigned to **Savings**. Symbolizes growth and future value.
-- **Coral (#E88A8A):** Reserved for **Excess/Over-budget** states within the "Wants" category, providing a gentle but clear alert.
+### Primary
+- **Confident Cobalt** (#2260b2): the single action color — filled buttons, links, active nav items, brand mark. 6.21:1 on white. Hover state is the same color at 90% opacity.
 
-Surface colors should remain off-white or very light grey to ensure the pastel category colors remain the primary focus of the visual hierarchy.
+### Secondary
+- **Deep Lavanda** (#61597f): secondary buttons and resting nav/text accents (~6.5:1 on white). The muted counterpart to cobalt; never competes with it on the same control.
+
+### Bucket Fills (data layer — fills only, never text)
+- **Soft Blue / Necesidades** (#8fa7d1): needs bucket — chart wedges, progress fills, dots.
+- **Lavanda / Gustos** (#b1a7d1): wants bucket (domain key `Deseos`, UI label "Gustos").
+- **Pastel Yellow / Ahorro** (#e6d194): savings bucket.
+- **Coral / Exceso** (#e88a8a): over-budget accent (defined, currently unconsumed).
+- **Neutral Grey / Sin categoría** (#aeb4c4): the fourth donut wedge for unclassified movements.
+- **Mint / Ingreso** (#d1fae5) with **Emerald ink** (#065f46): income fill + its paired text color (6.78:1). The `vinculo-activo` pair duplicates these values deliberately — do not alias them.
+
+### Neutral
+- **Ink** (#1a1c1c): primary text and the focus ring (`--ring`), ≥3:1 on any surface.
+- **Slate ink** (#44474e): secondary/muted text on white and on #f3f3f3 (~8.9:1).
+- **Mist border** (#c4c6cf): card borders, dividers, input strokes.
+- **Whisper greys** (#f3f3f3 muted, #eeeeee accent/hover): hover washes and muted chip backgrounds.
+- **Pale Sky** (#e8f0fa): the app background — a barely-blue tint that keeps white cards legible as the elevated layer.
+- **Alarm Red** (#ba1a1a): destructive actions and errors only.
+
+### Named Rules
+**The Two-Tier Color Rule.** Pastel bucket colors are fills, never text. Any text sitting on or near a pastel fill uses a strong AA foreground (Ink, Slate ink, or a paired `-foreground` token). No exceptions.
+
+**The One Action Color Rule.** Cobalt (#2260b2) is the only color that means "you can act here." Bucket pastels never appear on buttons or links.
 
 ## Typography
 
-The product apps (web dashboard, mobile) use **Inter** to maintain a highly legible, systematic, and modern feel. The typographic hierarchy relies on weight contrast rather than purely size.
+**Display Font:** Inter Variable (with system-ui, Segoe UI, Roboto fallbacks)
+**Body Font:** Inter Variable (same stack — one family, weight-driven hierarchy)
 
-> **Landing exception (2026-08-07, PR #240):** the public landing (`apps/landing`) uses **DM Sans** for body text (400, 16px/26px line-height) and **Plus Jakarta Sans** for headings (700, ~1.05 line-height, up to 48px on desktop), with dark blue ink text colors (`#022030` primary text, `#435e6d` secondary) instead of the neutral grays above. Rationale: a warmer, more distinctive first impression for the marketing surface. This pairing is a candidate to become the product-wide type system; until that decision is made, app surfaces stay on Inter.
+**Character:** Systematic, legible, modern. Hierarchy comes from weight jumps (400 → 600 → 800), not from a wide size ramp.
 
+> **Landing exception (2026-08-07, PR #240):** the public landing (`apps/landing`) uses **DM Sans** (body) and **Plus Jakarta Sans** (headings) with dark blue ink (#022030 / #435e6d). That pairing is a candidate for product-wide adoption; until decided, app surfaces stay on Inter.
 
-Numerical data (balances, percentages) should use `SemiBold` or `Bold` weights to ensure they are the first point of contact in the visual scan. Sub-labels and supporting text use a slightly desaturated neutral color to maintain focus on the primary figures.
+### Hierarchy
+- **Display** (800, 36px/40px): the money — verdict figures on SemaforoHeroCard and IngresoCard only.
+- **Headline** (700, 24px/32px): page titles ("Semáforo").
+- **Title** (600, 14px/20px): card subheads and dialog titles.
+- **Body** (400, 14px/20px): default text; meta text drops to 12px in `muted-foreground`.
+- **Label** (600, 12px/16px, letter-spacing 0.1em, UPPERCASE): section eyebrows in `secondary`.
 
-## Layout & Spacing
+### Named Rules
+**The Verdict Scale Rule.** 36px extrabold is reserved for the number that answers "¿estoy bien este mes?" — one per screen, maximum. Everything else stays at 24px or below.
 
-The layout follows a **Fluid Grid** model with a maximum content width of 1200px for desktop. It utilizes an 8px base unit for all spacing increments to ensure a consistent rhythm.
+## Layout
 
-- **Mobile:** Single column layout with 16px side margins.
-- **Tablet:** 6-column grid with 24px margins.
-- **Desktop:** 12-column grid with 24px margins.
+Single-breakpoint responsive shell, pure CSS (no JS media queries):
 
-Spacing between cards and modules should be generous (typically 24px) to allow each financial category "room to breathe," preventing the interface from feeling cluttered or overwhelming.
+- **Desktop (≥1024px / `lg`):** fixed 256px sidebar on the left (`w-64`, white card surface, right border); main content clears it with `lg:pl-64`.
+- **Mobile (<1024px):** sidebar hidden; fixed 64px bottom tab bar (`h-16`); main content reserves `pb-16`.
+- **Content column:** centered `max-w-6xl` (1152px) with 16px padding and 24px vertical gaps between cards.
+- **Rhythm:** Tailwind 4px base scale in practice — 24px card padding (`p-6`/`px-6`), 12–16px inside dialogs and rows, 24px between modules so each financial category has room to breathe.
 
 ## Elevation & Depth
 
-Depth is achieved through **Tonal Layers** and extremely soft shadows. Instead of harsh black shadows, this design system uses low-opacity shadows tinted with the primary blue or neutral tones to maintain the "clean" aesthetic.
+The system is **flat with a single tonal step**. Depth is conveyed by surface color (pale blue background → white cards) and 1px Mist borders, not by shadow drama. `shadow-sm` is the universal card/dialog shadow; nothing floats higher except popovers.
 
-Surface levels:
-1. **Background:** Lightest neutral (#F9FAFB).
-2. **Cards/Containers:** Pure white (#FFFFFF) with a soft 8px blur shadow.
-3. **Overlays/Modals:** White with a medium 16px blur shadow and a subtle 1px neutral border to define edges against the background.
+### Shadow Vocabulary
+- **Resting card** (`shadow-sm`: `0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)`): cards, inline confirmation dialogs, list-item cards.
+- **Popover** (`shadow-md`: `0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)`): the only elevated overlay in the system.
+- **Outline button** (`shadow-xs`: `0 1px 2px 0 rgb(0 0 0 / 0.05)`): the faintest possible lift.
+
+### Named Rules
+**The One Step Up Rule.** Everything rests at `shadow-sm`; only transient overlays (popovers) take one step up to `shadow-md`. Nothing uses `shadow-lg` or beyond.
 
 ## Shapes
 
-As requested, the primary roundedness is set to **8px (0.5rem)**. This provides a friendly, contemporary look that is neither too sharp (corporate) nor too bubbly (playful). 
-
-This 8px radius should be applied consistently to:
-- Primary data cards.
-- Progress bar containers.
-- Input fields.
-- Buttons.
-
-Full-width mobile sheets or large hero sections may use `rounded-xl` (24px) on top corners to create a "nested" visual feeling.
+The whole radius family derives from a single `--radius: 0.5rem` token: buttons and inputs at 6px (`md`), inline dialogs and nav items at 8px (`lg`), cards at 12px (`xl`) — the container is always softer than its contents. Badges and the semáforo icon circle go fully round (`9999px`). Borders are 1px Mist everywhere; the active sidebar item carries a 4px cobalt accent edge (`border-r-4`).
 
 ## Components
 
-### Cards & Containers
-Cards are the primary vessel for data. They must use a white background and the 8px corner radius. Headlines within cards should be `title-md`.
-
-### Progress Bars (Category Tracking)
-Progress bars use a high-contrast relationship between the background (a 10-15% opacity version of the category color) and the foreground (the solid category color). 
-- **Needs:** Solid Blue bar.
-- **Savings:** Solid Yellow bar.
-- **Wants:** Solid Lavanda bar, transitioning to Coral if the user exceeds their limit.
-
 ### Buttons
-Primary (filled) buttons use `primary` (#475f85) with white text. The originally specified Soft Blue (#8FA7D1) with white text measures ~2.4:1 contrast and fails WCAG AA, so it must not be used as a filled button background behind white text; Soft Blue remains valid for containers and other non-text surfaces. Ghost buttons use a 1px border and text in #475f85. All buttons maintain the 8px roundedness.
+- **Shape:** gently rounded (6px), 36px default height, 14px medium text.
+- **Primary:** Confident Cobalt fill, white text, hover at 90% opacity.
+- **Outline:** white/background fill, 1px Mist border, `shadow-xs`, hover washes to `accent` (#eeeeee).
+- **Secondary:** Deep Lavanda fill, white text, hover at 80% opacity.
+- **Ghost / Link:** transparent; ghost hovers to `accent`, link underlines in cobalt (underline-offset 4px).
+- **Destructive:** Alarm Red fill, white text.
+- **Focus:** 3px ring in `ring/50` plus `border-ring` — the shared focus grammar for every interactive element.
+- **Sizes:** xs 24px · sm 32px · default 36px · lg 40px, with square icon variants at each step.
 
-### Input Fields
-Inputs are minimal, featuring a light neutral background (#F4F4F4) and a 1px border that becomes Soft Blue on focus. Labels should use the `label-caps` style for clarity.
+### Badges / Chips
+- **Style:** fully pill-shaped (`rounded-full`), 12px medium text, 2px/8px padding.
+- **Variants:** mirror button colors (default cobalt, secondary lavanda, destructive red, outline with Mist border, ghost hover-only).
 
-### Chips & Tags
-Used for transaction categorization. They should be small, using the category colors at 20% opacity for the background and 100% opacity for the text to ensure WCAG accessibility.
+### Cards / Containers
+- **Corner Style:** 12px (`rounded-xl`) — the largest radius in the system.
+- **Background:** pure white on the Pale Sky app background.
+- **Shadow Strategy:** `shadow-sm` + 1px Mist border (see Elevation).
+- **Internal Padding:** 24px, with 24px gaps between stacked cards.
+
+### Inputs / Fields
+- **Style:** 6px radius, 1px `input` (#c4c6cf) stroke, 8px/12px padding, 14px text, white or transparent background.
+- **Focus:** `border-ring` + 3px `ring/50` — same grammar as buttons (the shared `CampoTexto` pattern is normative).
+- **Error / Disabled:** `aria-invalid` switches border and ring to destructive tints; disabled drops to 50% opacity.
+
+### Navigation
+- **Sidebar item:** 8px radius row, 14px medium Deep Lavanda text, hover `accent` wash; **active** = cobalt text, semibold, `accent` fill, 4px cobalt accent edge.
+- **Bottom tab:** icon-over-label column, 12px medium text; active = cobalt + semibold (no fill).
+- **Brand block:** 18px semibold cobalt "MoneyDiary" + 12px muted tagline.
+
+### Inline Confirmation Dialog (signature component)
+Confirmations render as an inline, non-modal `role="alertdialog"` card in document flow — **no overlay, no portal** (a deliberate calm-over-drama choice): 8px radius, white card, 1px Mist border, `shadow-sm`, 12–16px padding, title in Title style, actions right-aligned. Focus moves into the dialog on open and Escape closes it (both hand-managed).
+
+## Do's and Don'ts
+
+### Do:
+- **Do** use bucket pastels exclusively as fills (chart wedges, bars, dots) with strong AA text beside them — the Two-Tier Color Rule.
+- **Do** route every focus state through `--ring` (#1a1c1c) with the 3px `ring/50` grammar; it is the one shared interaction signature.
+- **Do** keep `bucket-colors.ts` and `index.css` bucket hexes in sync when either changes — there is no automated gate.
+- **Do** label the `Deseos` bucket as **"Gustos"** in UI copy via `ETIQUETA_BUCKET`; the API keeps `Deseos`.
+- **Do** reserve 36px extrabold for the single verdict/money figure per screen.
+
+### Don't:
+- **Don't** put white or pastel text on bucket pastels — every pastel fails AA as a text background.
+- **Don't** introduce new ad-hoc Tailwind palette colors (amber/emerald/rose/slate literals) for semantic states; the existing ones are documented debt, not the pattern to extend.
+- **Don't** elevate anything past `shadow-md`, and reserve `shadow-md` for popovers.
+- **Don't** hand-roll a new confirmation dialog variant; reuse the inline alertdialog recipe (8px radius, Mist border, `shadow-sm`, no overlay).
+- **Don't** use the `.dark` block or `--font-mono` as if they were live — both are defined but inert (no theme toggle, no mono usage).
