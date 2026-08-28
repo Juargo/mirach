@@ -252,7 +252,7 @@ The whole radius family derives from a single `--radius: 0.5rem` token: buttons 
 - **Brand block:** 18px semibold cobalt "MoneyDiary" + 12px muted tagline.
 
 ### Inline Confirmation Dialog (signature component)
-Confirmations render as an inline, non-modal `role="alertdialog"` card in document flow — **no overlay, no portal** (a deliberate calm-over-drama choice): 8px radius, white card, 1px Mist border, `shadow-sm`, 12–16px padding, title in Title style, actions right-aligned. Focus moves into the dialog on open and Escape closes it (both hand-managed).
+Confirmations render as an inline, non-modal `role="alertdialog"` card in document flow — **no overlay, no portal** (a deliberate calm-over-drama choice): 8px radius, white card, 1px Mist border, `shadow-sm`, 12–16px padding, title in Title style, actions right-aligned. Focus moves into the dialog on open and Escape closes it (both hand-managed). One shared component (`apps/web/src/components/ui/inline-confirm.tsx`) implements this recipe — every destructive/impact confirmation composes it rather than hand-rolling the shell again; Cancelar/Confirmar render at the house default 36px touch target (Button's `default` size), never `sm`/`xs`.
 
 ## Do's and Don'ts
 
@@ -267,5 +267,5 @@ Confirmations render as an inline, non-modal `role="alertdialog"` card in docume
 - **Don't** put white or pastel text on bucket pastels — every pastel fails AA as a text background.
 - **Don't** introduce new ad-hoc Tailwind palette colors (amber/emerald/rose/slate literals) for semantic states — the semáforo, warning, and éxito tokens above exist precisely to cover those states; use them instead of a fresh literal.
 - **Don't** elevate anything past `shadow-md`, and reserve `shadow-md` for popovers.
-- **Don't** hand-roll a new confirmation dialog variant; reuse the inline alertdialog recipe (8px radius, Mist border, `shadow-sm`, no overlay).
+- **Don't** hand-roll a new confirmation dialog; compose the shared `InlineConfirm` component (`ui/inline-confirm.tsx`) instead — it owns the shell (8px radius, Mist border, `shadow-sm`, no overlay), Escape/focus handling, and the house default 36px Cancelar/Confirmar buttons, never `sm`/`xs`.
 - **Note:** dark mode is unimplemented by decision — there is no theme toggle. The inert `.dark` override block and the unused `--font-mono` token were removed from `index.css` (design-token debt burn-down, 2026-08-27); git history keeps them if that decision ever reverses.
