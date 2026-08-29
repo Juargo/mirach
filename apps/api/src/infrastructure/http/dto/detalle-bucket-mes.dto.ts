@@ -10,9 +10,12 @@ import type { ObtenerDetalleBucketMesResult } from '../../../application/use-cas
  * - `porcentajeBp`/`metaBp` como JS numbers (bp ≤ 10000 ≪ 2^53), `null`
  *   para SinCategoria (D-05);
  * - `fecha` ISO-8601 UTC completo vía `toISOString()` (convención bloqueada);
- * - SIN PII de cuenta (MBD-08): `banco`/`tipoCuenta`/`numeroCuenta` no
- *   existen ni siquiera en el TIPO — fueron recortados en el borde de
- *   aplicación (gate PR1), este DTO solo serializa la proyección.
+ * - SIN PII de CUENTA (MBD-08): `tipoCuenta`/`numeroCuenta` no existen ni
+ *   siquiera en el TIPO — fueron recortados en el borde de aplicación (gate
+ *   PR1), este DTO solo serializa la proyección. `origen` (nombre de banco
+ *   verbatim, o `'Manual'`) SÍ viaja — es la señal `esManual` que
+ *   WEB-DEL-01 necesita, mirror de `IngresosMesDto` (D-02,
+ *   correccion-movimientos-manuales).
  */
 export interface DetalleBucketMesDto {
   readonly periodo: string;
@@ -31,6 +34,7 @@ export interface DetalleBucketMesDto {
       readonly id: string;
       readonly fecha: string;
       readonly descripcion: string;
+      readonly origen: string;
       readonly monto: string;
     }>;
   }>;
@@ -62,6 +66,7 @@ export function aDetalleBucketMesDto(
         id: tx.id,
         fecha: tx.fecha.toISOString(),
         descripcion: tx.descripcion,
+        origen: tx.origen,
         monto: String(tx.monto),
       })),
     })),

@@ -29,6 +29,7 @@ function recortar(fila: FilaFuente): TransaccionDetalleBucketMes {
     id: fila.id,
     fecha: fila.fecha,
     descripcion: fila.descripcion,
+    origen: fila.banco || 'Manual',
     monto: fila.cargo,
   };
 }
@@ -115,5 +116,12 @@ describe('bucketDetalleMesResponseSchema (sync guarantee)', () => {
     };
 
     expect(() => bucketDetalleMesResponseSchema.parse(invalid)).toThrow();
+  });
+
+  it('D-02: acepta origen como string en la transacción (señal esManual/nombre de banco)', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+
+    expect(() => bucketDetalleMesResponseSchema.parse(dto)).not.toThrow();
+    expect(dto.grupos[0].transacciones[0].origen).toBe('BCI');
   });
 });

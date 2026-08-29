@@ -16,7 +16,8 @@
  *   - sin periodo → 200, periodo = mes UTC actual (MBD-04)
  *   - ?periodo=not-a-date → 400, body scrubbed (MBD-04)
  *   - DTO shape — header + grupos + transacciones {id, fecha, descripcion,
- *     monto}, las 5 transacciones presentes, sin paginación, sin PII (MBD-02/08)
+ *     origen, monto}, las 5 transacciones presentes, sin paginación, sin PII
+ *     de cuenta (MBD-02/08, D-02 correccion-movimientos-manuales)
  *   - mes vacío del bucket → total "0", 0, 0, grupos [] (MBD-01)
  *   - montos > MAX_SAFE_INTEGER exactos en el wire (MBD-05)
  *   - aislamiento de dos usuarios — B nunca aparece en A (MBD-06/ISO-02)
@@ -364,17 +365,23 @@ describe('BucketDetalleMes (e2e) — GET /api/buckets/:bucket/detalle', () => {
       ),
     ).toBe(5);
 
-    // Cada transacción expone EXACTAMENTE {id, fecha, descripcion, monto}.
+    // Cada transacción expone EXACTAMENTE {id, fecha, descripcion, origen, monto}.
+    // `origen` se sumó en correccion-movimientos-manuales PR2 (D-02): nombre de
+    // banco verbatim (o 'Manual') — es la señal esManual de WEB-DEL-01, no PII.
     for (const tx of todas as Array<Record<string, unknown>>) {
       expect(Object.keys(tx).sort()).toEqual([
         'descripcion',
         'fecha',
         'id',
         'monto',
+        'origen',
       ]);
       expect(typeof tx.fecha).toBe('string');
       expect(() => new Date(tx.fecha as string)).not.toThrow();
       expect(typeof tx.monto).toBe('string');
+      // Estas filas nacen de una ingesta (seedEstadoW1 → seedTx con ingestaId
+      // seteado), así que origen = el banco de la cuenta sembrada, no 'Manual'.
+      expect(tx.origen).toBe('TestBank');
     }
     // Las descripciones cifradas round-trippan (ADR-013).
     const descripciones = JSON.stringify(
@@ -383,12 +390,12 @@ describe('BucketDetalleMes (e2e) — GET /api/buckets/:bucket/detalle', () => {
     expect(descripciones).toContain(`Jumbo W1 ${RUN_ID}`);
     expect(descripciones).toContain(`Giro W1 ${RUN_ID}`);
 
-    // Sin PII de cuenta en NINGÚN lado (MBD-08/ADR-015).
+    // Sin PII de CUENTA en NINGÚN lado (MBD-08/ADR-015). `TestBank` SÍ
+    // sobrevive — pero solo como el valor de `origen` (D-02), asertado
+    // arriba; ya no es parte de esta lista negativa.
     const bodySerializado = JSON.stringify(res.body);
-    expect(bodySerializado).not.toContain('TestBank');
     expect(bodySerializado).not.toContain('CuentaCorriente');
     expect(bodySerializado).not.toContain(`ACC-shape`);
-    expect(bodySerializado).not.toContain('banco');
     expect(bodySerializado).not.toContain('tipoCuenta');
     expect(bodySerializado).not.toContain('numeroCuenta');
   });

@@ -134,12 +134,17 @@
                       "monto": {
                         "description": "BigInt-safe decimal string amount (never a JSON number).",
                         "type": "string"
+                      },
+                      "origen": {
+                        "description": "Bank name verbatim, or 'Manual' for a hand-entered movement (D-02). Drives the delete affordance on manual rows (WEB-DEL-01).",
+                        "type": "string"
                       }
                     },
                     "required": [
                       "id",
                       "fecha",
                       "descripcion",
+                      "origen",
                       "monto"
                     ],
                     "type": "object"

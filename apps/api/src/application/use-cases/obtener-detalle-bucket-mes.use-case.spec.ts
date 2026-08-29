@@ -327,21 +327,22 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       expect(header.grupos[1].conteo).toBe(2);
 
       // Gate PR1 (MBD-08/ADR-015): el BORDE del use case expone SOLO la
-      // proyección recortada {id, fecha, descripcion, monto} — la PII del
-      // row (banco/tipoCuenta/numeroCuenta) no sobrevive a la frontera.
+      // proyección recortada {id, fecha, descripcion, origen, monto} — la
+      // PII de CUENTA del row (tipoCuenta/numeroCuenta) no sobrevive a la
+      // frontera. `origen` SÍ lleva el nombre de banco verbatim (D-02,
+      // correccion-movimientos-manuales) — es la señal esManual, no PII.
       expect(header.grupos[0].transacciones[0]).toEqual({
         id: 'tx-1',
         fecha: new Date('2026-07-03T00:00:00.000Z'),
         descripcion: 'Compra supermercado',
+        origen: 'BCI',
         monto: 50000n,
       });
       const serializedGrupos = JSON.stringify(header.grupos, (_clave, valor) =>
         typeof valor === 'bigint' ? valor.toString() : valor,
       );
-      expect(serializedGrupos).not.toContain('banco');
       expect(serializedGrupos).not.toContain('tipoCuenta');
       expect(serializedGrupos).not.toContain('numeroCuenta');
-      expect(serializedGrupos).not.toContain('BCI');
       expect(serializedGrupos).not.toContain('Cuenta Corriente');
       expect(serializedGrupos).not.toContain('12345678');
     });
