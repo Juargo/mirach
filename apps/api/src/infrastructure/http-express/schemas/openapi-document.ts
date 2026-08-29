@@ -49,6 +49,7 @@ import {
   commitIngestaResponseSchema,
 } from './ingesta-commit.schema';
 import { ingestaDeletePathParamsSchema } from './ingesta-delete.schema';
+import { movimientoDeletePathParamsSchema } from './movimiento-delete.schema';
 import { authMeResponseSchema } from './auth-me.schema';
 import {
   authLoginRequestSchema,
@@ -1385,6 +1386,42 @@ const registrarMovimientoManualOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `DELETE /api/movimientos/:id` (correccion-movimientos-manuales, ADR-040,
+ * D-01b) — delete a manual movement owned by the authenticated user.
+ *
+ * Merged 404 (DEL-02, anti-enumeration): absent id, another user's row, and
+ * an owned-but-not-manual row all produce the IDENTICAL response — never a
+ * distinct "not manual" error, which would leak provenance. Demo sessions
+ * are rejected 403 DEMO_SOLO_LECTURA before the writer is touched (DEL-03).
+ */
+const eliminarMovimientoManualOperation: ZodOpenApiOperationObject = {
+  summary: 'Delete a manual movement',
+  description:
+    'Authenticated endpoint that deletes a Transaccion owned by the calling user with ' +
+    "origen='Manual' (correccion-movimientos-manuales, ADR-040). Ingesta-born rows are " +
+    'never individually deletable — delete the whole ingesta instead (DELETE ' +
+    '/api/ingestas/:id). Requires x-api-key + a valid session (RNF-SEC-006, per-user ' +
+    'isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+  requestParams: {
+    path: movimientoDeletePathParamsSchema,
+  },
+  responses: {
+    '204': {
+      description: 'Movement deleted. No response body.',
+    },
+    '403': {
+      description: 'The calling session is a demo session. Nothing is deleted.',
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the transaction does not exist, does not belong to the ' +
+        "authenticated user, or is not origen='Manual' (ingesta-born rows collapse " +
+        'into this same response).',
+    },
+  },
+};
+
+/**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
  * appending future endpoints (Slice 1+) must append here, never reorder
@@ -1399,6 +1436,7 @@ const paths: ZodOpenApiPathsObject = {
     get: movimientosOperation,
     post: registrarMovimientoManualOperation,
   },
+  '/api/movimientos/{id}': { delete: eliminarMovimientoManualOperation },
   '/api/buckets/{bucket}': { get: bucketsOperation },
   '/api/ingestas': { get: ingestasOperation, post: ingestaUploadOperation },
   '/api/auth/me': { get: authMeOperation },

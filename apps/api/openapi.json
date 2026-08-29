@@ -2379,6 +2379,35 @@
         "summary": "Register a manual movement (type-first: Ingreso or Gasto)"
       }
     },
+    "/api/movimientos/{id}": {
+      "delete": {
+        "description": "Authenticated endpoint that deletes a Transaccion owned by the calling user with origen='Manual' (correccion-movimientos-manuales, ADR-040). Ingesta-born rows are never individually deletable — delete the whole ingesta instead (DELETE /api/ingestas/:id). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
+        "parameters": [
+          {
+            "description": "Transaccion id (raw path param). Existence/ownership/provenance is checked by the use case, not this schema.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "Transaccion id (raw path param). Existence/ownership/provenance is checked by the use case, not this schema.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Movement deleted. No response body."
+          },
+          "403": {
+            "description": "The calling session is a demo session. Nothing is deleted."
+          },
+          "404": {
+            "description": "Anti-enumeration: the transaction does not exist, does not belong to the authenticated user, or is not origen='Manual' (ingesta-born rows collapse into this same response)."
+          }
+        },
+        "summary": "Delete a manual movement"
+      }
+    },
     "/api/patrones": {
       "post": {
         "description": "Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). Requires x-api-key + a valid session. Rejected for demo sessions.",
