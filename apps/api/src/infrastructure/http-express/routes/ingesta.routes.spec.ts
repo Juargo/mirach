@@ -10,6 +10,7 @@ import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuer
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
+import { appLogger } from '../../logging/app-logger';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
 import type { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
@@ -60,13 +61,18 @@ function probeApp(deps: {
   /** Folded into deps (not a positional boolean) — a bare trailing `true`
    * at a call site reads as a mystery flag; a named field is self-documenting. */
   esDemo?: boolean;
+  /** issue #507: deja `req.esDemo` SIN asignar — simula una request que
+   * llegó al handler sin pasar por `sessionMiddleware`. */
+  esDemoUnset?: boolean;
 }): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    req.esDemo = deps.esDemo ?? false;
+    if (!deps.esDemoUnset) {
+      req.esDemo = deps.esDemo ?? false;
+    }
     next();
   });
   registrarIngestas(router, {
@@ -171,6 +177,42 @@ describe('registrarIngestas — POST /api/ingestas', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    const res = await request(
+      probeApp({ processIngesta: uc, esDemoUnset: true }),
+    )
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }', async () => {
+    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    await request(probeApp({ processIngesta: uc, esDemo: true }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
+      path: '/ingestas',
+    });
+    warnSpy.mockRestore();
   });
 });
 
@@ -292,6 +334,40 @@ describe('registrarIngestas — DELETE /api/ingestas/:id', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    const res = await request(
+      probeApp({ eliminarIngesta: uc, esDemoUnset: true }),
+    ).delete('/api/ingestas/ing-1');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }', async () => {
+    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    await request(probeApp({ eliminarIngesta: uc, esDemo: true })).delete(
+      '/api/ingestas/ing-1',
+    );
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
+      path: '/ingestas/ing-1',
+    });
+    warnSpy.mockRestore();
   });
 });
 
@@ -602,5 +678,41 @@ describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    const res = await request(
+      probeApp({ commitIngesta: uc, esDemoUnset: true }),
+    )
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }', async () => {
+    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    await request(probeApp({ commitIngesta: uc, esDemo: true }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
+      path: '/ingestas/commit',
+    });
+    warnSpy.mockRestore();
   });
 });

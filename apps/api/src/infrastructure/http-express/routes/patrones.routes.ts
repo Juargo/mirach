@@ -7,6 +7,8 @@ import {
 } from '../schemas/patrones.schema';
 import { aPatronDto } from '../../http/dto/patron.dto';
 import { aCatalogoHttpError } from './catalogo-http-error';
+import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
+import { responderErrorTraducido } from './responder-error-traducido';
 
 const BODY_INVALIDO = {
   message: 'Cuerpo de la petición inválido.',
@@ -17,8 +19,15 @@ const BODY_INVALIDO = {
  * registrarPatrones — port de `/api/patrones` (US-038, CAT038-05/06/07).
  *
  * Mismas convenciones que `registrarCategorias`: `.safeParse()` a la
- * entrada (D-09), `req.esDemo` hilvanado en cada mutación (CAT038-08),
- * `aCatalogoHttpError` compartido para la traducción de errores.
+ * entrada (D-09), `esDemoDeSesion(req)` hilvanado en cada mutación
+ * (CAT038-08), `aCatalogoHttpError` compartido para la traducción de
+ * errores.
+ *
+ * `esDemoDeSesion(req)` (issue #507) reemplaza el `req.esDemo!` original —
+ * fail-closed en vez de non-null assertion. Toda respuesta de error pasa por
+ * `responderErrorTraducido` (issue #507, R2-WARNING del fan-out 4R) —
+ * chokepoint único que loguea `logDemoGateTrip` (ADR-033) cuando
+ * `code === 'DEMO_SOLO_LECTURA'`.
  */
 export function registrarPatrones(
   router: Router,
@@ -34,7 +43,7 @@ export function registrarPatrones(
 
       const result = await catalogo.crearPatron.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         categoriaId: parsed.data.categoriaId,
         patron: parsed.data.patron,
         matchType: parsed.data.matchType,
@@ -42,8 +51,11 @@ export function registrarPatrones(
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aCatalogoHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(
+          res,
+          req,
+          aCatalogoHttpError(result.getError()),
+        );
         return;
       }
 
@@ -64,7 +76,7 @@ export function registrarPatrones(
 
       const result = await catalogo.actualizarPatron.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         id: parsedParams.data.id,
         patron: parsedBody.data.patron,
         matchType: parsedBody.data.matchType,
@@ -72,8 +84,11 @@ export function registrarPatrones(
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aCatalogoHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(
+          res,
+          req,
+          aCatalogoHttpError(result.getError()),
+        );
         return;
       }
 
@@ -93,13 +108,16 @@ export function registrarPatrones(
 
       const result = await catalogo.eliminarPatron.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         id: parsedParams.data.id,
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aCatalogoHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(
+          res,
+          req,
+          aCatalogoHttpError(result.getError()),
+        );
         return;
       }
 

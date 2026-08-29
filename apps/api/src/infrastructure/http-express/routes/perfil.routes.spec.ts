@@ -8,6 +8,7 @@ import { PerfilDemoSoloLecturaError } from '../../../domain/errors/perfil-demo-s
 import { NombrePerfilInvalidoError } from '../../../domain/errors/nombre-perfil-invalido.error';
 import { EmailInvalidoError } from '../../../domain/errors/email-invalido.error';
 import { PasswordInvalidaError } from '../../../domain/errors/password-invalida.error';
+import { appLogger } from '../../logging/app-logger';
 import type { ActualizarPerfilUseCase } from '../../../application/use-cases/actualizar-perfil.use-case';
 import type { CambiarPasswordUseCase } from '../../../application/use-cases/cambiar-password.use-case';
 
@@ -24,13 +25,19 @@ function app(
   cambiarPassword: Pick<CambiarPasswordUseCase, 'execute'> = {
     execute: vi.fn(),
   },
+  /** issue #507: `true` deja `req.esDemo` SIN asignar — simula una request
+   * que llegó al handler sin pasar por `sessionMiddleware` (refactor futuro,
+   * sesión malformada). */
+  esDemoUnset = false,
 ): Express {
   const expressApp = express();
   expressApp.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    req.esDemo = false;
+    if (!esDemoUnset) {
+      req.esDemo = false;
+    }
     req.sessionTokenHash = 'hash-de-la-sesion-actual';
     next();
   });
@@ -135,6 +142,38 @@ describe('registrarPerfil — PATCH /api/perfil', () => {
 
     expect(JSON.stringify(res.body)).not.toContain('sneaky-value-12345');
   });
+
+  it('issue #507: req.esDemo undefined ⇒ fail-closed (esDemoDeSesion) — el use case recibe esDemo: true, nunca undefined', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new PerfilDemoSoloLecturaError())),
+    };
+    const res = await request(app(uc, undefined, true))
+      .patch('/api/perfil')
+      .send({ nombre: 'Jorge' });
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }, nunca el body', async () => {
+    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new PerfilDemoSoloLecturaError())),
+    };
+    await request(app(uc)).patch('/api/perfil').send({ nombre: 'Jorge' });
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
+      path: '/perfil',
+    });
+    warnSpy.mockRestore();
+  });
 });
 
 describe('registrarPerfil — PATCH /api/perfil/password', () => {
@@ -201,5 +240,41 @@ describe('registrarPerfil — PATCH /api/perfil/password', () => {
 
     expect(res.status).toBe(status);
     expect(res.body.code).toBe(code);
+  });
+
+  it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+    const actualizarPerfil = { execute: vi.fn() };
+    const cambiarPassword = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new PerfilDemoSoloLecturaError())),
+    };
+    const res = await request(app(actualizarPerfil, cambiarPassword, true))
+      .patch('/api/perfil/password')
+      .send(BODY);
+
+    expect(cambiarPassword.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }', async () => {
+    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+    const actualizarPerfil = { execute: vi.fn() };
+    const cambiarPassword = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new PerfilDemoSoloLecturaError())),
+    };
+    await request(app(actualizarPerfil, cambiarPassword))
+      .patch('/api/perfil/password')
+      .send(BODY);
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
+      path: '/perfil/password',
+    });
+    warnSpy.mockRestore();
   });
 });

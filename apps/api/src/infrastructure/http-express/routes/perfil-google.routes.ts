@@ -7,6 +7,8 @@ import {
 } from '../schemas/perfil-google.schema';
 import { firmarLinkIntent } from '../../http/auth/link-intent';
 import { serializeOauthCookie } from '../../http/auth/oauth-transient-cookie';
+import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
+import { responderErrorTraducido } from './responder-error-traducido';
 import { aPerfilHttpError } from './perfil-http-error';
 
 const BODY_INVALIDO = {
@@ -33,9 +35,17 @@ export interface PerfilGoogleDeps {
  * para el otro lado del gate y por qué existe).
  *
  * `.safeParse()` en el boundary; un fallo NUNCA ecoa el body ni los issues
- * de Zod (mismo idioma que `registrarPerfil`). `esDemo`/`userId` se hilvanan
- * SIEMPRE desde `req` (sesión), nunca desde el body — el schema `.strict()`
- * ya rechaza un `userId` extra, esto es la segunda barrera.
+ * de Zod (mismo idioma que `registrarPerfil`). `esDemoDeSesion(req)`/`userId`
+ * se hilvanan SIEMPRE desde `req` (sesión), nunca desde el body — el schema
+ * `.strict()` ya rechaza un `userId` extra, esto es la segunda barrera.
+ *
+ * `esDemoDeSesion(req)` (issue #507) reemplaza el `req.esDemo!` original —
+ * fail-closed (`req.esDemo ?? true`) en vez de una non-null assertion que no
+ * protege nada si `sessionMiddleware` alguna vez no corriera. La respuesta
+ * de error pasa por `responderErrorTraducido` (issue #507, R2-WARNING del
+ * fan-out 4R) — chokepoint único que loguea `logDemoGateTrip` (ADR-033)
+ * cuando `code === 'DEMO_SOLO_LECTURA'`, mismo idioma que
+ * `registrarPerfil`/`registrarCategorias`/`registrarPatrones`.
  *
  * **La ruta es dueña de todo lo que el use case no debe conocer (D-01,
  * G1-G6, design §4.1)**: firma el link-intent con `linkIntentKey` sobre el
@@ -60,13 +70,12 @@ export function registrarPerfilGoogleVincular(
 
       const result = await iniciarVinculacion.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         passwordActual: parsed.data.passwordActual,
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aPerfilHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(res, req, aPerfilHttpError(result.getError()));
         return;
       }
 
@@ -127,8 +136,14 @@ export function registrarPerfilGoogleVincularDeshabilitado(
  * discovery, así que no hay nada que gatear.
  *
  * Mismo idioma que `registrarPerfilGoogleVincular`: `.safeParse()` en el
- * boundary, nunca ecoa el body ni los issues de Zod; `esDemo`/`userId`
- * siempre desde `req` (sesión), nunca desde el body.
+ * boundary, nunca ecoa el body ni los issues de Zod; `esDemoDeSesion(req)`/
+ * `userId` siempre desde `req` (sesión), nunca desde el body.
+ *
+ * `esDemoDeSesion(req)` (issue #507) reemplaza el `req.esDemo!` original —
+ * fail-closed en vez de non-null assertion. La respuesta de error pasa por
+ * `responderErrorTraducido` (issue #507, R2-WARNING del fan-out 4R) —
+ * chokepoint único que loguea `logDemoGateTrip` (ADR-033) cuando
+ * `code === 'DEMO_SOLO_LECTURA'`.
  *
  * Recibe el `PerfilGraph` completo (mirrors `registrarPerfil`) — no solo el
  * use case — y lo destructura DENTRO del handler, no al montar la ruta: un
@@ -149,13 +164,12 @@ export function registrarPerfilGoogleDesvincular(
 
       const result = await perfil.desvincularGoogle.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         passwordActual: parsed.data.passwordActual,
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aPerfilHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(res, req, aPerfilHttpError(result.getError()));
         return;
       }
 

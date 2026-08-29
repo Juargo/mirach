@@ -7,6 +7,7 @@ import { CatalogoDemoSoloLecturaError } from '../../../domain/errors/catalogo-de
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
+import { appLogger } from '../../logging/app-logger';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 
 const PATRON_OK = {
@@ -34,13 +35,20 @@ function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
   } as unknown as CatalogoGraph;
 }
 
-function probeApp(catalogo: CatalogoGraph, esDemo = false): Express {
+/** `esDemo: 'unset'` (issue #507) deja `req.esDemo` SIN asignar — simula una
+ * request que llegó al handler sin pasar por `sessionMiddleware`. */
+function probeApp(
+  catalogo: CatalogoGraph,
+  esDemo: boolean | 'unset' = false,
+): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    req.esDemo = esDemo;
+    if (esDemo !== 'unset') {
+      req.esDemo = esDemo;
+    }
     next();
   });
   registrarPatrones(router, catalogo);
@@ -117,6 +125,50 @@ describe('registrarPatrones', () => {
 
       expect(res.status).toBe(403);
       expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+    });
+
+    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+      const catalogo = makeCatalogo({
+        crearPatron: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['crearPatron'],
+      });
+      const res = await request(probeApp(catalogo, 'unset'))
+        .post('/api/patrones')
+        .send({
+          categoriaId: 'cat-1',
+          patron: 'netflix',
+          matchType: 'CONTAINS',
+        });
+
+      expect(catalogo.crearPatron.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ esDemo: true }),
+      );
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+    });
+
+    it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }', async () => {
+      const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+      const catalogo = makeCatalogo({
+        crearPatron: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['crearPatron'],
+      });
+      await request(probeApp(catalogo)).post('/api/patrones').send({
+        categoriaId: 'cat-1',
+        patron: 'netflix',
+        matchType: 'CONTAINS',
+      });
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
+        path: '/patrones',
+      });
+      warnSpy.mockRestore();
     });
 
     it('404 CATEGORIA_NO_ENCONTRADA when the categoriaId is foreign or absent', async () => {
@@ -206,6 +258,25 @@ describe('registrarPatrones', () => {
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('PATRON_NO_ENCONTRADO');
     });
+
+    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+      const catalogo = makeCatalogo({
+        actualizarPatron: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['actualizarPatron'],
+      });
+      const res = await request(probeApp(catalogo, 'unset'))
+        .patch('/api/patrones/pat-1')
+        .send({ prioridad: 5 });
+
+      expect(catalogo.actualizarPatron.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ esDemo: true }),
+      );
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+    });
   });
 
   describe('DELETE /api/patrones/:id', () => {
@@ -240,6 +311,25 @@ describe('registrarPatrones', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('PATRON_NO_ENCONTRADO');
+    });
+
+    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+      const catalogo = makeCatalogo({
+        eliminarPatron: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['eliminarPatron'],
+      });
+      const res = await request(probeApp(catalogo, 'unset')).delete(
+        '/api/patrones/pat-1',
+      );
+
+      expect(catalogo.eliminarPatron.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ esDemo: true }),
+      );
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
     });
   });
 });
