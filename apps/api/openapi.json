@@ -1505,7 +1505,7 @@
   "info": {
     "description": "HTTP contract for the MoneyDiary Express API, sourced from Zod schemas (ADR-011 amend).",
     "title": "MoneyDiary API",
-    "version": "0.4.0"
+    "version": "0.4.1"
   },
   "openapi": "3.1.0",
   "paths": {

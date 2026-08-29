@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.1](https://github.com/Juargo/MoneyDiary/compare/api-v0.4.0...api-v0.4.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* **api:** fail-closed esDemo reads, gate-trip logging, systemic hardening ([f152f2d](https://github.com/Juargo/MoneyDiary/commit/f152f2d5ec97170f5d86f4222770e595270de22a))
+* **api:** fail-closed esDemo reads, gate-trip logging, systemic hardening ([02b9f9e](https://github.com/Juargo/MoneyDiary/commit/02b9f9ef245289b4a6ae15b7f54675cddd03c2d9))
+* **api:** server-side demo gate on all ingesta write surfaces ([ca3e1ee](https://github.com/Juargo/MoneyDiary/commit/ca3e1eefa6a2c7a0de08cb13158c344f551038ba))
+* **api:** server-side demo gate on all ingesta write surfaces ([8ded358](https://github.com/Juargo/MoneyDiary/commit/8ded3586522edcbfd11aceac1aa59a58b07bb381))
+
+
+### Documentation
+
+* **claude:** move API gotchas to apps/api/CLAUDE.md and trim root ([04e5c06](https://github.com/Juargo/MoneyDiary/commit/04e5c06a75efed054bcb44f7041327f7178a242f))
+* **claude:** move API gotchas to apps/api/CLAUDE.md and trim root ([4f096b0](https://github.com/Juargo/MoneyDiary/commit/4f096b0cc9ab1ae7bda70fd706485866532db15c))
+
 ## [0.4.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.3.0...api-v0.4.0) (2026-08-22)
 
 
