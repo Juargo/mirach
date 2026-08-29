@@ -42,7 +42,13 @@ export interface ObtenerIngresosMesResult {
   readonly transacciones: ReadonlyArray<TransaccionIngresoMes>;
 }
 
-/** Proyección recortada (D-02): `origen = fila.banco || 'Manual'` (MID-02). */
+/**
+ * Proyección recortada (D-02): `origen = fila.banco || 'Manual'` (MID-02).
+ * 1ª ocurrencia de este patrón — la 2ª es
+ * `recortarTransaccion` en `agrupar-detalle-por-categoria.ts`
+ * (correccion-movimientos-manuales, design D-02). Anotado por DRY (regla de
+ * los 3 strikes), no extraído todavía.
+ */
 function recortarTransaccionIngreso(
   fila: DetalleBucketRow,
 ): TransaccionIngresoMes {

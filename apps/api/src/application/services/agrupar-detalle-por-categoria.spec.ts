@@ -62,7 +62,7 @@ describe('agruparDetallePorCategoria', () => {
     expect(transporte?.conteo).toBe(1);
   });
 
-  it('gate PR1 (MBD-08/ADR-015): las transacciones del grupo son la proyección recortada {id, fecha, descripcion, monto} — sin PII de cuenta', () => {
+  it('gate PR1 (MBD-08/ADR-015): las transacciones del grupo son la proyección recortada {id, fecha, descripcion, origen, monto} — sin PII de cuenta (tipoCuenta/numeroCuenta)', () => {
     const filas = [
       makeRow({
         id: 'tx-1',
@@ -82,19 +82,33 @@ describe('agruparDetallePorCategoria', () => {
       id: 'tx-1',
       fecha: new Date('2026-07-03T00:00:00.000Z'),
       descripcion: 'Compra supermercado',
+      origen: 'BCI',
       monto: 90000n,
     });
-    // La PII del row de entrada (banco/tipoCuenta/numeroCuenta) jamás llega
-    // al output — el stringify es solo para inspeccionar claves, no el wire.
+    // La PII de CUENTA del row de entrada (tipoCuenta/numeroCuenta) jamás
+    // llega al output — el stringify es solo para inspeccionar claves, no el
+    // wire. `banco` SÍ sobrevive, pero solo como el valor de `origen`
+    // (D-02): es la señal `esManual` que WEB-DEL-01 necesita, no PII.
     const serialized = JSON.stringify(grupos, (_clave, valor) =>
       typeof valor === 'bigint' ? valor.toString() : valor,
     );
-    expect(serialized).not.toContain('banco');
     expect(serialized).not.toContain('tipoCuenta');
     expect(serialized).not.toContain('numeroCuenta');
-    expect(serialized).not.toContain('BCI');
     expect(serialized).not.toContain('Cuenta Corriente');
     expect(serialized).not.toContain('12345678');
+  });
+
+  it('D-02: origen = fila.banco verbatim; banco vacío (rama Manual dead-code en prod) cae a "Manual"', () => {
+    const filas = [
+      makeRow({ id: 'tx-1', banco: 'Santander' }),
+      makeRow({ id: 'tx-2', banco: '' }),
+    ];
+
+    const grupos = agruparDetallePorCategoria(filas);
+
+    const porId = new Map(grupos[0].transacciones.map((t) => [t.id, t.origen]));
+    expect(porId.get('tx-1')).toBe('Santander');
+    expect(porId.get('tx-2')).toBe('Manual');
   });
 
   it('filas con categoria null caen en el grupo sintético "Sin categoría" (categoriaId null)', () => {

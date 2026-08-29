@@ -24,12 +24,14 @@ interface FilaFuente {
   readonly numeroCuenta: string;
 }
 
-/** Símil del recorte del borde de aplicación: monto = cargo, PII descartada. */
+/** Símil del recorte del borde de aplicación: monto = cargo, origen = banco
+ *  verbatim (D-02), PII de cuenta (tipoCuenta/numeroCuenta) descartada. */
 function recortar(fila: FilaFuente): TransaccionDetalleBucketMes {
   return {
     id: fila.id,
     fecha: fila.fecha,
     descripcion: fila.descripcion,
+    origen: fila.banco || 'Manual',
     monto: fila.cargo,
   };
 }
@@ -130,24 +132,31 @@ describe('aDetalleBucketMesDto', () => {
     expect(dto.grupos[1].transacciones[0].monto).toBe(String(PII[2].cargo));
   });
 
-  it('MBD-08: la PII de cuenta (banco/tipoCuenta/numeroCuenta) está AUSENTE del DTO aunque las filas fuente la traían', () => {
+  it('MBD-08: la PII de CUENTA (tipoCuenta/numeroCuenta) está AUSENTE del DTO aunque las filas fuente la traían', () => {
     const dto = aDetalleBucketMesDto(makeResult());
 
-    // Claves exactas de la transacción wire: solo {id, fecha, descripcion, monto}.
+    // Claves exactas de la transacción wire: {id, fecha, descripcion, origen, monto}.
     expect(Object.keys(dto.grupos[0].transacciones[0])).toEqual([
       'id',
       'fecha',
       'descripcion',
+      'origen',
       'monto',
     ]);
-    // Ni las claves ni los VALORES PII de las filas fuente sobreviven al JSON.
+    // La PII de cuenta (tipoCuenta/numeroCuenta) no sobrevive al JSON. `BCI`
+    // SÍ sobrevive, pero solo como el valor de `origen` (D-02) — es la señal
+    // esManual/nombre-de-banco que WEB-DEL-01 necesita, no PII.
     const serialized = JSON.stringify(dto);
-    expect(serialized).not.toContain('banco');
     expect(serialized).not.toContain('tipoCuenta');
     expect(serialized).not.toContain('numeroCuenta');
-    expect(serialized).not.toContain('BCI');
     expect(serialized).not.toContain('Cuenta Corriente');
     expect(serialized).not.toContain('12345678');
+  });
+
+  it('D-02: origen viaja verbatim = String(fila.banco) — mismo mirror que TransaccionIngresoMes.origen', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+
+    expect(dto.grupos[0].transacciones[0].origen).toBe('BCI');
   });
 
   it('fecha via ISO-8601 UTC toISOString() (convención bloqueada, ver movimiento-mes.dto.ts)', () => {

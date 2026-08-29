@@ -26,9 +26,10 @@ export interface ObtenerDetalleBucketMesResult {
   readonly porcentajeBp: bigint | null;
   /** Objetivo 50/30/20 desde BANDAS_SEMAFORO; null cuando el bucket no tiene regla (D-05). */
   readonly metaBp: bigint | null;
-  /** Grupos por categoría — transacciones ALREADY recortadas sin PII en el
-   *  borde de aplicación (MBD-08, gate PR1): banco/tipoCuenta/numeroCuenta
-   *  no existen en este tipo. */
+  /** Grupos por categoría — transacciones ALREADY recortadas sin PII de
+   *  cuenta en el borde de aplicación (MBD-08, gate PR1): tipoCuenta/
+   *  numeroCuenta no existen en este tipo. `banco` SÍ sobrevive como
+   *  `origen` (D-02, correccion-movimientos-manuales). */
   readonly grupos: ReadonlyArray<GrupoDetalleCategoria>;
 }
 

@@ -26,17 +26,25 @@ export const bucketDetalleMesQuerySchema = z.object({
 });
 
 /**
- * Transaction entry in a category group (MBD-02): ONLY {id, fecha,
- * descripcion, monto} — `.strict()` hard-rejects any extra key (a stray
- * `banco`/`tipoCuenta`/`numeroCuenta` fails parse): MBD-08 becomes a wire
- * guarantee (additionalProperties: false in the generated OpenAPI), not just
- * a mapper discipline.
+ * Transaction entry in a category group (MBD-02): {id, fecha, descripcion,
+ * origen, monto} — `.strict()` hard-rejects any extra key (a stray
+ * `tipoCuenta`/`numeroCuenta` fails parse): MBD-08 becomes a wire guarantee
+ * (additionalProperties: false in the generated OpenAPI) for ACCOUNT PII,
+ * not just a mapper discipline. `origen` (bank name verbatim, or `'Manual'`)
+ * is deliberately part of the wire — it is the `esManual` signal WEB-DEL-01
+ * needs, mirroring `origen` on `IngresosMesDto` (D-02,
+ * correccion-movimientos-manuales).
  */
 const transaccionDetalleMesSchema = z
   .object({
     id: z.string(),
     fecha: z.string().describe('ISO-8601 UTC timestamp.'),
     descripcion: z.string(),
+    origen: z
+      .string()
+      .describe(
+        "Bank name verbatim, or 'Manual' for a hand-entered movement (D-02). Drives the delete affordance on manual rows (WEB-DEL-01).",
+      ),
     monto: z
       .string()
       .describe('BigInt-safe decimal string amount (never a JSON number).'),

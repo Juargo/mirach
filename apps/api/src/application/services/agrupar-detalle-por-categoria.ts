@@ -4,16 +4,24 @@ import { DetalleBucketRow } from '../ports/detalle-bucket.port';
  * TransaccionDetalleBucketMes — proyección de transacción del detalle
  * MES-BUCKET en el borde de la aplicación (US-051).
  *
- * Gate PR1 (MBD-08/ADR-015): SOLO {id, fecha, descripcion, monto} — la PII de
- * la cuenta (banco/tipoCuenta/numeroCuenta) se recorta AQUÍ, en el límite
+ * Gate PR1 (MBD-08/ADR-015): {id, fecha, descripcion, monto} — la PII de
+ * CUENTA (tipoCuenta/numeroCuenta) se recorta AQUÍ, en el límite
  * application/infrastructure, no en el DTO: cualquier caller del use case
  * nunca puede verla. `monto` = cargo del row (el DTO lo serializa como
- * String — D-06).
+ * String — D-06). `origen` se SUMA en PR2 (correccion-movimientos-manuales,
+ * design D-02): `banco` deja de recortarse y pasa como la señal
+ * `esManual`/nombre-de-banco que WEB-DEL-01 necesita para el control de
+ * borrado en la vista de gasto.
  */
 export interface TransaccionDetalleBucketMes {
   readonly id: string;
   readonly fecha: Date;
   readonly descripcion: string;
+  /** Nombre de banco verbatim, o `'Manual'` (D-02). Mirror EXACTO de
+   *  `TransaccionIngresoMes.origen` (`obtener-ingresos-mes.use-case.ts`) —
+   *  2ª ocurrencia de `fila.banco || 'Manual'`; anotado por DRY (regla de
+   *  los 3 strikes), no extraído todavía. */
+  readonly origen: string;
   /** Monto = cargo del row. El allowlist del use case excluye Ingreso, así
    *  que nunca hay abono aquí (D-08). BigInt hasta el DTO (CA-05). */
   readonly monto: bigint;
@@ -65,6 +73,10 @@ function recortarTransaccion(
     id: fila.id,
     fecha: fila.fecha,
     descripcion: fila.descripcion,
+    // El `||` compila sobre `banco: string` no-nullable y es runtime-safe:
+    // una fila hipotética con banco vacío cae a la rama Manual (D-02, 2ª
+    // ocurrencia — ver `obtener-ingresos-mes.use-case.ts`).
+    origen: fila.banco || 'Manual',
     monto: fila.cargo,
   };
 }
