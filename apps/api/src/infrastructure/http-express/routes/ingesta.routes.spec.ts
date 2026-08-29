@@ -9,6 +9,7 @@ import { CategorizacionFallidaError } from '../../../domain/errors/categorizacio
 import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
+import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
 import type { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
@@ -56,12 +57,16 @@ function probeApp(deps: {
   listarIngestas?: ListarDoble;
   previewIngesta?: PreviewDoble;
   commitIngesta?: CommitDoble;
+  /** Folded into deps (not a positional boolean) — a bare trailing `true`
+   * at a call site reads as a mystery flag; a named field is self-documenting. */
+  esDemo?: boolean;
 }): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
+    req.esDemo = deps.esDemo ?? false;
     next();
   });
   registrarIngestas(router, {
@@ -142,6 +147,31 @@ describe('registrarIngestas — POST /api/ingestas', () => {
 
     expect(res.status).toBe(500);
   });
+
+  it('issue #500: threads req.esDemo into the use case input', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(INGESTA_OK)) };
+    await request(probeApp({ processIngesta: uc, esDemo: true }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+  });
+
+  it('issue #500: 403 DEMO_SOLO_LECTURA when the use case rejects a demo session', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    const res = await request(probeApp({ processIngesta: uc, esDemo: true }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
 });
 
 describe('registrarIngestas — GET /api/ingestas', () => {
@@ -212,6 +242,7 @@ describe('registrarIngestas — DELETE /api/ingestas/:id', () => {
     expect(res.body).toEqual({});
     expect(uc.execute).toHaveBeenCalledWith({
       userId: 'user-x',
+      esDemo: false,
       ingestaId: 'ing-1',
     });
   });
@@ -236,6 +267,31 @@ describe('registrarIngestas — DELETE /api/ingestas/:id', () => {
     );
 
     expect(res.status).toBe(500);
+  });
+
+  it('issue #500: threads req.esDemo into the use case input', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(undefined)) };
+    await request(probeApp({ eliminarIngesta: uc, esDemo: true })).delete(
+      '/api/ingestas/ing-1',
+    );
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+  });
+
+  it('issue #500: 403 DEMO_SOLO_LECTURA when the use case rejects a demo session', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    const res = await request(
+      probeApp({ eliminarIngesta: uc, esDemo: true }),
+    ).delete('/api/ingestas/ing-1');
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
   });
 });
 
@@ -521,5 +577,30 @@ describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
       .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
 
     expect(res.status).toBe(500);
+  });
+
+  it('issue #500: threads req.esDemo into the use case input', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(COMMIT_OK)) };
+    await request(probeApp({ commitIngesta: uc, esDemo: true }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ esDemo: true }),
+    );
+  });
+
+  it('issue #500: 403 DEMO_SOLO_LECTURA when the use case rejects a demo session', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new IngestaDemoSoloLecturaError())),
+    };
+    const res = await request(probeApp({ commitIngesta: uc, esDemo: true }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
   });
 });

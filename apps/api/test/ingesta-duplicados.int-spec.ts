@@ -150,6 +150,7 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
     const result = await processIngesta.execute({
       fileReader: new BufferFileReader(buffer, nombreArchivo),
       userId: USER_ID,
+      esDemo: false,
     });
 
     expect(result.isOk()).toBe(true);
@@ -184,6 +185,7 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
     const result = await processIngesta.execute({
       fileReader: new BufferFileReader(buffer, nombreArchivo),
       userId: USER_ID,
+      esDemo: false,
     });
 
     expect(result.isOk()).toBe(true);

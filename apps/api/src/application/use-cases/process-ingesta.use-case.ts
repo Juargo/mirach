@@ -9,6 +9,7 @@ import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
+import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
 import { IAccountRepository } from '../ports/account-repository.port';
@@ -28,6 +29,8 @@ import { ILogger } from '../ports/logger.port';
 export interface ProcessIngestaInput {
   fileReader: IFileReader;
   userId: string;
+  /** Demo gate (issue #500) — una sesión demo no puede escribir. */
+  esDemo: boolean;
 }
 
 /** Resumen opcional del paso de categorización (non-breaking). */
@@ -51,6 +54,7 @@ export interface ProcessIngestaResult {
 
 /** Unión de los errores que puede producir cualquier paso del pipeline. */
 export type ProcessIngestaError =
+  | IngestaDemoSoloLecturaError
   | ExtensionNoPermitidaError
   | BancoNoReconocidoError
   | PersistenciaFallidaError
@@ -108,6 +112,12 @@ export class ProcessIngestaUseCase {
   async execute(
     input: ProcessIngestaInput,
   ): Promise<Result<ProcessIngestaResult, ProcessIngestaError>> {
+    // Demo gate (issue #500) — corta ANTES de tocar el pipeline: ni
+    // siquiera se registra un intento FALLIDA para una sesión demo.
+    if (input.esDemo) {
+      return Result.fail(new IngestaDemoSoloLecturaError());
+    }
+
     try {
       const result = await this.runPipeline(input);
       if (result.isFail()) {

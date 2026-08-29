@@ -33,6 +33,7 @@ import { EdicionesInvalidasError } from '../../../domain/errors/ediciones-invali
 import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
+import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -63,6 +64,14 @@ export interface IngestaRoutesDeps {
  * Errores de validación del archivo del cliente → 400; fallo de infra
  * (persistencia) → 500. Todos los mensajes son seguros (nunca interpolan montos
  * ni datos crudos). El userId viene del session middleware.
+ *
+ * Demo gate (issue #500): las 3 superficies de escritura (POST one-shot,
+ * POST /commit, DELETE) rechazan una sesión demo con 403 DEMO_SOLO_LECTURA
+ * ANTES de cualquier side-effect — el gate vive en cada use case
+ * (`IngestaDemoSoloLecturaError`, mirrors `*DemoSoloLecturaError` de
+ * perfil/catálogo), este handler solo hilvana `req.esDemo` y mapea el
+ * error. POST /preview NO gatea — es un dry-run de solo lectura (no
+ * persiste nada, ver `PreviewIngestaUseCase`).
  */
 export function registrarIngestas(
   router: Router,
@@ -83,11 +92,12 @@ export function registrarIngestas(
       const result = await deps.processIngesta.execute({
         fileReader,
         userId: req.userId!,
+        esDemo: req.esDemo!,
       });
 
       if (result.isFail()) {
-        const { status, message } = aHttpError(result.getError());
-        res.status(status).json({ message });
+        const { status, message, code } = aHttpError(result.getError());
+        res.status(status).json(code ? { message, code } : { message });
         return;
       }
 
@@ -167,12 +177,13 @@ export function registrarIngestas(
         const result = await deps.commitIngesta.execute({
           fileReader,
           userId: req.userId!,
+          esDemo: req.esDemo!,
           edits: editsResult.getValue(),
         });
 
         if (result.isFail()) {
-          const { status, message } = aCommitHttpError(result.getError());
-          res.status(status).json({ message });
+          const { status, message, code } = aCommitHttpError(result.getError());
+          res.status(status).json(code ? { message, code } : { message });
           return;
         }
 
@@ -196,11 +207,19 @@ export function registrarIngestas(
     try {
       const result = await deps.eliminarIngesta.execute({
         userId: req.userId!,
+        esDemo: req.esDemo!,
         ingestaId: req.params.id,
       });
 
       if (result.isFail()) {
         const error = result.getError();
+        if (error instanceof IngestaDemoSoloLecturaError) {
+          res.status(403).json({
+            message: error.message,
+            code: 'DEMO_SOLO_LECTURA',
+          });
+          return;
+        }
         if (error instanceof IngestaNoEncontradaError) {
           res.status(404).json({
             message:
@@ -306,7 +325,13 @@ function subirArchivoConEdits(): RequestHandler {
 function aCommitHttpError(error: CommitIngestaError): {
   status: number;
   message: string;
+  code?: string;
 } {
+  // Demo gate (403, issue #500) — mismo código DEMO_SOLO_LECTURA que
+  // perfil/catálogo (aPerfilHttpError/aCatalogoHttpError).
+  if (error instanceof IngestaDemoSoloLecturaError) {
+    return { status: 403, message: error.message, code: 'DEMO_SOLO_LECTURA' };
+  }
   // Infrastructure errors → 500
   if (error instanceof PersistenciaFallidaError) {
     return { status: 500, message: error.message };
@@ -343,7 +368,14 @@ function aCommitHttpError(error: CommitIngestaError): {
 function aHttpError(error: ProcessIngestaError): {
   status: number;
   message: string;
+  code?: string;
 } {
+  if (error instanceof IngestaDemoSoloLecturaError) {
+    // Demo gate (403, issue #500) — solo alcanzable desde POST /ingestas
+    // (one-shot); PreviewIngestaError no incluye esta variante (dry-run,
+    // no gatea).
+    return { status: 403, message: error.message, code: 'DEMO_SOLO_LECTURA' };
+  }
   if (error instanceof PersistenciaFallidaError) {
     // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
     return { status: 500, message: error.message };
