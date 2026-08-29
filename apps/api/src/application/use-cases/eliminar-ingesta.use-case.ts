@@ -1,7 +1,13 @@
 import { Result } from '../../shared/result';
 import { IngestaNoEncontradaError } from '../../domain/errors/ingesta-no-encontrada.error';
+import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { IEliminarIngestaWriter } from '../ports/eliminar-ingesta.port';
 import { ILogger } from '../ports/logger.port';
+
+/** Unión de errores de `EliminarIngestaUseCase` (issue #500: demo gate). */
+export type EliminarIngestaError =
+  | IngestaDemoSoloLecturaError
+  | IngestaNoEncontradaError;
 
 /**
  * EliminarIngestaUseCase — use case de escritura para el borrado en cascada
@@ -12,6 +18,9 @@ import { ILogger } from '../ports/logger.port';
  * ReclasificarTransaccionUseCase menos el paso de validación de input — el
  * borrado no tiene input que validar más allá del `userId` de sesión y el
  * `:id` del path.
+ *
+ * Demo gate (issue #500, mirrors `EliminarCategoriaUseCase`): una sesión
+ * demo corta ANTES de tocar el writer — ni siquiera se intenta la cascada.
  */
 export class EliminarIngestaUseCase {
   constructor(
@@ -21,8 +30,14 @@ export class EliminarIngestaUseCase {
 
   async execute(input: {
     userId: string;
+    /** Demo gate (issue #500) — una sesión demo no puede escribir. */
+    esDemo: boolean;
     ingestaId: string;
-  }): Promise<Result<void, IngestaNoEncontradaError>> {
+  }): Promise<Result<void, EliminarIngestaError>> {
+    if (input.esDemo) {
+      return Result.fail(new IngestaDemoSoloLecturaError());
+    }
+
     const result = await this.writer.eliminarConTransacciones(
       input.userId,
       input.ingestaId,

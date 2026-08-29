@@ -311,6 +311,7 @@ describe('US-057 CA-06.P — user isolation in preview dedup (PREV-EXT-01, RNF-S
         `isolation-a-${RUN_ID}.xlsx`,
       ),
       userId: USER_A,
+      esDemo: false,
     });
     expect(resultA.isOk()).toBe(true);
     const { total: totalA } = resultA.getValue();
@@ -436,6 +437,7 @@ describe('US-057 CA-06 — commit isolation: cross-tenant categoriaId rejected (
       ),
       userId: USER_B,
       edits: [{ rowIndex: 0, categoriaId: catIdBelongingToA }],
+      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -514,6 +516,7 @@ describe('US-057 CA-03 — dedup-at-commit: second commit omits duplicates witho
       fileReader: new BufferFileReader(xlsxBuffer, `ca03-first-${RUN_ID}.xlsx`),
       userId: USER_ID,
       edits: [],
+      esDemo: false,
     });
     expect(firstResult.isOk()).toBe(true);
     const { totalTransacciones: firstTotal, duplicadosOmitidos: firstDups } =
@@ -543,6 +546,7 @@ describe('US-057 CA-03 — dedup-at-commit: second commit omits duplicates witho
       ),
       userId: USER_ID,
       edits: [],
+      esDemo: false,
     });
     expect(secondResult.isOk()).toBe(true);
     const { totalTransacciones: secondTotal, duplicadosOmitidos: secondDups } =
@@ -668,6 +672,7 @@ describe('US-057 CA-02 — overlay persistence: committed rows carry categoriaId
       ),
       userId: seedUserId,
       edits: [{ rowIndex: 0, categoriaId: catId }],
+      esDemo: false,
     });
     expect(result.isOk()).toBe(true);
     const { ingestaId } = result.getValue();
@@ -766,6 +771,7 @@ describe('US-057 catalog-down — commit with findAll failure persists nothing (
       ),
       userId: USER_ID,
       edits: [],
+      esDemo: false,
     });
 
     // Commit must fail — catalog load is REQUIRED (fail-closed, D-10).
@@ -862,6 +868,7 @@ describe('US-057 §7 TDD constraint b — one-shot regression guard (DB-level)',
           `one-shot-guard-${RUN_ID}.xlsx`,
         ),
         userId: USER_ID,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1073,6 +1080,7 @@ describe('US-057 CA-06 historial — commit registers PROCESADA; pipeline failur
       fileReader: new BufferFileReader(xlsxBuffer, `hist-ok-${RUN_ID}.xlsx`),
       userId: USER_ID,
       edits: [],
+      esDemo: false,
     });
     expect(result.isOk()).toBe(true);
     const { ingestaId, totalTransacciones } = result.getValue();
@@ -1101,6 +1109,7 @@ describe('US-057 CA-06 historial — commit registers PROCESADA; pipeline failur
       fileReader: new BufferFileReader(xlsBuffer, `hist-fail-${RUN_ID}.xls`),
       userId: USER_ID,
       edits: [],
+      esDemo: false,
     });
     expect(result.isFail()).toBe(true);
 

@@ -82,6 +82,8 @@ async function main(): Promise<void> {
     const result = await processIngesta.execute({
       fileReader,
       userId: USER_ID_FIJO,
+      // CLI: nunca es una sesión demo (issue #500).
+      esDemo: false,
     });
 
     if (result.isFail()) {

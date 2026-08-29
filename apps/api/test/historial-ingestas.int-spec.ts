@@ -146,6 +146,7 @@ describe('Historial de ingestas (US-004, integration — real dev DB)', () => {
       const result = await processIngesta.execute({
         fileReader: new BufferFileReader(buffer, nombreArchivo),
         userId: USER_A,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -170,6 +171,7 @@ describe('Historial de ingestas (US-004, integration — real dev DB)', () => {
       const result = await processIngesta.execute({
         fileReader: new BufferFileReader(buffer, nombreArchivo),
         userId: USER_A,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);

@@ -72,6 +72,7 @@ import type {
   CrearIngestaProcesadaInput,
 } from '../ports/ingesta-repository.port';
 import type { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { NoOpLogger } from '../../../test/support/logger.double';
 
 // ---------------------------------------------------------------------------
@@ -402,6 +403,24 @@ const NO_EDITS: CommitEdit[] = [];
 // ---------------------------------------------------------------------------
 
 describe('CommitIngestaUseCase', () => {
+  it('issue #500: el demo gate corta ANTES del pipeline — sin FALLIDA registrada, nada persistido', async () => {
+    const ingestaRepo = new FakeIngestaRepository();
+    const fallidaWriter = new FakeFallidaWriter();
+    const { sut } = buildSut({ ingestaRepo, fallidaWriter });
+
+    const result = await sut.execute({
+      fileReader: FILE_READER,
+      userId: USUARIO_ID,
+      esDemo: true,
+      edits: NO_EDITS,
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(IngestaDemoSoloLecturaError);
+    expect(ingestaRepo.calls).toHaveLength(0);
+    expect(fallidaWriter.calls).toHaveLength(0);
+  });
+
   // --------------------------------------------------------------------------
   // (a) Overlay applied PRE-PERSIST — bucket domain enum, FK resolved by adapter
   // --------------------------------------------------------------------------
@@ -421,6 +440,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -455,6 +475,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -502,6 +523,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -565,6 +587,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -584,6 +607,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -608,6 +632,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true); // silently ignored, not an error
@@ -626,6 +651,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -651,6 +677,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -675,6 +702,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -698,6 +726,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -717,6 +746,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -748,6 +778,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       // Must succeed (in-range duplicate overlay silently dropped — D-11a)
@@ -776,6 +807,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -805,6 +837,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true); // accepted — own categoria
@@ -822,6 +855,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -847,6 +881,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -865,6 +900,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -895,6 +931,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -919,6 +956,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -942,6 +980,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(accountRepo.called).toBe(true);
@@ -964,6 +1003,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -982,6 +1022,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1003,6 +1044,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1018,6 +1060,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1038,6 +1081,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1057,6 +1101,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(fallidaWriter.calls).toHaveLength(0); // NO FALLIDA
@@ -1077,6 +1122,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(PersistenciaFallidaError);
@@ -1100,6 +1146,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1128,6 +1175,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1159,6 +1207,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1185,6 +1234,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits: NO_EDITS,
+        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1212,6 +1262,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1233,6 +1284,7 @@ describe('CommitIngestaUseCase', () => {
         fileReader: FILE_READER,
         userId: USUARIO_ID,
         edits,
+        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);

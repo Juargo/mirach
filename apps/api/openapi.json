@@ -2046,7 +2046,7 @@
       },
       "post": {
         "deprecated": true,
-        "description": "Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.",
+        "description": "Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -2081,6 +2081,9 @@
           "400": {
             "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
           },
+          "403": {
+            "description": "The calling session is a demo session (issue #500)."
+          },
           "500": {
             "description": "Persistence failure (infrastructure fault, not the uploaded file)."
           }
@@ -2090,7 +2093,7 @@
     },
     "/api/ingestas/{id}": {
       "delete": {
-        "description": "Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "description": "Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
         "parameters": [
           {
             "description": "Ingesta id (raw path param). Existence/ownership is checked by the use case, not this schema.",
@@ -2107,6 +2110,9 @@
           "204": {
             "description": "Ingesta deleted. No response body."
           },
+          "403": {
+            "description": "The calling session is a demo session (issue #500). Nothing is deleted."
+          },
           "404": {
             "description": "Anti-enumeration: the ingesta does not exist or does not belong to the authenticated user."
           }
@@ -2116,7 +2122,7 @@
     },
     "/api/ingestas/commit": {
       "post": {
-        "description": "Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).",
+        "description": "Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).",
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -2154,6 +2160,9 @@
           },
           "400": {
             "description": "Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits (EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). Nothing is persisted. Amounts are scrubbed from every error message (ADR-013)."
+          },
+          "403": {
+            "description": "The calling session is a demo session (issue #500). Nothing is persisted."
           },
           "500": {
             "description": "Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure (PersistenciaFallidaError / CategorizacionFallidaError). Retryable."

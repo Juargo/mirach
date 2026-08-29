@@ -236,7 +236,7 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
   description:
     'Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and ' +
     'categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session ' +
-    '(RNF-SEC-006, per-user isolation). ' +
+    '(RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA). ' +
     'DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step ' +
     'POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by ' +
     'US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.',
@@ -256,6 +256,9 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
       description:
         'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
         'structure/normalization, or an oversized file (>10 MB).',
+    },
+    '403': {
+      description: 'The calling session is a demo session (issue #500).',
     },
     '500': {
       description:
@@ -316,6 +319,7 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     'counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). ' +
     'Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the ' +
     'transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
+    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA). ' +
     'Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 ' +
     'and persist nothing (D-03/D-04/D-10).',
   requestBody: {
@@ -337,6 +341,10 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
         '(EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). ' +
         'Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
     },
+    '403': {
+      description:
+        'The calling session is a demo session (issue #500). Nothing is persisted.',
+    },
     '500': {
       description:
         'Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure ' +
@@ -349,13 +357,18 @@ const ingestaDeleteOperation: ZodOpenApiOperationObject = {
   summary: 'Delete an ingesta',
   description:
     'Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
+    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
   requestParams: {
     path: ingestaDeletePathParamsSchema,
   },
   responses: {
     '204': {
       description: 'Ingesta deleted. No response body.',
+    },
+    '403': {
+      description:
+        'The calling session is a demo session (issue #500). Nothing is deleted.',
     },
     '404': {
       description:

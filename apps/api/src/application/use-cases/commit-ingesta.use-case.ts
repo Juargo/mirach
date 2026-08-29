@@ -13,6 +13,7 @@ import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-f
 import { RowIndexFueraDeRangoError } from '../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../domain/errors/categoria-fuera-de-catalogo.error';
 import { EdicionesInvalidasError } from '../../domain/errors/ediciones-invalidas.error';
+import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import type { IFileReader } from '../ports/file-reader.port';
 import type { IAccountRepository } from '../ports/account-repository.port';
 import type { ICatalogoClasificacion } from '../ports/catalogo-clasificacion.port';
@@ -46,6 +47,8 @@ export interface CommitEdit {
 export interface CommitIngestaInput {
   readonly fileReader: IFileReader;
   readonly userId: string;
+  /** Demo gate (issue #500) — una sesión demo no puede escribir. */
+  readonly esDemo: boolean;
   /** Parsed, shape-valid overlay (edits). Empty array = commit with no overrides. */
   readonly edits: ReadonlyArray<CommitEdit>;
 }
@@ -76,6 +79,8 @@ export interface CommitIngestaResult {
  * Used by the route's `aCommitHttpError` for exhaustive `never` guard.
  */
 export type CommitIngestaError =
+  // Demo gate (403, issue #500)
+  | IngestaDemoSoloLecturaError
   // Pipeline errors (400)
   | ExtensionNoPermitidaError
   | BancoNoReconocidoError
@@ -154,6 +159,12 @@ export class CommitIngestaUseCase {
   async execute(
     input: CommitIngestaInput,
   ): Promise<Result<CommitIngestaResult, CommitIngestaError>> {
+    // Demo gate (issue #500) — corta ANTES de tocar el pipeline: ni
+    // siquiera se registra un intento FALLIDA para una sesión demo.
+    if (input.esDemo) {
+      return Result.fail(new IngestaDemoSoloLecturaError());
+    }
+
     // OUTER backstop — catches unexpected mid-flight explosions AFTER pipeline succeeds.
     // If we reach here before the pipeline completes, we still try to register FALLIDA
     // using input.fileReader.getOriginalName() (same fallback as ProcessIngestaUseCase).
