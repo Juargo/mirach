@@ -17,6 +17,7 @@ import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-m
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
 import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingesta.use-case';
+import { EliminarMovimientoManualUseCase } from '../application/use-cases/eliminar-movimiento-manual.use-case';
 import { ListarIngestasUseCase } from '../application/use-cases/listar-ingestas.use-case';
 import { LoginRateLimiter } from '../infrastructure/http/auth/login-rate-limiter';
 import { IpRateLimiter } from '../infrastructure/http/auth/ip-rate-limiter';
@@ -42,6 +43,7 @@ import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/pri
 import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/prisma-movimientos-mes.repository';
 import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
+import { PrismaEliminarMovimientoManualRepository } from '../infrastructure/persistence/prisma-eliminar-movimiento-manual.repository';
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
 import { AesGcmCryptoService } from '../infrastructure/persistence/aes-gcm-crypto.service';
 import { HmacBlindIndexService } from '../infrastructure/persistence/hmac-blind-index.service';
@@ -101,6 +103,10 @@ export interface Container {
   readonly registrarMovimientoManual: RegistrarMovimientoManualUseCase;
   /** Borrado en cascada userId-isolado — DELETE /api/ingestas/:id. */
   readonly eliminarIngesta: EliminarIngestaUseCase;
+  /** Borrado de un movimiento manual propio (correccion-movimientos-manuales,
+   * ADR-040) — DELETE /api/movimientos/:id. Gate: `{id, origen: 'Manual',
+   * account: {userId}}`, sin `$transaction` (hoja, sin cascada). */
+  readonly eliminarMovimientoManual: EliminarMovimientoManualUseCase;
   /** Listado de ingestas del usuario — GET /api/ingestas. */
   readonly listarIngestas: ListarIngestasUseCase;
   /** Catálogo CRUD (US-038) — `/api/categorias` + `/api/patrones`. */
@@ -275,6 +281,10 @@ export function createContainer(
     new PrismaEliminarIngestaRepository(prisma),
     logger,
   );
+  const eliminarMovimientoManual = new EliminarMovimientoManualUseCase(
+    new PrismaEliminarMovimientoManualRepository(prisma),
+    logger,
+  );
   const listarIngestas = new ListarIngestasUseCase(
     new PrismaListarIngestasReader(prisma),
     logger,
@@ -299,6 +309,7 @@ export function createContainer(
     commitIngesta,
     registrarMovimientoManual,
     eliminarIngesta,
+    eliminarMovimientoManual,
     listarIngestas,
     catalogo,
     perfil,

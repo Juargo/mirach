@@ -16,6 +16,7 @@ import { registrarIngresosMes } from './routes/ingresos.routes';
 import {
   registrarMovimientos,
   registrarMovimientoManual,
+  registrarEliminarMovimientoManual,
 } from './routes/movimientos.routes';
 import { registrarTransacciones } from './routes/transacciones.routes';
 import { registrarIngestas } from './routes/ingesta.routes';
@@ -181,6 +182,10 @@ export function createApp(container: Container, env: Env): Express {
   registrarIngresosMes(protectedApi, container.obtenerIngresosMes);
   registrarMovimientos(protectedApi, container.obtenerMovimientosMes);
   registrarMovimientoManual(protectedApi, container.registrarMovimientoManual);
+  registrarEliminarMovimientoManual(
+    protectedApi,
+    container.eliminarMovimientoManual,
+  );
   registrarTransacciones(protectedApi, container.reclasificarTransaccion);
   registrarIngestas(protectedApi, {
     processIngesta: container.processIngesta,

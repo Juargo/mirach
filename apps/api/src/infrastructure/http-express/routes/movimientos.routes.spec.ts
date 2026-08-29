@@ -3,6 +3,7 @@ import request from 'supertest';
 import {
   registrarMovimientos,
   registrarMovimientoManual,
+  registrarEliminarMovimientoManual,
 } from './movimientos.routes';
 import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
@@ -11,10 +12,13 @@ import { MovimientoManualInvalidoError } from '../../../domain/errors/movimiento
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { BucketCategoriaNoConcuerdaError } from '../../../domain/errors/bucket-categoria-no-concuerda.error';
 import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
+import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
+import { MovimientoDemoSoloLecturaError } from '../../../domain/errors/movimiento-demo-solo-lectura.error';
 import { MovimientoManual } from '../../../domain/value-objects/movimiento-manual';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ObtenerMovimientosMesUseCase } from '../../../application/use-cases/obtener-movimientos-mes.use-case';
 import type { RegistrarMovimientoManualUseCase } from '../../../application/use-cases/registrar-movimiento-manual.use-case';
+import type { EliminarMovimientoManualUseCase } from '../../../application/use-cases/eliminar-movimiento-manual.use-case';
 
 /**
  * Traducción Result<T,E> → HTTP de la lista mensual (port del
@@ -265,6 +269,103 @@ describe('registrarMovimientoManual — POST /api/movimientos', () => {
         expect.objectContaining({ userId: 'attacker-user-id' }),
       );
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helpers for DELETE /api/movimientos/:id tests
+// ---------------------------------------------------------------------------
+
+type EliminarDoble = Pick<EliminarMovimientoManualUseCase, 'execute'>;
+
+function probeDeleteApp(uc: EliminarDoble, esDemo = false): Express {
+  const app = express();
+  const router = express.Router();
+  router.use((req, _res, next) => {
+    req.userId = 'user-x';
+    req.esDemo = esDemo;
+    next();
+  });
+  registrarEliminarMovimientoManual(
+    router,
+    uc as EliminarMovimientoManualUseCase,
+  );
+  app.use('/api', router);
+  app.use(errorMiddleware);
+  return app;
+}
+
+describe('registrarEliminarMovimientoManual — DELETE /api/movimientos/:id', () => {
+  it('DEL-01: 204 on success, calls the use case with userId + esDemo + transaccionId', async () => {
+    const uc: EliminarDoble = {
+      execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    };
+    const res = await request(probeDeleteApp(uc)).delete(
+      '/api/movimientos/tx-1',
+    );
+
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+    expect(uc.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      esDemo: false,
+      transaccionId: 'tx-1',
+    });
+  });
+
+  it('DEL-03: 403 DEMO_SOLO_LECTURA on MovimientoDemoSoloLecturaError, routed through responderErrorTraducido', async () => {
+    const uc: EliminarDoble = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new MovimientoDemoSoloLecturaError())),
+    };
+    const res = await request(probeDeleteApp(uc, true)).delete(
+      '/api/movimientos/tx-1',
+    );
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+  });
+
+  it('DEL-02: 404 merged anti-enumeration shape on TransaccionNoEncontradaError', async () => {
+    const uc: EliminarDoble = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new TransaccionNoEncontradaError('tx-ajena')),
+        ),
+    };
+    const res = await request(probeDeleteApp(uc)).delete(
+      '/api/movimientos/tx-ajena',
+    );
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({
+      message:
+        'La transacción no existe o no pertenece al usuario autenticado.',
+    });
+  });
+
+  it('req.userId from session middleware, never from the path', async () => {
+    const uc: EliminarDoble = {
+      execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    };
+    await request(probeDeleteApp(uc)).delete('/api/movimientos/tx-1');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-x' }),
+    );
+  });
+
+  it('500 ante error inesperado (rejection → error middleware)', async () => {
+    const uc: EliminarDoble = {
+      execute: vi.fn().mockRejectedValue(new Error('DB caída')),
+    };
+    const res = await request(probeDeleteApp(uc)).delete(
+      '/api/movimientos/tx-1',
+    );
+
+    expect(res.status).toBe(500);
   });
 });
 
