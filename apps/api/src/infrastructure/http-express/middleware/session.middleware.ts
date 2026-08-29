@@ -44,6 +44,21 @@ export function sessionMiddleware(
     const sesion = result.getValue();
     req.userId = sesion.userId;
     req.esDemo = sesion.esDemo;
+
+    // Invariante en runtime (issue #507): `ValidarSesionResult.esDemo:
+    // boolean` ya lo prohíbe en compile-time, pero TypeScript no protege
+    // contra un mapper/repo aguas abajo que devuelva `undefined` en runtime.
+    // Esta rama NUNCA debería alcanzarse — es un cinturón, no un camino
+    // esperado — pero si se alcanza, fail-closed (`true`) en vez de dejar
+    // pasar el valor malformado a `esDemoDeSesion`/los use cases.
+    if (typeof req.esDemo !== 'boolean') {
+      appLogger.error(
+        'sessionMiddleware: invariante violada — esDemo no es boolean tras validar sesión',
+        { path: req.path },
+      );
+      req.esDemo = true;
+    }
+
     req.sessionTokenHash = sesion.tokenHash;
     next();
   };

@@ -13,10 +13,18 @@
  *
  * Esta SÍ es la tercera ocurrencia del patrón (Catálogo → Perfil → Ingesta),
  * el propio umbral de design.md D-05 ("tercera ocurrencia ⇒ generalizar") —
- * pero se difiere deliberadamente: generalizar el gate `esDemo` (p. ej.
- * fail-closed por tipo + logging de gate-trip transversal) es un cambio
- * sistémico a perfil/catálogo/ingesta a la vez, fuera del alcance quirúrgico
- * del issue #500, y queda trackeado en un follow-up aparte.
+ * el fail-closed y el logging transversal del gate SÍ se generalizaron
+ * (issue #507: `esDemoDeSesion()` + `logDemoGateTrip()`), pero la
+ * generalización de ESTAS TRES CLASES DE ERROR se evaluó y se rechazó
+ * deliberadamente (issue #507): no comparten comportamiento más allá del
+ * boilerplate `super(message); this.name = 'X'` — no hay lógica real que
+ * DRY-ificar. Una base class ahorraría ~2 líneas por subclase a cambio de
+ * una capa de indirección más, y NO reduce los traductores HTTP
+ * (`aPerfilHttpError`/`aCatalogoHttpError`/`aHttpError`): cada uno matchea
+ * su propia clase concreta exactamente una vez, así que colapsar a
+ * `instanceof BaseClass` no ahorraría ninguna línea ahí. Se mantienen las 3
+ * clases separadas — sigue siendo válido el motivo original: evitar que la
+ * unión de errores de un dominio se filtre a otro (KISS/YAGNI).
  */
 export class IngestaDemoSoloLecturaError extends Error {
   constructor() {

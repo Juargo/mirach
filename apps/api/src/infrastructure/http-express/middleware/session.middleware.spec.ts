@@ -4,6 +4,7 @@ import { sessionMiddleware } from './session.middleware';
 import { Result } from '../../../shared/result';
 import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.error';
 import { COOKIE_NAME } from '../../http/auth/cookie';
+import { appLogger } from '../../logging/app-logger';
 import type { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
 
 /**
@@ -105,6 +106,35 @@ describe('sessionMiddleware', () => {
       .get('/probe')
       .set('Authorization', 'Bearer token-valido');
     expect(res.body.sessionTokenHash).toBe('el-hash-de-la-sesion');
+  });
+
+  it('invariante (issue #507): si ValidarSesionUseCase retornara un esDemo no-boolean, el middleware lo fuerza a true (fail-closed) y loguea error, en vez de propagar el valor malformado', async () => {
+    const errorSpy = vi.spyOn(appLogger, 'error').mockImplementation(() => {});
+    const validar = {
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          userId: 'user-raro',
+          // Malformado a propósito — el tipo `ValidarSesionResult.esDemo:
+          // boolean` ya lo prohíbe en compile-time; este test cubre el caso
+          // en que igual llega en runtime (bug de mapper/repo aguas abajo).
+          esDemo: undefined as unknown as boolean,
+          tokenHash: 'hash-raro',
+        }),
+      ),
+    };
+
+    const res = await request(probeApp(validar))
+      .get('/probe')
+      .set('Authorization', 'Bearer token-raro');
+
+    expect(res.status).toBe(200);
+    expect(res.body.esDemo).toBe(true);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const [message, context] = errorSpy.mock.calls[0];
+    expect(String(message)).toContain('esDemo');
+    expect(context).toEqual({ path: '/probe' });
+
+    errorSpy.mockRestore();
   });
 
   it('la cookie md_session tiene precedencia sobre Bearer (AUTH-05)', async () => {

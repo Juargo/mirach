@@ -34,6 +34,8 @@ import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuer
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
+import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
+import { responderErrorTraducido } from './responder-error-traducido';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -69,9 +71,17 @@ export interface IngestaRoutesDeps {
  * POST /commit, DELETE) rechazan una sesión demo con 403 DEMO_SOLO_LECTURA
  * ANTES de cualquier side-effect — el gate vive en cada use case
  * (`IngestaDemoSoloLecturaError`, mirrors `*DemoSoloLecturaError` de
- * perfil/catálogo), este handler solo hilvana `req.esDemo` y mapea el
- * error. POST /preview NO gatea — es un dry-run de solo lectura (no
+ * perfil/catálogo), este handler solo hilvana `esDemoDeSesion(req)` y mapea
+ * el error. POST /preview NO gatea — es un dry-run de solo lectura (no
  * persiste nada, ver `PreviewIngestaUseCase`).
+ *
+ * `esDemoDeSesion(req)` (issue #507) reemplaza el `req.esDemo!` original —
+ * fail-closed en vez de non-null assertion. Toda respuesta de error de
+ * mutación (POST one-shot, POST /commit, DELETE) pasa por
+ * `responderErrorTraducido` (issue #507, R2-WARNING del fan-out 4R) —
+ * chokepoint único que loguea `logDemoGateTrip` (ADR-033) cuando
+ * `code === 'DEMO_SOLO_LECTURA'`, incluido el branch de DELETE que resuelve
+ * el error con `instanceof` en vez de un traductor `aXHttpError` dedicado.
  */
 export function registrarIngestas(
   router: Router,
@@ -92,12 +102,11 @@ export function registrarIngestas(
       const result = await deps.processIngesta.execute({
         fileReader,
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
       });
 
       if (result.isFail()) {
-        const { status, message, code } = aHttpError(result.getError());
-        res.status(status).json(code ? { message, code } : { message });
+        responderErrorTraducido(res, req, aHttpError(result.getError()));
         return;
       }
 
@@ -177,13 +186,16 @@ export function registrarIngestas(
         const result = await deps.commitIngesta.execute({
           fileReader,
           userId: req.userId!,
-          esDemo: req.esDemo!,
+          esDemo: esDemoDeSesion(req),
           edits: editsResult.getValue(),
         });
 
         if (result.isFail()) {
-          const { status, message, code } = aCommitHttpError(result.getError());
-          res.status(status).json(code ? { message, code } : { message });
+          responderErrorTraducido(
+            res,
+            req,
+            aCommitHttpError(result.getError()),
+          );
           return;
         }
 
@@ -207,21 +219,23 @@ export function registrarIngestas(
     try {
       const result = await deps.eliminarIngesta.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         ingestaId: req.params.id,
       });
 
       if (result.isFail()) {
         const error = result.getError();
         if (error instanceof IngestaDemoSoloLecturaError) {
-          res.status(403).json({
-            message: error.message,
+          responderErrorTraducido(res, req, {
+            status: 403,
             code: 'DEMO_SOLO_LECTURA',
+            message: error.message,
           });
           return;
         }
         if (error instanceof IngestaNoEncontradaError) {
-          res.status(404).json({
+          responderErrorTraducido(res, req, {
+            status: 404,
             message:
               'La cartola no existe o no pertenece al usuario autenticado.',
           });
@@ -229,7 +243,10 @@ export function registrarIngestas(
         }
         const _exhaustive: never = error;
         void _exhaustive;
-        res.status(500).json({ message: 'Error inesperado' });
+        responderErrorTraducido(res, req, {
+          status: 500,
+          message: 'Error inesperado',
+        });
         return;
       }
 

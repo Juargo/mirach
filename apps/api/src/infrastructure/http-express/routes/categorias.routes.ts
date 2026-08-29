@@ -8,6 +8,8 @@ import {
 import { aCatalogoDto } from '../../http/dto/catalogo.dto';
 import { aCategoriaDto } from '../../http/dto/categoria.dto';
 import { aCatalogoHttpError } from './catalogo-http-error';
+import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
+import { responderErrorTraducido } from './responder-error-traducido';
 
 const BODY_INVALIDO = {
   message: 'Cuerpo de la petición inválido.',
@@ -20,8 +22,14 @@ const BODY_INVALIDO = {
  * Rutas NUEVAS: validan a la entrada con `.safeParse()` (D-09) — a
  * diferencia de las rutas legacy, que quedan contract-only. Un fallo de
  * `.safeParse()` NUNCA ecoa el body ni la lista de issues de Zod (D-09,
- * convención de scrubbing). `req.esDemo` se hilvana en cada mutación
- * (CAT038-08); `userId` viene del session middleware.
+ * convención de scrubbing). `esDemoDeSesion(req)` se hilvana en cada
+ * mutación (CAT038-08); `userId` viene del session middleware.
+ *
+ * `esDemoDeSesion(req)` (issue #507) reemplaza el `req.esDemo!` original —
+ * fail-closed en vez de non-null assertion. Toda respuesta de error pasa por
+ * `responderErrorTraducido` (issue #507, R2-WARNING del fan-out 4R) —
+ * chokepoint único que loguea `logDemoGateTrip` (ADR-033) cuando
+ * `code === 'DEMO_SOLO_LECTURA'`.
  */
 export function registrarCategorias(
   router: Router,
@@ -48,14 +56,17 @@ export function registrarCategorias(
 
       const result = await catalogo.crearCategoria.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         nombre: parsed.data.nombre,
         bucket: parsed.data.bucket,
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aCatalogoHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(
+          res,
+          req,
+          aCatalogoHttpError(result.getError()),
+        );
         return;
       }
 
@@ -76,15 +87,18 @@ export function registrarCategorias(
 
       const result = await catalogo.actualizarCategoria.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         id: parsedParams.data.id,
         nombre: parsedBody.data.nombre,
         bucket: parsedBody.data.bucket,
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aCatalogoHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(
+          res,
+          req,
+          aCatalogoHttpError(result.getError()),
+        );
         return;
       }
 
@@ -104,13 +118,16 @@ export function registrarCategorias(
 
       const result = await catalogo.eliminarCategoria.execute({
         userId: req.userId!,
-        esDemo: req.esDemo!,
+        esDemo: esDemoDeSesion(req),
         id: parsedParams.data.id,
       });
 
       if (result.isFail()) {
-        const { status, code, message } = aCatalogoHttpError(result.getError());
-        res.status(status).json({ message, code });
+        responderErrorTraducido(
+          res,
+          req,
+          aCatalogoHttpError(result.getError()),
+        );
         return;
       }
 

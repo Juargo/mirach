@@ -7,6 +7,7 @@ import { Bucket } from '../../../domain/value-objects/bucket';
 import { CatalogoDemoSoloLecturaError } from '../../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
+import { appLogger } from '../../logging/app-logger';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 
 const CATEGORIA_OK = {
@@ -38,13 +39,20 @@ function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
   } as unknown as CatalogoGraph;
 }
 
-function probeApp(catalogo: CatalogoGraph, esDemo = false): Express {
+/** `esDemo: 'unset'` (issue #507) deja `req.esDemo` SIN asignar — simula una
+ * request que llegó al handler sin pasar por `sessionMiddleware`. */
+function probeApp(
+  catalogo: CatalogoGraph,
+  esDemo: boolean | 'unset' = false,
+): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    req.esDemo = esDemo;
+    if (esDemo !== 'unset') {
+      req.esDemo = esDemo;
+    }
     next();
   });
   registrarCategorias(router, catalogo);
@@ -126,6 +134,44 @@ describe('registrarCategorias', () => {
       expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
     });
 
+    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+      const catalogo = makeCatalogo({
+        crearCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['crearCategoria'],
+      });
+      const res = await request(probeApp(catalogo, 'unset'))
+        .post('/api/categorias')
+        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
+
+      expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ esDemo: true }),
+      );
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+    });
+
+    it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }', async () => {
+      const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+      const catalogo = makeCatalogo({
+        crearCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['crearCategoria'],
+      });
+      await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
+        path: '/categorias',
+      });
+      warnSpy.mockRestore();
+    });
+
     it('409 NOMBRE_DUPLICADO on a duplicate name', async () => {
       const catalogo = makeCatalogo({
         crearCategoria: {
@@ -190,6 +236,25 @@ describe('registrarCategorias', () => {
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
     });
+
+    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+      const catalogo = makeCatalogo({
+        actualizarCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['actualizarCategoria'],
+      });
+      const res = await request(probeApp(catalogo, 'unset'))
+        .patch('/api/categorias/cat-1')
+        .send({ nombre: 'Renombrada' });
+
+      expect(catalogo.actualizarCategoria.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ esDemo: true }),
+      );
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+    });
   });
 
   describe('DELETE /api/categorias/:id', () => {
@@ -224,6 +289,25 @@ describe('registrarCategorias', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
+    });
+
+    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
+      const catalogo = makeCatalogo({
+        eliminarCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
+        } as unknown as CatalogoGraph['eliminarCategoria'],
+      });
+      const res = await request(probeApp(catalogo, 'unset')).delete(
+        '/api/categorias/cat-1',
+      );
+
+      expect(catalogo.eliminarCategoria.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ esDemo: true }),
+      );
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
     });
   });
 });
