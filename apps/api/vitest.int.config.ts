@@ -13,5 +13,7 @@ export default defineConfig({
     setupFiles: ['dotenv/config', './test/integration.setup.ts'],
     testTimeout: 30000,
     fileParallelism: false,
+    // Ver vitest.config.ts: mismo gate contra `it.only`/`describe.only`.
+    allowOnly: false,
   },
 });

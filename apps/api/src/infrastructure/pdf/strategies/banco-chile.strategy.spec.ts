@@ -71,13 +71,54 @@ describe('BancoChilePdfStrategy', () => {
       }
     });
 
-    it('ignora SALDO INICIAL y SALDO FINAL', () => {
+    it('ignora SALDO INICIAL y SALDO FINAL en su forma real de fila (fecha + etiqueta, columnas de monto vacías)', () => {
+      // Forma real de `textoFila` (fecha+descripcion+cargo+abono unidos con
+      // espacios — ver pdf-normalization.ts): el saldo vive fuera de
+      // `rangosX` a propósito, así que ambas columnas de monto quedan
+      // vacías y dejan dos espacios finales. Verificado contra las 15
+      // cartolas reales (2026-08-30, ver docblock de `filasIgnoradas`).
       expect(
-        estructura.filasIgnoradas.some((r) => r.test('SALDO INICIAL')),
+        estructura.filasIgnoradas.some((r) => r.test('01/05 SALDO INICIAL  ')),
       ).toBe(true);
-      expect(estructura.filasIgnoradas.some((r) => r.test('SALDO FINAL'))).toBe(
-        true,
-      );
+      expect(
+        estructura.filasIgnoradas.some((r) => r.test('31/05 SALDO FINAL  ')),
+      ).toBe(true);
+    });
+
+    it('NO ignora una transacción real cuya descripción CONTIENE "SALDO FINAL" como substring — el ancla exige que la fila sea SOLO fecha + etiqueta de resumen', () => {
+      // Regresión del hardening del ancla: antes de anclarla, cualquier fila
+      // cuyo texto CONTUVIERA "SALDO INICIAL"/"SALDO FINAL" se descartaba en
+      // silencio, incluida una transacción real con más texto y un monto en
+      // banda (ej. un ajuste de préstamo que arrastra esas palabras en su
+      // glosa).
+      const textoFilaConMontoReal = '15/05 AJUSTE SALDO FINAL PRESTAMO 45.300 ';
+      expect(
+        estructura.filasIgnoradas.some((r) => r.test(textoFilaConMontoReal)),
+      ).toBe(false);
+    });
+
+    it('rangosX recalibrados contra 16 cartolas reales (2026-08-30): columnas de monto alineadas a la DERECHA — el x de inicio depende del ancho del monto (cargos OBSERVADOS x=[395.9, 423.1], abonos OBSERVADOS x=[472.0, 503.1])', () => {
+      // Las bandas originales (cargo 390-440, abono 495-520) se midieron
+      // contra un solo fixture: los abonos anchos reales (uno mediano en
+      // x=481.7, uno de 8 dígitos en x=472.0) caían FUERA de [495, 520) →
+      // ambas columnas de la fila quedaban vacías y el saldo (x≥548)
+      // disparaba TokenSinAsignarSospechoso por fila. Los valores de la
+      // sección de resumen ("SALDO DISPONIBLE A LA FECHA" en x≈543.4)
+      // deben quedar FUERA de la banda abono: viven en filas sin fecha,
+      // pero el margen evita anexarlos si el resumen ganara una fecha. Las
+      // bandas finales [360,445)/[450,530) son DELIBERADAMENTE más anchas
+      // que lo observado (margen para montos aún más anchos que los ya
+      // vistos), no una copia exacta del rango medido.
+      expect(estructura.rangosX).toContainEqual({
+        col: 'cargo',
+        xMin: 360,
+        xMax: 445,
+      });
+      expect(estructura.rangosX).toContainEqual({
+        col: 'abono',
+        xMin: 450,
+        xMax: 530,
+      });
     });
   });
 });

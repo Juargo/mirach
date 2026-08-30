@@ -2,6 +2,7 @@ import { normalizarTransaccionesPdf } from './pdf-normalization';
 import { PagedToken } from './pdf-text-extractor';
 import { EstructuraPdfBanco } from './strategies/estructura-pdf-banco';
 import { BciPdfStrategy } from './strategies/bci.strategy';
+import { BancoChilePdfStrategy } from './strategies/banco-chile.strategy';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 
@@ -898,6 +899,135 @@ describe('normalizarTransaccionesPdf', () => {
           fecha: new Date(Date.UTC(2026, 3, 2)),
           descripcion: 'Pago Credito D001 4800000001 001/012',
           cargo: 250213n,
+          abono: 0n,
+        }).getValue(),
+      ]);
+    });
+  });
+
+  describe('recalibración Banco de Chile 2026-08-30 — geometría real de 16 cartolas (bug "monto fuera de las columnas configuradas")', () => {
+    // Estos specs usan la estructura REAL de BancoChilePdfStrategy con
+    // tokens en las coordenadas X medidas contra las cartolas reales —
+    // misma clase de bug que la recalibración BCI de arriba: la banda
+    // abono original [495, 520) solo cubría los abonos CHICOS (x≈495-503);
+    // todo abono mediano/ancho (x=472.0-489.5, right-aligned) caía fuera y
+    // la fila fallaba con TokenSinAsignarSospechoso por el token de Saldo.
+    const estructuraChile = new BancoChilePdfStrategy().getEstructura();
+    const periodoMayo2026 = { desde: '2026-05-01', hasta: '2026-05-31' };
+
+    it('un abono ancho de 8 dígitos (x≈472.6), uno mediano (x≈482.7) y un cargo ancho (x≈392.5) se asignan a su columna — antes los abonos caían fuera de [495, 520) y la fila fallaba', () => {
+      const tokens = [
+        tok('03/05', 23.0, 492),
+        tok('TRASPASO DE:Contraparte Fict', 58.0, 492),
+        tok('INTERNET', 232.0, 492), // SUCURSAL — fuera de rangosX a propósito
+        tok('15.000.000', 472.6, 492),
+        tok('22.654.322', 548.5, 492), // Saldo — fuera de rangosX a propósito
+        tok('05/05', 23.0, 472),
+        tok('TRASPASO DE:Comercio Fictici', 58.0, 472),
+        tok('INTERNET', 232.0, 472),
+        tok('276.500', 482.7, 472),
+        tok('22.931.322', 548.5, 472),
+        tok('02/05', 23.0, 462),
+        tok('INVERSION DEPOSITO FICTICIO', 58.0, 462),
+        tok('INTERNET', 232.0, 462),
+        tok('12.345.678', 392.5, 462),
+        tok('7.654.322', 551.9, 462),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraChile, periodoMayo2026),
+      );
+
+      expect(resultado).toEqual([
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 4, 3)),
+          descripcion: 'TRASPASO DE:Contraparte Fict',
+          cargo: 0n,
+          abono: 15000000n,
+        }).getValue(),
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 4, 5)),
+          descripcion: 'TRASPASO DE:Comercio Fictici',
+          cargo: 0n,
+          abono: 276500n,
+        }).getValue(),
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 4, 2)),
+          descripcion: 'INVERSION DEPOSITO FICTICIO',
+          cargo: 12345678n,
+          abono: 0n,
+        }).getValue(),
+      ]);
+    });
+
+    it('regresión money-safe específica de las bandas Banco de Chile: un token con forma de monto en x≈543.4 (zona del valor "SALDO DISPONIBLE A LA FECHA" y de los saldos anchos) con AMBAS columnas vacías dispara TokenSinAsignarSospechoso — la banda abono termina en 530 a propósito', () => {
+      const tokens = [
+        tok('09/05', 23.0, 492),
+        tok('MOVIMIENTO CON MONTO DERIVADO', 58.0, 492),
+        tok('INTERNET', 232.0, 492),
+        tok('1.234.567', 543.4, 492), // deriva: fuera de cargo Y de abono
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraChile,
+        periodoMayo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toContainEqual({
+        tipo: 'TokenSinAsignarSospechoso',
+        fila: 1,
+      });
+    });
+
+    it('las filas "SALDO INICIAL"/"SALDO FINAL" (CON fecha, único monto = saldo fuera de banda) se descartan vía filasIgnoradas en vez de disparar la guarda money-safe', () => {
+      const tokens = [
+        tok('01/05', 23.0, 512),
+        tok('SALDO INICIAL', 58.0, 512),
+        tok('20.000.000', 548.5, 512),
+        tok('07/05', 23.0, 502),
+        tok('TRASPASO A:Proveedora Fictic', 58.0, 502),
+        tok('INTERNET', 232.0, 502),
+        tok('890.123', 402.7, 502),
+        tok('21.995.892', 548.5, 502),
+        tok('31/05', 23.0, 492),
+        tok('SALDO FINAL', 58.0, 492),
+        tok('21.995.892', 548.5, 492),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraChile, periodoMayo2026),
+      );
+
+      expect(resultado).toEqual([
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 4, 7)),
+          descripcion: 'TRASPASO A:Proveedora Fictic',
+          cargo: 890123n,
+          abono: 0n,
+        }).getValue(),
+      ]);
+    });
+
+    it('una transacción real cuya descripción CONTIENE "SALDO FINAL" como substring (ej. un ajuste de préstamo) NO se descarta — filasIgnoradas exige que la fila sea SOLO fecha + etiqueta de resumen', () => {
+      const tokens = [
+        tok('15/05', 23.0, 502),
+        tok('AJUSTE SALDO FINAL PRESTAMO', 58.0, 502),
+        tok('INTERNET', 232.0, 502),
+        tok('45.300', 406.1, 502),
+        tok('21.950.592', 548.5, 502),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraChile, periodoMayo2026),
+      );
+
+      expect(resultado).toEqual([
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 4, 15)),
+          descripcion: 'AJUSTE SALDO FINAL PRESTAMO',
+          cargo: 45300n,
           abono: 0n,
         }).getValue(),
       ]);

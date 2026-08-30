@@ -18,6 +18,13 @@ export default defineConfig({
     // refactorizar 11 specs a servers persistentes. Un fallo REAL falla los 3
     // intentos igual, así que no enmascara regresiones.
     retry: 2,
+    // CI-safety: un `it.only`/`describe.only` olvidado en un commit no debe
+    // poder silenciar el resto de la suite. Vitest ya desactiva `.only` por
+    // defecto cuando `process.env.CI` está seteado (`allowOnly` por defecto
+    // es `!process.env.CI`) — se fija explícito para no depender de que la
+    // variable CI esté presente en todos los runners (gap señalado dos
+    // veces en review).
+    allowOnly: false,
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage',
