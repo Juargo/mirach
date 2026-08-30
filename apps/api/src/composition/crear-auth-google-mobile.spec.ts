@@ -1,8 +1,9 @@
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { crearAuthGoogleMobile } from './crear-auth-google-mobile';
 import { crearAuthGoogle } from './crear-auth-google';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import type { ICryptoService } from '../application/ports/crypto-service.port';
 import { NoOpLogger } from '../../test/support/logger.double';
 
 function fakePrisma(
@@ -10,10 +11,23 @@ function fakePrisma(
 ): PrismaClient {
   return {
     user: { findUnique: vi.fn(findUniqueImpl) },
+    // ADR-041: el flujo sin match ahora intenta crear la cuenta — este fake
+    // resuelve esa rama como carrera de creación perdida (P2002), el terminal
+    // más corto que no exige stubbear el tx completo de user+catálogo.
+    $transaction: vi.fn().mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    ),
   } as unknown as PrismaClient;
 }
 
 const VALID_ANDROID_CLIENT_ID = '123-abc.apps.googleusercontent.com';
+
+function makeCryptoDouble(): ICryptoService {
+  return { encrypt: (v: string) => v, decrypt: (v: string) => v };
+}
 
 /**
  * crearAuthGoogleMobile(prisma, env, blindIndex) — design §7.
@@ -35,6 +49,7 @@ describe('crearAuthGoogleMobile (design §7)', () => {
       fakePrisma(),
       env,
       blindIndex,
+      makeCryptoDouble(),
       new NoOpLogger(),
     );
 
@@ -51,6 +66,7 @@ describe('crearAuthGoogleMobile (design §7)', () => {
       fakePrisma(),
       env,
       blindIndex,
+      makeCryptoDouble(),
       new NoOpLogger(),
     );
 
@@ -73,6 +89,7 @@ describe('crearAuthGoogleMobile (design §7)', () => {
       fakePrisma(),
       env,
       blindIndex,
+      makeCryptoDouble(),
       new NoOpLogger(),
     );
 
@@ -100,6 +117,7 @@ describe('crearAuthGoogleMobile (design §7)', () => {
       fakePrisma(),
       envMobile,
       blindIndex,
+      makeCryptoDouble(),
       new NoOpLogger(),
     );
     const webGraph = crearAuthGoogle(

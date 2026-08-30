@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { crearAuthGoogle } from './crear-auth-google';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
@@ -15,6 +15,15 @@ function fakePrisma(
 ): PrismaClient {
   return {
     user: { findUnique: vi.fn(findUniqueImpl) },
+    // ADR-041: el flujo sin match ahora intenta crear la cuenta — este fake
+    // resuelve esa rama como carrera de creación perdida (P2002), el terminal
+    // más corto que no exige stubbear el tx completo de user+catálogo.
+    $transaction: vi.fn().mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('unique', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    ),
   } as unknown as PrismaClient;
 }
 
@@ -165,7 +174,8 @@ describe('crearAuthGoogle (design §4.3)', () => {
       new NoOpLogger(),
     );
 
-    // No hay match por googleSub ni por email → 'sin-match'. Lo que importa
+    // No hay match por googleSub ni por email → intento de signup (ADR-041),
+    // que este fake termina como carrera perdida. Lo que importa
     // es que buscarPorEmail (alcanzado tras el gate de emailVerificado) haya
     // invocado EXACTAMENTE esta instancia de blindIndex — si crearAuthGoogle
     // re-derivara una nueva, este spy jamás se llamaría.

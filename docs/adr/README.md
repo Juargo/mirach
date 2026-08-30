@@ -52,10 +52,11 @@ they govern and are reviewed in the same PR that implements them.
 | [ADR-031](ADR-031-estrategia-de-ramas-github-flow.md) | Estrategia de Ramas: GitHub Flow (Trunk-Based) | ✅ Decidido |
 | [ADR-032](ADR-032-runner-scripts-ts-node-a-tsx.md) | Runner de scripts TypeScript: `ts-node` → `tsx` | ✅ Decidido |
 | [ADR-033](ADR-033-logging-estructurado-con-pino.md) | Logging Estructurado con Pino | ✅ Decidido |
-| [ADR-034](ADR-034-login-con-google-oidc.md) | Login con Google: OIDC Authorization Code + PKCE terminado en el backend | ✅ Decidido |
-| [ADR-035](ADR-035-login-google-mobile-token-exchange.md) | Login con Google en mobile: verificación nativa de `id_token` (M1) | ✅ Decidido |
+| [ADR-034](ADR-034-login-con-google-oidc.md) | Login con Google: OIDC Authorization Code + PKCE terminado en el backend | ✅ Decidido (regla solo-ingreso supersedida por ADR-041; el resto vigente) |
+| [ADR-035](ADR-035-login-google-mobile-token-exchange.md) | Login con Google en mobile: verificación nativa de `id_token` (M1) | ✅ Decidido (regla find-only supersedida por ADR-041; el resto vigente) |
 | [ADR-036](ADR-036-catalogo-clasificacion-por-usuario.md) | Catálogo de clasificación por usuario (copy-on-signup): `Categoria`/`PatronClasificacion` dejan de ser globales | ✅ Decidido e implementado |
 | [ADR-037](ADR-037-identidad-de-categoria-como-fila-del-usuario.md) | Identidad de categoría como fila del usuario: retiro del enum cerrado `Categoria` y de `CATEGORIA_BUCKET` | ✅ Decidido |
 | [ADR-038](ADR-038-mobile-write-scope-configuracion.md) | Alcance de escritura de la app mobile: perfil propio y catálogo de clasificación (supersede la regla de alcance de ADR-026) | ✅ Decidido |
 | [ADR-039](ADR-039-movimiento-manual-origen-sentinel.md) | Movimientos manuales: columna `origen`, cuenta centinela per-user y semántica de identidad de origen (enmienda premisa de ADR-026: una `Transaccion` ya no siempre nace de una `Ingesta`) | ✅ Decidido (ciclo de vida post-creación enmendado por ADR-040) |
 | [ADR-040](ADR-040-correccion-de-movimientos-manuales.md) | Corrección de movimientos: la proveniencia determina la mutabilidad — `DELETE /api/movimientos/:id` solo para filas `origen='Manual'`, sin ventana de tiempo, solo web (enmienda ADR-039, reafirma ADR-038) | ✅ Decidido |
+| [ADR-041](ADR-041-google-signup-on-first-login.md) | Login con Google crea la cuenta al primer ingreso: signup-on-first-login passwordless + catálogo en la misma transacción (supersede la regla "solo ingreso, sin registro" de ADR-034) | ✅ Decidido |

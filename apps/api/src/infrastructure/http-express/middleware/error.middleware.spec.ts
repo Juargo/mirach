@@ -30,7 +30,7 @@ function probeApp(): Express {
 
 describe('errorMiddleware — nunca serializa motivo de LoginConGoogleFallidoError al cliente (AUTH-15)', () => {
   const TODOS_LOS_MOTIVOS: MotivoFalloGoogle[] = [
-    'sin-match',
+    'creacion-perdio-la-carrera',
     'email-no-verificado',
     'usuario-demo',
     'ya-vinculado-a-otra-identidad',
@@ -53,7 +53,9 @@ describe('errorMiddleware — nunca serializa motivo de LoginConGoogleFallidoErr
   );
 
   it('el mensaje genérico es byte-idéntico entre distintos motivos (AUTH-15 — no enumeración)', async () => {
-    const resA = await request(probeApp()).get('/probe/sin-match');
+    const resA = await request(probeApp()).get(
+      '/probe/creacion-perdio-la-carrera',
+    );
     const resB = await request(probeApp()).get(
       '/probe/ya-vinculado-a-otra-identidad',
     );

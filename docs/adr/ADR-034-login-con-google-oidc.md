@@ -16,6 +16,16 @@ fecha_actualizacion: 2026-08-13
 
 ✅ **Decidido** — se incorpora **"Ingresar con Google"** como método alternativo de login, implementado como flujo **OIDC Authorization Code + PKCE terminado en `apps/api`** con la librería **`openid-client`** (v6). **Solo ingreso, sin registro**: el login con Google autentica únicamente a usuarios ya existentes; si la identidad de Google no corresponde a un usuario, no se crea ninguno. En la UI, el botón aparece en `/login` debajo del formulario nativo de email + password, que se mantiene sin cambios. Implementación como change SDD aparte.
 
+> [!note] Enmienda — 2026-08-30
+> La regla "solo ingreso, sin registro" de este ADR (párrafo de arriba y §Decisión, regla
+> de vinculación por primera vez: "sin match ⇒ error genérico, no se crea usuario") queda
+> **supersedida por ADR-041** Login con Google crea la cuenta al primer ingreso: una
+> identidad Google verificada sin match crea la cuenta (signup-on-first-login), en vez de
+> fallar. Todo lo demás de este ADR sigue **vigente sin cambios**: flujo OIDC Authorization
+> Code + PKCE terminado en `apps/api`, gate de `email_verified`, vinculación por
+> `emailBlindIndex`, guarda ★ anti-takeover, emisión de la misma sesión `md_session`, gates
+> de usuario demo y disciplina AUTH-15 de no-enumeración.
+
 ---
 
 ## Contexto

@@ -86,6 +86,9 @@ describe('LoginConGoogleUseCase', () => {
       expect(value.token).toBe('raw-token-google');
       expect(value.userId).toBe('user-1');
       expect(value.expiresAt.toISOString()).toBe('2026-08-15T00:00:00.000Z');
+      // Fix de revisión (CRITICAL, rate limiter): un login por match directo
+      // de googleSub NUNCA es un alta — esNuevoUsuario debe ser false.
+      expect(value.esNuevoUsuario).toBe(false);
       expect(sessions.crear).toHaveBeenCalledWith({
         userId: 'user-1',
         tokenHash: 'hashed-token-google',
@@ -140,6 +143,9 @@ describe('LoginConGoogleUseCase', () => {
       expect(sessions.crear).toHaveBeenCalledWith(
         expect.objectContaining({ userId: 'user-2' }),
       );
+      // Fix de revisión (CRITICAL, rate limiter): vincular un email
+      // pre-existente es un login, no un alta.
+      expect(result.getValue().esNuevoUsuario).toBe(false);
     });
   });
 
@@ -161,20 +167,224 @@ describe('LoginConGoogleUseCase', () => {
     });
   });
 
-  describe('no match anywhere', () => {
-    it('fails with the generic error and creates nothing', async () => {
+  describe('no match anywhere → signup-on-first-login (ADR-041)', () => {
+    it('creates the account and issues a session for the new userId', async () => {
       const identidades = makeMockIdentidades({
         porGoogleSub: null,
         porEmail: null,
+        crear: 'user-nuevo-1',
+      });
+      const { uc, sessions } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().userId).toBe('user-nuevo-1');
+      // Fix de revisión (CRITICAL, rate limiter — mobile route): un signup
+      // real SIEMPRE marca esNuevoUsuario=true.
+      expect(result.getValue().esNuevoUsuario).toBe(true);
+      expect(identidades.crearDesdeGoogle).toHaveBeenCalledWith({
+        email: expect.objectContaining({ valor: 'jorge@example.com' }),
+        googleSub: 'google-sub-abc',
+        nombre: 'jorge',
+      });
+      expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
+      expect(sessions.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-nuevo-1' }),
+      );
+    });
+
+    it('logs account creation at INFO level with userId only (fix de revisión CRITICAL — observability)', async () => {
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: null,
+        crear: 'user-nuevo-1',
+      });
+      const logger = new FakeLogger();
+      const { uc } = makeUseCase(identidades, logger);
+
+      await uc.execute(IDENTIDAD_BASE);
+
+      const infoCalls = logger.calls.filter((c) => c.level === 'info');
+      expect(infoCalls).toHaveLength(1);
+      expect(infoCalls[0].message).toBe('login-con-google: usuario creado');
+      expect(infoCalls[0].context).toEqual({ userId: 'user-nuevo-1' });
+      // ADR-013 redaction: nunca email ni sub en el context info.
+      const serialized = JSON.stringify(infoCalls[0].context);
+      expect(serialized).not.toContain('@');
+      expect(serialized).not.toContain(IDENTIDAD_BASE.sub);
+    });
+
+    it('does NOT log at info level when the account already existed (link/match paths)', async () => {
+      const usuario: UsuarioVinculable = {
+        userId: 'user-2',
+        esDemo: false,
+        googleSub: null,
+      };
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: usuario,
+        vincular: true,
+      });
+      const logger = new FakeLogger();
+      const { uc } = makeUseCase(identidades, logger);
+
+      await uc.execute(IDENTIDAD_BASE);
+
+      expect(logger.calls.filter((c) => c.level === 'info')).toHaveLength(0);
+    });
+
+    it('derives the display name from the normalized email local part', async () => {
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: null,
+        crear: 'user-nuevo-2',
+      });
+      const { uc } = makeUseCase(identidades);
+
+      await uc.execute({
+        ...IDENTIDAD_BASE,
+        email: 'Ana.Maria.Perez@Gmail.com',
+      });
+
+      expect(identidades.crearDesdeGoogle).toHaveBeenCalledWith(
+        expect.objectContaining({ nombre: 'ana.maria.perez' }),
+      );
+    });
+
+    it('lost creation race, winner holds OUR sub → logs into the winner', async () => {
+      const ganador: UsuarioVinculable = {
+        userId: 'user-ganador',
+        esDemo: false,
+        googleSub: 'google-sub-abc',
+      };
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: null,
+        crear: null,
+      });
+      // Primer lookup por sub (pre-creación): null. Retry post-carrera: ganador.
+      (identidades.buscarPorGoogleSub as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(ganador);
+      const { uc, sessions } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().userId).toBe('user-ganador');
+      // Fix de revisión (CRITICAL): esta petición SÍ intentó crear (perdió
+      // la carrera) — sigue contando como intento de alta para el rate
+      // limiter, aunque termine logueada en la fila ganadora.
+      expect(result.getValue().esNuevoUsuario).toBe(true);
+      expect(sessions.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-ganador' }),
+      );
+    });
+
+    it('lost creation race, sub still unresolved → generic error, no session', async () => {
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: null,
+        crear: null,
       });
       const { uc, sessions } = makeUseCase(identidades);
 
       const result = await uc.execute(IDENTIDAD_BASE);
 
       expect(result.isFail()).toBe(true);
-      expect(result.getError().motivo).toBe('sin-match');
-      expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
+      expect(result.getError().motivo).toBe('creacion-perdio-la-carrera');
       expect(sessions.crear).not.toHaveBeenCalled();
+    });
+
+    it('lost creation race, retry resolves to a DEMO row → generic error', async () => {
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: null,
+        crear: null,
+      });
+      (identidades.buscarPorGoogleSub as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          userId: 'user-demo',
+          esDemo: true,
+          googleSub: 'google-sub-abc',
+        });
+      const { uc, sessions } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError().motivo).toBe('creacion-perdio-la-carrera');
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+
+    it('lost race to a DIFFERENT identity, then manual retry hits the ★ guard — never a relink (FIX 6)', async () => {
+      const identidades = makeMockIdentidades({
+        vincular: true,
+        crear: null,
+      });
+      const porGoogleSub = identidades.buscarPorGoogleSub as ReturnType<
+        typeof vi.fn
+      >;
+      const porEmail = identidades.buscarPorEmail as ReturnType<typeof vi.fn>;
+      // execute() #1: lookup inicial (null) → crea → pierde la carrera →
+      // retry por sub (null: el ganador NO es nuestra identidad).
+      porGoogleSub.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      porEmail.mockResolvedValueOnce(null);
+      const { uc: uc1, sessions: sessions1 } = makeUseCase(identidades);
+
+      const primero = await uc1.execute(IDENTIDAD_BASE);
+
+      expect(primero.isFail()).toBe(true);
+      expect(primero.getError().motivo).toBe('creacion-perdio-la-carrera');
+      expect(sessions1.crear).not.toHaveBeenCalled();
+
+      // Reintento manual del usuario: execute() #2. La cuenta que ganó la
+      // carrera ya está vinculada a OTRA identidad Google — buscarPorEmail
+      // ahora la encuentra con googleSub set.
+      porGoogleSub.mockResolvedValueOnce(null);
+      porEmail.mockResolvedValueOnce({
+        userId: 'user-ganador-otra-identidad',
+        esDemo: false,
+        googleSub: 'otro-sub-completamente-distinto',
+      });
+      const { uc: uc2, sessions: sessions2 } = makeUseCase(identidades);
+
+      const segundo = await uc2.execute(IDENTIDAD_BASE);
+
+      expect(segundo.isFail()).toBe(true);
+      expect(segundo.getError().motivo).toBe('ya-vinculado-a-otra-identidad');
+      expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
+      expect(sessions2.crear).not.toHaveBeenCalled();
+      // Nunca se reintenta crearDesdeGoogle en el segundo execute — el path
+      // de link ya resolvió (y rechazó) antes de llegar a esa rama.
+      expect(identidades.crearDesdeGoogle).toHaveBeenCalledTimes(1);
+    });
+
+    it('emailVerificado false NEVER creates an account', async () => {
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: null,
+      });
+      const { uc } = makeUseCase(identidades);
+
+      await uc.execute({ ...IDENTIDAD_BASE, emailVerificado: false });
+
+      expect(identidades.crearDesdeGoogle).not.toHaveBeenCalled();
+    });
+
+    it('an email match (link path) NEVER creates an account', async () => {
+      const identidades = makeMockIdentidades({
+        porGoogleSub: null,
+        porEmail: { userId: 'user-2', esDemo: false, googleSub: null },
+        vincular: true,
+      });
+      const { uc } = makeUseCase(identidades);
+
+      await uc.execute(IDENTIDAD_BASE);
+
+      expect(identidades.crearDesdeGoogle).not.toHaveBeenCalled();
     });
   });
 
@@ -304,10 +514,13 @@ describe('LoginConGoogleUseCase', () => {
           identidades: makeMockIdentidades({ porGoogleSub: null }),
         },
         {
+          // ADR-041: la rama sin-match ahora crea cuenta; la falla equivalente
+          // es la carrera de creación perdida e irresoluble (crear: null).
           identidad: IDENTIDAD_BASE,
           identidades: makeMockIdentidades({
             porGoogleSub: null,
             porEmail: null,
+            crear: null,
           }),
         },
         {

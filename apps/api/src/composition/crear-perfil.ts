@@ -50,7 +50,11 @@ export function crearPerfil(
 ): PerfilGraph {
   const creds = new PrismaUserCredentialRepository(prisma, crypto, blindIndex);
   const sessions = new PrismaSessionRepository(prisma);
-  const identidades = new PrismaIdentidadGoogleRepository(prisma, blindIndex);
+  const identidades = new PrismaIdentidadGoogleRepository(
+    prisma,
+    blindIndex,
+    crypto,
+  );
   const hasher = new Argon2PasswordHasher();
 
   return {

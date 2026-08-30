@@ -252,7 +252,9 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
         execute: vi
           .fn()
           .mockResolvedValue(
-            Result.fail(new LoginConGoogleFallidoError('sin-match')),
+            Result.fail(
+              new LoginConGoogleFallidoError('creacion-perdio-la-carrera'),
+            ),
           ),
       } as never,
     });
@@ -267,7 +269,7 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
   });
 
   it.each([
-    'sin-match',
+    'creacion-perdio-la-carrera',
     'email-no-verificado',
     'usuario-demo',
     'ya-vinculado-a-otra-identidad',

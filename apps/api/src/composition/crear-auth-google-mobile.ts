@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import type { Env } from '../config/env';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
+import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { ILogger } from '../application/ports/logger.port';
 import type { IVerificadorIdTokenExterno } from '../application/ports/verificador-identidad-externa.port';
 
@@ -42,8 +43,9 @@ export interface GoogleAuthMobileGraph {
  * en el resto del código.
  *
  * Mirror de `crearAuthGoogle`: colaboradores stateless (`reloj`/`tokens`/
- * `sessions`) construidos INTERNAMENTE; `blindIndex` es la única excepción,
- * recibido ya construido para ser la MISMA instancia que deriva
+ * `sessions`) construidos INTERNAMENTE; `blindIndex` y `crypto` son las
+ * excepciones (ADR-041: el signup cifra el email al crear la fila),
+ * recibidos ya construidos para ser las MISMAS instancias que deriva
  * `container.ts` (design §5.5, 4R carry-forward). `env.GOOGLE_CLIENT_ID_ANDROID`
  * llega acá YA validado por `loadEnv` (no vacío, no solo-blanco, con forma de
  * Android client ID) — el array de audiencias que recibe
@@ -58,6 +60,7 @@ export function crearAuthGoogleMobile(
   prisma: PrismaClient,
   env: Pick<Env, 'GOOGLE_CLIENT_ID_ANDROID'>,
   blindIndex: IBlindIndexService,
+  crypto: ICryptoService,
   logger: ILogger,
 ): GoogleAuthMobileGraph | undefined {
   if (env.GOOGLE_CLIENT_ID_ANDROID === undefined) {
@@ -67,7 +70,11 @@ export function crearAuthGoogleMobile(
   const reloj = new SystemReloj();
   const tokens = new Sha256SessionTokenService();
   const sessions = new PrismaSessionRepository(prisma);
-  const identidades = new PrismaIdentidadGoogleRepository(prisma, blindIndex);
+  const identidades = new PrismaIdentidadGoogleRepository(
+    prisma,
+    blindIndex,
+    crypto,
+  );
 
   return {
     verificadorIdToken: new GoogleIdTokenVerifier([

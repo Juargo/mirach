@@ -2,10 +2,13 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 
 import {
   IIdentidadGoogleRepository,
+  NuevoUsuarioGoogle,
   UsuarioVinculable,
 } from '../../application/ports/identidad-google-repository.port';
 import { Email } from '../../domain/value-objects/email';
 import type { IBlindIndexService } from '../../application/ports/blind-index-service.port';
+import type { ICryptoService } from '../../application/ports/crypto-service.port';
+import { copiarCatalogoTemplate } from './catalogo-template';
 
 /**
  * PrismaIdentidadGoogleRepository — implementación de `IIdentidadGoogleRepository`
@@ -33,7 +36,61 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
   constructor(
     private readonly prisma: PrismaClient,
     private readonly blindIndex: IBlindIndexService,
+    private readonly crypto: ICryptoService,
   ) {}
+
+  /**
+   * ADR-041 (signup-on-first-login). User + catálogo en UNA transacción
+   * interactiva (misma mecánica que `PrismaDemoRepository.crear`): si la
+   * copia del catálogo falla, el rollback incluye al usuario — nunca puede
+   * existir un usuario sin catálogo (invariante ADR-036). La Session NO va
+   * en esta transacción, a diferencia del demo: acá un usuario creado sin
+   * sesión es benigno y auto-reparable (el siguiente intento resuelve por
+   * `googleSub`), mismo razonamiento que el link+sesión del use case
+   * (design §5.1). Tampoco se crea ningún Account: la cuenta centinela
+   * manual (ADR-039) es lazy (`ensure` en el primer movimiento) y las
+   * cuentas bancarias nacen con la primera ingesta.
+   *
+   * `passwordHash` no viaja en el create — la fila nace passwordless
+   * (`prisma-user-credential.repository` ya colapsa NULL a credenciales
+   * inválidas, sin enumeración).
+   *
+   * P2002 (emailBlindIndex o googleSub únicos de `User`) → `null`: carrera
+   * de creación perdida, resultado de negocio — misma convención que
+   * `vincularGoogleSub`. Cualquier otro P2002 (fix de revisión WARNING: la
+   * transacción TAMBIÉN escribe `Categoria`/`PatronClasificacion` vía
+   * `copiarCatalogoTemplate` — una unique compuesta de `Categoria`,
+   * `@@unique([userId, nombre])`, ADR-036, jamás debería chocar con un
+   * `userId` recién creado, pero SI choca es un bug de datos real, no una
+   * carrera) propaga, igual que cualquier error no-P2002.
+   */
+  async crearDesdeGoogle(datos: NuevoUsuarioGoogle): Promise<string | null> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            nombre: datos.nombre,
+            email: this.crypto.encrypt(datos.email.valor),
+            emailBlindIndex: this.blindIndex.compute(datos.email.valor),
+            googleSub: datos.googleSub,
+          },
+        });
+
+        await copiarCatalogoTemplate(tx, user.id);
+
+        return user.id;
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        esCarreraDeCreacionUser(error)
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  }
 
   async buscarPorGoogleSub(
     googleSub: string,
@@ -112,4 +169,68 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
   }): UsuarioVinculable {
     return { userId: user.id, esDemo: user.esDemo, googleSub: user.googleSub };
   }
+}
+
+/**
+ * esCarreraDeCreacionUser — discrimina, para el P2002 de `crearDesdeGoogle`,
+ * entre la carrera de creación esperada (unicidad de `User.emailBlindIndex`
+ * o `User.googleSub`) y un P2002 real de otra tabla dentro de la MISMA
+ * transacción (p. ej. la unique compuesta `Categoria(userId, nombre)`,
+ * ADR-036 — un bug de datos, nunca una carrera legítima sobre un `userId`
+ * recién creado).
+ *
+ * Misma forma de `meta` que `apuntaA` en
+ * `prisma-user-credential.repository.ts` (Prisma 7 + `@prisma/adapter-pg` NO
+ * puebla `meta.target`; el error crudo de Postgres llega bajo
+ * `meta.driverAdapterError.cause.constraint.fields`/`.originalMessage`) —
+ * `target` puede ser `string[]` o `string` (nombre del constraint) según
+ * driver/versión, así que ambas formas se normalizan a una lista de strings.
+ *
+ * Semántica por-defecto DELIBERADAMENTE INVERSA a `apuntaA`: acá `target`
+ * AUSENTE resuelve a `true` (carrera conservadora) en vez de `false`
+ * (fail-closed hacia rethrow) — la única fila que compite dentro de esta
+ * transacción es la del propio `tx.user.create`, así que un P2002 sin forma
+ * reconocible sigue siendo, con altísima probabilidad, esa carrera. Solo un
+ * target que SÍ nombra explícitamente una columna ajena a
+ * `emailBlindIndex`/`googleSub` es la señal positiva de un bug real.
+ */
+function esCarreraDeCreacionUser(
+  error: Prisma.PrismaClientKnownRequestError,
+): boolean {
+  const meta = error.meta as
+    | {
+        target?: unknown;
+        driverAdapterError?: {
+          cause?: {
+            constraint?: { fields?: unknown };
+            originalMessage?: unknown;
+          };
+        };
+      }
+    | undefined;
+
+  const targets: string[] = [];
+
+  const target = meta?.target;
+  if (Array.isArray(target)) {
+    targets.push(...target.filter((t): t is string => typeof t === 'string'));
+  } else if (typeof target === 'string') {
+    targets.push(target);
+  }
+
+  const fields = meta?.driverAdapterError?.cause?.constraint?.fields;
+  if (Array.isArray(fields)) {
+    targets.push(...fields.filter((f): f is string => typeof f === 'string'));
+  }
+
+  const originalMessage = meta?.driverAdapterError?.cause?.originalMessage;
+  if (typeof originalMessage === 'string') {
+    targets.push(originalMessage);
+  }
+
+  if (targets.length === 0) return true; // target ausente → carrera conservadora
+
+  return targets.some(
+    (t) => t.includes('emailBlindIndex') || t.includes('googleSub'),
+  );
 }

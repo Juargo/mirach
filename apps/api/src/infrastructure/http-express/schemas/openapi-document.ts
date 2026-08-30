@@ -554,26 +554,31 @@ const authGoogleInitiateOperation: ZodOpenApiOperationObject = {
 };
 
 /**
- * `GET /api/auth/google/callback` (AUTH-12..15, Slice C2) — the OIDC
- * redirect target. `302` documents BOTH outcomes on purpose (design §10):
- * documenting that success and every failure cause share the exact same
- * response shape IS the AUTH-15 anti-enumeration contract, not an omission.
+ * `GET /api/auth/google/callback` (AUTH-12..15, Slice C2; signup-on-first-login
+ * per ADR-041) — the OIDC redirect target. `302` documents BOTH outcomes on
+ * purpose (design §10): documenting that success and every failure cause
+ * share the exact same response shape IS the AUTH-15 anti-enumeration
+ * contract, not an omission.
  */
 const authGoogleCallbackOperation: ZodOpenApiOperationObject = {
   summary: 'Complete Google sign-in',
   description:
     "Public endpoint (requires x-api-key only, session-public) — Google's redirect target after " +
     'consent. Validates `state` against the `md_oauth` cookie and the `id_token` (signature/iss/aud/' +
-    'exp/nonce) before any identity resolution (AUTH-12), then resolves the identity to an existing ' +
-    'user (find-only, AUTH-14) and issues a session equivalent to password login (AUTH-13). Every ' +
-    'failure cause — bad state, bad token, no matching user, an unexpected infra fault — produces the ' +
-    'identical 302 redirect (AUTH-15): this contract intentionally does not distinguish them. ' +
+    'exp/nonce) before any identity resolution (AUTH-12), then resolves the identity — matching an ' +
+    'existing user by googleSub or email, or CREATING a new passwordless account on first verified ' +
+    'login (signup-on-first-login, ADR-041) — and issues a session equivalent to password login ' +
+    '(AUTH-13). Every failure cause — bad state, bad token, unverified email, a lost account-creation ' +
+    'race, an unexpected infra fault — produces the identical 302 redirect (AUTH-15): this contract ' +
+    'intentionally does not distinguish them, including whether the session belongs to a pre-existing ' +
+    'or a just-created account. ' +
     'DUAL MODE (US-041, VINC041-02/03): when `md_oauth` carries a signed `link` marker (set by ' +
     'POST /api/perfil/google/vincular), this same endpoint completes an EXPLICIT LINK instead of a ' +
-    "login — it binds a Google identity to the CALLER's own account, issues NO new session, and " +
-    'redirects to `/configuracion?google=vinculado` on success or `/configuracion?google=error` on a ' +
-    'modelled failure. A `link` marker that fails its integrity check rejects the WHOLE callback to ' +
-    'the generic `/login?error=google` — it never falls back to the login path.',
+    "login/signup — it binds a Google identity to the CALLER's own account, issues NO new session, " +
+    'never creates an account, and redirects to `/configuracion?google=vinculado` on success or ' +
+    '`/configuracion?google=error` on a modelled failure. A `link` marker that fails its integrity ' +
+    'check rejects the WHOLE callback to the generic `/login?error=google` — it never falls back to ' +
+    'the login/signup path.',
   responses: {
     '302': {
       description:
@@ -602,7 +607,8 @@ const authGoogleCallbackOperation: ZodOpenApiOperationObject = {
 };
 
 /**
- * `POST /api/auth/google/token` (AUTH-19..24, ADR-035 M1, design §6) —
+ * `POST /api/auth/google/token` (AUTH-19..24, ADR-035 M1, design §6;
+ * signup-on-first-login per ADR-041, shared with the web callback) —
  * session-public, api-key required (AC-11). Mobile-only, native `id_token`
  * verification — reuses `authLoginResponseSchema` VERBATIM for the 200
  * response, so the document *proves* the body is identical to
@@ -614,13 +620,19 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
   summary: 'Authenticate with a native Google id_token (mobile)',
   description:
     'Public endpoint (requires x-api-key only, session-public — no prior session needed) that ' +
-    'verifies a device-obtained Google id_token (AUTH-19) and, on success, issues a session ' +
-    'identical in shape to POST /api/auth/login (AUTH-20). Every failure cause — invalid/expired/' +
-    'wrong-audience token, unverified email, no matching account, a demo-user match, an email ' +
-    'already linked to a different googleSub, or a JWKS/network failure — produces the identical ' +
-    '401 body used by POST /api/auth/login (AUTH-21, anti-enumeration). No Set-Cookie: mobile uses ' +
-    'Bearer + SecureStore. 404 when GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22) — ' +
-    "independent of GET /api/auth/google's activation gate.",
+    'verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an ' +
+    'existing user by googleSub or email, or CREATING a new passwordless account on first verified ' +
+    'login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session ' +
+    'identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never ' +
+    'reveals whether the account is pre-existing or just-created. Every failure cause — invalid/' +
+    'expired/wrong-audience token, unverified email, a demo-user match, an email already linked to a ' +
+    'different googleSub, a lost account-creation race, or a JWKS/network failure — produces the ' +
+    'identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration). No Set-Cookie: ' +
+    'mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this ' +
+    "endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 " +
+    'Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when ' +
+    "GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22) — independent of GET /api/auth/google's " +
+    'activation gate.',
   requestBody: {
     content: {
       'application/json': { schema: authGoogleTokenRequestSchema },
