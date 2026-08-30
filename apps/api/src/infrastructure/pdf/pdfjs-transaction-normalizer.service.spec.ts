@@ -334,6 +334,98 @@ describe('PdfjsTransactionNormalizerService', () => {
     });
   });
 
+  describe('BCI (fixture sintético "montos grandes" — geometría de las 15 cartolas reales, recalibración 2026-08-30)', () => {
+    it('normaliza las 8 transacciones (9 filas fechadas menos la fila $0), 3 páginas, montos BigInt exactos', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bci-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+
+      expect(result.isOk()).toBe(true);
+      const transacciones = result.getValue();
+      expect(transacciones).toHaveLength(8);
+      for (const t of transacciones) {
+        expect(t.fecha.getUTCFullYear()).toBe(2026);
+        expect(t.fecha.getUTCMonth()).toBe(4); // mayo, 0-indexed
+        expect(t.cargo > 0n || t.abono > 0n).toBe(true);
+      }
+      // La suma cuadra con los totales impresos en la última página del
+      // fixture (a diferencia del fixture de BancoEstado, este se generó
+      // con el saldo corrido exacto).
+      expect(transacciones.reduce((acc, t) => acc + t.cargo, 0n)).toBe(
+        11654280n,
+      );
+      expect(transacciones.reduce((acc, t) => acc + t.abono, 0n)).toBe(
+        1895320n,
+      );
+    });
+
+    it('el cargo ANCHO de 8 dígitos (x≈381, fuera de la banda original) y el abono corrido a la izquierda (x≈459.3) se asignan a su columna', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bci-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+      const transacciones = result.getValue();
+
+      const inversion = transacciones.find((t) => t.cargo === 11200000n);
+      expect(inversion?.abono).toBe(0n);
+      expect(inversion?.descripcion).toContain('INVERSION DEPOSITO PLAZO FIJO');
+
+      const transferencia = transacciones.find((t) => t.abono === 1850000n);
+      expect(transferencia?.cargo).toBe(0n);
+      expect(transferencia?.descripcion).toContain(
+        'TRANSFERENCIA DE TERCERO FICTICIO',
+      );
+    });
+
+    it('la fila $0 ("VERIFICACION DE CUENTA", cargo "0" literal) se descarta como no-movimiento — la cartola completa NO se rechaza', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bci-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+      const transacciones = result.getValue();
+
+      expect(
+        transacciones.some((t) =>
+          t.descripcion.includes('VERIFICACION DE CUENTA'),
+        ),
+      ).toBe(false);
+    });
+
+    it('el cluster de continuación multilínea se reconstruye (etiqueta ARRIBA + documento desbordado + cuota ABAJO)', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bci-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+      const transacciones = result.getValue();
+
+      const pagoCredito = transacciones.find((t) => t.cargo === 310550n);
+      expect(pagoCredito?.descripcion).toBe(
+        'PAGO CREDITO D07700445566 7700445566 004/024',
+      );
+    });
+
+    it('la sección de totales de la última página no se filtra a ninguna descripción ("Periodo Saldo Anterior" era el leak de fusionarContinuaciones)', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bci-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+      const transacciones = result.getValue();
+
+      for (const t of transacciones) {
+        expect(t.descripcion).not.toContain('Saldo Anterior');
+        expect(t.descripcion).not.toContain('Total Cargos');
+        expect(t.descripcion).not.toContain('Total Abonos');
+        expect(t.descripcion).not.toContain('Saldo Disponible');
+      }
+    });
+  });
+
   it('retorna Fail(EstructuraPdfInvalidaError) para un buffer corrupto, sin colgar el proceso', async () => {
     const buffer = Buffer.from('esto no es un pdf');
 

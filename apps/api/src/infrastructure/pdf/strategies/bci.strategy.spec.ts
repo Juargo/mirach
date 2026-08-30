@@ -35,6 +35,16 @@ describe('BciPdfStrategy', () => {
     });
   });
 
+  it('matches/extract: reconoce el fixture sintético de montos grandes (misma familia de layout, geometría de las 15 cartolas reales)', async () => {
+    const tokens = await tokensPagina1('bci-cartola-montos-grandes-test.pdf');
+    expect(strategy.matches(tokens)).toBe(true);
+    expect(strategy.extract(tokens)).toEqual({
+      banco: BancoConocido.BCI,
+      tipoCuenta: TipoCuentaConocido.CuentaCorriente,
+      numeroCuenta: '87654321',
+    });
+  });
+
   it('matches: no reconoce las cartolas de los otros 3 bancos', async () => {
     for (const archivo of [
       'bancoestado-cartola-test.pdf',
@@ -62,6 +72,32 @@ describe('BciPdfStrategy', () => {
       for (const rango of estructura.rangosX) {
         expect(rango.xMin).toBeLessThan(rango.xMax);
       }
+    });
+
+    it('rangosX recalibrados contra 15 cartolas reales (2026-08-30): columnas de monto alineadas a la DERECHA — el x de inicio depende del ancho del monto (cargos observados x=[381.1, 409.7], abonos x=[455.3, 476.6])', () => {
+      // Las bandas originales (cargo 395-420, abono 460-500) se midieron
+      // contra un único fixture con montos chicos: un cargo de 8 dígitos
+      // ("10.000.000") arranca en x≈381 y un abono de 7 dígitos en x≈459,
+      // ambos FUERA de esas bandas → TokenSinAsignarSospechoso por fila.
+      expect(estructura.rangosX).toEqual([
+        { col: 'fecha', xMin: 35, xMax: 85 },
+        { col: 'descripcion', xMin: 145, xMax: 320 },
+        { col: 'cargo', xMin: 360, xMax: 430 },
+        { col: 'abono', xMin: 435, xMax: 500 },
+      ]);
+    });
+
+    it('ignora la fila de etiquetas "Periodo Saldo Anterior" (sección de totales de la última página) — sin este guard, fusionarContinuaciones la pegaría como sufijo de la última transacción', () => {
+      expect(
+        estructura.filasIgnoradas.some((r) => r.test('Periodo Saldo Anterior')),
+      ).toBe(true);
+      // El guard es exacto por fila — no debe comerse una descripción real
+      // que mencione un saldo.
+      expect(
+        estructura.filasIgnoradas.some((r) =>
+          r.test('01/05/2026 PAGO SALDO ANTERIOR TARJETA 12.000'),
+        ),
+      ).toBe(false);
     });
 
     it('el ancla de período extrae ambas fechas del mismo token de valor (separador "-")', () => {

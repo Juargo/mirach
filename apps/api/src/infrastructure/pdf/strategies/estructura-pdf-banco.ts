@@ -96,4 +96,24 @@ export interface EstructuraPdfBanco {
    * constraint "un cambio a un banco no debe afectar a los otros".
    */
   readonly fusionarContinuaciones?: boolean;
+  /**
+   * Opt-in — SOLO BCI lo activa (ver bci.strategy.ts). Cuando es `true`, una
+   * fila fechada cuyo cargo Y abono parsean a 0 A PARTIR DE UN TOKEN CRUDO
+   * NO VACÍO en al menos una de las dos columnas (un cero EXPLÍCITO, no una
+   * columna vacía) se descarta como no-movimiento en vez de crear una
+   * `Transaccion`. Caso real: BCI imprime un "0" LITERAL en la columna de
+   * cargos para filas de "VERIFICACION DE CUENTA" en cartolas con línea de
+   * sobregiro — el saldo corrido de la cartola confirma que no mueven
+   * dinero, así que son un statement de valor cero, no un movimiento.
+   *
+   * Deliberadamente OPT-IN y deliberadamente NO cubre el caso "ambas
+   * columnas vacías": ese caso sigue el camino de fallo ruidoso normal para
+   * los 4 bancos (`Transaccion.crear` rechaza SIN_MONTOS, o la señal
+   * money-safe de `tokensSinAsignar` dispara antes si hay un token con
+   * forma de monto perdido) — indistinguible de una banda geométrica mal
+   * calibrada (ej. un monto de 3 dígitos sin separador de miles que no
+   * matchea `REGEX_POSIBLE_MONTO` y se perdería en silencio). Ver el sitio
+   * del skip en pdf-normalization.ts para el detalle de la condición.
+   */
+  readonly omitirFilasMontoCero?: boolean;
 }
