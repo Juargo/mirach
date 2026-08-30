@@ -109,8 +109,8 @@ components:
   card:
     backgroundColor: '{colors.card}'
     textColor: '{colors.card-foreground}'
-    rounded: '{rounded.xl}'
-    padding: '24px'
+    rounded: '{rounded.lg}'
+    padding: '20px'
   input:
     backgroundColor: '{colors.card}'
     textColor: '{colors.foreground}'
@@ -201,7 +201,7 @@ Single-breakpoint responsive shell, pure CSS (no JS media queries):
 - **Desktop (≥1024px / `lg`):** fixed 256px sidebar on the left (`w-64`, white card surface, right border); main content clears it with `lg:pl-64`.
 - **Mobile (<1024px):** sidebar hidden; fixed 64px bottom tab bar (`h-16`); main content reserves `pb-16`.
 - **Content column:** centered `max-w-6xl` (1152px) with 16px padding and 24px vertical gaps between cards.
-- **Rhythm:** Tailwind 4px base scale in practice — 24px card padding (`p-6`/`px-6`), 12–16px inside dialogs and rows, 24px between modules so each financial category has room to breathe.
+- **Rhythm:** Tailwind 4px base scale in practice — 20px padding on the card recipe (`p-5`), 12–16px inside dialogs and rows, 24px between modules so each financial category has room to breathe.
 
 ## Elevation & Depth
 
@@ -217,7 +217,7 @@ The system is **flat with a single tonal step**. Depth is conveyed by surface co
 
 ## Shapes
 
-The whole radius family derives from a single `--radius: 0.5rem` token: buttons and inputs at 6px (`md`), inline dialogs and nav items at 8px (`lg`), cards at 12px (`xl`) — the container is always softer than its contents. Badges and the semáforo icon circle go fully round (`9999px`). Borders are 1px Mist everywhere; the active sidebar item carries a 4px cobalt accent edge (`border-r-4`).
+The whole radius family derives from a single `--radius: 0.5rem` token: buttons and inputs at 6px (`md`); cards, inline dialogs and nav items at 8px (`lg`). The `xl` (12px) step remains in the token scale but no shipped card consumes it — the container stays at least as soft as its contents. Badges and the semáforo icon circle go fully round (`9999px`). Borders are 1px Mist everywhere; the active sidebar item carries a 4px cobalt accent edge (`border-r-4`).
 
 ## Components
 
@@ -236,10 +236,11 @@ The whole radius family derives from a single `--radius: 0.5rem` token: buttons 
 - **Variants:** mirror button colors (default cobalt, secondary lavanda, destructive red, outline with Mist border, ghost hover-only).
 
 ### Cards / Containers
-- **Corner Style:** 12px (`rounded-xl`) — the largest radius in the system.
+- **Corner Style:** 8px (`rounded-lg`) via the shared `DASHBOARD_CARD_CLASS` recipe (`apps/web/src/lib/dashboard-card.ts`) — the single source of truth for the card shell on the flagship surfaces.
 - **Background:** pure white on the Pale Sky app background.
 - **Shadow Strategy:** `shadow-sm` + 1px Mist border (see Elevation).
-- **Internal Padding:** 24px, with 24px gaps between stacked cards.
+- **Internal Padding:** 20px (`p-5`), with 24px gaps between stacked cards.
+- **Note (2026-08-29):** the shipped 8px/20px card is a deliberate decision; the shadcn `Card` primitive (`components/ui/card.tsx`, 12px/24px) predates it and is currently imported nowhere. Do not "correct" surfaces back to the primitive's spec.
 
 ### Inputs / Fields
 - **Style:** 6px radius, 1px `input` (#c4c6cf) stroke, 8px/12px padding, 14px text, white or transparent background.
