@@ -175,6 +175,10 @@ Three more `-foreground`-paired families cover semantic states that aren't bucke
 
 The "sin datos" semáforo state (no estado to color) reuses the existing shadcn `muted`/`muted-foreground` pair instead of minting a fourth semáforo token — it isn't a semáforo color, it's the generic neutral-empty state.
 
+**Update (2026-08-29):** the semáforo chip tokens now also wash `SemaforoHeroCard`'s own card surface (`bg-semaforo-verde`/`-amarillo`/`-rojo`, opaque — no alpha overlay) so the dashboard's verdict card visibly wears its estado instead of staying an identical white shell across a green and a red month. Fills only: `text-foreground`/`text-muted-foreground` are unchanged and measure ≥14.2:1 and ≥7.7:1 respectively against every wash. "Sin datos" keeps the neutral `bg-card` surface.
+
+**Extension (2026-08-29):** the same wash now covers `BucketSemaforoCard` (each bucket row tints with its own estado's `semaforo-verde`/`-amarillo`/`-rojo`, "sin datos" falling back to the neutral `bg-card`) and `IngresoCard` (washed with the `ingreso`/`ingreso-foreground` pair — the accent label/icon now use `ingreso-foreground`, the amount stays `text-foreground`). The dashboard's three cards now visibly wear their own state instead of one identical white shell repeated three times. Empty states (`states/Empty.tsx`) take a related but non-semantic treatment: a soft `bg-muted/40` box with a Mist border — they carry no estado, so they get surface, not color.
+
 ## Typography
 
 **Display Font:** Inter Variable (with system-ui, Segoe UI, Roboto fallbacks)
@@ -217,7 +221,7 @@ The system is **flat with a single tonal step**. Depth is conveyed by surface co
 
 ## Shapes
 
-The whole radius family derives from a single `--radius: 0.5rem` token: buttons and inputs at 6px (`md`); cards, inline dialogs and nav items at 8px (`lg`). The `xl` (12px) step remains in the token scale but no shipped card consumes it — the container stays at least as soft as its contents. Badges and the semáforo icon circle go fully round (`9999px`). Borders are 1px Mist everywhere; the active sidebar item carries a 4px cobalt accent edge (`border-r-4`).
+The whole radius family derives from a single `--radius: 0.5rem` token: buttons and inputs at 6px (`md`); cards, inline dialogs and nav items at 8px (`lg`). The `xl` (12px) step has exactly one shipped consumer — the empty-state box (`states/Empty.tsx`); no card consumes it, so the container stays at least as soft as its contents. Badges and the semáforo icon circle go fully round (`9999px`). Borders are 1px Mist everywhere; the active sidebar item carries a 4px cobalt accent edge (`border-r-4`).
 
 ## Components
 
