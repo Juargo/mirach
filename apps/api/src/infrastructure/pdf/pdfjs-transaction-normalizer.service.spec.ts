@@ -426,6 +426,90 @@ describe('PdfjsTransactionNormalizerService', () => {
     });
   });
 
+  describe('Banco de Chile (fixture sintético "montos grandes" — geometría de las 16 cartolas reales, recalibración 2026-08-30)', () => {
+    it('normaliza las 7 transacciones (9 filas fechadas menos SALDO INICIAL/FINAL), montos BigInt exactos contra la ecuación del resumen', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bancochile-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BancoChile);
+
+      expect(result.isOk()).toBe(true);
+      const transacciones = result.getValue();
+      expect(transacciones).toHaveLength(7);
+      for (const t of transacciones) {
+        expect(t.fecha.getUTCFullYear()).toBe(2026);
+        expect(t.fecha.getUTCMonth()).toBe(4); // mayo, 0-indexed
+        expect(t.cargo > 0n || t.abono > 0n).toBe(true);
+      }
+      // La suma cuadra con la ecuación DEPOSITOS/OTROS ABONOS/OTROS CARGOS
+      // impresa en el resumen del fixture (generado con saldo corrido
+      // exacto: 20.000.000 + 15.277.000 - 13.281.108 = 21.995.892).
+      expect(transacciones.reduce((acc, t) => acc + t.cargo, 0n)).toBe(
+        13281108n,
+      );
+      expect(transacciones.reduce((acc, t) => acc + t.abono, 0n)).toBe(
+        15277000n,
+      );
+    });
+
+    it('el rango completo de abonos right-aligned queda en UNA banda: ancho (x≈472.6), mediano (x≈482.7) y mínimo (x≈496.4) — antes solo los chicos caían dentro de [495, 520)', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bancochile-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BancoChile);
+      const transacciones = result.getValue();
+
+      const abonoAncho = transacciones.find((t) => t.abono === 15000000n);
+      expect(abonoAncho?.cargo).toBe(0n);
+      expect(abonoAncho?.descripcion).toContain('TRASPASO DE:Contraparte');
+
+      const abonoMediano = transacciones.find((t) => t.abono === 276500n);
+      expect(abonoMediano?.cargo).toBe(0n);
+
+      const abonoMinimo = transacciones.find((t) => t.abono === 500n);
+      expect(abonoMinimo?.cargo).toBe(0n);
+    });
+
+    it('el cargo ancho de 8 dígitos (x≈392.5) y el cargo de 1 dígito (x≈423.1) se asignan a la columna cargo', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bancochile-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BancoChile);
+      const transacciones = result.getValue();
+
+      const inversion = transacciones.find((t) => t.cargo === 12345678n);
+      expect(inversion?.abono).toBe(0n);
+      expect(inversion?.descripcion).toBe('INVERSION DEPOSITO FICTICIO');
+
+      const comision = transacciones.find((t) => t.cargo === 7n);
+      expect(comision?.abono).toBe(0n);
+      expect(comision?.descripcion).toBe('COMISION AJUSTE FICTICIO');
+    });
+
+    it('los saldos corridos (x≥548), el valor de "SALDO DISPONIBLE A LA FECHA" (x≈543.4) y la ecuación del resumen quedan fuera de las bandas — ningún saldo se cuela como cargo/abono ni contamina descripciones', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bancochile-cartola-montos-grandes-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BancoChile);
+      const transacciones = result.getValue();
+
+      // 21.995.892 aparece 3 veces en el fixture (saldo corrido, SALDO
+      // FINAL, SALDO DISPONIBLE) — jamás como monto de una transacción.
+      for (const t of transacciones) {
+        expect(t.cargo).not.toBe(21995892n);
+        expect(t.abono).not.toBe(21995892n);
+        expect(t.cargo).not.toBe(20000000n);
+        expect(t.descripcion).not.toContain('SALDO');
+        expect(t.descripcion).not.toContain('OTROS ABONOS');
+        expect(t.descripcion).not.toContain('RETENCION');
+      }
+    });
+  });
+
   it('retorna Fail(EstructuraPdfInvalidaError) para un buffer corrupto, sin colgar el proceso', async () => {
     const buffer = Buffer.from('esto no es un pdf');
 

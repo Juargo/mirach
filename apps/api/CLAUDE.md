@@ -33,4 +33,5 @@ apps/api/test/fixtures/
   pdf/                 ← cartolas PDF de prueba (ADR-009, pdfjs-dist), al menos una por banco:
     bancochile-cartola-test.pdf · bancoestado-cartola-test.pdf · bci-cartola-test.pdf · santander-cartola-test.pdf
     bci-cartola-montos-grandes-test.pdf ← 2ª cartola BCI sintética (recalibración rangosX 2026-08-30): cargos/abonos anchos right-aligned, fila $0 literal, sección de totales; se regenera con generar-bci-cartola-montos-grandes-test.ts (mismo directorio)
+    bancochile-cartola-montos-grandes-test.pdf ← 2ª cartola Banco de Chile sintética (recalibración rangosX 2026-08-30): abonos anchos right-aligned (el bug real: la banda vieja solo cubría abonos chicos), SALDO INICIAL/FINAL fechados, resumen sin fecha; se regenera con generar-bancochile-cartola-montos-grandes-test.ts (mismo directorio)
 ```
