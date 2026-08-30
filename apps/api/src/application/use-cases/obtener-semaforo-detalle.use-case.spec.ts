@@ -129,7 +129,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
       expect(serializedContexts).not.toContain('200000');
       expect(serializedContexts).not.toContain('90000');
       // The diagnosis sentence itself must never be logged.
-      expect(serializedContexts).not.toContain('Tu mes está');
+      expect(serializedContexts).not.toContain('Tu veredicto del mes es');
       expect(serializedContexts).not.toContain('registramos ingresos');
     });
   });

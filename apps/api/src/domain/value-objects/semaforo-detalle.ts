@@ -74,10 +74,16 @@ export const ETIQUETA_BUCKET_COPY = Object.freeze({
  * SAME strings deliberately — one is a wire contract, this is prose
  * vocabulary; they may diverge without either being wrong (dry.md), and the
  * domain cannot import infrastructure anyway (ADR-005). */
+// User-facing state words (product rebrand): Verde/Amarillo/Rojo prose reads
+// "Muy Saludable"/"Saludable"/"En peligro" (mirrors apps/web|mobile's
+// `semaforo-estilos.ts` labels and `veredicto-semaforo.ts` phrasing). The
+// Verde entry stays unused by `diagnosticar` (early-returns via
+// DIAGNOSTICO_VERDE) but is kept for Record<EstadoSemaforo, string>
+// completeness.
 const PALABRA_ESTADO: Record<EstadoSemaforo, string> = {
-  [EstadoSemaforo.Verde]: 'verde',
-  [EstadoSemaforo.Amarillo]: 'amarillo',
-  [EstadoSemaforo.Rojo]: 'rojo',
+  [EstadoSemaforo.Verde]: 'Muy Saludable',
+  [EstadoSemaforo.Amarillo]: 'Saludable',
+  [EstadoSemaforo.Rojo]: 'En peligro',
 };
 
 const VERBO: Record<DireccionConsejo, string> = {
@@ -88,7 +94,7 @@ const VERBO: Record<DireccionConsejo, string> = {
 const DIAGNOSTICO_SIN_INGRESO =
   'Este mes no registramos ingresos, así que no podemos calcular tus porcentajes.';
 const DIAGNOSTICO_VERDE =
-  'Tu mes está en verde: los tres grupos están dentro de su rango.';
+  'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.';
 
 /** Fixed product order for tie-naming (D-10) and the 3-bucket detail array (D-03). */
 const BUCKETS_SEMAFORO_ORDEN = [
@@ -140,7 +146,7 @@ export function diagnosticar(resumen: ResumenMes): string {
   const etiquetas = bucketsQueDrivenEstadoGlobal(resumen).map(
     (bucket) => ETIQUETA_BUCKET_COPY[bucket],
   );
-  return `Tu mes está en ${PALABRA_ESTADO[resumen.estadoGlobal]} por ${listarEtiquetas(etiquetas)}.`;
+  return `Tu veredicto del mes es ${PALABRA_ESTADO[resumen.estadoGlobal]} por ${listarEtiquetas(etiquetas)}.`;
 }
 
 /**
@@ -161,9 +167,9 @@ function mensajeConsejo(
   direccion: DireccionConsejo,
 ): string {
   if (caso === 'ahorro-alto') {
-    return 'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Verde.';
+    return 'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Muy Saludable.';
   }
-  return `Para volver a Verde, ${VERBO[direccion]} {monto} en ${ETIQUETA_BUCKET_COPY[bucket]} este mes.`;
+  return `Para volver a Muy Saludable, ${VERBO[direccion]} {monto} en ${ETIQUETA_BUCKET_COPY[bucket]} este mes.`;
 }
 
 /**
