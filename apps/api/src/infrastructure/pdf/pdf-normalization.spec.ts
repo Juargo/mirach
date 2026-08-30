@@ -1,6 +1,7 @@
 import { normalizarTransaccionesPdf } from './pdf-normalization';
 import { PagedToken } from './pdf-text-extractor';
 import { EstructuraPdfBanco } from './strategies/estructura-pdf-banco';
+import { BciPdfStrategy } from './strategies/bci.strategy';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 
@@ -539,6 +540,210 @@ describe('normalizarTransaccionesPdf', () => {
 
       expect(resultado).toHaveLength(1);
       expect(resultado[0].cargo).toBe(9990n);
+    });
+  });
+
+  describe('recalibración BCI 2026-08-30 — geometría real de 15 cartolas (bug "monto fuera de las columnas configuradas")', () => {
+    // Estos specs usan la estructura REAL de BciPdfStrategy (no bandas
+    // sintéticas) con tokens en las coordenadas X medidas contra las
+    // cartolas reales — pinnean que la recalibración de rangosX cubre los
+    // montos anchos alineados a la derecha que las bandas originales
+    // perdían (el x de inicio de un monto right-aligned corre hacia la
+    // IZQUIERDA a medida que el monto crece).
+    const estructuraBci = new BciPdfStrategy().getEstructura();
+
+    it('un cargo de 8 dígitos (x≈381) y un abono de 7 dígitos (x≈459) se asignan a su columna — antes caían fuera de banda y la fila fallaba con TokenSinAsignarSospechoso por culpa del token de Saldo', () => {
+      const tokens = [
+        // Cargo ancho: "11.200.000" arranca en x=381.1 (medido). El número
+        // de documento (x≈316) queda dentro de `descripcion` — comportamiento
+        // pinneado desde el fixture original (overflow de N° DOCUMENTO).
+        tok('16/05/2026', 43.4, 546),
+        tok('OF CENTRA', 98.6, 546),
+        tok('INVERSION DEPOSITO PLAZO', 151.2, 546),
+        tok('812', 316.0, 546),
+        tok('11.200.000', 381.1, 546),
+        tok('3.473.570', 546.7, 546), // Saldo — fuera de rangosX a propósito
+        // Abono ancho: "1.850.000" arranca en x=459.3 (medido) — la banda
+        // original [460, 500) lo perdía por 0.7pt.
+        tok('17/05/2026', 43.4, 535),
+        tok('OF VIRT U', 98.6, 535),
+        tok('TRANSFERENCIA DE TERCERO', 151.2, 535),
+        tok('556677', 309.0, 535),
+        tok('1.850.000', 459.3, 535),
+        tok('5.323.570', 546.7, 535),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toEqual([
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 4, 16)),
+          descripcion: 'INVERSION DEPOSITO PLAZO 812',
+          cargo: 11200000n,
+          abono: 0n,
+        }).getValue(),
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 4, 17)),
+          descripcion: 'TRANSFERENCIA DE TERCERO 556677',
+          cargo: 0n,
+          abono: 1850000n,
+        }).getValue(),
+      ]);
+    });
+
+    it('una fila fechada con "0" LITERAL en la columna cargo (transacción $0, ej. "VERIFICACION DE CUENTA" en cartolas sobregiradas) se descarta como no-movimiento en vez de reventar el invariante cargo XOR abono del VO', () => {
+      const tokens = [
+        // Fila $0 real (caso real BCI observado en la muestra de calibración
+        // de 2026-08-30, anonimizada): BCI imprime un "0" explícito en la
+        // columna de cargos para la verificación de cuenta. Sin
+        // `omitirFilasMontoCero`, la candidata 0/0 llegaba a
+        // Transaccion.crear, el VO la rechazaba (cargo XOR abono) y la
+        // cartola COMPLETA fallaba con un MontoIleeible de índice engañoso
+        // (0-indexed).
+        tok('06/02/2026', 43.8, 535),
+        tok('UGCA AUT', 100.8, 535),
+        tok('VERIFICACION DE CUENTA', 153.0, 535),
+        tok('918111', 308.3, 535),
+        tok('0', 412.8, 535),
+        tok('-39.813', 554.7, 535), // saldo negativo (cuenta sobregirada) — fuera de banda
+        // Fila real que la acompaña — debe sobrevivir el descarte de la $0.
+        tok('06/02/2026', 43.8, 524),
+        tok('UGCA AUT', 100.8, 524),
+        tok('COMPRA COMERCIO EJEMPLO', 153.0, 524),
+        tok('427722', 307.7, 524),
+        tok('10.609', 394.0, 524),
+        tok('-50.422', 554.7, 524),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toEqual([
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 1, 6)),
+          descripcion: 'COMPRA COMERCIO EJEMPLO 427722',
+          cargo: 10609n,
+          abono: 0n,
+        }).getValue(),
+      ]);
+    });
+
+    it('una fila BCI fechada con AMBAS columnas de monto VACÍAS (sin token con forma de monto perdido) NO se descarta por omitirFilasMontoCero — sigue el camino de fallo ruidoso normal (SIN_MONTOS)', () => {
+      const tokens = [
+        // Ni cargoTxt ni abonoTxt traen texto — el flag exige un cero
+        // EXPLÍCITO (al menos una columna cruda no vacía). "Ambas vacías" es
+        // indistinguible de una banda geométrica mal calibrada, así que debe
+        // seguir reventando ruidosamente, igual que para los otros 3 bancos.
+        tok('06/02/2026', 43.8, 535),
+        tok('UGCA AUT', 100.8, 535),
+        tok('FILA SIN MONTOS EN NINGUNA COLUMNA', 153.0, 535),
+        tok('918111', 308.3, 535),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBci,
+        undefined,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'MontoIleeible', fila: 0, columna: 'cargo' },
+      ]);
+    });
+
+    it('una estructura NO-BCI (omitirFilasMontoCero apagado) con una fila 0/0 explícita ("0" literal en cargo) sigue el camino de fallo ruidoso normal — el flag es opt-in, no el default', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 100),
+        tok('Fila cero explicita', 100, 100),
+        tok('0', 400, 100),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase(), // Santander — omitirFilasMontoCero es undefined/false
+        periodoMarzo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'MontoIleeible', fila: 0, columna: 'cargo' },
+      ]);
+    });
+
+    it('una cartola BCI cuyas filas fechadas son TODAS "0" literal se importa vacía (Result.ok([])), sin error estructural', () => {
+      const tokens = [
+        tok('06/02/2026', 43.8, 535),
+        tok('UGCA AUT', 100.8, 535),
+        tok('VERIFICACION DE CUENTA', 153.0, 535),
+        tok('918111', 308.3, 535),
+        tok('0', 412.8, 535),
+        tok('-39.813', 554.7, 535),
+        tok('07/02/2026', 43.8, 524),
+        tok('UGCA AUT', 100.8, 524),
+        tok('VERIFICACION DE CUENTA', 153.0, 524),
+        tok('918112', 308.3, 524),
+        tok('0', 412.8, 524),
+        tok('-39.813', 554.7, 524),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toEqual([]);
+    });
+
+    it('la fila de etiquetas "Periodo Saldo Anterior" (última página, sin fecha ni montos propios) NO se fusiona como sufijo de la última transacción', () => {
+      const tokens = [
+        tok('18/05/2026', 43.4, 300),
+        tok('GIRO CAJERO EJEMPLO', 151.2, 300),
+        tok('120.000', 391.5, 300),
+        tok('5.241.040', 546.7, 300),
+        // Sección de totales: "Periodo" cae en la banda `fecha` (x≈49) y
+        // "Saldo Anterior" en `descripcion` (x≈298) — sin el guard de
+        // filasIgnoradas, fusionarContinuaciones la pegaría como sufijo.
+        tok('Periodo', 49.4, 282),
+        tok('Saldo Anterior', 298.0, 282),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toHaveLength(1);
+      expect(resultado[0].descripcion).toBe('GIRO CAJERO EJEMPLO');
+    });
+
+    it('regresión money-safe específica de las bandas BCI: un token con forma de monto claramente FUERA de las bandas cargo/abono recalibradas (x≈550, ej. deriva geométrica real, no la columna Saldo esperada) con AMBAS columnas vacías dispara TokenSinAsignarSospechoso — NO el skip de omitirFilasMontoCero', () => {
+      const tokens = [
+        tok('06/02/2026', 43.8, 535),
+        tok('UGCA AUT', 100.8, 535),
+        tok('MOVIMIENTO CON MONTO DESPLAZADO', 153.0, 535),
+        // Único token con forma de monto de la fila, a x≈550 — fuera de
+        // `cargo` (360-430) y de `abono` (435-500) recalibrados. `cargo` y
+        // `abono` quedan VACÍOS: es indistinguible geométricamente de la
+        // columna Saldo, así que la señal money-safe debe dispararse ANTES
+        // de que omitirFilasMontoCero tenga oportunidad de intervenir (el
+        // flag exige cargo===0 && abono===0 ya PARSEADOS de un texto no
+        // vacío — acá cargoTxt/abonoTxt están vacíos, así que ni siquiera
+        // aplica).
+        tok('$550.000', 550, 535),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBci,
+        undefined,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'TokenSinAsignarSospechoso', fila: 1 },
+      ]);
     });
   });
 

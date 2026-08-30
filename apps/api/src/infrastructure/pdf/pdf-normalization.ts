@@ -162,6 +162,14 @@ interface FilaCandidata extends FechaFilaParseada {
  *        - Cada columna de monto NO VACÍA que `parsearMontoPdf` no puede
  *          interpretar → se reporta `MontoIleeible` (columna vacía SÍ es
  *          válida y vale 0 — CA-06, igual que Excel).
+ *        - Candidata con cargo Y abono en 0 Y `estructura.omitirFilasMontoCero`
+ *          activo (SOLO BCI) Y al menos una columna cruda no vacía (un cero
+ *          EXPLÍCITO, ej. "0" LITERAL impreso en la columna, caso real BCI
+ *          "VERIFICACION DE CUENTA") → se descarta como no-movimiento, ver
+ *          comentario en el loop (2026-08-30). Si AMBAS columnas vienen
+ *          vacías, o el flag está apagado, la candidata sigue de largo y
+ *          `Transaccion.crear` la rechaza con SIN_MONTOS (mismo fallo
+ *          ruidoso que siempre, para los 4 bancos).
  *   6. El año se resuelve vía `inferirAnios` (bancos con `fuenteAnio.kind
  *      === 'inferido'`) o directo desde la propia fila (`'explicito'`, BCI).
  */
@@ -273,6 +281,36 @@ export function normalizarTransaccionesPdf(
         continue;
       }
       abono = n;
+    }
+
+    // Fila fechada con cargo Y abono en 0 = transacción de valor cero, no
+    // un movimiento — SOLO para bancos con `omitirFilasMontoCero` (hoy,
+    // únicamente BCI: "VERIFICACION DE CUENTA" imprime un "0" LITERAL en la
+    // columna de cargos en cartolas con línea de sobregiro; el saldo
+    // corrido confirma que no mueve dinero). Se descarta ANTES de crear el
+    // VO: `Transaccion` exige cargo XOR abono y una candidata 0/0 tumbaría
+    // la cartola COMPLETA con un `MontoIleeible` de índice engañoso.
+    //
+    // El skip exige, ADEMÁS del flag, que AL MENOS UNA columna cruda no
+    // esté vacía (`cargoTxt !== '' || abonoTxt !== ''`) — un cero EXPLÍCITO
+    // parseado de un token real, no una columna vacía. Si AMBAS columnas
+    // vienen vacías (`cargoTxt === '' && abonoTxt === ''`) el flag NO
+    // aplica y la fila sigue el camino de fallo ruidoso normal (para los 4
+    // bancos, BCI incluido): la señal money-safe de arriba ya cubre el caso
+    // en que un token con forma de monto quedó fuera de `rangosX`, y si no
+    // hay ningún token de ese tipo dando vueltas la candidata llega a
+    // `Transaccion.crear`, que la rechaza con SIN_MONTOS. Ese es el
+    // comportamiento correcto: "ambas columnas vacías" es indistinguible de
+    // una banda geométrica mal calibrada (ej. un monto de 3 dígitos como
+    // "820", sin separador de miles, no matchea `REGEX_POSIBLE_MONTO` y se
+    // perdería en silencio si esta rama lo tratara como $0/$0 legítimo).
+    if (
+      estructura.omitirFilasMontoCero &&
+      cargo === 0 &&
+      abono === 0 &&
+      (cargoTxt !== '' || abonoTxt !== '')
+    ) {
+      continue;
     }
 
     const prefijo = prefijoParaFila.get(i);
