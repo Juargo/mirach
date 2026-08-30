@@ -16,7 +16,7 @@ function makeDetalle(
     totalIngreso: 1_500_000n,
     sinIngreso: false,
     estadoGlobal: EstadoSemaforo.Amarillo,
-    diagnostico: 'Tu mes está en amarillo por Necesidades.',
+    diagnostico: 'Tu veredicto del mes es Saludable por Necesidades.',
     bucketsCriticos: [Bucket.Necesidades],
     buckets: [
       {
@@ -36,7 +36,7 @@ function makeDetalle(
           monto: 49_995n,
           caso: 'excede',
           mensaje:
-            'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+            'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
         },
       },
       {
@@ -147,7 +147,7 @@ describe('aSemaforoDetalleDto', () => {
     const dto = aSemaforoDetalleDto('2026-07', makeDetalle());
 
     expect(dto.buckets[0]?.consejo?.mensaje).toBe(
-      'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+      'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
     );
   });
 });

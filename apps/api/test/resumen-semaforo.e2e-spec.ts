@@ -381,7 +381,9 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     expect(res.body.estadoGlobal).toBe('rojo');
     // Driven ONLY by Deseos (A's Necesidades/Ahorro are Verde) — never
     // mentions Necesidades, which is the alien's driving bucket.
-    expect(res.body.diagnostico).toBe('Tu mes está en rojo por Gustos.');
+    expect(res.body.diagnostico).toBe(
+      'Tu veredicto del mes es En peligro por Gustos.',
+    );
     expect(res.body.bucketsCriticos).toEqual([Bucket.Deseos]);
 
     const necesidades = res.body.buckets.find(
@@ -401,7 +403,8 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     expect(deseos.consejo).toEqual({
       direccion: 'reducir',
       monto: '199951',
-      mensaje: 'Para volver a Verde, reduce {monto} en Gustos este mes.',
+      mensaje:
+        'Para volver a Muy Saludable, reduce {monto} en Gustos este mes.',
     });
 
     const ahorro = res.body.buckets.find(
@@ -521,7 +524,9 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     // exercises the OTHER consejo branch than the cookie test's Deseos case.
     expect(res.body.totalIngreso).toBe('2000000');
     expect(res.body.estadoGlobal).toBe('rojo');
-    expect(res.body.diagnostico).toBe('Tu mes está en rojo por Ahorro.');
+    expect(res.body.diagnostico).toBe(
+      'Tu veredicto del mes es En peligro por Ahorro.',
+    );
     expect(res.body.bucketsCriticos).toEqual([Bucket.Ahorro]);
 
     const ahorro = res.body.buckets.find(
@@ -535,7 +540,7 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
       direccion: 'reducir',
       monto: '800100',
       mensaje:
-        'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Verde.',
+        'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Muy Saludable.',
     });
 
     const necesidades = res.body.buckets.find(

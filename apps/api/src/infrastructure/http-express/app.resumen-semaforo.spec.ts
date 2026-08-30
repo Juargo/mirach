@@ -21,7 +21,7 @@ const SEMAFORO_DETALLE_OK: SemaforoDetalle = {
   sinIngreso: false,
   estadoGlobal: EstadoSemaforo.Verde,
   diagnostico:
-    'Tu mes está en verde: los tres grupos están dentro de su rango.',
+    'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.',
   bucketsCriticos: [],
   buckets: [
     {

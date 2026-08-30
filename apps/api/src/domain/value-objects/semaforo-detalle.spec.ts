@@ -17,7 +17,7 @@ import {
 const DIAGNOSTICO_SIN_INGRESO =
   'Este mes no registramos ingresos, así que no podemos calcular tus porcentajes.';
 const DIAGNOSTICO_VERDE =
-  'Tu mes está en verde: los tres grupos están dentro de su rango.';
+  'Tu veredicto del mes es Muy Saludable: los tres grupos están dentro de su rango.';
 
 /** Convenience factory — mirrors ResumenMes.crear's field order, base income 1_000_000n. */
 function resumenCon(
@@ -304,7 +304,9 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       deseos: 200_000n, // bp 2000 — Verde
       ahorro: 250_000n, // bp 2500 — Verde
     });
-    expect(diagnosticar(resumen)).toBe('Tu mes está en rojo por Necesidades.');
+    expect(diagnosticar(resumen)).toBe(
+      'Tu veredicto del mes es En peligro por Necesidades.',
+    );
   });
 
   it('Deseos driving → uses the product label "Gustos", not "Deseos"', () => {
@@ -313,7 +315,9 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       deseos: 450_000n, // bp 4500 — Rojo (Deseos rojo is bp > 4000)
       ahorro: 250_000n, // bp 2500 — Verde
     });
-    expect(diagnosticar(resumen)).toBe('Tu mes está en rojo por Gustos.');
+    expect(diagnosticar(resumen)).toBe(
+      'Tu veredicto del mes es En peligro por Gustos.',
+    );
   });
 
   it('two-way tie (Necesidades + Deseos both Rojo) → names both, fixed order', () => {
@@ -323,7 +327,7 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       ahorro: 250_000n, // Verde
     });
     expect(diagnosticar(resumen)).toBe(
-      'Tu mes está en rojo por Necesidades y Gustos.',
+      'Tu veredicto del mes es En peligro por Necesidades y Gustos.',
     );
   });
 
@@ -334,7 +338,7 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       ahorro: 600_000n, // bp 6000 — Rojo (Ahorro rojo is bp > 5000)
     });
     expect(diagnosticar(resumen)).toBe(
-      'Tu mes está en rojo por Necesidades, Gustos y Ahorro.',
+      'Tu veredicto del mes es En peligro por Necesidades, Gustos y Ahorro.',
     );
   });
 
@@ -344,7 +348,9 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       deseos: 350_000n, // bp 3500 — Amarillo (Deseos amarillo is 3001..4000)
       ahorro: 250_000n, // Verde
     });
-    expect(diagnosticar(resumen)).toBe('Tu mes está en rojo por Necesidades.');
+    expect(diagnosticar(resumen)).toBe(
+      'Tu veredicto del mes es En peligro por Necesidades.',
+    );
   });
 
   it('listing order is fixed (Necesidades → Deseos → Ahorro) for any tied subset, not input-dependent', () => {
@@ -359,7 +365,7 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       ahorro: 600_000n, // Rojo
     });
     expect(diagnosticar(resumen)).toBe(
-      'Tu mes está en rojo por Necesidades y Ahorro.',
+      'Tu veredicto del mes es En peligro por Necesidades y Ahorro.',
     );
   });
 
@@ -380,7 +386,7 @@ describe('mensajeConsejo via montoParaVerde (Group F — SEM-10, D-05, D-08)', (
     const consejo = montoParaVerde(Bucket.Necesidades, 550_000n, 1_000_000n);
     expect(consejo?.caso).toBe('excede');
     expect(consejo?.mensaje).toBe(
-      'Para volver a Verde, reduce {monto} en Necesidades este mes.',
+      'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
     );
   });
 
@@ -388,7 +394,7 @@ describe('mensajeConsejo via montoParaVerde (Group F — SEM-10, D-05, D-08)', (
     const consejo = montoParaVerde(Bucket.Ahorro, 150_000n, 1_000_000n);
     expect(consejo?.caso).toBe('ahorro-bajo');
     expect(consejo?.mensaje).toBe(
-      'Para volver a Verde, aumenta {monto} en Ahorro este mes.',
+      'Para volver a Muy Saludable, aumenta {monto} en Ahorro este mes.',
     );
   });
 
@@ -396,7 +402,7 @@ describe('mensajeConsejo via montoParaVerde (Group F — SEM-10, D-05, D-08)', (
     const consejo = montoParaVerde(Bucket.Ahorro, 450_000n, 1_000_000n);
     expect(consejo?.caso).toBe('ahorro-alto');
     expect(consejo?.mensaje).toBe(
-      'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Verde.',
+      'Estás ahorrando por sobre la banda: puedes liberar hasta {monto} y quedar en Muy Saludable.',
     );
   });
 
