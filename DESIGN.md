@@ -175,6 +175,8 @@ Three more `-foreground`-paired families cover semantic states that aren't bucke
 
 The "sin datos" semáforo state (no estado to color) reuses the existing shadcn `muted`/`muted-foreground` pair instead of minting a fourth semáforo token — it isn't a semáforo color, it's the generic neutral-empty state.
 
+**Update (2026-08-29):** the semáforo chip tokens now also wash `SemaforoHeroCard`'s own card surface (`bg-semaforo-verde`/`-amarillo`/`-rojo`, opaque — no alpha overlay) so the dashboard's verdict card visibly wears its estado instead of staying an identical white shell across a green and a red month. Fills only: `text-foreground`/`text-muted-foreground` are unchanged and measure ≥14.2:1 and ≥7.7:1 respectively against every wash. "Sin datos" keeps the neutral `bg-card` surface.
+
 ## Typography
 
 **Display Font:** Inter Variable (with system-ui, Segoe UI, Roboto fallbacks)
