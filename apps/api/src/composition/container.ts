@@ -202,11 +202,13 @@ export function createContainer(
     logger,
   );
   // Login con Google mobile (design §7): gate independiente de `googleAuth`
-  // (AUTH-22) — misma instancia de `blindIndex`, nunca una re-derivación.
+  // (AUTH-22) — mismas instancias de `blindIndex`/`crypto` (ADR-041: el
+  // signup cifra el email), nunca re-derivaciones.
   const googleAuthMobile = crearAuthGoogleMobile(
     prisma,
     env,
     blindIndex,
+    crypto,
     logger,
   );
 

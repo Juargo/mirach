@@ -15,6 +15,7 @@ function makeIdentidades(
     vincularGoogleSub: vi.fn().mockResolvedValue(true),
     buscarPorId: vi.fn(),
     desvincularGoogleSub: vi.fn(),
+    crearDesdeGoogle: vi.fn(),
     ...overrides,
   };
 }

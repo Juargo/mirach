@@ -31,6 +31,8 @@ import { Sha256SessionTokenService } from '../src/infrastructure/http/auth/sha25
 import { SystemReloj } from '../src/infrastructure/http/auth/system-reloj';
 import { IpRateLimiter } from '../src/infrastructure/http/auth/ip-rate-limiter';
 import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { CATEGORIA_TEMPLATE_SIZE } from '../src/infrastructure/persistence/catalogo-template';
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
 import { NoOpLogger } from './support/logger.double';
@@ -77,6 +79,14 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
       await prisma.session.deleteMany({
         where: { userId: { in: createdUserIds } },
       });
+      // ADR-041: el signup materializa catálogo — sin cascade en el schema,
+      // se limpia explícito (patrones antes que categorías, FK compuesta).
+      await prisma.patronClasificacion.deleteMany({
+        where: { userId: { in: createdUserIds } },
+      });
+      await prisma.categoria.deleteMany({
+        where: { userId: { in: createdUserIds } },
+      });
       await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     }
     await prisma.$disconnect();
@@ -93,7 +103,14 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
     const blindIndex = new HmacBlindIndexService(
       deriveBlindIndexKey(Buffer.from(env.ENCRYPTION_KEY, 'base64')),
     );
-    const identidades = new PrismaIdentidadGoogleRepository(prisma, blindIndex);
+    const cryptoIdentidades = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
+    const identidades = new PrismaIdentidadGoogleRepository(
+      prisma,
+      blindIndex,
+      cryptoIdentidades,
+    );
     const sessions = new PrismaSessionRepository(prisma);
     const tokens = new Sha256SessionTokenService();
     const reloj = new SystemReloj();
@@ -178,12 +195,11 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
     expect(await prisma.session.count()).toBe(before + 1);
   });
 
-  it('identidad desconocida (sin match por googleSub ni email) → 401 genérico, cero usuarios creados', async () => {
+  it('identidad desconocida (sin match por googleSub ni email) → signup-on-first-login (ADR-041): usuario passwordless + catálogo + Session', async () => {
     if (!ALLOW) return;
 
-    const email = `${RUN_ID}-unknown@example.com`;
-    const sub = `sub-${RUN_ID}-unknown`;
-    const usersBefore = await prisma.user.count();
+    const email = `${RUN_ID}-signup@example.com`;
+    const sub = `sub-${RUN_ID}-signup`;
 
     const res = await request(
       appConVerificador({ sub, email, emailVerificado: true }),
@@ -192,9 +208,33 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
       .set('x-api-key', API_KEY)
       .send({ idToken: 'fake-id-token' });
 
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ message: 'Credenciales inválidas.' });
-    expect(await prisma.user.count()).toBe(usersBefore);
+    expect(res.status).toBe(200);
+    const nuevoUserId: string = res.body.userId;
+    createdUserIds.push(nuevoUserId);
+
+    const nuevo = await prisma.user.findUnique({ where: { id: nuevoUserId } });
+    expect(nuevo?.googleSub).toBe(sub);
+    expect(nuevo?.passwordHash).toBeNull();
+    expect(nuevo?.esDemo).toBe(false);
+    expect(nuevo?.nombre).toBe(`${RUN_ID}-signup`);
+    // Email cifrado en reposo + blind index del email normalizado (ADR-013).
+    expect(nuevo?.email).not.toBe(email);
+    expect(nuevo?.emailBlindIndex).not.toBeNull();
+
+    // Catálogo materializado en la misma transacción (invariante ADR-036).
+    expect(
+      await prisma.categoria.count({ where: { userId: nuevoUserId } }),
+    ).toBe(CATEGORIA_TEMPLATE_SIZE);
+    expect(
+      await prisma.patronClasificacion.count({
+        where: { userId: nuevoUserId },
+      }),
+    ).toBeGreaterThan(0);
+
+    const sessions = await prisma.session.findMany({
+      where: { userId: nuevoUserId },
+    });
+    expect(sessions).toHaveLength(1);
   });
 
   it('email_verified: false → 401 genérico, googleSub NUNCA se escribe', async () => {

@@ -1,14 +1,18 @@
 /**
- * MotivoFalloGoogle — las seis razones internas por las que el login con
+ * MotivoFalloGoogle — las razones internas por las que el login con
  * Google puede fallar. Solo para logging server-side (design §6.1) — nunca
  * cruza al cliente, que solo ve `/login?error=google`.
+ *
+ * ADR-041: 'sin-match' se RETIRA de la unión — el no-match ahora CREA la
+ * cuenta (signup-on-first-login). Su reemplazo en la rama de carrera de
+ * creación perdida e irresoluble es 'creacion-perdio-la-carrera'.
  */
 export type MotivoFalloGoogle =
-  | 'sin-match'
   | 'email-no-verificado'
   | 'usuario-demo'
   | 'ya-vinculado-a-otra-identidad'
   | 'link-perdio-la-carrera'
+  | 'creacion-perdio-la-carrera'
   | 'email-invalido';
 
 /**
@@ -16,7 +20,7 @@ export type MotivoFalloGoogle =
  *
  * El único error que retorna `LoginConGoogleUseCase` para TODAS las ramas de
  * fallo (AUTH-15 — no enumeración, misma disciplina que
- * `CredencialesInvalidasError`). `message` es fijo e idéntico entre los seis
+ * `CredencialesInvalidasError`). `message` es fijo e idéntico entre todos los
  * `motivo`; `motivo` existe solo para logging server-side y nunca se deriva
  * en el mensaje ni llega al cliente.
  */

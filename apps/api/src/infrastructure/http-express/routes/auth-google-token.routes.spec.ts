@@ -12,7 +12,7 @@ import { createPinoLogger } from '../../logging/pino-logger';
 import { Result } from '../../../shared/result';
 import { LoginConGoogleFallidoError } from '../../../domain/errors/login-con-google-fallido.error';
 import { VerificacionIdentidadFallidaError } from '../../../domain/errors/verificacion-identidad-fallida.error';
-import type { LoginUseCaseResult } from '../../../application/use-cases/login.use-case';
+import type { LoginConGoogleResult } from '../../../application/use-cases/login-con-google.use-case';
 
 /**
  * The generic 401 body MUST byte-match `/auth/login`'s failure body (AUTH-21)
@@ -33,10 +33,11 @@ function deps(over: Partial<AuthGoogleTokenDeps> = {}): AuthGoogleTokenDeps {
     },
     loginConGoogle: {
       execute: vi.fn().mockResolvedValue(
-        Result.ok<LoginUseCaseResult>({
+        Result.ok<LoginConGoogleResult>({
           token: 'tok',
           userId: 'user-1',
           expiresAt: new Date('2026-08-15T00:00:00.000Z'),
+          esNuevoUsuario: false,
         }),
       ),
     },
@@ -101,8 +102,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
     });
     expect(res.headers['set-cookie']).toBeUndefined();
     // Pins the wiring: la identidad que resuelve el verificador debe pasar
-    // TAL CUAL a `loginConGoogle.execute` (mismo camino find-only de
-    // `LoginConGoogleUseCase`, AUTH-20) — sin transformación intermedia.
+    // TAL CUAL a `loginConGoogle.execute` (mismo `LoginConGoogleUseCase` del
+    // flujo web, AUTH-20 — post-ADR-041 ya no es find-only) — sin
+    // transformación intermedia.
     expect(d.loginConGoogle.execute).toHaveBeenCalledWith({
       sub: 'sub-1',
       email: 'a@b.cl',
@@ -110,7 +112,7 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
     });
   });
 
-  it('successful login releases the rate-limit slot (reset called with the request IP)', async () => {
+  it('successful login of a PRE-EXISTING user releases the rate-limit slot (esNuevoUsuario: false → reset called with the request IP)', async () => {
     const d = deps();
     const res = await request(tokenApp(d))
       .post('/api/auth/google/token')
@@ -120,6 +122,81 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
     expect(d.googleTokenRateLimiter.reset).toHaveBeenCalledWith(
       expect.any(String),
     );
+  });
+
+  /**
+   * Fix de revisión CRITICAL (mobile rate limiter defeat): pre-ADR-041, un
+   * "sin match" fallaba y nunca llegaba a este punto de éxito. Post-ADR-041
+   * el signup ES un éxito — si `reset(ip)` se llamara igual, un único IP
+   * podría crear cuentas sin límite reseteando su propio presupuesto en
+   * cada alta. La cuenta creada sigue contando en `recordFailure` (llamado
+   * optimistamente ANTES del login, sin tocar), capando las creaciones al
+   * presupuesto del limiter por IP (paridad con el tope natural del flujo
+   * web, que nunca resetea — ver test de abajo).
+   */
+  it('successful SIGNUP (esNuevoUsuario: true) NEVER releases the rate-limit slot (FIX 1 — mobile mass-signup defense)', async () => {
+    const d = deps({
+      loginConGoogle: {
+        execute: vi.fn().mockResolvedValue(
+          Result.ok<LoginConGoogleResult>({
+            token: 'tok',
+            userId: 'user-nuevo',
+            expiresAt: new Date('2026-08-15T00:00:00.000Z'),
+            esNuevoUsuario: true,
+          }),
+        ),
+      } as never,
+    });
+
+    const res = await request(tokenApp(d))
+      .post('/api/auth/google/token')
+      .send({ idToken: 'valid-token' });
+
+    expect(res.status).toBe(200);
+    expect(d.googleTokenRateLimiter.reset).not.toHaveBeenCalled();
+  });
+
+  it('AUTH-15: el body 200 es BYTE-IDÉNTICO entre signup y login — esNuevoUsuario nunca se serializa (no enumeración)', async () => {
+    const dSignup = deps({
+      loginConGoogle: {
+        execute: vi.fn().mockResolvedValue(
+          Result.ok<LoginConGoogleResult>({
+            token: 'tok',
+            userId: 'user-1',
+            expiresAt: new Date('2026-08-15T00:00:00.000Z'),
+            esNuevoUsuario: true,
+          }),
+        ),
+      } as never,
+    });
+    const dLogin = deps({
+      loginConGoogle: {
+        execute: vi.fn().mockResolvedValue(
+          Result.ok<LoginConGoogleResult>({
+            token: 'tok',
+            userId: 'user-1',
+            expiresAt: new Date('2026-08-15T00:00:00.000Z'),
+            esNuevoUsuario: false,
+          }),
+        ),
+      } as never,
+    });
+
+    const resSignup = await request(tokenApp(dSignup))
+      .post('/api/auth/google/token')
+      .send({ idToken: 'valid-token' });
+    const resLogin = await request(tokenApp(dLogin))
+      .post('/api/auth/google/token')
+      .send({ idToken: 'valid-token' });
+
+    expect(resSignup.status).toBe(resLogin.status);
+    expect(resSignup.body).toEqual(resLogin.body);
+    expect(resSignup.body).not.toHaveProperty('esNuevoUsuario');
+    expect(Object.keys(resSignup.body).sort()).toEqual([
+      'expiresAt',
+      'token',
+      'userId',
+    ]);
   });
 
   /**
@@ -230,7 +307,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
             execute: vi
               .fn()
               .mockResolvedValue(
-                Result.fail(new LoginConGoogleFallidoError('sin-match')),
+                Result.fail(
+                  new LoginConGoogleFallidoError('creacion-perdio-la-carrera'),
+                ),
               ),
           } as never,
         }),

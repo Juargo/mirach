@@ -14,6 +14,17 @@ export interface UsuarioVinculable {
 }
 
 /**
+ * NuevoUsuarioGoogle — input de `crearDesdeGoogle` (ADR-041). `nombre` llega
+ * ya derivado por el use case (parte local del email normalizado — la
+ * identidad OIDC de este flujo no pide el claim `name`, ver ADR-041).
+ */
+export interface NuevoUsuarioGoogle {
+  readonly email: Email;
+  readonly googleSub: string;
+  readonly nombre: string;
+}
+
+/**
  * IIdentidadGoogleRepository — puerto de resolución de identidad Google
  * (design §5.2). Deliberadamente separado de `IUserCredentialRepository`:
  * ese puerto retorna `null` para un usuario sin password (semántica correcta
@@ -38,6 +49,19 @@ export interface IIdentidadGoogleRepository {
    * el gate demo se DERIVA de la fila, no de un input (design §2/D-05).
    */
   buscarPorId(userId: string): Promise<UsuarioVinculable | null>;
+
+  /**
+   * ADR-041 (signup-on-first-login). Crea el usuario passwordless desde una
+   * identidad Google verificada — email cifrado + blind index, `googleSub`
+   * ya vinculado, `passwordHash` NULL — y materializa su catálogo de
+   * clasificación (invariante ADR-036) en la MISMA transacción. Retorna el
+   * userId nuevo, o `null` si perdió la carrera de creación (P2002 en
+   * `emailBlindIndex` o `googleSub` — otra petición ocupó la identidad entre
+   * el lookup y este write). Nunca lanza para ese caso: resultado de
+   * negocio, no falla de infraestructura (misma convención que
+   * `vincularGoogleSub`).
+   */
+  crearDesdeGoogle(datos: NuevoUsuarioGoogle): Promise<string | null>;
 
   /**
    * VINC041-05, CA-03. Escritura condicional única — nunca lee-y-luego-escribe:

@@ -4,11 +4,11 @@ import {
 } from './login-con-google-fallido.error';
 
 const TODOS_LOS_MOTIVOS: MotivoFalloGoogle[] = [
-  'sin-match',
   'email-no-verificado',
   'usuario-demo',
   'ya-vinculado-a-otra-identidad',
   'link-perdio-la-carrera',
+  'creacion-perdio-la-carrera',
   'email-invalido',
 ];
 
@@ -22,7 +22,7 @@ describe('LoginConGoogleFallidoError', () => {
     },
   );
 
-  it('el mensaje es idéntico entre los seis motivos (AUTH-15 — no enumeración)', () => {
+  it('el mensaje es idéntico entre todos los motivos (AUTH-15 — no enumeración)', () => {
     const mensajes = TODOS_LOS_MOTIVOS.map(
       (motivo) => new LoginConGoogleFallidoError(motivo).message,
     );
@@ -31,7 +31,7 @@ describe('LoginConGoogleFallidoError', () => {
   });
 
   it('el nombre del error es LoginConGoogleFallidoError', () => {
-    const error = new LoginConGoogleFallidoError('sin-match');
+    const error = new LoginConGoogleFallidoError('email-invalido');
     expect(error.name).toBe('LoginConGoogleFallidoError');
   });
 });

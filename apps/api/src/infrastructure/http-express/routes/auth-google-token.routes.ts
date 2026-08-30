@@ -34,8 +34,21 @@ export interface AuthGoogleTokenDeps {
 /**
  * registrarAuthGoogleToken — `POST /api/auth/google/token` (ADR-035 M1,
  * design §6). Verifica un `id_token` nativo obtenido en el dispositivo y, si
- * es válido, resuelve la identidad por el MISMO camino find-only de
- * `LoginConGoogleUseCase` (AUTH-20) — cero cambios respecto al flujo web.
+ * es válido, resuelve la identidad por el MISMO `LoginConGoogleUseCase` que
+ * usa el flujo web (AUTH-20). Post-ADR-041 ese use case ya NO es find-only:
+ * una identidad verificada sin match CREA la cuenta (signup-on-first-login)
+ * — mobile hereda ese comportamiento automáticamente, sin código propio.
+ *
+ * Fix de revisión CRITICAL (rate limiter): un signup post-ADR-041 es un
+ * `Result.ok` como cualquier login, así que `googleTokenRateLimiter.reset(ip)`
+ * NO puede dispararse incondicionalmente en éxito — reseteando en cada alta,
+ * un único IP podría crear cuentas sin límite. La regla: `reset(ip)` SOLO
+ * cuando `resultado.getValue().esNuevoUsuario === false` (login de un
+ * usuario pre-existente); un signup deja el `recordFailure` optimista de
+ * arriba contado, capando las creaciones al presupuesto del limiter por IP
+ * (paridad con el tope natural del flujo web, que nunca resetea). El body
+ * 200 es byte-idéntico en ambos casos — `esNuevoUsuario` nunca se serializa
+ * (AUTH-15, no enumeración).
  *
  * Cuerpo de la request manejado igual que `/auth/login`
  * (`typeof body?.idToken === 'string' ? body.idToken : ''`, design §6.2):
@@ -105,13 +118,25 @@ export function registrarAuthGoogleToken(
         return;
       }
 
-      // Optimistic recordFailure() arriba + reset() acá en éxito (mismo
-      // patrón que `/auth/login`, design §6.4): el presupuesto 30/15min solo
-      // lo consumen los intentos FALLIDOS — un actor con muchos logins
-      // exitosos legítimos (CGNAT) nunca se topa con el límite.
-      googleTokenRateLimiter.reset(ip);
+      const { token, userId, expiresAt, esNuevoUsuario } = resultado.getValue();
 
-      const { token, userId, expiresAt } = resultado.getValue();
+      // Optimistic recordFailure() arriba + reset() acá SOLO para el login
+      // de un usuario PRE-EXISTENTE (mismo patrón que `/auth/login`, design
+      // §6.4): el presupuesto 30/15min solo lo libera un login legítimo —
+      // un actor con muchos logins exitosos (CGNAT) nunca se topa con el
+      // límite. Fix de revisión CRITICAL (ADR-041): un signup (esNuevoUsuario
+      // === true) NUNCA resetea — post-ADR-041 crear cuenta ES un éxito, así
+      // que resetear acá dejaría crear cuentas sin límite desde un único IP
+      // (cada alta reseteando su propio presupuesto). El signup deja el
+      // `recordFailure` optimista de arriba contado, capando las creaciones
+      // al presupuesto del limiter por IP — paridad con el tope natural del
+      // flujo web (que nunca resetea en absoluto). `esNuevoUsuario` es
+      // puramente server-side: el body de la respuesta es idéntico para
+      // ambos casos (AUTH-15, ver el destructuring de abajo).
+      if (!esNuevoUsuario) {
+        googleTokenRateLimiter.reset(ip);
+      }
+
       res
         .status(200)
         .json({ token, userId, expiresAt: expiresAt.toISOString() });

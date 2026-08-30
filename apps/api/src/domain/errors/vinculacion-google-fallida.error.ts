@@ -17,9 +17,9 @@ export type MotivoFalloVinculacionGoogle =
  * El único error que retorna `VincularGoogleUseCase` para TODAS las ramas de
  * fallo (mirrors `LoginConGoogleFallidoError`'s shape — un `motivo` union
  * que alimenta una línea `.warn`) pero es una CLASE SEPARADA con su propia
- * unión: reusar el error de login mezclaría `motivo`s como `'sin-match'` o
- * `'email-no-verificado'`, valores que el camino de link NUNCA puede
- * producir (design §2/D-08).
+ * unión: reusar el error de login mezclaría `motivo`s como
+ * `'creacion-perdio-la-carrera'` o `'email-no-verificado'`, valores que el
+ * camino de link NUNCA puede producir (design §2/D-08).
  *
  * `message` es fijo e idéntico entre los cinco `motivo`s; `motivo` existe
  * solo para el logging server-side y NUNCA se deriva en el mensaje ni llega

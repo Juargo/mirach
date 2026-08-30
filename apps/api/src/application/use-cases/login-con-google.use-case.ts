@@ -11,10 +11,28 @@ import { LoginUseCaseResult } from './login.use-case';
 import { ILogger } from '../ports/logger.port';
 
 /**
+ * LoginConGoogleResult — `LoginUseCaseResult` + `esNuevoUsuario` (fix de
+ * revisión post-ADR-041, hallazgo CRITICAL de seguridad). El caller HTTP lo
+ * necesita para decidir si resetea el rate limiter de IP en éxito — un
+ * signup NUNCA debe resetearlo (ver `auth-google-token.routes.ts`), o un
+ * único IP podría crear cuentas sin límite reseteando su propio presupuesto
+ * en cada alta. `esNuevoUsuario` es SOLO server-side: nunca viaja en la
+ * respuesta HTTP (AUTH-15 — no enumeración, el body es idéntico para login y
+ * signup).
+ */
+export interface LoginConGoogleResult extends LoginUseCaseResult {
+  readonly esNuevoUsuario: boolean;
+}
+
+/**
  * LoginConGoogleUseCase — resolución de identidad Google + emisión de sesión
  * (AUTH-13/14), per design §5.1/§5.3.
  *
- * find-only: nunca crea un usuario. Todas las ramas de fallo colapsan al
+ * ADR-041 (supersede parcial de ADR-034): ya NO es find-only — una identidad
+ * verificada sin match por sub ni email CREA su cuenta (signup-on-first-login,
+ * ver `crearCuenta`). El resto del contrato de ADR-034 sigue intacto: gate de
+ * `emailVerificado`, link por email, guarda ★ anti-takeover, gates demo.
+ * Todas las ramas de fallo colapsan al
  * mismo `LoginConGoogleFallidoError` (AUTH-15 — no enumeración). No recibe
  * `IIniciadorLoginExterno`/`IVerificadorIdentidadExterna` — la ruta HTTP ya
  * verificó la identidad externa antes de invocar este use case (design §1).
@@ -40,7 +58,7 @@ export class LoginConGoogleUseCase {
 
   async execute(
     identidad: IdentidadExterna,
-  ): Promise<Result<LoginUseCaseResult, LoginConGoogleFallidoError>> {
+  ): Promise<Result<LoginConGoogleResult, LoginConGoogleFallidoError>> {
     const porGoogleSub = await this.identidades.buscarPorGoogleSub(
       identidad.sub,
     );
@@ -54,7 +72,7 @@ export class LoginConGoogleUseCase {
       if (porGoogleSub.esDemo) {
         return Result.fail(new LoginConGoogleFallidoError('usuario-demo'));
       }
-      return this.emitirSesion(porGoogleSub.userId);
+      return this.emitirSesion(porGoogleSub.userId, false);
     }
 
     this.logger.debug('login-con-google: email verified check', {
@@ -83,7 +101,7 @@ export class LoginConGoogleUseCase {
     });
 
     if (porEmail === null) {
-      return Result.fail(new LoginConGoogleFallidoError('sin-match'));
+      return this.crearCuenta(identidad, emailResult.getValue());
     }
 
     if (porEmail.esDemo) {
@@ -114,13 +132,80 @@ export class LoginConGoogleUseCase {
       );
     }
 
-    return this.emitirSesion(porEmail.userId);
+    return this.emitirSesion(porEmail.userId, false);
+  }
+
+  /**
+   * ADR-041 (signup-on-first-login): la rama sin-match de ADR-034 se
+   * reemplaza por creación de cuenta. Solo se alcanza DESPUÉS del gate de
+   * `emailVerificado` y de `Email.crear` — una identidad no verificada o
+   * malformada nunca llega acá.
+   *
+   * `nombre` = parte local del email normalizado: `IdentidadExterna` no
+   * trae el claim `name` y NO se amplía el scope OIDC para pedirlo (superficie
+   * mínima, ADR-034 §scope) — el usuario puede corregirlo vía PATCH
+   * /api/perfil (US-044).
+   *
+   * Carrera de creación (P2002 → `crearDesdeGoogle` retorna null): otra
+   * petición ocupó el email o el sub entre el lookup y el write. Se
+   * re-resuelve SOLO por `googleSub` — si el ganador es esta misma identidad
+   * (doble submit del mismo login), emite sesión sobre esa fila; cualquier
+   * otro resultado (fila demo, o un email tomado por OTRA identidad Google)
+   * colapsa al error genérico (AUTH-15). No se reintenta el link por email:
+   * el path de link ya existía ANTES del lookup fallido y volver a entrar
+   * por ahí duplicaría sus guardas con estado a medio leer.
+   *
+   * `esNuevoUsuario` es SIEMPRE `true` en toda salida OK de este método —
+   * incluida la rama "ganador" de la carrera: esta petición SÍ intentó
+   * crear (`crearDesdeGoogle` corrió y perdió), así que sigue siendo un
+   * intento de alta a efectos del rate limiter (fix de revisión CRITICAL —
+   * si se marcara `false` acá, un atacante podría enviar N requests
+   * concurrentes idénticas y usar las N-1 perdedoras para resetear su
+   * presupuesto de IP en cada ronda).
+   */
+  private async crearCuenta(
+    identidad: IdentidadExterna,
+    email: Email,
+  ): Promise<Result<LoginConGoogleResult, LoginConGoogleFallidoError>> {
+    const nuevoUserId = await this.identidades.crearDesdeGoogle({
+      email,
+      googleSub: identidad.sub,
+      nombre: email.valor.split('@')[0],
+    });
+
+    if (nuevoUserId !== null) {
+      // Nivel info (no debug): señal de negocio observable en prod
+      // (LOG_LEVEL=info) — burst-detection de alta de cuentas. Redacción
+      // ADR-013: solo userId + outcome, nunca email ni sub.
+      this.logger.info('login-con-google: usuario creado', {
+        userId: nuevoUserId,
+      });
+      return this.emitirSesion(nuevoUserId, true);
+    }
+
+    this.logger.debug('login-con-google: signup outcome', {
+      creado: false,
+    });
+
+    const ganador = await this.identidades.buscarPorGoogleSub(identidad.sub);
+    this.logger.debug('login-con-google: signup race retry lookup', {
+      found: ganador !== null,
+    });
+
+    if (ganador !== null && !ganador.esDemo) {
+      return this.emitirSesion(ganador.userId, true);
+    }
+
+    return Result.fail(
+      new LoginConGoogleFallidoError('creacion-perdio-la-carrera'),
+    );
   }
 
   /** Emisión de sesión byte-idéntica a `LoginUseCase` (design §5.3 paso 5). */
   private async emitirSesion(
     userId: string,
-  ): Promise<Result<LoginUseCaseResult, LoginConGoogleFallidoError>> {
+    esNuevoUsuario: boolean,
+  ): Promise<Result<LoginConGoogleResult, LoginConGoogleFallidoError>> {
     const { token, tokenHash } = this.tokens.generar();
     const expiresAt = calcularExpiracion(this.reloj.ahora());
 
@@ -130,6 +215,6 @@ export class LoginConGoogleUseCase {
       expiresAt: expiresAt.toISOString(),
     });
 
-    return Result.ok({ token, userId, expiresAt });
+    return Result.ok({ token, userId, expiresAt, esNuevoUsuario });
   }
 }

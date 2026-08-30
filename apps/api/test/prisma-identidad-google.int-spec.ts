@@ -7,6 +7,7 @@ import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-bl
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { Email } from '../src/domain/value-objects/email';
+import { CATEGORIA_TEMPLATE_SIZE } from '../src/infrastructure/persistence/catalogo-template';
 
 const RUN_ID = `it-google-${Date.now()}`;
 
@@ -32,7 +33,7 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
   const blindIndex = new HmacBlindIndexService(
     deriveBlindIndexKey(Buffer.from(env.ENCRYPTION_KEY, 'base64')),
   );
-  const repo = new PrismaIdentidadGoogleRepository(prisma, blindIndex);
+  const repo = new PrismaIdentidadGoogleRepository(prisma, blindIndex, crypto);
   const credenciales = new PrismaUserCredentialRepository(
     prisma,
     crypto,
@@ -291,5 +292,101 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
       select: { googleSub: true },
     });
     expect(fila?.googleSub).toBeNull();
+  });
+
+  /**
+   * Fix de revisión WARNING (post-ADR-041): `vincularGoogleSub` ya tenía
+   * cobertura DB-real de sus dos carreras (arriba); `crearDesdeGoogle`
+   * (signup-on-first-login) no tenía ninguna — solo el mock de
+   * `prisma-identidad-google.repository.spec.ts` (transacción stubbeada).
+   * Estos dos tests ejercitan la MISMA transacción interactiva contra
+   * Postgres real (user + catálogo, ADR-036), con dos formas de colisión
+   * concurrente — mismo criterio (1/2 misma identidad completa, 2/2 unicidad
+   * parcial) que el bloque `vincularGoogleSub` de arriba.
+   */
+  describe('crearDesdeGoogle — carreras de creación concurrentes (fix de revisión WARNING, catálogo real)', () => {
+    const idsCrearDesdeGoogle: string[] = [];
+
+    afterAll(async () => {
+      if (idsCrearDesdeGoogle.length === 0) return;
+      // Mismo orden que el cleanup de auth-google-token.int-spec.ts: patrones
+      // antes que categorías (FK compuesta, ADR-036), usuario al final.
+      await prisma.patronClasificacion.deleteMany({
+        where: { userId: { in: idsCrearDesdeGoogle } },
+      });
+      await prisma.categoria.deleteMany({
+        where: { userId: { in: idsCrearDesdeGoogle } },
+      });
+      await prisma.user.deleteMany({
+        where: { id: { in: idsCrearDesdeGoogle } },
+      });
+    });
+
+    it('carrera 1/2 — mismo email Y mismo googleSub (doble submit de la MISMA identidad): exactamente uno gana, el otro pierde vía P2002 (nunca lanza, nunca duplica la fila ni el catálogo)', async () => {
+      const email = Email.crear(
+        `race-full-dup-${RUN_ID}@example.com`,
+      ).getValue();
+      const googleSub = `sub-race-crear-dup-${RUN_ID}`;
+
+      const [a, b] = await Promise.all([
+        repo.crearDesdeGoogle({ email, googleSub, nombre: 'race-full-dup' }),
+        repo.crearDesdeGoogle({ email, googleSub, nombre: 'race-full-dup' }),
+      ]);
+
+      const ganadores = [a, b].filter((id): id is string => id !== null);
+      const perdedores = [a, b].filter((id) => id === null);
+      // Exactamente uno gana (userId) y el otro pierde (null) — nunca los
+      // dos userId (fila duplicada) ni los dos null (nadie se creó).
+      expect(ganadores).toHaveLength(1);
+      expect(perdedores).toHaveLength(1);
+      idsCrearDesdeGoogle.push(ganadores[0]);
+
+      const usuarios = await prisma.user.count({
+        where: { emailBlindIndex: blindIndex.compute(email.valor) },
+      });
+      expect(usuarios).toBe(1);
+
+      // Catálogo materializado UNA sola vez, para el ganador (invariante
+      // ADR-036) — nunca dos copias ni cero.
+      const categorias = await prisma.categoria.count({
+        where: { userId: ganadores[0] },
+      });
+      expect(categorias).toBe(CATEGORIA_TEMPLATE_SIZE);
+    });
+
+    it('carrera 2/2 — mismo email, googleSub DISTINTO por request: el perdedor resuelve por P2002 en emailBlindIndex (colisión real de unicidad TOCTOU), nunca lanza a través del puerto', async () => {
+      const email = Email.crear(
+        `race-email-only-${RUN_ID}@example.com`,
+      ).getValue();
+
+      const [a, b] = await Promise.all([
+        repo.crearDesdeGoogle({
+          email,
+          googleSub: `sub-race-crear-a-${RUN_ID}`,
+          nombre: 'race-email-only-a',
+        }),
+        repo.crearDesdeGoogle({
+          email,
+          googleSub: `sub-race-crear-b-${RUN_ID}`,
+          nombre: 'race-email-only-b',
+        }),
+      ]);
+
+      const ganadores = [a, b].filter((id): id is string => id !== null);
+      const perdedores = [a, b].filter((id) => id === null);
+      expect(ganadores).toHaveLength(1);
+      expect(perdedores).toHaveLength(1);
+      idsCrearDesdeGoogle.push(ganadores[0]);
+
+      const usuarios = await prisma.user.count({
+        where: { emailBlindIndex: blindIndex.compute(email.valor) },
+      });
+      expect(usuarios).toBe(1);
+
+      const categorias = await prisma.categoria.count({
+        where: { userId: ganadores[0] },
+      });
+      expect(categorias).toBe(CATEGORIA_TEMPLATE_SIZE);
+    });
   });
 });

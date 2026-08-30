@@ -136,7 +136,11 @@ export function crearAuthGoogle(
     env.GOOGLE_CLIENT_SECRET,
     redirectUri,
   );
-  const identidades = new PrismaIdentidadGoogleRepository(prisma, blindIndex);
+  const identidades = new PrismaIdentidadGoogleRepository(
+    prisma,
+    blindIndex,
+    crypto,
+  );
 
   return {
     iniciador: adapter,

@@ -27,6 +27,7 @@ import { Sha256SessionTokenService } from '../src/infrastructure/http/auth/sha25
 import { SystemReloj } from '../src/infrastructure/http/auth/system-reloj';
 import { IpRateLimiter } from '../src/infrastructure/http/auth/ip-rate-limiter';
 import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { serializeOauthCookie } from '../src/infrastructure/http/auth/oauth-transient-cookie';
 import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
@@ -122,7 +123,14 @@ describe('GET /api/auth/google/callback (int) — LoginConGoogleUseCase against 
     const blindIndex = new HmacBlindIndexService(
       deriveBlindIndexKey(Buffer.from(env.ENCRYPTION_KEY, 'base64')),
     );
-    const identidades = new PrismaIdentidadGoogleRepository(prisma, blindIndex);
+    const cryptoIdentidades = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
+    const identidades = new PrismaIdentidadGoogleRepository(
+      prisma,
+      blindIndex,
+      cryptoIdentidades,
+    );
     const sessions = new PrismaSessionRepository(prisma);
     const tokens = new Sha256SessionTokenService();
     const reloj = new SystemReloj();
