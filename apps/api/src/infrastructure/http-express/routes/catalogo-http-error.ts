@@ -9,6 +9,7 @@ import { RegexInvalidaError } from '../../../domain/errors/regex-invalida.error'
 import { PrioridadInvalidaError } from '../../../domain/errors/prioridad-invalida.error';
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
+import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { CrearCategoriaError } from '../../../application/use-cases/crear-categoria.use-case';
 import { ActualizarCategoriaError } from '../../../application/use-cases/actualizar-categoria.use-case';
 import { EliminarCategoriaError } from '../../../application/use-cases/eliminar-categoria.use-case';
@@ -43,7 +44,16 @@ export function aCatalogoHttpError(error: CatalogoError): {
   status: number;
   code: string;
   message: string;
+  indice?: number;
 } {
+  if (error instanceof PatronEnLoteInvalidoError) {
+    // Recurses BY TYPE into `causa` — un `PatronEnLoteInvalidoError` nunca
+    // envuelve a otro `PatronEnLoteInvalidoError`, así que esta llamada
+    // termina en la traducción de la causa real. Ningún `code`/`status`
+    // nuevo — solo se agrega `indice` (CAT038-11, D-03).
+    const traduccionCausa = aCatalogoHttpError(error.causa);
+    return { ...traduccionCausa, indice: error.indice };
+  }
   if (error instanceof NombreCategoriaInvalidoError) {
     return { status: 400, code: 'NOMBRE_INVALIDO', message: error.message };
   }

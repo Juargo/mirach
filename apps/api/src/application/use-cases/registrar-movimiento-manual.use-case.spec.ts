@@ -96,7 +96,7 @@ function makeCategoriaRepo(
     listarConPatrones: vi.fn().mockResolvedValue(categorias),
     buscarPorId: vi.fn(),
     existeNombre: vi.fn(),
-    crear: vi.fn(),
+    crearConPatrones: vi.fn(),
     actualizar: vi.fn(),
     eliminar: vi.fn(),
   };
@@ -107,7 +107,7 @@ function makeThrowingCategoriaRepo(): ICategoriaRepository {
     listarConPatrones: vi.fn().mockRejectedValue(new Error('DB timeout')),
     buscarPorId: vi.fn(),
     existeNombre: vi.fn(),
-    crear: vi.fn(),
+    crearConPatrones: vi.fn(),
     actualizar: vi.fn(),
     eliminar: vi.fn(),
   };

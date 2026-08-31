@@ -10,6 +10,7 @@ import { RegexInvalidaError } from '../../../domain/errors/regex-invalida.error'
 import { PrioridadInvalidaError } from '../../../domain/errors/prioridad-invalida.error';
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
+import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 
 describe('aCatalogoHttpError — one class, exactly one status + code', () => {
   it.each([
@@ -34,5 +35,35 @@ describe('aCatalogoHttpError — one class, exactly one status + code', () => {
   it("CatalogoDemoSoloLecturaError's message matches the DemoUploadNudge.tsx UX family", () => {
     const result = aCatalogoHttpError(new CatalogoDemoSoloLecturaError());
     expect(result.message).toContain('solo lectura');
+  });
+
+  describe('PatronEnLoteInvalidoError — recurses into causa, spreads indice (CAT038-11, D-03)', () => {
+    it("maps to the causa's status + code, plus indice", () => {
+      const causa = new MatchTypeInvalidoError('FUZZY');
+      const error = new PatronEnLoteInvalidoError(1, causa);
+
+      const result = aCatalogoHttpError(error);
+
+      expect(result.status).toBe(400);
+      expect(result.code).toBe('MATCH_TYPE_INVALIDO');
+      expect(result.message).toBe(causa.message);
+      expect(result.indice).toBe(1);
+    });
+
+    it('a wrapped PatronDuplicadoError maps to 409 PATRON_DUPLICADO + indice', () => {
+      const causa = new PatronDuplicadoError('netflix');
+      const error = new PatronEnLoteInvalidoError(0, causa);
+
+      const result = aCatalogoHttpError(error);
+
+      expect(result.status).toBe(409);
+      expect(result.code).toBe('PATRON_DUPLICADO');
+      expect(result.indice).toBe(0);
+    });
+
+    it('a non-wrapped error never carries indice', () => {
+      const result = aCatalogoHttpError(new NombreCategoriaInvalidoError('x'));
+      expect(result.indice).toBeUndefined();
+    });
   });
 });

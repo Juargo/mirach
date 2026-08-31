@@ -331,6 +331,98 @@ describe('Catalog CRUD (integration) — /api/categorias + /api/patrones (US-038
     expect(siblingRow.transaccionesCount).toBe(0);
   });
 
+  it('a request whose 2nd nested patrón duplicates an existing one persists ZERO new Categoria and ZERO new PatronClasificacion rows (CAT038-10, atomicity)', async () => {
+    if (!ALLOW) return;
+
+    // Pre-existing patrón the caller already owns, under its own categoría.
+    const existente = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `Preexistente-${SHORT}`, bucket: 'Deseos' })
+      .expect(201);
+    const patronPreexistente = `ya-existo-${RUN_ID}`;
+    await request(app)
+      .post('/api/patrones')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({
+        categoriaId: existente.body.id,
+        patron: patronPreexistente,
+        matchType: 'CONTAINS',
+      })
+      .expect(201);
+
+    const categoriasAntes = await prisma.categoria.count({
+      where: { userId: USER_ID },
+    });
+    const patronesAntes = await prisma.patronClasificacion.count({
+      where: { userId: USER_ID },
+    });
+
+    const res = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({
+        nombre: `AtomicidadNueva-${SHORT}`,
+        bucket: 'Ahorro',
+        patrones: [
+          { patron: `nuevo-${RUN_ID}`, matchType: 'CONTAINS' },
+          // Case-insensitive collision with the pre-existing patrón above.
+          { patron: patronPreexistente.toUpperCase(), matchType: 'CONTAINS' },
+        ],
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PATRON_DUPLICADO');
+    expect(res.body.indice).toBe(1);
+
+    const categoriasDespues = await prisma.categoria.count({
+      where: { userId: USER_ID },
+    });
+    const patronesDespues = await prisma.patronClasificacion.count({
+      where: { userId: USER_ID },
+    });
+    // ZERO new rows — not even the categoría itself, and not the first
+    // (otherwise-valid) nested patrón (all-or-nothing, CAT038-10).
+    expect(categoriasDespues).toBe(categoriasAntes);
+    expect(patronesDespues).toBe(patronesAntes);
+
+    const nuevaCategoria = await prisma.categoria.findFirst({
+      where: { userId: USER_ID, nombre: `AtomicidadNueva-${SHORT}` },
+    });
+    expect(nuevaCategoria).toBeNull();
+  });
+
+  it('a categoría created WITH nested patrones persists both atomically, in one call (CAT038-10 happy path)', async () => {
+    if (!ALLOW) return;
+
+    const res = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({
+        nombre: `ConPatronesAnidados-${SHORT}`,
+        bucket: 'Necesidades',
+        patrones: [
+          { patron: `p1-${RUN_ID}`, matchType: 'CONTAINS' },
+          { patron: `p2-${RUN_ID}`, matchType: 'STARTS_WITH' },
+        ],
+      })
+      .expect(201);
+
+    expect(res.body.patrones).toHaveLength(2);
+    for (const p of res.body.patrones) {
+      expect(p.prioridad).toBe(100);
+    }
+
+    const patronesRow = await prisma.patronClasificacion.findMany({
+      where: { categoriaId: res.body.id, userId: USER_ID },
+    });
+    expect(patronesRow).toHaveLength(2);
+  });
+
   it('case-insensitive duplicate category name → 409', async () => {
     if (!ALLOW) return;
 

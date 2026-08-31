@@ -61,6 +61,42 @@ describe('responderErrorTraducido — chokepoint único para responder + loguear
     });
   });
 
+  it('con indice (CAT038-11, PatronEnLoteInvalidoError): responde { message, code, indice }', () => {
+    const res = mockRes();
+    const req = mockReq('/categorias');
+
+    responderErrorTraducido(res, req, {
+      status: 400,
+      code: 'MATCH_TYPE_INVALIDO',
+      message:
+        'El tipo de coincidencia debe ser uno de: CONTAINS, STARTS_WITH, REGEX.',
+      indice: 1,
+    });
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      message:
+        'El tipo de coincidencia debe ser uno de: CONTAINS, STARTS_WITH, REGEX.',
+      code: 'MATCH_TYPE_INVALIDO',
+      indice: 1,
+    });
+  });
+
+  it('sin indice: la respuesta NUNCA incluye la propiedad indice', () => {
+    const res = mockRes();
+    const req = mockReq('/categorias');
+
+    responderErrorTraducido(res, req, {
+      status: 409,
+      code: 'NOMBRE_DUPLICADO',
+      message: 'Ya existe una categoría con ese nombre.',
+    });
+
+    const body = (res.json as unknown as ReturnType<typeof vi.fn>).mock
+      .calls[0][0];
+    expect('indice' in body).toBe(false);
+  });
+
   it('sin code (ingesta: aHttpError puede no traer code): responde solo { message }, sin loguear', () => {
     const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
     const res = mockRes();
