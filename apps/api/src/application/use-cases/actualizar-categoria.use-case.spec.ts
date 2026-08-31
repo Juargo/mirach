@@ -22,7 +22,7 @@ function makeRepo(
     listarConPatrones: vi.fn(),
     buscarPorId: vi.fn().mockResolvedValue(CATEGORIA_ACTUAL),
     existeNombre: vi.fn().mockResolvedValue(false),
-    crear: vi.fn(),
+    crearConPatrones: vi.fn(),
     actualizar: vi.fn().mockResolvedValue({
       ...CATEGORIA_ACTUAL,
       nombre: 'Delivery renombrado',

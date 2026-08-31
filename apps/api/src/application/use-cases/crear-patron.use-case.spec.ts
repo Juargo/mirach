@@ -25,7 +25,7 @@ function makeCategoriaRepo(
     listarConPatrones: vi.fn(),
     buscarPorId: vi.fn().mockResolvedValue(CATEGORIA),
     existeNombre: vi.fn(),
-    crear: vi.fn(),
+    crearConPatrones: vi.fn(),
     actualizar: vi.fn(),
     eliminar: vi.fn(),
     ...overrides,
