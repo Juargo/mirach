@@ -70,10 +70,10 @@ typography:
     lineHeight: 16px
     letterSpacing: 0.1em
 rounded:
-  sm: 4px
-  md: 6px
-  lg: 8px
-  xl: 12px
+  sm: 0px
+  md: 0px
+  lg: 0px
+  xl: 0px
   full: 9999px
 spacing:
   xs: 8px
@@ -227,12 +227,12 @@ The system is **flat with a single tonal step**. Depth is conveyed by surface co
 
 ## Shapes
 
-The whole radius family derives from a single `--radius: 0.5rem` token: buttons and inputs at 6px (`md`); cards, inline dialogs and nav items at 8px (`lg`). The `xl` (12px) step has exactly one shipped consumer — the empty-state box (`states/Empty.tsx`); no card consumes it, so the container stays at least as soft as its contents. Badges and the semáforo icon circle go fully round (`9999px`). Borders are 1px Mist everywhere; the active sidebar item carries a 4px cobalt accent edge (`border-r-4`).
+**Squared system (2026-08-31).** The whole radius family still derives from the single `--radius` token, now set to `0rem` (shadcn's "radius: 0" preset): `rounded-sm/md/lg/xl` and bare `rounded` all resolve to 0, so cards, buttons, inputs, selects, chips, dialogs, nav items, checkboxes and skeletons are square while keeping their `rounded-*` classes (flip the token back to `0.5rem` to restore the soft look in one line). `rounded-full` is not token-driven, so every pill, badge, status dot, progress bar and numbered step was moved to `rounded-none` explicitly. The only circles left are geometry, not styling: the spinners in `states/Loading` and the IDEAL reference ring inside `DistribucionPie`'s donut. Borders are 1px Mist everywhere; the active sidebar item carries a 4px cobalt accent edge (`border-r-4`).
 
 ## Components
 
 ### Buttons
-- **Shape:** gently rounded (6px), 36px default height, 14px medium text.
+- **Shape:** square (radius 0 via `--radius`), 36px default height, 14px medium text.
 - **Primary:** Confident Cobalt fill, white text, hover at 90% opacity.
 - **Outline:** white/background fill, 1px Mist border, `shadow-xs`, hover washes to `accent` (#eeeeee).
 - **Secondary:** Deep Lavanda fill, white text, hover at 80% opacity.
@@ -242,31 +242,31 @@ The whole radius family derives from a single `--radius: 0.5rem` token: buttons 
 - **Sizes:** xs 24px · sm 32px · default 36px · lg 40px, with square icon variants at each step.
 
 ### Badges / Chips
-- **Style:** fully pill-shaped (`rounded-full`), 12px medium text, 2px/8px padding.
+- **Style:** square (`rounded-none`, was pill), 12px medium text, 2px/8px padding.
 - **Variants:** mirror button colors (default cobalt, secondary lavanda, destructive red, outline with Mist border, ghost hover-only).
 
 ### Cards / Containers
-- **Corner Style:** 8px (`rounded-lg`) via the shared `DASHBOARD_CARD_CLASS` recipe (`apps/web/src/lib/dashboard-card.ts`) — the single source of truth for the card shell on the flagship surfaces.
+- **Corner Style:** square (`rounded-lg` resolves to 0 under `--radius: 0`) via the shared `DASHBOARD_CARD_CLASS` recipe (`apps/web/src/lib/dashboard-card.ts`) — the single source of truth for the card shell on the flagship surfaces.
 - **Background:** pure white on the Pale Sky app background.
 - **Shadow Strategy:** `shadow-sm` + 1px Mist border (see Elevation).
 - **Internal Padding:** 20px (`p-5`), with 24px gaps between stacked cards.
 - **Note (2026-08-29):** the shipped 8px/20px card is a deliberate decision; the shadcn `Card` primitive (`components/ui/card.tsx`, 12px/24px) predates it and is currently imported nowhere. Do not "correct" surfaces back to the primitive's spec.
 
 ### Bucket Segmented Control (`SelectorBucket`, 2026-08-30)
-Single-choice among the 50/30/20 buckets rendered as native radio inputs (`sr-only`) with label chips inside a `fieldset[aria-label]`: 6px radius, 32px height, 14px text. Resting chip = `bg-card` + Mist border, hover `accent`; the checked chip takes its bucket's pastel FILL (`necesidades`/`gustos`/`ahorro`, `muted` for "Sin categoría") with ink text and medium weight, so color is never the only carrier. Focus uses the shared 3px `ring/50` grammar on the label via `peer-focus-visible`. Chips sit in an equal-width 2×2 grid at every breakpoint (a one-row variant clipped labels inside the half-row column), content centered, no `truncate`, `min-h-8` so a long label wraps rather than clips. Each chip leads with a 14px lucide glyph from `lib/bucket-icons.ts` (`House` Necesidades, `Sparkles` Gustos, `PiggyBank` Ahorro, `CircleDashed` Sin categoría), `aria-hidden` so radio names stay the labels. Used by the upload preview rows; the categoría `<select>` beneath only renders once a bucket other than "Sin categoría" is checked, and settles in with `categoria-in` (200ms fade + 4px drop, keyed by bucket so a switch replays it): a state-transition cue, deliberately not a fake loading state, since the catalog is already in memory.
+Single-choice among the 50/30/20 buckets rendered as native radio inputs (`sr-only`) with label chips inside a `fieldset[aria-label]`: square corners, 32px min-height, 14px text. Resting chip = `bg-card` + Mist border, hover `accent`; the checked chip takes its bucket's pastel FILL (`necesidades`/`gustos`/`ahorro`, `muted` for "Sin categoría") with ink text and medium weight, so color is never the only carrier. Focus uses the shared 3px `ring/50` grammar on the label via `peer-focus-visible`. Chips sit in an equal-width 2×2 grid at every breakpoint (a one-row variant clipped labels inside the half-row column), content centered, no `truncate`, `min-h-8` so a long label wraps rather than clips. Each chip leads with a 14px lucide glyph from `lib/bucket-icons.ts` (`House` Necesidades, `Sparkles` Gustos, `PiggyBank` Ahorro, `CircleDashed` Sin categoría), `aria-hidden` so radio names stay the labels. Used by the upload preview rows; the categoría `<select>` beneath only renders once a bucket other than "Sin categoría" is checked, and settles in with `categoria-in` (200ms fade + 4px drop, keyed by bucket so a switch replays it): a state-transition cue, deliberately not a fake loading state, since the catalog is already in memory.
 
 ### Inputs / Fields
-- **Style:** 6px radius, 1px `input` (#c4c6cf) stroke, 8px/12px padding, 14px text, white or transparent background.
+- **Style:** square corners, 1px `input` (#c4c6cf) stroke, 8px/12px padding, 14px text, white or transparent background.
 - **Focus:** `border-ring` + 3px `ring/50` — same grammar as buttons (the shared `CampoTexto` pattern is normative).
 - **Error / Disabled:** `aria-invalid` switches border and ring to destructive tints; disabled drops to 50% opacity.
 
 ### Navigation
-- **Sidebar item:** 8px radius row, 14px medium Deep Lavanda text, hover `accent` wash; **active** = cobalt text, semibold, `accent` fill, 4px cobalt accent edge.
+- **Sidebar item:** square row, 14px medium Deep Lavanda text, hover `accent` wash; **active** = cobalt text, semibold, `accent` fill, 4px cobalt accent edge.
 - **Bottom tab:** icon-over-label column, 12px medium text; active = cobalt + semibold (no fill).
 - **Brand block:** 18px semibold cobalt "MoneyDiary" + 12px muted tagline.
 
 ### Inline Confirmation Dialog (signature component)
-Confirmations render as an inline, non-modal `role="alertdialog"` card in document flow — **no overlay, no portal** (a deliberate calm-over-drama choice): 8px radius, white card, 1px Mist border, `shadow-sm`, 12–16px padding, title in Title style, actions right-aligned. Focus moves into the dialog on open and Escape closes it (both hand-managed). One shared component (`apps/web/src/components/ui/inline-confirm.tsx`) implements this recipe — every destructive/impact confirmation composes it rather than hand-rolling the shell again; Cancelar/Confirmar render at the house default 36px touch target (Button's `default` size), never `sm`/`xs`.
+Confirmations render as an inline, non-modal `role="alertdialog"` card in document flow — **no overlay, no portal** (a deliberate calm-over-drama choice): square corners, white card, 1px Mist border, `shadow-sm`, 12–16px padding, title in Title style, actions right-aligned. Focus moves into the dialog on open and Escape closes it (both hand-managed). One shared component (`apps/web/src/components/ui/inline-confirm.tsx`) implements this recipe — every destructive/impact confirmation composes it rather than hand-rolling the shell again; Cancelar/Confirmar render at the house default 36px touch target (Button's `default` size), never `sm`/`xs`.
 
 ## Do's and Don'ts
 
@@ -281,5 +281,5 @@ Confirmations render as an inline, non-modal `role="alertdialog"` card in docume
 - **Don't** put white or pastel text on bucket pastels — every pastel fails AA as a text background.
 - **Don't** introduce new ad-hoc Tailwind palette colors (amber/emerald/rose/slate literals) for semantic states — the semáforo, warning, and éxito tokens above exist precisely to cover those states; use them instead of a fresh literal.
 - **Don't** elevate anything past `shadow-md`, and reserve `shadow-md` for popovers.
-- **Don't** hand-roll a new confirmation dialog; compose the shared `InlineConfirm` component (`ui/inline-confirm.tsx`) instead — it owns the shell (8px radius, Mist border, `shadow-sm`, no overlay), Escape/focus handling, and the house default 36px Cancelar/Confirmar buttons, never `sm`/`xs`.
+- **Don't** hand-roll a new confirmation dialog; compose the shared `InlineConfirm` component (`ui/inline-confirm.tsx`) instead — it owns the shell (square corners, Mist border, `shadow-sm`, no overlay), Escape/focus handling, and the house default 36px Cancelar/Confirmar buttons, never `sm`/`xs`.
 - **Note:** dark mode is unimplemented by decision — there is no theme toggle. The inert `.dark` override block and the unused `--font-mono` token were removed from `index.css` (design-token debt burn-down, 2026-08-27); git history keeps them if that decision ever reverses.
