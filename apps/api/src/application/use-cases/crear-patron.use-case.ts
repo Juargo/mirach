@@ -1,7 +1,6 @@
 import { Result } from '../../shared/result';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { IPatronRepository, Patron } from '../ports/patron-repository.port';
-import { MatchType } from '../../domain/value-objects/patron-clasificacion';
 import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { PatronInvalidoError } from '../../domain/errors/patron-invalido.error';
@@ -9,14 +8,7 @@ import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.
 import { RegexInvalidaError } from '../../domain/errors/regex-invalida.error';
 import { PrioridadInvalidaError } from '../../domain/errors/prioridad-invalida.error';
 import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error';
-
-const PATRON_MIN = 1;
-const PATRON_MAX = 200;
-const PRIORIDAD_MIN = 1;
-const PRIORIDAD_MAX = 999;
-const PRIORIDAD_DEFAULT = 100;
-
-const MATCH_TYPES = ['CONTAINS', 'STARTS_WITH', 'REGEX'] as const;
+import { validarPatron } from './validar-patron';
 
 export type CrearPatronError =
   | CatalogoDemoSoloLecturaError
@@ -67,31 +59,15 @@ export class CrearPatronUseCase {
       return Result.fail(new CategoriaNoEncontradaError(input.categoriaId));
     }
 
-    const patron = input.patron.trim();
-    if (patron.length < PATRON_MIN || patron.length > PATRON_MAX) {
-      return Result.fail(new PatronInvalidoError(input.patron));
+    const validado = validarPatron({
+      patron: input.patron,
+      matchType: input.matchType,
+      prioridad: input.prioridad,
+    });
+    if (validado.isFail()) {
+      return Result.fail(validado.getError());
     }
-
-    if (
-      !MATCH_TYPES.includes(input.matchType as (typeof MATCH_TYPES)[number])
-    ) {
-      return Result.fail(new MatchTypeInvalidoError(input.matchType));
-    }
-    const matchType = input.matchType as MatchType;
-
-    if (matchType === 'REGEX' && !regexCompila(patron)) {
-      return Result.fail(new RegexInvalidaError(patron));
-    }
-
-    const prioridad = input.prioridad ?? PRIORIDAD_DEFAULT;
-    if (
-      input.prioridad !== undefined &&
-      (!Number.isInteger(prioridad) ||
-        prioridad < PRIORIDAD_MIN ||
-        prioridad > PRIORIDAD_MAX)
-    ) {
-      return Result.fail(new PrioridadInvalidaError(input.prioridad));
-    }
+    const { patron, matchType, prioridad } = validado.getValue();
 
     const duplicado = await this.patronRepository.existePatron(
       input.userId,
@@ -108,14 +84,5 @@ export class CrearPatronUseCase {
       prioridad,
     });
     return Result.ok(nuevo);
-  }
-}
-
-function regexCompila(patron: string): boolean {
-  try {
-    new RegExp(patron);
-    return true;
-  } catch {
-    return false;
   }
 }
