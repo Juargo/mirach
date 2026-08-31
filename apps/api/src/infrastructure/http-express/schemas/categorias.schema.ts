@@ -1,16 +1,39 @@
 import { z } from 'zod';
 
 /**
+ * patronEnCategoriaCreateSchema — un patrón anidado dentro del body de
+ * `POST /api/categorias` (CAT038-10/11, design.md D-04). TRANSPORT SHAPE
+ * ONLY, same layer-honesty gate as `categoriaCreateRequestSchema`: no
+ * length check on `patron`, no `matchType` enum membership, no REGEX
+ * compile check — esas son reglas de dominio (`validarPatron`). `prioridad`
+ * NUNCA es caller-supplied acá (`.strict()` la rechaza como campo
+ * desconocido) — el server siempre la defaultea a 100 (D-04, "prioridad NOT
+ * accepted").
+ */
+export const patronEnCategoriaCreateSchema = z
+  .object({
+    patron: z.string(),
+    matchType: z.string(),
+  })
+  .strict();
+
+/**
  * Transport-shape contracts for `/api/categorias` (US-038, design.md
  * §5.2/§7.2). LAYER-HONESTY GATE (buckets.schema.ts precedent): `bucket`
  * membership is a DOMAIN rule (`BucketNoAsignableError`) and MUST NOT be
  * duplicated here — `bucket` stays `z.string()`. Same for `nombre`
  * length — that lives in the use case (`NombreCategoriaInvalidoError`).
+ *
+ * `patrones` es OPCIONAL (CAT038-10) — ausente o `[]` se comporta idéntico
+ * al contrato pre-existente (compat con mobile, ADR-038). `.max(20)` es un
+ * guard de TAMAÑO de request (⇒ `BODY_INVALIDO` genérico), no una regla de
+ * negocio — un nested insert sin cota es un DoS barato (design.md D-04).
  */
 export const categoriaCreateRequestSchema = z
   .object({
     nombre: z.string(),
     bucket: z.string(),
+    patrones: z.array(patronEnCategoriaCreateSchema).max(20).optional(),
   })
   .strict();
 

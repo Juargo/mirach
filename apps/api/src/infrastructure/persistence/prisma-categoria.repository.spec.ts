@@ -208,22 +208,59 @@ describe('PrismaCategoriaRepository', () => {
     });
   });
 
-  describe('crear()', () => {
-    it('writes userId and resolves BUCKET_IDS[bucket] to the physical id', async () => {
+  describe('crearConPatrones() — REEMPLAZA a crear() (design.md D-01, CAT038-10)', () => {
+    it('writes userId and resolves BUCKET_IDS[bucket] to the physical id, patrones: [] ⇒ byte-identical to the retired crear()', async () => {
       const prisma = makePrismaMock();
       (prisma.categoria.create as Mock).mockResolvedValue(categoriaRow());
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.crear(USER_ID, { nombre: 'Mascotas', bucket: 'Deseos' });
+      await repo.crearConPatrones(USER_ID, {
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        patrones: [],
+      });
 
       expect(prisma.categoria.create).toHaveBeenCalledWith({
         data: {
           userId: USER_ID,
           nombre: 'Mascotas',
           bucketId: BUCKET_IDS[Bucket.Deseos],
+          patrones: { create: [] },
         },
         include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
+    });
+
+    it('nested patrones are passed as ONE Prisma statement — no categoriaId/userId in the nested create (Prisma derives both from the composite relation, schema.prisma:176)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockResolvedValue(categoriaRow());
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.crearConPatrones(USER_ID, {
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        patrones: [
+          { patron: 'petco', matchType: 'CONTAINS', prioridad: 100 },
+          { patron: 'vet', matchType: 'STARTS_WITH', prioridad: 100 },
+        ],
+      });
+
+      expect(prisma.categoria.create).toHaveBeenCalledTimes(1);
+      expect(prisma.categoria.create).toHaveBeenCalledWith({
+        data: {
+          userId: USER_ID,
+          nombre: 'Mascotas',
+          bucketId: BUCKET_IDS[Bucket.Deseos],
+          patrones: {
+            create: [
+              { patron: 'petco', matchType: 'CONTAINS', prioridad: 100 },
+              { patron: 'vet', matchType: 'STARTS_WITH', prioridad: 100 },
+            ],
+          },
+        },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('returned DTO carries transaccionesCount sourced from the include, not hard-coded to 0', async () => {
@@ -233,9 +270,10 @@ describe('PrismaCategoriaRepository', () => {
       );
       const repo = new PrismaCategoriaRepository(prisma);
 
-      const categoria = await repo.crear(USER_ID, {
+      const categoria = await repo.crearConPatrones(USER_ID, {
         nombre: 'Mascotas',
         bucket: 'Deseos',
+        patrones: [],
       });
 
       expect(categoria.transaccionesCount).toBe(0);
