@@ -1482,8 +1482,9 @@ absent, and MUST NOT silently render a row that looks identical to an omitted on
 The Ingresos legend row MUST be clickable, MUST be a focusable interactive element, and MUST navigate to
 `/ingresos` carrying the current `periodo` search param (`WDI-01..08`). The US-047 interim comment at the
 row's implementation site — which claimed no Ingresos drill-down endpoint exists — MUST be removed: the
-endpoint exists (US-052, `ingresos-detalle-mes` MID-01..06). The pie has no Ingresos wedge and
-`IngresoCard` is untouched — the legend row is the ONLY Ingresos click surface (CA-04).
+endpoint exists (US-052, `ingresos-detalle-mes` MID-01..06). The pie has no Ingresos wedge — the legend
+row is the ONLY Ingresos click surface (CA-04; the dedicated income card was removed from the dashboard
+2026-08-30, income stays reachable only from this row).
 (Previously: the Ingresos legend row MUST NOT be clickable, MUST NOT be a focusable interactive element,
 and MUST NOT trigger any navigation, and the interim (no drill-down endpoint yet) was documented as a
 comment at the row's implementation site.)
@@ -2232,41 +2233,10 @@ hardcoded.
 - THEN it reads exactly `Toca un mes: el gráfico principal cambia a ese mes, con el mismo drill-down de
   siempre. Estás viendo marzo 2026.` and updates when the viewed period changes
 
-### Requirement: DCR-01 — Income card has a semantic income identity
-
-`IngresoCard` MUST render with the pastel-green fill token `--color-ingreso`
-(`#d1fae5`) as its background, a `TrendingUp` lucide icon, and the income
-amount/label text styled with the `--color-ingreso-foreground` token (`#065f46`).
-
-#### Scenario: Income card shows mint fill, green amount, and trend icon
-
-- GIVEN the dashboard renders `IngresoCard` for a period with income
-- WHEN the card mounts
-- THEN it has the `bg-ingreso` fill class, a `TrendingUp` icon is present,
-  and the amount/label use the `text-ingreso-foreground` class
-
-### Requirement: DCR-02 — Income card has no decorative left border
-
-`IngresoCard` MUST NOT render `border-l-4 border-l-slate-800` or any other
-decorative left-border utility.
-
-#### Scenario: No left-border classes on the income card
-
-- GIVEN `IngresoCard`'s rendered markup
-- WHEN its class names are inspected
-- THEN neither `border-l-4` nor `border-l-slate-800` (nor any `border-l-*`)
-  is present
-
-### Requirement: DCR-03 — Income card uses design tokens only, no raw palette utilities
-
-`IngresoCard` MUST consume Serene Finance design tokens for all color styling
-and MUST NOT use raw Tailwind palette utilities (e.g. `slate-*`).
-
-#### Scenario: No raw slate utilities remain on the income card
-
-- GIVEN `IngresoCard`'s rendered markup
-- WHEN its class names are inspected
-- THEN no `slate-*` utility classes are present — only token-based classes
+> **Removed (2026-08-30):** `IngresoCard` was removed from the dashboard,
+> together with the DCR-01/DCR-02/DCR-03 requirements that used to sit here
+> and governed its styling. Income stays reachable from the legend's
+> "Ingresos" row (→ `/ingresos`, WG5-06 above).
 
 ### Requirement: DCR-04 — Authenticated app shell uses the pale-blue background token
 

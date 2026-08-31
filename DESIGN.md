@@ -177,7 +177,11 @@ The "sin datos" semáforo state (no estado to color) reuses the existing shadcn 
 
 **Update (2026-08-29):** the semáforo chip tokens now also wash `SemaforoHeroCard`'s own card surface (`bg-semaforo-verde`/`-amarillo`/`-rojo`, opaque — no alpha overlay) so the dashboard's verdict card visibly wears its estado instead of staying an identical white shell across a green and a red month. Fills only: `text-foreground`/`text-muted-foreground` are unchanged and measure ≥14.2:1 and ≥7.7:1 respectively against every wash. "Sin datos" keeps the neutral `bg-card` surface.
 
-**Extension (2026-08-29):** the same wash now covers `BucketSemaforoCard` (each bucket row tints with its own estado's `semaforo-verde`/`-amarillo`/`-rojo`, "sin datos" falling back to the neutral `bg-card`) and `IngresoCard` (washed with the `ingreso`/`ingreso-foreground` pair — the accent label/icon now use `ingreso-foreground`, the amount stays `text-foreground`). The dashboard's three cards now visibly wear their own state instead of one identical white shell repeated three times. Empty states (`states/Empty.tsx`) take a related but non-semantic treatment: a soft `bg-muted/40` box with a Mist border — they carry no estado, so they get surface, not color.
+**Extension (2026-08-29):** the same wash now covers `BucketSemaforoCard` (each bucket row tints with its own estado's `semaforo-verde`/`-amarillo`/`-rojo`, "sin datos" falling back to the neutral `bg-card`). Empty states (`states/Empty.tsx`) take a related but non-semantic treatment: a soft `bg-muted/40` box with a Mist border — they carry no estado, so they get surface, not color.
+
+**Distilled (2026-08-30):** `SemaforoHeroCard` itself moved off the estado-washed full-card surface into a compact neutral row (see the component's own docblock) — the estado tint now lives only on `BucketSemaforoCard` rows. `IngresoCard` was removed from the dashboard entirely; income stays reachable from the legend's "Ingresos" row → `/ingresos`.
+
+**Single-line (2026-08-30, minimalist-ui pass):** `SemaforoHeroCard` was distilled further, same day, into a ONE-LINE status row (dot → "Semáforo · {mes}" → estado pill → chevron). Color is now scarce by design: the small pastel pill (`resolverEstiloSemaforo`'s existing AA chip pair) is the ONLY colored element on the row — no ring, no halo, no card-surface wash, no shadow (flat `border border-border`, no `shadow-sm`). The verdict paragraph (lead + why) that used to render on the dashboard is GONE; that copy now lives exclusively on `/semaforo`, which the row links to.
 
 ## Typography
 
@@ -189,8 +193,8 @@ The "sin datos" semáforo state (no estado to color) reuses the existing shadcn 
 > **Landing exception (2026-08-07, PR #240):** the public landing (`apps/landing`) uses **DM Sans** (body) and **Plus Jakarta Sans** (headings) with dark blue ink (#022030 / #435e6d). That pairing is a candidate for product-wide adoption; until decided, app surfaces stay on Inter.
 
 ### Hierarchy
-- **Display** (800, 36px/40px): the money — verdict figures on SemaforoHeroCard and IngresoCard only.
-- **Headline** (700, 24px/32px): page titles ("Semáforo").
+- **Display** (800, 36px/40px): reserved for a page-level money figure; unused since the 2026-08-30 hero distillation retired it from `SemaforoHeroCard` and `IngresoCard` was removed.
+- **Headline** (700, 24px/32px): page titles ("Semáforo"); no longer used by `SemaforoHeroCard`, which dropped to `text-sm`/`font-semibold` as a single-line status row in the same day's minimalist-ui pass.
 - **Title** (600, 14px/20px): card subheads and dialog titles.
 - **Body** (400, 14px/20px): default text; meta text drops to 12px in `muted-foreground`.
 - **Label** (600, 12px/16px, letter-spacing 0.1em, UPPERCASE): section eyebrows in `secondary`.
