@@ -187,7 +187,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     const result = await repo.reasignar(
       TEST_USER_ID_A,
       userBTx.id,
-      'Transporte',
+      await categoriaIdFor(TEST_USER_ID_A, 'Transporte'),
     );
 
     expect(result.isFail()).toBe(true);
@@ -215,7 +215,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     const result = await repo.reasignar(
       TEST_USER_ID_A,
       userATx.id,
-      'Streaming',
+      await categoriaIdFor(TEST_USER_ID_A, 'Streaming'),
     );
 
     expect(result.isOk()).toBe(true);
@@ -309,7 +309,11 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       .getValue()
       .resumen.buckets.find((b) => b.bucket === Bucket.Deseos)!;
 
-    const result = await repo.reasignar(withinUserId, tx.id, 'Streaming');
+    const result = await repo.reasignar(
+      withinUserId,
+      tx.id,
+      await categoriaIdFor(withinUserId, 'Streaming'),
+    );
     expect(result.isOk()).toBe(true);
 
     const despues = await calcularResumen.execute({
@@ -420,7 +424,11 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     expect(necAntes.estadoSemaforo).toBe(EstadoSemaforo.Verde);
     expect(desAntes.total).toBe(10000n);
 
-    const result = await repo.reasignar(crossUserId, movida.id, 'Transporte');
+    const result = await repo.reasignar(
+      crossUserId,
+      movida.id,
+      await categoriaIdFor(crossUserId, 'Transporte'),
+    );
     expect(result.isOk()).toBe(true);
 
     const despues = await calcularResumen.execute({
@@ -483,8 +491,18 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       'B tx to reclassify',
     );
 
-    const resultA = await repo.reasignar(TEST_USER_ID_A, txA.id, 'Ahorro');
-    const resultB = await repo.reasignar(TEST_USER_ID_B, txB.id, 'Ahorro');
+    // T4.7 keeps its point under id-keying: each user resolves the id of
+    // THEIR OWN row named 'Ahorro', and the two ids must differ.
+    const resultA = await repo.reasignar(
+      TEST_USER_ID_A,
+      txA.id,
+      await categoriaIdFor(TEST_USER_ID_A, 'Ahorro'),
+    );
+    const resultB = await repo.reasignar(
+      TEST_USER_ID_B,
+      txB.id,
+      await categoriaIdFor(TEST_USER_ID_B, 'Ahorro'),
+    );
 
     expect(resultA.isOk()).toBe(true);
     expect(resultB.isOk()).toBe(true);
@@ -523,7 +541,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       'Tx a reclasificar a categoría custom',
     );
 
-    const result = await repo.reasignar(TEST_USER_ID_A, tx.id, custom.nombre);
+    const result = await repo.reasignar(TEST_USER_ID_A, tx.id, custom.id);
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoriaId).toBe(custom.id);
@@ -551,7 +569,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     const result = await repo.reasignar(
       TEST_USER_ID_A,
       tx.id,
-      `NoExiste-${RUN_ID}`,
+      `no-existe-${RUN_ID}`,
     );
 
     expect(result.isFail()).toBe(true);
