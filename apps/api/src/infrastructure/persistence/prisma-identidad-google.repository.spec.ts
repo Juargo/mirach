@@ -431,11 +431,11 @@ describe('crearDesdeGoogle (ADR-041 signup-on-first-login)', () => {
       expect(await crear(prisma)).toBeNull();
     });
 
-    it("target: ['userId', 'nombre'] (unique compuesta de Categoria, ADR-036) → RETHROWS — bug de datos, no carrera", async () => {
+    it("target: ['userId', 'bucketId', 'nombre'] (unique compuesta de Categoria, ADR-042) → RETHROWS — bug de datos, no carrera", async () => {
       const error = new Prisma.PrismaClientKnownRequestError('unique', {
         code: 'P2002',
         clientVersion: 'test',
-        meta: { target: ['userId', 'nombre'] },
+        meta: { target: ['userId', 'bucketId', 'nombre'] },
       });
       const prisma = {
         $transaction: vi.fn().mockRejectedValue(error),
@@ -448,7 +448,7 @@ describe('crearDesdeGoogle (ADR-041 signup-on-first-login)', () => {
       const error = new Prisma.PrismaClientKnownRequestError('unique', {
         code: 'P2002',
         clientVersion: 'test',
-        meta: { target: 'Categoria_userId_nombre_key' },
+        meta: { target: 'Categoria_userId_bucketId_nombre_key' },
       });
       const prisma = {
         $transaction: vi.fn().mockRejectedValue(error),
