@@ -40,8 +40,9 @@ export interface PatronAnidadoInput {
  * (US-038, CAT038-01; US-062/CAT038-10..12, patrones anidados).
  *
  * Orden de validación (design.md D-02, §5.1/§5.2): demo gate → forma de
- * `nombre` → asignabilidad de `bucket` → unicidad case-insensitive de
- * `nombre` por usuario → ∀patrón (forma → duplicado-contra-catálogo →
+ * `nombre` → asignabilidad de `bucket` → unicidad case-insensitive del par
+ * `(nombre, bucket)` por usuario (ADR-042: el mismo nombre puede repetirse
+ * en dos buckets distintos, nunca dentro del mismo) → ∀patrón (forma → duplicado-contra-catálogo →
  * duplicado-dentro-del-lote) → `crearConPatrones` — el ÚNICO y PRIMER
  * write (atomicidad doblemente garantizada: nada se escribe hasta que
  * TODOS los patrones pasan, y la única escritura es un statement Prisma

@@ -132,7 +132,8 @@ model BucketPresupuesto {
 // dueño real en domain/value-objects/categoria.ts vía CATEGORIA_BUCKET).
 // US-037: el catálogo dejó de ser un row set global — cada usuario recibe
 // su propia copia (copy-on-signup, ver catalogo-template.ts). `nombre` ya
-// NO es único globalmente: la unicidad vive en (userId, nombre).
+// NO es único globalmente: la unicidad vive en (userId, bucketId, nombre)
+// desde ADR-042 — ver el comentario sobre @@unique más abajo.
 model Categoria {
   id            String                @id @default(cuid())
   userId        String
