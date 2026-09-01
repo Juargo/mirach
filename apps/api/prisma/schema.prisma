@@ -145,8 +145,10 @@ model Categoria {
 
   // Clave de resolución de id para todo writer (seed, copy hook,
   // reclasificación): un usuario nunca puede tener dos categorías con el
-  // mismo nombre, pero distintos usuarios sí pueden compartir un nombre.
-  @@unique([userId, nombre])
+  // mismo nombre DENTRO DEL MISMO BUCKET (ADR-042) — sí puede repetir un
+  // nombre en dos buckets distintos, y distintos usuarios siempre pueden
+  // compartir un nombre.
+  @@unique([userId, bucketId, nombre])
   // Target del composite FK de PatronClasificacion (design.md D-06) —
   // redundante para lookups, requerido por Postgres para que la FK
   // multi-columna pueda referenciar (id, userId).
