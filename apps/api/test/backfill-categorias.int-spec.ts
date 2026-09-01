@@ -26,6 +26,7 @@ import {
   USER_ID_FIJO,
 } from '../src/infrastructure/persistence/constants';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
+import { categoriaIdDe } from './helpers/categoria-fixture';
 
 describe('Backfill de categorías — integración (real dev DB)', () => {
   const prisma = createPrismaClient(loadEnv());
@@ -231,17 +232,17 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     await crearCatalogoParaUsuario(prisma, attackerUserId);
 
     try {
-      const attackerAhorroCategoria = await prisma.categoria.findUniqueOrThrow({
-        where: {
-          userId_nombre: { userId: attackerUserId, nombre: 'Ahorro' },
-        },
+      const attackerAhorroCategoriaId = await categoriaIdDe(prisma, {
+        userId: attackerUserId,
+        bucket: Bucket.Ahorro,
+        nombre: 'Ahorro',
       });
       // Repoint the ATTACKER's OWN "lider" pattern (never the bootstrap's) to
       // a different categoria with a lower prioridad than the bootstrap's
       // "lider"→Supermercado pattern (prioridad 10, catalogo-template.ts).
       await prisma.patronClasificacion.updateMany({
         where: { userId: attackerUserId, patron: 'lider' },
-        data: { categoriaId: attackerAhorroCategoria.id, prioridad: 1 },
+        data: { categoriaId: attackerAhorroCategoriaId, prioridad: 1 },
       });
 
       await prisma.transaccion.create({

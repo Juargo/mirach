@@ -24,6 +24,7 @@ import { crearSesionParaUsuario } from './support/session.fixture';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { categoriaIdDe } from './helpers/categoria-fixture';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -63,10 +64,11 @@ describe('Catalog re-bucket integrity (CAT038-03, D-07) — /api/resumen + bucke
       data: { id: USER_ID, nombre: `Rebucket ${RUN_ID}` },
     });
     await crearCatalogoParaUsuario(prisma, USER_ID);
-    const delivery = await prisma.categoria.findUniqueOrThrow({
-      where: { userId_nombre: { userId: USER_ID, nombre: 'Delivery' } },
+    categoriaId = await categoriaIdDe(prisma, {
+      userId: USER_ID,
+      bucket: Bucket.Deseos,
+      nombre: 'Delivery',
     });
-    categoriaId = delivery.id;
 
     const account = await prisma.account.create({
       data: {
