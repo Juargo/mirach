@@ -24,21 +24,28 @@ export const transaccionesCategoriaPathParamsSchema = z.object({
  * Request body contract. CONTRACT-ONLY (design decision): this schema
  * documents the transport shape for the OpenAPI doc; it is NEVER
  * `.safeParse()`'d at the route. `registrarTransacciones`
- * (`routes/transacciones.routes.ts`) coerces a non-string/absent `categoria`
- * to `''` so the use case's catalog lookup (`CategoriaDesconocidaError`;
- * ADR-037 — the closed enum gate is retired) rejects it uniformly — that
- * coercion is deliberately NOT re-encoded here as a Zod `z.enum(...)`, which
- * would duplicate a domain rule one layer down (ADR-005 + DRY), and would
- * also change existing error behavior on this sensitive endpoint if wired in
- * as boundary validation.
+ * (`routes/transacciones.routes.ts`) coerces a non-string/absent
+ * `categoriaId` to `''` so the use case's catalog lookup
+ * (`CategoriaDesconocidaError`; ADR-037 — the closed enum gate is retired)
+ * rejects it uniformly — that coercion is deliberately NOT re-encoded here as
+ * a Zod `z.enum(...)`, which would duplicate a domain rule one layer down
+ * (ADR-005 + DRY), and would also change existing error behavior on this
+ * sensitive endpoint if wired in as boundary validation.
+ *
+ * ADR-042 (hard cutover): the field used to be `categoria` (the domain
+ * `nombre`) — reversed because, once uniqueness becomes per-bucket, a nombre
+ * no longer identifies a single categoría, so name-based resolution could
+ * non-deterministically pick the wrong row. There is no transition alias; a
+ * legacy `{ categoria: <nombre> }` body fails this schema (missing
+ * `categoriaId`).
  */
 export const transaccionesCategoriaRequestSchema = z.object({
-  categoria: z
+  categoriaId: z
     .string()
     .describe(
-      'Category name (e.g. "Supermercado"), resolved against the caller\'s own catalog ' +
-        '(ADR-036/ADR-037 — no closed enum) by the use case (CategoriaDesconocidaError if it ' +
-        'does not resolve), not this schema.',
+      "Categoria id — the caller's OWN Categoria row id, resolved against their own " +
+        'catalog by the use case (CategoriaDesconocidaError if it does not resolve or is ' +
+        'not theirs), not this schema.',
     ),
 });
 

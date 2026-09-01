@@ -10,12 +10,17 @@ import { aReclasificarCategoriaDto } from '../../http/dto/reclasificar-categoria
  * PATCH /api/transacciones/:id/categoria → reclasificación manual (US-013 S4).
  *
  * Primera escritura: valida el body a mano (sin class-validator, igual que el
- * login). `categoria` no-string/ausente → '' para que el writer lo rechace de
- * forma uniforme (nunca undefined ni un objeto crudo).
+ * login). `categoriaId` no-string/ausente → '' para que el writer lo rechace
+ * de forma uniforme (nunca undefined ni un objeto crudo) — esto incluye el
+ * body legacy `{ categoria: <nombre> }` (ADR-042, corte duro sin alias de
+ * transición): al no traer `categoriaId`, coacciona a `''` igual que un
+ * campo ausente.
  *
  * ADR-037: `CategoriaInvalidaError` (el gate del enum cerrado) fue retirado.
+ * ADR-042: el contrato pasa de `nombre` a `categoriaId`.
  * `CategoriaDesconocidaError`     → 400, mensaje genérico que NO enumera el
- *   catálogo (un nombre que no resuelve contra el catálogo REAL del caller).
+ *   catálogo (un id que no resuelve contra el catálogo REAL del caller, o
+ *   que no le pertenece).
  * TransaccionNoEncontradaError → 404 (funde no-existe y no-es-tuya: anti-enumeración).
  */
 export function registrarTransacciones(
@@ -24,15 +29,16 @@ export function registrarTransacciones(
 ): void {
   router.patch('/transacciones/:id/categoria', async (req, res, next) => {
     try {
-      const rawCategoria: unknown = (
-        req.body as { categoria?: unknown } | undefined
-      )?.categoria;
-      const categoria = typeof rawCategoria === 'string' ? rawCategoria : '';
+      const rawCategoriaId: unknown = (
+        req.body as { categoriaId?: unknown } | undefined
+      )?.categoriaId;
+      const categoriaId =
+        typeof rawCategoriaId === 'string' ? rawCategoriaId : '';
 
       const result = await reclasificarTransaccion.execute({
         userId: req.userId!, // garantizado por el session middleware previo
         transaccionId: req.params.id,
-        categoria,
+        categoriaId,
       });
 
       if (result.isFail()) {
