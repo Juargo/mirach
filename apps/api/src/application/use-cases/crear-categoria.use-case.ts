@@ -82,10 +82,11 @@ export class CrearCategoriaUseCase {
       return Result.fail(new BucketNoAsignableError(input.bucket));
     }
 
-    const yaExiste = await this.categoriaRepository.existeNombre(
-      input.userId,
+    const yaExiste = await this.categoriaRepository.existeNombre({
+      userId: input.userId,
       nombre,
-    );
+      bucket: input.bucket, // narrowed to BUCKETS_ASIGNABLES three lines above
+    });
     if (yaExiste) {
       return Result.fail(new NombreCategoriaDuplicadoError(nombre));
     }
