@@ -14,9 +14,15 @@ export const catalogoErrorResponseSchema = z
   .object({
     message: z.string(),
     code: z.string(),
+    // CAT038-11: only present on a PatronEnLoteInvalidoError — the
+    // zero-based position of the offending entry within the submitted
+    // `patrones[]` array of POST /api/categorias. Optional: every other
+    // error on these 4 endpoints omits it.
+    indice: z.number().optional(),
   })
   .meta({
     id: 'CatalogoErrorResponse',
     description:
-      'Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations.',
+      'Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations. ' +
+      '`indice` is present only for a nested-patrón validation failure on POST /api/categorias (CAT038-11).',
   });

@@ -11,7 +11,7 @@ function makeRepo(
     listarConPatrones: vi.fn(),
     buscarPorId: vi.fn(),
     existeNombre: vi.fn(),
-    crear: vi.fn(),
+    crearConPatrones: vi.fn(),
     actualizar: vi.fn(),
     eliminar,
   };

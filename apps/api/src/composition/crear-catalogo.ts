@@ -32,7 +32,9 @@ export interface CatalogoGraph {
  * adapters Prisma se construyen UNA vez acá y se comparten entre los use
  * cases que los necesitan (`CrearPatronUseCase` necesita ambos —
  * `categoriaRepository` para el 404 de ownership, `patronRepository` para
- * el resto).
+ * el resto; `CrearCategoriaUseCase` también necesita ambos desde
+ * CAT038-10/11 — `patronRepository.existePatron` para el chequeo de
+ * duplicado contra el catálogo existente de cada patrón anidado).
  */
 export function crearCatalogo(prisma: PrismaClient): CatalogoGraph {
   const categoriaRepository = new PrismaCategoriaRepository(prisma);
@@ -40,7 +42,10 @@ export function crearCatalogo(prisma: PrismaClient): CatalogoGraph {
 
   return {
     listarCatalogo: new ListarCatalogoUseCase(categoriaRepository),
-    crearCategoria: new CrearCategoriaUseCase(categoriaRepository),
+    crearCategoria: new CrearCategoriaUseCase(
+      categoriaRepository,
+      patronRepository,
+    ),
     actualizarCategoria: new ActualizarCategoriaUseCase(categoriaRepository),
     eliminarCategoria: new EliminarCategoriaUseCase(categoriaRepository),
     crearPatron: new CrearPatronUseCase(categoriaRepository, patronRepository),

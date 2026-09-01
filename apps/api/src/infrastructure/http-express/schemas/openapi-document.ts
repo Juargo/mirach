@@ -731,7 +731,9 @@ const categoriasListOperation: ZodOpenApiOperationObject = {
 const categoriasCreateOperation: ZodOpenApiOperationObject = {
   summary: 'Create a category',
   description:
-    'Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01). ' +
+    'Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01), ' +
+    'optionally with its classification patrones created atomically in the same call (CAT038-10/11) — ' +
+    'when `patrones` is omitted or empty, the contract is byte-identical to the pre-existing behavior. ' +
     'Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
   requestBody: {
     content: {
@@ -740,13 +742,17 @@ const categoriasCreateOperation: ZodOpenApiOperationObject = {
   },
   responses: {
     '201': {
-      description: 'Category created.',
+      description:
+        'Category created, with its created patrones (if any) nested.',
       content: {
         'application/json': { schema: categoriaResponseSchema },
       },
     },
     '400': {
-      description: 'Invalid nombre/bucket, or a malformed request body.',
+      description:
+        'Invalid nombre/bucket, a malformed request body, or a nested patrón that failed ' +
+        'validation (CAT038-11) — in the latter case the body carries `indice`, the zero-based ' +
+        'position of the offending entry within the submitted `patrones` array.',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
@@ -759,7 +765,9 @@ const categoriasCreateOperation: ZodOpenApiOperationObject = {
     },
     '409': {
       description:
-        'A category with that nombre already exists for this user (case-insensitive).',
+        'A category with that nombre already exists for this user (case-insensitive), or a ' +
+        'nested patrón collides with one already owned by the caller or with another entry in ' +
+        'the same submitted `patrones` array (CAT038-11) — the latter case carries `indice`.',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },

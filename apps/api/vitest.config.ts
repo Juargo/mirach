@@ -9,7 +9,14 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     root: './',
-    include: ['src/**/*.spec.ts'],
+    // `test/*.spec.ts` (top-level only, NOT `test/**`) — deliberately
+    // disjoint from `test/**/*.int-spec.ts`/`test/**/*.e2e-spec.ts`
+    // (own configs, real DB) and from `test/fixtures/`/`test/support/`
+    // (no `*.spec.ts` files there). Added for T-01
+    // (`preview-rowindex-estable.spec.ts`, design.md D-07) — a unit test
+    // with stubbed reader ports, no DB, that reads real fixture bytes
+    // from `test/fixtures/`, so it belongs next to them, not under `src/`.
+    include: ['src/**/*.spec.ts', 'test/*.spec.ts'],
     // Reintento para flakes TRANSITORIOS de supertest: `request(app)` levanta un
     // server efímero en un puerto random por request, y bajo paralelismo de
     // archivos dos pueden colisionar de puerto (síntoma visto: un request

@@ -7,6 +7,8 @@ import { Bucket } from '../../../domain/value-objects/bucket';
 import { CatalogoDemoSoloLecturaError } from '../../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
+import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
+import { MatchTypeInvalidoError } from '../../../domain/errors/match-type-invalido.error';
 import { appLogger } from '../../logging/app-logger';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 
@@ -188,6 +190,120 @@ describe('registrarCategorias', () => {
 
       expect(res.status).toBe(409);
       expect(res.body.code).toBe('NOMBRE_DUPLICADO');
+    });
+
+    it('201 nests the created patrones (CAT038-10)', async () => {
+      const conPatrones = {
+        ...CATEGORIA_OK,
+        patrones: [
+          {
+            id: 'patron-1',
+            categoriaId: 'cat-1',
+            patron: 'petco',
+            matchType: 'CONTAINS',
+            prioridad: 100,
+          },
+        ],
+      };
+      const catalogo = makeCatalogo({
+        crearCategoria: {
+          execute: vi.fn().mockResolvedValue(Result.ok(conPatrones)),
+        } as unknown as CatalogoGraph['crearCategoria'],
+      });
+      const res = await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({
+          nombre: 'Mascotas',
+          bucket: 'Deseos',
+          patrones: [{ patron: 'petco', matchType: 'CONTAINS' }],
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.patrones).toHaveLength(1);
+      expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith({
+        userId: 'user-x',
+        esDemo: false,
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        patrones: [{ patron: 'petco', matchType: 'CONTAINS' }],
+      });
+    });
+
+    it('400 body carries indice when a nested patrón fails validation (CAT038-11)', async () => {
+      const catalogo = makeCatalogo({
+        crearCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(
+                new PatronEnLoteInvalidoError(
+                  1,
+                  new MatchTypeInvalidoError('FUZZY'),
+                ),
+              ),
+            ),
+        } as unknown as CatalogoGraph['crearCategoria'],
+      });
+      const res = await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({
+          nombre: 'Mascotas',
+          bucket: 'Deseos',
+          patrones: [
+            { patron: 'netflix', matchType: 'CONTAINS' },
+            { patron: 'spotify', matchType: 'FUZZY' },
+          ],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('MATCH_TYPE_INVALIDO');
+      expect(res.body.indice).toBe(1);
+    });
+
+    it('a body WITHOUT patrones behaves exactly as before (mobile/back-compat pin)', async () => {
+      const catalogo = makeCatalogo();
+      const res = await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
+
+      expect(res.status).toBe(201);
+      expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith({
+        userId: 'user-x',
+        esDemo: false,
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        patrones: undefined,
+      });
+    });
+
+    it('more than 20 patrones ⇒ 400 BODY_INVALIDO, use case never called', async () => {
+      const catalogo = makeCatalogo();
+      const patrones = Array.from({ length: 21 }, (_, i) => ({
+        patron: `p-${i}`,
+        matchType: 'CONTAINS',
+      }));
+      const res = await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({ nombre: 'Mascotas', bucket: 'Deseos', patrones });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('BODY_INVALIDO');
+      expect(catalogo.crearCategoria.execute).not.toHaveBeenCalled();
+    });
+
+    it('an unknown key inside a nested patrón ⇒ 400 BODY_INVALIDO, use case never called', async () => {
+      const catalogo = makeCatalogo();
+      const res = await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({
+          nombre: 'Mascotas',
+          bucket: 'Deseos',
+          patrones: [{ patron: 'petco', matchType: 'CONTAINS', prioridad: 5 }],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('BODY_INVALIDO');
+      expect(catalogo.crearCategoria.execute).not.toHaveBeenCalled();
     });
   });
 

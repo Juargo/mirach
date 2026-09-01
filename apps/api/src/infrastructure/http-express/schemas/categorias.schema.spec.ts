@@ -7,6 +7,7 @@ import {
   categoriaIdPathParamsSchema,
   catalogoResponseSchema,
   categoriaResponseSchema,
+  patronEnCategoriaCreateSchema,
 } from './categorias.schema';
 
 /**
@@ -38,6 +39,101 @@ describe('categoriaCreateRequestSchema', () => {
       categoriaId: 'sneaky',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts an optional patrones[] array (CAT038-10)', () => {
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones: [{ patron: 'petco', matchType: 'CONTAINS' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('omitting patrones stays valid (backward compat, mobile ADR-038)', () => {
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('an empty patrones[] array is valid', () => {
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones: [],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+/**
+ * patronEnCategoriaCreateSchema — TRANSPORT SHAPE ONLY, same layer-honesty
+ * gate as categoriaCreateRequestSchema (design.md D-04). `.max(20)` is a
+ * REQUEST-SIZE guard (generic BODY_INVALIDO), not a business rule; the
+ * per-entry format rules (length, matchType enum, REGEX compile) are
+ * domain (`validarPatron`), never duplicated here.
+ */
+describe('patronEnCategoriaCreateSchema', () => {
+  it('accepts { patron, matchType } — .strict()', () => {
+    const result = patronEnCategoriaCreateSchema.safeParse({
+      patron: 'petco',
+      matchType: 'CONTAINS',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a caller-supplied prioridad — server always defaults to 100 (D-04)', () => {
+    const result = patronEnCategoriaCreateSchema.safeParse({
+      patron: 'petco',
+      matchType: 'CONTAINS',
+      prioridad: 5,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an unknown field — .strict()', () => {
+    const result = patronEnCategoriaCreateSchema.safeParse({
+      patron: 'petco',
+      matchType: 'CONTAINS',
+      sneaky: 'value',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('does NOT validate matchType membership (domain owns the enum check)', () => {
+    const result = patronEnCategoriaCreateSchema.safeParse({
+      patron: 'petco',
+      matchType: 'NotARealMatchType',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('categoriaCreateRequestSchema caps patrones at 20 entries (request-size guard, D-04)', () => {
+    const patrones = Array.from({ length: 21 }, (_, i) => ({
+      patron: `p-${i}`,
+      matchType: 'CONTAINS',
+    }));
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('categoriaCreateRequestSchema accepts exactly 20 entries', () => {
+    const patrones = Array.from({ length: 20 }, (_, i) => ({
+      patron: `p-${i}`,
+      matchType: 'CONTAINS',
+    }));
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones,
+    });
+    expect(result.success).toBe(true);
   });
 });
 

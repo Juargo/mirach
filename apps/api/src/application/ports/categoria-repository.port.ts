@@ -49,12 +49,29 @@ export interface ICategoriaRepository {
    * `bucket` viaja como NOMBRE validado (`Necesidades`/`Deseos`/`Ahorro`),
    * nunca como el id físico — el use case no puede resolver `BUCKET_IDS`
    * (vive en `infrastructure/persistence/`, fuera del alcance de
-   * `application`, ADR-005). El adapter (PR2b) hace la resolución real vía
-   * `BUCKET_IDS[bucket]` antes de escribir la columna física `bucketId`.
+   * `application`, ADR-005). El adapter resuelve `BUCKET_IDS[bucket]` antes
+   * de escribir la columna física `bucketId`.
+   *
+   * `crearConPatrones` REEMPLAZA al `crear()` anterior (design.md D-01,
+   * CAT038-10) — crear una categoría sin patrones es simplemente esta misma
+   * llamada con `patrones: []`. Un único método ⇒ un único statement Prisma
+   * (`categoria.create` con `patrones: { create: [...] }` anidado) ⇒ un
+   * único implicit transaction: si CUALQUIER patrón fallara la escritura,
+   * NADA se persiste (all-or-nothing, CAT038-10). `prioridad` viaja YA
+   * resuelta por el caller (`validarPatron`, default 100) — este port nunca
+   * la re-calcula.
    */
-  crear(
+  crearConPatrones(
     userId: string,
-    data: { nombre: string; bucket: string },
+    data: {
+      nombre: string;
+      bucket: string;
+      patrones: ReadonlyArray<{
+        patron: string;
+        matchType: string;
+        prioridad: number;
+      }>;
+    },
   ): Promise<CategoriaConPatrones>;
 
   /**

@@ -251,7 +251,7 @@ class FakeCategoriaRepository implements ICategoriaRepository {
   async existeNombre(): Promise<boolean> {
     return false;
   }
-  async crear(): Promise<CategoriaConPatrones> {
+  async crearConPatrones(): Promise<CategoriaConPatrones> {
     throw new Error('not implemented in fake');
   }
   async actualizar(): Promise<CategoriaConPatrones> {

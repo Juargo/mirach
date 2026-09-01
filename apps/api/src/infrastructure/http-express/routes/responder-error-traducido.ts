@@ -12,6 +12,11 @@ export interface ErrorTraducido {
   readonly status: number;
   readonly code?: string;
   readonly message: string;
+  /** Posición cero-based del patrón anidado ofensor dentro de `patrones[]`
+   * (CAT038-11, `PatronEnLoteInvalidoError`) — el ÚNICO productor de este
+   * campo hoy es `POST /api/categorias` con `patrones[]`. Ausente en
+   * cualquier otra respuesta de error. */
+  readonly indice?: number;
 }
 
 /**
@@ -43,11 +48,9 @@ export function responderErrorTraducido(
     logDemoGateTrip(req.path);
   }
 
-  res
-    .status(traduccion.status)
-    .json(
-      traduccion.code
-        ? { message: traduccion.message, code: traduccion.code }
-        : { message: traduccion.message },
-    );
+  res.status(traduccion.status).json({
+    message: traduccion.message,
+    ...(traduccion.code ? { code: traduccion.code } : {}),
+    ...(traduccion.indice !== undefined ? { indice: traduccion.indice } : {}),
+  });
 }

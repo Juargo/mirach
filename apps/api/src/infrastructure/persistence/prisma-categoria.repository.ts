@@ -120,15 +120,46 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     return row !== null;
   }
 
-  async crear(
+  /**
+   * crearConPatrones — REEMPLAZA al `crear()` anterior (design.md D-01,
+   * CAT038-10). Categoría + patrones anidados en UN solo statement Prisma
+   * (`categoria.create` con `patrones: { create: [...] }`) — un nested
+   * write ES un implicit transaction: si CUALQUIER patrón fallara la
+   * escritura (constraint, etc.), Prisma hace rollback de TODO,
+   * incluyendo la categoría. No hace falta `$transaction` explícito.
+   * `patrones: []` (o ausente) produce el mismo INSERT de categoría que el
+   * `crear()` retirado — byte-identical (CAT038-10, "Omitting patrones
+   * behaves exactly as before").
+   */
+  async crearConPatrones(
     userId: string,
-    data: { nombre: string; bucket: string },
+    data: {
+      nombre: string;
+      bucket: string;
+      patrones: ReadonlyArray<{
+        patron: string;
+        matchType: string;
+        prioridad: number;
+      }>;
+    },
   ): Promise<CategoriaConPatrones> {
     const row = await this.prisma.categoria.create({
       data: {
         userId,
         nombre: data.nombre,
         bucketId: BUCKET_IDS[data.bucket as Bucket],
+        // `userId`/`categoriaId` NUNCA se pasan acá — Prisma los DERIVA del
+        // padre recién creado (composite FK `categoria` en
+        // PatronClasificacion, schema.prisma:176): el tipo generado
+        // `PatronClasificacionUncheckedCreateWithoutCategoriaInput` ni
+        // siquiera los acepta como propiedad.
+        patrones: {
+          create: data.patrones.map((p) => ({
+            patron: p.patron,
+            matchType: p.matchType,
+            prioridad: p.prioridad,
+          })),
+        },
       },
       include: categoriaInclude(userId),
     });
