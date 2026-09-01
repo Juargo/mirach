@@ -2,7 +2,10 @@ import type { Router } from 'express';
 import { ReclasificarTransaccionUseCase } from '../../../application/use-cases/reclasificar-transaccion.use-case';
 import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
-import { aReclasificarCategoriaDto } from '../../http/dto/reclasificar-categoria.dto';
+import {
+  aReclasificarCategoriaDto,
+  type ReclasificarCategoriaBodyDto,
+} from '../../http/dto/reclasificar-categoria.dto';
 
 /**
  * registrarTransacciones — port del TransaccionesController (ADR-028).
@@ -29,8 +32,11 @@ export function registrarTransacciones(
 ): void {
   router.patch('/transacciones/:id/categoria', async (req, res, next) => {
     try {
+      // El cast usa `ReclasificarCategoriaBodyDto` (la forma cruda que el
+      // DTO ya documenta) en vez de repetir su shape inline: una sola
+      // definición del body, no dos que pueden divergir en silencio.
       const rawCategoriaId: unknown = (
-        req.body as { categoriaId?: unknown } | undefined
+        req.body as ReclasificarCategoriaBodyDto | undefined
       )?.categoriaId;
       const categoriaId =
         typeof rawCategoriaId === 'string' ? rawCategoriaId : '';
