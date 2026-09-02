@@ -4,13 +4,16 @@ import { ReclasificarCategoriaResult } from '../../../application/ports/reclasif
  * ReclasificarCategoriaBodyDto — forma cruda del body de
  * PATCH /api/transacciones/:id/categoria (US-013 S4).
  *
- * `categoria` viaja como el `nombre` del dominio (no el id físico) — mirrors
- * exactamente cómo DetalleBucketController valida `:bucket` contra el enum
- * Bucket, y mantiene los ids físicos (CATEGORIA_IDS) dentro de
- * infraestructura (design.md §4.1, MOV-01 convention).
+ * ADR-042 (decisión revertida, corte duro): el body solía enviar `categoria`
+ * como el `nombre` del dominio, no un id físico. Se revierte porque, con la
+ * unicidad de `Categoria` per-bucket, un `nombre` deja de identificar una
+ * única fila — resolver por nombre podría elegir la fila equivocada entre
+ * buckets. Ahora el caller envía `categoriaId`, la propia fila que eligió, y
+ * el use case la resuelve contra su catálogo real (`CategoriaDesconocidaError`
+ * si no existe o no es suya).
  */
 export interface ReclasificarCategoriaBodyDto {
-  readonly categoria?: unknown;
+  readonly categoriaId?: unknown;
 }
 
 /**

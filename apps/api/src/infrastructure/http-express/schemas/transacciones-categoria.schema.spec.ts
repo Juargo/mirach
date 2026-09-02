@@ -9,12 +9,13 @@ import {
 /**
  * `transaccionesCategoriaPathParamsSchema` / `...RequestSchema` /
  * `...ResponseSchema` — Phase 10.2b rollout of the openapi-contract-express
- * change (PATCH /api/transacciones/:id/categoria, US-013 S4).
+ * change (PATCH /api/transacciones/:id/categoria, US-013 S4); request body
+ * moved to `categoriaId` under ADR-042 (hard cutover, no legacy alias).
  *
  * CONTRACT-ONLY (design decision): these schemas document the transport
  * shape; they are NEVER `.safeParse()`'d at the route.
  * `registrarTransacciones` (`routes/transacciones.routes.ts`) still coerces
- * a non-string `categoria` to `''` so the writer rejects it uniformly with
+ * a non-string `categoriaId` to `''` so the writer rejects it uniformly with
  * `CategoriaDesconocidaError` (ADR-037 — the closed enum gate is retired) —
  * that behavior is preserved exactly, not reproduced here.
  */
@@ -28,15 +29,22 @@ describe('transaccionesCategoriaPathParamsSchema', () => {
 });
 
 describe('transaccionesCategoriaRequestSchema', () => {
-  it('accepts a categoria string', () => {
+  it('accepts a categoriaId string', () => {
     const result = transaccionesCategoriaRequestSchema.safeParse({
-      categoria: 'Supermercado',
+      categoriaId: 'cat-supermercado-row-id',
     });
     expect(result.success).toBe(true);
   });
 
-  it('rejects a payload missing categoria', () => {
+  it('rejects a payload missing categoriaId', () => {
     const result = transaccionesCategoriaRequestSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects the legacy { categoria: <nombre> } shape (ADR-042 — hard cutover, no transition alias, CAT037-04)', () => {
+    const result = transaccionesCategoriaRequestSchema.safeParse({
+      categoria: 'Supermercado',
+    });
     expect(result.success).toBe(false);
   });
 });

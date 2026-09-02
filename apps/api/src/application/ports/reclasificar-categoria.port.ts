@@ -21,11 +21,12 @@ export interface ReclasificarCategoriaResult {
 
 /**
  * IReclasificarCategoriaWriter — port de escritura para la reclasificación
- * manual de una transacción (US-013, CATAPI-01/03/04; CAT037-04, ADR-037/Q5).
+ * manual de una transacción (US-013, CATAPI-01/03/04; CAT037-04, ADR-037/Q5,
+ * ADR-042).
  *
  * Narrow port (SOLID ISP): solo expone la operación que necesita
- * ReclasificarTransaccionUseCase. El writer resuelve `nombre` contra el
- * catálogo REAL del usuario (`(userId, nombre)`) y devuelve tanto el
+ * ReclasificarTransaccionUseCase. El writer resuelve `categoriaId` contra el
+ * catálogo REAL del usuario (`(id, userId)`) y devuelve tanto el
  * `categoriaId` como el `bucket` ya derivados — el use case deja de validar
  * ni derivar nada, solo delega.
  *
@@ -33,15 +34,16 @@ export interface ReclasificarCategoriaResult {
  * (RNF-SEC-006) en la cláusula WHERE — nunca en app-layer. Un `count === 0`
  * (no existe O no es del usuario) se traduce a
  * `Result.fail(TransaccionNoEncontradaError)` — los dos casos son
- * indistinguibles (anti-enumeration). Un `nombre` que no resuelve a ninguna
- * fila del catálogo del usuario se traduce a
- * `Result.fail(CategoriaDesconocidaError)` — nunca enumera el catálogo.
+ * indistinguibles (anti-enumeration). Un `categoriaId` que no resuelve a
+ * ninguna fila del catálogo del usuario (no existe o no es suya,
+ * indistinguibles) se traduce a `Result.fail(CategoriaDesconocidaError)` —
+ * nunca enumera el catálogo.
  */
 export interface IReclasificarCategoriaWriter {
   reasignar(
     userId: string,
     transaccionId: string,
-    nombre: string,
+    categoriaId: string,
   ): Promise<
     Result<
       ReclasificarCategoriaResult,

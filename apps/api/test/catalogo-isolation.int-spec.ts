@@ -189,14 +189,11 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
       },
     });
 
-    const result = await reclasificarRepo.reasignar(
-      USER_ID_B,
-      txB.id,
-      'Transporte',
-    );
-    expect(result.isOk()).toBe(true);
-    const { categoriaId } = result.getValue();
-
+    // ADR-042: the rows are resolved BEFORE the call now, because reasignar
+    // takes B's own row id rather than a bare name. Both users own a
+    // 'Transporte' row; the assertions below still prove the write lands on
+    // B's row and never on A's. The complementary guard — B sending A's id
+    // must FAIL — is added with the real-Postgres scenarios in PR4.
     const [transporteRowB, transporteRowA] = await Promise.all([
       prisma.categoria.findUniqueOrThrow({
         where: {
@@ -209,6 +206,15 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
         },
       }),
     ]);
+
+    const result = await reclasificarRepo.reasignar(
+      USER_ID_B,
+      txB.id,
+      transporteRowB.id,
+    );
+    expect(result.isOk()).toBe(true);
+    const { categoriaId } = result.getValue();
+
     expect(categoriaId).toBe(transporteRowB.id);
     expect(categoriaId).not.toBe(transporteRowA.id);
   });
