@@ -38,6 +38,8 @@ import {
   CATEGORIA_TEMPLATE_SIZE,
   PATRON_TEMPLATE_SIZE,
 } from '../src/infrastructure/persistence/catalogo-template';
+import { Bucket } from '../src/domain/value-objects/bucket';
+import { categoriaIdDe } from './helpers/categoria-fixture';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -138,12 +140,14 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
       where: { userId: USER_ID_B, patron: 'lider' },
     });
     const originalCategoriaIdB = liderPatternB.categoriaId;
-    const ahorroCategoriaB = await prisma.categoria.findUniqueOrThrow({
-      where: { userId_nombre: { userId: USER_ID_B, nombre: 'Ahorro' } },
+    const ahorroCategoriaIdB = await categoriaIdDe(prisma, {
+      userId: USER_ID_B,
+      bucket: Bucket.Ahorro,
+      nombre: 'Ahorro',
     });
     await prisma.patronClasificacion.update({
       where: { id: liderPatternB.id },
-      data: { categoriaId: ahorroCategoriaB.id },
+      data: { categoriaId: ahorroCategoriaIdB },
     });
 
     try {
@@ -194,29 +198,29 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     // 'Transporte' row; the assertions below still prove the write lands on
     // B's row and never on A's. The complementary guard — B sending A's id
     // must FAIL — is added with the real-Postgres scenarios in PR4.
-    const [transporteRowB, transporteRowA] = await Promise.all([
-      prisma.categoria.findUniqueOrThrow({
-        where: {
-          userId_nombre: { userId: USER_ID_B, nombre: 'Transporte' },
-        },
+    const [transporteIdB, transporteIdA] = await Promise.all([
+      categoriaIdDe(prisma, {
+        userId: USER_ID_B,
+        bucket: Bucket.Necesidades,
+        nombre: 'Transporte',
       }),
-      prisma.categoria.findUniqueOrThrow({
-        where: {
-          userId_nombre: { userId: USER_ID_A, nombre: 'Transporte' },
-        },
+      categoriaIdDe(prisma, {
+        userId: USER_ID_A,
+        bucket: Bucket.Necesidades,
+        nombre: 'Transporte',
       }),
     ]);
 
     const result = await reclasificarRepo.reasignar(
       USER_ID_B,
       txB.id,
-      transporteRowB.id,
+      transporteIdB,
     );
     expect(result.isOk()).toBe(true);
     const { categoriaId } = result.getValue();
 
-    expect(categoriaId).toBe(transporteRowB.id);
-    expect(categoriaId).not.toBe(transporteRowA.id);
+    expect(categoriaId).toBe(transporteIdB);
+    expect(categoriaId).not.toBe(transporteIdA);
   });
 
   // Task 1.2's outcome: composite FK CONFIRMED present (D-06 primary
