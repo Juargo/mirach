@@ -5,54 +5,58 @@ import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no
 import { CategoriaDesconocidaError } from '../../domain/errors/categoria-desconocida.error';
 
 /**
- * `findUniqueRow` controla lo que devuelve `categoria.findUnique` (la fila
- * REAL, per-user, del usuario que reclasifica — ADR-037, design.md §1 Q5).
- * `updateManyCount` controla el `count` de `transaccion.updateMany`.
+ * `findFirstRow` controla lo que devuelve `categoria.findFirst` (la fila
+ * REAL, per-user, del usuario que reclasifica — ADR-037/ADR-042, design.md
+ * D-05). `updateManyCount` controla el `count` de `transaccion.updateMany`.
  */
 function makePrismaMock(options?: {
-  findUniqueRow?: {
+  findFirstRow?: {
     id: string;
+    nombre: string;
     bucketId: string;
     bucket: { nombre: string };
   } | null;
   updateManyCount?: number;
 }) {
-  const findUnique = vi
+  const findFirst = vi
     .fn()
     .mockResolvedValue(
-      options?.findUniqueRow === undefined ? null : options.findUniqueRow,
+      options?.findFirstRow === undefined ? null : options.findFirstRow,
     );
   const updateMany = vi
     .fn()
     .mockResolvedValue({ count: options?.updateManyCount ?? 1 });
   return {
-    categoria: { findUnique },
+    categoria: { findFirst },
     transaccion: { updateMany },
   } as unknown as PrismaClient;
 }
 
 describe('PrismaReclasificarCategoriaRepository', () => {
   describe('reasignar()', () => {
-    it('resuelve la categoría por (userId, nombre) del usuario — persiste y retorna el id REAL de esa fila y su bucket', async () => {
+    it('resuelve la categoría por (id, userId) — REGRESSION GUARD (D-05): la forma prohibida findFirst({ userId, nombre }) NUNCA debe reaparecer, porque devuelve una de N filas homónimas entre buckets', async () => {
       const prisma = makePrismaMock({
-        findUniqueRow: {
+        findFirstRow: {
           id: 'cat-row-owned-by-a',
+          nombre: 'Transporte',
           bucketId: 'bucket-necesidades-id',
           bucket: { nombre: Bucket.Necesidades },
         },
       });
-      const findUnique = prisma.categoria.findUnique as ReturnType<
-        typeof vi.fn
-      >;
+      const findFirst = prisma.categoria.findFirst as ReturnType<typeof vi.fn>;
       const updateMany = prisma.transaccion.updateMany as ReturnType<
         typeof vi.fn
       >;
       const repo = new PrismaReclasificarCategoriaRepository(prisma);
 
-      const result = await repo.reasignar('user-a', 'tx-1', 'Transporte');
+      const result = await repo.reasignar(
+        'user-a',
+        'tx-1',
+        'cat-row-owned-by-a',
+      );
 
-      expect(findUnique).toHaveBeenCalledWith({
-        where: { userId_nombre: { userId: 'user-a', nombre: 'Transporte' } },
+      expect(findFirst).toHaveBeenCalledWith({
+        where: { id: 'cat-row-owned-by-a', userId: 'user-a' },
         include: { bucket: true },
       });
       expect(updateMany).toHaveBeenCalledWith({
@@ -63,6 +67,8 @@ describe('PrismaReclasificarCategoriaRepository', () => {
         },
       });
       expect(result.isOk()).toBe(true);
+      // `categoria` en el DTO se lee de la fila resuelta, NUNCA se hace eco
+      // del input (design.md D-06) — el id de entrada no es un nombre.
       expect(result.getValue()).toEqual({
         id: 'tx-1',
         categoriaId: 'cat-row-owned-by-a',
@@ -71,17 +77,19 @@ describe('PrismaReclasificarCategoriaRepository', () => {
       });
     });
 
-    it('dos usuarios reclasificando al mismo nombre obtienen categoriaId DISTINTOS (cada uno resuelve su propia fila)', async () => {
+    it('dos usuarios reclasificando con ids distintos obtienen categoriaId DISTINTOS (cada uno resuelve su propia fila por id+userId)', async () => {
       const prismaA = makePrismaMock({
-        findUniqueRow: {
+        findFirstRow: {
           id: 'cat-a-transporte',
+          nombre: 'Transporte',
           bucketId: 'bucket-necesidades-id',
           bucket: { nombre: Bucket.Necesidades },
         },
       });
       const prismaB = makePrismaMock({
-        findUniqueRow: {
+        findFirstRow: {
           id: 'cat-b-transporte',
+          nombre: 'Transporte',
           bucketId: 'bucket-necesidades-id',
           bucket: { nombre: Bucket.Necesidades },
         },
@@ -89,8 +97,16 @@ describe('PrismaReclasificarCategoriaRepository', () => {
       const repoA = new PrismaReclasificarCategoriaRepository(prismaA);
       const repoB = new PrismaReclasificarCategoriaRepository(prismaB);
 
-      const resultA = await repoA.reasignar('user-a', 'tx-a', 'Transporte');
-      const resultB = await repoB.reasignar('user-b', 'tx-b', 'Transporte');
+      const resultA = await repoA.reasignar(
+        'user-a',
+        'tx-a',
+        'cat-a-transporte',
+      );
+      const resultB = await repoB.reasignar(
+        'user-b',
+        'tx-b',
+        'cat-b-transporte',
+      );
 
       expect(resultA.getValue().categoriaId).toBe('cat-a-transporte');
       expect(resultB.getValue().categoriaId).toBe('cat-b-transporte');
@@ -99,14 +115,14 @@ describe('PrismaReclasificarCategoriaRepository', () => {
       );
     });
 
-    it('un nombre ausente del catálogo del usuario → Result.fail(CategoriaDesconocidaError) — nunca lanza, nunca enumera', async () => {
-      const prisma = makePrismaMock({ findUniqueRow: null });
+    it('un categoriaId ausente del catálogo del usuario (no existe o no es suyo) → Result.fail(CategoriaDesconocidaError) — nunca lanza, nunca enumera', async () => {
+      const prisma = makePrismaMock({ findFirstRow: null });
       const repo = new PrismaReclasificarCategoriaRepository(prisma);
 
       const result = await repo.reasignar(
         'user-a',
         'tx-1',
-        'NombreQueNoExiste',
+        'cat-id-que-no-existe',
       );
 
       expect(result.isFail()).toBe(true);
@@ -115,8 +131,9 @@ describe('PrismaReclasificarCategoriaRepository', () => {
 
     it('count === 0 en el updateMany (no existe O no es del usuario) → Result.fail(TransaccionNoEncontradaError) — anti-enumeración', async () => {
       const prisma = makePrismaMock({
-        findUniqueRow: {
+        findFirstRow: {
           id: 'cat-row-owned-by-a',
+          nombre: 'Transporte',
           bucketId: 'bucket-necesidades-id',
           bucket: { nombre: Bucket.Necesidades },
         },
@@ -124,26 +141,37 @@ describe('PrismaReclasificarCategoriaRepository', () => {
       });
       const repo = new PrismaReclasificarCategoriaRepository(prisma);
 
-      const result = await repo.reasignar('user-a', 'tx-ajena', 'Transporte');
+      const result = await repo.reasignar(
+        'user-a',
+        'tx-ajena',
+        'cat-row-owned-by-a',
+      );
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(TransaccionNoEncontradaError);
     });
 
-    it('el WHERE del updateMany aísla estructuralmente por account.userId (RNF-SEC-006)', async () => {
+    it('el WHERE del lookup aísla estructuralmente por userId (RNF-SEC-006) y el del updateMany por account.userId', async () => {
       const prisma = makePrismaMock({
-        findUniqueRow: {
+        findFirstRow: {
           id: 'cat-row',
+          nombre: 'Ahorro',
           bucketId: 'bucket-ahorro-id',
           bucket: { nombre: Bucket.Ahorro },
         },
       });
+      const findFirst = prisma.categoria.findFirst as ReturnType<typeof vi.fn>;
       const updateMany = prisma.transaccion.updateMany as ReturnType<
         typeof vi.fn
       >;
       const repo = new PrismaReclasificarCategoriaRepository(prisma);
 
-      await repo.reasignar('user-scope-test', 'tx-1', 'Ahorro');
+      await repo.reasignar('user-scope-test', 'tx-1', 'cat-row');
+
+      expect(findFirst).toHaveBeenCalledWith({
+        where: { id: 'cat-row', userId: 'user-scope-test' },
+        include: { bucket: true },
+      });
 
       expect(updateMany).toHaveBeenCalledWith({
         where: { id: 'tx-1', account: { userId: 'user-scope-test' } },

@@ -20,14 +20,15 @@ function makeWriter(
 }
 
 /**
- * ReclasificarTransaccionUseCase — CAT037-04 (ADR-037/Q5): el use case deja
- * de validar la categoría cruda contra un enum cerrado y de derivar el
- * bucket vía `CATEGORIA_BUCKET` — ambos retirados. Se vuelve un delegado
- * puro: pasa `nombre` al writer sin gating, y el writer (contra el catálogo
- * REAL del usuario) resuelve id + bucket o falla con `CategoriaDesconocidaError`.
+ * ReclasificarTransaccionUseCase — CAT037-04 (ADR-037/Q5, ADR-042): el use
+ * case deja de validar la categoría cruda contra un enum cerrado y de
+ * derivar el bucket vía `CATEGORIA_BUCKET` — ambos retirados. Se vuelve un
+ * delegado puro: pasa `categoriaId` al writer sin gating, y el writer
+ * (contra el catálogo REAL del usuario) resuelve el bucket o falla con
+ * `CategoriaDesconocidaError`.
  */
 describe('ReclasificarTransaccionUseCase', () => {
-  it('T4.1a: delega sin ningún gating de enum — el writer recibe el nombre crudo tal cual', async () => {
+  it('T4.1a: delega sin ningún gating de enum — el writer recibe el categoriaId crudo tal cual', async () => {
     const writer = makeWriter(
       Result.ok({
         id: 'tx-1',
@@ -41,18 +42,18 @@ describe('ReclasificarTransaccionUseCase', () => {
     const result = await useCase.execute({
       userId: 'user-a',
       transaccionId: 'tx-1',
-      categoria: 'Transporte',
+      categoriaId: 'cat-transporte-row-id',
     });
 
     expect(result.isOk()).toBe(true);
     expect(writer.reasignar).toHaveBeenCalledWith(
       'user-a',
       'tx-1',
-      'Transporte',
+      'cat-transporte-row-id',
     );
   });
 
-  it('T4.1b: delega cualquier nombre, incluido uno fuera del template original (categoría custom del usuario)', async () => {
+  it('T4.1b: delega cualquier categoriaId, incluido uno de una categoría custom del usuario', async () => {
     const writer = makeWriter(
       Result.ok({
         id: 'tx-1',
@@ -66,23 +67,27 @@ describe('ReclasificarTransaccionUseCase', () => {
     const result = await useCase.execute({
       userId: 'user-a',
       transaccionId: 'tx-1',
-      categoria: 'Mascotas',
+      categoriaId: 'cat-mascotas-row-id',
     });
 
     expect(result.isOk()).toBe(true);
-    expect(writer.reasignar).toHaveBeenCalledWith('user-a', 'tx-1', 'Mascotas');
+    expect(writer.reasignar).toHaveBeenCalledWith(
+      'user-a',
+      'tx-1',
+      'cat-mascotas-row-id',
+    );
   });
 
-  it('T4.1c: un nombre que no resuelve en el catálogo del usuario → propaga CategoriaDesconocidaError del writer', async () => {
+  it('T4.1c: un categoriaId que no resuelve en el catálogo del usuario → propaga CategoriaDesconocidaError del writer', async () => {
     const writer = makeWriter(
-      Result.fail(new CategoriaDesconocidaError('NoExiste')),
+      Result.fail(new CategoriaDesconocidaError('cat-no-existe')),
     );
     const useCase = new ReclasificarTransaccionUseCase(writer);
 
     const result = await useCase.execute({
       userId: 'user-a',
       transaccionId: 'tx-1',
-      categoria: 'NoExiste',
+      categoriaId: 'cat-no-existe',
     });
 
     expect(result.isFail()).toBe(true);
@@ -98,7 +103,7 @@ describe('ReclasificarTransaccionUseCase', () => {
     const result = await useCase.execute({
       userId: 'user-a',
       transaccionId: 'tx-ajena',
-      categoria: 'Transporte',
+      categoriaId: 'cat-transporte-row-id',
     });
 
     expect(result.isFail()).toBe(true);

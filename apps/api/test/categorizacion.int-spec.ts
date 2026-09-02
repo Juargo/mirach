@@ -26,6 +26,7 @@ import { ICatalogoClasificacion } from '../src/application/ports/catalogo-clasif
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CATEGORIA_IDS } from '../src/infrastructure/persistence/categoria-ids';
+import { categoriaIdDe } from './helpers/categoria-fixture';
 import {
   ACCOUNT_ID_FIJO,
   USER_ID_FIJO,
@@ -456,17 +457,14 @@ describe('Categorización — integración (real dev DB)', () => {
       where: { id: tx.id },
     });
     expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
-    const supermercadoRow = await prisma.categoria.findUniqueOrThrow({
-      where: {
-        userId_nombre: {
-          userId: nonSeedUserId,
-          nombre: 'Supermercado',
-        },
-      },
+    const supermercadoIdDeEsteUsuario = await categoriaIdDe(prisma, {
+      userId: nonSeedUserId,
+      bucket: Bucket.Necesidades,
+      nombre: 'Supermercado',
     });
     // Resolved through THIS user's own catalog row, never the bootstrap
     // user's fixed CATEGORIA_IDS constant.
-    expect(updated.categoriaId).toBe(supermercadoRow.id);
+    expect(updated.categoriaId).toBe(supermercadoIdDeEsteUsuario);
     expect(updated.categoriaId).not.toBe(CATEGORIA_IDS.Supermercado);
 
     await prisma.transaccion.deleteMany({ where: { ingestaId: ingesta.id } });

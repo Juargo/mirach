@@ -11,21 +11,26 @@ import type { PrismaClient } from '@prisma/client';
 /**
  * PrismaReclasificarCategoriaRepository — implementación del port
  * IReclasificarCategoriaWriter (US-013 S4, CATAPI-01/03/04; ADR-037/Q5,
- * CAT037-04).
+ * CAT037-04, ADR-042).
  *
- * `categoriaId` YA NO se resuelve vía `CATEGORIA_IDS` (mapa global fijo):
- * primero busca la fila `Categoria` REAL del propio usuario por la clave
- * compuesta `(userId, nombre)` — esto es en sí mismo una garantía de
- * aislamiento (un caller solo puede resolver su propia fila, design.md §1
- * Q5). Tras el retiro del enum `Categoria`, `nombre` ya no es un valor
- * cerrado: un nombre que no resuelve a ninguna fila del catálogo del
- * usuario ⇒ `Result.fail(CategoriaDesconocidaError)` — nunca lanza y nunca
- * enumera el catálogo. (Esto reemplaza el `throw` de "copia rota": bajo
- * catálogo per-user un nombre desconocido es una entrada de caller inválida,
- * no necesariamente un catálogo corrupto.)
+ * `categoriaId` YA NO se resuelve vía `CATEGORIA_IDS` (mapa global fijo) ni
+ * por nombre: la fila `Categoria` REAL del propio usuario se busca por
+ * `(id, userId)` — primary key + predicado de propiedad, a lo sumo una fila
+ * por construcción (design.md D-05). Esto es en sí mismo una garantía de
+ * aislamiento (un caller solo puede resolver su propia fila).
+ *
+ * FORBIDDEN (D-05): `findFirst({ where: { userId, nombre } })` — compila,
+ * type-checkea y pasa los tests, pero devuelve UNA de N filas homónimas
+ * entre buckets, elegida por la base de datos. Este método NUNCA debe volver
+ * a resolver por `nombre` en el write path.
+ *
+ * Un `categoriaId` que no resuelve a ninguna fila del catálogo del usuario
+ * (no existe o no es suya, indistinguibles) ⇒
+ * `Result.fail(CategoriaDesconocidaError)` — nunca lanza y nunca enumera el
+ * catálogo.
  *
  * `bucket` ya NO viaja como parámetro — se deriva de la relación
- * `Categoria.bucket` en el mismo `findUnique` (CAT-02: el bucket siempre
+ * `Categoria.bucket` en el mismo `findFirst` (CAT-02: el bucket siempre
  * viene de la categoría, nunca aceptado independientemente).
  *
  * `updateMany` con `WHERE { id, account: { userId } }` es el aislamiento
@@ -42,6 +47,9 @@ import type { PrismaClient } from '@prisma/client';
  * `$transaction` envolviendo el lookup + el update (KISS, design.md §4.3):
  * la categoría es estable y el peor caso de un delete concurrente es un
  * error de FK → 500, que es el resultado correcto de todas formas.
+ *
+ * `categoria` en el DTO de retorno se lee de `categoriaRow.nombre` — nunca
+ * se hace eco del input, que ahora es un id, no un nombre (design.md D-06).
  */
 export class PrismaReclasificarCategoriaRepository implements IReclasificarCategoriaWriter {
   constructor(private readonly prisma: PrismaClient) {}
@@ -49,19 +57,19 @@ export class PrismaReclasificarCategoriaRepository implements IReclasificarCateg
   async reasignar(
     userId: string,
     transaccionId: string,
-    nombre: string,
+    categoriaId: string,
   ): Promise<
     Result<
       ReclasificarCategoriaResult,
       TransaccionNoEncontradaError | CategoriaDesconocidaError
     >
   > {
-    const categoriaRow = await this.prisma.categoria.findUnique({
-      where: { userId_nombre: { userId, nombre } },
+    const categoriaRow = await this.prisma.categoria.findFirst({
+      where: { id: categoriaId, userId }, // STRUCTURAL isolation (RNF-SEC-006)
       include: { bucket: true },
     });
     if (categoriaRow === null) {
-      return Result.fail(new CategoriaDesconocidaError(nombre));
+      return Result.fail(new CategoriaDesconocidaError(categoriaId));
     }
 
     const bucket = categoriaRow.bucket.nombre as Bucket;
@@ -82,7 +90,7 @@ export class PrismaReclasificarCategoriaRepository implements IReclasificarCateg
     return Result.ok({
       id: transaccionId,
       categoriaId: categoriaRow.id,
-      categoria: nombre,
+      categoria: categoriaRow.nombre,
       bucket,
     });
   }

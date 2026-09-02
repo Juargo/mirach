@@ -44,7 +44,7 @@ describe('PATCH /api/transacciones/:id/categoria — cadena de auth + aislamient
     const res = await request(createApp(fakeContainer(), testEnv))
       .patch('/api/transacciones/tx-1/categoria')
       .set('x-api-key', KEY)
-      .send({ categoria: 'Supermercado' });
+      .send({ categoriaId: 'cat-supermercado-row-id' });
     expect(res.status).toBe(401);
   });
 
@@ -54,13 +54,13 @@ describe('PATCH /api/transacciones/:id/categoria — cadena de auth + aislamient
       .patch('/api/transacciones/tx-1/categoria')
       .set('x-api-key', KEY)
       .set('Authorization', 'Bearer token-valido')
-      .send({ categoria: 'Supermercado' });
+      .send({ categoriaId: 'cat-supermercado-row-id' });
 
     expect(res.status).toBe(200);
     expect(c.reclasificarTransaccion.execute).toHaveBeenCalledWith({
       userId: 'user-de-sesion',
       transaccionId: 'tx-1',
-      categoria: 'Supermercado',
+      categoriaId: 'cat-supermercado-row-id',
     });
   });
 
@@ -69,7 +69,7 @@ describe('PATCH /api/transacciones/:id/categoria — cadena de auth + aislamient
       .patch('/api/transacciones/tx-1/categoria')
       .set('x-api-key', KEY)
       .set('Authorization', 'Bearer token-valido')
-      .send({ categoria: 'Supermercado' });
+      .send({ categoriaId: 'cat-supermercado-row-id' });
 
     expect(res.status).toBe(200);
     expect(() =>
