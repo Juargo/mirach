@@ -11,8 +11,10 @@ allowBuilds:
   unrs-resolver: true
 
 # Forzar versión parcheada de uuid (CVE en exceljs → uuid < 11.1.1)
-# js-yaml/fast-uri: CVEs de alta severidad en transitivas de
-# @commitlint/cli (ADR-020) — cosmiconfig→js-yaml y config-validator→ajv→fast-uri
+# js-yaml: CVE de alta severidad en transitiva de @commitlint/cli (ADR-020),
+# vía cosmiconfig→js-yaml. fast-uri llega por dos caminos: @commitlint/cli→
+# config-validator→ajv y, alcanzable en producción, @prisma/client→prisma→
+# @prisma/dev→@prisma/streams-local→ajv.
 overrides:
   uuid: '>=11.1.1'
   # GHSA advisory 2026-08-17: stack exhaustion on recursive object graphs (high).
@@ -20,7 +22,11 @@ overrides:
   deepmerge-ts: '>=8.0.0'
   # Piso subido a 4.3.1: GHSA-5p4m-2wfm-xmqj (!!omap CPU cuadrático, high)
   js-yaml: '>=4.3.1 <5.0.0'
-  fast-uri: '>=3.1.4 <4.0.0'
+  # Piso subido a 3.1.6: GHSA-5jgf-p345-68v8 + GHSA-f65p-4m7j-42xc +
+  # GHSA-fph4-wmhf-6fwf + GHSA-jqff-g426-hqxp (host confusion y SSRF, high).
+  # Alcanzable desde deps de producción: @moneydiary/api -> @prisma/client ->
+  # prisma -> @prisma/dev -> @prisma/streams-local -> ajv -> fast-uri.
+  fast-uri: '>=3.1.6 <4.0.0'
   # nanoid < 3.3.17: GHSA-28wg-ghj8-5hjv + GHSA-2v37-7h3g-55p8 (high) —
   # transitivo dev de vite/postcss (build tooling, no llega a prod). Acotado
   # a la línea 3.x: postcss requiere nanoid CJS (4+ es ESM-only) y un rango
@@ -54,6 +60,8 @@ auditConfig:
     - GHSA-f88m-g3jw-g9cj # sharp — vulnerabilidades heredadas de libvips (apps/landing)
     - GHSA-r28c-9q8g-f849 # postcss — path traversal en source map (build tooling)
     - GHSA-4cwx-7wf7-3272 # undici — cross-user information disclosure (advisory nuevo; transitivo dev de vitest/jsdom, no llega a prod; ajeno a ADR-033)
-    - GHSA-7p8r-x3mc-p8w7 # fast-uri — host confusion via backslash (advisory nuevo; transitivo dev de @commitlint, no llega a prod; ajeno a ADR-033)
     - GHSA-w3rx-r6r6-pgpr # image-size — DoS parser ICNS. Transitivo de metro (bundler Expo); solo mide assets del propio repo, nunca input de usuario. Parche exige salto 1.x→2.x en dep de metro sin cobertura de CI que detecte rotura del bundler — se espera bump upstream (Dependabot)
     - GHSA-5p2g-fcmc-qvqq # image-size — DoS parsers JXL/HEIF. Misma justificación que la entrada anterior
+    - GHSA-c83g-rgw3-j3cx # browserslist — crecimiento de memoria sin tope (sin evicción de caché) ante queries distintas. Transitivo de apps/mobile > expo > @expo/cli; corre en build-time sobre queries del propio repo, nunca sobre input de usuario. El parche (>=4.28.7) exige forzar la resolución por debajo del bundler de Expo sin cobertura de CI que detecte rotura del bundle — se espera bump upstream (Dependabot)
+    - GHSA-73wf-gq98-2v4g # browserslist — crash / escritura de prototipo vía browserslist-stats.json no confiable. Mismo path transitivo que la entrada anterior; este repo no tiene ningún browserslist-stats.json, así que el vector no existe acá. Misma justificación de parche
+    - GHSA-3f6p-5ww8-9rcr # mysql2 — downgrade del plugin de auth a mysql_clear_password filtra credenciales en texto plano. Driver MySQL que prisma arrastra como opcional y que este proyecto NO usa: apps/api/prisma/schema.prisma declara provider = "postgresql" (ADR-002). Código inalcanzable en runtime
