@@ -602,6 +602,109 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     await prisma.categoria.deleteMany({ where: { id: custom.id } });
   });
 
+  // -------------------------------------------------------------------------
+  // ADR-042 (categoria-unica-por-bucket) — D-14 decisive scenario. This
+  // CANNOT be proven with a mocked repository: the entire question is which
+  // of N same-named rows Postgres hands back to `findFirst`. A stub would
+  // return whatever the test told it to and prove nothing about the
+  // adapter's `where` clause (D-05's forbidden `findFirst({ userId, nombre
+  // })` shape would also pass a mocked version of this test).
+  // -------------------------------------------------------------------------
+  it('T4.8a (DECISIVE): user A owns "Transporte" in BOTH Necesidades and Deseos — reasignar to the Deseos id persists exactly that id and its own denormalized bucketId', async () => {
+    const transporteNecesidadesId = await categoriaIdDe(prisma, {
+      userId: TEST_USER_ID_A,
+      bucket: Bucket.Necesidades,
+      nombre: 'Transporte',
+    });
+    // ADR-042: the same user CAN now hold "Transporte" in a second bucket.
+    const transporteDeseos = await prisma.categoria.create({
+      data: {
+        userId: TEST_USER_ID_A,
+        nombre: 'Transporte',
+        bucketId: BUCKET_IDS[Bucket.Deseos],
+      },
+    });
+
+    const tx = await createTx(
+      accountIdA,
+      ingestaIdA,
+      6000n,
+      0n,
+      transporteNecesidadesId,
+      BUCKET_IDS[Bucket.Necesidades],
+      'Tx T4.8a decisive',
+    );
+
+    const result = await repo.reasignar(
+      TEST_USER_ID_A,
+      tx.id,
+      transporteDeseos.id,
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(result.getValue()).toEqual({
+      id: tx.id,
+      categoriaId: transporteDeseos.id,
+      categoria: 'Transporte',
+      bucket: Bucket.Deseos,
+    });
+
+    const updated = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: tx.id },
+    });
+    // The DECISIVE assertions: persisted categoriaId is EXACTLY the Deseos
+    // row's id (never the Necesidades one, despite sharing a name), and the
+    // denormalized bucketId matches THAT row's own bucket.
+    expect(updated.categoriaId).toBe(transporteDeseos.id);
+    expect(updated.categoriaId).not.toBe(transporteNecesidadesId);
+    expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
+
+    await prisma.transaccion.deleteMany({ where: { id: tx.id } });
+    await prisma.categoria.deleteMany({ where: { id: transporteDeseos.id } });
+  });
+
+  it("T4.8b (companion, RNF-SEC-006): with the same colliding-name fixture, reasignar using user B's categoriaId fails CategoriaDesconocidaError and user A's transaction is unchanged", async () => {
+    const transporteNecesidadesId = await categoriaIdDe(prisma, {
+      userId: TEST_USER_ID_A,
+      bucket: Bucket.Necesidades,
+      nombre: 'Transporte',
+    });
+    // Same colliding name ("Transporte"), but owned by user B — must never
+    // resolve for user A, even though the name matches one of A's own rows.
+    const transporteDeUserB = await categoriaIdDe(prisma, {
+      userId: TEST_USER_ID_B,
+      bucket: Bucket.Necesidades,
+      nombre: 'Transporte',
+    });
+
+    const tx = await createTx(
+      accountIdA,
+      ingestaIdA,
+      7000n,
+      0n,
+      transporteNecesidadesId,
+      BUCKET_IDS[Bucket.Necesidades],
+      'Tx T4.8b companion',
+    );
+
+    const result = await repo.reasignar(
+      TEST_USER_ID_A,
+      tx.id,
+      transporteDeUserB,
+    );
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(CategoriaDesconocidaError);
+
+    const unchanged = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: tx.id },
+    });
+    expect(unchanged.categoriaId).toBe(transporteNecesidadesId);
+    expect(unchanged.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
+
+    await prisma.transaccion.deleteMany({ where: { id: tx.id } });
+  });
+
   it("US-038: reclassifying to a nombre absent from the caller's own catalog fails cleanly (CategoriaDesconocidaError), never an enumerated list", async () => {
     const tx = await createTx(
       accountIdA,

@@ -24,20 +24,30 @@ export type ActualizarCategoriaError =
 
 /**
  * ActualizarCategoriaUseCase — use case de escritura para
- * `PATCH /api/categorias/:id` (US-038, CAT038-03).
+ * `PATCH /api/categorias/:id` (US-038, CAT038-03; ADR-042, design.md D-03).
  *
  * Body PARCIAL (Q4): `nombre` y `bucket` son ambos opcionales, al menos uno
  * presente — la regla de "al menos un campo" la exige el schema Zod
  * (transporte), no este use case.
  *
- * Orden de validación, EXACTO por design.md §3.2:
+ * Orden de validación, EXACTO por design.md D-03 (REORDENADO por ADR-042 —
+ * antes era nombre-forma → nombre-unicidad → bucket-asignabilidad; ahora la
+ * unicidad depende del bucket, así que el bucket debe validarse ANTES):
  *   1. demo gate
  *   2. 404 si la fila no es del caller (ANTES de validar cualquier campo)
- *   3. `nombre`? → forma + unicidad case-insensitive EXCLUYENDO la propia fila
+ *   3. `nombre`? → forma (shape únicamente, todavía no unicidad)
  *   4. `bucket`? → asignabilidad
- *   5. arma el patch — `bucket` se incluye SOLO si el bucket cambió (D-07,
+ *   5. UNA sola verificación de unicidad sobre el PAR EFECTIVO
+ *      `(nombreEfectivo, bucketEfectivo)` — el que la fila tendría tras este
+ *      patch, sea cual sea la combinación de campos presentes. `excluirId`
+ *      excluye siempre la propia fila (un patch no-op nunca produce un falso
+ *      409). Consecuencia observable: un patch con un `nombre` colisionante
+ *      Y un `bucket` inválido devuelve `400 BUCKET_NO_ASIGNABLE`, no `409`
+ *      (no se puede preguntar "¿el par está tomado?" contra un bucket que
+ *      todavía no se validó).
+ *   6. arma el patch — `bucket` se incluye SOLO si el bucket cambió (D-07,
  *      el mecanismo que dispara el re-stamp en infraestructura sin un flag)
- *   6. delega en el repositorio
+ *   7. delega en el repositorio
  *
  * Nunca lanza.
  */
@@ -63,26 +73,16 @@ export class ActualizarCategoriaUseCase {
       return Result.fail(new CategoriaNoEncontradaError(input.id));
     }
 
-    const patch: { nombre?: string; bucket?: string } = {};
-
+    let nombreValidado: string | undefined;
     if (input.nombre !== undefined) {
       const nombre = input.nombre.trim();
       if (nombre.length < NOMBRE_MIN || nombre.length > NOMBRE_MAX) {
         return Result.fail(new NombreCategoriaInvalidoError(input.nombre));
       }
-
-      const colisiona = await this.categoriaRepository.existeNombre(
-        input.userId,
-        nombre,
-        input.id,
-      );
-      if (colisiona) {
-        return Result.fail(new NombreCategoriaDuplicadoError(nombre));
-      }
-
-      patch.nombre = nombre;
+      nombreValidado = nombre;
     }
 
+    let bucketValidado: string | undefined;
     if (input.bucket !== undefined) {
       if (
         !BUCKETS_ASIGNABLES.includes(
@@ -91,10 +91,34 @@ export class ActualizarCategoriaUseCase {
       ) {
         return Result.fail(new BucketNoAsignableError(input.bucket));
       }
+      bucketValidado = input.bucket;
+    }
 
-      if (input.bucket !== (actual.bucket as string)) {
-        patch.bucket = input.bucket;
-      }
+    // El par que la fila TENDRÍA tras este patch — lo único que vale la pena
+    // preguntar (design.md D-03).
+    const nombreEfectivo = nombreValidado ?? actual.nombre;
+    const bucketEfectivo = bucketValidado ?? actual.bucket;
+
+    const colisiona = await this.categoriaRepository.existeNombre({
+      userId: input.userId,
+      nombre: nombreEfectivo,
+      bucket: bucketEfectivo,
+      excluirId: input.id, // la fila nunca colisiona consigo misma
+    });
+    if (colisiona) {
+      return Result.fail(new NombreCategoriaDuplicadoError(nombreEfectivo));
+    }
+
+    const patch: { nombre?: string; bucket?: string } = {};
+    if (nombreValidado !== undefined) {
+      patch.nombre = nombreValidado;
+    }
+    // bucket ONLY si efectivamente cambió (D-07, dispara el re-stamp).
+    if (
+      bucketValidado !== undefined &&
+      bucketValidado !== (actual.bucket as string)
+    ) {
+      patch.bucket = bucketValidado;
     }
 
     const actualizada = await this.categoriaRepository.actualizar(

@@ -163,16 +163,21 @@ describe('PrismaCategoriaRepository', () => {
     });
   });
 
-  describe('existeNombre()', () => {
-    it('filters by userId + case-insensitive nombre in the SQL WHERE', async () => {
+  describe('existeNombre() — criterion object, bucket-scoped (ADR-042, D-02)', () => {
+    it('filters by userId + bucketId + case-insensitive nombre in the SQL WHERE', async () => {
       const prisma = makePrismaMock();
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.existeNombre(USER_ID, 'mascotas');
+      await repo.existeNombre({
+        userId: USER_ID,
+        nombre: 'mascotas',
+        bucket: Bucket.Deseos,
+      });
 
       expect(prisma.categoria.findFirst).toHaveBeenCalledWith({
         where: {
           userId: USER_ID,
+          bucketId: BUCKET_IDS[Bucket.Deseos],
           nombre: { equals: 'mascotas', mode: 'insensitive' },
         },
         select: { id: true },
@@ -183,11 +188,17 @@ describe('PrismaCategoriaRepository', () => {
       const prisma = makePrismaMock();
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.existeNombre(USER_ID, 'mascotas', 'cat-1');
+      await repo.existeNombre({
+        userId: USER_ID,
+        nombre: 'mascotas',
+        bucket: Bucket.Deseos,
+        excluirId: 'cat-1',
+      });
 
       expect(prisma.categoria.findFirst).toHaveBeenCalledWith({
         where: {
           userId: USER_ID,
+          bucketId: BUCKET_IDS[Bucket.Deseos],
           nombre: { equals: 'mascotas', mode: 'insensitive' },
           id: { not: 'cat-1' },
         },
@@ -202,9 +213,21 @@ describe('PrismaCategoriaRepository', () => {
       });
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await expect(repo.existeNombre(USER_ID, 'mascotas')).resolves.toBe(true);
+      await expect(
+        repo.existeNombre({
+          userId: USER_ID,
+          nombre: 'mascotas',
+          bucket: Bucket.Deseos,
+        }),
+      ).resolves.toBe(true);
       (prisma.categoria.findFirst as Mock).mockResolvedValueOnce(null);
-      await expect(repo.existeNombre(USER_ID, 'otro')).resolves.toBe(false);
+      await expect(
+        repo.existeNombre({
+          userId: USER_ID,
+          nombre: 'otro',
+          bucket: Bucket.Deseos,
+        }),
+      ).resolves.toBe(false);
     });
   });
 

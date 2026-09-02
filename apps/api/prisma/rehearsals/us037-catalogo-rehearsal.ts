@@ -299,8 +299,12 @@ async function assertCoreConstraints(client: Client): Promise<void> {
   );
   const indexNames = indexes.rows.map((r) => r.indexname);
   assert(
-    indexNames.includes('Categoria_userId_nombre_key'),
-    'unique index (userId, nombre) exists on Categoria',
+    indexNames.includes('Categoria_userId_bucketId_nombre_key'),
+    'unique index (userId, bucketId, nombre) exists on Categoria (ADR-042)',
+  );
+  assert(
+    !indexNames.includes('Categoria_userId_nombre_key'),
+    'the us037-era unique index (userId, nombre) was dropped by ADR-042',
   );
   assert(
     indexNames.includes('Categoria_id_userId_key'),

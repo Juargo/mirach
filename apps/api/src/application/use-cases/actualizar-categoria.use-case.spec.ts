@@ -125,11 +125,105 @@ describe('ActualizarCategoriaUseCase', () => {
       nombre: 'Delivery renombrado',
     });
 
-    expect(repo.existeNombre).toHaveBeenCalledWith(
-      'user-1',
-      'Delivery renombrado',
-      'cat-1',
-    );
+    expect(repo.existeNombre).toHaveBeenCalledWith({
+      userId: 'user-1',
+      nombre: 'Delivery renombrado',
+      bucket: CATEGORIA_ACTUAL.bucket,
+      excluirId: 'cat-1',
+    });
+  });
+
+  it('patch de solo bucket valida el par EFECTIVO {nombre: actual.nombre, bucket: patched} (D-03 — el gap hoy sin tests)', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      bucket: 'Necesidades',
+    });
+
+    expect(repo.existeNombre).toHaveBeenCalledWith({
+      userId: 'user-1',
+      nombre: CATEGORIA_ACTUAL.nombre,
+      bucket: 'Necesidades',
+      excluirId: 'cat-1',
+    });
+  });
+
+  it('patch de nombre+bucket valida el par PATCHED completo (D-03)', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      nombre: 'Delivery renombrado',
+      bucket: 'Necesidades',
+    });
+
+    expect(repo.existeNombre).toHaveBeenCalledWith({
+      userId: 'user-1',
+      nombre: 'Delivery renombrado',
+      bucket: 'Necesidades',
+      excluirId: 'cat-1',
+    });
+  });
+
+  it('un no-op patch (mismo nombre) nunca produce un falso 409 (excluirId siempre presente)', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      nombre: CATEGORIA_ACTUAL.nombre,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.existeNombre).toHaveBeenCalledWith({
+      userId: 'user-1',
+      nombre: CATEGORIA_ACTUAL.nombre,
+      bucket: CATEGORIA_ACTUAL.bucket,
+      excluirId: 'cat-1',
+    });
+  });
+
+  it('re-bucket-only hacia un bucket que YA tiene ese nombre → 409, nunca 500 (CA-05 regression guard)', async () => {
+    const repo = makeRepo({ existeNombre: vi.fn().mockResolvedValue(true) });
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      bucket: 'Necesidades',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(NombreCategoriaDuplicadoError);
+    expect(repo.actualizar).not.toHaveBeenCalled();
+  });
+
+  it('orden de validación reordenado (D-03): nombre colisionante + bucket inválido → 400 BUCKET_NO_ASIGNABLE, NUNCA 409', async () => {
+    const repo = makeRepo({ existeNombre: vi.fn().mockResolvedValue(true) });
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      nombre: 'ahorro', // colisionaría, PERO el bucket inválido debe ganar
+      bucket: 'Ingreso',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(BucketNoAsignableError);
+    expect(repo.existeNombre).not.toHaveBeenCalled();
+    expect(repo.actualizar).not.toHaveBeenCalled();
   });
 
   it('rechaza una colisión de nombre con otra categoría del mismo usuario (409)', async () => {

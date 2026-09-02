@@ -12,6 +12,13 @@ describe('NombreCategoriaDuplicadoError', () => {
     expect(error.message).toContain('nombre');
   });
 
+  it('el mensaje es bucket-aware (ADR-042, D-12) — la unicidad ahora es por bucket', () => {
+    const error = new NombreCategoriaDuplicadoError('Mascotas');
+    expect(error.message).toBe(
+      'Ya existe una categoría con ese nombre en ese bucket.',
+    );
+  });
+
   it('conserva el nombre original solo para logging server-side', () => {
     const error = new NombreCategoriaDuplicadoError('Mascotas');
     expect(error.rawValue).toBe('Mascotas');

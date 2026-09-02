@@ -31,6 +31,10 @@ const API_KEY = process.env.API_KEY ?? '';
 
 const RUN_ID = `catalogo-rebucket-int-${Date.now()}`;
 const USER_ID = `cat-rebucket-${RUN_ID}`;
+// `nombre` is capped at 40 chars (NombreCategoriaInvalidoError) — RUN_ID
+// alone is already ~35 chars, so category names created in this file use
+// this SHORT suffix instead (base36 timestamp, still unique per run).
+const SHORT = Date.now().toString(36);
 
 const NOW = new Date();
 const CURRENT_YEAR = NOW.getUTCFullYear();
@@ -199,5 +203,112 @@ describe('Catalog re-bucket integrity (CAT038-03, D-07) — /api/resumen + bucke
       .set('Authorization', auth)
       .expect(200);
     expect(drillDownDeseos.body.transacciones).toHaveLength(0);
+  });
+
+  // ---------------------------------------------------------------------
+  // ADR-042 (categoria-unica-por-bucket, CAT038-03, D-03): the resulting
+  // (bucket, nombre) pair is validated on EVERY PATCH path, including the
+  // bucket-only one — today's latent gap the migration arms.
+  // ---------------------------------------------------------------------
+  it('rename-into-a-different-bucket succeeds (no collision against the resulting pair)', async () => {
+    if (!ALLOW) return;
+
+    // `categoriaId` is currently "Delivery" in Necesidades (re-bucketed above).
+    // Renaming it while ALSO moving it to Ahorro must succeed — the pair
+    // ('AhorroRenombrada', Ahorro) does not collide with anything.
+    const res = await request(app)
+      .patch(`/api/categorias/${categoriaId}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `DeliveryRenombrada-${SHORT}`, bucket: 'Ahorro' })
+      .expect(200);
+
+    expect(res.body.nombre).toBe(`DeliveryRenombrada-${SHORT}`);
+    expect(res.body.bucket).toBe('Ahorro');
+  });
+
+  it('re-bucket-only into a bucket that ALREADY holds that name → 409, never 500, nothing persisted (CA-05)', async () => {
+    if (!ALLOW) return;
+
+    // `categoriaId` is now "DeliveryRenombrada-<RUN_ID>" in Ahorro (previous
+    // test). Create a second categoría, "Streaming" in Necesidades, then try
+    // to re-bucket the seed template's OWN "Streaming" (Deseos) into
+    // Necesidades — colliding with it.
+    const streamingNecesidades = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: 'Streaming', bucket: 'Necesidades' })
+      .expect(201);
+
+    const streamingDeseosId = await categoriaIdDe(prisma, {
+      userId: USER_ID,
+      bucket: Bucket.Deseos,
+      nombre: 'Streaming',
+    });
+
+    const before = await prisma.categoria.findUniqueOrThrow({
+      where: { id: streamingDeseosId },
+    });
+
+    const res = await request(app)
+      .patch(`/api/categorias/${streamingDeseosId}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ bucket: 'Necesidades' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('NOMBRE_DUPLICADO');
+
+    const after = await prisma.categoria.findUniqueOrThrow({
+      where: { id: streamingDeseosId },
+    });
+    expect(after.bucketId).toBe(before.bucketId);
+
+    await prisma.categoria.deleteMany({
+      where: { id: streamingNecesidades.body.id },
+    });
+  });
+
+  it('rename+re-bucket combined is validated against the RESULTING pair — both the colliding and the non-colliding branch', async () => {
+    if (!ALLOW) return;
+
+    const otraDeseos = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `Colisiona-${SHORT}`, bucket: 'Deseos' })
+      .expect(201);
+    const objetivo = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `Objetivo-${SHORT}`, bucket: 'Necesidades' })
+      .expect(201);
+
+    // Colliding branch: rename `objetivo` to the SAME name as `otraDeseos`
+    // AND move it into Deseos — the resulting pair collides.
+    const colision = await request(app)
+      .patch(`/api/categorias/${objetivo.body.id}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `Colisiona-${SHORT}`, bucket: 'Deseos' });
+    expect(colision.status).toBe(409);
+    expect(colision.body.code).toBe('NOMBRE_DUPLICADO');
+
+    // Non-colliding branch: same rename+re-bucket, but to a genuinely free
+    // pair — must succeed.
+    const exito = await request(app)
+      .patch(`/api/categorias/${objetivo.body.id}`)
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `Libre-${SHORT}`, bucket: 'Ahorro' })
+      .expect(200);
+    expect(exito.body.nombre).toBe(`Libre-${SHORT}`);
+    expect(exito.body.bucket).toBe('Ahorro');
+
+    await prisma.categoria.deleteMany({
+      where: { id: { in: [otraDeseos.body.id, objetivo.body.id] } },
+    });
   });
 });

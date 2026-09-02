@@ -159,7 +159,11 @@ describe('CrearCategoriaUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(NombreCategoriaDuplicadoError);
-    expect(repo.existeNombre).toHaveBeenCalledWith('user-1', 'mascotas');
+    expect(repo.existeNombre).toHaveBeenCalledWith({
+      userId: 'user-1',
+      nombre: 'mascotas',
+      bucket: 'Deseos',
+    });
     expect(repo.crearConPatrones).not.toHaveBeenCalled();
     expect(patronRepo.existePatron).not.toHaveBeenCalled();
   });
