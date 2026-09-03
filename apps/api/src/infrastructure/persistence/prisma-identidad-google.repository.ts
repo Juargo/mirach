@@ -175,9 +175,9 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
  * esCarreraDeCreacionUser — discrimina, para el P2002 de `crearDesdeGoogle`,
  * entre la carrera de creación esperada (unicidad de `User.emailBlindIndex`
  * o `User.googleSub`) y un P2002 real de otra tabla dentro de la MISMA
- * transacción (p. ej. la unique compuesta `Categoria(userId, nombre)`,
- * ADR-036 — un bug de datos, nunca una carrera legítima sobre un `userId`
- * recién creado).
+ * transacción (p. ej. la unique compuesta `Categoria(userId, bucketId,
+ * nombre)`, ADR-042 — un bug de datos, nunca una carrera legítima sobre un
+ * `userId` recién creado).
  *
  * Misma forma de `meta` que `apuntaA` en
  * `prisma-user-credential.repository.ts` (Prisma 7 + `@prisma/adapter-pg` NO

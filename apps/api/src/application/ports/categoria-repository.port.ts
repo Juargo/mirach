@@ -38,12 +38,27 @@ export interface ICategoriaRepository {
 
   buscarPorId(userId: string, id: string): Promise<CategoriaConPatrones | null>;
 
-  /** Comparación case-insensitive, userId-scoped; `excluirId` habilita la auto-exclusión en PATCH. */
-  existeNombre(
-    userId: string,
-    nombre: string,
-    excluirId?: string,
-  ): Promise<boolean>;
+  /**
+   * Uniqueness gate for `(userId, bucket, nombre)` (ADR-042) — case-insensitive
+   * on `nombre`, userId-scoped in the SQL WHERE (RNF-SEC-006). `bucket` viaja
+   * como NOMBRE validado; el adapter resuelve `BUCKET_IDS[bucket]` (ADR-005).
+   * `excluirId` habilita la auto-exclusión en PATCH: la propia fila nunca
+   * colisiona consigo misma.
+   *
+   * Criterio-objeto DELIBERADO, no posicional (design.md D-02): con la forma
+   * `(userId, nombre, bucket, excluirId?)` el call site histórico de
+   * `ActualizarCategoriaUseCase` (`existeNombre(userId, nombre, input.id)`,
+   * 3 args) seguiría compilando si `bucket` se insertara en la posición 3 —
+   * y pasaría silenciosamente un id de categoría como si fuera un nombre de
+   * bucket. El objeto convierte CADA call site en un error de aridad (3→1),
+   * el compilador los enumera exhaustivamente.
+   */
+  existeNombre(criterio: {
+    userId: string;
+    nombre: string;
+    bucket: string;
+    excluirId?: string;
+  }): Promise<boolean>;
 
   /**
    * `bucket` viaja como NOMBRE validado (`Necesidades`/`Deseos`/`Ahorro`),

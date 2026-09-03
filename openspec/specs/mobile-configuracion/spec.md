@@ -248,3 +248,24 @@ pure helper MUST have a plain unit test (ADR-017).
 - GIVEN a category whose `bucket` value the client does not recognise
 - WHEN the list renders
 - THEN the row still renders (read path never rejects an unknown string)
+
+### Requirement: MCTG-09 — NOMBRE_DUPLICADO copy is bucket-aware (ADR-042)
+
+> Renumbered at archive time: the source change (`categoria-unica-por-bucket`) labeled this requirement
+> `MCTG-07` in its delta spec, colliding with the pre-existing canonical `MCTG-07` ("Dashboard refresh
+> after a bucket change", a different requirement from an earlier change). `sdd-archive` renumbered it to
+> `MCTG-09` to preserve both requirements without an ID collision; no requirement content was altered by
+> the rename. See the archive report for `categoria-unica-por-bucket`.
+
+The mobile `mensajes-catalogo.ts` closed code map's `NOMBRE_DUPLICADO` row (part of the MCTG-06 12-code
+table) MUST render the exact literal `'Ya tienes una categoría con ese nombre en ese bucket.'`, replacing
+the prior bucket-blind wording. The mapping selection mechanism (by `code` alone) is unchanged from
+MCTG-06.
+(Previously: `NOMBRE_DUPLICADO` rendered `'Ya tienes una categoría con ese nombre.'`.)
+
+#### Scenario: The exact bucket-aware string renders on a 409 (RNTL)
+
+- GIVEN a `409` response with `code: "NOMBRE_DUPLICADO"`
+- WHEN the client maps it to copy
+- THEN the rendered string is exactly `'Ya tienes una categoría con ese nombre en ese bucket.'`, never
+  `body.message`

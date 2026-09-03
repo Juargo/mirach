@@ -40,6 +40,38 @@ export const CATEGORIA_TEMPLATE = [
 ] as const satisfies ReadonlyArray<{ nombre: string; bucket: Bucket }>;
 
 /**
+ * assertSinNombresDuplicados — ADR-042 D-11.
+ *
+ * `copiarCatalogoTemplate`'s `idPorNombre` map (más abajo) queda keyed por
+ * `nombre` ÚNICAMENTE, sobre TODA la copia del usuario. ADR-042 permite que
+ * dos categorías del MISMO usuario compartan nombre en buckets distintos —
+ * si `CATEGORIA_TEMPLATE` alguna vez agregara ese duplicado, `idPorNombre`
+ * resolvería "el último bucket que escribió" (last-write-wins) para CUALQUIER
+ * entrada de `PATRON_TEMPLATE` que referencie ese nombre, adjuntando
+ * patrones al bucket equivocado para cada usuario nuevo, en silencio.
+ *
+ * Extraída como función nombrada (en vez de un `if` inline a nivel de
+ * módulo) para que sea unit-testable sin depender del side-effect de
+ * importar el módulo.
+ */
+export function assertSinNombresDuplicados(
+  template: ReadonlyArray<{ nombre: string }>,
+): void {
+  const nombresTemplate = template.map((c) => c.nombre);
+  if (new Set(nombresTemplate).size !== nombresTemplate.length) {
+    throw new Error(
+      'CATEGORIA_TEMPLATE tiene un nombre repetido entre buckets: re-keyea ' +
+        'idPorNombre por (bucket, nombre) antes de agregarlo (ADR-042).',
+    );
+  }
+}
+
+// ADR-042 permite el mismo nombre en dos buckets, pero esta plantilla
+// deliberadamente no tiene ninguno — falla en el momento de importar si
+// alguna vez se agrega uno (ver el docblock de assertSinNombresDuplicados).
+assertSinNombresDuplicados(CATEGORIA_TEMPLATE);
+
+/**
  * Universo cerrado de nombres de la plantilla semilla — la única prueba de
  * compilación que ADR-037 conserva. `PATRON_TEMPLATE.categoria` y
  * `CATEGORIA_IDS` se re-tipan contra esta unión.

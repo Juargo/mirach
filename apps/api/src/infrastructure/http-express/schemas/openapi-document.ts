@@ -693,8 +693,9 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        "Invalid categoria — the given name does not resolve against the caller's own catalog " +
-        '(scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired).',
+        "Invalid categoriaId — the given id does not resolve against the caller's own catalog, " +
+        'or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed ' +
+        'enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name).',
     },
     '404': {
       description:

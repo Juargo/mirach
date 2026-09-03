@@ -29,6 +29,7 @@ import { crearSesionParaUsuario } from './support/session.fixture';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { categoriaIdDe } from './helpers/categoria-fixture';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -70,10 +71,11 @@ describe('Deleting an in-use category moves no money (CAT038-04, CA-04) — /api
       data: { id: USER_ID, nombre: `Delete En Uso ${RUN_ID}` },
     });
     await crearCatalogoParaUsuario(prisma, USER_ID);
-    const delivery = await prisma.categoria.findUniqueOrThrow({
-      where: { userId_nombre: { userId: USER_ID, nombre: 'Delivery' } },
+    deliveryId = await categoriaIdDe(prisma, {
+      userId: USER_ID,
+      bucket: Bucket.Deseos,
+      nombre: 'Delivery',
     });
-    deliveryId = delivery.id;
 
     const account = await prisma.account.create({
       data: {

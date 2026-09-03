@@ -13,13 +13,16 @@ import type { ReclasificarTransaccionUseCase } from '../../../application/use-ca
  * manual, sin class-validator) y traduce el 404 anti-enumeración.
  *
  * ADR-037: el 400 ya NO enumera los 8 nombres cerrados del enum retirado —
- * `CategoriaDesconocidaError` (un nombre que no resuelve contra el catálogo
- * REAL del usuario) mapea a un mensaje genérico. Este es uno de los dos
- * deltas de comportamiento intencionales de PR1 (design.md §9): antes el
- * enum-gate rechazaba cualquier nombre desconocido con 400 ANTES de que el
- * adapter pudiera lanzar un 500 por "copia rota"; ahora ese mismo caso llega
- * limpio a `CategoriaDesconocidaError` (400) porque el gate cerrado ya no
- * existe — un camino que antes era inalcanzable.
+ * `CategoriaDesconocidaError` (un id que no resuelve contra el catálogo REAL
+ * del usuario) mapea a un mensaje genérico. Este es uno de los dos deltas de
+ * comportamiento intencionales de PR1 (design.md §9): antes el enum-gate
+ * rechazaba cualquier nombre desconocido con 400 ANTES de que el adapter
+ * pudiera lanzar un 500 por "copia rota"; ahora ese mismo caso llega limpio a
+ * `CategoriaDesconocidaError` (400) porque el gate cerrado ya no existe — un
+ * camino que antes era inalcanzable.
+ *
+ * ADR-042: el body pasa de `{ categoria: <nombre> }` a `{ categoriaId }`,
+ * corte duro sin alias de transición.
  */
 type Doble = Pick<ReclasificarTransaccionUseCase, 'execute'>;
 
@@ -45,11 +48,11 @@ function probeApp(uc: Doble): Express {
 }
 
 describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', () => {
-  it('200 con el DTO y llama con userId + transaccionId + categoria', async () => {
+  it('200 con el DTO y llama con userId + transaccionId + categoriaId', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(RECLASIF_OK)) };
     const res = await request(probeApp(uc))
       .patch('/api/transacciones/tx-1/categoria')
-      .send({ categoria: 'Supermercado' });
+      .send({ categoriaId: 'cat-supermercado-row-id' });
 
     expect(res.status).toBe(200);
     expect(res.body.id).toBe('tx-1');
@@ -60,11 +63,11 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
     expect(uc.execute).toHaveBeenCalledWith({
       userId: 'user-x',
       transaccionId: 'tx-1',
-      categoria: 'Supermercado',
+      categoriaId: 'cat-supermercado-row-id',
     });
   });
 
-  it('body con categoria no-string → se coacciona a "" (rechazo uniforme, delegado al writer)', async () => {
+  it('body con categoriaId no-string → se coacciona a "" (rechazo uniforme, delegado al writer)', async () => {
     const uc = {
       execute: vi
         .fn()
@@ -72,26 +75,43 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
     };
     await request(probeApp(uc))
       .patch('/api/transacciones/tx-1/categoria')
-      .send({ categoria: 123 });
+      .send({ categoriaId: 123 });
 
     expect(uc.execute).toHaveBeenCalledWith({
       userId: 'user-x',
       transaccionId: 'tx-1',
-      categoria: '',
+      categoriaId: '',
     });
   });
 
-  it('400 con mensaje genérico si la categoría no existe en el catálogo del caller — ya NO enumera los 8 nombres', async () => {
+  it('body con la forma legacy { categoria: <nombre> } (sin categoriaId) → se coacciona a "" igual que un campo ausente (ADR-042, corte duro)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.fail(new CategoriaDesconocidaError(''))),
+    };
+    await request(probeApp(uc))
+      .patch('/api/transacciones/tx-1/categoria')
+      .send({ categoria: 'Supermercado' });
+
+    expect(uc.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      transaccionId: 'tx-1',
+      categoriaId: '',
+    });
+  });
+
+  it('400 con mensaje genérico si el categoriaId no existe en el catálogo del caller — ya NO enumera los 8 nombres', async () => {
     const uc = {
       execute: vi
         .fn()
         .mockResolvedValue(
-          Result.fail(new CategoriaDesconocidaError('HackCat')),
+          Result.fail(new CategoriaDesconocidaError('cat-hackeada')),
         ),
     };
     const res = await request(probeApp(uc))
       .patch('/api/transacciones/tx-1/categoria')
-      .send({ categoria: 'HackCat' });
+      .send({ categoriaId: 'cat-hackeada' });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toBe(
@@ -99,7 +119,7 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
     );
     // Scrubbing: el input crudo nunca se refleja, y el mensaje ya no
     // enumera ningún nombre del catálogo (ni los del template ni ninguno).
-    expect(JSON.stringify(res.body)).not.toContain('HackCat');
+    expect(JSON.stringify(res.body)).not.toContain('cat-hackeada');
     expect(res.body.message).not.toMatch(/Supermercado|Combustible/);
   });
 
@@ -113,7 +133,7 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
     };
     const res = await request(probeApp(uc))
       .patch('/api/transacciones/tx-otro/categoria')
-      .send({ categoria: 'Supermercado' });
+      .send({ categoriaId: 'cat-supermercado-row-id' });
 
     expect(res.status).toBe(404);
   });
@@ -122,7 +142,7 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
     const uc = { execute: vi.fn().mockRejectedValue(new Error('DB caída')) };
     const res = await request(probeApp(uc))
       .patch('/api/transacciones/tx-1/categoria')
-      .send({ categoria: 'Supermercado' });
+      .send({ categoriaId: 'cat-supermercado-row-id' });
 
     expect(res.status).toBe(500);
   });

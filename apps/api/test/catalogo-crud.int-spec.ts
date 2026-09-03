@@ -441,4 +441,77 @@ describe('Catalog CRUD (integration) — /api/categorias + /api/patrones (US-038
       .expect(409);
     expect(res.body.code).toBe('NOMBRE_DUPLICADO');
   });
+
+  // ---------------------------------------------------------------------
+  // ADR-042 (categoria-unica-por-bucket, CAT038-01): uniqueness is now
+  // (userId, bucket, nombre) — a name CAN repeat across buckets for the
+  // SAME user, and still cannot block a DIFFERENT user at all.
+  // ---------------------------------------------------------------------
+  it('the same name in a DIFFERENT bucket succeeds (201) — both rows coexist for the same user (ADR-042)', async () => {
+    if (!ALLOW) return;
+
+    const primero = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `CrossBucket-${SHORT}`, bucket: 'Deseos' })
+      .expect(201);
+
+    const segundo = await request(app)
+      .post('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .send({ nombre: `CrossBucket-${SHORT}`, bucket: 'Necesidades' })
+      .expect(201);
+
+    expect(segundo.body.id).not.toBe(primero.body.id);
+
+    const listed = await request(app)
+      .get('/api/categorias')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth)
+      .expect(200);
+    const nombreCoincide = listed.body.categorias.filter(
+      (c: { nombre: string }) => c.nombre === `CrossBucket-${SHORT}`,
+    );
+    expect(nombreCoincide).toHaveLength(2);
+  });
+
+  it("a second user's same-named category never blocks the first user's create (RNF-SEC-006, ADR-042)", async () => {
+    if (!ALLOW) return;
+
+    const otroUserId = `${USER_ID}-otro`;
+    await prisma.user.create({
+      data: { id: otroUserId, nombre: `Catalogo CRUD otro ${RUN_ID}` },
+    });
+    const { token: otroToken } = await crearSesionParaUsuario(
+      prisma,
+      otroUserId,
+    );
+    const otroAuth = `Bearer ${otroToken}`;
+
+    try {
+      await request(app)
+        .post('/api/categorias')
+        .set('x-api-key', API_KEY)
+        .set('Authorization', otroAuth)
+        .send({ nombre: `Aislada-${SHORT}`, bucket: 'Deseos' })
+        .expect(201);
+
+      const res = await request(app)
+        .post('/api/categorias')
+        .set('x-api-key', API_KEY)
+        .set('Authorization', auth)
+        .send({ nombre: `Aislada-${SHORT}`, bucket: 'Deseos' });
+
+      expect(res.status).toBe(201);
+    } finally {
+      await prisma.patronClasificacion.deleteMany({
+        where: { userId: otroUserId },
+      });
+      await prisma.categoria.deleteMany({ where: { userId: otroUserId } });
+      await prisma.session.deleteMany({ where: { userId: otroUserId } });
+      await prisma.user.deleteMany({ where: { id: otroUserId } });
+    }
+  });
 });

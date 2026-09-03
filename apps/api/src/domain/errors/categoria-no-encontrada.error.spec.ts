@@ -22,20 +22,20 @@ describe('CategoriaNoEncontradaError', () => {
 
 describe('CategoriaDesconocidaError', () => {
   it('el nombre del error es CategoriaDesconocidaError', () => {
-    const error = new CategoriaDesconocidaError('Mascotas');
+    const error = new CategoriaDesconocidaError('cat-mascotas-id');
     expect(error.name).toBe('CategoriaDesconocidaError');
   });
 
   it('el mensaje está scrubbeado: no enumera ningún nombre de categoría', () => {
-    const error = new CategoriaDesconocidaError('Mascotas');
+    const error = new CategoriaDesconocidaError('cat-mascotas-id');
     expect(error.message).not.toMatch(
       /Necesidades|Deseos|Ahorro|Ingreso|SinCategoria/,
     );
   });
 
-  it('conserva el nombre original solo para logging server-side', () => {
-    const error = new CategoriaDesconocidaError('Mascotas');
-    expect(error.nombre).toBe('Mascotas');
+  it('conserva el categoriaId original solo para logging server-side (ADR-042: ya no es un nombre)', () => {
+    const error = new CategoriaDesconocidaError('cat-mascotas-id');
+    expect(error.categoriaId).toBe('cat-mascotas-id');
   });
 });
 

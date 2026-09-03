@@ -5,6 +5,7 @@ import {
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
   copiarCatalogoTemplate,
+  assertSinNombresDuplicados,
   type CatalogoTemplateClient,
 } from './catalogo-template';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -48,6 +49,31 @@ describe('CATEGORIA_TEMPLATE', () => {
     for (const entry of CATEGORIA_TEMPLATE) {
       expect(BUCKET_IDS[entry.bucket]).toEqual(expect.any(String));
     }
+  });
+});
+
+/**
+ * assertSinNombresDuplicados — ADR-042 D-11. `idPorNombre` in
+ * `copiarCatalogoTemplate` is keyed by `nombre` alone; a cross-bucket
+ * duplicate in `CATEGORIA_TEMPLATE` would silently make `PATRON_TEMPLATE`
+ * resolve to whichever bucket wrote last (last-write-wins), attaching
+ * patrones to the wrong categoría for every new user. This guard fails
+ * loudly at import time instead.
+ */
+describe('assertSinNombresDuplicados (ADR-042, D-11)', () => {
+  it('the current CATEGORIA_TEMPLATE has no cross-bucket duplicate — passes', () => {
+    expect(() => assertSinNombresDuplicados(CATEGORIA_TEMPLATE)).not.toThrow();
+  });
+
+  it('a synthetic template with a cross-bucket duplicate throws at construction', () => {
+    const conDuplicado = [
+      { nombre: 'Transporte', bucket: Bucket.Necesidades },
+      { nombre: 'Transporte', bucket: Bucket.Deseos },
+    ] as const;
+
+    expect(() => assertSinNombresDuplicados(conDuplicado)).toThrow(
+      /nombre repetido/,
+    );
   });
 });
 

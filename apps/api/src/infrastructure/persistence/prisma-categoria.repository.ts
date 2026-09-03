@@ -104,16 +104,20 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     return row === null ? null : aCategoriaConPatrones(row);
   }
 
-  async existeNombre(
-    userId: string,
-    nombre: string,
-    excluirId?: string,
-  ): Promise<boolean> {
+  async existeNombre(criterio: {
+    userId: string;
+    nombre: string;
+    bucket: string;
+    excluirId?: string;
+  }): Promise<boolean> {
     const row = await this.prisma.categoria.findFirst({
       where: {
-        userId,
-        nombre: { equals: nombre, mode: 'insensitive' },
-        ...(excluirId !== undefined ? { id: { not: excluirId } } : {}),
+        userId: criterio.userId,
+        bucketId: BUCKET_IDS[criterio.bucket as Bucket],
+        nombre: { equals: criterio.nombre, mode: 'insensitive' },
+        ...(criterio.excluirId !== undefined
+          ? { id: { not: criterio.excluirId } }
+          : {}),
       },
       select: { id: true },
     });
