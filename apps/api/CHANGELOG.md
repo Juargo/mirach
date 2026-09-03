@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.4.1...api-v0.5.0) (2026-09-03)
+
+
+### Features
+
+* **api:** categoría names are unique per bucket, not per user (ADR-042) ([dd9d428](https://github.com/Juargo/MoneyDiary/commit/dd9d4283cba05e192005ee71854a8b439fd4820a))
+* **api:** crear categoría con patrones en una sola transacción (PR1/4) ([acc97ba](https://github.com/Juargo/MoneyDiary/commit/acc97badca0a4c506874a2e05309f591a7bd916b))
+* **api:** create account automatically on first Google login ([fc7e587](https://github.com/Juargo/MoneyDiary/commit/fc7e587f19079f8db07fabacaa4b8c7ba9bfe563))
+* **api:** create account automatically on first Google login ([6a0854c](https://github.com/Juargo/MoneyDiary/commit/6a0854ce2786f4195be713cbae443aa8f13325d2))
+* **api:** create categoría with nested patrones atomically (CAT038-10/11) ([e39e4a8](https://github.com/Juargo/MoneyDiary/commit/e39e4a80d1e0140328e2c767bc8c24cbfde80c66))
+* **api:** enforce per-bucket categoria name uniqueness on create ([0ab5c10](https://github.com/Juargo/MoneyDiary/commit/0ab5c1097b2528e4ef951f7c243fb4d550268513))
+* **api:** guard catalogo template against cross-bucket name collisions ([31dfa6c](https://github.com/Juargo/MoneyDiary/commit/31dfa6c13536288ff219c07f4de50e060a9d01e1))
+* **api:** manual movement deletion endpoint (ADR-040) ([70ab4f5](https://github.com/Juargo/MoneyDiary/commit/70ab4f5e59bb33aa6ca89552d2968929bddbc5db))
+* **api:** manual movement deletion endpoint (ADR-040) ([63926c1](https://github.com/Juargo/MoneyDiary/commit/63926c1b4eabd447cee1186224de1c2fe4ba632a))
+* **api:** project origen onto the gasto detail wire (D-02) ([b5d3ecd](https://github.com/Juargo/MoneyDiary/commit/b5d3ecd1e2610b63b9dd95d545208315177472e0))
+* **api:** project origen onto the gasto detail wire (D-02) ([8d209ae](https://github.com/Juargo/MoneyDiary/commit/8d209aea41645a1399ddf0599ebf6b5ad9834e0d))
+* **api:** rebrand semaforo advice and diagnosis prose ([2a7062c](https://github.com/Juargo/MoneyDiary/commit/2a7062c5567b0f3dd86e73981f1171331a92cffb))
+* **api:** reclassify contract identifies categoria by id, not name ([df96eee](https://github.com/Juargo/MoneyDiary/commit/df96eee37bf239d68b065910cc8226511c02b3f2))
+* **api:** reclassify contract identifies categoría by id, not name (ADR-042) ([1e9d917](https://github.com/Juargo/MoneyDiary/commit/1e9d9176768d0c1f36342faaf708ddc38bc76d3e))
+* **api:** widen Categoria uniqueness to (userId, bucketId, nombre) ([55d732c](https://github.com/Juargo/MoneyDiary/commit/55d732cc9b2c76620c477fb6a0680f9335f178d7))
+* bucket-aware NOMBRE_DUPLICADO copy across api, web, and mobile ([07fc667](https://github.com/Juargo/MoneyDiary/commit/07fc66720e59f2b88c86c28f8ff7092e2761fc71))
+* semaforo hero redesign and estado vocabulary rebrand ([5517dee](https://github.com/Juargo/MoneyDiary/commit/5517dee744ab69aa7373188ccb0773d189557ac8))
+* **web,api:** crear categoría con patrones desde la vista previa (tracker) ([404e6a8](https://github.com/Juargo/MoneyDiary/commit/404e6a85560fe17fc3a4daa5d2c5cce90da578d5))
+
+
+### Bug Fixes
+
+* **api:** align ICategoriaRepository test doubles with crearConPatrones ([cf55caf](https://github.com/Juargo/MoneyDiary/commit/cf55caf33b7d3c33ec75bb43e17ef3e0b518ac68))
+* **api:** BCI PDF cartola parsing - recalibrated column bands and literal-zero rows ([da94baf](https://github.com/Juargo/MoneyDiary/commit/da94baf054ccc194a8c3627fff29a8da6b3b56b1))
+* **api:** recalibrate Banco de Chile PDF column bands ([b20eb2a](https://github.com/Juargo/MoneyDiary/commit/b20eb2ad8b9cff6dc7ad4f8f51e972f739fea74c))
+* **api:** recalibrate Banco de Chile PDF column bands ([379be5d](https://github.com/Juargo/MoneyDiary/commit/379be5d337a746cc73b78116d6ea3a355824fdfc))
+* **api:** recalibrate BCI PDF column bands and skip literal-zero rows ([c3fb756](https://github.com/Juargo/MoneyDiary/commit/c3fb7564eb3f2a7ff6179e6111803af519f74eac))
+* **api:** sync gasto origen field into mobile fixtures and e2e assertion ([8b45df2](https://github.com/Juargo/MoneyDiary/commit/8b45df2572dd76eee78e4f43944c495d139667ca))
+* **api:** validate the resulting pair on every categoria PATCH path ([746537d](https://github.com/Juargo/MoneyDiary/commit/746537d3acb1f20be70c093d7e68c63dbe1a49bb))
+
+
+### Refactors
+
+* **api:** existeNombre takes a bucket-scoped criterion object ([e1ae3c2](https://github.com/Juargo/MoneyDiary/commit/e1ae3c2dea7a8bb6827cd4c360537acf7cec9a27))
+* **api:** extract validarPatron from CrearPatronUseCase ([4ce6885](https://github.com/Juargo/MoneyDiary/commit/4ce6885330fef1ecfdc3c6e515e98abf372709bf))
+* **api:** route casts the reclassify body to its documented DTO ([b8e41f5](https://github.com/Juargo/MoneyDiary/commit/b8e41f51967cdc2f6c89b1be4394c01385fb59e9))
+
+
+### Documentation
+
+* **api:** correct two comments still asserting the pre-ADR-042 invariant ([2f820e2](https://github.com/Juargo/MoneyDiary/commit/2f820e2fa76adb2db92c640496428c55d6598796))
+* **openspec:** archive categoria-unica-por-bucket ([cf1e555](https://github.com/Juargo/MoneyDiary/commit/cf1e55566b3f6fdda108a0174f7bcb41223cbf40))
+
 ## [0.4.1](https://github.com/Juargo/MoneyDiary/compare/api-v0.4.0...api-v0.4.1) (2026-08-29)
 
 
