@@ -36,11 +36,26 @@ import { APP, PROBAR, SITE } from '../config';
 <style>
   /* Solid bg-surface (set via Tailwind class above) is the fallback for
      browsers without backdrop-filter support. Upgrade to a translucent,
-     blurred bar only when the browser can actually blur behind it. */
-  @supports (backdrop-filter: blur(0)) or (-webkit-backdrop-filter: blur(0)) {
+     blurred bar only when the browser can actually blur behind it.
+
+     Deliberately TWO blocks instead of one `@supports A or B`: Astro 7's
+     compiler normalizes the condition and drops the `or` branch, and the CSS
+     minifier then drops the unprefixed declaration. The combination left a
+     guard testing the unprefixed property with only the prefixed one applied
+     — which Firefox enters and then ignores, rendering a translucent header
+     with NO blur (worse than the solid fallback). Each block here pairs a
+     guard with the declaration it guards, so neither transformation can
+     decouple them. Do not merge these back into one block. */
+  @supports (backdrop-filter: blur(0)) {
     header {
       background-color: color-mix(in srgb, var(--color-surface) 90%, transparent);
       backdrop-filter: blur(12px);
+    }
+  }
+
+  @supports (-webkit-backdrop-filter: blur(0)) {
+    header {
+      background-color: color-mix(in srgb, var(--color-surface) 90%, transparent);
       -webkit-backdrop-filter: blur(12px);
     }
   }
