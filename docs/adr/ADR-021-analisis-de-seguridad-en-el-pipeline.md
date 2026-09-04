@@ -121,6 +121,35 @@ instalación de ADR-006 (`minimum-release-age`, `block-exotic-subdeps`, `overrid
 activas aunque el audit no corra. Si la indisponibilidad se vuelve frecuente, la respuesta
 correcta es **cachear el feed de advisories**, no ampliar el degradado a otras causas de fallo.
 
+#### Enmienda 2026-09-04 — el DAST pasa de advisory a bloqueante
+
+El job `dast` nació con `continue-on-error: true` a propósito: la decisión de
+`dast-ci-wiring` (tarea 4.1) fue arrancar en modo advisory y promover *después de
+un período de rodaje*, porque un DAST nuevo es ruidoso y ADR-021 pide triage antes
+de bloquear. El rodaje terminó, pero no como se esperaba: el escaneo estuvo **roto
+un mes** (una dependencia transitiva rompió Schemathesis y el `continue-on-error`
+se tragó el exit 1 — ver #565). Reparado eso, tres corridas consecutivas en `main`
+dieron idéntico y limpio: `✅ Fuzzing`, 15/35 operaciones, 825 casos generados y
+pasados, 0 `Runtime Error`; ZAP con `FAIL-NEW: 0 · WARN-NEW: 4 · PASS: 115`.
+
+La promoción **separa severidad** en vez de prender un interruptor:
+
+- **Bloquean el merge:** exit≠0 de Schemathesis (5xx / no-conformidad con el
+  contrato), **malfunción del scanner** (`Runtime Error` — la herramienta se
+  rompió, esas operaciones no se escanearon), **no-op** de cualquiera de los dos
+  (`Selected: 0/`, reporte de ZAP sin sitios) y alertas **High** de ZAP.
+- **Advierten:** los `WARN` de ZAP. Hoy son 4, todos de headers (`X-Powered-By`,
+  `X-Content-Type-Options`, CORP, content-types inesperados). Coherente con la
+  regla de arriba: moderate/low se triagean, no bloquean.
+
+Detalle que no es obvio: el step de ZAP conserva `fail_action: false`. La acción
+falla ante `WARN` igual que ante `FAIL`, así que activarla convertiría los cuatro
+warnings de headers en un bloqueo — justo lo que esta ADR dice que no debe pasar.
+La severidad se gatea en un step aparte que lee `zap-report.json` y solo falla con
+`riskcode >= 3`. **Sin ese step, ZAP no podría fallar nunca y su aporte al gate
+sería decorativo**: exactamente el modo de falla que el mes anterior demostró que
+es el más caro, porque no se ve.
+
 ---
 
 ## Consecuencias
