@@ -62,3 +62,21 @@ schemathesis-dast.log
 openapi.html
 
 .claude/settings.local.json
+
+# Estado local de herramientas de agentes (impeccable / codex).
+# Criterio: se ignora lo que es de ESTA máquina o se puede regenerar; se
+# commitea lo que es una decisión del repo.
+#
+# .codex/ lleva rutas absolutas a /Users/<vos>/.agents/... — no funciona en
+# otra máquina. Lo portable equivalente vive en .github/hooks/, commiteado.
+.codex/
+# Consentimiento del hook, por máquina.
+.impeccable/config.local.json
+# Cache de sesión: UUIDs y rutas absolutas.
+.impeccable/hook.cache.json
+# Salidas regenerables de las corridas de crítica.
+.impeccable/critique/
+# Snapshot regenerable del design system. Se ignora además porque envejece mal:
+# al 2026-09-04 describía "Serene Finance", la identidad clara que el PR #557
+# reemplazó por "Tecno-Analítico". La fuente de verdad es DESIGN.md.
+.impeccable/design.json
