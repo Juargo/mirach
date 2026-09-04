@@ -63,12 +63,40 @@ overrides:
   # dev de vitest/jsdom; no llega a prod, pero el piso es gratis.
   undici: '>=7.29.0 <8.0.0'
 
-# Excepción a la cuarentena de 7 días (minimum-release-age, .npmrc) SOLO para
+# ADR-006 — defensas de instalación. Viven ACÁ, no en `.npmrc`: pnpm 11 lee sus
+# settings de este archivo. Declararlos en `.npmrc` los deja INERTES sin ningún
+# error (verificado el 2026-09-04 — ver el encabezado de `.npmrc`).
+#
+# minimumReleaseAge: cuarentena de 7 días (10080 minutos) antes de instalar una
+# versión recién publicada. Es la ventana en la que se detecta un paquete
+# comprometido; instalar el día 0 es correr sin red.
+minimumReleaseAge: 10080
+# auditLevel: piso de severidad de `pnpm audit`. CI además lo pasa explícito.
+auditLevel: high
+# blockExoticSubdeps: bloquea subdependencias de fuentes no verificadas.
+blockExoticSubdeps: true
+
+# Excepción a la cuarentena de 7 días (minimumReleaseAge, arriba) SOLO para
 # parches de seguridad aún dentro de la ventana. Vacía a propósito: las
 # entradas de nanoid (ventana vencida el 2026-08-10) y js-yaml (2026-08-08) se
 # retiraron el 2026-09-04, tal como pedía esta misma nota. Los pisos de
 # `overrides` siguen vigentes; lo que se retira es la dispensa de cuarentena.
-minimumReleaseAgeExclude: []
+# Grandfathering time-boxed: estas versiones YA estaban instaladas cuando la
+# cuarentena era inerte, y violan la ventana de 7 días por pocos días. Se las
+# exime en vez de forzar una re-resolución completa del árbol (que movería ~187
+# paquetes transitivos y volvería este PR irrevisable). Cada una envejece sola:
+#
+#   zod                   4.5.4  publicada 2026-08-29  ->  cumple el 2026-09-05
+#   p-limit               7.3.2  publicada 2026-08-31  ->  cumple el 2026-09-07
+#   electron-to-chromium  1.5.420 publicada 2026-09-01 ->  cumple el 2026-09-08
+#
+# RETIRAR las tres entradas a partir del 2026-09-08. La exención es por NOMBRE
+# de paquete, no por versión: mientras esté acá, cualquier versión de esos tres
+# saltea la cuarentena. Por eso es temporal y por eso lleva fecha.
+minimumReleaseAgeExclude:
+  - zod
+  - p-limit
+  - electron-to-chromium
 
 # ADR-021 — baseline de vulnerabilidades high preexistentes.
 # El gate `pnpm audit --audit-level=high` en CI bloquea vulns high/critical
