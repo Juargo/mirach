@@ -100,6 +100,27 @@ Se decide incorporar **análisis automatizado en el pipeline** cubriendo cuatro 
 - **Advierten (no bloquean):** `moderate`/`low`, para no ahogar a un solo desarrollador en falsos positivos. Se triagean, no se ignoran.
 - Los umbrales se afinan; empezar estricto en secretos y dinero, tolerante en el resto (coherente con el énfasis risk-based de ADR-015 Técnicas de Verificación de Requisitos).
 
+#### Enmienda 2026-09-04 — indisponibilidad ≠ hallazgo
+
+`pnpm audit` sale con exit 1 tanto si **encuentra** vulnerabilidades como si **no puede
+consultar** el feed de advisories. Tratar ambos casos como "bloquea el merge" hace que una
+caída de npm frene el trunk sin que exista ningún hallazgo: el 2026-09-04 el endpoint
+`/-/npm/v1/security/advisories/bulk` devolvió `503` durante horas y bloqueó el PR #557 en dos
+corridas consecutivas.
+
+La regla se precisa así:
+
+- **Hallazgo `high`/`critical` → bloquea.** Sin cambios respecto de la decisión original.
+- **Registry inalcanzable → reintenta (3 intentos, backoff 60s/120s) y, si nunca responde,
+  degrada a `::warning::` y deja pasar.**
+
+El segundo caso es un **degradado abierto deliberado**: el job termina en verde sin haber
+verificado el SCA, y el warning queda visible en el summary. Se asume porque la alternativa
+—trunk bloqueado por la disponibilidad de un tercero— es peor, y porque las defensas de
+instalación de ADR-006 (`minimum-release-age`, `block-exotic-subdeps`, `overrides`) siguen
+activas aunque el audit no corra. Si la indisponibilidad se vuelve frecuente, la respuesta
+correcta es **cachear el feed de advisories**, no ampliar el degradado a otras causas de fallo.
+
 ---
 
 ## Consecuencias
