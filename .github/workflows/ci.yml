@@ -432,11 +432,25 @@ jobs:
       # (also verified locally: a misconfigured filter/schema exits 0 with
       # zero test cases run — "Empty test suite" — which would otherwise look
       # like a clean scan).
+      # `uvx schemathesis@4.24.3` fija SOLO schemathesis: sus dependencias
+      # transitivas resuelven libres, y una de ellas rompió el escaneo en
+      # silencio. jsonschema-rs 0.50.0 (2026-08-20) retiró
+      # `CanonicalSchema.is_satisfiable()`, que schemathesis 4.24.3 invoca en
+      # `specs/openapi/_hypothesis.py:921` al generar parámetros. Resultado:
+      # AttributeError en toda operación con parámetros, fase Fuzzing bloqueada
+      # y 7 de 15 operaciones sin escanear — con el job igual en verde, porque
+      # el `continue-on-error` se tragaba el exit 1.
+      #
+      # Frontera verificada reproduciendo local contra el openapi.json commiteado:
+      # jsonschema-rs 0.49.9 OK · 0.50.0 roto. Subir schemathesis NO alcanza: la
+      # última (4.25.2, 2026-08-24) declara el mismo rango abierto y resuelve
+      # igual a la versión rota. Retirar el pin cuando schemathesis publique una
+      # versión compatible con jsonschema-rs >=0.50.
       - name: Schemathesis (authenticated, read-only property fuzzing)
         continue-on-error: true
         run: |
           set +e
-          uvx schemathesis@4.24.3 run apps/api/openapi.json \
+          uvx --with 'jsonschema-rs<0.50' schemathesis@4.24.3 run apps/api/openapi.json \
             --url "$API_BASE_URL" \
             --header "x-api-key: $API_KEY" \
             --header "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
@@ -447,6 +461,16 @@ jobs:
           set -e
           if grep -q "Empty test suite" schemathesis-dast.log || grep -Eq "Selected: 0/" schemathesis-dast.log; then
             echo "::error::Schemathesis selected/tested zero operations — this would be a silent no-op scan."
+            exit 1
+          fi
+          # Malfunción del scanner != hallazgo. Un `Runtime Error` significa que
+          # la herramienta se rompió (típicamente una dep transitiva que cambió
+          # de API), así que la operación NO se escaneó: el verde sería vacío.
+          # Se anota como ::error:: para que quede visible aunque el job siga
+          # siendo advisory. Los hallazgos reales viven en RUN_STATUS.
+          if grep -q "Runtime Error" schemathesis-dast.log; then
+            COUNT=$(grep -c "Runtime Error" schemathesis-dast.log)
+            echo "::error::Schemathesis falló con $COUNT Runtime Error(s): el scanner se rompió, NO son hallazgos. Esas operaciones quedaron sin escanear — revisar deps transitivas (ver el pin de jsonschema-rs arriba)."
             exit 1
           fi
           exit "$RUN_STATUS"
