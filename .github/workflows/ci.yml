@@ -747,8 +747,37 @@ jobs:
       # SCA: falla ante vulns high/critical NUEVAS. Las preexistentes están
       # baselineadas en pnpm-workspace.yaml > auditConfig.ignoreGhsas (burn-down
       # vía Dependabot). audit-level=high también está en .npmrc; explícito acá.
+      #
+      # `pnpm audit` sale con exit 1 por DOS causas distintas que el comando no
+      # distingue: (a) encontró vulnerabilidades, (b) no pudo consultar el
+      # registry. Tratarlas igual convierte una caída de npm en un merge
+      # bloqueado sin que haya nada roto (2026-09-04: el endpoint
+      # /-/npm/v1/security/advisories/bulk devolvió 503 durante horas y frenó el
+      # PR #557 dos veces). Este step las separa:
+      #
+      #   (a) vulnerabilidades  -> exit 1, el gate de ADR-021 sigue vivo
+      #   (b) registry caído    -> reintenta con backoff; si nunca responde,
+      #                            degrada a ::warning:: y deja pasar
+      #
+      # (b) es un degradado ABIERTO deliberado: el job queda verde SIN haber
+      # verificado el SCA. No es un pase de seguridad — es preferir que una
+      # caída de un tercero no bloquee el trunk, y que el warning quede visible
+      # en el summary. Si esto se vuelve frecuente, la respuesta correcta es
+      # cachear el feed de advisories, no ampliar el degradado.
       - name: pnpm audit (high/critical gate)
-        run: pnpm audit --audit-level=high
+        run: |
+          for attempt in 1 2 3; do
+            out=$(pnpm audit --audit-level=high 2>&1) && { echo "$out"; exit 0; }
+            echo "$out"
+            if grep -qiE 'TimeoutError|operation was aborted|ERR_SOCKET|ERR_INVALID_RESPONSE|ECONNRESET|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|socket hang up' <<<"$out"; then
+              echo "::warning::pnpm audit no pudo alcanzar el registry de npm (intento $attempt/3)"
+              [ "$attempt" -lt 3 ] && sleep $((attempt * 60))
+              continue
+            fi
+            echo "::error::pnpm audit encontró vulnerabilidades high/critical"
+            exit 1
+          done
+          echo "::warning::SCA NO verificado: el registry de npm no respondió tras 3 intentos. Esto NO es un pase de seguridad."
 
       # Secretos: escaneo de gitleaks. En pull_request escanea SOLO los commits
       # del PR (no re-flaggea secretos históricos ya removidos). Un hallazgo hace
