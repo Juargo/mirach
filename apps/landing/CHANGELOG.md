@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/Juargo/MoneyDiary/compare/landing-v0.2.0...landing-v0.3.0) (2026-09-04)
+
+
+### Build & Dependencies
+
+* **landing:** astro 5.18.2 -&gt; 7.2.9, cierra 3 advisories high ([74f993e](https://github.com/Juargo/MoneyDiary/commit/74f993e1ccc9df1ab8446b558a937751613b285a))
+* **landing:** registrar el salto a astro 7 en el changelog y abrir la sección Build & Dependencies ([96bee1c](https://github.com/Juargo/MoneyDiary/commit/96bee1cbd13bd01e289f66212c8f48f1f593ad5e))
+
 ## [0.2.0](https://github.com/Juargo/MoneyDiary/compare/landing-v0.1.0...landing-v0.2.0) (2026-08-14)
 
 
