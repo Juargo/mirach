@@ -300,7 +300,7 @@ jobs:
       - name: E2E tests (HTTP vs real DB)
         run: pnpm api test:e2e
 
-  # ADR-021 — DAST layer, slice 1 (ADVISORY). Boots the REAL built API against
+  # ADR-021 — DAST layer, BLOQUEANTE desde 2026-09-04. Boots the REAL built API against
   # an ephemeral Postgres (clone of `integration`'s service+env) and scans it
   # with Schemathesis (authenticated, read-only property fuzzing against
   # apps/api/openapi.json — the real-value part of this slice) + OWASP ZAP
@@ -314,11 +314,10 @@ jobs:
   # `ci-success`. Active scan + write-fuzzing deferred to a separate scheduled
   # workflow (slice 2, not built yet).
   dast:
-    name: DAST (Schemathesis + ZAP, advisory)
+    name: DAST (Schemathesis + ZAP)
     needs: changes
     if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16-alpine
@@ -447,7 +446,6 @@ jobs:
       # igual a la versión rota. Retirar el pin cuando schemathesis publique una
       # versión compatible con jsonschema-rs >=0.50.
       - name: Schemathesis (authenticated, read-only property fuzzing)
-        continue-on-error: true
         run: |
           set +e
           uvx --with 'jsonschema-rs<0.50' schemathesis@4.24.3 run apps/api/openapi.json \
@@ -512,7 +510,6 @@ jobs:
       # alerts fired (a fully-401'd surface may legitimately have few/none).
       - name: Verify ZAP actually scanned the target
         if: always()
-        continue-on-error: true
         run: |
           if [ ! -s zap-report.json ]; then
             echo "::error::ZAP produced no report file — treat as a no-op run, not a clean scan."
@@ -523,6 +520,26 @@ jobs:
             exit 1
           }
           echo "ZAP scanned $(jq -r '.site[0]["@host"]' zap-report.json)."
+
+      # El step de ZAP corre con `fail_action: false` A PROPOSITO: la accion
+      # falla ante WARN igual que ante FAIL, y ADR-021 es explicito en que
+      # moderate/low ADVIERTEN y no bloquean (hoy hay 4 WARN de headers:
+      # X-Powered-By, X-Content-Type-Options, CORP y content-types inesperados).
+      # Sin este step, ZAP no podria fallar NUNCA y su aporte al gate seria
+      # decorativo. Aca se separa severidad: solo High bloquea.
+      #
+      # riskcode en el reporte de ZAP: 3=High, 2=Medium, 1=Low, 0=Info.
+      - name: Gate on ZAP High-risk alerts
+        if: always()
+        run: |
+          HIGH=$(jq '[.site[]?.alerts[]? | select((.riskcode // "0") | tonumber >= 3)] | length' zap-report.json)
+          echo "ZAP High-risk alerts: $HIGH"
+          if [ "$HIGH" -gt 0 ]; then
+            jq -r '.site[]?.alerts[]? | select((.riskcode // "0") | tonumber >= 3)
+                   | "  [\(.riskdesc)] \(.name) — \(.instances | length) instancia(s)"' zap-report.json
+            echo "::error::ZAP encontro $HIGH alerta(s) de riesgo High. Bloquea el merge (ADR-021)."
+            exit 1
+          fi
 
   # api-client-package Slice 1 — CI drift gate for the generated contract
   # types. `types.gen.ts` is committed (design.md "Drift gates in CI"), so
