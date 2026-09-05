@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/Juargo/MoneyDiary/compare/api-v0.5.0...api-v0.5.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **api:** no anunciar el stack en X-Powered-By y enmascarar la key de test en CI ([ebed897](https://github.com/Juargo/MoneyDiary/commit/ebed8972e938ced0ad00f96014b844142ef16d58))
+* **api:** no anunciar el stack en X-Powered-By y enmascarar la key de test en CI ([cbc2699](https://github.com/Juargo/MoneyDiary/commit/cbc2699ccc286b89c85e5e401d9044cd9d236416))
+
 ## [0.5.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.4.1...api-v0.5.0) (2026-09-03)
 
 
