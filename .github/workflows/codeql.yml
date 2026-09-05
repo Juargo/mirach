@@ -1,0 +1,84 @@
+name: CodeQL
+
+# ADR-021 — capa SAST, segundo motor. La ADR dejó CodeQL como "✅ condicional:
+# gratis y nativo si el repo es público". El repo ES público, así que la
+# condición se cumple. Semgrep (job `sast` en ci.yml) sigue siendo el SAST
+# primario; CodeQL suma análisis de flujo de datos interprocedural, que es
+# justo lo que un matcher de patrones como Semgrep NO hace.
+#
+# Vive en un workflow PROPIO y no como job de ci.yml a propósito: CodeQL
+# necesita `security-events: write`, y ci.yml declara `permissions: contents:
+# read` con un comentario explícito de least-privilege. Meterlo ahí le daría
+# ese permiso a los 15 jobs del archivo.
+
+# Los `paths` van repetidos y NO con un anchor YAML: GitHub Actions no
+# soporta anchors/aliases, así que `&x`/`*x` acá no resuelve. Si se tocan,
+# hay que tocarlos en los dos lugares.
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/codeql.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.github/workflows/codeql.yml'
+  # Semanal: CodeQL publica queries nuevas seguido, y una query nueva puede
+  # encontrar algo en código que no cambió hace meses. Sin el schedule, ese
+  # hallazgo solo aparecería la próxima vez que alguien tocara ese archivo.
+  schedule:
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (javascript-typescript)
+    runs-on: ubuntu-latest
+    permissions:
+      # El mínimo que exige la acción: subir el SARIF y leer el estado de los
+      # runs. NADA de `contents: write` — este workflow no escribe en el repo.
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinneado a SHA, no al tag móvil @v3 — misma convención de
+      # supply-chain que el resto de los workflows (ADR-021).
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # codeql-bundle-v2.26.4
+        with:
+          languages: javascript-typescript
+          # `none`: JS/TS no necesita compilarse para analizarse. Un solo
+          # lenguaje cubre .ts, .tsx, .js y .astro.
+          build-mode: none
+          # Suite por defecto (`security`): alta precisión, poco ruido. La
+          # `security-extended` agrega queries de menor precisión; extenderla
+          # es una decisión aparte, después de ver esta línea de base.
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # codeql-bundle-v2.26.4
+        with:
+          category: '/language:javascript-typescript'
+
+# NOTA PARA CUANDO SE PROMUEVA A CHECK OBLIGATORIO
+#
+# Los hallazgos de CodeQL llegan a la pestaña Security y, en cada PR, al check
+# "Code scanning results". Ese check se puede exigir desde la branch
+# protection — pero OJO con los `paths:` de arriba: un PR que solo toca docs
+# no dispara este workflow, y un check requerido que nunca corre deja el PR
+# colgado para siempre. Es exactamente el problema que en ci.yml resuelve el
+# job `ci-success` con `if: always()`.
+#
+# Si se promueve, hay que replicar ese patrón —un job agregador que corra
+# siempre y verifique el resultado— o sacar los `paths:` y pagar el costo de
+# correr CodeQL en cada PR.
