@@ -64,6 +64,13 @@ import {
 export function createApp(container: Container, env: Env): Express {
   const app = express();
 
+  // No anunciar el stack. Express manda `X-Powered-By: Express` en TODA
+  // respuesta, incluidas las de error. No es una vulnerabilidad por sí sola,
+  // pero es reconocimiento gratis: le dice a un atacante qué atacar y con qué
+  // CVEs empezar, antes de que pruebe nada. Lo reportó el DAST de ADR-021
+  // (ZAP 10037) en 12 rutas. Contrato cubierto por `app.x-powered-by.spec.ts`.
+  app.disable('x-powered-by');
+
   // Trust proxy (1 hop) — MoneyDiary's API sits behind exactly one reverse
   // proxy (Render: api.moneydiary.cl CNAME → Render, sin Cloudflare/multi-
   // proxy delante — ver CLAUDE.md). Sin esto, Express ignora

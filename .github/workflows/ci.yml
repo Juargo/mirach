@@ -288,8 +288,17 @@ jobs:
       # ADR-013: `descripcion` is encrypted at rest — app + specs need a valid
       # 32-byte AES key. Generated fresh per run (never hardcoded), exported to
       # the job env so later steps pick it up.
+      # `::add-mask::` ANTES de exportarla: sin eso el valor aparece en claro en
+      # el bloque `env:` del log de cada step posterior, mientras los secrets de
+      # al lado salen como `***`. La clave es efímera y de test —se genera por
+      # corrida para la BD desechable, no descifra nada real— pero una clave de
+      # cifrado legible en los logs de un repo se lee como incidente aunque no
+      # lo sea, y normaliza el patrón para el día que el valor sí importe.
       - name: Generate test ENCRYPTION_KEY
-        run: echo "ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+        run: |
+          KEY=$(openssl rand -base64 32)
+          echo "::add-mask::$KEY"
+          echo "ENCRYPTION_KEY=$KEY" >> "$GITHUB_ENV"
 
       - name: Migrate + seed the ephemeral DB
         run: pnpm api test:db:setup
@@ -373,8 +382,17 @@ jobs:
 
       # ADR-013: `descripcion` is encrypted at rest — fresh 32-byte AES key
       # per run, same pattern as the `integration` job above.
+      # `::add-mask::` ANTES de exportarla: sin eso el valor aparece en claro en
+      # el bloque `env:` del log de cada step posterior, mientras los secrets de
+      # al lado salen como `***`. La clave es efímera y de test —se genera por
+      # corrida para la BD desechable, no descifra nada real— pero una clave de
+      # cifrado legible en los logs de un repo se lee como incidente aunque no
+      # lo sea, y normaliza el patrón para el día que el valor sí importe.
       - name: Generate test ENCRYPTION_KEY
-        run: echo "ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+        run: |
+          KEY=$(openssl rand -base64 32)
+          echo "::add-mask::$KEY"
+          echo "ENCRYPTION_KEY=$KEY" >> "$GITHUB_ENV"
 
       - name: Migrate + seed the ephemeral DB
         run: pnpm api test:db:setup
