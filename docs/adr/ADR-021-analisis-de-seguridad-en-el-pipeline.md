@@ -150,6 +150,49 @@ La severidad se gatea en un step aparte que lee `zap-report.json` y solo falla c
 sería decorativo**: exactamente el modo de falla que el mes anterior demostró que
 es el más caro, porque no se ve.
 
+#### Enmienda 2026-09-05 — la capa SAST entra en CI (Semgrep), bloqueante desde el día uno
+
+La capa 3 estaba decidida pero sin cablear. Se agrega el job `sast`: Semgrep OSS
+por `uvx` con versión pinneada (1.175.0), igual patrón que Schemathesis en `dast`.
+Rulesets `p/typescript` + `p/owasp-top-ten`, cubriendo lo que esta ADR pedía —
+inyección, authz, secretos hardcodeados y malas prácticas TS/Node/React.
+
+**Nace bloqueante, no advisory.** El escaneo sobre el árbol actual da **0
+hallazgos en 1052 archivos**, así que no hay ruido que triagear antes de gatear.
+Un gate advisory sobre una base limpia es la peor combinación: no protege nada y
+se degrada sin que nadie lo note — que es literalmente lo que le pasó al DAST
+durante un mes.
+
+El gate separa **tres** desenlaces que un exit code solo no distingue:
+
+- **malfunción** (semgrep no produjo reporte) → bloquea
+- **no-op** (escaneó 0 archivos) → bloquea
+- **hallazgos**: `ERROR` bloquea, `WARNING` advierte
+
+Los archivos que semgrep no logra parsear se reportan como `::warning::` con su
+conteo. Hoy son 3 (huecos conocidos del parser de TS con genéricos en `.tsx` y
+un tipo `import()`); no bloquean, pero quedan visibles para que el número no
+crezca en silencio dejando superficie sin cubrir.
+
+**Los dos hallazgos del primer escaneo fueron falsos positivos**, y se
+documentan porque el triage es parte de la decisión, no un trámite:
+
+- `gcm-no-tag-length` en `aes-gcm-crypto.service.ts` — la regla asume el Node ≤10
+  que aceptaba auth tags truncados. Verificado empíricamente que Node ≥11 los
+  rechaza con `ERR_CRYPTO_INVALID_AUTH_TAG` sin necesidad de la opción. Se agrega
+  igual `authTagLength: 16` porque cuesta cero y vuelve el invariante explícito
+  en vez de heredado del default de la versión — **es endurecimiento, no el
+  arreglo de una vulnerabilidad viva**.
+- `cors-misconfiguration` en `cors.middleware.ts` — la regla marca reflejar
+  `origin` en `Access-Control-Allow-Origin`, pero la línea está guardada por una
+  allowlist cerrada (`allowed.has(origin)`). Suprimido con `nosemgrep` **y su
+  justificación escrita al lado**: una supresión sin motivo es la misma clase de
+  deuda que los comentarios envejecidos del baseline de SCA.
+
+**CodeQL**: esta ADR lo dejó como "✅ condicional — si el repo es público". El
+repo **es público**, así que la condición se cumple y CodeQL está disponible y
+gratis. Queda como trabajo aparte; Semgrep es el primario y ya cubre la capa.
+
 ---
 
 ## Consecuencias

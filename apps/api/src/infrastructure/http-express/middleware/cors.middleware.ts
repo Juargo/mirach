@@ -38,6 +38,14 @@ export function createCorsMiddleware(
     res.vary('Origin');
 
     if (origin !== undefined && allowed.has(origin)) {
+      // Falso positivo de semgrep (ADR-021, capa SAST), triaged 2026-09-05: la
+      // regla marca reflejar `origin` en ACAO, pero acá NO es eco ciego — el
+      // `allowed.has(origin)` de esta misma condición es una allowlist cerrada
+      // (viene de CORS_ALLOWED_ORIGINS, ver render.yaml). Nunca se emite `*` y
+      // nunca se refleja un origen fuera del set.
+      // La directiva va pegada a la línea que marca: semgrep solo la lee en la
+      // MISMA línea o en la inmediatamente anterior.
+      // nosemgrep: javascript.express.security.cors-misconfiguration.cors-misconfiguration
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader(
         'Access-Control-Allow-Methods',
