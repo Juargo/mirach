@@ -3,6 +3,7 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH_BYTES = 12;
+const AUTH_TAG_LENGTH_BYTES = 16;
 const VERSION_PREFIX = 'v1';
 
 /**
@@ -77,7 +78,16 @@ export class AesGcmCryptoService implements ICryptoService {
     const authTag = Buffer.from(authTagB64, 'base64url');
     const ciphertext = Buffer.from(ciphertextB64, 'base64url');
 
-    const decipher = createDecipheriv(ALGORITHM, this.key, iv);
+    // `authTagLength` explícito: GCM admite tags de 4..16 bytes, y un tag
+    // truncado baja la resistencia a falsificación de 2^128 a 2^32. Node >=11
+    // ya rechaza los truncados por su cuenta (verificado: un tag de 8 o 4
+    // bytes lanza ERR_CRYPTO_INVALID_AUTH_TAG sin esta opción), así que esto
+    // NO corrige una vulnerabilidad viva — hace explícito el invariante para
+    // que no dependa del default de la versión de Node, y le saca a semgrep
+    // el hallazgo `gcm-no-tag-length` (ADR-021, capa SAST).
+    const decipher = createDecipheriv(ALGORITHM, this.key, iv, {
+      authTagLength: AUTH_TAG_LENGTH_BYTES,
+    });
     decipher.setAuthTag(authTag);
 
     const plaintext = Buffer.concat([

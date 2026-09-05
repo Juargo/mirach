@@ -785,6 +785,88 @@ jobs:
   # ADR-021 — SCA + secretos. Repo-wide (NO path-filtered, como commitlint):
   # una vuln o un secreto filtrado son riesgos de todo el repo, no de un
   # workspace. Bloquea (fail-closed).
+  # ADR-021 — capa SAST. Semgrep OSS es el SAST primario decidido por la ADR
+  # (reglas de inyección, authz, secretos hardcodeados y malas prácticas
+  # TS/Node/React; gratis por CLI también en repos privados).
+  #
+  # Se invoca por `uvx` con version PINNEADA, igual que Schemathesis en el job
+  # `dast`. La 1.175.0 se elige por tener >7 días publicada: `uvx` no pasa por
+  # `minimumReleaseAge` de pnpm (ADR-006), así que la cuarentena se respeta a
+  # mano al elegir el pin.
+  #
+  # Nace BLOQUEANTE, no advisory: el escaneo sobre el árbol actual da 0
+  # hallazgos en 1052 archivos, así que no hay ruido que triagear primero. Un
+  # gate advisory sobre base limpia es la peor combinación — no protege nada y
+  # se degrada sin que nadie lo note (fue exactamente lo que pasó con el DAST,
+  # ver #565).
+  sast:
+    name: SAST (Semgrep)
+    needs: changes
+    if: >-
+      ${{ needs.changes.outputs.api == 'true'
+        || needs.changes.outputs.web == 'true'
+        || needs.changes.outputs.mobile == 'true'
+        || needs.changes.outputs.landing == 'true'
+        || needs.changes.outputs.packages == 'true'
+        || needs.changes.outputs.shared == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv (for Semgrep via uvx)
+        uses: astral-sh/setup-uv@v7
+
+      # El gate separa TRES desenlaces que un exit code solo no distingue:
+      # malfunción del scanner, no-op (escaneó 0 archivos) y hallazgos reales.
+      # De los hallazgos, solo ERROR bloquea: ADR-021 dice que high bloquea y
+      # que moderate/low advierten.
+      - name: Semgrep (p/typescript + p/owasp-top-ten)
+        run: |
+          set +e
+          uvx semgrep@1.175.0 scan \
+            --config=p/typescript --config=p/owasp-top-ten \
+            --json --output=semgrep.json --quiet \
+            apps/api/src apps/web/src apps/mobile/src apps/landing/src packages
+          RUN_STATUS=$?
+          set -e
+
+          if [ ! -s semgrep.json ]; then
+            echo "::error::Semgrep no produjo reporte (exit $RUN_STATUS): es una malfunción del scanner, NO un escaneo limpio."
+            exit 1
+          fi
+
+          SCANNED=$(jq '.paths.scanned | length' semgrep.json)
+          echo "Archivos escaneados: $SCANNED"
+          if [ "$SCANNED" -eq 0 ]; then
+            echo "::error::Semgrep escaneó 0 archivos — no-op silencioso, no un escaneo limpio."
+            exit 1
+          fi
+
+          # Archivos que semgrep no pudo parsear: quedaron escaneados a medias.
+          # No bloquea (el parser de TS tiene huecos conocidos con genéricos en
+          # .tsx), pero se hace visible para que el número no crezca callado.
+          UNPARSED=$(jq '[.errors[]? | select((.type | tostring) | contains("PartialParsing"))] | length' semgrep.json)
+          if [ "$UNPARSED" -gt 0 ]; then
+            echo "::warning::Semgrep no pudo parsear $UNPARSED archivo(s): quedaron escaneados PARCIALMENTE. No bloquea, pero si el número crece hay superficie sin cubrir."
+          fi
+
+          ERRORS=$(jq '[.results[]? | select(.extra.severity == "ERROR")] | length' semgrep.json)
+          WARNS=$(jq '[.results[]? | select(.extra.severity == "WARNING")] | length' semgrep.json)
+          echo "Hallazgos — ERROR: $ERRORS · WARNING: $WARNS"
+
+          if [ "$WARNS" -gt 0 ]; then
+            jq -r '.results[]? | select(.extra.severity == "WARNING")
+                   | "  \(.check_id) — \(.path):\(.start.line)"' semgrep.json
+            echo "::warning::Semgrep: $WARNS hallazgo(s) WARNING. Advierten, no bloquean (ADR-021); triagear, no ignorar."
+          fi
+
+          if [ "$ERRORS" -gt 0 ]; then
+            jq -r '.results[]? | select(.extra.severity == "ERROR")
+                   | "  \(.check_id) — \(.path):\(.start.line)\n    \(.extra.message)"' semgrep.json
+            echo "::error::Semgrep: $ERRORS hallazgo(s) ERROR. Bloquea el merge (ADR-021)."
+            exit 1
+          fi
+
   security:
     name: Security (audit + secrets)
     runs-on: ubuntu-latest
@@ -870,7 +952,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, api-client, web, web-e2e, mobile, landing, security]
+    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, api-client, web, web-e2e, mobile, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed

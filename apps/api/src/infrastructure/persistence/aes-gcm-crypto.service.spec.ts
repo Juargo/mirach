@@ -81,6 +81,28 @@ describe('AesGcmCryptoService', () => {
     expect(() => crypto.decrypt(legacyPlaintextThatLooksLikeV1)).toThrow();
   });
 
+  it('un authTag TRUNCADO es rechazado (guarda del invariante de authTagLength)', () => {
+    // No es un test RED-first: Node >=11 ya rechaza los tags truncados por su
+    // cuenta, así que esto pasaba antes de fijar `authTagLength: 16` y sigue
+    // pasando después. Existe como guarda de regresión — pin del requisito
+    // frente a un cambio de default de Node o a un refactor que saque la
+    // opción. GCM admite tags de 4..16 bytes; aceptar uno de 4 bajaría la
+    // resistencia a falsificación de 2^128 a 2^32.
+    const servicio = makeService();
+    const cifrado = servicio.encrypt('monto sensible');
+
+    const [prefijo, ivB64, authTagB64, ciphertextB64] = cifrado.split(':');
+    const tagTruncado = Buffer.from(authTagB64, 'base64url').subarray(0, 4);
+    const conTagCorto = [
+      prefijo,
+      ivB64,
+      tagTruncado.toString('base64url'),
+      ciphertextB64,
+    ].join(':');
+
+    expect(() => servicio.decrypt(conTagCorto)).toThrow();
+  });
+
   it('string vacío hace roundtrip correctamente', () => {
     const crypto = makeService();
 
