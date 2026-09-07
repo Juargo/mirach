@@ -27,13 +27,14 @@ export class ValidatePdfStructureUseCase {
   async execute(
     buffer: Buffer,
     banco: BancoConocido,
+    password?: string,
   ): Promise<
     Result<
       EstructuraPdfValidada,
       EstructuraPdfInvalidaError | RangoFechasInvalidoError
     >
   > {
-    const result = await this.validator.validate(buffer, banco);
+    const result = await this.validator.validate(buffer, banco, password);
     // Solo el CONTEO de problemas — `EstructuraPdfInvalidaError.problemas`
     // trae el detalle crudo; `RangoFechasInvalidoError` no tiene `problemas`
     // (1 problema implícito: período faltante). Nunca el detalle (ADR-013).

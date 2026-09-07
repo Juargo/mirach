@@ -23,13 +23,14 @@ export class NormalizePdfTransactionsUseCase {
   async execute(
     buffer: Buffer,
     banco: BancoConocido,
+    password?: string,
   ): Promise<
     Result<
       ReadonlyArray<Transaccion>,
       EstructuraPdfInvalidaError | RangoFechasInvalidoError
     >
   > {
-    const result = await this.normalizer.normalize(buffer, banco);
+    const result = await this.normalizer.normalize(buffer, banco, password);
     // Solo el CONTEO de filas normalizadas — nunca montos/descripciones (ADR-013).
     this.logger.debug('normalize-pdf-transactions: rows normalized', {
       normalizado: result.isOk(),

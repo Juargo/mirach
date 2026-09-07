@@ -28,12 +28,35 @@ describe('NormalizePdfTransactionsUseCase', () => {
 
     const result = await useCase.execute(buffer, BancoConocido.Santander);
 
+    // password no fue provisto → se forwarda `undefined` (D-01: trailing
+    // optional, sin efecto para el normalizer cuando está ausente).
     expect(normalizer.normalize as Mock).toHaveBeenCalledWith(
       buffer,
       BancoConocido.Santander,
+      undefined,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toBe(transacciones);
+  });
+
+  it('forwarda la password opcional al IPdfTransactionNormalizer inyectado (D-01/D-05)', async () => {
+    const transacciones: ReadonlyArray<Transaccion> = [];
+    const normalizer: IPdfTransactionNormalizer = {
+      normalize: vi.fn().mockResolvedValue(Result.ok(transacciones)),
+    };
+    const useCase = new NormalizePdfTransactionsUseCase(
+      normalizer,
+      new NoOpLogger(),
+    );
+    const buffer = Buffer.from('pdf');
+
+    await useCase.execute(buffer, BancoConocido.Santander, 'la-clave');
+
+    expect(normalizer.normalize as Mock).toHaveBeenCalledWith(
+      buffer,
+      BancoConocido.Santander,
+      'la-clave',
+    );
   });
 
   it('delega al port y retorna su Result.fail tal cual', async () => {

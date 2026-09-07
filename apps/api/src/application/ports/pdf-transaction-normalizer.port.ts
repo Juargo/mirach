@@ -16,9 +16,20 @@ import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-inval
  * Recibe el buffer del archivo y el banco ya identificado en Track A.
  */
 export interface IPdfTransactionNormalizer {
+  /**
+   * `password?` (design.md D-01) es OPCIONAL Y AL FINAL — ningún caller
+   * existente deja de compilar. La unión de error NO se amplía (D-05): un
+   * PDF con password sin resolver nunca llega hasta acá, porque detect
+   * (IPdfBankDetector) corre primero en el pipeline compartido y corta ahí
+   * (D-06). Si algún día se invoca `normalize` sin un `detect` previo, la
+   * password fallida se enmascara de vuelta en `EstructuraPdfInvalidaError`
+   * (`{ tipo: 'PdfIlegible' }`) — un PDF con clave se leería como estructura
+   * malformada, no como "protegido".
+   */
   normalize(
     buffer: Buffer,
     banco: BancoConocido,
+    password?: string,
   ): Promise<
     Result<
       ReadonlyArray<Transaccion>,
