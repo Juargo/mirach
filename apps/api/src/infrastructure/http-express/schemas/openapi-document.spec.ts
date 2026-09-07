@@ -476,4 +476,23 @@ describe('buildOpenApiDocument', () => {
     expect(required).toContain('categoriaId');
     expect(required).toContain('origen');
   });
+
+  it('registers POST /api/transacciones/reevaluar with no request body and a counts-only response schema', () => {
+    const document = buildOpenApiDocument();
+
+    const reevaluarPath = document.paths?.['/api/transacciones/reevaluar'];
+    expect(reevaluarPath).toBeDefined();
+    expect(reevaluarPath?.post).toBeDefined();
+    expect(reevaluarPath?.post?.requestBody).toBeUndefined();
+    expect(reevaluarPath?.post?.responses?.['200']).toBeDefined();
+    expect(reevaluarPath?.post?.responses?.['403']).toBeDefined();
+    expect(reevaluarPath?.post?.responses?.['500']).toBeDefined();
+
+    const components = document.components as
+      | Record<string, Record<string, { required?: string[] }>>
+      | undefined;
+    const responseSchema = components?.schemas?.['ReevaluarCategoriasResponse'];
+    expect(responseSchema?.required).toContain('transaccionesEvaluadas');
+    expect(responseSchema?.required).toContain('transaccionesActualizadas');
+  });
 });

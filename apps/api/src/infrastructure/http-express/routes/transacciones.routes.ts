@@ -1,11 +1,17 @@
 import type { Router } from 'express';
 import { ReclasificarTransaccionUseCase } from '../../../application/use-cases/reclasificar-transaccion.use-case';
+import { ReevaluarCategoriasUseCase } from '../../../application/use-cases/reevaluar-categorias.use-case';
 import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
+import { ReevaluarDemoSoloLecturaError } from '../../../domain/errors/reevaluar-demo-solo-lectura.error';
+import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import {
   aReclasificarCategoriaDto,
   type ReclasificarCategoriaBodyDto,
 } from '../../http/dto/reclasificar-categoria.dto';
+import { aReevaluarCategoriasDto } from '../../http/dto/reevaluar-categorias.dto';
+import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
+import { responderErrorTraducido } from './responder-error-traducido';
 
 /**
  * registrarTransacciones — port del TransaccionesController (ADR-028).
@@ -69,6 +75,71 @@ export function registrarTransacciones(
       }
 
       res.status(200).json(aReclasificarCategoriaDto(result.getValue()));
+    } catch (err) {
+      next(err);
+    }
+  });
+}
+
+/**
+ * registrarReevaluarCategorias — sibling handler para
+ * `POST /api/transacciones/reevaluar` (D-12/T-19 sibling pattern, mismo
+ * archivo que `registrarTransacciones` — ambos operan sobre `Transaccion`).
+ *
+ * Re-corre `CategorizarTransaccionUseCase` con el catálogo de patrones
+ * ACTUAL del usuario sobre TODAS sus transacciones persistidas (categorizadas
+ * o no, sin filtro de período). Sin body ni query params — el `userId` viene
+ * del session middleware.
+ *
+ * Demo gate: mismo patrón que movimientos/categorías/patrones/ingesta
+ * (`esDemoDeSesion(req)` fail-closed, issue #507) — una sesión demo rechaza
+ * con 403 DEMO_SOLO_LECTURA ANTES de tocar el catálogo o las transacciones.
+ * Toda respuesta de error pasa por `responderErrorTraducido` (chokepoint que
+ * loguea `logDemoGateTrip` cuando `code === 'DEMO_SOLO_LECTURA'`).
+ *
+ * `CategorizacionFallidaError` (catálogo no disponible, o fallo al escribir
+ * el lote de reasignaciones) → 500: a diferencia del pipeline de ingesta, acá
+ * NO hay degradación best-effort — es una acción explícita del usuario, y sin
+ * catálogo confiable no se puede garantizar que el resultado sea completo.
+ */
+export function registrarReevaluarCategorias(
+  router: Router,
+  reevaluarCategorias: ReevaluarCategoriasUseCase,
+): void {
+  router.post('/transacciones/reevaluar', async (req, res, next) => {
+    try {
+      const result = await reevaluarCategorias.execute({
+        userId: req.userId!, // garantizado por el session middleware previo
+        esDemo: esDemoDeSesion(req),
+      });
+
+      if (result.isFail()) {
+        const error = result.getError();
+        if (error instanceof ReevaluarDemoSoloLecturaError) {
+          responderErrorTraducido(res, req, {
+            status: 403,
+            code: 'DEMO_SOLO_LECTURA',
+            message: error.message,
+          });
+          return;
+        }
+        if (error instanceof CategorizacionFallidaError) {
+          responderErrorTraducido(res, req, {
+            status: 500,
+            message: error.message,
+          });
+          return;
+        }
+        const _exhaustive: never = error;
+        void _exhaustive;
+        responderErrorTraducido(res, req, {
+          status: 500,
+          message: 'Error inesperado',
+        });
+        return;
+      }
+
+      res.status(200).json(aReevaluarCategoriasDto(result.getValue()));
     } catch (err) {
       next(err);
     }
