@@ -705,6 +705,75 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * Response schema for `POST /api/transacciones/reevaluar` 200.
+ *
+ * Mirrors `ReevaluarCategoriasResponseDto` — plain counts only, never
+ * per-transaction ids/descriptions/amounts (ADR-013).
+ */
+const reevaluarCategoriasResponseSchema = z
+  .object({
+    transaccionesEvaluadas: z
+      .number()
+      .describe(
+        'Total transactions belonging to the caller that were evaluated.',
+      ),
+    transaccionesActualizadas: z
+      .number()
+      .describe(
+        'Rows whose categoria/bucket actually changed and were written. ' +
+          'Rows that resolved to SinCategoria (no pattern matched) are left untouched ' +
+          'and never counted here.',
+      ),
+  })
+  .meta({
+    id: 'ReevaluarCategoriasResponse',
+    description:
+      'POST /api/transacciones/reevaluar 200 — reevaluation outcome counts.',
+  });
+
+/**
+ * `POST /api/transacciones/reevaluar` — re-runs the caller's classification
+ * patterns against ALL of their persisted transactions (categorized or not,
+ * no period filter). No request body.
+ *
+ * Per-row semantics (critical): a determined classification (a pattern
+ * matched, or the Ingreso rule applied) OVERWRITES whatever categoria/bucket
+ * the row had before. A row that resolves to SinCategoria (no pattern
+ * matched) is left EXACTLY as it was — never cleared. Without this
+ * distinction, an incomplete pattern catalog would wipe every row it doesn't
+ * cover back to SinCategoria.
+ */
+const reevaluarCategoriasOperation: ZodOpenApiOperationObject = {
+  summary: "Re-run the caller's classification patterns over all transactions",
+  description:
+    "Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT " +
+    'pattern catalog against ALL of their persisted transactions — categorized or not, no period ' +
+    'filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the ' +
+    'existing categoria/bucket. A row that resolves to SinCategoria (no pattern matched) is left ' +
+    'exactly as it is — never cleared. Rows whose determined classification already matches their ' +
+    'current value are not re-written (transaccionesActualizadas counts real changes only). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo ' +
+    'sessions (403 DEMO_SOLO_LECTURA).',
+  responses: {
+    '200': {
+      description: 'Reevaluation completed.',
+      content: {
+        'application/json': { schema: reevaluarCategoriasResponseSchema },
+      },
+    },
+    '403': {
+      description:
+        'The calling session is a demo session. Nothing is read or written.',
+    },
+    '500': {
+      description:
+        "Infrastructure fault — the caller's pattern catalog could not be loaded, or the batched " +
+        'write of reassignments failed (CategorizacionFallidaError). Retryable.',
+    },
+  },
+};
+
+/**
  * `GET`/`POST /api/categorias`, `PATCH`/`DELETE /api/categorias/{id}` (US-038,
  * CAT038-01…04/07) — the 4 catalog paths that carry the machine-readable
  * `code` (design.md Q2/§7.3, `CatalogoErrorResponse`). Boundary-validated
@@ -1496,6 +1565,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
   '/api/ingresos/mes': { get: ingresosMesOperation },
   '/api/ingestas/commit': { post: ingestaCommitOperation },
+  '/api/transacciones/reevaluar': { post: reevaluarCategoriasOperation },
 };
 
 export function buildOpenApiDocument() {

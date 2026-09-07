@@ -1012,6 +1012,25 @@
         ],
         "type": "object"
       },
+      "ReevaluarCategoriasResponse": {
+        "additionalProperties": false,
+        "description": "POST /api/transacciones/reevaluar 200 — reevaluation outcome counts.",
+        "properties": {
+          "transaccionesActualizadas": {
+            "description": "Rows whose categoria/bucket actually changed and were written. Rows that resolved to SinCategoria (no pattern matched) are left untouched and never counted here.",
+            "type": "number"
+          },
+          "transaccionesEvaluadas": {
+            "description": "Total transactions belonging to the caller that were evaluated.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "transaccionesEvaluadas",
+          "transaccionesActualizadas"
+        ],
+        "type": "object"
+      },
       "RegistrarMovimientoManualResponse": {
         "additionalProperties": false,
         "description": "POST /api/movimientos 201 — the persisted manual movement (US-058, D-12). Amounts are BigInt-safe strings. `origen` is always \"Manual\".",
@@ -3051,6 +3070,30 @@
           }
         },
         "summary": "Reclassify a transaction"
+      }
+    },
+    "/api/transacciones/reevaluar": {
+      "post": {
+        "description": "Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT pattern catalog against ALL of their persisted transactions — categorized or not, no period filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the existing categoria/bucket. A row that resolves to SinCategoria (no pattern matched) is left exactly as it is — never cleared. Rows whose determined classification already matches their current value are not re-written (transaccionesActualizadas counts real changes only). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReevaluarCategoriasResponse"
+                }
+              }
+            },
+            "description": "Reevaluation completed."
+          },
+          "403": {
+            "description": "The calling session is a demo session. Nothing is read or written."
+          },
+          "500": {
+            "description": "Infrastructure fault — the caller's pattern catalog could not be loaded, or the batched write of reassignments failed (CategorizacionFallidaError). Retryable."
+          }
+        },
+        "summary": "Re-run the caller's classification patterns over all transactions"
       }
     },
     "/version": {

@@ -15,6 +15,8 @@ import { ObtenerDetalleBucketMesUseCase } from '../application/use-cases/obtener
 import { ObtenerIngresosMesUseCase } from '../application/use-cases/obtener-ingresos-mes.use-case';
 import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-movimientos-mes.use-case';
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
+import { ReevaluarCategoriasUseCase } from '../application/use-cases/reevaluar-categorias.use-case';
+import { CategorizarTransaccionUseCase } from '../application/use-cases/categorizar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
 import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingesta.use-case';
 import { EliminarMovimientoManualUseCase } from '../application/use-cases/eliminar-movimiento-manual.use-case';
@@ -42,6 +44,9 @@ import { PrismaResumenAnualRepository } from '../infrastructure/persistence/pris
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
 import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/prisma-movimientos-mes.repository';
 import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persistence/prisma-reclasificar-categoria.repository';
+import { PrismaCatalogoClasificacionRepository } from '../infrastructure/persistence/prisma-catalogo-clasificacion.repository';
+import { PrismaReevaluarCategoriasReader } from '../infrastructure/persistence/prisma-reevaluar-categorias.reader';
+import { PrismaReevaluarCategoriasWriter } from '../infrastructure/persistence/prisma-reevaluar-categorias.writer';
 import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
 import { PrismaEliminarMovimientoManualRepository } from '../infrastructure/persistence/prisma-eliminar-movimiento-manual.repository';
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
@@ -84,6 +89,10 @@ export interface Container {
   readonly obtenerMovimientosMes: ObtenerMovimientosMesUseCase;
   /** Reclasificación manual — PATCH /api/transacciones/:id/categoria. */
   readonly reclasificarTransaccion: ReclasificarTransaccionUseCase;
+  /** Re-evaluación masiva por patrones — POST /api/transacciones/reevaluar.
+   * Re-corre CategorizarTransaccionUseCase con el catálogo ACTUAL del
+   * usuario sobre TODAS sus transacciones persistidas. */
+  readonly reevaluarCategorias: ReevaluarCategoriasUseCase;
   /** Pipeline de ingesta xlsx/pdf — POST /api/ingestas. */
   readonly processIngesta: ProcessIngestaUseCase;
   /** Seam de solo-lectura (US-003, US-057 D-12) — POST /api/ingestas/preview.
@@ -260,6 +269,18 @@ export function createContainer(
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(
     new PrismaReclasificarCategoriaRepository(prisma),
   );
+  // POST /api/transacciones/reevaluar: instancia PROPIA de
+  // PrismaCatalogoClasificacionRepository (mismo patrón un-`new`-por-use-case
+  // que PrismaResumenMesRepository arriba — stateless, sin costo) en vez de
+  // reusar la que crearProcessIngesta arma internamente para el pipeline de
+  // ingesta (encapsulada, no expuesta por el Container).
+  const reevaluarCategorias = new ReevaluarCategoriasUseCase(
+    new PrismaCatalogoClasificacionRepository(prisma),
+    new PrismaReevaluarCategoriasReader(prisma, crypto),
+    new PrismaReevaluarCategoriasWriter(prisma),
+    new CategorizarTransaccionUseCase(logger),
+    logger,
+  );
   const processIngesta = crearProcessIngesta(
     prisma,
     crypto,
@@ -306,6 +327,7 @@ export function createContainer(
     obtenerIngresosMes,
     obtenerMovimientosMes,
     reclasificarTransaccion,
+    reevaluarCategorias,
     processIngesta,
     previewIngesta,
     commitIngesta,
