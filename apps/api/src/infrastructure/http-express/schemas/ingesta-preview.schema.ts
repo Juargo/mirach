@@ -15,6 +15,13 @@ export const previewIngestaRequestSchema = z.object({
       'Bank statement file (.xlsx or .pdf). Extension/bank-format validation is a domain rule ' +
         '(ExtensionNoPermitidaError / BancoNoReconocidoError), not this schema.',
     ),
+  password: z
+    .string()
+    .optional()
+    .describe(
+      'Optional password to unlock an encrypted PDF statement (design.md D-08). ' +
+        'Absent or empty ⇒ file is treated as unprotected (byte-identical to pre-change behavior).',
+    ),
 });
 
 /**
