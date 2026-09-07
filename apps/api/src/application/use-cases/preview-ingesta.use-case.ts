@@ -9,6 +9,7 @@ import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { IFileReader } from '../ports/file-reader.port';
@@ -21,10 +22,17 @@ import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-cas
 import { rangoFechas, marcarDuplicados } from './marcar-duplicados.helper';
 import { ILogger } from '../ports/logger.port';
 
-/** Entrada del preview: archivo + usuario propietario (D-06: dedup scoped a userId). */
+/**
+ * Entrada del preview: archivo + usuario propietario (D-06: dedup scoped a
+ * userId). `password?` (design.md D-08) desbloquea un PDF cifrado — a
+ * diferencia de `ProcessIngestaInput` (D-02), preview SÍ acepta este campo
+ * porque es la superficie del flujo preview→commit, no el endpoint one-shot
+ * deprecado.
+ */
 export interface PreviewIngestaInput {
   fileReader: IFileReader;
   userId: string;
+  password?: string;
 }
 
 /** Sugerencia de categorización por fila — null cuando no hay match o SinCategoria (D-09). */
@@ -66,6 +74,7 @@ export type PreviewIngestaError =
   | NormalizacionInvalidaError
   | PdfInvalidoError
   | PdfSinTextoError
+  | PdfProtegidoError
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
   | PersistenciaFallidaError;
@@ -130,6 +139,7 @@ export class PreviewIngestaUseCase {
     // 1. Shared front pipeline (D-01 — faithful mirror of ProcessIngestaUseCase order)
     const pipelineResult = await this.ejecutarPipelineUseCase.execute({
       fileReader: input.fileReader,
+      password: input.password,
     });
     if (pipelineResult.isFail()) {
       return Result.fail(pipelineResult.getError());

@@ -34,6 +34,7 @@ import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuer
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
+import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
 import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
 import { responderErrorTraducido } from './responder-error-traducido';
 
@@ -356,6 +357,14 @@ function aCommitHttpError(error: CommitIngestaError): {
   if (error instanceof CategorizacionFallidaError) {
     return { status: 500, message: error.message };
   }
+  // PDF protegido con password (US-057 Slice 2, design.md D-01/D-09) — rama
+  // MÍNIMA sin `code` todavía (Slice 3 la reemplaza con el mapeo D-03
+  // discriminado por `error.motivo`). Solo alcanza a compilar el `never`
+  // guard de abajo; el carve-out de NO-registro-FALLIDA vive en
+  // CommitIngestaUseCase (D-09), no acá.
+  if (error instanceof PdfProtegidoError) {
+    return { status: 400, message: error.message };
+  }
   // Client errors (file + overlay validation) → 400
   if (
     error instanceof ExtensionNoPermitidaError ||
@@ -396,6 +405,12 @@ function aHttpError(error: ProcessIngestaError): {
   if (error instanceof PersistenciaFallidaError) {
     // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
     return { status: 500, message: error.message };
+  }
+  // PDF protegido con password (US-057 Slice 2, design.md D-01) — rama
+  // MÍNIMA sin `code` todavía (Slice 3 la reemplaza con el mapeo D-03
+  // discriminado por `error.motivo`).
+  if (error instanceof PdfProtegidoError) {
+    return { status: 400, message: error.message };
   }
   if (
     error instanceof ExtensionNoPermitidaError ||

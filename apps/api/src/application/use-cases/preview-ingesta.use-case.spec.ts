@@ -20,6 +20,7 @@ import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
@@ -134,14 +135,27 @@ class FakeTransactionNormalizer implements ITransactionNormalizer {
 
 class FakePdfBankDetector implements IPdfBankDetector {
   called = false;
-  failWith?: PdfInvalidoError | BancoNoReconocidoError | PdfSinTextoError;
-  async detect(): Promise<
+  receivedPassword?: string;
+  failWith?:
+    | PdfInvalidoError
+    | BancoNoReconocidoError
+    | PdfSinTextoError
+    | PdfProtegidoError;
+  async detect(
+    _buffer: Buffer,
+    _originalName: string,
+    password?: string,
+  ): Promise<
     Result<
       DetectedBank,
-      PdfInvalidoError | BancoNoReconocidoError | PdfSinTextoError
+      | PdfInvalidoError
+      | BancoNoReconocidoError
+      | PdfSinTextoError
+      | PdfProtegidoError
     >
   > {
     this.called = true;
+    this.receivedPassword = password;
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(BANCO);
   }
@@ -1039,6 +1053,40 @@ describe('PreviewIngestaUseCase', () => {
         expect(haystack).not.toContain('987654321');
         expect(haystack).not.toContain(USER_ID);
       }
+    });
+  });
+
+  describe('password threading (design.md D-01/D-02/D-08)', () => {
+    it('forwarda la password al pipeline compartido y propaga PdfProtegidoError sin transformarlo', async () => {
+      const pdfBankDetector = new FakePdfBankDetector();
+      pdfBankDetector.failWith = new PdfProtegidoError(
+        'cartola.pdf',
+        'requiere-password',
+      );
+      const { useCase } = buildUseCase({ pdfBankDetector });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(Buffer.from('x'), 'cartola.pdf'),
+        userId: USER_ID,
+        password: 'la-clave',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PdfProtegidoError);
+      expect(pdfBankDetector.receivedPassword).toBe('la-clave');
+    });
+
+    it('sin password — se forwarda `undefined`, comportamiento byte-idéntico (PDF-09)', async () => {
+      const pdfBankDetector = new FakePdfBankDetector();
+      const { useCase } = buildUseCase({ pdfBankDetector });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(Buffer.from('x'), 'cartola.pdf'),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(pdfBankDetector.receivedPassword).toBeUndefined();
     });
   });
 });
