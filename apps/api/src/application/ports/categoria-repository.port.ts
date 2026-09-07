@@ -1,6 +1,7 @@
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { Patron } from './patron-repository.port';
 
 /**
@@ -75,6 +76,16 @@ export interface ICategoriaRepository {
    * NADA se persiste (all-or-nothing, CAT038-10). `prioridad` viaja YA
    * resuelta por el caller (`validarPatron`, default 100) — este port nunca
    * la re-calcula.
+   *
+   * Devuelve `Result` y NO `CategoriaConPatrones` a secas porque
+   * `existeNombre` es un check-then-act: entre ese gate y esta escritura hay
+   * una ventana TOCTOU que solo puede cerrar la unique de la BD. Un
+   * implementador DEBE traducir esa colisión a
+   * `NombreCategoriaDuplicadoError` — el mismo error que devuelve el gate de
+   * dominio, así que el endpoint responde `409 NOMBRE_DUPLICADO` gane quien
+   * gane la carrera, en vez de un 500 cuando gana la BD. Cualquier otra falla
+   * de infraestructura SÍ debe propagar como excepción: no es un resultado de
+   * negocio.
    */
   crearConPatrones(
     userId: string,
@@ -87,19 +98,30 @@ export interface ICategoriaRepository {
         prioridad: number;
       }>;
     },
-  ): Promise<CategoriaConPatrones>;
+  ): Promise<Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>>;
 
   /**
    * `bucket` presente en `patch` ⇒ el adapter DEBE re-stampear
    * `Transaccion.bucketId` en la MISMA transacción (D-07). Su ausencia
    * significa que el bucket no cambió — no dispara re-stamp. Mismo
    * comentario que en `crear`: viaja como nombre, se resuelve en el adapter.
+   *
+   * `nombreEfectivo` es REQUERIDO y es el nombre que la fila TENDRÁ tras el
+   * patch (`nombre` nuevo si se renombra, el actual si no) — el mismo valor
+   * que el use case ya calcula para consultar `existeNombre`. Va como campo
+   * obligatorio del objeto, no como un cuarto parámetro posicional, para que
+   * omitirlo sea un error de compilación en CADA call site y no un `string`
+   * más que se pueda confundir con `id`/`userId` (mismo razonamiento que el
+   * criterio-objeto de `existeNombre`). Existe porque el adapter lo necesita
+   * para construir el `NombreCategoriaDuplicadoError` del caso TOCTOU: una
+   * mudanza de bucket sin renombre colisiona por un nombre que `patch.nombre`
+   * jamás menciona. Ver `crearConPatrones` para el contrato del `Result`.
    */
   actualizar(
     userId: string,
     id: string,
-    patch: { nombre?: string; bucket?: string },
-  ): Promise<CategoriaConPatrones>;
+    patch: { nombre?: string; bucket?: string; nombreEfectivo: string },
+  ): Promise<Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>>;
 
   /**
    * Los patrones de la categoría cascadean junto con ella, todo-o-nada

@@ -6,6 +6,7 @@ import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Result } from '../../shared/result';
 
 const CATEGORIA_ACTUAL = {
   id: 'cat-1',
@@ -23,10 +24,11 @@ function makeRepo(
     buscarPorId: vi.fn().mockResolvedValue(CATEGORIA_ACTUAL),
     existeNombre: vi.fn().mockResolvedValue(false),
     crearConPatrones: vi.fn(),
-    actualizar: vi.fn().mockResolvedValue({
-      ...CATEGORIA_ACTUAL,
-      nombre: 'Delivery renombrado',
-    }),
+    actualizar: vi
+      .fn()
+      .mockResolvedValue(
+        Result.ok({ ...CATEGORIA_ACTUAL, nombre: 'Delivery renombrado' }),
+      ),
     eliminar: vi.fn(),
     ...overrides,
   };
@@ -77,6 +79,7 @@ describe('ActualizarCategoriaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
+      nombreEfectivo: 'Delivery renombrado',
       nombre: 'Delivery renombrado',
     });
   });
@@ -94,6 +97,7 @@ describe('ActualizarCategoriaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
+      nombreEfectivo: 'Delivery',
       bucket: 'Necesidades',
     });
   });
@@ -272,6 +276,7 @@ describe('ActualizarCategoriaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
+      nombreEfectivo: 'Delivery renombrado',
       nombre: 'Delivery renombrado',
     });
   });
@@ -289,7 +294,53 @@ describe('ActualizarCategoriaUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
+      nombreEfectivo: 'Delivery',
       bucket: 'Necesidades',
     });
+  });
+  /** Misma carrera TOCTOU que en `CrearCategoriaUseCase`, del lado del PATCH. */
+  it('propaga el NombreCategoriaDuplicadoError del port cuando la carrera TOCTOU la gana la unique de la BD', async () => {
+    const repo = makeRepo({
+      existeNombre: vi.fn().mockResolvedValue(false), // el gate dice "libre"
+      actualizar: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new NombreCategoriaDuplicadoError('Delivery')),
+        ),
+    });
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      bucket: 'Necesidades',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(NombreCategoriaDuplicadoError);
+  });
+
+  /**
+   * `nombreEfectivo` NO es `patch.nombre`: en un patch de solo-bucket el
+   * choque ocurre por el nombre ACTUAL, que el patch jamás menciona. Sin este
+   * campo el adapter no tendría con qué nombrar el error.
+   */
+  it('manda como nombreEfectivo el nombre ACTUAL cuando el patch no renombra', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      bucket: 'Necesidades',
+    });
+
+    expect(repo.actualizar).toHaveBeenCalledWith(
+      'user-1',
+      'cat-1',
+      expect.objectContaining({ nombreEfectivo: CATEGORIA_ACTUAL.nombre }),
+    );
   });
 });

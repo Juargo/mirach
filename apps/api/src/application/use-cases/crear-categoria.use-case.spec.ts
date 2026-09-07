@@ -9,6 +9,7 @@ import { PatronEnLoteInvalidoError } from '../../domain/errors/patron-en-lote-in
 import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.error';
 import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Result } from '../../shared/result';
 
 function makeRepo(
   overrides: Partial<ICategoriaRepository> = {},
@@ -17,13 +18,15 @@ function makeRepo(
     listarConPatrones: vi.fn(),
     buscarPorId: vi.fn(),
     existeNombre: vi.fn().mockResolvedValue(false),
-    crearConPatrones: vi.fn().mockResolvedValue({
-      id: 'cat-nueva',
-      nombre: 'Mascotas',
-      bucket: Bucket.Deseos,
-      patrones: [],
-      transaccionesCount: 0,
-    }),
+    crearConPatrones: vi.fn().mockResolvedValue(
+      Result.ok({
+        id: 'cat-nueva',
+        nombre: 'Mascotas',
+        bucket: Bucket.Deseos,
+        patrones: [],
+        transaccionesCount: 0,
+      }),
+    ),
     actualizar: vi.fn(),
     eliminar: vi.fn(),
     ...overrides,
@@ -309,5 +312,33 @@ describe('CrearCategoriaUseCase', () => {
         ],
       }),
     );
+  });
+  /**
+   * TOCTOU: `existeNombre` dice "libre", pero entre esa lectura y el write
+   * otra request crea el mismo par (nombre, bucket). La unique de la BD gana
+   * y el adapter la traduce a `NombreCategoriaDuplicadoError` — este use case
+   * debe PROPAGARLO tal cual, para que el endpoint responda el MISMO 409 que
+   * habría dado el gate de dominio, nunca un 500.
+   */
+  it('propaga el NombreCategoriaDuplicadoError del port cuando la carrera TOCTOU la gana la unique de la BD', async () => {
+    const repo = makeRepo({
+      existeNombre: vi.fn().mockResolvedValue(false), // el gate dice "libre"
+      crearConPatrones: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new NombreCategoriaDuplicadoError('Mascotas')),
+        ),
+    });
+    const useCase = new CrearCategoriaUseCase(repo, makePatronRepo());
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(NombreCategoriaDuplicadoError);
   });
 });

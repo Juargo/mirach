@@ -51,6 +51,13 @@ export interface PatronAnidadoInput {
  * infraestructura quien lo resuelve vía `BUCKET_IDS[bucket]` — este use
  * case nunca importa esa tabla (application no depende de infrastructure,
  * ADR-005). Nunca lanza.
+ *
+ * El gate de unicidad es un check-then-act y deja una ventana TOCTOU que
+ * solo puede cerrar la unique de la BD. Por eso `crearConPatrones` devuelve
+ * un `Result` y no una categoría a secas: cuando la carrera la gana la BD,
+ * el adapter traduce ese P2002 al MISMO `NombreCategoriaDuplicadoError` que
+ * produce el gate de acá (ver su contrato en el port), y este use case se
+ * limita a propagarlo — el endpoint responde 409, nunca 500.
  */
 export class CrearCategoriaUseCase {
   constructor(
@@ -143,14 +150,15 @@ export class CrearCategoriaUseCase {
       patronesValidados.push({ patron, matchType, prioridad });
     }
 
-    const categoria = await this.categoriaRepository.crearConPatrones(
-      input.userId,
-      {
-        nombre,
-        bucket: input.bucket,
-        patrones: patronesValidados,
-      },
-    );
-    return Result.ok(categoria);
+    // El `Result` del port cubre la ventana TOCTOU entre `existeNombre` y
+    // este write: si otra request creó el mismo par (nombre, bucket) en el
+    // medio, la unique de la BD gana la carrera y el adapter la traduce al
+    // MISMO `NombreCategoriaDuplicadoError` del gate de arriba — así el
+    // endpoint responde 409 gane quien gane, nunca 500.
+    return this.categoriaRepository.crearConPatrones(input.userId, {
+      nombre,
+      bucket: input.bucket,
+      patrones: patronesValidados,
+    });
   }
 }
