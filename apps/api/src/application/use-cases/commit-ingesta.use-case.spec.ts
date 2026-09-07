@@ -72,6 +72,7 @@ import type {
   CrearIngestaProcesadaInput,
 } from '../ports/ingesta-repository.port';
 import type { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import type { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { NoOpLogger } from '../../../test/support/logger.double';
 
@@ -251,10 +252,14 @@ class FakeCategoriaRepository implements ICategoriaRepository {
   async existeNombre(): Promise<boolean> {
     return false;
   }
-  async crearConPatrones(): Promise<CategoriaConPatrones> {
+  async crearConPatrones(): Promise<
+    Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>
+  > {
     throw new Error('not implemented in fake');
   }
-  async actualizar(): Promise<CategoriaConPatrones> {
+  async actualizar(): Promise<
+    Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>
+  > {
     throw new Error('not implemented in fake');
   }
   async eliminar(): Promise<Result<void, CategoriaNoEncontradaError>> {

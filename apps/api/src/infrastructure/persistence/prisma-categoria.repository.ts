@@ -7,8 +7,11 @@ import {
 } from '../../application/ports/categoria-repository.port';
 import { Patron } from '../../application/ports/patron-repository.port';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
+import { Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
 import { BUCKET_IDS } from './bucket-ids';
+import { objetivosDeP2002 } from './p2002-objetivos';
 
 /**
  * categoriaInclude — include shape shared by all four read paths
@@ -146,35 +149,42 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
         prioridad: number;
       }>;
     },
-  ): Promise<CategoriaConPatrones> {
-    const row = await this.prisma.categoria.create({
-      data: {
-        userId,
-        nombre: data.nombre,
-        bucketId: BUCKET_IDS[data.bucket as Bucket],
-        // `userId`/`categoriaId` NUNCA se pasan acá — Prisma los DERIVA del
-        // padre recién creado (composite FK `categoria` en
-        // PatronClasificacion, schema.prisma:176): el tipo generado
-        // `PatronClasificacionUncheckedCreateWithoutCategoriaInput` ni
-        // siquiera los acepta como propiedad.
-        patrones: {
-          create: data.patrones.map((p) => ({
-            patron: p.patron,
-            matchType: p.matchType,
-            prioridad: p.prioridad,
-          })),
+  ): Promise<Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>> {
+    try {
+      const row = await this.prisma.categoria.create({
+        data: {
+          userId,
+          nombre: data.nombre,
+          bucketId: BUCKET_IDS[data.bucket as Bucket],
+          // `userId`/`categoriaId` NUNCA se pasan acá — Prisma los DERIVA del
+          // padre recién creado (composite FK `categoria` en
+          // PatronClasificacion, schema.prisma:176): el tipo generado
+          // `PatronClasificacionUncheckedCreateWithoutCategoriaInput` ni
+          // siquiera los acepta como propiedad.
+          patrones: {
+            create: data.patrones.map((p) => ({
+              patron: p.patron,
+              matchType: p.matchType,
+              prioridad: p.prioridad,
+            })),
+          },
         },
-      },
-      include: categoriaInclude(userId),
-    });
-    return aCategoriaConPatrones(row);
+        include: categoriaInclude(userId),
+      });
+      return Result.ok(aCategoriaConPatrones(row));
+    } catch (error) {
+      if (esColisionDeNombreCategoria(error)) {
+        return Result.fail(new NombreCategoriaDuplicadoError(data.nombre));
+      }
+      throw error;
+    }
   }
 
   async actualizar(
     userId: string,
     id: string,
-    patch: { nombre?: string; bucket?: string },
-  ): Promise<CategoriaConPatrones> {
+    patch: { nombre?: string; bucket?: string; nombreEfectivo: string },
+  ): Promise<Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>> {
     const data: { nombre?: string; bucketId?: string } = {};
     if (patch.nombre !== undefined) {
       data.nombre = patch.nombre;
@@ -183,27 +193,38 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
       data.bucketId = BUCKET_IDS[patch.bucket as Bucket];
     }
 
-    const updateCategoria = this.prisma.categoria.update({
-      where: { id, userId },
-      data,
-      include: categoriaInclude(userId),
-    });
+    try {
+      const updateCategoria = this.prisma.categoria.update({
+        where: { id, userId },
+        data,
+        include: categoriaInclude(userId),
+      });
 
-    // `bucket` ausente del patch ⇒ el bucket no cambió, sin re-stamp (D-07).
-    if (patch.bucket === undefined) {
-      const row = await updateCategoria;
-      return aCategoriaConPatrones(row);
+      // `bucket` ausente del patch ⇒ el bucket no cambió, sin re-stamp (D-07).
+      if (patch.bucket === undefined) {
+        const row = await updateCategoria;
+        return Result.ok(aCategoriaConPatrones(row));
+      }
+
+      // `bucket` presente ⇒ re-stamp DENTRO de la MISMA transacción, array
+      // form (los dos statements no tienen lecturas interdependientes, D-07).
+      const restamp = this.prisma.transaccion.updateMany({
+        where: { categoriaId: id, account: { userId } }, // RNF-SEC-006 en SQL
+        data: { bucketId: data.bucketId },
+      });
+
+      const [row] = await this.prisma.$transaction([updateCategoria, restamp]);
+      return Result.ok(aCategoriaConPatrones(row));
+    } catch (error) {
+      if (esColisionDeNombreCategoria(error)) {
+        // `nombreEfectivo`, NO `patch.nombre`: una mudanza de bucket sin
+        // renombre colisiona por un nombre que el patch jamás menciona.
+        return Result.fail(
+          new NombreCategoriaDuplicadoError(patch.nombreEfectivo),
+        );
+      }
+      throw error;
     }
-
-    // `bucket` presente ⇒ re-stamp DENTRO de la MISMA transacción, array
-    // form (los dos statements no tienen lecturas interdependientes, D-07).
-    const restamp = this.prisma.transaccion.updateMany({
-      where: { categoriaId: id, account: { userId } }, // RNF-SEC-006 en SQL
-      data: { bucketId: data.bucketId },
-    });
-
-    const [row] = await this.prisma.$transaction([updateCategoria, restamp]);
-    return aCategoriaConPatrones(row);
   }
 
   /**
@@ -257,4 +278,50 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     }
     return Result.ok(undefined);
   }
+}
+
+/**
+ * esColisionDeNombreCategoria — discrimina el P2002 de la unique
+ * `Categoria(userId, bucketId, nombre)` (ADR-042) de cualquier otro.
+ *
+ * POR QUÉ EXISTE: `existeNombre` (en `CrearCategoriaUseCase` y
+ * `ActualizarCategoriaUseCase`) es un check-then-act, y entre esa lectura y
+ * el write de acá hay una ventana TOCTOU. Sin este catch la violación de
+ * unicidad escapa cruda hasta `errorMiddleware` y el cliente recibe un 500
+ * opaco, cuando el MISMO endpoint ya sabe devolver `409 NOMBRE_DUPLICADO`
+ * si gana el gate de dominio. La ventana no se puede cerrar con un WHERE
+ * (a diferencia de `desvincularGoogleSub`): un INSERT no tiene predicado
+ * sobre filas que todavía no existen, así que el constraint ES el gate y
+ * este catch es su traducción.
+ *
+ * FAIL-CLOSED, a propósito: exige que los objetivos nombren `nombre` Y
+ * ADEMÁS (`bucketId` O `Categoria`). Un P2002 que no calce RE-LANZA — misma
+ * política que `apuntaA` en `prisma-user-credential.repository.ts`, e
+ * INVERSA a la de `esCarreraDeCreacionUser`, que es conservadora porque allá
+ * la única fila en competencia es conocida. Acá un 500 visible es mejor que
+ * decirle "ya existe una categoría con ese nombre" a alguien cuya colisión
+ * real fue otra: `BucketPresupuesto.nombre` también es `@unique`
+ * (schema.prisma:122), así que preguntar solo por `nombre` sería ambiguo.
+ *
+ * CONSECUENCIA DELIBERADA: contra una BD que todavía tenga el índice viejo
+ * `Categoria_userId_nombre_key` (pre-ADR-042, es decir una migración sin
+ * aplicar), la forma `constraint.fields` no trae `bucketId` — el
+ * `originalMessage` sí trae `Categoria`, así que el caso normal igual se
+ * reconoce; pero si el driver solo entregara `fields`, esto RE-LANZA y da un
+ * 500. Es lo correcto: con el esquema desfasado la respuesta honesta es
+ * "arreglá la base", no un 409 que le echa la culpa al usuario.
+ */
+function esColisionDeNombreCategoria(error: unknown): boolean {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2002'
+  ) {
+    return false;
+  }
+
+  const objetivos = objetivosDeP2002(error.meta);
+  return (
+    objetivos.some((t) => t.includes('nombre')) &&
+    objetivos.some((t) => t.includes('bucketId') || t.includes('Categoria'))
+  );
 }

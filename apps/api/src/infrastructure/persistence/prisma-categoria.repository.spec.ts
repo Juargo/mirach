@@ -1,8 +1,9 @@
 import type { Mock } from 'vitest';
 import { PrismaCategoriaRepository } from './prisma-categoria.repository';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { BUCKET_IDS } from './bucket-ids';
 
 const USER_ID = 'user-owner-of-this-catalog';
@@ -293,13 +294,14 @@ describe('PrismaCategoriaRepository', () => {
       );
       const repo = new PrismaCategoriaRepository(prisma);
 
-      const categoria = await repo.crearConPatrones(USER_ID, {
+      const resultado = await repo.crearConPatrones(USER_ID, {
         nombre: 'Mascotas',
         bucket: 'Deseos',
         patrones: [],
       });
 
-      expect(categoria.transaccionesCount).toBe(0);
+      expect(resultado.isOk()).toBe(true);
+      expect(resultado.getValue().transaccionesCount).toBe(0);
     });
   });
 
@@ -311,7 +313,10 @@ describe('PrismaCategoriaRepository', () => {
       );
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.actualizar(USER_ID, 'cat-1', { nombre: 'Renombrada' });
+      await repo.actualizar(USER_ID, 'cat-1', {
+        nombre: 'Renombrada',
+        nombreEfectivo: 'Renombrada',
+      });
 
       expect(prisma.categoria.update).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
@@ -334,7 +339,10 @@ describe('PrismaCategoriaRepository', () => {
       );
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.actualizar(USER_ID, 'cat-1', { bucket: 'Necesidades' });
+      await repo.actualizar(USER_ID, 'cat-1', {
+        bucket: 'Necesidades',
+        nombreEfectivo: 'Mascotas',
+      });
 
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       const [txArg] = (prisma.$transaction as Mock).mock.calls[0];
@@ -348,6 +356,169 @@ describe('PrismaCategoriaRepository', () => {
         where: { categoriaId: 'cat-1', account: { userId: USER_ID } },
         data: { bucketId: BUCKET_IDS[Bucket.Necesidades] },
       });
+    });
+  });
+
+  /**
+   * P2002 → 409, no 500.
+   *
+   * `existeNombre` (use case) es un check-then-act: entre esa lectura y este
+   * write hay una ventana TOCTOU. Sin este catch, la unique
+   * `Categoria(userId, bucketId, nombre)` (ADR-042) escapa como
+   * `PrismaClientKnownRequestError` cruda hasta `errorMiddleware` y el
+   * cliente recibe un 500 opaco en lugar del 409 NOMBRE_DUPLICADO que el
+   * MISMO endpoint ya devuelve cuando gana el gate de dominio.
+   *
+   * Discriminación fail-closed: un P2002 cuyo `meta` no nombra
+   * explícitamente esta unique RE-LANZA. Un 500 visible es mejor que decirle
+   * "ese nombre ya existe" a alguien cuya colisión real fue otra cosa (misma
+   * política que `apuntaA` en `prisma-user-credential.repository.ts`, e
+   * inversa a la de `esCarreraDeCreacionUser`, que allá es conservadora a
+   * propósito).
+   */
+  describe('P2002 de la unique (userId, bucketId, nombre) → NombreCategoriaDuplicadoError', () => {
+    function p2002(meta: unknown) {
+      return new Prisma.PrismaClientKnownRequestError('unique violation', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: meta as Record<string, unknown>,
+      });
+    }
+
+    /** Forma REAL de Prisma 7 + @prisma/adapter-pg (no puebla meta.target). */
+    const META_ADAPTER = {
+      driverAdapterError: {
+        cause: {
+          constraint: { fields: ['"userId"', '"bucketId"', '"nombre"'] },
+          originalMessage:
+            'duplicate key value violates unique constraint "Categoria_userId_bucketId_nombre_key"',
+        },
+      },
+    };
+
+    it('crearConPatrones: devuelve Result.fail(NombreCategoriaDuplicadoError) con el nombre que se intentó escribir', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockRejectedValue(p2002(META_ADAPTER));
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const resultado = await repo.crearConPatrones(USER_ID, {
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        patrones: [],
+      });
+
+      expect(resultado.isFail()).toBe(true);
+      const error = resultado.getError();
+      expect(error).toBeInstanceOf(NombreCategoriaDuplicadoError);
+      expect(error.rawValue).toBe('Mascotas');
+    });
+
+    it('crearConPatrones: también reconoce la forma clásica meta.target: string[]', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockRejectedValue(
+        p2002({ target: ['userId', 'bucketId', 'nombre'] }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const resultado = await repo.crearConPatrones(USER_ID, {
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        patrones: [],
+      });
+
+      expect(resultado.isFail()).toBe(true);
+    });
+
+    it('crearConPatrones: RE-LANZA un P2002 que NO nombra esta unique (fail-closed — no mentir sobre la causa)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockRejectedValue(
+        p2002({ target: ['emailBlindIndex'] }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await expect(
+        repo.crearConPatrones(USER_ID, {
+          nombre: 'Mascotas',
+          bucket: 'Deseos',
+          patrones: [],
+        }),
+      ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+    });
+
+    it('crearConPatrones: RE-LANZA un P2002 sin forma reconocible en meta (fail-closed)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockRejectedValue(p2002(undefined));
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await expect(
+        repo.crearConPatrones(USER_ID, {
+          nombre: 'Mascotas',
+          bucket: 'Deseos',
+          patrones: [],
+        }),
+      ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+    });
+
+    it('crearConPatrones: RE-LANZA cualquier error que no sea P2002 — una falla de infraestructura no es un resultado de negocio', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockRejectedValue(
+        new Error('connection reset'),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await expect(
+        repo.crearConPatrones(USER_ID, {
+          nombre: 'Mascotas',
+          bucket: 'Deseos',
+          patrones: [],
+        }),
+      ).rejects.toThrow('connection reset');
+    });
+
+    it('actualizar (sin bucket, update suelto): mapea el P2002 usando nombreEfectivo', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.update as Mock).mockRejectedValue(p2002(META_ADAPTER));
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const resultado = await repo.actualizar(USER_ID, 'cat-1', {
+        nombre: 'Mascotas',
+        nombreEfectivo: 'Mascotas',
+      });
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError()).toBeInstanceOf(
+        NombreCategoriaDuplicadoError,
+      );
+      expect(resultado.getError().rawValue).toBe('Mascotas');
+    });
+
+    it('actualizar (con bucket, dentro del $transaction): mapea el P2002 con el nombre ACTUAL — una mudanza de bucket colisiona por un nombre que el patch nunca menciona', async () => {
+      const prisma = makePrismaMock();
+      (prisma.$transaction as Mock).mockRejectedValue(p2002(META_ADAPTER));
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const resultado = await repo.actualizar(USER_ID, 'cat-1', {
+        bucket: 'Necesidades',
+        nombreEfectivo: 'Mascotas',
+      });
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().rawValue).toBe('Mascotas');
+    });
+
+    it('actualizar: RE-LANZA un P2002 ajeno a esta unique (fail-closed)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.update as Mock).mockRejectedValue(
+        p2002({ target: ['tokenHash'] }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await expect(
+        repo.actualizar(USER_ID, 'cat-1', {
+          nombre: 'Mascotas',
+          nombreEfectivo: 'Mascotas',
+        }),
+      ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
     });
   });
 

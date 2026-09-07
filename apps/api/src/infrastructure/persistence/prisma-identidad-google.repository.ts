@@ -9,6 +9,7 @@ import { Email } from '../../domain/value-objects/email';
 import type { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../../application/ports/crypto-service.port';
 import { copiarCatalogoTemplate } from './catalogo-template';
+import { objetivosDeP2002 } from './p2002-objetivos';
 
 /**
  * PrismaIdentidadGoogleRepository — implementación de `IIdentidadGoogleRepository`
@@ -179,12 +180,11 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
  * nombre)`, ADR-042 — un bug de datos, nunca una carrera legítima sobre un
  * `userId` recién creado).
  *
- * Misma forma de `meta` que `apuntaA` en
- * `prisma-user-credential.repository.ts` (Prisma 7 + `@prisma/adapter-pg` NO
- * puebla `meta.target`; el error crudo de Postgres llega bajo
- * `meta.driverAdapterError.cause.constraint.fields`/`.originalMessage`) —
- * `target` puede ser `string[]` o `string` (nombre del constraint) según
- * driver/versión, así que ambas formas se normalizan a una lista de strings.
+ * El recorrido de `meta` (Prisma 7 + `@prisma/adapter-pg` NO puebla
+ * `meta.target`; el error crudo de Postgres llega bajo
+ * `meta.driverAdapterError.cause.constraint.fields`/`.originalMessage`) vive
+ * en `objetivosDeP2002` — esta función solo aplica su POLÍTICA sobre la
+ * lista normalizada.
  *
  * Semántica por-defecto DELIBERADAMENTE INVERSA a `apuntaA`: acá `target`
  * AUSENTE resuelve a `true` (carrera conservadora) en vez de `false`
@@ -197,36 +197,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
 function esCarreraDeCreacionUser(
   error: Prisma.PrismaClientKnownRequestError,
 ): boolean {
-  const meta = error.meta as
-    | {
-        target?: unknown;
-        driverAdapterError?: {
-          cause?: {
-            constraint?: { fields?: unknown };
-            originalMessage?: unknown;
-          };
-        };
-      }
-    | undefined;
-
-  const targets: string[] = [];
-
-  const target = meta?.target;
-  if (Array.isArray(target)) {
-    targets.push(...target.filter((t): t is string => typeof t === 'string'));
-  } else if (typeof target === 'string') {
-    targets.push(target);
-  }
-
-  const fields = meta?.driverAdapterError?.cause?.constraint?.fields;
-  if (Array.isArray(fields)) {
-    targets.push(...fields.filter((f): f is string => typeof f === 'string'));
-  }
-
-  const originalMessage = meta?.driverAdapterError?.cause?.originalMessage;
-  if (typeof originalMessage === 'string') {
-    targets.push(originalMessage);
-  }
+  const targets = objetivosDeP2002(error.meta);
 
   if (targets.length === 0) return true; // target ausente → carrera conservadora
 

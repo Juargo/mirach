@@ -109,7 +109,10 @@ export class ActualizarCategoriaUseCase {
       return Result.fail(new NombreCategoriaDuplicadoError(nombreEfectivo));
     }
 
-    const patch: { nombre?: string; bucket?: string } = {};
+    // `nombreEfectivo` es requerido por el port: el adapter lo necesita para
+    // nombrar el error del caso TOCTOU (ver el contrato de `actualizar`).
+    const patch: { nombre?: string; bucket?: string; nombreEfectivo: string } =
+      { nombreEfectivo };
     if (nombreValidado !== undefined) {
       patch.nombre = nombreValidado;
     }
@@ -121,11 +124,9 @@ export class ActualizarCategoriaUseCase {
       patch.bucket = bucketValidado;
     }
 
-    const actualizada = await this.categoriaRepository.actualizar(
-      input.userId,
-      input.id,
-      patch,
-    );
-    return Result.ok(actualizada);
+    // Igual que en `CrearCategoriaUseCase`: el `colisiona` de arriba es un
+    // check-then-act, y el `Result` del port cubre la carrera perdida contra
+    // la unique de la BD con el mismo error de dominio (409, nunca 500).
+    return this.categoriaRepository.actualizar(input.userId, input.id, patch);
   }
 }
