@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.5.1...api-v0.6.0) (2026-09-07)
+
+
+### Features
+
+* **api:** endpoint para reevaluar los patrones sobre transacciones persistidas ([31e732d](https://github.com/Juargo/MoneyDiary/commit/31e732d339a6ed8f1946c0582d68f14375edf727))
+* **api:** endpoint para reevaluar los patrones sobre transacciones persistidas ([7a82878](https://github.com/Juargo/MoneyDiary/commit/7a82878fb3814c06eb278e9613613afa8476151b))
+
+
+### Bug Fixes
+
+* **api:** traducir el P2002 del catálogo de categorías a 409, no a 500 ([eeebbba](https://github.com/Juargo/MoneyDiary/commit/eeebbbaf108ec6e76415df8679e6ac6039953aab))
+* **api:** traducir el P2002 del catálogo de categorías a 409, no a 500 ([b2fd8ce](https://github.com/Juargo/MoneyDiary/commit/b2fd8ce2ca00fd29de382c41ba1b10854f36043f))
+
 ## [0.5.1](https://github.com/Juargo/MoneyDiary/compare/api-v0.5.0...api-v0.5.1) (2026-09-05)
 
 
