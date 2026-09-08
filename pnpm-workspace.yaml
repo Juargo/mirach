@@ -20,8 +20,9 @@ overrides:
   # GHSA advisory 2026-08-17: stack exhaustion on recursive object graphs (high).
   # Pulled in via @prisma/config -> prisma; v8 patches it.
   deepmerge-ts: '>=8.0.0'
-  # Piso subido a 4.3.1: GHSA-5p4m-2wfm-xmqj (!!omap CPU cuadrático, high)
-  js-yaml: '>=4.3.1 <5.0.0'
+  # Piso subido a 4.3.2: GHSA-5p4m-2wfm-xmqj (!!omap CPU cuadrático, high) y
+  # GHSA-2883-xcg3-v3hh (2026-09, high). El piso 4.3.1 cubría solo el primero.
+  js-yaml: '>=4.3.2 <5.0.0'
   # Piso subido a 3.1.6: GHSA-5jgf-p345-68v8 + GHSA-f65p-4m7j-42xc +
   # GHSA-fph4-wmhf-6fwf + GHSA-jqff-g426-hqxp (host confusion y SSRF, high).
   # Alcanzable desde deps de producción: @moneydiary/api -> @prisma/client ->
@@ -62,6 +63,23 @@ overrides:
   # GHSA-4cwx-7wf7-3272 — cross-user information disclosure (high). Transitivo
   # dev de vitest/jsdom; no llega a prod, pero el piso es gratis.
   undici: '>=7.29.0 <8.0.0'
+
+  # --- Burn-down 2026-09-08 (desbloquea el gate `pnpm audit` de ADR-021) ---
+  # Las advisories de estos dos se publicaron DESPUÉS del burn-down anterior,
+  # así que el gate pasó de verde a rojo sin que cambiara una línea del repo:
+  # el árbol no se movió, se movió la base de datos de advisories. Ninguna de
+  # las dos versiones necesita dispensa de `minimumReleaseAgeExclude` — ambas
+  # superan los 7 días de cuarentena (publicadas 2026-08-21 y 2026-08-24).
+
+  # DIECINUEVE advisories high en un solo paquete (DoS de parser, confusión de
+  # namespace y mis-parseo de entidades). Transitivo de apps/mobile > expo.
+  # Acotado a la línea 0.8.x: existe 0.9.x, pero el consumidor pide 0.8 y un
+  # rango abierto lo saltaría de minor (misma trampa que nanoid, arriba).
+  '@xmldom/xmldom': '>=0.8.15 <0.9.0'
+  # GHSA-w27v-7q3p-w38r — `removeScripts` deja pasar links ejecutables por
+  # bypass de namespace y caracteres de control (high). Transitivo de
+  # apps/landing > astro. Build tooling, no llega al runtime del usuario.
+  svgo: '>=4.1.0 <5.0.0'
 
 # ADR-006 — defensas de instalación. Viven ACÁ, no en `.npmrc`: pnpm 11 lee sus
 # settings de este archivo. Declararlos en `.npmrc` los deja INERTES sin ningún
