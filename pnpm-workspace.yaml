@@ -95,26 +95,31 @@ auditLevel: high
 blockExoticSubdeps: true
 
 # Excepción a la cuarentena de 7 días (minimumReleaseAge, arriba) SOLO para
-# parches de seguridad aún dentro de la ventana. Vacía a propósito: las
-# entradas de nanoid (ventana vencida el 2026-08-10) y js-yaml (2026-08-08) se
-# retiraron el 2026-09-04, tal como pedía esta misma nota. Los pisos de
-# `overrides` siguen vigentes; lo que se retira es la dispensa de cuarentena.
-# Grandfathering time-boxed: estas versiones YA estaban instaladas cuando la
-# cuarentena era inerte, y violan la ventana de 7 días por pocos días. Se las
-# exime en vez de forzar una re-resolución completa del árbol (que movería ~187
-# paquetes transitivos y volvería este PR irrevisable). Cada una envejece sola:
+# parches de seguridad aún dentro de la ventana.
 #
-#   zod                   4.5.4  publicada 2026-08-29  ->  cumple el 2026-09-05
-#   p-limit               7.3.2  publicada 2026-08-31  ->  cumple el 2026-09-07
-#   electron-to-chromium  1.5.420 publicada 2026-09-01 ->  cumple el 2026-09-08
+# VACÍA, y sin la clave: ninguna dispensa vigente. Las de nanoid y js-yaml se
+# retiraron el 2026-09-04; las de zod, p-limit y electron-to-chromium el
+# 2026-09-08, en la fecha exacta que la nota anterior tenía agendada. Los
+# pisos de `overrides` siguen vigentes — lo que se retira es la dispensa de
+# cuarentena, no el piso de versión.
 #
-# RETIRAR las tres entradas a partir del 2026-09-08. La exención es por NOMBRE
-# de paquete, no por versión: mientras esté acá, cualquier versión de esos tres
-# saltea la cuarentena. Por eso es temporal y por eso lleva fecha.
-minimumReleaseAgeExclude:
-  - zod
-  - p-limit
-  - electron-to-chromium
+# Verificado al retirarlas (fecha de publicación real vs. la ventana de 7
+# días), sobre las versiones que el lockfile tiene DE VERDAD, no las que
+# nombraba el comentario:
+#
+#   zod                   3.25.76 y 4.4.3   427d y 127d
+#   p-limit               2.3.0, 3.1.0, 7.3.2   2347d, 2113d y 8d
+#   electron-to-chromium  1.5.420   7d (justo en el límite)
+#
+# Ojo con el comentario que se va: decía `zod 4.5.4`, y el árbol nunca tuvo
+# esa versión — tiene 4.4.3, publicada cuatro meses antes. Una nota de
+# dispensa que nombra una versión que no está instalada no protege nada, así
+# que al reponer una entrada acá hay que leer el lockfile, no el comentario
+# anterior.
+#
+# Al agregar una entrada nueva: la exención es por NOMBRE de paquete, no por
+# versión — mientras esté acá, CUALQUIER versión de ese paquete saltea la
+# cuarentena. Por eso va siempre con fecha de retiro explícita.
 
 # ADR-021 — baseline de vulnerabilidades high preexistentes.
 # El gate `pnpm audit --audit-level=high` en CI bloquea vulns high/critical
