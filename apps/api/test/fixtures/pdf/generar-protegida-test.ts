@@ -65,7 +65,22 @@ const FILE_ID = Buffer.from('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4', 'hex');
 /** Longitud de clave RC4-40 en bytes (40 bits). */
 const KEY_LENGTH_BYTES = 5;
 
+/**
+ * MD5 — parte del *standard security handler* de PDF 1.7 (V=1/R=2), §7.6.3.3.
+ *
+ * CodeQL lo marca como `js/insufficient-password-hash` (high) y tiene razón en
+ * abstracto: MD5 no sirve para almacenar contraseñas. Acá NO se almacena
+ * ninguna: se deriva la clave de cifrado de un PDF de prueba siguiendo el
+ * algoritmo que el formato **especifica**. Usar un hash más fuerte no lo
+ * volvería más seguro, lo volvería un archivo que pdfjs no puede abrir — y el
+ * propósito del fixture es exactamente ser un PDF cifrado legítimo y débil.
+ *
+ * Vive en `test/fixtures/`, no se despacha, y su debilidad es deliberada
+ * (ver el docblock de cabecera y design.md D-11): no "arreglar" en un pase de
+ * seguridad futuro.
+ */
 function md5(data: Buffer): Buffer {
+  // codeql[js/insufficient-password-hash]
   return createHash('md5').update(data).digest();
 }
 
