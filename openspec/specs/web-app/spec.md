@@ -265,18 +265,24 @@ Navigation MUST remain available on an empty month (WDM-05).
 
 Each group MUST render the server's `nombre`, `conteo`, and exact `subtotal` (BigInt-safe string, never
 `Number()`/`parseFloat()`), in the server's exact order — es-CL alphabetical, "Sin categoría" last (MBD-02).
-The client MUST NOT re-group, re-sort, or truncate the payload. Each group MUST show at most 3 transaction
+The client MUST NOT re-group, re-sort, or truncate the payload. Each group MUST show at most 10 transaction
 rows by default; a group with more MUST render a "ver N más…" control (N = remaining rows) that expands to
 reveal all rows and collapses back. The control MUST be a real button with `aria-expanded` (hand-rolled,
 KISS — no new dependency).
 
-#### Scenario: Default 3 rows, then "ver N más…" expands and collapses (jsdom)
+#### Scenario: Default 10 rows, then "ver N más…" expands and collapses (jsdom)
+
+- GIVEN a group with 12 transactions
+- WHEN the page renders
+- THEN 10 rows are visible and a "ver 2 más…" control renders
+- WHEN the control is activated
+- THEN all 12 rows show and the control toggles to collapse
+
+#### Scenario: A group at or below the threshold renders no control (jsdom)
 
 - GIVEN a group with 5 transactions
 - WHEN the page renders
-- THEN 3 rows are visible and a "ver 2 más…" control renders
-- WHEN the control is activated
-- THEN all 5 rows show and the control toggles to collapse
+- THEN all 5 rows are visible and no "ver N más…" control renders
 
 #### Scenario: Rendered group order matches the payload verbatim (jsdom)
 
