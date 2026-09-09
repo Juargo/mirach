@@ -7,6 +7,7 @@ import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
@@ -51,6 +52,8 @@ export interface CommitIngestaInput {
   readonly esDemo: boolean;
   /** Parsed, shape-valid overlay (edits). Empty array = commit with no overrides. */
   readonly edits: ReadonlyArray<CommitEdit>;
+  /** Password opcional para desbloquear un PDF cifrado (design.md D-08). */
+  readonly password?: string;
 }
 
 /**
@@ -88,6 +91,7 @@ export type CommitIngestaError =
   | NormalizacionInvalidaError
   | PdfInvalidoError
   | PdfSinTextoError
+  | PdfProtegidoError
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
   // Overlay-validation errors (400)
@@ -206,15 +210,21 @@ export class CommitIngestaUseCase {
     // ── 1. Shared front pipeline ──────────────────────────────────────────────
     const pipelineResult = await this.ejecutarPipelineUseCase.execute({
       fileReader: input.fileReader,
+      password: input.password,
     });
     if (pipelineResult.isFail()) {
-      // Pipeline failure → register FALLIDA before returning
-      await this.registrarFallo(
-        input.userId,
-        input.fileReader.getOriginalName(),
-        pipelineResult.getError().message,
-      );
-      return Result.fail(pipelineResult.getError());
+      const error = pipelineResult.getError();
+      // D-09 carve-out: a locked/wrong-password PDF is a validation error,
+      // NOT a failed ingesta — it must NOT appear in the ingesta history.
+      // Every OTHER pipeline failure still registers FALLIDA as before.
+      if (!(error instanceof PdfProtegidoError)) {
+        await this.registrarFallo(
+          input.userId,
+          input.fileReader.getOriginalName(),
+          error.message,
+        );
+      }
+      return Result.fail(error);
     }
     const {
       banco,

@@ -7,6 +7,7 @@ import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { IFileReader } from '../ports/file-reader.port';
@@ -23,11 +24,15 @@ import { NormalizePdfTransactionsUseCase } from './normalize-pdf-transactions.us
 import { ILogger } from '../ports/logger.port';
 
 /**
- * Entrada del pipeline compartido: solo el archivo.
+ * Entrada del pipeline compartido: el archivo y, opcionalmente, la password
+ * para desbloquear un PDF cifrado (design.md D-01/D-08). `password` es
+ * ignorada por completo en la rama Excel (no tiene concepto de password) —
+ * solo se forwarda a las 3 etapas PDF (`detect`/`validate`/`normalize`).
  * La cuenta, el usuario, y el dedup son responsabilidad de cada use case caller.
  */
 export interface EjecutarPipelineIngestaInput {
   fileReader: IFileReader;
+  password?: string;
 }
 
 /**
@@ -56,6 +61,7 @@ export type EjecutarPipelineIngestaError =
   | NormalizacionInvalidaError
   | PdfInvalidoError
   | PdfSinTextoError
+  | PdfProtegidoError
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
   | PersistenciaFallidaError;
@@ -132,6 +138,7 @@ export class EjecutarPipelineIngestaUseCase {
       ? await this.detectPdfBankUseCase.execute(
           archivo.buffer,
           archivo.originalName,
+          input.password,
         )
       : await this.detectBankUseCase.execute(
           archivo.buffer,
@@ -150,6 +157,7 @@ export class EjecutarPipelineIngestaUseCase {
       ? await this.validatePdfStructureUseCase.execute(
           archivo.buffer,
           banco.banco,
+          input.password,
         )
       : await this.validateStructureUseCase.execute(
           archivo.buffer,
@@ -164,6 +172,7 @@ export class EjecutarPipelineIngestaUseCase {
       ? await this.normalizePdfTransactionsUseCase.execute(
           archivo.buffer,
           banco.banco,
+          input.password,
         )
       : await this.normalizeTransactionsUseCase.execute(
           archivo.buffer,

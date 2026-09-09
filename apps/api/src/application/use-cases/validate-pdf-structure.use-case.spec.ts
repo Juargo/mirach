@@ -30,12 +30,40 @@ describe('ValidatePdfStructureUseCase', () => {
 
     const result = await useCase.execute(buffer, BancoConocido.BancoEstado);
 
+    // password no fue provisto → se forwarda `undefined` (D-01: trailing
+    // optional, sin efecto para el validator cuando está ausente).
     expect(validator.validate as Mock).toHaveBeenCalledWith(
       buffer,
       BancoConocido.BancoEstado,
+      undefined,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual(validada);
+  });
+
+  it('forwarda la password opcional al IPdfStructureValidator inyectado (D-01/D-05)', async () => {
+    const validada: EstructuraPdfValidada = {
+      banco: BancoConocido.BancoEstado,
+      paginaInicioTabla: 1,
+      rangosX: [],
+      toleranciaY: 2,
+    };
+    const validator: IPdfStructureValidator = {
+      validate: vi.fn().mockResolvedValue(Result.ok(validada)),
+    };
+    const useCase = new ValidatePdfStructureUseCase(
+      validator,
+      new NoOpLogger(),
+    );
+    const buffer = Buffer.from('contenido');
+
+    await useCase.execute(buffer, BancoConocido.BancoEstado, 'la-clave');
+
+    expect(validator.validate as Mock).toHaveBeenCalledWith(
+      buffer,
+      BancoConocido.BancoEstado,
+      'la-clave',
+    );
   });
 
   it('propaga el Result.fail del validator sin modificarlo', async () => {

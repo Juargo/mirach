@@ -6,6 +6,7 @@ import {
 import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { PdfTextExtractor } from './pdf-text-extractor';
 import { BancoEstadoPdfStrategy } from './strategies/banco-estado.strategy';
 import { BancoChilePdfStrategy } from './strategies/banco-chile.strategy';
@@ -35,13 +36,21 @@ export class PdfjsBankDetectorService implements IPdfBankDetector {
   async detect(
     buffer: Buffer,
     originalName: string,
+    password?: string,
   ): Promise<
     Result<
       DetectedBank,
-      BancoNoReconocidoError | PdfInvalidoError | PdfSinTextoError
+      | BancoNoReconocidoError
+      | PdfInvalidoError
+      | PdfSinTextoError
+      | PdfProtegidoError
     >
   > {
-    const extraido = await this.extractor.extract(buffer, originalName);
+    const extraido = await this.extractor.extract(
+      buffer,
+      originalName,
+      password,
+    );
     if (extraido.isFail()) {
       return Result.fail(extraido.getError());
     }
