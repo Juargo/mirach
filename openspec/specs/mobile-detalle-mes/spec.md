@@ -66,21 +66,27 @@ The M1 header MUST render: the bucket's display label via `ETIQUETA_BUCKET` (e.g
 
 ### Requirement: MDET-03 — GrupoMovimientosMobile: expandable groups and SinCategoria destacado
 
-M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesViewModel`. Each group MUST show a header with categoría name, subtotal, and conteo. Groups with more than 3 rows MUST show the first 3 rows and a `"Ver N más"` pressable that reveals the rest (`accessibilityState={{ expanded: false/true }}`). The `SinCategoria` group ALWAYS carries the stable `testID="grupo-movimientos-sin-categoria"` on its root container. When the URL param `destacar=sin-categoria` is present, an INNER highlight wrapper with `testID="grupo-sin-categoria-destacado"` MUST be rendered INSIDE the `SinCategoria` group root and carry a distinct visual style compared to other groups; this inner wrapper is ONLY rendered when `destacar` is active. Both the stable root testID and the conditional inner testID MUST be asserted independently in the test for the destacado scenario.
+M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesViewModel`. Each group MUST show a header with categoría name, subtotal, and conteo. Groups with more than 10 rows MUST show the first 10 rows and a `"Ver N más"` pressable that reveals the rest (`accessibilityState={{ expanded: false/true }}`). The `SinCategoria` group ALWAYS carries the stable `testID="grupo-movimientos-sin-categoria"` on its root container. When the URL param `destacar=sin-categoria` is present, an INNER highlight wrapper with `testID="grupo-sin-categoria-destacado"` MUST be rendered INSIDE the `SinCategoria` group root and carry a distinct visual style compared to other groups; this inner wrapper is ONLY rendered when `destacar` is active. Both the stable root testID and the conditional inner testID MUST be asserted independently in the test for the destacado scenario.
 
-#### Scenario: Group with 5 rows shows 3 + "Ver 2 más" collapsed (RNTL)
+#### Scenario: Group with 12 rows shows 10 + "Ver 2 más" collapsed (RNTL)
 
-- GIVEN a group has 5 transaction rows
+- GIVEN a group has 12 transaction rows
 - WHEN the group first renders
-- THEN exactly 3 rows are visible and a pressable with text `"Ver 2 más"` is shown
+- THEN exactly 10 rows are visible and a pressable with text `"Ver 2 más"` is shown
 - AND `accessibilityState={{ expanded: false }}` is set on that pressable
 
 #### Scenario: Tapping "Ver N más" expands to show all rows (RNTL)
 
 - GIVEN the "Ver N más" pressable is visible
 - WHEN the user presses it
-- THEN all 5 rows are visible and the pressable text changes to `"Ver menos"`
+- THEN all 12 rows are visible and the pressable text changes to `"Ver menos"`
 - AND `accessibilityState={{ expanded: true }}` is set on that pressable
+
+#### Scenario: A group at the threshold renders no pressable (RNTL)
+
+- GIVEN a group has exactly 10 transaction rows
+- WHEN the group first renders
+- THEN all 10 rows are visible and no `"Ver N más"` pressable is rendered
 
 #### Scenario: SinCategoria group is highlighted when destacar param is set (RNTL)
 
