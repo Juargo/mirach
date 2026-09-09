@@ -10,6 +10,7 @@ import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuer
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
+import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
 import { appLogger } from '../../logging/app-logger';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
@@ -423,6 +424,10 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
       .attach('file', Buffer.from('x'), 'malo.txt');
 
     expect(res.status).toBe(400);
+    // Regression guard (Phase 12): la mayoría de los errores de preview no
+    // trae `code` — el canal ahora pasa por responderErrorTraducido, que debe
+    // seguir omitiendo la clave cuando el traductor no la produce.
+    expect(res.body.code).toBeUndefined();
   });
 
   it('400 si no se envía archivo', async () => {
@@ -433,6 +438,82 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
 
     expect(res.status).toBe(400);
     expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('D-03: 400 + code PDF_PROTEGIDO cuando el PDF requiere password (Slice 3)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(
+            new PdfProtegidoError('cartola.pdf', 'requiere-password'),
+          ),
+        ),
+    };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PDF_PROTEGIDO');
+  });
+
+  it('D-03: 400 + code PDF_PASSWORD_INCORRECTA cuando la password es incorrecta', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(
+            new PdfProtegidoError('cartola.pdf', 'password-incorrecta'),
+          ),
+        ),
+    };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .field('password', 'clave-mala')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PDF_PASSWORD_INCORRECTA');
+    // D-07 capa 4 / PDF-07: la password enviada nunca aparece en el body serializado.
+    expect(JSON.stringify(res.body)).not.toContain('clave-mala');
+  });
+
+  it('reenvía req.body.password al PreviewIngestaUseCase (Slice 3)', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(PREVIEW_OK)) };
+    await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .field('password', 'mi-clave')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ password: 'mi-clave' }),
+    );
+  });
+
+  it('sin password ⇒ forwarda undefined, byte-idéntico (PDF-09)', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(PREVIEW_OK)) };
+    await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ password: undefined }),
+    );
+  });
+
+  it('D-08: 400 si la password excede el cap de longitud, sin llamar al use case', async () => {
+    const uc = { execute: vi.fn() };
+    const passwordGigante = 'x'.repeat(501);
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .field('password', passwordGigante)
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(400);
+    expect(uc.execute).not.toHaveBeenCalled();
+    // Nunca se hace echo del valor recibido, ni siquiera el que excede el cap.
+    expect(JSON.stringify(res.body)).not.toContain(passwordGigante);
   });
 
   it('400 cuando el archivo excede el límite de multer (10 MB)', async () => {
@@ -638,6 +719,67 @@ describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
       .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
 
     expect(res.status).toBe(500);
+  });
+
+  it('D-03: 400 + code PDF_PROTEGIDO en commit cuando el PDF requiere password (Slice 3)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(
+            new PdfProtegidoError('cartola.pdf', 'requiere-password'),
+          ),
+        ),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PDF_PROTEGIDO');
+  });
+
+  it('D-03: 400 + code PDF_PASSWORD_INCORRECTA en commit (Slice 3)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(
+            new PdfProtegidoError('cartola.pdf', 'password-incorrecta'),
+          ),
+        ),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .field('password', 'clave-mala')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PDF_PASSWORD_INCORRECTA');
+    expect(JSON.stringify(res.body)).not.toContain('clave-mala');
+  });
+
+  it('reenvía req.body.password al CommitIngestaUseCase (Slice 3)', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(COMMIT_OK)) };
+    await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .field('password', 'mi-clave')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ password: 'mi-clave' }),
+    );
+  });
+
+  it('sin password ⇒ forwarda undefined en commit, byte-idéntico (PDF-09)', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(COMMIT_OK)) };
+    await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(uc.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ password: undefined }),
+    );
   });
 
   it('500 ante CategorizacionFallidaError (catalog-load fail, fail-closed)', async () => {
