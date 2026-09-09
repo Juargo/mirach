@@ -32,6 +32,13 @@ export const commitIngestaRequestSchema = z.object({
         'Absent or empty ⇒ empty overlay (pure auto-classify commit). ' +
         'Max 256 KB, enforced by multer limits.fieldSize (D-02).',
     ),
+  password: z
+    .string()
+    .optional()
+    .describe(
+      'Optional password to unlock an encrypted PDF statement (design.md D-08). ' +
+        'Absent or empty ⇒ file is treated as unprotected (byte-identical to pre-change behavior).',
+    ),
 });
 
 /**

@@ -43,6 +43,7 @@ import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { RowIndexFueraDeRangoError } from '../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../domain/errors/categoria-fuera-de-catalogo.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import type { IFileReader } from '../ports/file-reader.port';
 import type { IBankDetector, DetectedBank } from '../ports/bank-detector.port';
 import type { IPdfBankDetector } from '../ports/pdf-bank-detector.port';
@@ -148,6 +149,19 @@ class FakeFileReader implements IFileReader {
   }
 }
 
+/** Same-shape PDF file reader (D-09 carve-out test needs the PDF branch). */
+class FakePdfFileReader implements IFileReader {
+  getBuffer(): Buffer {
+    return Buffer.from('%PDF-1.4');
+  }
+  getOriginalName(): string {
+    return 'cartola.pdf';
+  }
+  getSizeInBytes(): number {
+    return 8;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Fakes: pipeline collaborators — implementing the PORT interfaces
 // (wrapped in concrete use-case classes inside buildSut)
@@ -161,7 +175,15 @@ class FakeBankDetector implements IBankDetector {
 }
 
 class FakeNoPdfBankDetector implements IPdfBankDetector {
-  async detect(): Promise<Result<DetectedBank, any>> {
+  receivedPassword?: string;
+  failWith?: any;
+  async detect(
+    _buffer: Buffer,
+    _originalName: string,
+    password?: string,
+  ): Promise<Result<DetectedBank, any>> {
+    this.receivedPassword = password;
+    if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(BANCO);
   }
 }
@@ -324,6 +346,7 @@ function makeCategoria(
 // ---------------------------------------------------------------------------
 interface BuildOptions {
   bankDetector?: FakeBankDetector;
+  pdfBankDetector?: FakeNoPdfBankDetector;
   normalizer?: FakeTransactionNormalizer;
   structureValidator?: FakeStructureValidator;
   accountRepo?: FakeAccountRepository;
@@ -337,6 +360,7 @@ interface BuildOptions {
 function buildSut(opts: BuildOptions = {}) {
   const logger = new NoOpLogger();
   const bankDetector = opts.bankDetector ?? new FakeBankDetector();
+  const pdfBankDetector = opts.pdfBankDetector ?? new FakeNoPdfBankDetector();
   const normalizer = opts.normalizer ?? new FakeTransactionNormalizer();
   const structureValidator =
     opts.structureValidator ?? new FakeStructureValidator();
@@ -354,7 +378,7 @@ function buildSut(opts: BuildOptions = {}) {
   const pipeline = new EjecutarPipelineIngestaUseCase(
     new IngestFileUseCase(logger),
     new DetectBankUseCase(bankDetector, logger),
-    new DetectPdfBankUseCase(new FakeNoPdfBankDetector(), logger),
+    new DetectPdfBankUseCase(pdfBankDetector, logger),
     new ValidateStructureUseCase(structureValidator, logger),
     new ValidatePdfStructureUseCase(new FakePdfStructureValidator(), logger),
     new NormalizeTransactionsUseCase(normalizer, logger),
@@ -1295,6 +1319,92 @@ describe('CommitIngestaUseCase', () => {
       expect(result.isFail()).toBe(true);
       const msg = result.getError().message;
       expect(msg).not.toContain('15000');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // D-09 — FALLIDA carve-out for a password-protected/wrong-password PDF.
+  // MERGE-BLOCKING (tasks.md Phase 9.1): a missing carve-out compiles,
+  // typechecks, lints clean and returns the correct 400 — the ONLY detector
+  // is this test asserting the FALLIDA writer was NOT called.
+  // ---------------------------------------------------------------------------
+  describe('(d) D-09 — PdfProtegidoError does NOT register a FALLIDA row', () => {
+    it('el pipeline falla con PdfProtegidoError → NO se llama a ingestaFallidaWriter.registrar, y el commit igual retorna Fail(PdfProtegidoError)', async () => {
+      const pdfBankDetector = new FakeNoPdfBankDetector();
+      pdfBankDetector.failWith = new PdfProtegidoError(
+        'cartola.pdf',
+        'password-incorrecta',
+      );
+      const fallidaWriter = new FakeFallidaWriter();
+      const { sut } = buildSut({ pdfBankDetector, fallidaWriter });
+
+      const result = await sut.execute({
+        fileReader: new FakePdfFileReader(),
+        userId: USUARIO_ID,
+        esDemo: false,
+        edits: NO_EDITS,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PdfProtegidoError);
+      // El detector — merge-blocking: SIN el carve-out, este assert falla.
+      expect(fallidaWriter.calls).toHaveLength(0);
+    });
+
+    it('3 intentos consecutivos con password incorrecta → 0 filas FALLIDA registradas (spec PDF-08)', async () => {
+      const pdfBankDetector = new FakeNoPdfBankDetector();
+      pdfBankDetector.failWith = new PdfProtegidoError(
+        'cartola.pdf',
+        'password-incorrecta',
+      );
+      const fallidaWriter = new FakeFallidaWriter();
+      const { sut } = buildSut({ pdfBankDetector, fallidaWriter });
+
+      for (let i = 0; i < 3; i++) {
+        const result = await sut.execute({
+          fileReader: new FakePdfFileReader(),
+          userId: USUARIO_ID,
+          esDemo: false,
+          edits: NO_EDITS,
+        });
+        expect(result.isFail()).toBe(true);
+      }
+
+      expect(fallidaWriter.calls).toHaveLength(0);
+    });
+
+    it('forwarda la password recibida al pipeline compartido (CommitIngestaInput.password)', async () => {
+      const pdfBankDetector = new FakeNoPdfBankDetector();
+      const { sut } = buildSut({ pdfBankDetector });
+
+      const result = await sut.execute({
+        fileReader: new FakePdfFileReader(),
+        userId: USUARIO_ID,
+        esDemo: false,
+        edits: NO_EDITS,
+        password: 'la-clave',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(pdfBankDetector.receivedPassword).toBe('la-clave');
+    });
+
+    it('un fallo NO relacionado con password SÍ sigue registrando FALLIDA (regresión — el carve-out no se sobre-aplica)', async () => {
+      const bankDetector = new FakeBankDetector();
+      bankDetector.failWith = new BancoNoReconocidoError('cartola.xlsx');
+      const fallidaWriter = new FakeFallidaWriter();
+      const { sut } = buildSut({ bankDetector, fallidaWriter });
+
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        esDemo: false,
+        edits: NO_EDITS,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(BancoNoReconocidoError);
+      expect(fallidaWriter.calls).toHaveLength(1);
     });
   });
 });

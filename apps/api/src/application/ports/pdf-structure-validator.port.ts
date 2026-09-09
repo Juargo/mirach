@@ -42,9 +42,20 @@ export interface EstructuraPdfValidada {
  * ya identificado en el paso previo (Track A / IPdfBankDetector).
  */
 export interface IPdfStructureValidator {
+  /**
+   * `password?` (design.md D-01) es OPCIONAL Y AL FINAL — ningún caller
+   * existente deja de compilar. La unión de error NO se amplía (D-05): un
+   * PDF con password sin resolver nunca llega hasta acá, porque detect
+   * (IPdfBankDetector) corre primero en el pipeline compartido y corta ahí
+   * (D-06). Si algún día se invoca `validate` sin un `detect` previo, la
+   * password fallida se enmascara de vuelta en `EstructuraPdfInvalidaError`
+   * (`{ tipo: 'PdfIlegible' }`) — un PDF con clave se leería como estructura
+   * malformada, no como "protegido".
+   */
   validate(
     buffer: Buffer,
     banco: BancoConocido,
+    password?: string,
   ): Promise<
     Result<
       EstructuraPdfValidada,

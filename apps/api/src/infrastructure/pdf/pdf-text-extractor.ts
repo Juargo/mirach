@@ -2,6 +2,10 @@ import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { Result } from '../../shared/result';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import {
+  PdfProtegidoError,
+  type MotivoPdfProtegido,
+} from '../../domain/errors/pdf-protegido.error';
 
 /** Un token de texto posicionado, con la página (1-indexed) donde apareció. */
 export interface PagedToken {
@@ -13,6 +17,42 @@ export interface PagedToken {
 
 /** Todos los tokens de texto del PDF, concatenados en orden de página. */
 export type PagedTokens = ReadonlyArray<PagedToken>;
+
+/**
+ * Discrimina si un error lanzado por `getDocument()` es una
+ * `PasswordException` de pdfjs y, si lo es, con qué motivo (design.md D-04).
+ *
+ * Duck-type deliberado sobre `name` + `code` numérico — NUNCA `instanceof`.
+ * Dos razones: (1) el tipo publicado de `PasswordException` es
+ * `declare const PasswordException_base: any` — el chequeo ya es `any` en
+ * los tipos; (2) pdfjs reconstruye las razones de rechazo cruzando el
+ * límite de mensajes del worker (`wrapReason`) — la identidad del
+ * prototipo solo sobrevive hoy porque Node corre el worker "fake" en el
+ * mismo realm; un cambio futuro la rompería en silencio y el resultado
+ * regresaría a `PdfInvalidoError` (el modo de fallo exacto que esto debe
+ * evitar). `name`+`code` es lo que pdfjs preserva. `code` se compara
+ * contra `PasswordResponses` leído del MISMO namespace de módulo recién
+ * importado (nunca hardcodeado 1/2) — si un upgrade de pdfjs cambia esos
+ * valores, el test constant-pin de `pdf-text-extractor.spec.ts` lo detecta
+ * antes de que este código pueda desalinearse.
+ */
+function motivoPassword(
+  error: unknown,
+  passwordResponses: { NEED_PASSWORD: number; INCORRECT_PASSWORD: number },
+): MotivoPdfProtegido | null {
+  if (
+    !(error instanceof Error) ||
+    error.name !== 'PasswordException' ||
+    !('code' in error)
+  ) {
+    return null;
+  }
+  const code = (error as { code: unknown }).code;
+  if (code === passwordResponses.NEED_PASSWORD) return 'requiere-password';
+  if (code === passwordResponses.INCORRECT_PASSWORD)
+    return 'password-incorrecta';
+  return null;
+}
 
 /**
  * PdfTextExtractor — único punto de contacto con pdfjs-dist (infrastructure/pdf).
@@ -30,8 +70,15 @@ export class PdfTextExtractor {
   async extract(
     buffer: Buffer,
     nombreArchivo: string,
-  ): Promise<Result<PagedTokens, PdfInvalidoError | PdfSinTextoError>> {
+    password?: string,
+  ): Promise<
+    Result<PagedTokens, PdfInvalidoError | PdfSinTextoError | PdfProtegidoError>
+  > {
     let documento: PDFDocumentProxy | undefined;
+    // Declarado fuera del try para que el catch pueda leer
+    // `pdfjsLib.PasswordResponses` (D-04) — si el import dinámico mismo
+    // falla, queda `undefined` y el catch cae directo a PdfInvalidoError.
+    let pdfjsLib: typeof import('pdfjs-dist/legacy/build/pdf.mjs') | undefined;
     try {
       // Import dinámico: pdfjs-dist 6.x solo publica build ESM
       // (`build/pdf.mjs`, sin "exports" en package.json). Este paquete
@@ -44,9 +91,10 @@ export class PdfTextExtractor {
       // roto, paquete faltante, etc), el contrato de la clase ("NUNCA
       // lanza") sigue cumpliéndose — se traduce a Result.fail igual que
       // cualquier otro fallo de carga.
-      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
       documento = await pdfjsLib.getDocument({
         data: new Uint8Array(buffer),
+        password,
         // `isEvalSupported: false` (design.md, propuesta original) YA NO
         // EXISTE en pdfjs-dist@6.x — existía hasta la v4 para desactivar un
         // codepath interno con `new Function()` (evaluación de funciones
@@ -57,9 +105,19 @@ export class PdfTextExtractor {
         disableFontFace: true,
         useSystemFonts: false,
       }).promise;
-    } catch {
-      // Cualquier fallo de carga (estructura corrupta, buffer no-PDF, etc)
-      // se traduce a un error de dominio controlado — nunca cuelga ni
+    } catch (error) {
+      // Un PDF cifrado sin password (o con password incorrecta) lanza
+      // `PasswordException` (D-04) — se distingue ANTES de colapsar todo a
+      // PdfInvalidoError, que era el comportamiento (con pérdida de
+      // información) previo a este cambio.
+      const motivo = pdfjsLib
+        ? motivoPassword(error, pdfjsLib.PasswordResponses)
+        : null;
+      if (motivo) {
+        return Result.fail(new PdfProtegidoError(nombreArchivo, motivo));
+      }
+      // Cualquier otro fallo de carga (estructura corrupta, buffer no-PDF,
+      // etc) se traduce a un error de dominio controlado — nunca cuelga ni
       // propaga la excepción cruda de pdfjs.
       return Result.fail(new PdfInvalidoError(nombreArchivo));
     }

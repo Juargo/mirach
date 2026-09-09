@@ -34,10 +34,26 @@ import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuer
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
+import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
 import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
 import { responderErrorTraducido } from './responder-error-traducido';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+/**
+ * MAX_PASSWORD_LENGTH — cap de caracteres para el campo `password` opcional
+ * (design.md D-08). `subirArchivo()` (usado por preview y por el one-shot
+ * deprecado) NO tiene mapeo `LIMIT_FIELD_VALUE`→400 como `subirArchivoConEdits()`
+ * — un campo de texto que supere el default de busboy (1 MiB) dispararía un
+ * 500 vía el error middleware genérico. Este cap MITIGA el caso común (una
+ * password real nunca se acerca a este límite) validando ANTES de usar el
+ * valor; no cierra el caso extremo (>1 MiB) porque ese falla en el parseo de
+ * multer, antes de que el handler alcance a correr — cerrarlo del todo
+ * exigiría copiar el bloque `LIMIT_FIELD_VALUE` a `subirArchivo()`, lo que
+ * D-02 prohíbe explícitamente (cambiaría el comportamiento del endpoint
+ * one-shot, que comparte esa misma función).
+ */
+const MAX_PASSWORD_LENGTH = 500;
 
 /** Deps de `registrarIngestas` (US-018, design.md §6.1; +previewIngesta
  * US-003; +commitIngesta US-057 PR4). */
@@ -133,16 +149,33 @@ export function registrarIngestas(
         return;
       }
 
+      // Password opcional para desbloquear un PDF cifrado (design.md D-08).
+      // Leído igual que `edits` en el commit handler — multer ya lo parsea a
+      // req.body porque es un campo de texto plano en el mismo multipart.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const rawPassword: unknown = req.body?.password;
+      if (
+        typeof rawPassword === 'string' &&
+        rawPassword.length > MAX_PASSWORD_LENGTH
+      ) {
+        res.status(400).json({
+          message: 'La clave excede la longitud máxima permitida.',
+        });
+        return;
+      }
+      const password =
+        typeof rawPassword === 'string' ? rawPassword : undefined;
+
       const fileReader = new MulterFileReaderAdapter(file);
       // US-057 PR2: PreviewIngestaInput now requires userId for per-row dedup scoping (D-06).
       const result = await deps.previewIngesta.execute({
         fileReader,
         userId: req.userId!,
+        password,
       });
 
       if (result.isFail()) {
-        const { status, message } = aHttpError(result.getError());
-        res.status(status).json({ message });
+        responderErrorTraducido(res, req, aHttpError(result.getError()));
         return;
       }
 
@@ -182,12 +215,23 @@ export function registrarIngestas(
           return;
         }
 
+        // Password opcional para desbloquear un PDF cifrado (design.md D-08).
+        // `subirArchivoConEdits()` ya cubre LIMIT_FIELD_VALUE (256 KB) para
+        // cualquier campo de texto de este multer instance — no se duplica
+        // el guard de longitud del preview handler acá (D-08, sin riesgo de
+        // 500 en esta ruta).
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const rawPassword: unknown = req.body?.password;
+        const password =
+          typeof rawPassword === 'string' ? rawPassword : undefined;
+
         const fileReader = new MulterFileReaderAdapter(file);
         const result = await deps.commitIngesta.execute({
           fileReader,
           userId: req.userId!,
           esDemo: esDemoDeSesion(req),
           edits: editsResult.getValue(),
+          password,
         });
 
         if (result.isFail()) {
@@ -356,6 +400,21 @@ function aCommitHttpError(error: CommitIngestaError): {
   if (error instanceof CategorizacionFallidaError) {
     return { status: 500, message: error.message };
   }
+  // PDF protegido con password (design.md D-01/D-03/D-09) — mapeo
+  // discriminado por `error.motivo`: el cliente necesita distinguir "falta
+  // password" de "password incorrecta" para decidir si pedirla por primera
+  // vez o mostrar un mensaje de reintento (Slice 4, D-10). El carve-out de
+  // NO-registro-FALLIDA vive en CommitIngestaUseCase (D-09), no acá.
+  if (error instanceof PdfProtegidoError) {
+    return {
+      status: 400,
+      message: error.message,
+      code:
+        error.motivo === 'requiere-password'
+          ? 'PDF_PROTEGIDO'
+          : 'PDF_PASSWORD_INCORRECTA',
+    };
+  }
   // Client errors (file + overlay validation) → 400
   if (
     error instanceof ExtensionNoPermitidaError ||
@@ -396,6 +455,18 @@ function aHttpError(error: ProcessIngestaError): {
   if (error instanceof PersistenciaFallidaError) {
     // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
     return { status: 500, message: error.message };
+  }
+  // PDF protegido con password (design.md D-01/D-03) — mismo mapeo
+  // discriminado por `error.motivo` que aCommitHttpError arriba.
+  if (error instanceof PdfProtegidoError) {
+    return {
+      status: 400,
+      message: error.message,
+      code:
+        error.motivo === 'requiere-password'
+          ? 'PDF_PROTEGIDO'
+          : 'PDF_PASSWORD_INCORRECTA',
+    };
   }
   if (
     error instanceof ExtensionNoPermitidaError ||

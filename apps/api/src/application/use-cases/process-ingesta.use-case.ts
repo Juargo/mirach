@@ -7,6 +7,7 @@ import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
@@ -52,7 +53,20 @@ export interface ProcessIngestaResult {
   categorizacion?: CategorizacionResumen;
 }
 
-/** Unión de los errores que puede producir cualquier paso del pipeline. */
+/**
+ * Unión de los errores que puede producir cualquier paso del pipeline.
+ *
+ * Incluye `PdfProtegidoError` (design.md D-02) aunque `ProcessIngestaInput`
+ * NO gana un campo `password` — el endpoint one-shot (deprecado) deja pasar
+ * el error tal cual (mejor mensaje, "protegido" en vez de "inválido") pero
+ * sin forma de desbloquearlo en un solo request. La unión se declara acá
+ * para que `instanceof PdfProtegidoError` en `aHttpError` (Phase 8.6) narre
+ * correctamente contra el tipo — la estructura de `PdfProtegidoError` sin
+ * esto YA satisface estructuralmente `PdfInvalidoError` (ambos son
+ * subtipos de `Error` sin campos extra en `PdfInvalidoError`), así que el
+ * compilador no fuerza este widening por sí solo; se declara explícito por
+ * corrección e intención, no porque `tsc` lo exija.
+ */
 export type ProcessIngestaError =
   | IngestaDemoSoloLecturaError
   | ExtensionNoPermitidaError
@@ -62,6 +76,7 @@ export type ProcessIngestaError =
   | NormalizacionInvalidaError
   | PdfInvalidoError
   | PdfSinTextoError
+  | PdfProtegidoError
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError;
 
@@ -121,6 +136,14 @@ export class ProcessIngestaUseCase {
     try {
       const result = await this.runPipeline(input);
       if (result.isFail()) {
+        // NO hay carve-out D-09 acá (a diferencia de CommitIngestaUseCase) —
+        // decisión deliberada: `ProcessIngestaInput` no gana un campo
+        // `password` (D-02), así que un PDF protegido en el endpoint
+        // one-shot deprecado tiene EXACTAMENTE un intento por request, sin
+        // reintentos posibles ni pila de filas FALLIDA acumulándose. Hoy ya
+        // registra ese archivo como inválido; no hay pollution que evitar.
+        // Trigger YAGNI: si `POST /ingestas` alguna vez gana el campo
+        // password, el carve-out de D-09 se traslada acá.
         await this.registrarFallo(input, result.getError().message);
       }
       // El error ORIGINAL de runPipeline se preserva verbatim — el registro

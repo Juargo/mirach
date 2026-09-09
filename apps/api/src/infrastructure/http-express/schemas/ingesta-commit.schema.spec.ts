@@ -32,6 +32,18 @@ describe('commitIngestaRequestSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('accepts a payload with an optional password field and preserves it (Slice 3, D-08)', () => {
+    const result = commitIngestaRequestSchema.safeParse({
+      file: new File(['contenido'], 'cartola.pdf'),
+      password: 'una-clave-cualquiera',
+    });
+    expect(result.success).toBe(true);
+    // z.object() strips unrecognized keys by default — asserting the value
+    // survives parsing is what actually proves the field is part of the schema
+    // (a bare `success: true` would also hold for an unknown, stripped key).
+    expect(result.success && result.data.password).toBe('una-clave-cualquiera');
+  });
 });
 
 // ---------------------------------------------------------------------------

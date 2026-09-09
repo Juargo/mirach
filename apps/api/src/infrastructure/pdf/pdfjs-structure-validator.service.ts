@@ -45,6 +45,7 @@ export class PdfjsStructureValidatorService implements IPdfStructureValidator {
   async validate(
     buffer: Buffer,
     banco: BancoConocido,
+    password?: string,
   ): Promise<
     Result<
       EstructuraPdfValidada,
@@ -63,7 +64,11 @@ export class PdfjsStructureValidatorService implements IPdfStructureValidator {
       );
     }
 
-    const extraido = await this.extractor.extract(buffer, `${banco}.pdf`);
+    const extraido = await this.extractor.extract(
+      buffer,
+      `${banco}.pdf`,
+      password,
+    );
     if (extraido.isFail()) {
       return Result.fail(
         new EstructuraPdfInvalidaError(banco, [{ tipo: 'PdfIlegible' }]),
