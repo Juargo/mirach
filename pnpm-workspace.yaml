@@ -81,6 +81,17 @@ overrides:
   # apps/landing > astro. Build tooling, no llega al runtime del usuario.
   svgo: '>=4.1.0 <5.0.0'
 
+  # --- Burn-down 2026-09-09 (mismo patrón: el gate volvió a rojo solo) ---
+  # GHSA-7w5x-hrqm-74c2 — DoS por documento TOML malformado (high). Transitivo
+  # de apps/landing > astro (por tres caminos: directo, @astrojs/internal-
+  # helpers y @astrojs/markdown-satteri). Build tooling, no llega al runtime
+  # del usuario. Acotado a la línea 1.x por la misma razón que el resto: un
+  # rango abierto saltaría de mayor y rompería al consumidor. El piso es el
+  # 1.7.1 que parchea la advisory, pero dentro de 1.x resuelve a 1.8.0
+  # (publicada 2026-08-11) — supera los 7 días de cuarentena, así que no
+  # necesita dispensa en minimumReleaseAgeExclude.
+  smol-toml: '>=1.7.1 <2.0.0'
+
 # ADR-006 — defensas de instalación. Viven ACÁ, no en `.npmrc`: pnpm 11 lee sus
 # settings de este archivo. Declararlos en `.npmrc` los deja INERTES sin ningún
 # error (verificado el 2026-09-04 — ver el encabezado de `.npmrc`).
