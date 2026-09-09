@@ -548,13 +548,16 @@ surfaces its own error independently (the row's own `role="alert"` for a pattern
 `role="alert"` for the `PATCH`).
 
 When `Guardar` would otherwise open the bucket-change impact confirmation (WCTG-07, `Bucket` dirty),
-confirming pending pattern rows MUST still happen exactly once as part of that SAME `Guardar`
-interaction, but MAY be deferred until the confirmation dialog itself closes (by either its confirm
-or its cancel/Escape path) rather than firing at the instant the dialog opens — a pattern row stays
-protected from interaction, like the rest of the screen, for as long as that confirmation dialog is
-open. Cancelling or Escaping the bucket-change dialog MUST NOT undo a pattern's confirmation: it only
-cancels the identity's pending bucket change, never a pattern the user already asked `Guardar` to
-save.
+confirming pending pattern rows MUST be deferred until that dialog is CONFIRMED, and MUST NOT fire at
+the instant the dialog opens — a pattern row stays protected from interaction, like the rest of the
+screen, for as long as that confirmation dialog is open.
+
+Dismissing that dialog (its cancel button or `Escape`) MUST abort the whole `Guardar` interaction:
+neither the identity `PATCH` nor any pending pattern's `POST` may be sent. The user pressed `Guardar`,
+the screen asked, and they answered no — a dismissal that still writes to the server is the same
+class of surprise as a `Guardar` that silently writes nothing. The typed pattern text MUST survive in
+its row (a dismissal discards the COMMIT, not the draft), so the user can still confirm it via Enter,
+`Confirmar patrón`, or another `Guardar`.
 
 #### Scenario: A pattern edit survives Cancelar
 
@@ -583,13 +586,20 @@ save.
 - WHEN the user activates `Guardar`
 - THEN the identity `PATCH` is still sent, but no `POST /api/patrones` is sent for that row
 
-#### Scenario: A bucket-change confirmation does not swallow a pending pattern row
+#### Scenario: Confirming a bucket-change also confirms the pending pattern row
 
 - GIVEN the user added a pattern row with pending text AND made `Bucket` dirty
 - WHEN the user activates `Guardar`, which opens the bucket-change impact confirmation (WCTG-07)
-- THEN the pending pattern is confirmed as part of that same `Guardar` interaction (on the dialog's
-  confirm path, or on its cancel/Escape path) — regardless of which path resolves the dialog, the
-  pattern is not lost, and cancelling the dialog does not revert an already-confirmed pattern
+- THEN no pattern request is sent while that dialog is open
+- WHEN the user confirms the dialog
+- THEN the identity `PATCH` is sent AND the pending pattern's `POST /api/patrones` is sent
+
+#### Scenario: Dismissing the bucket-change confirmation aborts the whole Guardar
+
+- GIVEN the user added a pattern row with pending text AND made `Bucket` dirty
+- WHEN the user activates `Guardar` and then dismisses the confirmation (cancel or `Escape`)
+- THEN neither the identity `PATCH` nor the pattern's `POST` is sent
+- AND the typed pattern text is still in its row, ready to be confirmed by another surface
 
 ### Requirement: WCTG-05 — Footer is one row; copy and divider carry the two-commit honesty (decision 10, §4)
 
