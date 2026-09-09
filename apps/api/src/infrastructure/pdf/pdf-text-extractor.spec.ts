@@ -4,8 +4,16 @@ import { afterEach, vi } from 'vitest';
 import { PdfTextExtractor } from './pdf-text-extractor';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 
 const fixturesDir = join(__dirname, '../../../test/fixtures/pdf');
+
+// Debe coincidir EXACTAMENTE con `PASSWORD_FIXTURE` en
+// `test/fixtures/pdf/generar-protegida-test.ts`. No se importa ese módulo
+// directamente porque tiene un efecto secundario de módulo (regenera el
+// fixture en disco al cargarse) — no deseable como side-effect de un
+// import en un archivo de test.
+const PASSWORD_FIXTURE = 'clave-fixture-pdf-protegido-2026'; // gitleaks:allow — fixture de test, no es un secreto
 
 describe('PdfTextExtractor', () => {
   it('extrae tokens de texto (str/x/y/page) desde un PDF real (bancoestado)', async () => {
@@ -50,6 +58,102 @@ describe('PdfTextExtractor', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(PdfSinTextoError);
+  });
+
+  describe('PDF protegido con password (D-04)', () => {
+    // Constant-pin / alarm test: si un upgrade de pdfjs-dist cambia la forma
+    // de PasswordResponses, este test falla RUIDOSAMENTE señalando a la
+    // librería, no a nuestro código (design.md D-04).
+    it('PasswordResponses.NEED_PASSWORD y .INCORRECT_PASSWORD son numéricos y distintos', async () => {
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+      expect(typeof pdfjsLib.PasswordResponses.NEED_PASSWORD).toBe('number');
+      expect(typeof pdfjsLib.PasswordResponses.INCORRECT_PASSWORD).toBe(
+        'number',
+      );
+      expect(pdfjsLib.PasswordResponses.NEED_PASSWORD).not.toBe(
+        pdfjsLib.PasswordResponses.INCORRECT_PASSWORD,
+      );
+    });
+
+    it('retorna Fail(PdfProtegidoError "requiere-password") sin password', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+      const extractor = new PdfTextExtractor();
+
+      const result = await extractor.extract(buffer, 'protegida-test.pdf');
+
+      expect(result.isFail()).toBe(true);
+      const error = result.getError();
+      expect(error).toBeInstanceOf(PdfProtegidoError);
+      expect((error as PdfProtegidoError).motivo).toBe('requiere-password');
+    });
+
+    it('retorna Fail(PdfProtegidoError "password-incorrecta") con password incorrecta', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+      const extractor = new PdfTextExtractor();
+
+      const result = await extractor.extract(
+        buffer,
+        'protegida-test.pdf',
+        'esta-password-es-incorrecta',
+      );
+
+      expect(result.isFail()).toBe(true);
+      const error = result.getError();
+      expect(error).toBeInstanceOf(PdfProtegidoError);
+      expect((error as PdfProtegidoError).motivo).toBe('password-incorrecta');
+    });
+
+    it('retorna Ok(tokens) con la password correcta', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+      const extractor = new PdfTextExtractor();
+
+      const result = await extractor.extract(
+        buffer,
+        'protegida-test.pdf',
+        PASSWORD_FIXTURE,
+      );
+
+      expect(result.isOk()).toBe(true);
+      const tokens = result.getValue();
+      const texto = tokens.map((token) => token.str).join('');
+      expect(texto).toBe('PDF PROTEGIDO FIXTURE');
+    });
+
+    // Negative regression (over-capture guard): un buffer corrupto (no
+    // cifrado) debe seguir cayendo en PdfInvalidoError, nunca en la nueva
+    // rama de detección de password.
+    it('un buffer corrupto (no cifrado) sigue retornando PdfInvalidoError, no PdfProtegidoError', async () => {
+      const buffer = Buffer.from(
+        'esto no es un pdf, son bytes cualquiera 12345',
+      );
+      const extractor = new PdfTextExtractor();
+
+      const result = await extractor.extract(buffer, 'corrupto.pdf');
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PdfInvalidoError);
+    });
+
+    // Never-leak (D-07 capa 2): el mensaje de error jamás debe contener la
+    // password entregada, aunque sea incorrecta — una futura edición que
+    // reenvíe el mensaje crudo de pdfjs debe hacer fallar este test.
+    it('el mensaje de error nunca contiene la password entregada (D-07)', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+      const extractor = new PdfTextExtractor();
+      const passwordIncorrectaYDistintiva = 'password-incorrecta-marcador-xyz';
+
+      const result = await extractor.extract(
+        buffer,
+        'protegida-test.pdf',
+        passwordIncorrectaYDistintiva,
+      );
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError().message).not.toContain(
+        passwordIncorrectaYDistintiva,
+      );
+    });
   });
 
   describe('fallo de resolución del import dinámico de pdfjs-dist', () => {

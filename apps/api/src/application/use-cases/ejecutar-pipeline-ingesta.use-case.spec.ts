@@ -13,6 +13,7 @@ import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.
 import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida.error';
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
@@ -73,11 +74,20 @@ class FakeBankDetector implements IBankDetector {
 
 class FakePdfBankDetector implements IPdfBankDetector {
   called = false;
-  failWith?: PdfInvalidoError | BancoNoReconocidoError;
-  async detect(): Promise<
-    Result<DetectedBank, PdfInvalidoError | BancoNoReconocidoError>
+  receivedPassword?: string;
+  failWith?: PdfInvalidoError | BancoNoReconocidoError | PdfProtegidoError;
+  async detect(
+    _buffer: Buffer,
+    _originalName: string,
+    password?: string,
+  ): Promise<
+    Result<
+      DetectedBank,
+      PdfInvalidoError | BancoNoReconocidoError | PdfProtegidoError
+    >
   > {
     this.called = true;
+    this.receivedPassword = password;
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(BANCO);
   }
@@ -111,11 +121,15 @@ const ESTRUCTURA_PDF: EstructuraPdfValidada = {
 
 class FakePdfStructureValidator implements IPdfStructureValidator {
   called = false;
+  receivedPassword?: string;
   failWith?: EstructuraPdfInvalidaError;
-  async validate(): Promise<
-    Result<EstructuraPdfValidada, EstructuraPdfInvalidaError>
-  > {
+  async validate(
+    _buffer: Buffer,
+    _banco: BancoConocido,
+    password?: string,
+  ): Promise<Result<EstructuraPdfValidada, EstructuraPdfInvalidaError>> {
     this.called = true;
+    this.receivedPassword = password;
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(ESTRUCTURA_PDF);
   }
@@ -159,11 +173,15 @@ class FakeTransactionNormalizer implements ITransactionNormalizer {
 
 class FakePdfTransactionNormalizer implements IPdfTransactionNormalizer {
   called = false;
+  receivedPassword?: string;
   failWith?: EstructuraPdfInvalidaError;
-  async normalize(): Promise<
-    Result<ReadonlyArray<Transaccion>, EstructuraPdfInvalidaError>
-  > {
+  async normalize(
+    _buffer: Buffer,
+    _banco: BancoConocido,
+    password?: string,
+  ): Promise<Result<ReadonlyArray<Transaccion>, EstructuraPdfInvalidaError>> {
     this.called = true;
+    this.receivedPassword = password;
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(TXS_PDF);
   }
@@ -382,6 +400,68 @@ describe('EjecutarPipelineIngestaUseCase', () => {
       expect(pdfBankDetector.called).toBe(true);
       expect(pdfStructureValidator.called).toBe(true);
       expect(pdfNormalizer.called).toBe(true);
+    });
+  });
+
+  describe('password threading (design.md D-01/D-06/D-08)', () => {
+    it('forwarda la password al IPdfBankDetector y corta de inmediato si falla con PdfProtegidoError (D-06: un solo parse)', async () => {
+      const pdfBankDetector = new FakePdfBankDetector();
+      pdfBankDetector.failWith = new PdfProtegidoError(
+        'cartola.pdf',
+        'password-incorrecta',
+      );
+      const pdfStructureValidator = new FakePdfStructureValidator();
+      const pdfNormalizer = new FakePdfTransactionNormalizer();
+      const useCase = makeUseCase({
+        pdfBankDetector,
+        pdfStructureValidator,
+        pdfNormalizer,
+      });
+
+      const result = await useCase.execute({
+        fileReader: new FakePdfFileReader(),
+        password: 'la-clave',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PdfProtegidoError);
+      expect(pdfBankDetector.receivedPassword).toBe('la-clave');
+      // Fast failure — validate/normalize NUNCA corren (un solo parse, no 3).
+      expect(pdfStructureValidator.called).toBe(false);
+      expect(pdfNormalizer.called).toBe(false);
+    });
+
+    it('forwarda la MISMA password a detect, validate y normalize cuando detect tiene éxito', async () => {
+      const pdfBankDetector = new FakePdfBankDetector();
+      const pdfStructureValidator = new FakePdfStructureValidator();
+      const pdfNormalizer = new FakePdfTransactionNormalizer();
+      const useCase = makeUseCase({
+        pdfBankDetector,
+        pdfStructureValidator,
+        pdfNormalizer,
+      });
+
+      const result = await useCase.execute({
+        fileReader: new FakePdfFileReader(),
+        password: 'la-clave',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(pdfBankDetector.receivedPassword).toBe('la-clave');
+      expect(pdfStructureValidator.receivedPassword).toBe('la-clave');
+      expect(pdfNormalizer.receivedPassword).toBe('la-clave');
+    });
+
+    it('sin password (Excel u omitida) — se forwarda `undefined`, comportamiento byte-idéntico (PDF-09)', async () => {
+      const pdfBankDetector = new FakePdfBankDetector();
+      const useCase = makeUseCase({ pdfBankDetector });
+
+      const result = await useCase.execute({
+        fileReader: new FakePdfFileReader(),
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(pdfBankDetector.receivedPassword).toBeUndefined();
     });
   });
 

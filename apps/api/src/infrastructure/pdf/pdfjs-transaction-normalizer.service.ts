@@ -53,6 +53,7 @@ export class PdfjsTransactionNormalizerService implements IPdfTransactionNormali
   async normalize(
     buffer: Buffer,
     banco: BancoConocido,
+    password?: string,
   ): Promise<
     Result<
       ReadonlyArray<Transaccion>,
@@ -71,7 +72,11 @@ export class PdfjsTransactionNormalizerService implements IPdfTransactionNormali
       );
     }
 
-    const extraido = await this.extractor.extract(buffer, `${banco}.pdf`);
+    const extraido = await this.extractor.extract(
+      buffer,
+      `${banco}.pdf`,
+      password,
+    );
     if (extraido.isFail()) {
       return Result.fail(
         new EstructuraPdfInvalidaError(banco, [{ tipo: 'PdfIlegible' }]),

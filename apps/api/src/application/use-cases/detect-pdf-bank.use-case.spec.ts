@@ -25,7 +25,13 @@ describe('DetectPdfBankUseCase', () => {
 
     const result = await useCase.execute(buffer, 'cartola.pdf');
 
-    expect(detector.detect as Mock).toHaveBeenCalledWith(buffer, 'cartola.pdf');
+    // password no fue provisto → se forwarda `undefined` (D-01: trailing
+    // optional, sin efecto para el detector cuando está ausente).
+    expect(detector.detect as Mock).toHaveBeenCalledWith(
+      buffer,
+      'cartola.pdf',
+      undefined,
+    );
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual(detected);
   });
@@ -41,6 +47,27 @@ describe('DetectPdfBankUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(error);
+  });
+
+  it('forwarda la password opcional al IPdfBankDetector inyectado (D-01)', async () => {
+    const detected: DetectedBank = {
+      banco: BancoConocido.BancoEstado,
+      tipoCuenta: TipoCuentaConocido.CuentaRut,
+      numeroCuenta: '12345678',
+    };
+    const detector: IPdfBankDetector = {
+      detect: vi.fn().mockResolvedValue(Result.ok(detected)),
+    };
+    const useCase = new DetectPdfBankUseCase(detector, new NoOpLogger());
+    const buffer = Buffer.from('contenido');
+
+    await useCase.execute(buffer, 'cartola.pdf', 'la-clave');
+
+    expect(detector.detect as Mock).toHaveBeenCalledWith(
+      buffer,
+      'cartola.pdf',
+      'la-clave',
+    );
   });
 
   describe('debug logging (ADR-033 slice B — redaction contract, ADR-013)', () => {

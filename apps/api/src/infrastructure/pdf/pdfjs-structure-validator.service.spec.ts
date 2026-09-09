@@ -4,6 +4,11 @@ import { PdfjsStructureValidatorService } from './pdfjs-structure-validator.serv
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 
+// Debe coincidir EXACTAMENTE con `PASSWORD_FIXTURE` en
+// `test/fixtures/pdf/generar-protegida-test.ts`. No se importa ese módulo
+// directamente (efecto colateral: reescribe el fixture binario en cada corrida).
+const PASSWORD_FIXTURE = 'clave-fixture-pdf-protegido-2026'; // gitleaks:allow — fixture de test, no es un secreto
+
 const fixturesDir = join(__dirname, '../../../test/fixtures/pdf');
 
 describe('PdfjsStructureValidatorService', () => {
@@ -94,5 +99,36 @@ describe('PdfjsStructureValidatorService', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(EstructuraPdfInvalidaError);
+  });
+
+  describe('password forwarding al extractor (D-01/D-05)', () => {
+    it('sin password, PDF protegido → colapsa a EstructuraPdfInvalidaError "PdfIlegible" (masking existente)', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+
+      const result = await service.validate(buffer, BancoConocido.BancoEstado);
+
+      expect(result.isFail()).toBe(true);
+      const error = result.getError() as EstructuraPdfInvalidaError;
+      expect(error).toBeInstanceOf(EstructuraPdfInvalidaError);
+      expect(error.problemas).toEqual([{ tipo: 'PdfIlegible' }]);
+    });
+
+    it('forwarda la password correcta al extractor — deja de colapsar en PdfIlegible (la extracción tuvo éxito)', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+
+      const result = await service.validate(
+        buffer,
+        BancoConocido.BancoEstado,
+        PASSWORD_FIXTURE,
+      );
+
+      // El fixture no tiene la estructura de ningún banco real — la
+      // extracción SÍ tiene éxito (prueba del forwarding), pero
+      // evaluarEstructura falla por anclas faltantes, no por PdfIlegible.
+      expect(result.isFail()).toBe(true);
+      const error = result.getError() as EstructuraPdfInvalidaError;
+      expect(error).toBeInstanceOf(EstructuraPdfInvalidaError);
+      expect(error.problemas).not.toEqual([{ tipo: 'PdfIlegible' }]);
+    });
   });
 });

@@ -5,6 +5,12 @@ import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
+import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
+
+// Debe coincidir EXACTAMENTE con `PASSWORD_FIXTURE` en
+// `test/fixtures/pdf/generar-protegida-test.ts`. No se importa ese módulo
+// directamente (efecto colateral: reescribe el fixture binario en cada corrida).
+const PASSWORD_FIXTURE = 'clave-fixture-pdf-protegido-2026'; // gitleaks:allow — fixture de test, no es un secreto
 
 const fixturesDir = join(__dirname, '../../../test/fixtures/pdf');
 
@@ -65,5 +71,50 @@ describe('PdfjsBankDetectorService', () => {
       'Documento generico sin datos bancarios',
     );
     expect(result.getError().message).toContain('no-banco-test.pdf');
+  });
+
+  describe('password forwarding al extractor (D-01/D-04)', () => {
+    it('sin password, PDF protegido → Fail(PdfProtegidoError "requiere-password")', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+
+      const result = await service.detect(buffer, 'protegida-test.pdf');
+
+      expect(result.isFail()).toBe(true);
+      const error = result.getError();
+      expect(error).toBeInstanceOf(PdfProtegidoError);
+      expect((error as PdfProtegidoError).motivo).toBe('requiere-password');
+    });
+
+    it('con password incorrecta → Fail(PdfProtegidoError "password-incorrecta")', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+
+      const result = await service.detect(
+        buffer,
+        'protegida-test.pdf',
+        'esta-password-es-incorrecta',
+      );
+
+      expect(result.isFail()).toBe(true);
+      const error = result.getError();
+      expect(error).toBeInstanceOf(PdfProtegidoError);
+      expect((error as PdfProtegidoError).motivo).toBe('password-incorrecta');
+    });
+
+    it('forwarda la password correcta al extractor — el PDF se desbloquea (deja de fallar con PdfProtegidoError)', async () => {
+      const buffer = await readFile(join(fixturesDir, 'protegida-test.pdf'));
+
+      const result = await service.detect(
+        buffer,
+        'protegida-test.pdf',
+        PASSWORD_FIXTURE,
+      );
+
+      // El fixture no tiene estructura de ningún banco real — falla en el
+      // matching de estrategias, NO en la extracción. Eso es justamente la
+      // prueba de forwarding: si la password NO se hubiese pasado, el
+      // resultado seguiría siendo PdfProtegidoError.
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(BancoNoReconocidoError);
+    });
   });
 });
