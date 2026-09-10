@@ -523,14 +523,41 @@ MUST NOT be used, since it renders `0 patrones` instead of `sin patrones`.
 - WHEN its tag renders
 - THEN it reads exactly `3 patrones`
 
-### Requirement: WCTG-04 — Edit screen has two independent commit semantics (CA-02, decision 2, §4)
+### Requirement: WCTG-04 — Edit screen has two independent commit surfaces, and Guardar also flushes pending pattern rows (CA-02, decision 2, §4; amended issue #600)
 
 The edit screen MUST have two independent mutation surfaces. Identity (`Nombre`, required `Bucket`)
 commits ONLY on `Guardar`, via one `PATCH /api/categorias/:id`. Patterns commit immediately, per row,
-via independent `POST`/`PATCH`/`DELETE /api/patrones` calls the moment each row action is confirmed —
-never batched with `Guardar`. `Cancelar` MUST discard ONLY the identity draft (`Nombre`/`Bucket`) and
-return to the list; it MUST NOT revert, hide, or otherwise imply it undid any pattern row already
-committed during the same visit.
+via independent `POST`/`PATCH`/`DELETE /api/patrones` calls the moment each row action is confirmed
+(Enter, `Confirmar patrón`, or choosing `matchType` with text already present) — never batched with,
+or gated by, `Guardar`'s own submit. `Cancelar` MUST discard ONLY the identity draft (`Nombre`/
+`Bucket`) and return to the list; it MUST NOT revert, hide, or otherwise imply it undid any pattern
+row already committed during the same visit.
+
+"Independent" does NOT mean "`Guardar` never touches patterns" — issue #600 found that a not-yet-
+created pattern row (one still awaiting its first explicit confirm) had NO surface reachable from
+`Guardar`: a user who typed a pattern and pressed `Guardar` lost it silently, because `Guardar` only
+ever called the identity `PATCH`. `Guardar` MUST ALSO confirm every not-yet-created pattern row that
+has non-blank pending text, in addition to (never instead of) its own identity commit. This is a
+THIRD trigger for the SAME per-row commit `Enter`/`Confirmar patrón` already use — it does not change
+what a row commits, only adds one more way to reach that commit. A row with blank (or whitespace-
+only) pending text sends nothing, identical to Enter/`Confirmar patrón` on a blank row. Independence
+is preserved at the level of OUTCOME, not of ARE-THEY-CALLED-TOGETHER: the identity `PATCH` and a
+pattern row's own `POST`/`PATCH` are two separate requests that each succeed or fail on their own —
+a failed pattern commit MUST NOT block, retry, or corrupt the identity save, and vice versa; each
+surfaces its own error independently (the row's own `role="alert"` for a pattern, the identity card's
+`role="alert"` for the `PATCH`).
+
+When `Guardar` would otherwise open the bucket-change impact confirmation (WCTG-07, `Bucket` dirty),
+confirming pending pattern rows MUST be deferred until that dialog is CONFIRMED, and MUST NOT fire at
+the instant the dialog opens — a pattern row stays protected from interaction, like the rest of the
+screen, for as long as that confirmation dialog is open.
+
+Dismissing that dialog (its cancel button or `Escape`) MUST abort the whole `Guardar` interaction:
+neither the identity `PATCH` nor any pending pattern's `POST` may be sent. The user pressed `Guardar`,
+the screen asked, and they answered no — a dismissal that still writes to the server is the same
+class of surprise as a `Guardar` that silently writes nothing. The typed pattern text MUST survive in
+its row (a dismissal discards the COMMIT, not the draft), so the user can still confirm it via Enter,
+`Confirmar patrón`, or another `Guardar`.
 
 #### Scenario: A pattern edit survives Cancelar
 
@@ -539,11 +566,40 @@ committed during the same visit.
 - THEN the identity edit is discarded, the user returns to the list, and the newly added pattern is
   present when the category is reopened
 
-#### Scenario: Guardar sends exactly one PATCH for identity, never touching patterns
+#### Scenario: Guardar sends exactly one PATCH for identity when no pattern row is pending
 
-- GIVEN `Nombre` is dirty and no pattern was touched this visit
+- GIVEN `Nombre` is dirty and there is no not-yet-created pattern row on screen
 - WHEN the user activates `Guardar`
 - THEN exactly one `PATCH /api/categorias/:id` is sent and no pattern endpoint is called
+
+#### Scenario: Guardar confirms a pending pattern row in addition to saving identity
+
+- GIVEN the user added a pattern row, typed non-blank text into it, and never pressed Enter or
+  `Confirmar patrón`
+- WHEN the user activates `Guardar`
+- THEN a `POST /api/patrones` is sent for that row's text AND a `PATCH /api/categorias/:id` is sent
+  for the identity draft — the pattern is no longer lost silently
+
+#### Scenario: Guardar does not create a pattern from a blank pending row
+
+- GIVEN the user added a pattern row and left its text blank (or whitespace-only)
+- WHEN the user activates `Guardar`
+- THEN the identity `PATCH` is still sent, but no `POST /api/patrones` is sent for that row
+
+#### Scenario: Confirming a bucket-change also confirms the pending pattern row
+
+- GIVEN the user added a pattern row with pending text AND made `Bucket` dirty
+- WHEN the user activates `Guardar`, which opens the bucket-change impact confirmation (WCTG-07)
+- THEN no pattern request is sent while that dialog is open
+- WHEN the user confirms the dialog
+- THEN the identity `PATCH` is sent AND the pending pattern's `POST /api/patrones` is sent
+
+#### Scenario: Dismissing the bucket-change confirmation aborts the whole Guardar
+
+- GIVEN the user added a pattern row with pending text AND made `Bucket` dirty
+- WHEN the user activates `Guardar` and then dismisses the confirmation (cancel or `Escape`)
+- THEN neither the identity `PATCH` nor the pattern's `POST` is sent
+- AND the typed pattern text is still in its row, ready to be confirmed by another surface
 
 ### Requirement: WCTG-05 — Footer is one row; copy and divider carry the two-commit honesty (decision 10, §4)
 
