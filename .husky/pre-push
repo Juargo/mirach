@@ -5,4 +5,16 @@
 # before the test suite spends a minute.
 ./scripts/check-openspec-artifacts.sh untracked
 
-pnpm --filter "...[origin/main]" test
+# `--filter "!{.}"` excluye el paquete RAÍZ del monorepo (issue #614).
+# `...[origin/main]` matchea los workspaces afectados Y TAMBIÉN la raíz, cuyo
+# propio script `test` es `pnpm -r test` — o sea que sin esta exclusión pnpm
+# lanzaba cada suite DOS veces en paralelo (una directa y otra anidada bajo
+# `. test:`), y jest se caía por contención con un fallo que no tenía nada que
+# ver con el código que se estaba pusheando. Reintentar el push alcanzaba para
+# "arreglarlo", que es justo el patrón que entrena a saltear el hook con
+# `--no-verify` — y ahí se pierde la red entera, no solo el falso positivo.
+#
+# `{.}` es el paquete ubicado en el directorio actual, no un nombre: excluye la
+# raíz aunque alguien renombre el paquete. `pnpm -r` NO sirve acá — no excluye
+# la raíz cuando hay un `--filter` explícito (verificado, pnpm 11).
+pnpm --filter "...[origin/main]" --filter '!{.}' test
