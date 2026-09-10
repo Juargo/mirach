@@ -135,6 +135,33 @@ describe('PdfTextExtractor', () => {
       expect(result.getError()).toBeInstanceOf(PdfInvalidoError);
     });
 
+    // PDF-06, escenario "A password supplied for an unprotected PDF is
+    // harmless". Lo exige el spec con un MUST y su propio Given/When/Then,
+    // pero no tenía cobertura en ninguna capa (hallazgo F1 de sdd-verify).
+    //
+    // Es el comportamiento documentado de pdfjs —ignora una password que no
+    // hace falta— pero justamente por venir de la librería es lo que un
+    // upgrade puede cambiar sin avisar. Se compara contra la extracción SIN
+    // password en vez de contra un literal: así el test sigue siendo válido
+    // aunque el fixture cambie de contenido.
+    it('una password en un PDF NO cifrado es inocua: mismos tokens que sin password', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bancoestado-cartola-test.pdf'),
+      );
+      const extractor = new PdfTextExtractor();
+
+      const sinPassword = await extractor.extract(buffer, 'cartola.pdf');
+      const conPassword = await extractor.extract(
+        buffer,
+        'cartola.pdf',
+        'una-password-que-nadie-pidió',
+      );
+
+      expect(sinPassword.isOk()).toBe(true);
+      expect(conPassword.isOk()).toBe(true);
+      expect(conPassword.getValue()).toEqual(sinPassword.getValue());
+    });
+
     // Never-leak (D-07 capa 2): el mensaje de error jamás debe contener la
     // password entregada, aunque sea incorrecta — una futura edición que
     // reenvíe el mensaje crudo de pdfjs debe hacer fallar este test.

@@ -124,28 +124,36 @@ On a successful delete response, the web client MUST invalidate the TanStack Que
 
 ### Requirement: ING-07 — Early pipeline failures are recorded with direct userId isolation
 
-The system MUST persist a `FALLIDA` `Ingesta` row for every terminal pipeline failure, including failures before an `Account` is resolved (invalid extension, unrecognized bank). Each such row MUST carry `userId` (NOT NULL, from the authenticated request) directly on `Ingesta`, independent of `accountId`. `accountId`/`banco` MAY be null. `motivoFallo` MUST be set. The invariant `estado = PROCESADA ⟹ accountId IS NOT NULL` MUST hold.
+The system MUST persist a `FALLIDA` `Ingesta` row for every terminal pipeline failure, including failures before an `Account` is resolved (invalid extension, unrecognized bank), **except** a commit-time failure caused by a password-protected PDF with no password supplied, or with an incorrect password (`pdf-ingesta` PDF-08). That specific case is a client-correctable input validation error, not a recorded ingesta outcome, and MUST NOT create any `Ingesta` row — neither `FALLIDA` nor `PROCESADA`. Every other terminal failure category is unaffected by this exception and continues to be recorded exactly as before. Each recorded row MUST carry `userId` (NOT NULL, from the authenticated request) directly on `Ingesta`, independent of `accountId`. `accountId`/`banco` MAY be null. `motivoFallo` MUST be set. The invariant `estado = PROCESADA ⟹ accountId IS NOT NULL` MUST hold.
 
-#### Scenario: Unrecognized-bank upload is recorded as FALLIDA
+(Previously: this requirement stated, without exception, that every terminal pipeline failure is recorded as a `FALLIDA` row. This change carves out the new password-protected-PDF validation error, which must NOT be recorded at all.)
+
+#### Scenario: Unrecognized-bank upload is recorded as FALLIDA (unchanged)
 
 - GIVEN an authenticated user uploads a cartola whose bank cannot be detected
 - WHEN the upload completes
 - THEN a row exists with `estado=FALLIDA`, `userId` set, `banco=null`, `nombreArchivo` set, and a descriptive `motivoFallo`
 
-#### Scenario: Invalid-extension upload is recorded as FALLIDA
+#### Scenario: Invalid-extension upload is recorded as FALLIDA (unchanged)
 
 - GIVEN a user uploads a `.docx` file
 - WHEN validation rejects it
 - THEN a `FALLIDA` row is recorded with `nombreArchivo` and a `motivoFallo` describing the invalid extension
 
-#### Scenario: A successful ingesta always has a resolved account
+#### Scenario: A password-protected PDF failure at commit is NOT recorded (new exception)
 
-- GIVEN a `PROCESADA` ingesta
-- THEN `accountId` is NOT NULL (enforced in application layer, not a DB CHECK)
+- GIVEN a user submits a password-protected PDF to commit with no password, or with an incorrect password, any number of times
+- WHEN each attempt completes
+- THEN no `Ingesta` row — `FALLIDA` or otherwise — is created for any of those attempts
 
 ### Requirement: ING-08 — Multi-tenant isolation of the ingesta history (RNF-SEC-006)
 
 `GET /api/ingestas` MUST scope exclusively by the caller's own `Ingesta.userId`, for both `PROCESADA` and `FALLIDA` rows, including rows where `accountId` is null.
+
+#### Scenario: A successful ingesta always has a resolved account (unchanged)
+
+- GIVEN a `PROCESADA` ingesta
+- THEN `accountId` is NOT NULL (enforced in application layer, not a DB CHECK)
 
 #### Scenario: A user never sees another user's ingestas, including accountId-null ones
 
