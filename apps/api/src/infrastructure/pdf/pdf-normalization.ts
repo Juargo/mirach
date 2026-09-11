@@ -182,10 +182,17 @@ export function normalizarTransaccionesPdf(
   estructura: EstructuraPdfBanco,
   periodo: { readonly desde: string; readonly hasta: string } | undefined,
 ): Result<ReadonlyArray<Transaccion>, EstructuraPdfInvalidaError> {
+  // NOTA (Trap 5, design.md AMENDMENT A-01): este mapeo campo-por-campo es a
+  // propósito — copia SOLO lo que `agruparTokens` necesita — pero eso mismo
+  // significa que cualquier campo nuevo en `RangoX` (ej. `rescateBordeDerecho`)
+  // queda silenciosamente afuera si no se lista aquí. `rescateBordeDerecho` es
+  // opcional, así que omitirlo no rompe `tsc --noEmit`: el mecanismo de
+  // rescate quedaría inerte de punta a punta sin que nada lo señale.
   const rangosX: RangoColumna[] = estructura.rangosX.map((r) => ({
     col: r.col,
     xMin: r.xMin,
     xMax: r.xMax,
+    rescateBordeDerecho: r.rescateBordeDerecho,
   }));
   const filasCrudas = agruparTokens(tokens, rangosX, estructura.toleranciaY);
 

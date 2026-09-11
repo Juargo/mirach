@@ -314,6 +314,59 @@ describe('normalizarTransaccionesPdf', () => {
     ]);
   });
 
+  // Trap 5 (design.md AMENDMENT A-01, Fase 39.5): `normalizarTransaccionesPdf`
+  // reconstruye `rangosX` con un `.map()` campo-por-campo. Si `rescateBordeDerecho`
+  // no se lista ahí, el opt-in NUNCA llega a `agruparTokens` y el rescate por
+  // borde derecho queda inerte de punta a punta — compilando limpio. Este test
+  // falla si alguien quita `rescateBordeDerecho: r.rescateBordeDerecho` del map:
+  // el monto corto se queda en la zona muerta, sin columna, y la fila se rechaza.
+  it('el opt-in rescateBordeDerecho sobrevive el map de normalización y rescata un monto corto de la zona muerta', () => {
+    const rangosXBci = [
+      { col: 'fecha' as const, xMin: 0, xMax: 100 },
+      { col: 'descripcion' as const, xMin: 100, xMax: 300 },
+      // cargo por borde IZQUIERDO llega hasta 390; el rescate por borde DERECHO
+      // cubre [398,408). Entre 390 y 410 hay zona muerta (abono arranca en 410).
+      {
+        col: 'cargo' as const,
+        xMin: 300,
+        xMax: 390,
+        rescateBordeDerecho: { xMin: 398, xMax: 408, tamanoFuentePt: 6 },
+      },
+      { col: 'abono' as const, xMin: 410, xMax: 500 },
+    ];
+    // '587' (3 dígitos): borde izquierdo x=392 cae en la zona muerta [390,410),
+    // fuera de toda banda. Borde derecho = 392 + 3*0.556*6 = 402.008, dentro de
+    // la ventana de rescate de `cargo`. Solo se clasifica si el opt-in cruzó el map.
+    const tokens = [
+      tok('01/04/2026', 30, 100),
+      tok('Compra Corta', 150, 100),
+      tok('587', 392, 100),
+    ];
+
+    const resultado = ok(
+      normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase({
+          banco: BancoConocido.BCI,
+          formatoFecha: 'DD/MM/YYYY',
+          fuenteAnio: { kind: 'explicito' },
+          rangosX: rangosXBci,
+          filasIgnoradas: [],
+        }),
+        undefined,
+      ),
+    );
+
+    expect(resultado).toEqual([
+      Transaccion.crear({
+        fecha: new Date(Date.UTC(2026, 3, 1)),
+        descripcion: 'Compra Corta',
+        cargo: 587n,
+        abono: 0n,
+      }).getValue(),
+    ]);
+  });
+
   it('acepta el separador "-" en fecha DD/MM/YYYY (2ª variante BCI, D-04) además del "/" existente', () => {
     const rangosXBci = [
       { col: 'fecha' as const, xMin: 0, xMax: 100 },
