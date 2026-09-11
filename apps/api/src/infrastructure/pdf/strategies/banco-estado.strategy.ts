@@ -26,6 +26,25 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     orden real de las columnas del encabezado ("Abonos" antes que "Cargos").
  *   - "Subtotales" (fila resumen al final de la página 2) se excluye vía
  *     `filasIgnoradas`.
+ *
+ * Auditoría cruzada 2026-09-11 (change SDD `bci-cartola-variante`, Slice 5,
+ * design.md D-14): `abono` [395,460) y `cargo` [460,500) son CONTIGUAS — 0pt
+ * de zona muerta, y en orden INVERTIDO respecto a BCI/Banco de Chile (aquí
+ * `abono` queda a la izquierda de `cargo`). Sin zona muerta, un monto
+ * right-aligned corto que cruce esa frontera se leería del lado equivocado EN
+ * SILENCIO — sin `TokenSinAsignarSospechoso` que lo delate (ver D-02 sobre
+ * por qué la zona muerta es lo que convierte un error de banda en un rechazo
+ * ruidoso en vez de una inversión de signo). Estas bandas NO formaron parte
+ * de la recalibración de 2026-08-30 (0 cartolas reales medidas para este
+ * banco) y no existe cartola PDF real de BancoEstado disponible para
+ * verificar si sus montos son right-aligned como los de BCI/Banco de Chile —
+ * `formatoFecha: 'DD/Mmm'` está pinneado solo contra el fixture sintético, no
+ * confirmado contra un statement real. Es, hoy, el DEFECTO DE DINERO LATENTE
+ * más severo de los 4 bancos: no confirmado, pero sin ningún colchón
+ * estructural si se confirma. Disparador de seguimiento: una medición contra
+ * una cartola real, antes de tocar cualquier banda (ver el issue draft en
+ * `openspec/changes/bci-cartola-variante/`). No se toca ninguna banda aquí —
+ * la auditoría es solo documentación.
  */
 export class BancoEstadoPdfStrategy {
   private static readonly ANCLA_ENCABEZADO = 'CARTOLA CUENTARUT N°';
