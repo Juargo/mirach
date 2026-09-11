@@ -444,11 +444,16 @@ describe('PdfjsTransactionNormalizerService', () => {
   // del fixture en cada corrida, efecto colateral indeseado en un test
   // suite. Si el generador cambia sus montos, estos literales y el
   // multiset de abajo deben actualizarse a mano.
-  describe('BCI (fixture sintético "variante" — segunda geometría publicada, D-02/D-03/D-12)', () => {
+  describe('BCI (fixture sintético "variante" — segunda geometría publicada, D-02/D-03/D-12/AMENDMENT A-01)', () => {
     const SALDO_ANTERIOR = 8_000_000n;
-    const TOTAL_CARGOS = 1_577_656n;
+    // AMENDMENT A-01 (Phase 42/43) — 3 cargos cortos nuevos (5+42+756=803)
+    // suman sobre el TOTAL_CARGOS de Slice 3 (1_577_656n): estos literales
+    // duplican (no importan) las constantes exportadas por
+    // `generar-bci-cartola-variante-test.ts` — mismo patrón documentado
+    // arriba (PASSWORD_FIXTURE).
+    const TOTAL_CARGOS = 1_578_459n;
     const TOTAL_ABONOS = 486_000n;
-    const SALDO_FINAL = 6_908_344n;
+    const SALDO_FINAL = 6_907_541n;
 
     // {fecha ISO (UTC), descripcion, cargo, abono} — multiset exacto de las
     // 11 filas de `movimientosPlan` en
@@ -525,9 +530,33 @@ describe('PdfjsTransactionNormalizerService', () => {
         cargo: 999n,
         abono: 0n,
       },
+      // AMENDMENT A-01 (Phase 42/43) — 3 cargos cortos nuevos, SIN separador
+      // de miles, right-aligned por construcción en el generador (misma
+      // tabla `anchoEstimado` que `cargo.rescateBordeDerecho` usa en
+      // producción). Los 2 primeros caen en el catchment [440,450) por
+      // borde izquierdo (la falla real de producción); el tercero cae en
+      // [437.6,440) (ya funcionaba antes del amendment).
+      {
+        fecha: '2026-06-16',
+        descripcion: 'COMPRA FICTICIA OCHO MONTO CORTO',
+        cargo: 5n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-17',
+        descripcion: 'COMPRA FICTICIA NUEVE MONTO CORTO',
+        cargo: 42n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-18',
+        descripcion: 'COMPRA FICTICIA DIEZ MONTO CORTO',
+        cargo: 756n,
+        abono: 0n,
+      },
     ];
 
-    it('normaliza a las 11 filas de movimiento de la variante (fechas con guion, banda `fecha` D-03, geometría de montos D-02), y cuadra la identidad de reconciliación (D-13)', async () => {
+    it('normaliza a las 14 filas de movimiento de la variante (fechas con guion, banda `fecha` D-03, geometría de montos D-02, cargos cortos rescatados por borde derecho AD-01), y cuadra la identidad de reconciliación (D-13)', async () => {
       const buffer = await readFile(
         join(fixturesDir, 'bci-cartola-variante-test.pdf'),
       );

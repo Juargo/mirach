@@ -35,6 +35,21 @@
  * solo se auto-verifican geométricamente (ver el describe `fixture
  * geometry` en `bci.strategy.spec.ts`).
  *
+ * AMENDMENT A-01 (Slice 3b, Phase 42, 2026-09-10) — 3 cargos NUEVOS, cortos
+ * (1/2/3 dígitos, SIN separador de miles): esta es la brecha que dejó pasar
+ * un parser roto en producción — el fixture original no tenía montos
+ * <1.000, así que nunca ejercitó el dead zone [440,450) con un monto real
+ * corto. Los 3 nuevos `x` se calculan con `x = CONVERGENCIA_BORDE_DERECHO -
+ * anchoEstimado(texto, 6)` — la MISMA tabla de advances que
+ * `token-grouping.ts` usa en producción (importada, no copiada a mano) —
+ * para que el fixture PRUEBE el estimador en vez de solo coexistir con él.
+ * `CONVERGENCIA_BORDE_DERECHO = 449.08` reproduce la convergencia medida en
+ * el statement real (design.md AMENDMENT A-01, spread 0.01pt entre largos
+ * de token). Resultado: el cargo de 1 dígito y el de 2 dígitos caen en el
+ * catchment [440,450) (la falla real de producción); el de 3 dígitos cae en
+ * [437.6,440), reproduciendo los 11 montos cortos que ya funcionaban bajo
+ * las bandas que Slice 3 dejó publicadas.
+ *
  * Saldo: el generador calcula un saldo corrido internamente consistente por
  * construcción (mismo precedente que
  * `generar-bci-cartola-montos-grandes-test.ts:80-83`) y expone
@@ -57,6 +72,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { anchoEstimado } from '../../../src/infrastructure/pdf/token-grouping';
 
 interface TokenPdf {
   readonly str: string;
@@ -98,6 +114,21 @@ function contenidoPagina(tokens: ReadonlyArray<TokenPdf>): string {
 // ---------------------------------------------------------------------------
 
 export const SALDO_ANTERIOR = 8_000_000;
+
+// AMENDMENT A-01 (design.md, "Fixture obligation") — convergencia medida en
+// el statement real: el borde DERECHO estimado de un monto right-aligned
+// converge a este valor sin importar cuántos dígitos tenga (spread 0.01pt).
+// Usada para calcular, no adivinar, el `x` de los 3 cargos cortos nuevos.
+const CONVERGENCIA_BORDE_DERECHO = 449.08;
+
+/** `x` right-aligned por construcción: borde derecho fijo, borde izquierdo derivado. */
+function xRescatado(texto: string): number {
+  const ancho = anchoEstimado(texto, 6);
+  if (ancho === null) {
+    throw new Error(`texto no medible por anchoEstimado: "${texto}"`);
+  }
+  return CONVERGENCIA_BORDE_DERECHO - ancho;
+}
 
 interface MovimientoPlan {
   readonly fecha: string;
@@ -208,6 +239,37 @@ const movimientosPlan: readonly MovimientoPlan[] = [
     // la banda cargo.
     cargo: { texto: '999', x: 434.1 },
   },
+  // AMENDMENT A-01 (Phase 42) — 3 cargos NUEVOS, cortos, SIN separador de
+  // miles, alineados a la derecha POR CONSTRUCCIÓN vía `xRescatado` (misma
+  // tabla de advances que produccion). Los 3 reproducen exactamente la fila
+  // "token length" de la tabla de convergencia de design.md AMENDMENT A-01.
+  {
+    fecha: '16-06-2026',
+    sucursal: '601',
+    sucursalX: 76.2,
+    descripcion: 'COMPRA FICTICIA OCHO MONTO CORTO',
+    // 1 dígito -> x ~= 445.74, dentro del catchment [440,450): la falla
+    // real de producción que este amendment rescata.
+    cargo: { texto: '5', x: xRescatado('5') },
+  },
+  {
+    fecha: '17-06-2026',
+    sucursal: '715',
+    sucursalX: 76.0,
+    descripcion: 'COMPRA FICTICIA NUEVE MONTO CORTO',
+    // 2 dígitos -> x ~= 442.41, dentro del catchment [440,450).
+    cargo: { texto: '42', x: xRescatado('42') },
+  },
+  {
+    fecha: '18-06-2026',
+    sucursal: '820',
+    sucursalX: 77.2,
+    descripcion: 'COMPRA FICTICIA DIEZ MONTO CORTO',
+    // 3 dígitos -> x ~= 439.07, dentro de [437.6,440): reproduce los 11
+    // montos cortos que YA funcionaban bajo las bandas shippeadas en
+    // Slice 3 (clasificados por borde izquierdo, sin necesitar rescate).
+    cargo: { texto: '756', x: xRescatado('756') },
+  },
 ];
 
 function montoAEntero(texto: string): number {
@@ -229,6 +291,7 @@ export const SALDO_FINAL = SALDO_ANTERIOR - TOTAL_CARGOS + TOTAL_ABONOS;
 // que caigan dentro de la banda medida.
 const saldoX = [
   560.0, 558.0, 559.0, 557.5, 560.5, 561.0, 559.5, 555.9, 562.0, 563.0, 570.6,
+  556.5, 565.0, 560.0,
 ];
 
 let saldoCorriendo = SALDO_ANTERIOR;
@@ -330,6 +393,10 @@ const pagina3: TokenPdf[] = [
   ...filaMovimiento(movimientosPlan[8], 734.5, saldosCorridos[8]),
   ...filaMovimiento(movimientosPlan[9], 720.5, saldosCorridos[9]),
   ...filaMovimiento(movimientosPlan[10], 706.5, saldosCorridos[10]),
+  // AMENDMENT A-01 (Phase 42) — 3 filas nuevas, cargos cortos.
+  ...filaMovimiento(movimientosPlan[11], 692.5, saldosCorridos[11]),
+  ...filaMovimiento(movimientosPlan[12], 678.5, saldosCorridos[12]),
+  ...filaMovimiento(movimientosPlan[13], 664.5, saldosCorridos[13]),
 ];
 
 // ---------------------------------------------------------------------------

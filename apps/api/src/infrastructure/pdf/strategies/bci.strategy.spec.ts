@@ -140,6 +140,65 @@ describe('BciPdfStrategy', () => {
       );
       expect(enBanda.length).toBeGreaterThanOrEqual(2);
     });
+
+    // AMENDMENT A-01 (Phase 42.3) — los 3 cargos cortos nuevos (1/2/3
+    // dígitos, sin separador de miles), right-aligned POR CONSTRUCCIÓN vía
+    // `xRescatado` en el generador (misma tabla `anchoEstimado` que
+    // producción). El generador escribe `x` en el content stream del PDF
+    // con `toFixed(1)` (1 decimal, como todo `Tm` de este archivo) — por
+    // eso los valores esperados abajo son el redondeo a 1 decimal del `x`
+    // exacto que `xRescatado` calculó (445.744→445.7, 442.408→442.4,
+    // 439.072→439.1), no el flotante sin redondear. Si el generador alguna
+    // vez drifta, este bloque falla ANTES que los tests del parser — mismo
+    // rol que el resto de `fixture geometry`.
+    it.each([
+      ['1 dígito', '5', 445.7],
+      ['2 dígitos', '42', 442.4],
+      ['3 dígitos', '756', 439.1],
+    ])(
+      'cargo corto (%s, "%s"): existe un token en x=%s — reproduce, por construcción, la convergencia de borde derecho medida en el statement real',
+      (_nombre, texto, xEsperado) => {
+        expect(
+          tokens.some((tok) => tok.str === texto && tok.x === xEsperado),
+        ).toBe(true);
+      },
+    );
+
+    it('los 3 cargos cortos convergen al mismo borde derecho estimado dentro del margen que introduce el redondeo a 1 decimal del generador — la firma de una columna right-aligned', () => {
+      const CONVERGENCIA = 449.08;
+      // 0.05pt: la mitad del paso de redondeo (`toFixed(1)`) que el
+      // generador aplica al `x` — margen estructural del fixture, no una
+      // relajación del 0.01pt medido en el statement real (ese spread vive
+      // en `xRescatado`, sobre el `x` SIN redondear).
+      const MARGEN_REDONDEO = 0.05;
+      for (const [texto, xEsperado] of [
+        ['5', 445.7],
+        ['42', 442.4],
+        ['756', 439.1],
+      ] as const) {
+        const ancho = anchoEstimado(texto, 6)!;
+        const bordeDerechoEstimado = xEsperado + ancho;
+        expect(
+          Math.abs(bordeDerechoEstimado - CONVERGENCIA),
+        ).toBeLessThanOrEqual(MARGEN_REDONDEO);
+      }
+    });
+
+    it('el cargo de 1 y 2 dígitos caen en el catchment [440,450) por borde izquierdo — la falla real de producción que este amendment rescata', () => {
+      for (const texto of ['5', '42']) {
+        const tok = tokens.find((t) => t.str === texto);
+        expect(tok).toBeDefined();
+        expect(tok!.x).toBeGreaterThanOrEqual(440);
+        expect(tok!.x).toBeLessThan(450);
+      }
+    });
+
+    it('el cargo de 3 dígitos cae en [437.6,440) por borde izquierdo — reproduce los 11 montos cortos que ya funcionaban bajo las bandas de Slice 3', () => {
+      const tok = tokens.find((t) => t.str === '756');
+      expect(tok).toBeDefined();
+      expect(tok!.x).toBeGreaterThanOrEqual(437.6);
+      expect(tok!.x).toBeLessThan(440);
+    });
   });
 
   describe('getEstructura', () => {
