@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BciPdfStrategy } from './bci.strategy';
 import { PdfTextExtractor, PagedTokens } from '../pdf-text-extractor';
+import { anchoEstimado } from '../token-grouping';
 import { BancoConocido } from '../../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../../domain/value-objects/tipo-cuenta';
 
@@ -159,21 +160,43 @@ describe('BciPdfStrategy', () => {
       }
     });
 
-    it('rangosX ensanchado 2026-09-10 (change SDD `bci-cartola-variante`, D-02/D-03) para cubrir ambas variantes publicadas de cartola sin dejar de cubrir la original (15 cartolas reales, 2026-08-30)', () => {
-      // ÚNICA expectativa pre-existente que este change tiene permitido
-      // reescribir (design.md D-01, tripwire 1) — y solo junto con la
-      // justificación escrita de la tabla de D-02: fecha 35→30 (V2 mide
-      // 33.6, fuera de la banda anterior), descripcion 145→130 (V2: 134.8),
-      // cargo.xMax 430→440 (V2: hasta 434.1), abono.xMin 435→450 / xMax
-      // 500→515 (V2: 484.4-486.6, banda angosta con solo 2 muestras). El
-      // dead zone [440,450) entre cargo y abono es deliberado — ver la
-      // invariante en el describe de más abajo.
+    it('rangosX ensanchado 2026-09-10 (change SDD `bci-cartola-variante`, D-02/D-03) para cubrir ambas variantes publicadas de cartola sin dejar de cubrir la original (15 cartolas reales, 2026-08-30) — cargo declara rescateBordeDerecho (AMENDMENT A-01, AD-01/AD-02)', () => {
+      // SEGUNDA reescritura de esta expectativa pre-existente (design.md
+      // AD-04, fila D-01) — la primera fue el ensanche de bandas de D-02/D-03
+      // (comentario original abajo), esta es la declaración del opt-in de
+      // rescate por borde derecho en `cargo` (AD-01: `{446, 452, 6}`, ventana
+      // centrada en la convergencia medida 449.08). Esta es la CUARTA y
+      // ÚLTIMA reescritura permitida de un pin pre-existente en todo el
+      // change (D-01 tripwire 1 + las dos reescrituras de Fases 20.1/20.2 +
+      // esta) — no hay más margen (AD-04).
+      //
+      // fecha 35→30 (V2 mide 33.6, fuera de la banda anterior), descripcion
+      // 145→130 (V2: 134.8), cargo.xMax 430→440 (V2: hasta 434.1), abono.xMin
+      // 435→450 / xMax 500→515 (V2: 484.4-486.6, banda angosta con solo 2
+      // muestras). El dead zone [440,450) entre cargo y abono es deliberado
+      // — ver la invariante en el describe de más abajo.
       expect(estructura.rangosX).toEqual([
         { col: 'fecha', xMin: 30, xMax: 85 },
         { col: 'descripcion', xMin: 130, xMax: 320 },
-        { col: 'cargo', xMin: 360, xMax: 440 },
+        {
+          col: 'cargo',
+          xMin: 360,
+          xMax: 440,
+          rescateBordeDerecho: { xMin: 446, xMax: 452, tamanoFuentePt: 6 },
+        },
         { col: 'abono', xMin: 450, xMax: 515 },
       ]);
+    });
+
+    // AMENDMENT A-01 (AD-03) — decisión, no descuido: `abono` NO declara
+    // ventana de rescate. Es lo que hace estructuralmente cierto que "un
+    // metric equivocado puede rechazar un statement, nunca puede mover un
+    // peso de cargo a abono" (design.md AD-02, "SAFETY PROPERTY"). Pin
+    // explícito (Phase 40.3) — cross-referenciado, no duplicado, por la
+    // aserción (d) de la invariante de más abajo (Phase 41.1).
+    it('abono NO declara rescateBordeDerecho — decisión AD-03, no un descuido', () => {
+      const abono = estructura.rangosX.find((r) => r.col === 'abono')!;
+      expect(abono.rescateBordeDerecho).toBeUndefined();
     });
 
     it('ignora la fila de etiquetas "Periodo Saldo Anterior" (sección de totales de la última página) — sin este guard, fusionarContinuaciones la pegaría como sufijo de la última transacción', () => {
@@ -293,6 +316,105 @@ describe('BciPdfStrategy', () => {
 
     it('abono.xMax se mantiene por debajo del header "SALDO DIARIO" de V2 (521.2) — el margen de 6.2pt es deliberado (evidencia de abono V2: solo 2 muestras) y NO debe ensancharse sin volver a medir', () => {
       expect(abono.xMax).toBeLessThan(V2_SALDO_DIARIO_HEADER_X);
+    });
+
+    // AMENDMENT A-01 (Phase 41, AD-04) — EXTENSIÓN de esta invariante, no
+    // reescritura: cada aserción de arriba se mantiene tal cual. Lo que
+    // sigue restablece la misma invariante en el espacio del BORDE DERECHO
+    // estimado, que es el que ahora decide la asignación de `cargo` para
+    // los montos del catchment [440,450).
+    describe('rescate por borde derecho (AD-01/AD-02, AMENDMENT A-01)', () => {
+      const ventana = cargo.rescateBordeDerecho!;
+      const CONVERGENCIA_BORDE_DERECHO = 449.08; // AD-02, medida en el statement real (spread 0.01pt)
+
+      it('cargo declara la ventana de rescate {446, 452, 6pt}', () => {
+        expect(ventana).toEqual({ xMin: 446, xMax: 452, tamanoFuentePt: 6 });
+      });
+
+      // (a) — cada muestra V2 cargo MEDIDA (tabla de convergencia de
+      // design.md AD-02, publicada — no es PII, es geometría + font metrics)
+      // estima un borde derecho dentro de la ventana, sin importar el ancho
+      // del token: esa invarianza-al-ancho ES la prueba de que la columna es
+      // right-aligned.
+      it.each([
+        ['2 dígitos (mediana x=442.41)', '99', 442.41],
+        ['3 dígitos (mediana x=439.07)', '999', 439.07],
+        [
+          '5 dígitos con separador, 6 caracteres (mediana x=430.73)',
+          '12.345',
+          430.73,
+        ],
+      ])(
+        'muestra V2 cargo medida — %s: borde derecho estimado cae dentro de [446,452)',
+        (_nombre, texto, xMedido) => {
+          const ancho = anchoEstimado(texto, ventana.tamanoFuentePt);
+          expect(ancho).not.toBeNull();
+          const bordeDerechoEstimado = xMedido + ancho!;
+          expect(bordeDerechoEstimado).toBeGreaterThanOrEqual(ventana.xMin);
+          expect(bordeDerechoEstimado).toBeLessThan(ventana.xMax);
+        },
+      );
+
+      // (a, cont.) — muestras SINTÉTICAS 1/2/3 dígitos, alineadas a la
+      // convergencia medida: prueban que la ventana cubre el caso límite
+      // (1 dígito) que el statement real no necesariamente ejercitó.
+      it.each([
+        ['1 dígito', '9'],
+        ['2 dígitos', '42'],
+        ['3 dígitos', '123'],
+      ])(
+        'muestra sintética %s alineada a 449.08 cae dentro de [446,452)',
+        (_nombre, texto) => {
+          const ancho = anchoEstimado(texto, ventana.tamanoFuentePt)!;
+          const xSintetico = CONVERGENCIA_BORDE_DERECHO - ancho;
+          const bordeDerechoEstimado = xSintetico + ancho;
+          expect(bordeDerechoEstimado).toBeGreaterThanOrEqual(ventana.xMin);
+          expect(bordeDerechoEstimado).toBeLessThan(ventana.xMax);
+        },
+      );
+
+      // (b) — restatement en borde-derecho del hazard "saldo corrido leído
+      // como depósito fantasma" (D-02): el borde IZQUIERDO medido de saldo
+      // (V1 y V2) ya excede `ventana.xMax` por sí solo, así que ningún ancho
+      // (siempre ≥ 0) puede traer su borde derecho estimado de vuelta a la
+      // ventana.
+      it.each([
+        ['V1 saldo', V1_SALDO],
+        ['V2 saldo', V2_SALDO],
+      ])(
+        '%s: el borde izquierdo medido ya excede la ventana de rescate — ningún ancho puede hacer que su borde derecho caiga dentro de [446,452)',
+        (_nombre, [min]) => {
+          expect(min).toBeGreaterThanOrEqual(ventana.xMax);
+        },
+      );
+
+      // (c) — re-aserción explícita (no asumir que la invariante original de
+      // arriba sigue cubriendo esto una vez que el campo cambia de
+      // significado, AD-04): el catchment [cargo.xMax, abono.xMin) existe.
+      it('cargo.xMax < abono.xMin sigue valiendo tras declarar rescateBordeDerecho en cargo — el catchment existe (AD-03)', () => {
+        expect(cargo.xMax).toBeLessThan(abono.xMin);
+      });
+
+      // (d) — abono no declara rescateBordeDerecho: cubierto por el pin
+      // dedicado en el describe `getEstructura` (Phase 40.3, "abono NO
+      // declara rescateBordeDerecho"). No duplicado aquí (AD-04, 41.1(d)).
+
+      // 41.2 — invariante del monto MÁS ANGOSTO posible (1 dígito):
+      // "provably wide enough, not just empirically empty" (AD-03). Ningún
+      // monto de `cargo`, sin importar cuán angosto, puede alcanzar `abono`
+      // vía el rescate — esto se rompe (no drifta en silencio) si la
+      // ventana o el metric cambian alguna vez.
+      it('el monto más angosto posible (1 dígito) nunca puede alcanzar `abono` vía el rescate — AD-03, aritmética explícita', () => {
+        const anchoUnDigito = anchoEstimado('9', ventana.tamanoFuentePt);
+        expect(anchoUnDigito).not.toBeNull();
+        expect(anchoUnDigito).toBeCloseTo(3.336, 3);
+
+        const bordeIzquierdoMinimo =
+          CONVERGENCIA_BORDE_DERECHO - anchoUnDigito!;
+        expect(bordeIzquierdoMinimo).toBeCloseTo(445.74, 2);
+        expect(bordeIzquierdoMinimo).toBeLessThan(abono.xMin);
+        expect(abono.xMin - bordeIzquierdoMinimo).toBeCloseTo(4.26, 2);
+      });
     });
   });
 });

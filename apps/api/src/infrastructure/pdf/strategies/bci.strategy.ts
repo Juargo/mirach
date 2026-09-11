@@ -158,10 +158,38 @@ export class BciPdfStrategy {
       //                equivocado; abono.xMax=515 queda 6.2pt por debajo
       //                del header "SALDO DIARIO" de V2 (521.2) — NO subir
       //                sin volver a medir, ver la invariante de más abajo)
+      //
+      // rescateBordeDerecho en `cargo` — AMENDMENT A-01 (2026-09-10, D-14
+      // AD-01/AD-02/AD-03): el statement real todavía fallaba en 7 filas —
+      // montos <1.000 (1-3 dígitos, sin separador de miles) son
+      // right-aligned y su borde IZQUIERDO (el `x` que reporta pdfjs) cae en
+      // el dead zone [440,450), que hoy rechaza en vez de asignar. La
+      // ventana `{446, 452, 6}` clasifica esos tokens por su borde DERECHO
+      // ESTIMADO (`anchoEstimado`, `token-grouping.ts`, tabla de advances
+      // Helvetica/Arial a 6pt) en vez de por el izquierdo — centrada en la
+      // convergencia medida 449.08 (spread 0.01pt en el statement real).
+      // SOLO `cargo` opta — `abono` NO declara ventana (ver más abajo): un
+      // metric equivocado puede rechazar el statement, nunca puede mover un
+      // peso de cargo a abono (propiedad estructural, no una promesa — ver
+      // la invariante extendida más abajo y design.md AMENDMENT A-01).
+      // `cargo.xMax=440` cambia de significado: ya no es el techo de
+      // cobertura, es el PISO del catchment que decide qué tokens pasan a
+      // la segunda pasada — las coordenadas de las 4 bandas NO cambian.
       rangosX: [
         { col: 'fecha', xMin: 30, xMax: 85 },
         { col: 'descripcion', xMin: 130, xMax: 320 },
-        { col: 'cargo', xMin: 360, xMax: 440 },
+        {
+          col: 'cargo',
+          xMin: 360,
+          xMax: 440,
+          rescateBordeDerecho: { xMin: 446, xMax: 452, tamanoFuentePt: 6 },
+        },
+        // `abono` deliberadamente NO declara rescateBordeDerecho (AD-03,
+        // YAGNI + evidencia): cero depósitos midieron en el dead zone, y
+        // solo tenemos 2 muestras de abono V2 — inventar una ventana de
+        // rescate ahí sería el mismo tipo de adivinanza que D-02 ya rechazó,
+        // con el riesgo agregado de ser la ÚNICA configuración donde un
+        // cargo mal estimado podría convertirse en un abono.
         { col: 'abono', xMin: 450, xMax: 515 },
       ],
       toleranciaY: 2,

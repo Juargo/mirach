@@ -245,14 +245,19 @@ describe('agruparTokens — rescate por borde derecho (rescateBordeDerecho, AD-0
   });
 });
 
-describe('agruparTokens — regresión: ninguna estrategia real declara rescateBordeDerecho todavía (Slice 3a, Phase 39.6)', () => {
+describe('agruparTokens — regresión: solo el `cargo` de BCI declara rescateBordeDerecho (Slice 3a Phase 39.6 + Slice 3b Phase 40, AD-01/AD-03)', () => {
+  // Slice 3a (Phase 39.6) originaba esta regresión como "cero opt-in en
+  // absoluto" — cierto mientras ninguna estrategia real había adoptado el
+  // mecanismo. Slice 3b (Phase 40, AMENDMENT A-01) hace que BCI opte por
+  // `cargo` a propósito; esta regresión se actualiza para seguir probando
+  // lo mismo que siempre probó — "el mecanismo no se activó donde no debía"
+  // — con el único opt-in real ahora excluido de la aserción genérica.
   it.each([
-    ['BCI', new BciPdfStrategy()],
     ['Banco de Chile', new BancoChilePdfStrategy()],
     ['BancoEstado', new BancoEstadoPdfStrategy()],
     ['Santander', new SantanderPdfStrategy()],
   ] as const)(
-    '%s: ninguna columna de rangosX declara rescateBordeDerecho — el mecanismo está dormido, cero opt-in (AD-01)',
+    '%s: ninguna columna de rangosX declara rescateBordeDerecho — el mecanismo sigue dormido para los 3 bancos que no optaron (AD-01)',
     (_nombre, strategy) => {
       const { rangosX } = strategy.getEstructura();
       for (const rango of rangosX) {
@@ -260,4 +265,19 @@ describe('agruparTokens — regresión: ninguna estrategia real declara rescateB
       }
     },
   );
+
+  it('BCI: SOLO `cargo` declara rescateBordeDerecho — `fecha`/`descripcion`/`abono` siguen dormidos (AD-01/AD-03, Phase 40)', () => {
+    const { rangosX } = new BciPdfStrategy().getEstructura();
+    for (const rango of rangosX) {
+      if (rango.col === 'cargo') {
+        expect(rango.rescateBordeDerecho).toEqual({
+          xMin: 446,
+          xMax: 452,
+          tamanoFuentePt: 6,
+        });
+      } else {
+        expect(rango.rescateBordeDerecho).toBeUndefined();
+      }
+    }
+  });
 });
