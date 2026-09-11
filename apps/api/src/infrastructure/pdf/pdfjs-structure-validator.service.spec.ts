@@ -34,6 +34,17 @@ describe('PdfjsStructureValidatorService', () => {
       '2026-03-31',
     ],
     ['bci-cartola-test.pdf', BancoConocido.BCI, '2026-04-01', '2026-04-30'],
+    // 2ª variante de layout de BCI (change bci-cartola-variante): ejercita el
+    // ancla PERIODO tolerante al ":" (PERIODO : DD-MM-YYYY al DD-MM-YYYY) a
+    // través del validate() real, end-to-end. Sin este caso, una regresión en
+    // evaluarEstructura para la variante pasaría la suite en verde (WARNING de
+    // sdd-verify).
+    [
+      'bci-cartola-variante-test.pdf',
+      BancoConocido.BCI,
+      '2026-06-01',
+      '2026-06-30',
+    ],
   ])(
     '%s valida a Result.ok con el período esperado %s–%s (PDF-02 escenario "cada fixture valida a su período esperado")',
     async (archivo, banco, desde, hasta) => {
