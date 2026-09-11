@@ -159,16 +159,20 @@ describe('BciPdfStrategy', () => {
       }
     });
 
-    it('rangosX recalibrados contra 15 cartolas reales (2026-08-30): columnas de monto alineadas a la DERECHA — el x de inicio depende del ancho del monto (cargos observados x=[381.1, 409.7], abonos x=[455.3, 476.6])', () => {
-      // Las bandas originales (cargo 395-420, abono 460-500) se midieron
-      // contra un único fixture con montos chicos: un cargo de 8 dígitos
-      // ("10.000.000") arranca en x≈381 y un abono de 7 dígitos en x≈459,
-      // ambos FUERA de esas bandas → TokenSinAsignarSospechoso por fila.
+    it('rangosX ensanchado 2026-09-10 (change SDD `bci-cartola-variante`, D-02/D-03) para cubrir ambas variantes publicadas de cartola sin dejar de cubrir la original (15 cartolas reales, 2026-08-30)', () => {
+      // ÚNICA expectativa pre-existente que este change tiene permitido
+      // reescribir (design.md D-01, tripwire 1) — y solo junto con la
+      // justificación escrita de la tabla de D-02: fecha 35→30 (V2 mide
+      // 33.6, fuera de la banda anterior), descripcion 145→130 (V2: 134.8),
+      // cargo.xMax 430→440 (V2: hasta 434.1), abono.xMin 435→450 / xMax
+      // 500→515 (V2: 484.4-486.6, banda angosta con solo 2 muestras). El
+      // dead zone [440,450) entre cargo y abono es deliberado — ver la
+      // invariante en el describe de más abajo.
       expect(estructura.rangosX).toEqual([
-        { col: 'fecha', xMin: 35, xMax: 85 },
-        { col: 'descripcion', xMin: 145, xMax: 320 },
-        { col: 'cargo', xMin: 360, xMax: 430 },
-        { col: 'abono', xMin: 435, xMax: 500 },
+        { col: 'fecha', xMin: 30, xMax: 85 },
+        { col: 'descripcion', xMin: 130, xMax: 320 },
+        { col: 'cargo', xMin: 360, xMax: 440 },
+        { col: 'abono', xMin: 450, xMax: 515 },
       ]);
     });
 
@@ -185,8 +189,24 @@ describe('BciPdfStrategy', () => {
       ).toBe(false);
     });
 
-    it('el ancla de período extrae ambas fechas del mismo token de valor (separador "-")', () => {
+    it('el ancla de período extrae ambas fechas del mismo token de valor (separador "-"), sin dos puntos (V1)', () => {
       const texto = 'PERIODO 01-04-2026 al 30-04-2026';
+      expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe(
+        '01-04-2026',
+      );
+      expect(texto.match(estructura.anclasPeriodo.hasta)?.[1]).toBe(
+        '30-04-2026',
+      );
+    });
+
+    // Slice 3 (change SDD `bci-cartola-variante`, Phase 11, D-06) — la 2ª
+    // variante imprime "PERIODO : DD-MM-YYYY al DD-MM-YYYY" (con dos
+    // puntos, ancla partida en 3 tokens físicos, D-12); el ancla original
+    // no tolera el ":" y `extraerPeriodo` exige que AMBOS regex matcheen
+    // (`pdf-structure-extraction.ts:51-54`). Forma copiada verbatim del
+    // precedente en el repo (`banco-chile.strategy.ts:91-92`).
+    it('el ancla de período tolera "PERIODO : DD-MM-YYYY al DD-MM-YYYY" (con dos puntos, variante V2)', () => {
+      const texto = 'PERIODO : 01-04-2026 al 30-04-2026';
       expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe(
         '01-04-2026',
       );
@@ -202,6 +222,77 @@ describe('BciPdfStrategy', () => {
         ),
       ).toBe(true);
       expect(estructura.filasIgnoradas.some((r) => r.test('1/2'))).toBe(true);
+    });
+  });
+
+  // Slice 3 (change SDD `bci-cartola-variante`, Phase 9) — invariante
+  // OBLIGATORIA de design.md D-02: codifica los 6 clusters medidos como
+  // aserciones aritméticas, no como prosa, para que nadie pueda mover un
+  // edge más adelante sin volver a medir. `rangosX` es [xMin, xMax) —
+  // xMin inclusivo, xMax exclusivo (`token-grouping.ts:108-112`).
+  describe('rangosX — invariante de separación cargo/abono (D-02, obligatoria)', () => {
+    const estructura = strategy.getEstructura();
+    const cargo = estructura.rangosX.find((r) => r.col === 'cargo')!;
+    const abono = estructura.rangosX.find((r) => r.col === 'abono')!;
+
+    function dentro(x: number, rango: { xMin: number; xMax: number }) {
+      return x >= rango.xMin && x < rango.xMax;
+    }
+
+    // [min, max] de cada cluster medido — design.md D-02.
+    const V1_CARGO: [number, number] = [381.1, 409.7];
+    const V1_ABONO: [number, number] = [455.3, 476.6];
+    const V2_CARGO: [number, number] = [420.9, 434.1];
+    const V2_ABONO: [number, number] = [484.4, 486.6];
+    const V1_SALDO: [number, number] = [542.2, 561.9];
+    const V2_SALDO: [number, number] = [555.9, 570.6];
+    const V2_SALDO_DIARIO_HEADER_X = 521.2;
+
+    it.each([
+      ['V1 cargo', V1_CARGO],
+      ['V2 cargo', V2_CARGO],
+    ])(
+      '%s: todo el rango medido cae dentro de `cargo` y fuera de `abono`',
+      (_nombre, [min, max]) => {
+        for (const x of [min, max]) {
+          expect(dentro(x, cargo)).toBe(true);
+          expect(dentro(x, abono)).toBe(false);
+        }
+      },
+    );
+
+    it.each([
+      ['V1 abono', V1_ABONO],
+      ['V2 abono', V2_ABONO],
+    ])(
+      '%s: todo el rango medido cae dentro de `abono` y fuera de `cargo`',
+      (_nombre, [min, max]) => {
+        for (const x of [min, max]) {
+          expect(dentro(x, abono)).toBe(true);
+          expect(dentro(x, cargo)).toBe(false);
+        }
+      },
+    );
+
+    it.each([
+      ['V1 saldo', V1_SALDO],
+      ['V2 saldo', V2_SALDO],
+    ])(
+      '%s: todo el rango medido queda FUERA tanto de `cargo` como de `abono` (columna no modelada, a propósito)',
+      (_nombre, [min, max]) => {
+        for (const x of [min, max]) {
+          expect(dentro(x, cargo)).toBe(false);
+          expect(dentro(x, abono)).toBe(false);
+        }
+      },
+    );
+
+    it('existe un dead zone entre `cargo` y `abono` (cargo.xMax < abono.xMin) — un monto ahí falla RUIDOSO, nunca se lee del lado equivocado', () => {
+      expect(cargo.xMax).toBeLessThan(abono.xMin);
+    });
+
+    it('abono.xMax se mantiene por debajo del header "SALDO DIARIO" de V2 (521.2) — el margen de 6.2pt es deliberado (evidencia de abono V2: solo 2 muestras) y NO debe ensancharse sin volver a medir', () => {
+      expect(abono.xMax).toBeLessThan(V2_SALDO_DIARIO_HEADER_X);
     });
   });
 });
