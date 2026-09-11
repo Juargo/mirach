@@ -78,7 +78,11 @@ function parsearFechaFila(
       return { dia, mes, anio: undefined };
     }
     case 'DD/MM/YYYY': {
-      const m = valorColumnaFecha.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      // BCI imprime ambos separadores según el layout de la cartola ("/" en
+      // la variante original, "-" en la segunda variante, D-04) — se acepta
+      // cualquiera de los dos sin agregar un cuarto miembro a
+      // `FormatoFechaPdf` (D-01: BCI sigue teniendo UNA sola estructura).
+      const m = valorColumnaFecha.match(/(\d{2})[/-](\d{2})[/-](\d{4})/);
       if (!m) return null;
       const dia = Number(m[1]);
       const mes = Number(m[2]);
