@@ -23,6 +23,7 @@ import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
 import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
+import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { IFileReader } from '../ports/file-reader.port';
@@ -477,7 +478,15 @@ describe('PreviewIngestaUseCase', () => {
     });
   });
 
-  it('archivo con 0 filas de datos: retorna ok con totalFilas:0 y filas:[] (200 legítimo)', async () => {
+  // NAMED REWRITE (design.md D-07/Trap 4, tasks.md Phase 20.2) — this test
+  // used to pin a 200 with `totalFilas:0`/`filas:[]` as legitimate. It no
+  // longer is: design.md D-07 makes a zero-movement result a
+  // `SinMovimientosError`, bank-agnostic and format-agnostic (the pipeline
+  // guard lives upstream in `EjecutarPipelineIngestaUseCase`, shared by
+  // preview/commit/one-shot). This is the change's OWN new specification,
+  // not a quietly-adjusted pre-existing expectation — named and explained
+  // here so a reviewer can tell the difference at a glance.
+  it('archivo con 0 filas de datos: retorna Result.fail(SinMovimientosError) (D-07)', async () => {
     const normalizer = new FakeTransactionNormalizer();
     normalizer.transacciones = [];
     // Structure validator also reports 0 data rows (coherent empty file).
@@ -490,10 +499,8 @@ describe('PreviewIngestaUseCase', () => {
       userId: USER_ID,
     });
 
-    expect(result.isOk()).toBe(true);
-    const value = result.getValue();
-    expect(value.resumen.totalFilas).toBe(0);
-    expect(value.filas).toEqual([]);
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(SinMovimientosError);
   });
 
   // ---------------------------------------------------------------------------

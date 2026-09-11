@@ -10,6 +10,7 @@ import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
 import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
+import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
 import { ValidatedStructure } from '../ports/structure-validator.port';
@@ -64,6 +65,7 @@ export type EjecutarPipelineIngestaError =
   | PdfProtegidoError
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
+  | SinMovimientosError
   | PersistenciaFallidaError;
 
 /**
@@ -182,6 +184,17 @@ export class EjecutarPipelineIngestaUseCase {
       return Result.fail(normalizeResult.getError());
     }
     const transacciones = normalizeResult.getValue();
+
+    // Guard: una cartola detectada y con estructura válida que normaliza a
+    // cero movimientos NO es un éxito silencioso — es un error de negocio
+    // (design.md D-07/D-08). Deliberadamente format-agnostic: sin `if (esPdf)`
+    // alrededor, porque `.xlsx` tiene el mismo agujero que el PDF (Trap 4,
+    // tasks.md) — una sola pieza de conocimiento, un solo lugar.
+    if (transacciones.length === 0) {
+      return Result.fail(
+        new SinMovimientosError(archivo.originalName, banco.banco),
+      );
+    }
 
     // Solo conteos + banco (enum) — nunca transacciones (ADR-013).
     this.logger.debug('ejecutar-pipeline-ingesta: pipeline ejecutado', {
