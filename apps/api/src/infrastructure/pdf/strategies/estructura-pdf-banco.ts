@@ -8,6 +8,18 @@ export interface RangoX {
   readonly col: ColumnaPdf;
   readonly xMin: number;
   readonly xMax: number;
+  /**
+   * Opt-in — ventana de rescate por BORDE DERECHO estimado (design.md
+   * AMENDMENT A-01, AD-01/AD-02/AD-03). Presencia = opt-in; ausencia =
+   * comportamiento actual, byte-idéntico. Ningún banco lo declara todavía
+   * (Slice 3a) — ver `token-grouping.ts` (`anchoEstimado`,
+   * `repartirEnColumnas`) para la mecánica.
+   */
+  readonly rescateBordeDerecho?: {
+    readonly xMin: number;
+    readonly xMax: number;
+    readonly tamanoFuentePt: number;
+  };
 }
 
 /**
