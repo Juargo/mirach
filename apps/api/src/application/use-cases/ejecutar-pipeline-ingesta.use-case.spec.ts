@@ -15,6 +15,7 @@ import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-in
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
+import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { IFileReader } from '../ports/file-reader.port';
@@ -162,12 +163,13 @@ const TXS_PDF: Transaccion[] = [
 class FakeTransactionNormalizer implements ITransactionNormalizer {
   called = false;
   failWith?: NormalizacionInvalidaError;
+  transacciones: ReadonlyArray<Transaccion> = TXS;
   async normalize(): Promise<
     Result<ReadonlyArray<Transaccion>, NormalizacionInvalidaError>
   > {
     this.called = true;
     if (this.failWith) return Result.fail(this.failWith);
-    return Result.ok(TXS);
+    return Result.ok(this.transacciones);
   }
 }
 
@@ -175,6 +177,7 @@ class FakePdfTransactionNormalizer implements IPdfTransactionNormalizer {
   called = false;
   receivedPassword?: string;
   failWith?: EstructuraPdfInvalidaError;
+  transacciones: ReadonlyArray<Transaccion> = TXS_PDF;
   async normalize(
     _buffer: Buffer,
     _banco: BancoConocido,
@@ -183,7 +186,7 @@ class FakePdfTransactionNormalizer implements IPdfTransactionNormalizer {
     this.called = true;
     this.receivedPassword = password;
     if (this.failWith) return Result.fail(this.failWith);
-    return Result.ok(TXS_PDF);
+    return Result.ok(this.transacciones);
   }
 }
 
@@ -462,6 +465,39 @@ describe('EjecutarPipelineIngestaUseCase', () => {
 
       expect(result.isOk()).toBe(true);
       expect(pdfBankDetector.receivedPassword).toBeUndefined();
+    });
+  });
+
+  describe('guard: zero movements (design.md D-07/D-08, Phase 17)', () => {
+    it('xlsx: normalize retorna [] → Result.fail(SinMovimientosError), no Result.ok con array vacío', async () => {
+      const normalizer = new FakeTransactionNormalizer();
+      normalizer.transacciones = [];
+      const useCase = makeUseCase({ normalizer });
+      const fileReader = new FakeFileReader(
+        Buffer.from('contenido'),
+        'cartola-vacia.xlsx',
+      );
+
+      const result = await useCase.execute({ fileReader });
+
+      expect(result.isFail()).toBe(true);
+      const error = result.getError();
+      expect(error).toBeInstanceOf(SinMovimientosError);
+      expect((error as SinMovimientosError).banco).toBe(BANCO.banco);
+      expect(error.message).toContain('cartola-vacia.xlsx');
+    });
+
+    it('pdf: normalize retorna [] → Result.fail(SinMovimientosError) — el guard es format-agnostic (Trap 4, D-07)', async () => {
+      const pdfNormalizer = new FakePdfTransactionNormalizer();
+      pdfNormalizer.transacciones = [];
+      const useCase = makeUseCase({ pdfNormalizer });
+
+      const result = await useCase.execute({
+        fileReader: new FakePdfFileReader(),
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(SinMovimientosError);
     });
   });
 

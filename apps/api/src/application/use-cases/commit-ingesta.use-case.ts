@@ -10,6 +10,7 @@ import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
 import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
+import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { RowIndexFueraDeRangoError } from '../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../domain/errors/categoria-fuera-de-catalogo.error';
@@ -94,6 +95,7 @@ export type CommitIngestaError =
   | PdfProtegidoError
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
+  | SinMovimientosError
   // Overlay-validation errors (400)
   | EdicionesInvalidasError
   | RowIndexFueraDeRangoError
