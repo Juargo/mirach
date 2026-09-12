@@ -40,6 +40,19 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     ningún `filasIgnoradas`) — por eso `anclaFinTabla` usa la misma
  *     ancla para cortar la recolección de filas ahí: todo lo que venga
  *     después del "Resumen de Comisiones" no es un movimiento real.
+ *
+ * Auditoría cruzada 2026-09-11 (change SDD `bci-cartola-variante`, Slice 5,
+ * design.md D-14): `cargo` [395,450) / `abono` [495,520) → 45pt de zona
+ * muerta — el margen más ancho de los 4 bancos, a salvo por estructura.
+ * Estas bandas NO formaron parte de la recalibración de 2026-08-30 (0
+ * cartolas reales medidas para este banco en ese esfuerzo). Verificado
+ * independientemente contra una cartola real (fuera de este repo — ver
+ * Engram `sdd/bci-cartola-variante/audit-bancos`): abre y detecta
+ * correctamente, sin incidentes — pocos montos en esa muestra, pero el
+ * margen de 45pt hace estructuralmente imposible una inversión de signo
+ * salvo un monto de un ancho jamás observado en ningún banco de este
+ * módulo. No se toca ninguna banda aquí — la auditoría es solo
+ * documentación.
  */
 export class SantanderPdfStrategy {
   private static readonly ANCLA_BANCO = 'BANCO SANTANDER CHILE';

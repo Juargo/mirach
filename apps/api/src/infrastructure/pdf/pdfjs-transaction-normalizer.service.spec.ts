@@ -431,6 +431,199 @@ describe('PdfjsTransactionNormalizerService', () => {
     });
   });
 
+  // Slice 3 (change SDD `bci-cartola-variante`, Phase 7) — la segunda
+  // variante de cartola BCI: fechas con guion fuera de la banda `fecha`
+  // ACTUAL (D-03) y montos en la nueva geometría medida (D-02). RED contra
+  // el `rangosX` pre-Fase-8: la mayoría de las fechas quedan sin asignar
+  // (Trampa 1, tasks.md) y el conteo de movimientos queda muy por debajo
+  // de 11.
+  //
+  // Los 4 valores SALDO_* duplican (no importan) las constantes exportadas
+  // por `generar-bci-cartola-variante-test.ts` — mismo patrón que
+  // `PASSWORD_FIXTURE` arriba: importar el generador reescribe el binario
+  // del fixture en cada corrida, efecto colateral indeseado en un test
+  // suite. Si el generador cambia sus montos, estos literales y el
+  // multiset de abajo deben actualizarse a mano.
+  describe('BCI (fixture sintético "variante" — segunda geometría publicada, D-02/D-03/D-12/AMENDMENT A-01)', () => {
+    const SALDO_ANTERIOR = 8_000_000n;
+    // AMENDMENT A-01 (Phase 42/43) — 3 cargos cortos nuevos (5+42+756=803)
+    // suman sobre el TOTAL_CARGOS de Slice 3 (1_577_656n): estos literales
+    // duplican (no importan) las constantes exportadas por
+    // `generar-bci-cartola-variante-test.ts` — mismo patrón documentado
+    // arriba (PASSWORD_FIXTURE).
+    const TOTAL_CARGOS = 1_578_459n;
+    const TOTAL_ABONOS = 486_000n;
+    const SALDO_FINAL = 6_907_541n;
+
+    // {fecha ISO (UTC), descripcion, cargo, abono} — multiset exacto de las
+    // 11 filas de `movimientosPlan` en
+    // `generar-bci-cartola-variante-test.ts`.
+    const ESPERADAS: ReadonlyArray<{
+      fecha: string;
+      descripcion: string;
+      cargo: bigint;
+      abono: bigint;
+    }> = [
+      {
+        fecha: '2026-06-05',
+        descripcion: 'COMPRA FICTICIA UNO',
+        cargo: 45_000n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-06',
+        descripcion: 'COMPRA FICTICIA DOS',
+        cargo: 120_500n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-07',
+        descripcion: 'PAGO SERVICIO FICTICIO',
+        cargo: 89_990n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-08',
+        descripcion: 'TRANSFERENCIA RECIBIDA FICTICIA',
+        cargo: 0n,
+        abono: 250_000n,
+      },
+      {
+        fecha: '2026-06-09',
+        descripcion: 'COMPRA FICTICIA TRES',
+        cargo: 15_300n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-10',
+        descripcion: 'DEPOSITO FICTICIO DOS',
+        cargo: 0n,
+        abono: 180_000n,
+      },
+      {
+        fecha: '2026-06-11',
+        descripcion: 'COMPRA FICTICIA CUATRO',
+        cargo: 67_000n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-12',
+        descripcion: 'COMPRA FICTICIA CINCO ANCHA',
+        cargo: 1_234_567n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-13',
+        descripcion: 'PAGO FICTICIO SEIS',
+        cargo: 4_300n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-14',
+        descripcion: 'DEPOSITO FICTICIO TRES',
+        cargo: 0n,
+        abono: 56_000n,
+      },
+      {
+        fecha: '2026-06-15',
+        descripcion: 'COMPRA FICTICIA SIETE',
+        cargo: 999n,
+        abono: 0n,
+      },
+      // AMENDMENT A-01 (Phase 42/43) — 3 cargos cortos nuevos, SIN separador
+      // de miles, right-aligned por construcción en el generador (misma
+      // tabla `anchoEstimado` que `cargo.rescateBordeDerecho` usa en
+      // producción). Los 2 primeros caen en el catchment [440,450) por
+      // borde izquierdo (la falla real de producción); el tercero cae en
+      // [437.6,440) (ya funcionaba antes del amendment).
+      {
+        fecha: '2026-06-16',
+        descripcion: 'COMPRA FICTICIA OCHO MONTO CORTO',
+        cargo: 5n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-17',
+        descripcion: 'COMPRA FICTICIA NUEVE MONTO CORTO',
+        cargo: 42n,
+        abono: 0n,
+      },
+      {
+        fecha: '2026-06-18',
+        descripcion: 'COMPRA FICTICIA DIEZ MONTO CORTO',
+        cargo: 756n,
+        abono: 0n,
+      },
+    ];
+
+    it('normaliza a las 14 filas de movimiento de la variante (fechas con guion, banda `fecha` D-03, geometría de montos D-02, cargos cortos rescatados por borde derecho AD-01), y cuadra la identidad de reconciliación (D-13)', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bci-cartola-variante-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+
+      expect(result.isOk()).toBe(true);
+      const transacciones = result.getValue();
+      expect(transacciones).toHaveLength(ESPERADAS.length);
+
+      const multisetObtenido = transacciones
+        .map((t) => ({
+          fecha: t.fecha.toISOString().slice(0, 10),
+          descripcion: t.descripcion,
+          cargo: t.cargo,
+          abono: t.abono,
+        }))
+        .sort((a, b) => a.fecha.localeCompare(b.fecha));
+      const multisetEsperado = [...ESPERADAS].sort((a, b) =>
+        a.fecha.localeCompare(b.fecha),
+      );
+      expect(multisetObtenido).toEqual(multisetEsperado);
+
+      const sumaCargo = transacciones.reduce((acc, t) => acc + t.cargo, 0n);
+      const sumaAbono = transacciones.reduce((acc, t) => acc + t.abono, 0n);
+      expect(sumaCargo).toBe(TOTAL_CARGOS);
+      expect(sumaAbono).toBe(TOTAL_ABONOS);
+
+      // D-13 — el único chequeo que atrapa tanto una fila perdida (1x) como
+      // una inversión de signo (2x): la identidad de reconciliación contra
+      // el saldo corrido que el generador computó por construcción.
+      expect(SALDO_ANTERIOR - sumaCargo + sumaAbono).toBe(SALDO_FINAL);
+    });
+
+    // Slice 3 (Phase 13, D-12 hazard) — el título de página repetido
+    // ("CARTOLA DE CUENTA CORRIENTE") y el encabezado de tabla de una sola
+    // línea ("FECHA"/"SUCURSAL"/"DESCRIPCION"/"CHEQUES"/"DEPOSITOS"/"SALDO
+    // DIARIO") de esta variante se repiten en las 3 páginas del fixture —
+    // ninguno debe filtrarse a la descripción de una transacción vecina vía
+    // `fusionarContinuaciones`. Confirmado INERTE sin necesitar un nuevo
+    // `filasIgnoradas`: el título ya lo cubre el filtro
+    // `/CARTOLA DE CUENTA CORRIENTE/` heredado de V1, y el encabezado de
+    // tabla trae "CHEQUES"/"DEPOSITOS" no-vacíos en las columnas
+    // cargo/abono — eso por sí solo bloquea la fusión (misma guarda que
+    // protege el encabezado de V1). Guarda de regresión permanente, no
+    // especulativa (YAGNI): si algún día deja de ser inerte, este test se
+    // pone rojo y documenta por qué.
+    it('el título de página y el encabezado de tabla repetidos (3 páginas) no contaminan ninguna descripción', async () => {
+      const buffer = await readFile(
+        join(fixturesDir, 'bci-cartola-variante-test.pdf'),
+      );
+
+      const result = await service.normalize(buffer, BancoConocido.BCI);
+      const transacciones = result.getValue();
+
+      for (const t of transacciones) {
+        expect(t.descripcion).not.toContain('CARTOLA DE CUENTA CORRIENTE');
+        expect(t.descripcion).not.toContain('FECHA');
+        expect(t.descripcion).not.toContain('SUCURSAL');
+        expect(t.descripcion).not.toContain('DESCRIPCION');
+        expect(t.descripcion).not.toContain('CHEQUES');
+        expect(t.descripcion).not.toContain('DEPOSITOS');
+        expect(t.descripcion).not.toContain('SALDO DIARIO');
+      }
+    });
+  });
+
   describe('Banco de Chile (fixture sintético "montos grandes" — geometría de las 16 cartolas reales, recalibración 2026-08-30)', () => {
     it('normaliza las 7 transacciones (9 filas fechadas menos SALDO INICIAL/FINAL), montos BigInt exactos contra la ecuación del resumen', async () => {
       const buffer = await readFile(

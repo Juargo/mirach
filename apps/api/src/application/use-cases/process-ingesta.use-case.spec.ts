@@ -19,6 +19,7 @@ import { EstructuraInvalidaError } from '../../domain/errors/estructura-invalida
 import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-invalida.error';
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
+import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
@@ -670,7 +671,15 @@ describe('ProcessIngestaUseCase', () => {
     });
   });
 
-  it('lista de transacciones vacía: persiste con total 0 y retorna ok, sin registrar FALLIDA', async () => {
+  // NAMED REWRITE (design.md D-07/Trap 4, tasks.md Phase 20.1) — this test used
+  // to pin `Result.ok` + 0 FALLIDA rows for an empty transaction list as
+  // CORRECT behavior. It no longer is: design.md D-07 makes a zero-movement
+  // result a `SinMovimientosError` (bank-agnostic, .xlsx included on purpose),
+  // and D-10 says that failure DOES register a FALLIDA row (no carve-out).
+  // This is the change's OWN new specification, not a quietly-adjusted
+  // pre-existing expectation — named and explained here so a reviewer can
+  // tell the difference at a glance.
+  it('lista de transacciones vacía: retorna Result.fail(SinMovimientosError) y registra FALLIDA (D-07/D-10)', async () => {
     const { useCase, normalizer, ingestaStore, ingestaFallidaWriter } =
       buildUseCase();
     normalizer.returnEmpty = true;
@@ -681,14 +690,15 @@ describe('ProcessIngestaUseCase', () => {
       esDemo: false,
     });
 
-    expect(result.isOk()).toBe(true);
-    const value = result.getValue();
-    expect(value.total).toBe(0);
-    expect(value.transacciones).toEqual([]);
-    expect(ingestaStore.ingestas.get(value.ingestaId)?.estado).toBe(
-      'PROCESADA',
-    );
-    expect(ingestaFallidaWriter.calls).toHaveLength(0);
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(SinMovimientosError);
+    expect(ingestaStore.ingestas.size).toBe(0);
+    expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    expect(ingestaFallidaWriter.calls[0]).toEqual({
+      userId: USER_ID,
+      nombreArchivo: 'movimientos.xlsx',
+      motivo: result.getError().message,
+    });
   });
 
   it('un colaborador lanza en vez de retornar Result: NO propaga, retorna fail descriptivo sin filtrar montos, Y registra FALLIDA con el motivo FIJO genérico (no el mensaje crudo)', async () => {

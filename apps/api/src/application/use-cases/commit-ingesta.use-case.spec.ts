@@ -44,6 +44,7 @@ import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-in
 import { RowIndexFueraDeRangoError } from '../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../domain/errors/categoria-fuera-de-catalogo.error';
 import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
+import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import type { IFileReader } from '../ports/file-reader.port';
 import type { IBankDetector, DetectedBank } from '../ports/bank-detector.port';
 import type { IPdfBankDetector } from '../ports/pdf-bank-detector.port';
@@ -1405,6 +1406,37 @@ describe('CommitIngestaUseCase', () => {
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(BancoNoReconocidoError);
       expect(fallidaWriter.calls).toHaveLength(1);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // D-10 — a zero-movement commit DOES register a FALLIDA row (no carve-out,
+  // opposite of PdfProtegidoError's D-09 carve-out above): no field to change,
+  // no retry that helps, this is a genuine terminal failure and the only
+  // durable trace that the user tried to import an unreadable statement.
+  // ---------------------------------------------------------------------------
+  describe('(e) D-10 — SinMovimientosError DOES register a FALLIDA row (no carve-out)', () => {
+    it('el pipeline normaliza a 0 movimientos → SÍ se llama a ingestaFallidaWriter.registrar exactamente una vez, con motivo === error.message', async () => {
+      const normalizer = new FakeTransactionNormalizer();
+      normalizer.transacciones = [];
+      const fallidaWriter = new FakeFallidaWriter();
+      const { sut } = buildSut({ normalizer, fallidaWriter });
+
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        esDemo: false,
+        edits: NO_EDITS,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(SinMovimientosError);
+      expect(fallidaWriter.calls).toHaveLength(1);
+      expect(fallidaWriter.calls[0]).toEqual({
+        userId: USUARIO_ID,
+        nombreArchivo: 'cartola.xlsx',
+        motivo: result.getError().message,
+      });
     });
   });
 });

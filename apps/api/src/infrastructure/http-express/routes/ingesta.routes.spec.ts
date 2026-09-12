@@ -11,6 +11,7 @@ import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
 import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
+import { SinMovimientosError } from '../../../domain/errors/sin-movimientos.error';
 import { appLogger } from '../../logging/app-logger';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
@@ -153,6 +154,25 @@ describe('registrarIngestas — POST /api/ingestas', () => {
       .attach('file', Buffer.from('x'), 'cartola.xlsx');
 
     expect(res.status).toBe(500);
+  });
+
+  // D-09/D-11, tasks.md Phase 21.1 — MERGE-BLOCKING (Trap 3): sin la rama de
+  // mapeo en aHttpError, este assert cae al 500 genérico con `code`
+  // undefined, aunque tsc siga compilando limpio.
+  it('D-08/D-09: 400 + code SIN_MOVIMIENTOS cuando el pipeline normaliza a 0 movimientos', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new SinMovimientosError('cartola.xlsx', 'BCI')),
+        ),
+    };
+    const res = await request(probeApp({ processIngesta: uc }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('x'), 'cartola.xlsx');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('SIN_MOVIMIENTOS');
   });
 
   it('issue #500: threads req.esDemo into the use case input', async () => {
@@ -479,6 +499,25 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
     expect(JSON.stringify(res.body)).not.toContain('clave-mala');
   });
 
+  // D-09/D-11, tasks.md Phase 21.2 — MERGE-BLOCKING (Trap 3): la misma
+  // aHttpError que mapea el one-shot mapea preview — un branch faltante deja
+  // caer esto al 500 genérico.
+  it('D-08/D-09: 400 + code SIN_MOVIMIENTOS cuando el pipeline normaliza a 0 movimientos', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new SinMovimientosError('cartola.pdf', 'BCI')),
+        ),
+    };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('SIN_MOVIMIENTOS');
+  });
+
   it('reenvía req.body.password al PreviewIngestaUseCase (Slice 3)', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(PREVIEW_OK)) };
     await request(probeApp({ previewIngesta: uc }))
@@ -719,6 +758,24 @@ describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
       .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
 
     expect(res.status).toBe(500);
+  });
+
+  // D-09/D-11, tasks.md Phase 21.3 — MERGE-BLOCKING (Trap 3): sin la rama de
+  // mapeo en aCommitHttpError, este assert cae al 500 genérico.
+  it('D-08/D-09: 400 + code SIN_MOVIMIENTOS cuando el pipeline normaliza a 0 movimientos', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new SinMovimientosError('cartola.xlsx', 'BCI')),
+        ),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('SIN_MOVIMIENTOS');
   });
 
   it('D-03: 400 + code PDF_PROTEGIDO en commit cuando el PDF requiere password (Slice 3)', async () => {

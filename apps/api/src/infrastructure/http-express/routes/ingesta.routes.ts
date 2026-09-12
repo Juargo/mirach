@@ -28,6 +28,7 @@ import { PdfInvalidoError } from '../../../domain/errors/pdf-invalido.error';
 import { PdfSinTextoError } from '../../../domain/errors/pdf-sin-texto.error';
 import { EstructuraPdfInvalidaError } from '../../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../../domain/errors/rango-fechas-invalido.error';
+import { SinMovimientosError } from '../../../domain/errors/sin-movimientos.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import { EdicionesInvalidasError } from '../../../domain/errors/ediciones-invalidas.error';
 import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
@@ -415,6 +416,12 @@ function aCommitHttpError(error: CommitIngestaError): {
           : 'PDF_PASSWORD_INCORRECTA',
     };
   }
+  // Zero-movement guard (design.md D-07/D-08/D-09) — cero filas detectadas y
+  // estructuralmente válidas no es un éxito silencioso, es un error de
+  // cliente accionable.
+  if (error instanceof SinMovimientosError) {
+    return { status: 400, message: error.message, code: 'SIN_MOVIMIENTOS' };
+  }
   // Client errors (file + overlay validation) → 400
   if (
     error instanceof ExtensionNoPermitidaError ||
@@ -467,6 +474,12 @@ function aHttpError(error: ProcessIngestaError): {
           ? 'PDF_PROTEGIDO'
           : 'PDF_PASSWORD_INCORRECTA',
     };
+  }
+  // Zero-movement guard (design.md D-07/D-08/D-09) — mismo mapeo que
+  // aCommitHttpError arriba; esta función mapea tanto el one-shot como
+  // preview (:125, :178).
+  if (error instanceof SinMovimientosError) {
+    return { status: 400, message: error.message, code: 'SIN_MOVIMIENTOS' };
   }
   if (
     error instanceof ExtensionNoPermitidaError ||

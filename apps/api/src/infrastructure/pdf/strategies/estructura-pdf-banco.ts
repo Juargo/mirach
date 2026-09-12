@@ -8,6 +8,18 @@ export interface RangoX {
   readonly col: ColumnaPdf;
   readonly xMin: number;
   readonly xMax: number;
+  /**
+   * Opt-in — ventana de rescate por BORDE DERECHO estimado (design.md
+   * AMENDMENT A-01, AD-01/AD-02/AD-03). Presencia = opt-in; ausencia =
+   * comportamiento actual, byte-idéntico. Ningún banco lo declara todavía
+   * (Slice 3a) — ver `token-grouping.ts` (`anchoEstimado`,
+   * `repartirEnColumnas`) para la mecánica.
+   */
+  readonly rescateBordeDerecho?: {
+    readonly xMin: number;
+    readonly xMax: number;
+    readonly tamanoFuentePt: number;
+  };
 }
 
 /**
@@ -17,7 +29,12 @@ export interface RangoX {
  *
  *   DD/Mmm      → "02/Abr" (BancoEstado; mes en español abreviado, sin año)
  *   DD/MM       → "02/04" (Banco de Chile, Santander; sin año)
- *   DD/MM/YYYY  → "02/04/2026" (BCI; año explícito por fila)
+ *   DD/MM/YYYY  → forma DD?MM?YYYY, año explícito por fila (BCI) — el
+ *                 separador puede ser "/" ("02/04/2026", layout original) o
+ *                 "-" ("02-04-2026", segunda variante de cartola que imprime
+ *                 el mismo banco). BCI mantiene UNA sola estructura y un solo
+ *                 `formatoFecha`: no hay un cuarto miembro por separador,
+ *                 `parsearFechaFila` acepta ambos (D-04).
  */
 export type FormatoFechaPdf = 'DD/Mmm' | 'DD/MM' | 'DD/MM/YYYY';
 

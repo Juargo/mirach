@@ -12,6 +12,7 @@ import { PdfSinTextoError } from '../../domain/errors/pdf-sin-texto.error';
 import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
+import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
 import { IAccountReader } from '../ports/account-reader.port';
@@ -77,6 +78,7 @@ export type PreviewIngestaError =
   | PdfProtegidoError
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
+  | SinMovimientosError
   | PersistenciaFallidaError;
 
 /**

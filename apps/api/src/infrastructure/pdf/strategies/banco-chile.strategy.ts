@@ -52,6 +52,17 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     fechado imprime un "0" literal en cargo/abono (los "0" viven en las
  *     filas de resumen, sin fecha) — el flag queda apagado hasta tener un
  *     caso real (precedente BCI: se activó recién al observarlo).
+ *
+ * Auditoría cruzada 2026-09-11 (change SDD `bci-cartola-variante`, Slice 5,
+ * design.md D-14): `cargo` [360,445) / `abono` [450,530) → 5pt de zona
+ * muerta — el margen más angosto de los bancos que SÍ tienen zona muerta
+ * (BCI: 10pt tras este change; Santander: 45pt). Verificado
+ * independientemente contra una cartola real (fuera de este repo — ver
+ * Engram `sdd/bci-cartola-variante/audit-bancos`): la identidad de saldos
+ * `saldoAnterior − Σcargo + Σabono === saldoFinal` reconcilia EXACTO, sin
+ * inversión de signo en la práctica. Riesgo teórico documentado, no un bug
+ * activo. No se toca ninguna banda aquí — la auditoría es solo
+ * documentación.
  */
 export class BancoChilePdfStrategy {
   private static readonly ANCLA_TITULO = 'Estado de Cuenta';

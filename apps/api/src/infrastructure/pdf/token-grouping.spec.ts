@@ -1,5 +1,9 @@
-import { agruparTokens, RangoColumna } from './token-grouping';
+import { agruparTokens, anchoEstimado, RangoColumna } from './token-grouping';
 import { PagedToken } from './pdf-text-extractor';
+import { BciPdfStrategy } from './strategies/bci.strategy';
+import { BancoChilePdfStrategy } from './strategies/banco-chile.strategy';
+import { BancoEstadoPdfStrategy } from './strategies/banco-estado.strategy';
+import { SantanderPdfStrategy } from './strategies/santander.strategy';
 
 function token(str: string, x: number, y: number, page = 1): PagedToken {
   return { str, x, y, page };
@@ -141,5 +145,139 @@ describe('agruparTokens', () => {
     expect(filas[0].columnas.Descripcion).toBe('');
     expect(filas[0].columnas.Monto).toBe('');
     expect(filas[0].tokensSinAsignar).toEqual([tokenAntes, tokenDespues]);
+  });
+});
+
+// Slice 3a (AMENDMENT A-01, design.md AD-01/AD-02) — estimador de ancho +
+// pasada de rescate por borde derecho. Ninguna estrategia real opta todavía
+// (eso es Slice 3b, Phase 40): esta sección solo prueba el mecanismo en
+// aislamiento con columnas sintéticas (Phase 39.1/39.3) y que las 4
+// estrategias reales siguen sin declarar el campo (Phase 39.6).
+describe('anchoEstimado — estimador de ancho por tabla de advances Helvetica/Arial (AD-02)', () => {
+  it('suma el advance de cada dígito (sin separadores): "123" a 6pt = 3 × 0.556 × 6', () => {
+    expect(anchoEstimado('123', 6)).toBeCloseTo(3 * 0.556 * 6, 6);
+  });
+
+  it('incluye el advance del período ("."): "1.234" a 6pt suma 4 dígitos + 1 período', () => {
+    const esperado = 4 * 0.556 * 6 + 1 * 0.278 * 6;
+    expect(anchoEstimado('1.234', 6)).toBeCloseTo(esperado, 6);
+  });
+
+  it('devuelve null si ALGÚN carácter no está en la tabla — la frontera de lo medible (eligibility gate, AD-02)', () => {
+    expect(anchoEstimado('12a', 6)).toBeNull();
+  });
+});
+
+describe('agruparTokens — rescate por borde derecho (rescateBordeDerecho, AD-01, opt-in por columna)', () => {
+  const columnasConRescate: ReadonlyArray<RangoColumna> = [
+    { col: 'A', xMin: 0, xMax: 50 },
+    // Hueco deliberado [50,100) — ninguna columna lo cubre por borde
+    // izquierdo. `B` declara una ventana de rescate por borde derecho.
+    {
+      col: 'B',
+      xMin: 100,
+      xMax: 150,
+      rescateBordeDerecho: { xMin: 60, xMax: 66, tamanoFuentePt: 6 },
+    },
+  ];
+
+  it('rescata un token del hueco cuyo borde derecho estimado cae dentro de la ventana declarada (Phase 39.3)', () => {
+    // '9' (1 dígito) a 6pt: ancho estimado = 0.556 × 6 = 3.336.
+    // x=60 -> borde derecho estimado = 63.336, dentro de [60, 66).
+    const tokenRescatable = token('9', 60, 100);
+    const tokens: PagedToken[] = [tokenRescatable];
+
+    const filas = agruparTokens(tokens, columnasConRescate, 2);
+
+    expect(filas[0].columnas.B).toBe('9');
+    expect(filas[0].tokensSinAsignar).toEqual([]);
+  });
+
+  it('NO rescata un token cuyo borde derecho estimado cae fuera de la ventana declarada', () => {
+    // x=55 (dentro del hueco [50,100), fuera de A y B por borde izquierdo)
+    // -> borde derecho estimado = 58.336, fuera de la ventana [60, 66).
+    const tokenLejos = token('9', 55, 100);
+    const tokens: PagedToken[] = [tokenLejos];
+
+    const filas = agruparTokens(tokens, columnasConRescate, 2);
+
+    expect(filas[0].columnas.B).toBe('');
+    expect(filas[0].tokensSinAsignar).toEqual([tokenLejos]);
+  });
+
+  it('NO rescata un token cuyo ancho no es medible (anchoEstimado === null): el gate de elegibilidad es la tabla, no un rango de X', () => {
+    // 'a' no está en ANCHOS_GLIFO_1000EM -> anchoEstimado devuelve null,
+    // aunque el token esté geométricamente cerca de la ventana declarada.
+    const tokenNoMedible = token('9a', 60, 100);
+    const tokens: PagedToken[] = [tokenNoMedible];
+
+    const filas = agruparTokens(tokens, columnasConRescate, 2);
+
+    expect(filas[0].columnas.B).toBe('');
+    expect(filas[0].tokensSinAsignar).toEqual([tokenNoMedible]);
+  });
+
+  it('una columna que NO declara rescateBordeDerecho no rescata nada — comportamiento actual, sin cambios', () => {
+    const columnasSinRescate: ReadonlyArray<RangoColumna> = [
+      { col: 'A', xMin: 0, xMax: 50 },
+      { col: 'B', xMin: 100, xMax: 150 },
+    ];
+    const tokenEnHueco = token('9', 60, 100);
+    const tokens: PagedToken[] = [tokenEnHueco];
+
+    const filas = agruparTokens(tokens, columnasSinRescate, 2);
+
+    expect(filas[0].columnas.B).toBe('');
+    expect(filas[0].tokensSinAsignar).toEqual([tokenEnHueco]);
+  });
+
+  it('un token ya asignado por borde izquierdo en OTRA columna no es candidato a rescate (la pasada 2 solo mira tokensSinAsignar)', () => {
+    // x=20 cae dentro de A (borde izquierdo), aunque su borde derecho
+    // estimado también caería dentro de la ventana de rescate de B.
+    const tokenYaAsignado = token('9', 20, 100);
+    const tokens: PagedToken[] = [tokenYaAsignado];
+
+    const filas = agruparTokens(tokens, columnasConRescate, 2);
+
+    expect(filas[0].columnas.A).toBe('9');
+    expect(filas[0].columnas.B).toBe('');
+    expect(filas[0].tokensSinAsignar).toEqual([]);
+  });
+});
+
+describe('agruparTokens — regresión: solo el `cargo` de BCI declara rescateBordeDerecho (Slice 3a Phase 39.6 + Slice 3b Phase 40, AD-01/AD-03)', () => {
+  // Slice 3a (Phase 39.6) originaba esta regresión como "cero opt-in en
+  // absoluto" — cierto mientras ninguna estrategia real había adoptado el
+  // mecanismo. Slice 3b (Phase 40, AMENDMENT A-01) hace que BCI opte por
+  // `cargo` a propósito; esta regresión se actualiza para seguir probando
+  // lo mismo que siempre probó — "el mecanismo no se activó donde no debía"
+  // — con el único opt-in real ahora excluido de la aserción genérica.
+  it.each([
+    ['Banco de Chile', new BancoChilePdfStrategy()],
+    ['BancoEstado', new BancoEstadoPdfStrategy()],
+    ['Santander', new SantanderPdfStrategy()],
+  ] as const)(
+    '%s: ninguna columna de rangosX declara rescateBordeDerecho — el mecanismo sigue dormido para los 3 bancos que no optaron (AD-01)',
+    (_nombre, strategy) => {
+      const { rangosX } = strategy.getEstructura();
+      for (const rango of rangosX) {
+        expect(rango.rescateBordeDerecho).toBeUndefined();
+      }
+    },
+  );
+
+  it('BCI: SOLO `cargo` declara rescateBordeDerecho — `fecha`/`descripcion`/`abono` siguen dormidos (AD-01/AD-03, Phase 40)', () => {
+    const { rangosX } = new BciPdfStrategy().getEstructura();
+    for (const rango of rangosX) {
+      if (rango.col === 'cargo') {
+        expect(rango.rescateBordeDerecho).toEqual({
+          xMin: 446,
+          xMax: 452,
+          tamanoFuentePt: 6,
+        });
+      } else {
+        expect(rango.rescateBordeDerecho).toBeUndefined();
+      }
+    }
   });
 });

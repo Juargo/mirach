@@ -22,6 +22,11 @@ describe('PdfjsBankDetectorService', () => {
     ['bancochile-cartola-test.pdf', BancoConocido.BancoChile],
     ['santander-cartola-test.pdf', BancoConocido.Santander],
     ['bci-cartola-test.pdf', BancoConocido.BCI],
+    // 2ª variante de layout de BCI (CARTOLA DE CUENTA CORRIENTE, change
+    // bci-cartola-variante): la detección debe reconocerla también, no solo
+    // el primer layout — sin este caso una regresión en `matches()` para la
+    // variante pasaría la suite en verde (hueco señalado por sdd-verify).
+    ['bci-cartola-variante-test.pdf', BancoConocido.BCI],
   ])(
     'detecta %s como %s (PDF-01 escenario "cada fixture detectado como su banco")',
     async (archivo, bancoEsperado) => {
