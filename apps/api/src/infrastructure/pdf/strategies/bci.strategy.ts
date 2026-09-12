@@ -27,6 +27,18 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     "01-04-2026" — `parsearFechaFila` acepta ambos separadores, D-04) y
  *     por eso está EXENTO de `RangoFechasInvalidoError` si el ancla de
  *     período faltara.
+ *   - Segunda variante de cartola (2026-09-10, change SDD
+ *     `bci-cartola-variante`, ver design.md D-01/D-02/D-03/D-06): BCI
+ *     publica un segundo layout — fechas de fila con "-", encabezado de
+ *     tabla en UNA línea física (no 3), columna `SUCURSAL` propia y ancla
+ *     `PERIODO` partida en 3 tokens ("PERIODO" | ":" | rango). UNA sola
+ *     `EstructuraPdfBanco` cubre ambos layouts (D-01: no hay selección de
+ *     variante en runtime) — `rangosX` está ensanchado para cubrir ambos
+ *     sin invertir cargo/abono (D-02, ver la invariante en
+ *     `bci.strategy.spec.ts`), `fecha.xMin` bajó a 30 para cubrir la fecha
+ *     de la 2ª variante y `SUCURSAL` queda deliberadamente sin modelar
+ *     como columna propia (D-03), y `anclasPeriodo` tolera un ":" opcional
+ *     entre la etiqueta y la fecha (D-06).
  *   - Filas de movimiento: "01/04/2026  UGCA AUT  COMPRA COMERCIO...  100001  $23.512  $4.976.488"
  *     — columna combinada "CHEQUES Y OTROS DEPOSITOS": cargos (cheques/
  *     salidas) a la IZQUIERDA de los abonos/depósitos — mismo orden
@@ -119,20 +131,38 @@ export class BciPdfStrategy {
         'DESCRIPCION',
         'SALDO DIARIO',
       ],
+      // Colon tolerante 2026-09-10 (D-06, change SDD `bci-cartola-variante`):
+      // la 2ª variante imprime "PERIODO : DD-MM-YYYY al DD-MM-YYYY" (ancla
+      // partida en 3 tokens físicos — "PERIODO" | ":" | rango). Forma
+      // copiada verbatim del precedente `banco-chile.strategy.ts:91-92`. La
+      // V1 (sin ":") sigue matcheando igual — `\s*:?\s*` es opcional.
       anclasPeriodo: {
-        desde: /PERIODO\s+(\d{2}-\d{2}-\d{4})/,
-        hasta: /PERIODO\s+\d{2}-\d{2}-\d{4}\s+al\s+(\d{2}-\d{2}-\d{4})/,
+        desde: /PERIODO\s*:?\s*(\d{2}-\d{2}-\d{4})/,
+        hasta: /PERIODO\s*:?\s*\d{2}-\d{2}-\d{4}\s+al\s+(\d{2}-\d{2}-\d{4})/,
       },
+      // rangosX ensanchado 2026-09-10 (change SDD `bci-cartola-variante`,
+      // D-02/D-03) para cubrir la SEGUNDA variante de cartola publicada por
+      // BCI sin dejar de cubrir la original (V1, 15 cartolas reales,
+      // 2026-08-30) — ver design.md D-02 para la tabla de clusters medidos
+      // y el argumento de separación completo.
+      //   fecha        35 → 30   (D-03: V2 mide min=p50=33.6, fuera de la
+      //                banda anterior; SUCURSAL queda deliberadamente sin
+      //                modelar y comparte esta columna, mismo patrón que
+      //                Santander)
+      //   descripcion 145 → 130  (D-02: cubre V2's 134.8)
+      //   cargo       xMax 430 → 440  (D-02: cubre el cargo V2 más angosto,
+      //                434.1, con margen)
+      //   abono       xMin 435 → 450, xMax 500 → 515  (D-02: deja un dead
+      //                zone [440,450) DELIBERADO entre cargo y abono — un
+      //                monto ahí falla RUIDOSO en vez de leerse del lado
+      //                equivocado; abono.xMax=515 queda 6.2pt por debajo
+      //                del header "SALDO DIARIO" de V2 (521.2) — NO subir
+      //                sin volver a medir, ver la invariante de más abajo)
       rangosX: [
-        { col: 'fecha', xMin: 35, xMax: 85 },
-        { col: 'descripcion', xMin: 145, xMax: 320 },
-        // Bandas de monto recalibradas 2026-08-30 (15 cartolas reales, ver
-        // docblock): right-aligned, el xMin debe cubrir el monto MÁS ANCHO
-        // plausible, no el más ancho ya visto — margen a la izquierda del
-        // mínimo observado (381.1 / 455.3) sin invadir el N° DOCUMENTO
-        // (≤317.8) ni fusionar ambas columnas entre sí.
-        { col: 'cargo', xMin: 360, xMax: 430 },
-        { col: 'abono', xMin: 435, xMax: 500 },
+        { col: 'fecha', xMin: 30, xMax: 85 },
+        { col: 'descripcion', xMin: 130, xMax: 320 },
+        { col: 'cargo', xMin: 360, xMax: 440 },
+        { col: 'abono', xMin: 450, xMax: 515 },
       ],
       toleranciaY: 2,
       formatoFecha: 'DD/MM/YYYY',

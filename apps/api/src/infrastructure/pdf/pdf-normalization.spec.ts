@@ -351,6 +351,82 @@ describe('normalizarTransaccionesPdf', () => {
     ]);
   });
 
+  // Slice 3 (change SDD `bci-cartola-variante`, Phase 10, D-03) — `fecha`
+  // se ensancha a [30, 85) para cubrir la 2ª variante y SUCURSAL (x en
+  // [75.7, 83.4] para esa variante) queda DELIBERADAMENTE sin modelar
+  // como columna: comparte la banda `fecha` con la fecha, mismo patrón que
+  // Santander (fecha+sucursal fusionados en un token, `santander.strategy.ts:82`).
+  // Usa `BciPdfStrategy().getEstructura()` real (post band change de la
+  // Fase 8), no un `rangosX` sintético — este describe existe para probar
+  // la config real, no una reencarnación de ella.
+  describe('fecha band + SUCURSAL hazard (D-03, Slice 3 Phase 10)', () => {
+    const estructuraBci = new BciPdfStrategy().getEstructura();
+
+    it('una fila cuya columna `fecha` trae "DD-MM-YYYY  SUCURSAL-NAME" (fecha + SUCURSAL en la misma banda ensanchada) igual parsea la fecha correctamente', () => {
+      const tokens = [
+        tok('22-07-2026', 33, 100),
+        tok('SUCURSAL-NAME', 80, 100),
+        tok('Pago Credito', 150, 100),
+        tok('50.000', 400, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toEqual([
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 6, 22)),
+          descripcion: 'Pago Credito',
+          cargo: 50000n,
+          abono: 0n,
+        }).getValue(),
+      ]);
+    });
+
+    it('una fila que trae SOLO un token con forma de SUCURSAL (sin fecha, sin montos, sin descripción) nunca produce un movimiento por sí sola', () => {
+      const tokens = [
+        // Fila fechada real, para tener una candidata previa contra la que
+        // una fusión indebida sería detectable.
+        tok('05-06-2026', 33, 100),
+        tok('Compra Real', 150, 100),
+        tok('10.000', 400, 100),
+        // Fila huérfana: solo un token de 3 dígitos en la banda `fecha`
+        // ensanchada (x=80, forma de SUCURSAL) — sin fecha parseable, sin
+        // descripción, sin montos propios.
+        tok('715', 80, 90),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toHaveLength(1);
+      expect(resultado[0].descripcion).toBe('Compra Real');
+    });
+
+    it('el SUCURSAL de la variante V1 (x≈99) queda SIN asignar bajo la banda ensanchada — cae en el hueco [85,130) entre `fecha.xMax` y `descripcion.xMin`, no dentro de ninguna columna', () => {
+      const tokens = [
+        tok('05/06/2026', 42, 100), // fecha V1, separador "/"
+        tok('99', 99, 100), // SUCURSAL V1, x≈99 — debe quedar sin asignar
+        tok('Compra Real', 150, 100),
+        tok('10.000', 400, 100),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toHaveLength(1);
+      // Ni la fecha ni la descripción absorbieron el token SUCURSAL — si
+      // hubiera caído en `fecha` el parseo de fecha se habría roto (regex
+      // no ancla, pero el token "99" no tiene forma de fecha y no la
+      // rompe); si hubiera caído en `descripcion` aparecería en el texto.
+      expect(resultado[0].descripcion).toBe('Compra Real');
+      expect(resultado[0].descripcion).not.toContain('99');
+    });
+  });
+
   it('formato DD/Mmm (BancoEstado, mes abreviado español) parsea correctamente — implementado en PR4b', () => {
     const tokens = [
       tok('02/Abr', 30, 100),
