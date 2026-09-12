@@ -314,6 +314,43 @@ describe('normalizarTransaccionesPdf', () => {
     ]);
   });
 
+  it('acepta el separador "-" en fecha DD/MM/YYYY (2ª variante BCI, D-04) además del "/" existente', () => {
+    const rangosXBci = [
+      { col: 'fecha' as const, xMin: 0, xMax: 100 },
+      { col: 'descripcion' as const, xMin: 100, xMax: 300 },
+      { col: 'cargo' as const, xMin: 300, xMax: 400 },
+      { col: 'abono' as const, xMin: 400, xMax: 500 },
+    ];
+    const tokens = [
+      tok('22-07-2026', 40, 100),
+      tok('Pago Credito', 150, 100),
+      tok('50.000', 350, 100),
+    ];
+
+    const resultado = ok(
+      normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase({
+          banco: BancoConocido.BCI,
+          formatoFecha: 'DD/MM/YYYY',
+          fuenteAnio: { kind: 'explicito' },
+          rangosX: rangosXBci,
+          filasIgnoradas: [],
+        }),
+        undefined,
+      ),
+    );
+
+    expect(resultado).toEqual([
+      Transaccion.crear({
+        fecha: new Date(Date.UTC(2026, 6, 22)),
+        descripcion: 'Pago Credito',
+        cargo: 50000n,
+        abono: 0n,
+      }).getValue(),
+    ]);
+  });
+
   it('formato DD/Mmm (BancoEstado, mes abreviado español) parsea correctamente — implementado en PR4b', () => {
     const tokens = [
       tok('02/Abr', 30, 100),

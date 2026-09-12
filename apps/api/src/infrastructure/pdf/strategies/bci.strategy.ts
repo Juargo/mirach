@@ -23,8 +23,10 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     "-" (DISTINTO del "/" que usan los otros 3 bancos) y AMBAS fechas
  *     dentro del MISMO token de valor.
  *   - `fuenteAnio.kind === 'explicito'` — BCI trae el año en cada fila
- *     (`DD/MM/YYYY`, ej. "01/04/2026") y por eso está EXENTO de
- *     `RangoFechasInvalidoError` si el ancla de período faltara.
+ *     (`DD/MM/YYYY`, ej. "01/04/2026" o, en la segunda variante de cartola,
+ *     "01-04-2026" — `parsearFechaFila` acepta ambos separadores, D-04) y
+ *     por eso está EXENTO de `RangoFechasInvalidoError` si el ancla de
+ *     período faltara.
  *   - Filas de movimiento: "01/04/2026  UGCA AUT  COMPRA COMERCIO...  100001  $23.512  $4.976.488"
  *     — columna combinada "CHEQUES Y OTROS DEPOSITOS": cargos (cheques/
  *     salidas) a la IZQUIERDA de los abonos/depósitos — mismo orden
@@ -168,6 +170,14 @@ export class BciPdfStrategy {
         // junta las 4 columnas con espacios y las columnas de monto vacías
         // dejan whitespace colgando al final.
         /^Periodo\s+Saldo Anterior\s*$/,
+        // Fila de VALORES de la sección de totales: su columna `fecha` trae el
+        // RANGO del período ("DD-MM-YYYY al DD-MM-YYYY"), no una fecha de
+        // movimiento. Inerte hasta que el parser aceptó el separador "-"
+        // (D-04); desde entonces parsea como fila fechada y, al traer cargo Y
+        // abono, tumbaría la cartola completa. Ancla exacta: ninguna fila de
+        // movimiento real trae dos fechas completas separadas por " al " en
+        // esa columna.
+        /^\d{2}[/-]\d{2}[/-]\d{4}\s+al\s+\d{2}[/-]\d{2}[/-]\d{4}\b/,
       ],
       fusionarContinuaciones: true,
       omitirFilasMontoCero: true,
