@@ -56,6 +56,91 @@ describe('BciPdfStrategy', () => {
     }
   });
 
+  // D-12 self-assertions, Slice 1 of change `bci-cartola-variante` — no
+  // production code touched in this block. Reutiliza el patrón de
+  // `tokensPagina1` pero SIN filtrar a página 1 (el encabezado repite por
+  // página y el fixture tiene 3). Nota sobre el include-glob de vitest
+  // (`apps/api/vitest.config.ts:19` = `['src/**/*.spec.ts',
+  // 'test/*.spec.ts']`, no `test/**/*.spec.ts`): un archivo de aserciones
+  // bajo `test/fixtures/pdf/` nunca correría — por eso vive aquí.
+  describe('fixture geometry — bci-cartola-variante-test.pdf (D-12 self-assertions, no production code)', () => {
+    let tokens: PagedTokens;
+
+    beforeAll(async () => {
+      const archivo = 'bci-cartola-variante-test.pdf';
+      const buffer = await readFile(join(fixturesDir, archivo));
+      const extractor = new PdfTextExtractor();
+      const result = await extractor.extract(buffer, archivo);
+      if (result.isFail()) {
+        throw new Error(`fixture no cargó: ${archivo}`);
+      }
+      tokens = result.getValue();
+    });
+
+    it('al menos una fecha de fila usa separador "-" (DD-MM-YYYY)', () => {
+      expect(tokens.some((tok) => /^\d{2}-\d{2}-\d{4}$/.test(tok.str))).toBe(
+        true,
+      );
+    });
+
+    it('ninguna fecha usa separador "/" — esta variante es 100% guion', () => {
+      expect(tokens.some((tok) => /^\d{2}\/\d{2}\/\d{4}$/.test(tok.str))).toBe(
+        false,
+      );
+    });
+
+    it('existe un token de fecha en x=33.6 — el valor fuera de la banda `fecha` actual [35,85) que D-03 debe cubrir', () => {
+      expect(
+        tokens.some(
+          (tok) => tok.x === 33.6 && /^\d{2}-\d{2}-\d{4}$/.test(tok.str),
+        ),
+      ).toBe(true);
+    });
+
+    it.each([
+      'FECHA',
+      'SUCURSAL',
+      'DESCRIPCION',
+      'CHEQUES',
+      'DEPOSITOS',
+      'SALDO DIARIO',
+    ])(
+      'el encabezado de tabla "%s" aparece exactamente una vez por página (3 páginas)',
+      (etiqueta) => {
+        const ocurrencias = tokens.filter((tok) => tok.str === etiqueta);
+        expect(ocurrencias).toHaveLength(3);
+      },
+    );
+
+    it('el ancla PERIODO llega partida en 3 tokens físicos: "PERIODO", ":" y el rango de fechas — a diferencia de la V1 (un único token de valor)', () => {
+      expect(tokens.some((tok) => tok.str === 'PERIODO')).toBe(true);
+      expect(tokens.some((tok) => tok.str === ':')).toBe(true);
+      expect(
+        tokens.some((tok) =>
+          /^\d{2}-\d{2}-\d{4}\s+al\s+\d{2}-\d{2}-\d{4}$/.test(tok.str),
+        ),
+      ).toBe(true);
+    });
+
+    it('al menos un token de cargo cae en la banda medida [420.9, 434.1]', () => {
+      const REGEX_MONTO = /^\d{1,3}(\.\d{3})*$/;
+      expect(
+        tokens.some(
+          (tok) =>
+            REGEX_MONTO.test(tok.str) && tok.x >= 420.9 && tok.x <= 434.1,
+        ),
+      ).toBe(true);
+    });
+
+    it('al menos dos tokens de abono caen en la banda medida [484.4, 486.6]', () => {
+      const REGEX_MONTO = /^\d{1,3}(\.\d{3})*$/;
+      const enBanda = tokens.filter(
+        (tok) => REGEX_MONTO.test(tok.str) && tok.x >= 484.4 && tok.x <= 486.6,
+      );
+      expect(enBanda.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   describe('getEstructura', () => {
     const estructura = strategy.getEstructura();
 
