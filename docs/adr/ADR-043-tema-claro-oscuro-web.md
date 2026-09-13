@@ -8,7 +8,7 @@ tags:
 proyecto: MoneyDiary
 estado: ✅ Decidido
 fecha_creacion: 2026-09-12
-fecha_actualizacion: 2026-09-12
+fecha_actualizacion: 2026-09-13
 ---
 
 # ADR-043 — Tema claro/oscuro en `apps/web`: Clínico frío / Tinta cálida
@@ -182,10 +182,16 @@ El atajo del Sidebar se inyecta a través del `sidebarFooter` ya existente en
 **Razón:** sigue el precedente que ya sentaron `ApiVersionBadge` y el botón de
 logout.
 
-### Tri-estado, default de sistema y persistencia solo local
+### Tri-estado, default claro y persistencia solo local
 
-- Preferencia tri-estado: `light` / `dark` / `system`. Primera visita = `system`;
-  los cambios de OS en vivo se siguen mientras la preferencia sea `system`.
+> **Enmienda 2026-09-13 (decisión del owner):** el default de primera visita
+> cambia de `system` a `light`. Ver "Enmienda 2026-09-13 — default claro en vez
+> de sistema" más abajo para el detalle completo y su razón.
+
+- Preferencia tri-estado: `light` / `dark` / `system`. Primera visita = `light`
+  (enmendado 2026-09-13; ver abajo); `system` sigue disponible y, una vez
+  elegido explícitamente, los cambios de OS en vivo se siguen mientras la
+  preferencia siga siendo `system`.
 - Persistencia en `localStorage` únicamente — sin columna en `User`, sin cambio de
   API. Sincronización entre pestañas vía el evento `storage`.
 - **Sincronización entre dispositivos queda fuera de alcance** (deuda diferida,
@@ -260,6 +266,30 @@ se verifica con `vitest-axe` en ambas variantes, como exige esa ADR).
   (S6-S7b), incluida la ventana en la que el tema queda forzado a oscuro
   (`TEMA_FORZADO='dark'`) mientras el mecanismo se construye sin exponer un
   selector inconsistente.
+
+## Enmienda 2026-09-13 — default claro en vez de sistema
+
+**Decisión del owner (final):** la preferencia por defecto en primera visita
+(sin nada guardado, un valor guardado inválido, o un storage que lanza) pasa
+de `'system'` a `'light'` — la app arranca en Clínico frío y el radio
+**Claro** queda marcado en `SelectorTema` (Perfil y Sidebar).
+
+- Una elección explícita guardada (`'light'`/`'dark'`/`'system'`) se sigue
+  respetando tal cual — incluido `'system'`, que sigue siguiendo el OS en
+  vivo una vez elegido.
+- La opción `system` se queda en el selector; solo cambia cuál es el default.
+- Alcance: enmienda **solo** la cláusula de default de la sección "Tri-estado,
+  default de sistema y persistencia solo local" de la Decisión original y los
+  requisitos WT-02/WT-03 de `web-theme` (spec). El resto de este ADR —
+  mecanismo D1-D10, valores medidos, alcances (supersedes) sobre `web-app`,
+  y la deuda diferida — sigue vigente sin cambios.
+- **No enmienda** WT-01 (tri-estado sigue siendo `light`/`dark`/`system`),
+  WT-04/WT-05 (pre-paint y cross-tab, sin cambios de mecanismo — solo cambia
+  el valor de fallback que ambos scripts calculan), WT-06..WT-09.
+- Implementación: `leerPreferencia` (`apps/web/src/lib/tema.ts`) y el script
+  de pre-paint de `index.html` cambian su fallback en lockstep, como exige D5.
+
+**Fecha de decisión:** 2026-09-13.
 
 ## Referencias
 
