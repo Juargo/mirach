@@ -27,22 +27,29 @@ The system MUST support exactly three preference states — `light`, `dark`,
 - WHEN the user selects `system`
 - THEN the app applies the current OS scheme and resumes following it
 
-### Requirement: WT-02 — System default and live OS follow
+### Requirement: WT-02 — Light default, live OS follow only under an explicit `system` choice
 
-On first visit (no stored preference), the system MUST default to `system`
-and apply `prefers-color-scheme`. While `system` is selected, a live OS
-scheme change MUST update the applied theme immediately. While an explicit
-theme is selected, an OS scheme change MUST NOT change the applied theme.
+(Previously: on first visit, the system defaulted to `system` and applied
+`prefers-color-scheme` immediately. Revised by owner decision, 2026-09-13:
+the default preference is `light`, so first visit no longer follows the OS
+on its own — `system` stays available and, once explicitly chosen, still
+follows the OS live.)
 
-#### Scenario: First visit follows the OS
+On first visit (no stored preference), the system MUST default to `light`,
+regardless of `prefers-color-scheme`. While `system` is explicitly selected,
+a live OS scheme change MUST update the applied theme immediately. While an
+explicit theme (`light` or `dark`) is selected — including the `light`
+default itself — an OS scheme change MUST NOT change the applied theme.
+
+#### Scenario: First visit starts in light regardless of the OS
 
 - GIVEN no stored preference exists
-- WHEN the app loads
-- THEN the applied theme matches `prefers-color-scheme` at that moment
+- WHEN the app loads, even with the OS in dark mode
+- THEN the applied theme is `light` and the `Claro` control is checked
 
 #### Scenario: Live OS change updates system mode
 
-- GIVEN preference is `system` and the OS is in light mode
+- GIVEN preference is explicitly `system` and the OS is in light mode
 - WHEN the OS switches to dark
 - THEN the app switches to dark without reload
 
@@ -53,6 +60,11 @@ theme is selected, an OS scheme change MUST NOT change the applied theme.
 - THEN the app stays in `dark`
 
 ### Requirement: WT-03 — localStorage-only persistence, resilient to failure
+
+(Previously: an absent, invalid, or unreadable stored value fell back to
+`system`. Revised by owner decision, 2026-09-13: the fallback is `light` —
+see WT-02. The persistence contract itself — `localStorage` only, resilient
+to a throwing storage — is unchanged.)
 
 The chosen preference MUST persist in `localStorage` only (no API/User
 change). A `localStorage` read or write that throws (e.g. private browsing)
@@ -69,14 +81,14 @@ An unrecognized stored value MUST be treated as absent.
 
 - GIVEN `localStorage` access throws in the current browsing context
 - WHEN the app loads or the user changes theme
-- THEN the app renders normally, defaults to `system`, and raises no
+- THEN the app renders normally, defaults to `light`, and raises no
   uncaught error
 
-#### Scenario: Invalid stored value falls back to system
+#### Scenario: Invalid stored value falls back to light
 
 - GIVEN the stored value is not one of `light`/`dark`/`system`
 - WHEN the app loads
-- THEN it behaves as if `system` were selected
+- THEN it behaves as if `light` were selected
 
 ### Requirement: WT-04 — Pre-paint application, no flash
 
