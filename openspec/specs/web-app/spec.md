@@ -2342,54 +2342,6 @@ hardcoded.
 > and governed its styling. Income stays reachable from the legend's
 > "Ingresos" row (→ `/ingresos`, WG5-06 above).
 
-### Requirement: DCR-04 — Authenticated app shell uses the pale-blue background token
-
-The `--background` token MUST be `#e8f0fa` in light mode, applied app-shell-wide
-via the existing `bg-background` usage.
-
-#### Scenario: App shell background is pale pastel blue
-
-- GIVEN the authenticated web app renders in light mode
-- WHEN the app shell's computed background is inspected
-- THEN it resolves to `#e8f0fa`
-
-### Requirement: DCR-05 — Primary token is `#2260b2` in light mode
-
-The `--primary` token MUST be `#2260b2` in light mode. Components that
-reference `--primary` (buttons, headings) MUST reflect this value without
-component-level changes.
-
-#### Scenario: Primary-styled elements pick up the new blue
-
-- GIVEN a button or heading styled with the `primary` token in light mode
-- WHEN its computed color/background is inspected
-- THEN it resolves to `#2260b2`
-
-### Requirement: DCR-06 — New color pairings meet WCAG 2.2 AA (ADR-018)
-
-Every pairing introduced or changed by this spec MUST meet WCAG 2.2 AA
-(≥4.5:1 for text): income text on income fill, primary on white, and primary
-on the new background.
-
-#### Scenario: Documented pairings meet AA contrast
-
-- GIVEN the pairings `--color-ingreso-foreground` on `--color-ingreso`, `--primary`
-  on white, and `--primary` on `--background`
-- WHEN their contrast ratios are computed
-- THEN they are 6.78:1, 6.21:1, and 5.40:1 respectively — all ≥4.5:1 AA
-
-### Requirement: DCR-07 — Dark mode is unaffected
-
-Only light-mode `:root` tokens change. The `.dark` theme MUST continue to
-render without regression (no removed rules, no broken component).
-
-#### Scenario: Dark mode renders unchanged
-
-- GIVEN the app is switched to dark mode
-- WHEN the dashboard renders
-- THEN `.dark` token values are unchanged from before this change and the
-  layout renders without errors
-
 ### Requirement: WAC-01 — DTO Types Are Derived, Not Hand-Written
 
 For every endpoint covered by `apps/api/openapi.json` (see `api-client` spec), `apps/web/src/api/types.ts`
@@ -2474,56 +2426,77 @@ routes introduced by the layout restructure, WCTG-01/§1.)
 
 ### Requirement: WCFG-02 — Perfil layout matches the verbatim visual contract (CA-02)
 
-The Perfil screen MUST render, in order: the shared `Configuración` `<h1>` owned by the layout route; a
-vertical section-tab list whose `Perfil` entry carries `aria-current="page"` and whose `Categorías`
-entry is a **real, active `<Link>`** to `/configuracion/categorias`; the panel's own `Editar perfil`
-heading, one level below the shared `<h1>`; three divided blocks — `Nombre`/`Email`, `Cambiar password`
-(`Password actual`/`Password nueva`), `Cuenta de Google` — followed by one right-aligned `Guardar
-cambios` button. The Google block MUST render exactly one of two structurally symmetric states, driven
-by `me.googleVinculado`.
-
-(Previously: the page's FIRST heading was `Editar perfil`, and the `Categorías` tab was a **placeholder,
-inert**, given "the same treatment as `NAV_ITEMS`' unfinished destinations". The layout restructure of
-WCTG-01/§1 moves the `Configuración` heading up into the shared layout — demoting `Editar perfil` one
-level into the panel — and US-043 is precisely the change that makes the `Categorías` destination real,
-so the inert-placeholder clause is retired. **Both departures are deliberate; this delta is what
-authorises them.** Everything below the tab list — the three blocks, the button, and the Google block's
-two states — is unchanged from the shipped requirement.)
+The Perfil screen MUST render, in order: the shared `Configuración` `<h1>`
+owned by the layout route; a vertical section-tab list whose `Perfil` entry
+carries `aria-current="page"` and whose `Categorías` entry is a real, active
+`<Link>` to `/configuracion/categorias`; the panel's own `Editar perfil`
+heading, one level below the shared `<h1>`; four `SeccionConfig` blocks in
+this exact order — `Editar perfil` (`Nombre`/`Email`, `Cambiar password`
+with `Password actual`/`Password nueva`, and a right-aligned `Guardar
+cambios` button scoped to this block), `Cuenta de Google`, `Apariencia`,
+`Sesión`. `Guardar cambios` MUST submit only the identity/password fields;
+it MUST NOT submit the Apariencia choice. The `Apariencia` block MUST apply
+the selected theme instantly, on the current device, without a save action;
+MUST carry the description "Se aplica al instante en este dispositivo.";
+MUST use the same divided-block visual pattern as its siblings; and MUST
+contain the theme toggle described by `web-theme` WT-06 (keyboard-operable,
+accessible name and current-state). The Google block MUST render exactly
+one of two structurally symmetric states, driven by `me.googleVinculado`.
 
 #### Scenario: The shared heading precedes the panel heading
 
 - GIVEN an authenticated session on `/configuracion`
 - WHEN the page renders
-- THEN the `Configuración` heading is the page's top-level heading and `Editar perfil` is a heading one
-  level below it, inside the routed panel — not the first heading on the page
+- THEN the `Configuración` heading is the page's top-level heading and
+  `Editar perfil` is one level below it, inside the routed panel
 
 #### Scenario: The Categorías tab is no longer inert
 
 - GIVEN an authenticated session on `/configuracion`
 - WHEN the user activates the `Categorías` tab
-- THEN it navigates to `/configuracion/categorias` — it is a real `<Link>`, never a disabled control,
-  and it MUST NOT carry `aria-disabled`
+- THEN it navigates to `/configuracion/categorias` — a real `<Link>`, never
+  disabled, without `aria-disabled`
 
-#### Scenario: Everything below the tab list is unchanged
+#### Scenario: The four blocks render in the fixed order, Guardar cambios scoped to the first
 
 - GIVEN an authenticated session on `/configuracion`
 - WHEN the page renders
-- THEN the three divided blocks appear in the shipped order, followed by one right-aligned `Guardar
-  cambios` button, and the Google block renders exactly one of its two symmetric states per
-  `me.googleVinculado`
+- THEN the blocks appear in order `Editar perfil`, `Cuenta de Google`,
+  `Apariencia`, `Sesión`, and the `Guardar cambios` button renders only
+  inside `Editar perfil`, right-aligned within that block — no block after
+  it carries a save action
+
+#### Scenario: Apariencia applies the theme instantly, without Guardar cambios
+
+- GIVEN the Apariencia block renders
+- WHEN the user selects a different theme option
+- THEN the choice applies immediately to the current device without
+  activating `Guardar cambios`, and the block exposes the theme toggle
+  described by `web-theme` WT-06 (keyboard-operable, accessible name and
+  current-state)
 
 #### Scenario: Linked state renders the green pill and Desvincular
 
 - GIVEN `me.googleVinculado` is `true`
 - WHEN the Cuenta de Google block renders
-- THEN it shows the pill `Vinculada: {me.email}` and a `Desvincular` button, not `Vincular con Google`
+- THEN it shows the pill `Vinculada: {me.email}` and a `Desvincular` button
 
 #### Scenario: Not-linked state renders the neutral pill and Vincular
 
 - GIVEN `me.googleVinculado` is `false`
 - WHEN the Cuenta de Google block renders
-- THEN it shows a neutral `No vinculada` pill and a `Vincular con Google` button, in the same layout
-  position `Desvincular` would occupy
+- THEN it shows a neutral `No vinculada` pill and a `Vincular con Google`
+  button, in the same layout position `Desvincular` would occupy
+
+(Previously: the page's first heading was `Editar perfil` and `Categorías`
+was an inert placeholder — both already superseded by WCTG-01/§1 and
+retained here. Immediately before this change, the panel had exactly three
+`SeccionConfig` blocks — `Editar perfil`, `Cuenta de Google`, `Sesión` —
+with `Guardar cambios` already scoped to `Editar perfil`, and no
+appearance/theme control. `web-theme` inserts a fourth block, `Apariencia`,
+between `Cuenta de Google` and `Sesión` — design decision D9 — and confirms
+`Guardar cambios` stays scoped to `Editar perfil`, never submitting the
+device-local theme choice.)
 
 ### Requirement: WCFG-03 — Identity is fetched once per visit and invalidated after mutation
 
@@ -2810,6 +2783,82 @@ failure from the new route file.
 - GIVEN the implementation is complete
 - WHEN `pnpm web typecheck` and `pnpm web test` are run
 - THEN both exit successfully
+
+### Requirement: DCR-04 — Authenticated app shell uses the Clínico frío background identity
+
+The `--background` token MUST resolve to the Clínico frío light-mode value
+(measured in the design phase to satisfy WT-07), applied app-shell-wide via
+the existing `bg-background` usage. The value MUST come from the theme's
+`:root` block, not a hardcoded literal.
+
+#### Scenario: App shell background resolves to the Clínico frío value
+
+- GIVEN the authenticated web app renders in light (Clínico frío) mode
+- WHEN the app shell's computed background is inspected
+- THEN it resolves to `--background` as defined in `:root` for Clínico
+  frío — not the previous Serene Finance `#e8f0fa`
+
+(Previously: pinned to the exact literal `#e8f0fa`; the light identity
+itself changes to Clínico frío, with values measured in the design phase.)
+
+### Requirement: DCR-05 — Primary token uses the Clínico frío identity value
+
+The `--primary` token MUST resolve to the Clínico frío light-mode value
+(design-phase measured). Components referencing `--primary` (buttons,
+headings) MUST reflect it without component-level changes.
+
+#### Scenario: Primary-styled elements pick up the Clínico frío primary
+
+- GIVEN a button or heading styled with the `primary` token in light mode
+- WHEN its computed color/background is inspected
+- THEN it resolves to `--primary` as defined in `:root` for Clínico frío —
+  not the previous Serene Finance `#2260b2`
+
+(Previously: pinned to the exact literal `#2260b2`.)
+
+### Requirement: DCR-06 — Light and dark pairings meet WCAG 2.2 AA (ADR-018)
+
+Every color pairing rendered in either theme (Clínico frío light, Tinta
+cálida dark) — including income text on income fill, primary on background
+or white, and every pairing covered by `web-theme` WT-07 — MUST meet WCAG
+2.2 AA: text ≥4.5:1, non-text UI ≥3:1.
+
+#### Scenario: Documented pairings meet AA contrast in both themes
+
+- GIVEN the full set of themed color pairings, evaluated once per theme
+- WHEN their contrast ratios are computed against that theme's own
+  background/card surface
+- THEN every text pairing is ≥4.5:1 and every non-text pairing is ≥3:1
+
+(Previously: pinned three specific ratios — 6.78:1, 6.21:1, 5.40:1 — against
+the single old light identity. Generalized to a per-theme threshold
+obligation since exact Clínico frío/Tinta cálida values are a design-phase
+output.)
+
+### Requirement: DCR-07 — Dark mode is the Tinta cálida identity
+
+Dark mode MUST render the Tinta cálida identity, replacing the previous
+Tecno-Analítico values, and MUST meet the DCR-06 thresholds. Both `:root`
+(Clínico frío) and `.dark` (Tinta cálida) MUST render without regression —
+no removed rule, no broken component — and switching between them MUST NOT
+alter DOM structure.
+
+#### Scenario: Dark mode renders the Tinta cálida identity
+
+- GIVEN the app is switched to dark
+- WHEN the dashboard renders
+- THEN `.dark` resolves to Tinta cálida token values (not the previous
+  Tecno-Analítico values) and the layout renders without errors
+
+#### Scenario: Switching theme does not change layout structure
+
+- GIVEN the same page rendered once in light and once in dark
+- WHEN DOM structure (excluding color/style values) is compared
+- THEN the structure is unchanged
+
+(Previously: asserted dark was untouched by this change — "Only light-mode
+`:root` tokens change" / "`.dark` theme MUST continue to render without
+regression." Superseded: dark is now itself the changed identity.)
 
 ## Non-Goals
 

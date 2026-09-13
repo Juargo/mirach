@@ -194,4 +194,3 @@ Code added or modified by this change MUST NOT import from
 - A real file-upload flow (placeholder stays inert).
 - New backend endpoints (all data already exists).
 - Restyling `/login` or the standalone `/buckets/:bucket` route.
-- Dark mode.
