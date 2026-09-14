@@ -381,7 +381,12 @@ This spec extends the existing user-data-isolation requirement from `user-data-i
 ## Client Consumers
 
 - **Web UI (US-059)** — `SubirCartola` state machine (`apps/web/src/components/SubirCartola.tsx`) is the first consumer of the preview+commit endpoints; deployed at main `74dafdd0` (2026-08-22). Specification at `openspec/specs/web-import-preview/spec.md`.
-- **Mobile UI** — not yet implemented; tracked by US-061. The deprecated one-shot `POST /api/ingestas` (ADR-026) remains the mobile path until US-061.
+- **Mobile UI** — ships an upload screen (`apps/mobile/app/subir.tsx`), but it still targets the
+  legacy backward-compatibility shim of preview (`estructura`/`muestra`, PREV-EXT-01's note) and
+  commits through the deprecated one-shot `POST /api/ingestas` (ADR-026), not this spec's
+  canonical `resumen`/`filas` preview or the `POST /api/ingestas/commit` endpoint. Migration to
+  the canonical preview/commit contract is in progress under change SDD
+  `cartola-preview-confirmacion` (also adds an `edits` classification overlay, ADR-044).
 
 ---
 
