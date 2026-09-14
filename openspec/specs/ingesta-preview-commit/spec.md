@@ -317,21 +317,24 @@ Amounts in `transacciones[]` MUST be BigInt-safe strings, matching the existing
 
 ### Requirement: DEP-01 — One-shot `POST /api/ingestas` is deprecated in openapi.json but behaviorally unchanged (CA-05)
 
-`POST /api/ingestas` MUST be annotated `deprecated: true` in `openapi.json`.
-Its request/response contract, routing, middleware chain, and pipeline behavior
-MUST remain identical to today. Mobile callers (ADR-026) continue to use it
-until US-061. No feature flag, env toggle, or dual-write logic branch is
-introduced.
+`POST /api/ingestas` MUST be annotated `deprecated: true` in `openapi.json`. Its
+request/response contract, routing, middleware chain, and pipeline behavior MUST remain
+identical to today. After this change, mobile no longer calls it — mobile adopts the
+canonical `preview`/`commit` flow (see `mobile-import-preview` spec) — so **no client in
+this repo ships a caller** of the one-shot endpoint. The endpoint itself MUST stay live
+and unchanged; only its shipped-consumer status changes. No feature flag, env toggle, or
+dual-write logic branch is introduced.
 
-A transition note MUST be recorded (in the ADR table row for ADR-026 or the
-ingesta runbook) stating: deprecated at US-057, physical removal tracked by
-US-061.
+A transition note MUST be recorded (in the ADR table row for ADR-026 or the ingesta
+runbook) stating: deprecated at US-057, mobile migrated off it at this change
+(`cartola-preview-confirmacion`), physical removal tracked by US-061.
 
-#### Scenario: Deprecated one-shot still imports correctly (regression guard)
+(Previously: "Mobile callers (ADR-026) continue to use it until US-061.")
 
-- GIVEN a mobile caller with a valid session and API key
-- WHEN the caller calls `POST /api/ingestas` with a valid cartola (unchanged
-  flow)
+#### Scenario: Deprecated one-shot still works for a direct caller (regression guard)
+
+- GIVEN an authenticated caller with a valid session and API key calls the endpoint directly (no shipped client does this anymore)
+- WHEN the caller calls `POST /api/ingestas` with a valid cartola (unchanged flow)
 - THEN the response is the existing `IngestaResponseDto` shape with persisted
   `ingestaId`, `totalTransacciones`, `duplicadosOmitidos`, and categorization
 - AND the `Ingesta` + `Transaccion` rows exist in the DB
@@ -341,10 +344,15 @@ US-061.
 - GIVEN the current `openapi.json`
 - WHEN the spec file is inspected for `POST /api/ingestas`
 - THEN the operation object includes `"deprecated": true`
-- AND `POST /api/ingestas/preview` and `POST /api/ingestas/commit` are present
-  as non-deprecated operations
+- AND `POST /api/ingestas/preview` and `POST /api/ingestas/commit` are present as
+  non-deprecated operations
 
----
+#### Scenario: No shipped client imports the one-shot path after this change
+
+- GIVEN the mobile app after this change (`post-ingesta.ts` deleted)
+- WHEN the mobile and web source trees are inspected for imports of the one-shot
+  endpoint's client function
+- THEN no import exists in `apps/mobile` or `apps/web`
 
 ### Requirement: CONTRACT-01 — openapi.json reflects the extended preview, the new commit, and the deprecated one-shot (CA-06, ADR-011)
 
@@ -380,19 +388,19 @@ This spec extends the existing user-data-isolation requirement from `user-data-i
 
 ## Client Consumers
 
-- **Web UI (US-059)** — `SubirCartola` state machine (`apps/web/src/components/SubirCartola.tsx`) is the first consumer of the preview+commit endpoints; deployed at main `74dafdd0` (2026-08-22). Specification at `openspec/specs/web-import-preview/spec.md`.
-- **Mobile UI** — ships an upload screen (`apps/mobile/app/subir.tsx`), but it still targets the
-  legacy backward-compatibility shim of preview (`estructura`/`muestra`, PREV-EXT-01's note) and
-  commits through the deprecated one-shot `POST /api/ingestas` (ADR-026), not this spec's
-  canonical `resumen`/`filas` preview or the `POST /api/ingestas/commit` endpoint. Migration to
-  the canonical preview/commit contract is in progress under change SDD
-  `cartola-preview-confirmacion` (also adds an `edits` classification overlay, ADR-044).
+- **Web UI (US-059)** — `SubirCartola` state machine (`apps/web/src/components/SubirCartola.tsx`) is the first consumer of the preview+commit endpoints; deployed at main `74dafdd0` (2026-08-22). Specification at `openspec/specs/web-import-preview/spec.md` (extended by `cartola-preview-confirmacion` with an explicit decision step).
+- **Mobile UI** — second consumer, added by change SDD `cartola-preview-confirmacion` (merged
+  to main at `4e011342`). `apps/mobile/app/subir.tsx` uses the canonical `resumen`/`filas`
+  preview and commits through `POST /api/ingestas/commit` with the `edits` overlay (ADR-044);
+  specification at `openspec/specs/mobile-import-preview/spec.md`. No shipped mobile or web
+  client calls the deprecated one-shot `POST /api/ingestas` anymore (DEP-01); the endpoint stays
+  live in the backend.
 
 ---
 
 ## Out of Scope
 
-- **Mobile UI (US-061)** — this change ships the backend contract only; mobile client consumption is a separate story.
+- **Mobile UI (US-061)** — the original change that introduced this contract shipped the backend only; mobile consumption was delivered later by `cartola-preview-confirmacion` (see Client Consumers).
 - **Bank parsing strategies** — no change to detection, validation, or
   normalization for any bank. Preview and commit reuse the existing pipeline.
 - **Row exclusion** — the edits overlay can only reassign

@@ -11,15 +11,21 @@ Metro/jest-expo at runtime. No fetch logic, error handling, timeout wrapping, or
 
 ### Requirement: MAC-01 — DTO Types Are Derived, Not Hand-Written
 
-For every endpoint covered by `apps/api/openapi.json` (see `api-client` spec), the DTO shapes currently
-declared by hand in `apps/mobile/src/api/client.ts`, `post-ingesta.ts`, and `preview-ingesta.ts` MUST be
-type aliases over `@moneydiary/api-client`'s generated `components['schemas'][...]` types, not
-independently hand-written declarations.
+For every endpoint covered by `apps/api/openapi.json` (see `api-client` spec), the DTO
+shapes declared in `apps/mobile/src/api/client.ts`, `preview-ingesta.ts`, and
+`commit-ingesta.ts` MUST be type aliases over `@moneydiary/api-client`'s generated
+`components['schemas'][...]` types, not independently hand-written declarations.
+`post-ingesta.ts` and its hand-written DTOs are removed by this change
+(`cartola-preview-confirmacion`) — its endpoint (`POST /api/ingestas`) has no shipped
+mobile caller after this change (see `ingesta-preview-commit` spec, DEP-01) — so this
+requirement no longer applies to it.
+
+(Previously: covered `client.ts`, `post-ingesta.ts`, and `preview-ingesta.ts`.)
 
 #### Scenario: No hand-written DTO type remains for a covered endpoint
 
-- GIVEN `ResumenMesDto` (or `LoginResponseDto`, `MeDto`, `AuthCapabilitiesDto`) is covered by
-  `apps/api/openapi.json`
+- GIVEN `ResumenMesDto` (or `LoginResponseDto`, `MeDto`, `AuthCapabilitiesDto`) is
+  covered by `apps/api/openapi.json`
 - WHEN the relevant mobile `src/api/*.ts` file is inspected after migration
 - THEN that type is declared as an alias over `@moneydiary/api-client`'s generated
   `components['schemas'][...]`, not as a hand-written declaration
@@ -30,6 +36,18 @@ independently hand-written declarations.
 - WHEN `tsc --noEmit` and `pnpm --filter @moneydiary/mobile test` run
 - THEN both pass with zero failures attributable to the migration
 
+#### Scenario: The new commit client is derived from generated types, not hand-written
+
+- GIVEN `commit-ingesta.ts` is authored as part of `cartola-preview-confirmacion`
+- WHEN its request/response DTO types are inspected
+- THEN they are type aliases over `@moneydiary/api-client`'s generated
+  `components['schemas'][...]` types, not hand-written declarations
+
+#### Scenario: `post-ingesta.ts` no longer exists after this change
+
+- GIVEN the mobile source tree after `cartola-preview-confirmacion`
+- WHEN `apps/mobile/src/api/post-ingesta.ts` is looked up
+- THEN the file does not exist and no import references it
 ### Requirement: MAC-02 — Type Erasure Guarantee (`verbatimModuleSyntax`)
 
 `apps/mobile/tsconfig.json` MUST set `verbatimModuleSyntax: true`. All imports of
