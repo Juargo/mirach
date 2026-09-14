@@ -261,28 +261,34 @@ Navigation MUST remain available on an empty month (WDM-05).
 - THEN it renders March 2026 data
 - AND `/buckets/Ahorro` with no `periodo` renders the current calendar month (MBD-04)
 
-### Requirement: WDM-03 — Category groups render the server's order with expand/collapse and "ver N más…" (CA-03)
+### Requirement: WDM-03 — Category groups render the server's order as a collapsed-by-default accordion (CA-03)
 
 Each group MUST render the server's `nombre`, `conteo`, and exact `subtotal` (BigInt-safe string, never
 `Number()`/`parseFloat()`), in the server's exact order — es-CL alphabetical, "Sin categoría" last (MBD-02).
-The client MUST NOT re-group, re-sort, or truncate the payload. Each group MUST show at most 10 transaction
-rows by default; a group with more MUST render a "ver N más…" control (N = remaining rows) that expands to
-reveal all rows and collapses back. The control MUST be a real button with `aria-expanded` (hand-rolled,
-KISS — no new dependency).
+The client MUST NOT re-group, re-sort, or truncate the payload. Each group MUST render as an accordion whose
+heading is itself the trigger — a real button (hand-rolled, KISS — no new dependency) with
+`aria-expanded`/`aria-controls`, wrapped by the group's `<h2>`. Every group MUST start COLLAPSED regardless
+of its row count (the `destacar` group is the sole exception, WDM-04). Activating the trigger MUST reveal
+ALL of the group's rows — there is no row-count threshold and no partial-reveal control; collapsing hides
+them again. The collapsed panel MUST stay mounted (`hidden`, not unmounted) so in-progress row control state
+(e.g. a reclassify/delete dialog) survives a collapse/expand cycle.
 
-#### Scenario: Default 10 rows, then "ver N más…" expands and collapses (jsdom)
+#### Scenario: Collapsed by default, then expands to reveal every row (jsdom)
 
 - GIVEN a group with 12 transactions
 - WHEN the page renders
-- THEN 10 rows are visible and a "ver 2 más…" control renders
-- WHEN the control is activated
-- THEN all 12 rows show and the control toggles to collapse
+- THEN the trigger reads `aria-expanded="false"` and none of the group's rows are visible
+- WHEN the trigger is activated
+- THEN all 12 rows show and the trigger reads `aria-expanded="true"`
+- WHEN the trigger is activated again
+- THEN the rows hide and the trigger reads `aria-expanded="false"`
 
-#### Scenario: A group at or below the threshold renders no control (jsdom)
+#### Scenario: A short group is ALSO collapsed by default (jsdom)
 
 - GIVEN a group with 5 transactions
 - WHEN the page renders
-- THEN all 5 rows are visible and no "ver N más…" control renders
+- THEN none of its rows are visible until the trigger is activated — the accordion default applies
+  regardless of size
 
 #### Scenario: Rendered group order matches the payload verbatim (jsdom)
 
@@ -293,15 +299,23 @@ KISS — no new dependency).
 ### Requirement: WDM-04 — Sin categoría group highlight via `?destacar=` and structural no-%/meta (CA-04, decision 2, MBD-03)
 
 WHEN the page is reached with the `destacar` search param, the Sin categoría group MUST render visually
-highlighted. The %/meta TAG MUST NOT render only for the SinCategoria bucket (`metaBp` null); the usage
-BAR MUST NOT render whenever `porcentajeBp` is null — a no-income month (`porcentajeBp: null`, `metaBp`
-non-null) keeps the tag rendered as `SIN_PORCENTAJE_LABEL` (MBD-03, WDM-01).
+highlighted AND start EXPANDED (the sole exception to WDM-03's collapsed-by-default accordion rule) — every
+other group on the page still starts collapsed. The %/meta TAG MUST NOT render only for the SinCategoria
+bucket (`metaBp` null); the usage BAR MUST NOT render whenever `porcentajeBp` is null — a no-income month
+(`porcentajeBp: null`, `metaBp` non-null) keeps the tag rendered as `SIN_PORCENTAJE_LABEL` (MBD-03, WDM-01).
 
 #### Scenario: Arrival with `destacar` highlights the Sin categoría group (jsdom)
 
 - GIVEN navigation from the dashboard's Sin categoría chart item carrying a `destacar` search param
 - WHEN the page renders
 - THEN the Sin categoría group carries the highlight; a plain arrival (no `destacar`) renders no highlight
+
+#### Scenario: The destacado group starts expanded; every other group starts collapsed (jsdom)
+
+- GIVEN a fresh arrival at `/buckets/SinCategoria?destacar=…`
+- WHEN the page renders
+- THEN the Sin categoría group's accordion trigger reads `aria-expanded="true"` and its rows are visible
+- AND every other group's trigger reads `aria-expanded="false"` with its rows hidden
 
 #### Scenario: SinCategoria bucket renders no %/meta and no usage bar (jsdom)
 
