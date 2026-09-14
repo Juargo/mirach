@@ -50,8 +50,12 @@ Upon a successful preview response, the system MUST render:
 
 1. A `resumen` header showing `totalFilas`, `duplicadosDetectados`, and `nuevas` (from `resumen.*`).
 2. A "nothing has been saved yet" affordance, visible to the user.
-3. An explicit decision step with two actions — "Subir tal cual" and "Revisar y editar"
-   (WEB-PRV-19) — plus "Descartar" (WEB-PRV-07). No row table is rendered at this step.
+3. A READ-ONLY grouped accordion summary of `filas[]` (WEB-PRV-19), collapsed by default —
+   see WEB-PRV-19 for the grouping and rendering rules.
+4. An explicit decision step with two actions — "Subir tal cual" and "Revisar y editar"
+   (WEB-PRV-19) — plus "Descartar" (WEB-PRV-07). No EDITABLE table is rendered at this
+   step — the grouped summary in (3) carries no classification control, checkbox, or
+   inline-creation trigger.
 
 Selecting "Revisar y editar" transitions to a table covering **every** row in `filas[]`
 — no pagination, no row limit (CA-02, product decision 4). Each row MUST display:
@@ -78,12 +82,14 @@ step and no distinction between a fresh preview and a restored draft.)
 - THEN the UI shows "120 filas", "20 duplicados", "100 nuevas" (or equivalent labels)
 - AND the "nothing saved yet" affordance is visible
 
-#### Scenario: Decision step renders with no table
+#### Scenario: Decision step renders with a read-only grouped summary, never the editable table
 
 - GIVEN a successful preview response with no restored draft
 - WHEN the review step is displayed
-- THEN the resumen header and the "Subir tal cual" / "Revisar y editar" / "Descartar" actions are visible
-- AND no row table is rendered
+- THEN the resumen header, the grouped accordion summary (collapsed), and the "Subir tal
+  cual" / "Revisar y editar" / "Descartar" actions are visible
+- AND no classification control (bucket/categoría select, checkbox, or "+" inline-creation
+  trigger) is rendered anywhere on this step
 
 #### Scenario: All filas are rendered without truncation once reviewing
 
@@ -652,7 +658,7 @@ index, both times).
 - WHEN it is previewed twice in sequence (same bytes, two separate server parse runs)
 - THEN every `rowIndex` in the second run's `filas[]` refers to the same logical row (identical `fecha`/`descripcion`/`cargo`/`abono`) as that same `rowIndex` did in the first run
 
-### Requirement: WEB-PRV-19 — Decision step actions are explicit and accessible
+### Requirement: WEB-PRV-19 — Decision step shows a read-only grouped summary; its actions are explicit and accessible
 
 The decision step MUST present exactly two commit-path actions — "Subir tal cual" and
 "Revisar y editar" — plus "Descartar" (WEB-PRV-07). Each control MUST have an
@@ -660,6 +666,40 @@ accessible name identifying its action (visible text is sufficient). "Revisar y 
 MUST be the only path that renders the editable table (WEB-PRV-02); the review table's
 inline editing (bucket/categoría cascade, WEB-PRV-05) and inline categoría creation
 (WEB-PRV-12–18) remain reachable only after this transition.
+
+Below the resumen (WEB-PRV-02) and above the three actions, the decision step MUST also
+render a READ-ONLY accordion summary of `filas[]`, grouped as follows (cartola-decision-agrupada):
+
+1. A non-duplicate row with `sugerido` non-null and `sugerido.categoriaId` resolvable in
+   the loaded catalog → grouped by `(sugerido.bucket, sugerido.categoriaId)`, heading
+   "{Bucket label} · {Categoría nombre}".
+2. A non-duplicate row with `sugerido` non-null but `sugerido.categoriaId === null` and
+   `sugerido.bucket === 'Ingreso'` (the backend's immutable verdict, `CommitIngestaUseCase`
+   Rule 2) → grouped by bucket alone, heading "Ingreso" with NO "Sin categoría" suffix,
+   since an Ingreso row needs no categoría at all.
+3. A non-duplicate row with `sugerido === null`, OR with `sugerido` non-null,
+   `sugerido.categoriaId === null`, and a bucket OTHER than Ingreso (unreachable through
+   today's classifier — YAGNI, no speculative group shape for it) → the single "Sin
+   clasificar" group.
+4. A non-duplicate row whose `sugerido.categoriaId` is present but NOT resolvable (catalog
+   still loading, in error, or the id no longer exists in a loaded catalog) → its own group
+   keyed by `(sugerido.bucket, sugerido.categoriaId)`, heading "{Bucket label} · Categoría
+   no disponible" — kept separate from rule 2's group so a temporary catalog outage never
+   reads as "no categoría" for a row that actually has one.
+5. A duplicate row (`esDuplicado`) → the single "Duplicadas (no se importan)" group,
+   regardless of its `sugerido` — duplicates are never committed (WEB-PRV-01/`ingesta-preview-commit`).
+6. Group order: the catalog's canonical bucket order (Necesidades, Deseos, Ahorro), then
+   Ingreso, then "Sin clasificar", then "Duplicadas". Within a bucket, named-categoría
+   subgroups sort by `nombre` (`localeCompare('es')`) before any "Categoría no disponible"
+   subgroup. Rows keep file order within every group.
+7. Every group heading MUST show its row count, with correct Spanish singular/plural
+   agreement ("1 movimiento" / "N movimientos").
+
+Every group MUST render collapsed by default. Each group's rows show `fecha`,
+`descripcion`, and the row's signed amount (`formatearMontoConSigno`/`formatearMontoCLP`,
+display-only) — no cargo/abono pair, no classification control, no checkbox, and no
+inline categoría-creation trigger anywhere in this summary (ADR-024: presentation only,
+no reclassification and no amount computation — group headings never sum amounts).
 
 #### Scenario: Both actions are present and labeled
 
@@ -673,6 +713,43 @@ inline editing (bucket/categoría cascade, WEB-PRV-05) and inline categoría cre
 - WHEN the user clicks "Revisar y editar"
 - THEN the editable review table (WEB-PRV-02) renders
 - AND clicking "Subir tal cual" instead never renders that table
+
+#### Scenario: Grouped summary groups by bucket and categoría, collapsed by default
+
+- GIVEN a successful preview with two non-duplicate rows classified into `(Necesidades,
+  cat-nec-1)` and `(Deseos, cat-des-1)`, and a loaded catalog naming both categorías
+- WHEN the decision step renders
+- THEN a "Necesidades · {categoría nombre}" group heading and a "Gustos · {categoría
+  nombre}" group heading are both visible, each showing "1 movimiento"
+- AND both groups are collapsed (their rows are not visible until expanded)
+
+#### Scenario: Ingreso rows group on their own, without a "Sin categoría" suffix
+
+- GIVEN a successful preview containing an Ingreso row (`sugerido: { bucket: 'Ingreso',
+  categoriaId: null }`)
+- WHEN the decision step renders
+- THEN an "Ingreso" group heading is visible, with no "Sin categoría" suffix
+
+#### Scenario: A stale or unresolvable categoriaId groups separately from "Sin clasificar"
+
+- GIVEN a successful preview row classified with `categoriaId: 'cat-borrada'`, and a
+  loaded catalog that does not contain that id
+- WHEN the decision step renders
+- THEN a "{Bucket label} · Categoría no disponible" group heading is visible for that row
+- AND it is a DIFFERENT group than "Sin clasificar"
+
+#### Scenario: Duplicates group separately and are never committed
+
+- GIVEN a successful preview containing a duplicate row (`esDuplicado: true`)
+- WHEN the decision step renders
+- THEN a "Duplicadas (no se importan)" group heading is visible, listing that row
+
+#### Scenario: The grouped summary never renders an editing control
+
+- GIVEN a successful preview with no restored draft
+- WHEN the decision step renders and every group is expanded
+- THEN no bucket/categoría select, no row checkbox, and no "+" inline-creation trigger is
+  rendered anywhere in the grouped summary
 ## Out of Scope
 
 - **Persisted transactions** — no retroactive reclassification of
