@@ -673,13 +673,14 @@ render a READ-ONLY accordion summary of `filas[]`, grouped as follows (cartola-d
 1. A non-duplicate row with `sugerido` non-null and `sugerido.categoriaId` resolvable in
    the loaded catalog → grouped by `(sugerido.bucket, sugerido.categoriaId)`, heading
    "{Bucket label} · {Categoría nombre}".
-2. A non-duplicate row with `sugerido` non-null but `sugerido.categoriaId === null` →
-   grouped by `sugerido.bucket` alone. The Ingreso bucket (the backend's immutable
-   verdict, `CommitIngestaUseCase` Rule 2) is the practical case reaching this rule today
-   — its group heading is "Ingreso" with NO "Sin categoría" suffix, since an Ingreso row
-   needs no categoría at all. Any other bucket reaching this rule (unreachable through
-   today's classifier) headlines "{Bucket label} · Sin categoría".
-3. A non-duplicate row with `sugerido === null` → the single "Sin clasificar" group.
+2. A non-duplicate row with `sugerido` non-null but `sugerido.categoriaId === null` and
+   `sugerido.bucket === 'Ingreso'` (the backend's immutable verdict, `CommitIngestaUseCase`
+   Rule 2) → grouped by bucket alone, heading "Ingreso" with NO "Sin categoría" suffix,
+   since an Ingreso row needs no categoría at all.
+3. A non-duplicate row with `sugerido === null`, OR with `sugerido` non-null,
+   `sugerido.categoriaId === null`, and a bucket OTHER than Ingreso (unreachable through
+   today's classifier — YAGNI, no speculative group shape for it) → the single "Sin
+   clasificar" group.
 4. A non-duplicate row whose `sugerido.categoriaId` is present but NOT resolvable (catalog
    still loading, in error, or the id no longer exists in a loaded catalog) → its own group
    keyed by `(sugerido.bucket, sugerido.categoriaId)`, heading "{Bucket label} · Categoría
@@ -729,13 +730,13 @@ no reclassification and no amount computation — group headings never sum amoun
 - WHEN the decision step renders
 - THEN an "Ingreso" group heading is visible, with no "Sin categoría" suffix
 
-#### Scenario: A stale or unresolvable categoriaId groups separately from a real "Sin categoría"
+#### Scenario: A stale or unresolvable categoriaId groups separately from "Sin clasificar"
 
 - GIVEN a successful preview row classified with `categoriaId: 'cat-borrada'`, and a
   loaded catalog that does not contain that id
 - WHEN the decision step renders
 - THEN a "{Bucket label} · Categoría no disponible" group heading is visible for that row
-- AND it is a DIFFERENT group than any "Sin categoría" group on the same bucket
+- AND it is a DIFFERENT group than "Sin clasificar"
 
 #### Scenario: Duplicates group separately and are never committed
 
