@@ -72,23 +72,80 @@ the row list.
 
 ---
 
-### Requirement: MOB-PRV-03 — Preview success renders resumen and an explicit two-action decision step
+### Requirement: MOB-PRV-03 — Preview success renders resumen, a read-only grouped summary, and an explicit two-action decision step
 
 On a successful, guard-passing preview response, the system MUST render:
 
 1. A resumen summary showing `totalFilas`, `duplicadosDetectados`, and `nuevas`.
-2. Two explicit actions — "Subir tal cual" and "Revisar y editar" — plus "Descartar"
+2. A READ-ONLY accordion summary of `filas[]` grouped by classification
+   (cartola-decision-agrupada), collapsed by default, between the resumen and the actions.
+3. Two explicit actions — "Subir tal cual" and "Revisar y editar" — plus "Descartar"
    (MOB-PRV-09).
 
-No row list is shown at this step.
+No EDITABLE row list is shown at this step — `ListaRevision`/`FilaRevisionMobile` stay
+exclusive to "Revisar y editar" (MOB-PRV-05/06).
 
-#### Scenario: Decision step shows resumen and both actions
+The grouped summary (2) uses the SAME grouping rules as the web client (WEB-PRV-19,
+`agrupar-preview-por-categoria.ts`, ported per-app per ADR-008):
+
+1. A non-duplicate row with `sugerido` non-null and `sugerido.categoriaId` resolvable →
+   grouped by `(sugerido.bucket, sugerido.categoriaId)`, heading "{Bucket label} ·
+   {Categoría nombre}".
+2. A non-duplicate row with `sugerido` non-null but `sugerido.categoriaId === null` →
+   grouped by `sugerido.bucket` alone. The Ingreso bucket (the backend's immutable
+   verdict) is the practical case reaching this rule — its heading is "Ingreso" with NO
+   "Sin categoría" suffix.
+3. A non-duplicate row with `sugerido === null` → the single "Sin clasificar" group.
+4. A non-duplicate row whose `sugerido.categoriaId` is present but not resolvable — EITHER
+   because the catalog has not been fetched yet (the mobile catalog fetch only starts once
+   "Revisar y editar" is tapped, MOB-PRV-13) or because a loaded catalog no
+   longer contains that id — → its own group keyed by `(sugerido.bucket,
+   sugerido.categoriaId)`, heading "{Bucket label} · Categoría no disponible". This is the
+   COMMON case at this step (the catalog is typically not loaded yet): the summary MUST
+   still group by bucket and MUST NOT block "Subir tal cual"/"Revisar y editar"/"Descartar"
+   while the catalog is unavailable.
+5. A duplicate row (`esDuplicado`) → the single "Duplicadas (no se importan)" group,
+   regardless of its `sugerido`.
+6. Group order: canonical bucket order (Necesidades, Deseos, Ahorro), then Ingreso, then
+   "Sin clasificar", then "Duplicadas". Within a bucket, named-categoría subgroups sort by
+   nombre (`localeCompare('es')`) before any "Categoría no disponible" subgroup. Rows keep
+   file order within every group.
+7. Every group heading MUST show its row count with correct Spanish singular/plural
+   agreement ("1 movimiento" / "N movimientos").
+
+Each group's rows show `fecha`, `descripcion`, and `cargo`/`abono` (formatted via the
+existing CLP presentation helper) — no classification control anywhere in this summary
+(ADR-024: presentation only, no reclassification, no amount computation).
+
+#### Scenario: Decision step shows resumen, the grouped summary (collapsed), and both actions
 
 - GIVEN a successful preview with `resumen.totalFilas=40`, `duplicadosDetectados=5`, `nuevas=35`
 - WHEN the decision step renders
 - THEN the resumen values are shown
+- AND a "Movimientos por categoría" grouped summary is shown, collapsed by default
 - AND "Subir tal cual", "Revisar y editar", and "Descartar" are all present
-- AND no row list is rendered yet
+- AND no EDITABLE row list is rendered yet
+
+#### Scenario: With the catalog not loaded yet, the summary still groups by bucket and never blocks the actions
+
+- GIVEN a successful preview with a row classified into `(Necesidades, cat-nec-1)`, and the
+  catalog has not been fetched yet (catalog fetch only starts on "Revisar y editar")
+- WHEN the decision step renders
+- THEN a "Necesidades · Categoría no disponible" group heading is visible
+- AND "Subir tal cual" and "Revisar y editar" remain enabled and functional
+
+#### Scenario: Ingreso rows group on their own, without a "Sin categoría" suffix
+
+- GIVEN a successful preview containing an Ingreso row (`sugerido: { bucket: 'Ingreso',
+  categoriaId: null }`)
+- WHEN the decision step renders
+- THEN an "Ingreso" group heading is visible, with no "Sin categoría" suffix
+
+#### Scenario: Duplicates group separately
+
+- GIVEN a successful preview containing a duplicate row (`esDuplicado: true`)
+- WHEN the decision step renders
+- THEN a "Duplicadas (no se importan)" group heading is visible, listing that row
 
 ---
 
