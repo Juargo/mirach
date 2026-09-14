@@ -91,11 +91,13 @@ The grouped summary (2) uses the SAME grouping rules as the web client (WEB-PRV-
 1. A non-duplicate row with `sugerido` non-null and `sugerido.categoriaId` resolvable →
    grouped by `(sugerido.bucket, sugerido.categoriaId)`, heading "{Bucket label} ·
    {Categoría nombre}".
-2. A non-duplicate row with `sugerido` non-null but `sugerido.categoriaId === null` →
-   grouped by `sugerido.bucket` alone. The Ingreso bucket (the backend's immutable
-   verdict) is the practical case reaching this rule — its heading is "Ingreso" with NO
-   "Sin categoría" suffix.
-3. A non-duplicate row with `sugerido === null` → the single "Sin clasificar" group.
+2. A non-duplicate row with `sugerido` non-null, `sugerido.categoriaId === null`, and
+   `sugerido.bucket === 'Ingreso'` (the backend's immutable verdict) → grouped by bucket
+   alone, heading "Ingreso" with NO "Sin categoría" suffix.
+3. A non-duplicate row with `sugerido === null`, OR with `sugerido` non-null,
+   `sugerido.categoriaId === null`, and a bucket OTHER than Ingreso (unreachable through
+   today's classifier — YAGNI, no speculative group shape for it) → the single "Sin
+   clasificar" group.
 4. A non-duplicate row whose `sugerido.categoriaId` is present but not resolvable — EITHER
    because the catalog has not been fetched yet (the mobile catalog fetch only starts once
    "Revisar y editar" is tapped, MOB-PRV-13) or because a loaded catalog no
