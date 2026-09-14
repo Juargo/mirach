@@ -99,13 +99,11 @@ The grouped summary (2) uses the SAME grouping rules as the web client (WEB-PRV-
    today's classifier — YAGNI, no speculative group shape for it) → the single "Sin
    clasificar" group.
 4. A non-duplicate row whose `sugerido.categoriaId` is present but not resolvable — EITHER
-   because the catalog has not been fetched yet (the mobile catalog fetch only starts once
-   "Revisar y editar" is tapped, MOB-PRV-13) or because a loaded catalog no
-   longer contains that id — → its own group keyed by `(sugerido.bucket,
-   sugerido.categoriaId)`, heading "{Bucket label} · Categoría no disponible". This is the
-   COMMON case at this step (the catalog is typically not loaded yet): the summary MUST
-   still group by bucket and MUST NOT block "Subir tal cual"/"Revisar y editar"/"Descartar"
-   while the catalog is unavailable.
+   because the catalog fetch (started as soon as `decidiendo` is entered, MOB-PRV-13) is
+   still loading or has failed, or because a loaded catalog no longer contains that id —
+   → its own group keyed by `(sugerido.bucket, sugerido.categoriaId)`, heading "{Bucket
+   label} · Categoría no disponible". The summary MUST still group by bucket and MUST NOT
+   block "Subir tal cual"/"Revisar y editar"/"Descartar" while the catalog is unavailable.
 5. A duplicate row (`esDuplicado`) → the single "Duplicadas (no se importan)" group,
    regardless of its `sugerido`.
 6. Group order: canonical bucket order (Necesidades, Deseos, Ahorro), then Ingreso, then
@@ -128,13 +126,21 @@ existing CLP presentation helper) — no classification control anywhere in this
 - AND "Subir tal cual", "Revisar y editar", and "Descartar" are all present
 - AND no EDITABLE row list is rendered yet
 
-#### Scenario: With the catalog not loaded yet, the summary still groups by bucket and never blocks the actions
+#### Scenario: While the catalog fetch is still in flight, the summary still groups by bucket and never blocks the actions
 
 - GIVEN a successful preview with a row classified into `(Necesidades, cat-nec-1)`, and the
-  catalog has not been fetched yet (catalog fetch only starts on "Revisar y editar")
+  catalog fetch (started on entering `decidiendo`, MOB-PRV-13) has not resolved yet
 - WHEN the decision step renders
 - THEN a "Necesidades · Categoría no disponible" group heading is visible
 - AND "Subir tal cual" and "Revisar y editar" remain enabled and functional
+
+#### Scenario: Once the catalog resolves, the summary shows real categoría names
+
+- GIVEN the same row as above, and the catalog fetch resolves successfully naming
+  `cat-nec-1` "Arriendo"
+- WHEN the decision step re-renders with the resolved catalog
+- THEN a "Necesidades · Arriendo" group heading is visible, replacing "Categoría no
+  disponible"
 
 #### Scenario: Ingreso rows group on their own, without a "Sin categoría" suffix
 
@@ -363,16 +369,23 @@ selector and its supporting code MUST also be removed.
 
 ### Requirement: MOB-PRV-13 — Catalog loading and failure keep the review list usable
 
-On entering the review, the screen MUST fetch the user's own catalog once. While the
-catalog is loading, the row list MUST stay visible and tapping an editable row MUST NOT
-open the classification sheet. If the catalog fetch fails, the screen MUST keep the row
-list visible, MUST show an inline error message with a "Reintentar" action that retries
-the fetch, and the sheet MUST stay unavailable until the catalog loads successfully.
+The screen MUST fetch the user's own catalog exactly once per flow, starting as soon as
+the decision step (`decidiendo`) is entered — a successful preview response — rather than
+deferring it until "Revisar y editar" is tapped (cartola-decision-agrupada; superseded
+timing, see the amendment note below). While the catalog is loading, the review row list
+MUST stay visible and tapping an editable row MUST NOT open the classification sheet. If
+the catalog fetch fails, the screen MUST keep the row list visible, MUST show an inline
+error message with a "Reintentar" action that retries the fetch, and the sheet MUST stay
+unavailable until the catalog loads successfully. Neither loading nor failure MUST block
+the decision-step actions ("Subir tal cual"/"Revisar y editar"/"Descartar", MOB-PRV-03).
 
 (Added at archive: MOB-PRV-06/07/10 were silent on catalog loading and failure; this
 records the behavior shipped in `apps/mobile/app/subir.tsx` — `EstadoCatalogo`,
 `cargarCatalogo`, testIDs `catalogo-cargando`, `catalogo-error`, `catalogo-reintentar` —
-and covered by `apps/mobile/app/subir.spec.tsx`.)
+and covered by `apps/mobile/app/subir.spec.tsx`. Amended by `cartola-decision-agrupada`:
+the fetch trigger moved from "entering revisando" to "entering decidiendo" so the
+MOB-PRV-03 grouped summary can show real categoría names; the "exactly once per flow"
+invariant and the loading/failure behavior described above are otherwise unchanged.)
 
 #### Scenario: Sheet unavailable while the catalog loads
 
