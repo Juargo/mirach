@@ -88,7 +88,11 @@ movements' empty state"; the page's explicit month empty state is new.)
 The per-row reclassify control MUST no longer be a disabled placeholder: activating it MUST let the user
 choose a categoría (offered as the caller's own categorías whose bucket is in `BUCKETS_ASIGNABLES`
 — `Necesidades`, `Deseos`, `Ahorro` — grouped by bucket via `<optgroup>`, sourced from `useCategorias()`,
-never a hardcoded list) and call the `categorias-api` reclassify endpoint. `ReclasificarCategoriaControl`
+never a hardcoded list) and call the `categorias-api` reclassify endpoint. Each `<option>`'s text MUST be
+"{bucket display label} · {categoría nombre}" (e.g. "Gustos · Restaurantes"), not just the categoría name —
+the bucket MUST be visible in the CLOSED `<select>` (via the selected option's own text), not only inside the
+`<optgroup>` header exposed after opening it (UX-clarity fix, reclasificar-bucket-y-categoria, amends WDM-10
+below). `ReclasificarCategoriaControl`
 MUST derive the destination bucket from the chosen categoría's own `bucket` field in the DTO, not a static
 name→bucket map. When the chosen categoría's bucket differs from the transaction's current bucket, the
 control MUST show a confirmation naming the exact money move (e.g. "Esto mueve $X de Deseos a Necesidades")
@@ -212,12 +216,28 @@ for assistive tech). The control MUST be disabled (not removed) while its
 mutation is pending, and a success/failure status MUST be announced via
 `aria-live`.
 
+The control's label MUST be a VISIBLE text ("Bucket y categoría" — no longer
+`sr-only`) whose text is a literal prefix of the `<select>`'s accessible name
+(WCAG 2.5.3 Label in Name), composed with the row context so the full
+accessible name reads "Bucket y categoría de {descripcion}"; the visible text
+and the row-context text MUST NOT both be announced as if duplicated (UX-clarity
+fix, reclasificar-bucket-y-categoria — amends the previous `sr-only`-label
+implementation of this requirement, whose accessible name was "Cambiar
+categoría de {descripcion}").
+
 #### Scenario: Keyboard-only user can open and complete a reclassify
 
 - GIVEN the user tabs to a row's reclassify control
 - WHEN they activate it with Enter/Space and select a categoría via keyboard
 - THEN the reclassify completes the same as a mouse interaction (confirming
   the cross-bucket dialog via keyboard when it appears)
+
+#### Scenario: The control's accessible name is prefixed by its own visible label (jsdom)
+
+- GIVEN a transaction row's reclassify control renders
+- WHEN the visible label and the `<select>`'s accessible name are inspected
+- THEN a "Bucket y categoría" text node is visible on screen (not `sr-only`), and the `<select>`'s accessible
+  name is exactly "Bucket y categoría de {descripcion}" — the visible text is a literal prefix of it
 
 ### Requirement: WDM-01 — Detalle MES-BUCKET page structure: breadcrumb, month selector, %/meta tag, usage bar, totals line (CA-01)
 
@@ -433,17 +453,21 @@ category-CRUD path was left at 4 keys by US-053/US-038; this requirement closes 
 `ReclasificarCategoriaControl` MUST identify each categoría by its `id`, not its `nombre`, throughout
 local state, the `<select>`'s `value`/`onChange`, each `<option>`'s `key` and `value`, and the request
 body sent to `PATCH /api/transacciones/:id/categoria` (`{ categoriaId }`). This MUST hold even when two of
-the caller's categorías share the same `nombre` in different buckets — the `<optgroup>` grouping (WCAT-04)
-remains the sole visual disambiguator; no label suffix (e.g. `"Transporte (Gustos)"`) is introduced. The
-cross-bucket confirmation dialog (WCAT-04, D-05) MUST derive its money-move copy from the SELECTED row's
-own `bucket` field, never from a name-based lookup of local state.
+the caller's categorías share the same `nombre` in different buckets — each such `<option>`'s TEXT is
+disambiguated by its own bucket prefix (WCAT-04: "{bucket} · {nombre}", e.g. "Necesidades · Transporte" vs.
+"Gustos · Transporte"), and the `<optgroup>` grouping remains in place alongside it as a second,
+complementary disambiguator (amended by the UX-clarity fix, reclasificar-bucket-y-categoria — previously
+this requirement forbade any bucket text on the option itself and named `<optgroup>` the sole
+disambiguator; that prohibition is retired, `<optgroup>` is no longer the ONLY one). The cross-bucket
+confirmation dialog (WCAT-04, D-05) MUST derive its money-move copy from the SELECTED row's own `bucket`
+field, never from a name-based lookup of local state.
 
 #### Scenario: Duplicate-named categorías in different buckets each get a distinct, correct option (jsdom)
 
 - GIVEN the caller owns "Transporte" in `Necesidades` and "Transporte" in `Deseos`
 - WHEN the reclassify `<select>` is rendered
-- THEN each `<option>` has a distinct `key` and `value` (its own id), and both appear under their
-  respective `<optgroup>` with no suffix added to either label
+- THEN each `<option>` has a distinct `key` and `value` (its own id) and a distinct TEXT ("Necesidades ·
+  Transporte" vs. "Gustos · Transporte"), and both still appear under their respective `<optgroup>`
 
 #### Scenario: Selecting a duplicate-named categoría sends its exact id and shows the correct confirmation (jsdom)
 
