@@ -57,7 +57,7 @@ const CATEGORIA_CATALOG: Array<{
   id: string;
   nombre: CategoriaTemplateNombre;
   bucketId: string;
-  icono: string;
+  icono: (typeof CATEGORIA_TEMPLATE)[number]['icono'];
 }> = CATEGORIA_TEMPLATE.map((categoria) => ({
   id: CATEGORIA_IDS[categoria.nombre],
   nombre: categoria.nombre,
