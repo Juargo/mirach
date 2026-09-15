@@ -109,6 +109,16 @@
                   "minimum": 0,
                   "type": "integer"
                 },
+                "icono": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "nombre": {
                   "type": "string"
                 },
@@ -263,6 +273,16 @@
         "properties": {
           "bucket": {
             "type": "string"
+          },
+          "icono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "type": "string"
@@ -1871,6 +1891,16 @@
                   "bucket": {
                     "type": "string"
                   },
+                  "icono": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "nombre": {
                     "type": "string"
                   },
@@ -2009,6 +2039,16 @@
                 "properties": {
                   "bucket": {
                     "type": "string"
+                  },
+                  "icono": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "nombre": {
                     "type": "string"
