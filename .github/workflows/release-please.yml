@@ -3,12 +3,21 @@ name: release-please
 on:
   push:
     branches: [main]
-  # Manual trigger. Release PRs all touch `.release-please-manifest.json`, so
-  # merging one leaves the others conflicting on generated files — and
-  # `gh pr update-branch` cannot resolve those. Without this, the only way to
-  # ask release-please to regenerate them was to push something to `main`,
-  # which meant inventing a commit just to unstick the bot (hit 2026-08-15,
-  # when merging `landing 0.2.0` left `web`/`mobile` DIRTY with no way out).
+  # Manual trigger: re-runs release-please without inventing a commit on `main`
+  # (added 2026-08-15, when merging `landing 0.2.0` left `web`/`mobile` DIRTY).
+  #
+  # It does NOT unstick a conflicting release PR by itself. Release PRs all
+  # touch `.release-please-manifest.json`, whose package lines are adjacent, so
+  # merging one leaves its neighbours DIRTY or BEHIND. release-please only
+  # force-pushes a PR when its title/body (the release notes) changed; a
+  # conflict alone logs `PR … remained the same` and pushes nothing — verified
+  # 2026-09-14 on #604, both after the `api 0.7.0` merge and with this trigger.
+  # What works:
+  #   BEHIND (no conflict): `gh pr update-branch <N>`. The push is attributed to
+  #     the user, so the required checks run without a close/reopen.
+  #   DIRTY: merge `main` into the release branch and keep main's manifest with
+  #     only this package's version bumped, then check the PR diff against
+  #     `main` is just the manifest line, `package.json` and `CHANGELOG.md`.
   workflow_dispatch:
 
 permissions:
