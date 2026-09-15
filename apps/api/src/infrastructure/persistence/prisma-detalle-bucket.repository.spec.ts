@@ -46,7 +46,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
 
   function makeRow(overrides: {
     id: string;
-    categoria: { id: string; nombre: string } | null;
+    categoria: { id: string; nombre: string; icono: string | null } | null;
   }) {
     return {
       id: overrides.id,
@@ -70,6 +70,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
         categoria: {
           id: 'cly-per-user-supermercado-cuid',
           nombre: 'Supermercado',
+          icono: 'shopping-cart',
         },
       }),
     ]);
@@ -85,7 +86,50 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     expect(rows[0].categoria).toEqual({
       id: 'cly-per-user-supermercado-cuid',
       nombre: 'Supermercado',
+      icono: 'shopping-cart',
     });
+  });
+
+  it('categoria-iconografia CATICO-01/MBD-02: la fila categoria incluye el icono seleccionado', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      makeRow({
+        id: 'tx-transporte',
+        categoria: {
+          id: 'cly-transporte-cuid',
+          nombre: 'Transporte',
+          icono: 'bus',
+        },
+      }),
+    ]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Necesidades,
+    );
+
+    expect(rows[0].categoria?.icono).toBe('bus');
+  });
+
+  it('categoria-iconografia CATICO-01/D-04: una categoría sin icono propio mapea icono null (no undefined)', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      makeRow({
+        id: 'tx-mascotas-sin-icono',
+        categoria: { id: 'cly-mascotas-cuid', nombre: 'Mascotas', icono: null },
+      }),
+    ]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Necesidades,
+    );
+
+    expect(rows[0].categoria?.icono).toBeNull();
   });
 
   it('CAT037-06: null categoria (Ingreso/SinCategoria row) folds to null', async () => {
@@ -108,7 +152,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     const findMany = vi.fn().mockResolvedValue([
       makeRow({
         id: 'tx-mascotas',
-        categoria: { id: 'cly-some-cuid', nombre: 'Mascotas' },
+        categoria: { id: 'cly-some-cuid', nombre: 'Mascotas', icono: null },
       }),
     ]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
@@ -123,10 +167,11 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     expect(rows[0].categoria).toEqual({
       id: 'cly-some-cuid',
       nombre: 'Mascotas',
+      icono: null,
     });
   });
 
-  it('CAT037-06: select uses the nested categoria relation, not a raw categoriaId scalar', async () => {
+  it('CAT037-06/categoria-iconografia: select uses the nested categoria relation with icono, not a raw categoriaId scalar', async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
@@ -136,7 +181,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         select: expect.objectContaining({
-          categoria: { select: { id: true, nombre: true } },
+          categoria: { select: { id: true, nombre: true, icono: true } },
         }),
       }),
     );

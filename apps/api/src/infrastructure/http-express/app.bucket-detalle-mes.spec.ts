@@ -32,6 +32,7 @@ const DETALLE_MES_OK: ObtenerDetalleBucketMesResult = {
     {
       categoriaId: 'cat-comida',
       nombre: 'Comida',
+      icono: 'utensils',
       subtotal: 150_000n,
       conteo: 3,
       transacciones: [
@@ -61,6 +62,7 @@ const DETALLE_MES_OK: ObtenerDetalleBucketMesResult = {
     {
       categoriaId: null,
       nombre: 'Sin categoría',
+      icono: null,
       subtotal: 100_000n,
       conteo: 2,
       transacciones: [

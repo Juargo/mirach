@@ -78,7 +78,11 @@ describe('bucketsResponseSchema (sync guarantee)', () => {
           banco: 'BancoEstado',
           tipoCuenta: 'CuentaRUT',
           numeroCuenta: '****1234',
-          categoria: { id: 'cat-1', nombre: 'Supermercado' },
+          categoria: {
+            id: 'cat-1',
+            nombre: 'Supermercado',
+            icono: 'shopping-cart',
+          },
         },
       ],
     });

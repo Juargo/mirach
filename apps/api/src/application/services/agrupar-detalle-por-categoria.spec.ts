@@ -26,8 +26,16 @@ const makeRow = (
   ...overrides,
 });
 
-/** Fila ya foldeada por `foldCategoria` (US-017): categoria = {id, nombre} o null. */
-const conCategoria = (id: string, nombre: string) => ({ id, nombre });
+/**
+ * Fila ya foldeada por `foldCategoria` (US-017): categoria = {id, nombre,
+ * icono} o null. `icono` default `null` (categoria-iconografia MBD-02): la
+ * mayoría de los tests de este archivo no le interesa el icono.
+ */
+const conCategoria = (
+  id: string,
+  nombre: string,
+  icono: string | null = null,
+) => ({ id, nombre, icono });
 
 describe('agruparDetallePorCategoria', () => {
   it('agrupa por categoriaId con subtotal (Σ cargo) y conteo correctos', () => {
@@ -252,6 +260,47 @@ describe('agruparDetallePorCategoria', () => {
       'tx-1',
       'tx-2',
     ]);
+  });
+
+  it('el grupo expone el icono de la categoría (categoria-iconografia MBD-02)', () => {
+    const filas = [
+      makeRow({
+        id: 'tx-1',
+        categoria: conCategoria('cat-transporte', 'Transporte', 'bus'),
+      }),
+    ];
+
+    const grupos = agruparDetallePorCategoria(filas);
+
+    expect(grupos[0].icono).toBe('bus');
+  });
+
+  it('una categoría sin icono propio (icono null) expone icono null en su grupo', () => {
+    const filas = [
+      makeRow({
+        id: 'tx-1',
+        categoria: conCategoria('cat-sin-icono', 'Mascotas', null),
+      }),
+    ];
+
+    const grupos = agruparDetallePorCategoria(filas);
+
+    expect(grupos[0].icono).toBeNull();
+  });
+
+  it('el grupo sintético "Sin categoría" SIEMPRE expone icono null, sin importar el icono de otras categorías (MBD-02)', () => {
+    const filas = [
+      makeRow({
+        id: 'tx-1',
+        categoria: conCategoria('cat-transporte', 'Transporte', 'bus'),
+      }),
+      makeRow({ id: 'tx-2', categoria: null }),
+    ];
+
+    const grupos = agruparDetallePorCategoria(filas);
+
+    const sintetico = grupos.find((g) => g.categoriaId === null);
+    expect(sintetico?.icono).toBeNull();
   });
 
   it('subtotal = Σ cargo únicamente — los abonos jamás entran al subtotal', () => {

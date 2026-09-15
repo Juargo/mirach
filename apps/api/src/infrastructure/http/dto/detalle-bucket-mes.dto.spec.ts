@@ -81,6 +81,7 @@ function makeResult(
       {
         categoriaId: 'cat-comida',
         nombre: 'Comida',
+        icono: 'utensils',
         subtotal: 150000n,
         conteo: 2,
         transacciones: [recortar(PII[0]), recortar(PII[1])],
@@ -88,6 +89,7 @@ function makeResult(
       {
         categoriaId: null,
         nombre: 'Sin categoría',
+        icono: null,
         subtotal: 40000n,
         conteo: 1,
         transacciones: [recortar(PII[2])],

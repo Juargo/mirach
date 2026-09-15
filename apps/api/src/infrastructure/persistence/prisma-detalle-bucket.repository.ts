@@ -28,7 +28,11 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  *
  * Fold categoria → { id, nombre } | null (CATAPI-05, CAT037-06): vía
  * foldCategoria (fold-categoria.ts), que resuelve por `nombre`, no por un id
- * físico fijo — compartido con PrismaMovimientosMesRepository.
+ * físico fijo — compartido con PrismaMovimientosMesRepository. `icono`
+ * (categoria-iconografia CATICO-01/D-04) se selecciona y mapea INLINE, al
+ * lado de `foldCategoria`, sin tocar esa función — el fold compartido sigue
+ * devolviendo `{id, nombre}` para `PrismaMovimientosMesRepository`, que no
+ * necesita el icono (design.md File Changes).
  *
  * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
  * la respuesta HTTP de `GET /api/buckets/:bucket`; sin descifrar, el cliente
@@ -69,7 +73,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
         descripcion: true,
         cargo: true,
         abono: true,
-        categoria: { select: { id: true, nombre: true } },
+        categoria: { select: { id: true, nombre: true, icono: true } },
         account: {
           select: {
             banco: true,
@@ -87,7 +91,12 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
       descripcion: this.crypto.decrypt(row.descripcion),
       cargo: row.cargo,
       abono: row.abono,
-      categoria: foldCategoria(row.categoria),
+      // `foldCategoria` sigue devolviendo solo {id, nombre} (compartido con
+      // PrismaMovimientosMesRepository) — `icono` se agrega INLINE acá,
+      // fuera del fold (categoria-iconografia CATICO-01/D-04).
+      categoria: row.categoria
+        ? { ...foldCategoria(row.categoria)!, icono: row.categoria.icono }
+        : null,
       banco: row.account.banco,
       tipoCuenta: row.account.tipoCuenta,
       numeroCuenta: this.crypto.decrypt(row.account.numeroCuenta),
