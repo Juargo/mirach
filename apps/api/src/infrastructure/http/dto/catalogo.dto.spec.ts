@@ -10,6 +10,7 @@ describe('aCatalogoDto', () => {
         bucket: Bucket.Deseos,
         patrones: [],
         transaccionesCount: 0,
+        icono: null,
       },
     ]);
 

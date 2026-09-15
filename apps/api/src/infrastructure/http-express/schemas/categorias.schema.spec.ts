@@ -182,6 +182,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 0,
+      icono: null,
     });
     expect(categoriaResponseSchema.parse(dto).patrones).toEqual([]);
   });
@@ -193,6 +194,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 7,
+      icono: null,
     });
     expect(categoriaResponseSchema.parse(dto).transaccionesCount).toBe(7);
   });
@@ -205,6 +207,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
         bucket: Bucket.Deseos,
         patrones: [],
         transaccionesCount: 0,
+        icono: null,
       },
     ]);
     expect(catalogoResponseSchema.parse(dto).categorias).toHaveLength(1);

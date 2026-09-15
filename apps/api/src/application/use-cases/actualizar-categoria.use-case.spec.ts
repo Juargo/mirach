@@ -5,6 +5,7 @@ import { NombreCategoriaInvalidoError } from '../../domain/errors/nombre-categor
 import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { IconoCategoriaInvalidoError } from '../../domain/errors/icono-categoria-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Result } from '../../shared/result';
 
@@ -14,6 +15,7 @@ const CATEGORIA_ACTUAL = {
   bucket: Bucket.Deseos,
   patrones: [],
   transaccionesCount: 0,
+  icono: null,
 };
 
 function makeRepo(
@@ -298,6 +300,103 @@ describe('ActualizarCategoriaUseCase', () => {
       bucket: 'Necesidades',
     });
   });
+
+  /**
+   * categoria-iconografia (CATICO-03): tri-state PATCH semantics. Validation
+   * order (design.md Data Flow): demo → 404 → nombre → bucket → icono (only
+   * when not undefined/null) → uniqueness → patch.
+   */
+  it('un icono allowlisted SETEA el icono (patch.icono presente)', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      icono: 'house',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
+      nombreEfectivo: 'Delivery',
+      icono: 'house',
+    });
+  });
+
+  it('icono: null LIMPIA un icono previamente seteado (patch.icono: null)', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      icono: null,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
+      nombreEfectivo: 'Delivery',
+      icono: null,
+    });
+  });
+
+  it('icono OMITIDO deja el patch SIN la clave icono (unchanged)', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      nombre: 'Delivery renombrado',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.actualizar).toHaveBeenCalledWith('user-1', 'cat-1', {
+      nombreEfectivo: 'Delivery renombrado',
+      nombre: 'Delivery renombrado',
+    });
+    const [, , patchArg] = (repo.actualizar as ReturnType<typeof vi.fn>).mock
+      .calls[0];
+    expect(patchArg).not.toHaveProperty('icono');
+  });
+
+  it('un icono fuera del allowlist ⇒ 400 ICONO_INVALIDO, la fila queda sin tocar (repo.actualizar NUNCA se llama)', async () => {
+    const repo = makeRepo();
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      icono: 'not-a-real-icon',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(IconoCategoriaInvalidoError);
+    expect(repo.existeNombre).not.toHaveBeenCalled();
+    expect(repo.actualizar).not.toHaveBeenCalled();
+  });
+
+  it('icono se valida ANTES de la unicidad (400, nunca 409) — orden de validación', async () => {
+    const repo = makeRepo({ existeNombre: vi.fn().mockResolvedValue(true) });
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      nombre: 'ahorro', // colisionaría, pero el icono inválido debe ganar
+      icono: 'not-a-real-icon',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(IconoCategoriaInvalidoError);
+    expect(repo.existeNombre).not.toHaveBeenCalled();
+  });
+
   /** Misma carrera TOCTOU que en `CrearCategoriaUseCase`, del lado del PATCH. */
   it('propaga el NombreCategoriaDuplicadoError del port cuando la carrera TOCTOU la gana la unique de la BD', async () => {
     const repo = makeRepo({

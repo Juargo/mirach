@@ -10,6 +10,8 @@ import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error';
 import { PatronEnLoteInvalidoError } from '../../domain/errors/patron-en-lote-invalido.error';
+import { IconoCategoriaInvalidoError } from '../../domain/errors/icono-categoria-invalido.error';
+import { esIconoCategoria } from '../../domain/value-objects/icono-categoria';
 import { validarPatron } from './validar-patron';
 
 const NOMBRE_MIN = 1;
@@ -24,6 +26,7 @@ export type CrearCategoriaError =
   | CatalogoDemoSoloLecturaError
   | NombreCategoriaInvalidoError
   | BucketNoAsignableError
+  | IconoCategoriaInvalidoError
   | NombreCategoriaDuplicadoError
   | PatronEnLoteInvalidoError;
 
@@ -70,6 +73,9 @@ export class CrearCategoriaUseCase {
     esDemo: boolean;
     nombre: string;
     bucket: string | undefined;
+    /** Omitted or `null` ⇒ persist `null`; a string MUST belong to the
+     *  curated allowlist (CATICO-01/02, categoria-iconografia). */
+    icono?: string | null;
     patrones?: ReadonlyArray<PatronAnidadoInput>;
   }): Promise<Result<CategoriaConPatrones, CrearCategoriaError>> {
     if (input.esDemo) {
@@ -88,6 +94,16 @@ export class CrearCategoriaUseCase {
       )
     ) {
       return Result.fail(new BucketNoAsignableError(input.bucket));
+    }
+
+    // design.md Data Flow: icono se valida ANTES de la unicidad — un icono
+    // inválido nunca debe disparar la consulta `existeNombre`.
+    let iconoValidado: string | null = null;
+    if (input.icono !== undefined && input.icono !== null) {
+      if (!esIconoCategoria(input.icono)) {
+        return Result.fail(new IconoCategoriaInvalidoError(input.icono));
+      }
+      iconoValidado = input.icono;
     }
 
     const yaExiste = await this.categoriaRepository.existeNombre({
@@ -158,6 +174,7 @@ export class CrearCategoriaUseCase {
     return this.categoriaRepository.crearConPatrones(input.userId, {
       nombre,
       bucket: input.bucket,
+      icono: iconoValidado,
       patrones: patronesValidados,
     });
   }

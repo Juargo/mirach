@@ -9,6 +9,7 @@ describe('aCategoriaDto', () => {
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 0,
+      icono: null,
     });
 
     expect(dto).toEqual({
@@ -35,6 +36,7 @@ describe('aCategoriaDto', () => {
         },
       ],
       transaccionesCount: 0,
+      icono: null,
     });
 
     expect(dto.patrones).toEqual([
@@ -55,6 +57,7 @@ describe('aCategoriaDto', () => {
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 7,
+      icono: null,
     });
 
     expect(dto.transaccionesCount).toBe(7);

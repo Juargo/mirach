@@ -22,6 +22,13 @@ export interface CategoriaConPatrones {
    * the wire.
    */
   readonly transaccionesCount: number;
+  /**
+   * categoria-iconografia (CATICO-04/D-04) — the lucide allowlist name, or
+   * `null` when unset or when a retired name no longer belongs to the
+   * allowlist. Read-typed as `string | null`, never `IconoCategoria`: a
+   * future allowlist removal must not turn an existing row into a 500.
+   */
+  readonly icono: string | null;
 }
 
 /**
@@ -92,6 +99,11 @@ export interface ICategoriaRepository {
     data: {
       nombre: string;
       bucket: string;
+      /** Already validated by the use case (CATICO-01/02) — `null` when
+       *  omitted. REQUIRED, not optional: every caller must state its
+       *  choice, so a missing icono is a compile error, not a silent
+       *  `undefined` reaching Prisma. */
+      icono: string | null;
       patrones: ReadonlyArray<{
         patron: string;
         matchType: string;
@@ -120,7 +132,15 @@ export interface ICategoriaRepository {
   actualizar(
     userId: string,
     id: string,
-    patch: { nombre?: string; bucket?: string; nombreEfectivo: string },
+    patch: {
+      nombre?: string;
+      bucket?: string;
+      /** Tri-state (CATICO-03): key ABSENT ⇒ unchanged; `null` ⇒ clears the
+       *  icono; an allowlisted string ⇒ sets it. Already validated by the
+       *  use case — the adapter never re-checks membership. */
+      icono?: string | null;
+      nombreEfectivo: string;
+    },
   ): Promise<Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>>;
 
   /**

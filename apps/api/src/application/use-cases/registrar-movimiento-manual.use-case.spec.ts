@@ -146,6 +146,7 @@ const CAT_ALIMENTACION: CategoriaConPatrones = {
   bucket: Bucket.Deseos,
   patrones: [],
   transaccionesCount: 0,
+  icono: null,
 };
 
 const CAT_ARRIENDO: CategoriaConPatrones = {
@@ -154,6 +155,7 @@ const CAT_ARRIENDO: CategoriaConPatrones = {
   bucket: Bucket.Necesidades,
   patrones: [],
   transaccionesCount: 0,
+  icono: null,
 };
 
 // ---------------------------------------------------------------------------

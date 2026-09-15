@@ -339,6 +339,7 @@ function makeCategoria(
     bucket,
     patrones,
     transaccionesCount: 0,
+    icono: null,
   };
 }
 
