@@ -57,6 +57,7 @@ const CATEGORIA_CATALOG: Array<{
   id: string;
   nombre: CategoriaTemplateNombre;
   bucketId: string;
+  icono: string;
 }> = CATEGORIA_TEMPLATE.map((categoria) => ({
   id: CATEGORIA_IDS[categoria.nombre],
   nombre: categoria.nombre,
@@ -64,6 +65,10 @@ const CATEGORIA_CATALOG: Array<{
   // sigue siendo la única autoridad de ids físicos, igual que
   // copiarCatalogoTemplate.
   bucketId: BUCKET_IDS[categoria.bucket],
+  // Default seed del allowlist curado (ADR-045 D-06) — usado SOLO en
+  // `create` más abajo (D-09): un usuario que edite su icono a mano no debe
+  // ver su elección pisada por un re-seed.
+  icono: categoria.icono,
 }));
 
 /**
@@ -225,7 +230,10 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
 
   // ── US-013 S1 / US-037: 8 Categoria con ids fijos (single-sourced via
   // CATEGORIA_IDS). userId SOLO en `create` — un `update` nunca debe
-  // reescribir el owner de una fila ya existente (design.md §7). ──
+  // reescribir el owner de una fila ya existente (design.md §7).
+  // `icono` SOLO en `create` (categoria-iconografia, ADR-045 D-09) — el
+  // usuario bootstrap es la cuenta real del owner, y un re-seed no debe
+  // pisar un icono que haya elegido a mano. ──
   for (const categoria of CATEGORIA_CATALOG) {
     await prisma.categoria.upsert({
       where: { id: categoria.id },
@@ -234,6 +242,7 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
         userId: USER_ID_FIJO,
         nombre: categoria.nombre,
         bucketId: categoria.bucketId,
+        icono: categoria.icono,
       },
       update: { nombre: categoria.nombre, bucketId: categoria.bucketId },
     });

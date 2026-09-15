@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
 import type { MatchType } from '../../domain/value-objects/patron-clasificacion';
+import type { IconoCategoria } from '../../domain/value-objects/icono-categoria';
 import { BUCKET_IDS } from './bucket-ids';
 
 /**
@@ -27,17 +28,33 @@ import { BUCKET_IDS } from './bucket-ids';
  * escribir.
  */
 
-/** Fila de categoría de la plantilla — carga `bucket: Bucket`; `bucketId` se resuelve vía `BUCKET_IDS[bucket]` en cada write site, nunca literal (CAT-01, D-02). */
+/**
+ * Fila de categoría de la plantilla — carga `bucket: Bucket`; `bucketId` se
+ * resuelve vía `BUCKET_IDS[bucket]` en cada write site, nunca literal
+ * (CAT-01, D-02). `icono` es el default seed de cada categoría
+ * (categoria-iconografia, ADR-045 D-06/D-09) — un nombre lucide kebab-case
+ * de `ICONOS_CATEGORIA`, copiado verbatim por AMBOS escritores
+ * (`copiarCatalogoTemplate` y `prisma/seed.ts`) al materializar un catálogo
+ * NUEVO; nunca backfillea una fila `Categoria` ya existente.
+ */
 export const CATEGORIA_TEMPLATE = [
-  { nombre: 'Supermercado', bucket: Bucket.Necesidades },
-  { nombre: 'Combustible', bucket: Bucket.Necesidades },
-  { nombre: 'Farmacia', bucket: Bucket.Necesidades },
-  { nombre: 'Salud', bucket: Bucket.Necesidades },
-  { nombre: 'Transporte', bucket: Bucket.Necesidades },
-  { nombre: 'Streaming', bucket: Bucket.Deseos },
-  { nombre: 'Delivery', bucket: Bucket.Deseos },
-  { nombre: 'Ahorro', bucket: Bucket.Ahorro },
-] as const satisfies ReadonlyArray<{ nombre: string; bucket: Bucket }>;
+  {
+    nombre: 'Supermercado',
+    bucket: Bucket.Necesidades,
+    icono: 'shopping-cart',
+  },
+  { nombre: 'Combustible', bucket: Bucket.Necesidades, icono: 'fuel' },
+  { nombre: 'Farmacia', bucket: Bucket.Necesidades, icono: 'pill' },
+  { nombre: 'Salud', bucket: Bucket.Necesidades, icono: 'heart-pulse' },
+  { nombre: 'Transporte', bucket: Bucket.Necesidades, icono: 'bus' },
+  { nombre: 'Streaming', bucket: Bucket.Deseos, icono: 'tv' },
+  { nombre: 'Delivery', bucket: Bucket.Deseos, icono: 'bike' },
+  { nombre: 'Ahorro', bucket: Bucket.Ahorro, icono: 'piggy-bank' },
+] as const satisfies ReadonlyArray<{
+  nombre: string;
+  bucket: Bucket;
+  icono: IconoCategoria;
+}>;
 
 /**
  * assertSinNombresDuplicados — ADR-042 D-11.
@@ -269,6 +286,9 @@ export async function copiarCatalogoTemplate(
       // bucketId SIEMPRE derivado en el write site — BUCKET_IDS sigue siendo
       // la única autoridad de ids físicos (ADR-037 D-02).
       bucketId: BUCKET_IDS[categoria.bucket],
+      // Default seed del allowlist curado (ADR-045 D-06/D-09) — solo en la
+      // creación de un catálogo NUEVO, nunca backfillea una fila existente.
+      icono: categoria.icono,
     })),
   });
 

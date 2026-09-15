@@ -10,6 +10,10 @@ import {
 } from './catalogo-template';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { BUCKET_IDS } from './bucket-ids';
+import {
+  esIconoCategoria,
+  type IconoCategoria,
+} from '../../domain/value-objects/icono-categoria';
 
 /**
  * CATEGORIA_TEMPLATE — pinning test (ADR-037/D-02).
@@ -21,23 +25,32 @@ import { BUCKET_IDS } from './bucket-ids';
  * propósito, que es exactamente el punto (design.md §8.3).
  */
 describe('CATEGORIA_TEMPLATE', () => {
-  const ESPERADAS: ReadonlyArray<{ nombre: string; bucket: Bucket }> = [
-    { nombre: 'Supermercado', bucket: Bucket.Necesidades },
-    { nombre: 'Combustible', bucket: Bucket.Necesidades },
-    { nombre: 'Farmacia', bucket: Bucket.Necesidades },
-    { nombre: 'Salud', bucket: Bucket.Necesidades },
-    { nombre: 'Transporte', bucket: Bucket.Necesidades },
-    { nombre: 'Streaming', bucket: Bucket.Deseos },
-    { nombre: 'Delivery', bucket: Bucket.Deseos },
-    { nombre: 'Ahorro', bucket: Bucket.Ahorro },
+  const ESPERADAS: ReadonlyArray<{
+    nombre: string;
+    bucket: Bucket;
+    icono: IconoCategoria;
+  }> = [
+    {
+      nombre: 'Supermercado',
+      bucket: Bucket.Necesidades,
+      icono: 'shopping-cart',
+    },
+    { nombre: 'Combustible', bucket: Bucket.Necesidades, icono: 'fuel' },
+    { nombre: 'Farmacia', bucket: Bucket.Necesidades, icono: 'pill' },
+    { nombre: 'Salud', bucket: Bucket.Necesidades, icono: 'heart-pulse' },
+    { nombre: 'Transporte', bucket: Bucket.Necesidades, icono: 'bus' },
+    { nombre: 'Streaming', bucket: Bucket.Deseos, icono: 'tv' },
+    { nombre: 'Delivery', bucket: Bucket.Deseos, icono: 'bike' },
+    { nombre: 'Ahorro', bucket: Bucket.Ahorro, icono: 'piggy-bank' },
   ];
 
-  it('pins exactly 8 categorías por nombre+bucket', () => {
+  it('pins exactly 8 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list)', () => {
     expect(CATEGORIA_TEMPLATE_SIZE).toBe(8);
     expect(CATEGORIA_TEMPLATE).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     const actual = CATEGORIA_TEMPLATE.map((entry) => ({
       nombre: entry.nombre,
       bucket: entry.bucket,
+      icono: entry.icono,
     })).sort((a, b) => a.nombre.localeCompare(b.nombre));
     const esperadas = [...ESPERADAS].sort((a, b) =>
       a.nombre.localeCompare(b.nombre),
@@ -48,6 +61,12 @@ describe('CATEGORIA_TEMPLATE', () => {
   it('cada bucket de la plantilla resuelve a un id físico vía BUCKET_IDS — BUCKET_IDS sigue siendo la única autoridad de ids', () => {
     for (const entry of CATEGORIA_TEMPLATE) {
       expect(BUCKET_IDS[entry.bucket]).toEqual(expect.any(String));
+    }
+  });
+
+  it('cada icono de la plantilla pertenece a la allowlist curada (CATICO-01)', () => {
+    for (const entry of CATEGORIA_TEMPLATE) {
+      expect(esIconoCategoria(entry.icono)).toBe(true);
     }
   });
 });
@@ -104,6 +123,7 @@ function makeFakeClient(overrides?: { rejectCategoriaCreateMany?: boolean }) {
     userId: string;
     nombre: string;
     bucketId: string;
+    icono: string | null;
   }> = [];
   const createdPatrones: Array<{
     userId: string;
@@ -120,7 +140,12 @@ function makeFakeClient(overrides?: { rejectCategoriaCreateMany?: boolean }) {
         async ({
           data,
         }: {
-          data: Array<{ userId: string; nombre: string; bucketId: string }>;
+          data: Array<{
+            userId: string;
+            nombre: string;
+            bucketId: string;
+            icono: string | null;
+          }>;
         }) => {
           if (overrides?.rejectCategoriaCreateMany) {
             throw new Error('db down');
@@ -194,6 +219,20 @@ describe('copiarCatalogoTemplate', () => {
     expect(createdPatrones).toHaveLength(PATRON_TEMPLATE_SIZE);
     for (const row of createdPatrones) {
       expect(row.userId).toBe('user-1');
+    }
+  });
+
+  it('writes each created categoria row with its template-defined default icono (CATICO-04)', async () => {
+    const { client, createdCategorias } = makeFakeClient();
+
+    await copiarCatalogoTemplate(client, 'user-1');
+
+    const iconoPorNombre = new Map<string, string>(
+      CATEGORIA_TEMPLATE.map((entry) => [entry.nombre, entry.icono]),
+    );
+    expect(createdCategorias).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
+    for (const row of createdCategorias) {
+      expect(row.icono).toBe(iconoPorNombre.get(row.nombre));
     }
   });
 
