@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.7.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.6.0...api-v0.7.0) (2026-09-15)
+
+
+### Features
+
+* **api:** aceptar fechas con guión en cartolas BCI (Slice 2) ([54900cb](https://github.com/Juargo/MoneyDiary/commit/54900cb32924166fe12136917fab500f4221e20b))
+* **api:** aceptar separador "-" en fechas BCI de fila (D-04) ([43664a0](https://github.com/Juargo/MoneyDiary/commit/43664a0ea3e52b3e74c740d3b3da070261d50fa9))
+* **api:** agrega PdfProtegidoError para PDFs cifrados con password ([ca99ca7](https://github.com/Juargo/MoneyDiary/commit/ca99ca7dc604e85d7f98fd56bd4497760f4d914b))
+* **api:** agregar SinMovimientosError de dominio (Fase 16, D-08) ([ce7289b](https://github.com/Juargo/MoneyDiary/commit/ce7289b744fdc5d632633088ce08f35d87c4f8bd))
+* **api:** BCI activa el rescate por borde derecho en cargo (Slice 3b) ([6120b0c](https://github.com/Juargo/MoneyDiary/commit/6120b0cea6b004d97e6a96247e6a3608e5d89a90))
+* **api:** canal de error de preview + mapeo D-03 completo para PDF protegido ([47eb424](https://github.com/Juargo/MoneyDiary/commit/47eb424ec4bd3a0150e08e5363aefa4dfdbbd096))
+* **api:** cargo de BCI opta por rescate de borde derecho (AD-01/AD-03) ([b595e77](https://github.com/Juargo/MoneyDiary/commit/b595e772537ac5cf19b0657a9a741b551f8ae75d))
+* **api:** cero movimientos es error de app, no éxito silencioso (Fases 17-20) ([383ef29](https://github.com/Juargo/MoneyDiary/commit/383ef295caeb99420d355cb2952ec8bc7fb4b779))
+* **api:** cero movimientos es error explícito, no éxito silencioso (Slice 4) ([3f35974](https://github.com/Juargo/MoneyDiary/commit/3f35974fef5a9327ebe5e5627633c2cdb54c05f8))
+* **api:** contrato Zod acepta password opcional en preview/commit ([4afe8c9](https://github.com/Juargo/MoneyDiary/commit/4afe8c9239b6578324c1d6370db6a1b0a36c53b6))
+* **api:** distingue un PDF protegido con contraseña de uno inválido ([f71ec1f](https://github.com/Juargo/MoneyDiary/commit/f71ec1f09c7baf73078dd4af91e0c0e39ffdf62a))
+* **api:** el contrato acepta password y preview deja de descartar el code ([f58d28d](https://github.com/Juargo/MoneyDiary/commit/f58d28d8dd775d6399f798d9f3e88ad80598c825))
+* **api:** enhebra la contraseña por el pipeline PDF y excluye el error del historial ([b7e8bd5](https://github.com/Juargo/MoneyDiary/commit/b7e8bd50a06273ec1eb4689dbce0647bd444f732))
+* **api:** extractor de PDF detecta password requerida/incorrecta ([c917323](https://github.com/Juargo/MoneyDiary/commit/c917323cf3203b8d2c32988d5e83b7ca6a87f094))
+* **api:** geometría de columnas de BCI para ambas variantes (Slice 3) ([9d9b8b5](https://github.com/Juargo/MoneyDiary/commit/9d9b8b54d2937f6a6f48b6593ae40277743287f8))
+* **api:** geometría y ancla PERIODO de BCI para la 2ª variante de cartola ([8064d87](https://github.com/Juargo/MoneyDiary/commit/8064d87be5650abf5e13ea8af8ee6a625c373e2e))
+* **api:** los 3 ports/adapters PDF aceptan password opcional ([151c2c7](https://github.com/Juargo/MoneyDiary/commit/151c2c72045353d01e9c523b6fc9e688571f06ee))
+* **api:** mapear SIN_MOVIMIENTOS a 400 en las 3 rutas de ingesta (Fases 21-22) ([aa9fded](https://github.com/Juargo/MoneyDiary/commit/aa9fded9eb7abb13ff4d795ee307af0a65f08e16))
+* **api:** maquinaria de rescate por borde derecho, dormida (Slice 3a) ([a6b528f](https://github.com/Juargo/MoneyDiary/commit/a6b528f853c19f7898badd82273bfaa06ba47cb7))
+* **api:** parsear la 2ª variante de cartola BCI + fin del fallo silencioso (plan) ([18fd9de](https://github.com/Juargo/MoneyDiary/commit/18fd9de0af53edb4b9eda7a94159204c804b6dc4))
+* **api:** pipeline compartido y preview forwardean password de PDF ([6f447b9](https://github.com/Juargo/MoneyDiary/commit/6f447b971267075827d8f6dc6e4ccbe2dc04d6b0))
+* **api:** rescate por borde derecho en token-grouping (AD-01/AD-02) ([0e36b04](https://github.com/Juargo/MoneyDiary/commit/0e36b04df3e6da1d0c7cd93b313ccb9c65a6babe))
+* ingesta de cartolas PDF protegidas con contraseña ([b3f8749](https://github.com/Juargo/MoneyDiary/commit/b3f8749c6536c688c231433b51a2880cea89c60a))
+
+
+### Bug Fixes
+
+* **api:** commit de ingesta no registra FALLIDA para PDF protegido (D-09) ([db4f72e](https://github.com/Juargo/MoneyDiary/commit/db4f72e25c3029336832d68f2e3866fbe867d3b4))
+* **api:** ignorar la fila de valores de totales BCI tras aceptar "-" (D-05) ([04917ae](https://github.com/Juargo/MoneyDiary/commit/04917aef14543c27ef1dee4e06976e8f62019c47))
+* **api:** propagar rescateBordeDerecho por el map de normalización (Trap 5) ([85e8989](https://github.com/Juargo/MoneyDiary/commit/85e898986ad0dfaad4b272790d27ec41801740b7))
+* **deps:** bajar de 27 a 3 las vulnerabilidades high del árbol ([b198c7e](https://github.com/Juargo/MoneyDiary/commit/b198c7e5c574d5fb01c0cf9a13c427bd1e043a37))
+* **deps:** bajar de 27 a 3 las vulnerabilidades high del árbol ([aa94f0b](https://github.com/Juargo/MoneyDiary/commit/aa94f0b1ad9a5af00f777ce0a5c8f77a92eb6ac2))
+
+
+### Documentation
+
+* **api:** auditar bandas de dinero de BancoEstado, Banco de Chile y Santander ([d66dcc3](https://github.com/Juargo/MoneyDiary/commit/d66dcc30f0371540fcfb20f43466993fb039be36))
+* **api:** justifica el MD5 del generador de fixtures ante CodeQL ([effcad7](https://github.com/Juargo/MoneyDiary/commit/effcad709a5beeae2c46e79a9ce22825181bce95))
+
 ## [0.6.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.5.1...api-v0.6.0) (2026-09-07)
 
 
