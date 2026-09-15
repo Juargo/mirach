@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/Juargo/MoneyDiary/compare/landing-v0.3.0...landing-v0.3.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **cd:** compare Vercel preview builds against main, not the last commit ([599809e](https://github.com/Juargo/MoneyDiary/commit/599809ed02396e3a7731aac63f9ddc9d16ac9746))
+* **cd:** los previews de Vercel comparan contra main, no contra el último commit ([a0320f9](https://github.com/Juargo/MoneyDiary/commit/a0320f965fc62c38f2e98ad9475277cfcc3862d7))
+
 ## [0.3.0](https://github.com/Juargo/MoneyDiary/compare/landing-v0.2.0...landing-v0.3.0) (2026-09-04)
 
 
