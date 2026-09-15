@@ -125,4 +125,44 @@ describe('bucketDetalleMesResponseSchema (sync guarantee)', () => {
     expect(() => bucketDetalleMesResponseSchema.parse(dto)).not.toThrow();
     expect(dto.grupos[0].transacciones[0].origen).toBe('BCI');
   });
+
+  it('categoria-iconografia MBD-02: expone el icono del grupo desde la salida real del mapper', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+    const parsed = bucketDetalleMesResponseSchema.parse(dto);
+
+    expect(parsed.grupos[0].icono).toBe('utensils');
+  });
+
+  it('el grupo sintético Sin categoría expone icono: null siempre (MBD-02)', () => {
+    const result = makeResult();
+    const dto = aDetalleBucketMesDto({
+      ...result,
+      grupos: [
+        {
+          categoriaId: null,
+          nombre: 'Sin categoría',
+          icono: null,
+          subtotal: 40000n,
+          conteo: 1,
+          transacciones: [],
+        },
+      ],
+    });
+    const parsed = bucketDetalleMesResponseSchema.parse(dto);
+
+    expect(parsed.grupos[0].icono).toBeNull();
+  });
+
+  it('D-11: icono stays .optional() in the wire TYPE — a grupo payload omitting the key still parses', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+    const sinIcono = {
+      ...dto,
+      grupos: dto.grupos.map((g) => {
+        const { icono: _icono, ...resto } = g;
+        return resto;
+      }),
+    };
+
+    expect(() => bucketDetalleMesResponseSchema.parse(sinIcono)).not.toThrow();
+  });
 });

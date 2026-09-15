@@ -192,4 +192,16 @@ describe('GET /api/buckets/:bucket/detalle — cadena de auth + aislamiento (US-
     );
     expect(sumaConteos).toBe(parsed.totalTransacciones);
   });
+
+  it('categoria-iconografia MBD-02: cada grupo real expone icono, y el sintético Sin categoría expone null', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/buckets/Necesidades/detalle')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido');
+
+    expect(res.status).toBe(200);
+    expect(res.body.grupos).toHaveLength(2);
+    expect(res.body.grupos[0]).toHaveProperty('icono', 'utensils');
+    expect(res.body.grupos[1]).toHaveProperty('icono', null);
+  });
 });

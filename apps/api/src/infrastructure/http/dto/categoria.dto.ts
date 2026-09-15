@@ -14,6 +14,12 @@ export interface CategoriaDto {
   readonly patrones: ReadonlyArray<PatronDto>;
   /** All-history count of the caller's own transacciones (CAT039-01). */
   readonly transaccionesCount: number;
+  /**
+   * categoria-iconografia (CATICO-01/04) — the curated allowlist name, or
+   * `null`. The mapper ALWAYS sets this key at runtime (D-11 guarantee),
+   * even though the wire schema types it as optional.
+   */
+  readonly icono: string | null;
 }
 
 export function aCategoriaDto(categoria: CategoriaConPatrones): CategoriaDto {
@@ -23,5 +29,6 @@ export function aCategoriaDto(categoria: CategoriaConPatrones): CategoriaDto {
     bucket: categoria.bucket,
     patrones: categoria.patrones.map(aPatronDto),
     transaccionesCount: categoria.transaccionesCount,
+    icono: categoria.icono,
   };
 }

@@ -9,6 +9,7 @@ import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-cat
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { MatchTypeInvalidoError } from '../../../domain/errors/match-type-invalido.error';
+import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
 import { appLogger } from '../../logging/app-logger';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 
@@ -18,6 +19,7 @@ const CATEGORIA_OK = {
   bucket: Bucket.Deseos,
   patrones: [],
   transaccionesCount: 0,
+  icono: null,
 };
 
 function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
@@ -276,6 +278,49 @@ describe('registrarCategorias', () => {
       });
     });
 
+    it('threads icono from the body into the use case (categoria-iconografia CATICO-02)', async () => {
+      const catalogo = makeCatalogo();
+      await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({ nombre: 'Mascotas', bucket: 'Deseos', icono: 'house' });
+
+      expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ icono: 'house' }),
+      );
+    });
+
+    it('response body always includes the icono key, even when null (D-11 runtime guarantee)', async () => {
+      const catalogo = makeCatalogo();
+      const res = await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
+
+      expect(res.body).toHaveProperty('icono');
+      expect(res.body.icono).toBeNull();
+    });
+
+    it('400 ICONO_INVALIDO when the use case rejects an out-of-allowlist icono (CATICO-02)', async () => {
+      const catalogo = makeCatalogo({
+        crearCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new IconoCategoriaInvalidoError('not-a-real-icon')),
+            ),
+        } as unknown as CatalogoGraph['crearCategoria'],
+      });
+      const res = await request(probeApp(catalogo))
+        .post('/api/categorias')
+        .send({
+          nombre: 'Mascotas',
+          bucket: 'Deseos',
+          icono: 'not-a-real-icon',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('ICONO_INVALIDO');
+    });
+
     it('more than 20 patrones ⇒ 400 BODY_INVALIDO, use case never called', async () => {
       const catalogo = makeCatalogo();
       const patrones = Array.from({ length: 21 }, (_, i) => ({
@@ -370,6 +415,72 @@ describe('registrarCategorias', () => {
       );
       expect(res.status).toBe(403);
       expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
+    });
+
+    it('accepts an icono-only body (tri-state PATCH, CATICO-03)', async () => {
+      const catalogo = makeCatalogo();
+      const res = await request(probeApp(catalogo))
+        .patch('/api/categorias/cat-1')
+        .send({ icono: 'house' });
+
+      expect(res.status).toBe(200);
+      expect(catalogo.actualizarCategoria.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ icono: 'house' }),
+      );
+    });
+
+    it('threads icono: null into the use case to clear it (CATICO-03)', async () => {
+      const catalogo = makeCatalogo();
+      await request(probeApp(catalogo))
+        .patch('/api/categorias/cat-1')
+        .send({ icono: null });
+
+      expect(catalogo.actualizarCategoria.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ icono: null }),
+      );
+    });
+
+    it('omitting icono leaves it out of the use case call (tri-state unchanged, CATICO-03)', async () => {
+      const catalogo = makeCatalogo();
+      await request(probeApp(catalogo))
+        .patch('/api/categorias/cat-1')
+        .send({ nombre: 'Renombrada' });
+
+      expect(catalogo.actualizarCategoria.execute).toHaveBeenCalledWith({
+        userId: 'user-x',
+        esDemo: false,
+        id: 'cat-1',
+        nombre: 'Renombrada',
+        bucket: undefined,
+        icono: undefined,
+      });
+    });
+
+    it('response body always includes the icono key, even when null (D-11 runtime guarantee)', async () => {
+      const catalogo = makeCatalogo();
+      const res = await request(probeApp(catalogo))
+        .patch('/api/categorias/cat-1')
+        .send({ nombre: 'Renombrada' });
+
+      expect(res.body).toHaveProperty('icono');
+    });
+
+    it('400 ICONO_INVALIDO when the use case rejects an out-of-allowlist icono (CATICO-03)', async () => {
+      const catalogo = makeCatalogo({
+        actualizarCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new IconoCategoriaInvalidoError('not-a-real-icon')),
+            ),
+        } as unknown as CatalogoGraph['actualizarCategoria'],
+      });
+      const res = await request(probeApp(catalogo))
+        .patch('/api/categorias/cat-1')
+        .send({ icono: 'not-a-real-icon' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('ICONO_INVALIDO');
     });
   });
 

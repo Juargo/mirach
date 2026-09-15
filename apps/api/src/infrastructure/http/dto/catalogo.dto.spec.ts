@@ -22,6 +22,7 @@ describe('aCatalogoDto', () => {
           bucket: 'Deseos',
           patrones: [],
           transaccionesCount: 0,
+          icono: null,
         },
       ],
     });

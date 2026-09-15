@@ -33,6 +33,14 @@ export const categoriaCreateRequestSchema = z
   .object({
     nombre: z.string(),
     bucket: z.string(),
+    /**
+     * categoria-iconografia (CATICO-01/02) — TRANSPORT SHAPE ONLY, same
+     * layer-honesty gate as `bucket`: allowlist membership is a DOMAIN rule
+     * (`esIconoCategoria`, `IconoCategoriaInvalidoError`) and MUST NOT be
+     * duplicated here. `null` and omission are both valid at this layer;
+     * omission persists `null` (CATICO-02).
+     */
+    icono: z.string().nullable().optional(),
     patrones: z.array(patronEnCategoriaCreateSchema).max(20).optional(),
   })
   .strict();
@@ -46,11 +54,23 @@ export const categoriaUpdateRequestSchema = z
   .object({
     nombre: z.string().optional(),
     bucket: z.string().optional(),
+    /**
+     * categoria-iconografia (CATICO-03) — tri-state at the domain layer:
+     * key absent = unchanged, `null` = clear, string = set (allowlist
+     * membership validated by the use case, not here).
+     */
+    icono: z.string().nullable().optional(),
   })
   .strict()
-  .refine((body) => body.nombre !== undefined || body.bucket !== undefined, {
-    message: 'At least one of nombre or bucket must be present.',
-  });
+  .refine(
+    (body) =>
+      body.nombre !== undefined ||
+      body.bucket !== undefined ||
+      body.icono !== undefined,
+    {
+      message: 'At least one of nombre, bucket or icono must be present.',
+    },
+  );
 
 export const categoriaIdPathParamsSchema = z.object({
   id: z.string(),
@@ -81,6 +101,14 @@ export const categoriaResponseSchema = z
     // schemas, and sibling `prioridad` (also an Int column) is a plain
     // z.number() too (design.md §5.3).
     transaccionesCount: z.number(),
+    /**
+     * categoria-iconografia (CATICO-01, design.md D-11) — `.optional()`
+     * only WIDENS the generated wire TYPE (`icono?: string | null`); the
+     * mapper (`aCategoriaDto`) ALWAYS sets the key at runtime, enforced by
+     * route-level tests, not by this flag. Widening avoids churn on the
+     * ~33 pre-existing client fixtures that build this shape via literals.
+     */
+    icono: z.string().nullable().optional(),
   })
   .meta({
     id: 'CategoriaResponse',

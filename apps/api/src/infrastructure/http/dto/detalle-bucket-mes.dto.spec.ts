@@ -169,4 +169,16 @@ describe('aDetalleBucketMesDto', () => {
     );
     expect(typeof dto.grupos[0].transacciones[0].fecha).toBe('string');
   });
+
+  it('categoria-iconografia MBD-02: thread el icono del grupo verbatim desde application', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+
+    expect(dto.grupos[0].icono).toBe('utensils');
+  });
+
+  it('el grupo sintético Sin categoría siempre tiene icono: null (MBD-02)', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+
+    expect(dto.grupos[1].icono).toBeNull();
+  });
 });

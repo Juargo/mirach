@@ -59,6 +59,12 @@ const transaccionDetalleMesSchema = z
 const grupoDetalleMesSchema = z.object({
   categoriaId: z.string().nullable().describe('null for the synthetic group.'),
   nombre: z.string(),
+  /**
+   * categoria-iconografia (CATICO-01, design.md D-11) — `.optional()` only
+   * widens the generated wire TYPE; `aDetalleBucketMesDto` always sets the
+   * key at runtime (null for the synthetic Sin categoría group, MBD-02).
+   */
+  icono: z.string().nullable().optional(),
   subtotal: z
     .string()
     .describe('BigInt-safe decimal string amount (never a JSON number).'),

@@ -59,6 +59,7 @@ export function registrarCategorias(
         esDemo: esDemoDeSesion(req),
         nombre: parsed.data.nombre,
         bucket: parsed.data.bucket,
+        icono: parsed.data.icono,
         patrones: parsed.data.patrones,
       });
 
@@ -92,6 +93,7 @@ export function registrarCategorias(
         id: parsedParams.data.id,
         nombre: parsedBody.data.nombre,
         bucket: parsedBody.data.bucket,
+        icono: parsedBody.data.icono,
       });
 
       if (result.isFail()) {
