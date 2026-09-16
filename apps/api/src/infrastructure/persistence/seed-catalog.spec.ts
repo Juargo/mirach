@@ -33,6 +33,16 @@ const BUCKET_DE_TEMPLATE: Record<CategoriaTemplateNombre, Bucket> =
  * can be tested without a real Postgres connection (mirrors the project's
  * pure-domain-test posture, ADR-015).
  */
+/**
+ * Mapa nombre → icono default derivado de CATEGORIA_TEMPLATE (ADR-045
+ * D-06/D-09) — usado para verificar que el seed escribió el `icono`
+ * esperado sin re-hardcodear la lista en el test.
+ */
+const ICONO_DE_TEMPLATE: Record<CategoriaTemplateNombre, string> =
+  Object.fromEntries(
+    CATEGORIA_TEMPLATE.map((entry) => [entry.nombre, entry.icono]),
+  ) as Record<CategoriaTemplateNombre, string>;
+
 function makeUpsertableStore<T extends { id: string }>() {
   const rows = new Map<string, T>();
   return {
@@ -75,6 +85,7 @@ function makeFakeSeedClient() {
     nombre: string;
     bucketId: string;
     userId?: string;
+    icono?: string | null;
   }>();
 
   return {
@@ -163,6 +174,38 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
 
     expect(stores.categoria.rows.size).toBe(CATEGORIA_CATALOG_SIZE);
     expect(stores.patronClasificacion.rows.size).toBe(PATRON_CATALOG_SIZE);
+  });
+
+  // categoria-iconografia (ADR-045 D-06): cada Categoria sembrada carga el
+  // icono default de CATEGORIA_TEMPLATE.
+  it('sembrar produce cada Categoria.icono === default de la plantilla (CATICO-04)', async () => {
+    const { prisma, stores } = makeFakeSeedClient();
+    await runSeed(prisma);
+
+    expect(stores.categoria.rows.size).toBe(CATEGORIA_CATALOG_SIZE);
+    for (const row of stores.categoria.rows.values()) {
+      const nombre = row.nombre as CategoriaTemplateNombre;
+      expect(row.icono).toBe(ICONO_DE_TEMPLATE[nombre]);
+    }
+  });
+
+  // categoria-iconografia (ADR-045 D-09): `icono` viaja SOLO en `create` —
+  // un `update` de re-siembra nunca debe pisar un icono editado a mano por
+  // el usuario bootstrap real.
+  it('re-sembrar no sobrescribe un icono editado a mano (D-09, icono solo en create)', async () => {
+    const { prisma, stores } = makeFakeSeedClient();
+    await runSeed(prisma);
+
+    const primeraFila = [...stores.categoria.rows.values()][0];
+    stores.categoria.rows.set(primeraFila.id, {
+      ...primeraFila,
+      icono: 'house',
+    });
+
+    await runSeed(prisma);
+
+    const filaTrasResiembra = stores.categoria.rows.get(primeraFila.id)!;
+    expect(filaTrasResiembra.icono).toBe('house');
   });
 
   // US-037 (3.1): cada fila del catálogo del usuario bootstrap queda marcada

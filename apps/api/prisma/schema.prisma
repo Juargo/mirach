@@ -139,6 +139,11 @@ model Categoria {
   userId        String
   user          User                  @relation(fields: [userId], references: [id])
   nombre        String
+  // Nombre kebab-case de un ícono lucide, validado contra la allowlist
+  // curada de domain/value-objects/icono-categoria.ts (categoria-iconografia,
+  // ADR-045). Sin CHECK a nivel de BD — el dominio es la única autoridad
+  // (D-03): así una edición del allowlist no exige migración de esquema.
+  icono         String?
   bucketId      String
   bucket        BucketPresupuesto     @relation(fields: [bucketId], references: [id])
   patrones      PatronClasificacion[]

@@ -8,6 +8,8 @@ import { NombreCategoriaInvalidoError } from '../../domain/errors/nombre-categor
 import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { IconoCategoriaInvalidoError } from '../../domain/errors/icono-categoria-invalido.error';
+import { esIconoCategoria } from '../../domain/value-objects/icono-categoria';
 
 const NOMBRE_MIN = 1;
 const NOMBRE_MAX = 40;
@@ -20,6 +22,7 @@ export type ActualizarCategoriaError =
   | CategoriaNoEncontradaError
   | NombreCategoriaInvalidoError
   | BucketNoAsignableError
+  | IconoCategoriaInvalidoError
   | NombreCategoriaDuplicadoError;
 
 /**
@@ -37,7 +40,11 @@ export type ActualizarCategoriaError =
  *   2. 404 si la fila no es del caller (ANTES de validar cualquier campo)
  *   3. `nombre`? → forma (shape únicamente, todavía no unicidad)
  *   4. `bucket`? → asignabilidad
- *   5. UNA sola verificación de unicidad sobre el PAR EFECTIVO
+ *   5. `icono`? → allowlist (categoria-iconografia CATICO-03) — SOLO cuando
+ *      no es `undefined` ni `null` (omitido o `null` nunca fallan esta
+ *      validación); corre ANTES de la unicidad, así que un icono inválido
+ *      responde `400 ICONO_INVALIDO` incluso si el nombre también colisiona.
+ *   6. UNA sola verificación de unicidad sobre el PAR EFECTIVO
  *      `(nombreEfectivo, bucketEfectivo)` — el que la fila tendría tras este
  *      patch, sea cual sea la combinación de campos presentes. `excluirId`
  *      excluye siempre la propia fila (un patch no-op nunca produce un falso
@@ -45,9 +52,12 @@ export type ActualizarCategoriaError =
  *      Y un `bucket` inválido devuelve `400 BUCKET_NO_ASIGNABLE`, no `409`
  *      (no se puede preguntar "¿el par está tomado?" contra un bucket que
  *      todavía no se validó).
- *   6. arma el patch — `bucket` se incluye SOLO si el bucket cambió (D-07,
- *      el mecanismo que dispara el re-stamp en infraestructura sin un flag)
- *   7. delega en el repositorio
+ *   7. arma el patch — `bucket` se incluye SOLO si el bucket cambió (D-07,
+ *      el mecanismo que dispara el re-stamp en infraestructura sin un flag);
+ *      `icono` se incluye SÓLO si `input.icono !== undefined` (tri-state,
+ *      CATICO-03): omitido ⇒ la clave ni existe en el patch (unchanged),
+ *      `null` ⇒ clears, string ⇒ sets (ya validado en el paso 5).
+ *   8. delega en el repositorio
  *
  * Nunca lanza.
  */
@@ -60,6 +70,9 @@ export class ActualizarCategoriaUseCase {
     id: string;
     nombre?: string;
     bucket?: string;
+    /** Tri-state (CATICO-03): omitido = unchanged; `null` = clear; string
+     *  allowlisted = set. */
+    icono?: string | null;
   }): Promise<Result<CategoriaConPatrones, ActualizarCategoriaError>> {
     if (input.esDemo) {
       return Result.fail(new CatalogoDemoSoloLecturaError());
@@ -94,6 +107,15 @@ export class ActualizarCategoriaUseCase {
       bucketValidado = input.bucket;
     }
 
+    // categoria-iconografia CATICO-03: corre ANTES de la unicidad. Omitido o
+    // `null` nunca fallan esta validación — solo un string presente debe
+    // pertenecer al allowlist curado.
+    if (input.icono !== undefined && input.icono !== null) {
+      if (!esIconoCategoria(input.icono)) {
+        return Result.fail(new IconoCategoriaInvalidoError(input.icono));
+      }
+    }
+
     // El par que la fila TENDRÍA tras este patch — lo único que vale la pena
     // preguntar (design.md D-03).
     const nombreEfectivo = nombreValidado ?? actual.nombre;
@@ -111,8 +133,12 @@ export class ActualizarCategoriaUseCase {
 
     // `nombreEfectivo` es requerido por el port: el adapter lo necesita para
     // nombrar el error del caso TOCTOU (ver el contrato de `actualizar`).
-    const patch: { nombre?: string; bucket?: string; nombreEfectivo: string } =
-      { nombreEfectivo };
+    const patch: {
+      nombre?: string;
+      bucket?: string;
+      icono?: string | null;
+      nombreEfectivo: string;
+    } = { nombreEfectivo };
     if (nombreValidado !== undefined) {
       patch.nombre = nombreValidado;
     }
@@ -122,6 +148,11 @@ export class ActualizarCategoriaUseCase {
       bucketValidado !== (actual.bucket as string)
     ) {
       patch.bucket = bucketValidado;
+    }
+    // icono: tri-state (CATICO-03) — la clave SOLO existe cuando el caller
+    // la envió explícitamente (string ya validado arriba, o `null`).
+    if (input.icono !== undefined) {
+      patch.icono = input.icono;
     }
 
     // Igual que en `CrearCategoriaUseCase`: el `colisiona` de arriba es un

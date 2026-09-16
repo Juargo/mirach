@@ -11,11 +11,13 @@ import { PrioridadInvalidaError } from '../../../domain/errors/prioridad-invalid
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
+import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
 
 describe('aCatalogoHttpError — one class, exactly one status + code', () => {
   it.each([
     [new NombreCategoriaInvalidoError('x'), 400, 'NOMBRE_INVALIDO'],
     [new BucketNoAsignableError('x'), 400, 'BUCKET_NO_ASIGNABLE'],
+    [new IconoCategoriaInvalidoError('x'), 400, 'ICONO_INVALIDO'],
     [new PatronInvalidoError('x'), 400, 'PATRON_INVALIDO'],
     [new MatchTypeInvalidoError('x'), 400, 'MATCH_TYPE_INVALIDO'],
     [new RegexInvalidaError('x'), 400, 'REGEX_INVALIDA'],

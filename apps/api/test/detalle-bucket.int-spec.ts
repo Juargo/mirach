@@ -261,9 +261,12 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     );
     const found = rows.find((r) => r.id === tx.id);
     expect(found).toBeDefined();
+    // The template seeds Streaming with its default icon (CATICO-04), and the
+    // repository row now carries it (MBD-02).
     expect(found!.categoria).toEqual({
       id: streamingIdB,
       nombre: 'Streaming',
+      icono: 'tv',
     });
   });
 });

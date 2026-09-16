@@ -80,4 +80,27 @@ describe('aDetalleBucketDto', () => {
     expect(dto.transacciones[0].id).toBe('tx-001');
     expect(dto.transacciones[0].descripcion).toBe('Compra supermercado');
   });
+
+  it('categoria expone solo { id, nombre }: el icono del port no se filtra al contrato plano', () => {
+    const data: ObtenerDetalleBucketResult = {
+      periodo: '2026-07',
+      bucket: Bucket.Necesidades,
+      transacciones: [
+        makeRow({
+          categoria: {
+            id: 'cat-1',
+            nombre: 'Supermercado',
+            icono: 'shopping-cart',
+          },
+        }),
+      ],
+    };
+
+    const dto = aDetalleBucketDto(data);
+
+    expect(dto.transacciones[0].categoria).toStrictEqual({
+      id: 'cat-1',
+      nombre: 'Supermercado',
+    });
+  });
 });

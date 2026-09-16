@@ -8,6 +8,7 @@ import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-catego
 import { PatronEnLoteInvalidoError } from '../../domain/errors/patron-en-lote-invalido.error';
 import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.error';
 import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error';
+import { IconoCategoriaInvalidoError } from '../../domain/errors/icono-categoria-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Result } from '../../shared/result';
 
@@ -25,6 +26,7 @@ function makeRepo(
         bucket: Bucket.Deseos,
         patrones: [],
         transaccionesCount: 0,
+        icono: null,
       }),
     ),
     actualizar: vi.fn(),
@@ -82,6 +84,7 @@ describe('CrearCategoriaUseCase', () => {
     expect(repo.crearConPatrones).toHaveBeenCalledWith('user-1', {
       nombre: 'Mascotas',
       bucket: 'Deseos',
+      icono: null,
       patrones: [],
     });
   });
@@ -103,6 +106,7 @@ describe('CrearCategoriaUseCase', () => {
     expect(repo.crearConPatrones).toHaveBeenCalledWith('user-1', {
       nombre: 'Mascotas',
       bucket: 'Deseos',
+      icono: null,
       patrones: [],
     });
   });
@@ -146,6 +150,89 @@ describe('CrearCategoriaUseCase', () => {
       expect(repo.crearConPatrones).not.toHaveBeenCalled();
     },
   );
+
+  /**
+   * categoria-iconografia (CATICO-01/02): validation order is demo → nombre
+   * → bucket → icono → uniqueness (design.md Data Flow) — icono runs BEFORE
+   * `existeNombre` is ever called.
+   */
+  it('un icono fuera del allowlist ⇒ 400 ICONO_INVALIDO, existeNombre NUNCA se llama, no se escribe', async () => {
+    const repo = makeRepo();
+    const patronRepo = makePatronRepo();
+    const useCase = new CrearCategoriaUseCase(repo, patronRepo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      icono: 'not-a-real-icon',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(IconoCategoriaInvalidoError);
+    expect(repo.existeNombre).not.toHaveBeenCalled();
+    expect(repo.crearConPatrones).not.toHaveBeenCalled();
+  });
+
+  it('un icono allowlisted se persiste verbatim', async () => {
+    const repo = makeRepo();
+    const patronRepo = makePatronRepo();
+    const useCase = new CrearCategoriaUseCase(repo, patronRepo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      icono: 'paw-print',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.crearConPatrones).toHaveBeenCalledWith('user-1', {
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      icono: 'paw-print',
+      patrones: [],
+    });
+  });
+
+  it('icono omitido persiste null (CATICO-02)', async () => {
+    const repo = makeRepo();
+    const patronRepo = makePatronRepo();
+    const useCase = new CrearCategoriaUseCase(repo, patronRepo);
+
+    await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+    });
+
+    expect(repo.crearConPatrones).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ icono: null }),
+    );
+  });
+
+  it('icono explícito null persiste null igual que omitido', async () => {
+    const repo = makeRepo();
+    const patronRepo = makePatronRepo();
+    const useCase = new CrearCategoriaUseCase(repo, patronRepo);
+
+    await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      icono: null,
+    });
+
+    expect(repo.crearConPatrones).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ icono: null }),
+    );
+  });
 
   it('rechaza un nombre duplicado, case-insensitive, por usuario (409) — precede la inspección de patrones', async () => {
     const repo = makeRepo({ existeNombre: vi.fn().mockResolvedValue(true) });
@@ -207,6 +294,7 @@ describe('CrearCategoriaUseCase', () => {
     expect(repo.crearConPatrones).toHaveBeenCalledWith('user-1', {
       nombre: 'Mascotas',
       bucket: 'Deseos',
+      icono: null,
       patrones: [
         { patron: 'petco', matchType: 'CONTAINS', prioridad: 100 },
         { patron: 'vet', matchType: 'STARTS_WITH', prioridad: 100 },

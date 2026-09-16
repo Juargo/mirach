@@ -66,6 +66,41 @@ describe('categoriaCreateRequestSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('accepts an optional icono string field (categoria-iconografia CATICO-02)', () => {
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      icono: 'paw-print',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts icono: null', () => {
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      icono: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('does NOT validate icono allowlist membership (domain owns the check, layer-honesty gate)', () => {
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      icono: 'not-a-real-icon',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('omitting icono stays valid (backward compat, mobile ADR-038)', () => {
+    const result = categoriaCreateRequestSchema.safeParse({
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 /**
@@ -160,6 +195,25 @@ describe('categoriaUpdateRequestSchema (PATCH, partial body — Q4)', () => {
         .success,
     ).toBe(false);
   });
+
+  it('accepts an icono-only body (tri-state, CATICO-03: nombre/bucket/icono `!== undefined`)', () => {
+    expect(
+      categoriaUpdateRequestSchema.safeParse({ icono: 'house' }).success,
+    ).toBe(true);
+  });
+
+  it('accepts icono: null (explicit clear)', () => {
+    expect(
+      categoriaUpdateRequestSchema.safeParse({ icono: null }).success,
+    ).toBe(true);
+  });
+
+  it('does NOT validate icono allowlist membership (domain owns the check, layer-honesty gate)', () => {
+    expect(
+      categoriaUpdateRequestSchema.safeParse({ icono: 'not-a-real-icon' })
+        .success,
+    ).toBe(true);
+  });
 });
 
 describe('categoriaIdPathParamsSchema', () => {
@@ -182,6 +236,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 0,
+      icono: null,
     });
     expect(categoriaResponseSchema.parse(dto).patrones).toEqual([]);
   });
@@ -193,6 +248,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 7,
+      icono: null,
     });
     expect(categoriaResponseSchema.parse(dto).transaccionesCount).toBe(7);
   });
@@ -205,9 +261,45 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
         bucket: Bucket.Deseos,
         patrones: [],
         transaccionesCount: 0,
+        icono: null,
       },
     ]);
     expect(catalogoResponseSchema.parse(dto).categorias).toHaveLength(1);
+  });
+
+  it('parses a valid allowlisted icono value from aCategoriaDto() output', () => {
+    const dto = aCategoriaDto({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: Bucket.Deseos,
+      patrones: [],
+      transaccionesCount: 0,
+      icono: 'paw-print',
+    });
+    expect(categoriaResponseSchema.parse(dto).icono).toBe('paw-print');
+  });
+
+  it('parses icono: null from aCategoriaDto() output', () => {
+    const dto = aCategoriaDto({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: Bucket.Deseos,
+      patrones: [],
+      transaccionesCount: 0,
+      icono: null,
+    });
+    expect(categoriaResponseSchema.parse(dto).icono).toBeNull();
+  });
+
+  it('D-11: icono stays .optional() in the wire TYPE — a payload omitting the key still parses', () => {
+    const result = categoriaResponseSchema.safeParse({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones: [],
+      transaccionesCount: 0,
+    });
+    expect(result.success).toBe(true);
   });
 
   it('rejects a payload with a numeric money field anywhere (CA-06, vacuous but pinned)', () => {

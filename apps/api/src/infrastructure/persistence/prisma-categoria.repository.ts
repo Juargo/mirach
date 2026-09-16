@@ -43,6 +43,7 @@ interface CategoriaRow {
   bucket: { nombre: string };
   patrones: PatronRow[];
   _count: { transacciones: number };
+  icono: string | null;
 }
 
 /** Mismo tiebreak (prioridad, patron, id) de CategorizarTransaccionUseCase
@@ -73,6 +74,7 @@ function aCategoriaConPatrones(row: CategoriaRow): CategoriaConPatrones {
     bucket: row.bucket.nombre as Bucket,
     patrones: ordenarPatrones(row.patrones).map(aPatron),
     transaccionesCount: row._count.transacciones,
+    icono: row.icono,
   };
 }
 
@@ -143,6 +145,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     data: {
       nombre: string;
       bucket: string;
+      icono: string | null;
       patrones: ReadonlyArray<{
         patron: string;
         matchType: string;
@@ -156,6 +159,7 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
           userId,
           nombre: data.nombre,
           bucketId: BUCKET_IDS[data.bucket as Bucket],
+          icono: data.icono,
           // `userId`/`categoriaId` NUNCA se pasan acá — Prisma los DERIVA del
           // padre recién creado (composite FK `categoria` en
           // PatronClasificacion, schema.prisma:176): el tipo generado
@@ -183,14 +187,26 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
   async actualizar(
     userId: string,
     id: string,
-    patch: { nombre?: string; bucket?: string; nombreEfectivo: string },
+    patch: {
+      nombre?: string;
+      bucket?: string;
+      icono?: string | null;
+      nombreEfectivo: string;
+    },
   ): Promise<Result<CategoriaConPatrones, NombreCategoriaDuplicadoError>> {
-    const data: { nombre?: string; bucketId?: string } = {};
+    const data: { nombre?: string; bucketId?: string; icono?: string | null } =
+      {};
     if (patch.nombre !== undefined) {
       data.nombre = patch.nombre;
     }
     if (patch.bucket !== undefined) {
       data.bucketId = BUCKET_IDS[patch.bucket as Bucket];
+    }
+    // Tri-state (CATICO-03): la clave `icono` SOLO se agrega al `data` de
+    // Prisma cuando el use case la incluyó en el patch — su ausencia deja el
+    // valor almacenado sin tocar.
+    if (patch.icono !== undefined) {
+      data.icono = patch.icono;
     }
 
     try {

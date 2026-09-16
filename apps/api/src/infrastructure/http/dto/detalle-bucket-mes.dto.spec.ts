@@ -81,6 +81,7 @@ function makeResult(
       {
         categoriaId: 'cat-comida',
         nombre: 'Comida',
+        icono: 'utensils',
         subtotal: 150000n,
         conteo: 2,
         transacciones: [recortar(PII[0]), recortar(PII[1])],
@@ -88,6 +89,7 @@ function makeResult(
       {
         categoriaId: null,
         nombre: 'Sin categoría',
+        icono: null,
         subtotal: 40000n,
         conteo: 1,
         transacciones: [recortar(PII[2])],
@@ -166,5 +168,17 @@ describe('aDetalleBucketMesDto', () => {
       '2026-07-03T00:00:00.000Z',
     );
     expect(typeof dto.grupos[0].transacciones[0].fecha).toBe('string');
+  });
+
+  it('categoria-iconografia MBD-02: thread el icono del grupo verbatim desde application', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+
+    expect(dto.grupos[0].icono).toBe('utensils');
+  });
+
+  it('el grupo sintético Sin categoría siempre tiene icono: null (MBD-02)', () => {
+    const dto = aDetalleBucketMesDto(makeResult());
+
+    expect(dto.grupos[1].icono).toBeNull();
   });
 });

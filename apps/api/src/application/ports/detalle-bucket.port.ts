@@ -14,7 +14,10 @@ import { Bucket } from '../../domain/value-objects/bucket';
  * filas Ingreso/SinCategoria, vía el mismo `foldCategoria`
  * (fold-categoria.ts) compartido con PrismaMovimientosMesRepository.
  * `nombre` es `string`: ownership (`WHERE userId`) es la única autoridad de
- * validez, ya no un enum cerrado (D-01).
+ * validez, ya no un enum cerrado (D-01). `icono` (categoria-iconografia
+ * CATICO-01/MBD-02) viaja AL LADO del fold, no dentro de él — el fold
+ * compartido `{id, nombre}` sigue sirviendo a
+ * `PrismaMovimientosMesRepository` sin este campo (design.md File Changes).
  */
 export interface DetalleBucketRow {
   readonly id: string;
@@ -28,6 +31,9 @@ export interface DetalleBucketRow {
   readonly categoria: {
     readonly id: string;
     readonly nombre: string;
+    /** El icono curado de la categoría, o `null` cuando no tiene uno propio
+     *  (categoria-iconografia CATICO-01/D-04). */
+    readonly icono: string | null;
   } | null;
 }
 

@@ -36,6 +36,11 @@ export interface GrupoDetalleCategoria {
   /** null solo para el grupo sintético "Sin categoría". */
   readonly categoriaId: string | null;
   readonly nombre: string;
+  /** El icono curado de la categoría, o `null` cuando no tiene uno propio Y
+   *  SIEMPRE `null` para el grupo sintético "Sin categoría" (MBD-02,
+   *  categoria-iconografia) — ambos casos comparten `categoria === null`
+   *  en las filas de entrada, así que no hace falta una rama especial. */
+  readonly icono: string | null;
   readonly subtotal: bigint;
   readonly conteo: number;
   /** Proyección recortada sin PII (MBD-08); orden del reader preservado
@@ -46,6 +51,7 @@ export interface GrupoDetalleCategoria {
 interface GrupoAcumulador {
   readonly categoriaId: string | null;
   readonly nombre: string;
+  readonly icono: string | null;
   subtotal: bigint;
   readonly transacciones: TransaccionDetalleBucketMes[];
 }
@@ -115,6 +121,10 @@ export function agruparDetallePorCategoria(
     grupos.set(clave, {
       categoriaId: fila.categoria?.id ?? null,
       nombre: fila.categoria?.nombre ?? NOMBRE_SIN_CATEGORIA,
+      // `fila.categoria` es `null` tanto para el grupo sintético "Sin
+      // categoría" como para cualquier fila sin categoría asignada — en
+      // ambos casos `?? null` ya produce el `null` que MBD-02 exige.
+      icono: fila.categoria?.icono ?? null,
       subtotal: fila.cargo,
       transacciones: [recortarTransaccion(fila)],
     });
@@ -125,6 +135,7 @@ export function agruparDetallePorCategoria(
     .map((grupo) => ({
       categoriaId: grupo.categoriaId,
       nombre: grupo.nombre,
+      icono: grupo.icono,
       subtotal: grupo.subtotal,
       conteo: grupo.transacciones.length,
       transacciones: grupo.transacciones,

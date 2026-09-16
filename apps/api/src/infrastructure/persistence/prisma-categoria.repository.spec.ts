@@ -46,6 +46,7 @@ function categoriaRow(overrides?: Partial<Record<string, unknown>>) {
     bucket: { id: BUCKET_IDS[Bucket.Deseos], nombre: Bucket.Deseos },
     patrones: [],
     _count: { transacciones: 0 },
+    icono: null,
     ...overrides,
   };
 }
@@ -138,6 +139,20 @@ describe('PrismaCategoriaRepository', () => {
       const [categoria] = await repo.listarConPatrones(USER_ID);
 
       expect(categoria.patrones).toEqual([]);
+    });
+
+    it('categoria-iconografia: maps icono verbatim (allowlisted string or null)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.findMany as Mock).mockResolvedValue([
+        categoriaRow({ id: 'cat-1', icono: 'paw-print' }),
+        categoriaRow({ id: 'cat-2', icono: null }),
+      ]);
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const categorias = await repo.listarConPatrones(USER_ID);
+
+      expect(categorias[0]?.icono).toBe('paw-print');
+      expect(categorias[1]?.icono).toBeNull();
     });
   });
 
@@ -241,6 +256,7 @@ describe('PrismaCategoriaRepository', () => {
       await repo.crearConPatrones(USER_ID, {
         nombre: 'Mascotas',
         bucket: 'Deseos',
+        icono: null,
         patrones: [],
       });
 
@@ -249,10 +265,32 @@ describe('PrismaCategoriaRepository', () => {
           userId: USER_ID,
           nombre: 'Mascotas',
           bucketId: BUCKET_IDS[Bucket.Deseos],
+          icono: null,
           patrones: { create: [] },
         },
         include: CATEGORIA_INCLUDE_WITH_COUNT,
       });
+    });
+
+    it('categoria-iconografia: writes the allowlisted icono verbatim on create', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.create as Mock).mockResolvedValue(
+        categoriaRow({ icono: 'paw-print' }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.crearConPatrones(USER_ID, {
+        nombre: 'Mascotas',
+        bucket: 'Deseos',
+        icono: 'paw-print',
+        patrones: [],
+      });
+
+      expect(prisma.categoria.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ icono: 'paw-print' }),
+        }),
+      );
     });
 
     it('nested patrones are passed as ONE Prisma statement — no categoriaId/userId in the nested create (Prisma derives both from the composite relation, schema.prisma:176)', async () => {
@@ -263,6 +301,7 @@ describe('PrismaCategoriaRepository', () => {
       await repo.crearConPatrones(USER_ID, {
         nombre: 'Mascotas',
         bucket: 'Deseos',
+        icono: null,
         patrones: [
           { patron: 'petco', matchType: 'CONTAINS', prioridad: 100 },
           { patron: 'vet', matchType: 'STARTS_WITH', prioridad: 100 },
@@ -275,6 +314,7 @@ describe('PrismaCategoriaRepository', () => {
           userId: USER_ID,
           nombre: 'Mascotas',
           bucketId: BUCKET_IDS[Bucket.Deseos],
+          icono: null,
           patrones: {
             create: [
               { patron: 'petco', matchType: 'CONTAINS', prioridad: 100 },
@@ -297,6 +337,7 @@ describe('PrismaCategoriaRepository', () => {
       const resultado = await repo.crearConPatrones(USER_ID, {
         nombre: 'Mascotas',
         bucket: 'Deseos',
+        icono: null,
         patrones: [],
       });
 
@@ -357,6 +398,60 @@ describe('PrismaCategoriaRepository', () => {
         data: { bucketId: BUCKET_IDS[Bucket.Necesidades] },
       });
     });
+
+    it('categoria-iconografia: writes icono when patch.icono is an allowlisted string (SET)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.update as Mock).mockResolvedValue(
+        categoriaRow({ icono: 'house' }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.actualizar(USER_ID, 'cat-1', {
+        icono: 'house',
+        nombreEfectivo: 'Mascotas',
+      });
+
+      expect(prisma.categoria.update).toHaveBeenCalledWith({
+        where: { id: 'cat-1', userId: USER_ID },
+        data: { icono: 'house' },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
+      });
+    });
+
+    it('categoria-iconografia: writes icono: null when patch.icono is explicit null (CLEAR)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.update as Mock).mockResolvedValue(
+        categoriaRow({ icono: null }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.actualizar(USER_ID, 'cat-1', {
+        icono: null,
+        nombreEfectivo: 'Mascotas',
+      });
+
+      expect(prisma.categoria.update).toHaveBeenCalledWith({
+        where: { id: 'cat-1', userId: USER_ID },
+        data: { icono: null },
+        include: CATEGORIA_INCLUDE_WITH_COUNT,
+      });
+    });
+
+    it('categoria-iconografia: icono key is ABSENT from the Prisma data object when patch.icono is omitted (UNCHANGED)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.update as Mock).mockResolvedValue(
+        categoriaRow({ nombre: 'Renombrada' }),
+      );
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.actualizar(USER_ID, 'cat-1', {
+        nombre: 'Renombrada',
+        nombreEfectivo: 'Renombrada',
+      });
+
+      const [updateArg] = (prisma.categoria.update as Mock).mock.calls[0];
+      expect(updateArg.data).not.toHaveProperty('icono');
+    });
   });
 
   /**
@@ -404,6 +499,7 @@ describe('PrismaCategoriaRepository', () => {
       const resultado = await repo.crearConPatrones(USER_ID, {
         nombre: 'Mascotas',
         bucket: 'Deseos',
+        icono: null,
         patrones: [],
       });
 
@@ -423,6 +519,7 @@ describe('PrismaCategoriaRepository', () => {
       const resultado = await repo.crearConPatrones(USER_ID, {
         nombre: 'Mascotas',
         bucket: 'Deseos',
+        icono: null,
         patrones: [],
       });
 
@@ -440,6 +537,7 @@ describe('PrismaCategoriaRepository', () => {
         repo.crearConPatrones(USER_ID, {
           nombre: 'Mascotas',
           bucket: 'Deseos',
+          icono: null,
           patrones: [],
         }),
       ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
@@ -454,6 +552,7 @@ describe('PrismaCategoriaRepository', () => {
         repo.crearConPatrones(USER_ID, {
           nombre: 'Mascotas',
           bucket: 'Deseos',
+          icono: null,
           patrones: [],
         }),
       ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
@@ -470,6 +569,7 @@ describe('PrismaCategoriaRepository', () => {
         repo.crearConPatrones(USER_ID, {
           nombre: 'Mascotas',
           bucket: 'Deseos',
+          icono: null,
           patrones: [],
         }),
       ).rejects.toThrow('connection reset');

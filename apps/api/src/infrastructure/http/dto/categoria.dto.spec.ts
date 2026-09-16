@@ -9,6 +9,7 @@ describe('aCategoriaDto', () => {
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 0,
+      icono: null,
     });
 
     expect(dto).toEqual({
@@ -17,6 +18,7 @@ describe('aCategoriaDto', () => {
       bucket: 'Deseos',
       patrones: [],
       transaccionesCount: 0,
+      icono: null,
     });
   });
 
@@ -35,6 +37,7 @@ describe('aCategoriaDto', () => {
         },
       ],
       transaccionesCount: 0,
+      icono: null,
     });
 
     expect(dto.patrones).toEqual([
@@ -55,8 +58,36 @@ describe('aCategoriaDto', () => {
       bucket: Bucket.Deseos,
       patrones: [],
       transaccionesCount: 7,
+      icono: null,
     });
 
     expect(dto.transaccionesCount).toBe(7);
+  });
+
+  it('threads a set icono through unchanged (categoria-iconografia CATICO-02)', () => {
+    const dto = aCategoriaDto({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: Bucket.Deseos,
+      patrones: [],
+      transaccionesCount: 0,
+      icono: 'paw-print',
+    });
+
+    expect(dto.icono).toBe('paw-print');
+  });
+
+  it('the mapper ALWAYS sets the icono key, even when null (D-11 runtime guarantee)', () => {
+    const dto = aCategoriaDto({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: Bucket.Deseos,
+      patrones: [],
+      transaccionesCount: 0,
+      icono: null,
+    });
+
+    expect(dto).toHaveProperty('icono');
+    expect(dto.icono).toBeNull();
   });
 });

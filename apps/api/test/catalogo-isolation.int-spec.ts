@@ -32,6 +32,9 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaReclasificarCategoriaRepository } from '../src/infrastructure/persistence/prisma-reclasificar-categoria.repository';
+import { PrismaCategoriaRepository } from '../src/infrastructure/persistence/prisma-categoria.repository';
+import { ActualizarCategoriaUseCase } from '../src/application/use-cases/actualizar-categoria.use-case';
+import { CategoriaNoEncontradaError } from '../src/domain/errors/categoria-no-encontrada.error';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 import { crearSesionParaUsuario } from './support/session.fixture';
 import {
@@ -252,6 +255,55 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     expect(prismaError.message).toContain(
       'PatronClasificacion_categoriaId_userId_fkey',
     );
+  });
+
+  /**
+   * categoria-iconografia (CATICO-05, RNF-SEC-006) — icon writes are
+   * owner-scoped, same gate CAT037-05 already enforces for every catalog
+   * mutation. NOTE (2026-09-15, apply-phase PR2b): `PATCH /api/categorias/:id`
+   * does NOT yet accept `icono` in its HTTP body (`categoriaUpdateRequestSchema`
+   * is `.strict()` and only lists `nombre`/`bucket` — PR3a adds the `icono`
+   * field to the transport schema). This test therefore exercises the layer
+   * that IS reachable today: `ActualizarCategoriaUseCase` wired to the REAL
+   * `PrismaCategoriaRepository` against this ephemeral DB — the exact same
+   * ownership gate (`buscarPorId(userId, id)` scoped by `userId` in the SQL
+   * WHERE) that the HTTP route will delegate to once PR3a threads `icono`
+   * through. It is NOT an HTTP-level test; PR3a's route suite covers the
+   * transport-layer 400/404 shape once the schema accepts `icono`.
+   */
+  it("B calling ActualizarCategoriaUseCase against A's real categoria id with icono set gets CategoriaNoEncontradaError, A's icono unchanged (categoria-iconografia CATICO-05, RNF-SEC-006)", async () => {
+    const categoriaRepo = new PrismaCategoriaRepository(prisma);
+    const actualizarUseCase = new ActualizarCategoriaUseCase(categoriaRepo);
+
+    // 'Transporte' (Necesidades) carries the seed default icono 'bus'
+    // (catalogo-template.ts, ADR-045 D-06/D-09) — copied verbatim into A's
+    // catalog by `crearCatalogoParaUsuario` in this file's beforeAll.
+    const transporteIdA = await categoriaIdDe(prisma, {
+      userId: USER_ID_A,
+      bucket: Bucket.Necesidades,
+      nombre: 'Transporte',
+    });
+    const antes = await prisma.categoria.findUniqueOrThrow({
+      where: { id: transporteIdA },
+      select: { icono: true },
+    });
+    expect(antes.icono).toBe('bus');
+
+    const result = await actualizarUseCase.execute({
+      userId: USER_ID_B,
+      esDemo: false,
+      id: transporteIdA,
+      icono: 'house',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(CategoriaNoEncontradaError);
+
+    const despues = await prisma.categoria.findUniqueOrThrow({
+      where: { id: transporteIdA },
+      select: { icono: true },
+    });
+    expect(despues.icono).toBe('bus');
   });
 });
 

@@ -10,6 +10,7 @@ import { PrioridadInvalidaError } from '../../../domain/errors/prioridad-invalid
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
+import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
 import { CrearCategoriaError } from '../../../application/use-cases/crear-categoria.use-case';
 import { ActualizarCategoriaError } from '../../../application/use-cases/actualizar-categoria.use-case';
 import { EliminarCategoriaError } from '../../../application/use-cases/eliminar-categoria.use-case';
@@ -63,6 +64,9 @@ export function aCatalogoHttpError(error: CatalogoError): {
       code: 'BUCKET_NO_ASIGNABLE',
       message: error.message,
     };
+  }
+  if (error instanceof IconoCategoriaInvalidoError) {
+    return { status: 400, code: 'ICONO_INVALIDO', message: error.message };
   }
   if (error instanceof PatronInvalidoError) {
     return { status: 400, code: 'PATRON_INVALIDO', message: error.message };

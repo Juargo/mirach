@@ -28,6 +28,12 @@ export interface DetalleBucketMesDto {
   readonly grupos: ReadonlyArray<{
     readonly categoriaId: string | null;
     readonly nombre: string;
+    /**
+     * categoria-iconografia (CATICO-01) — the group's curated icon name, or
+     * `null` when unset or for the synthetic Sin categoría group (MBD-02).
+     * Mapped verbatim from application, always set at runtime (D-11).
+     */
+    readonly icono: string | null;
     readonly subtotal: string;
     readonly conteo: number;
     readonly transacciones: ReadonlyArray<{
@@ -60,6 +66,7 @@ export function aDetalleBucketMesDto(
     grupos: data.grupos.map((grupo) => ({
       categoriaId: grupo.categoriaId,
       nombre: grupo.nombre,
+      icono: grupo.icono,
       subtotal: String(grupo.subtotal),
       conteo: grupo.conteo,
       transacciones: grupo.transacciones.map((tx) => ({

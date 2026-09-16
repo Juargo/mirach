@@ -223,7 +223,7 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
           makeRow({
             id: 'tx-1',
             cargo: 50000n,
-            categoria: { id: 'cat-comida', nombre: 'Comida' },
+            categoria: { id: 'cat-comida', nombre: 'Comida', icono: null },
           }),
         ],
         [],
@@ -279,17 +279,17 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
           makeRow({
             id: 'tx-1',
             cargo: 50000n,
-            categoria: { id: 'cat-comida', nombre: 'Comida' },
+            categoria: { id: 'cat-comida', nombre: 'Comida', icono: null },
           }),
           makeRow({
             id: 'tx-2',
             cargo: 60000n,
-            categoria: { id: 'cat-comida', nombre: 'Comida' },
+            categoria: { id: 'cat-comida', nombre: 'Comida', icono: null },
           }),
           makeRow({
             id: 'tx-3',
             cargo: 40000n,
-            categoria: { id: 'cat-comida', nombre: 'Comida' },
+            categoria: { id: 'cat-comida', nombre: 'Comida', icono: null },
           }),
           makeRow({ id: 'tx-4', cargo: 40000n, categoria: null }),
           makeRow({ id: 'tx-5', cargo: 60000n, categoria: null }),

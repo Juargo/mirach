@@ -56,7 +56,11 @@ export function aDetalleBucketDto(
       banco: tx.banco,
       tipoCuenta: tx.tipoCuenta,
       numeroCuenta: tx.numeroCuenta,
-      categoria: tx.categoria,
+      // Explicit projection: the shared port row also carries `icono` (MBD-02),
+      // which is not part of this flat contract (US-017).
+      categoria: tx.categoria
+        ? { id: tx.categoria.id, nombre: tx.categoria.nombre }
+        : null,
     })),
   };
 }
