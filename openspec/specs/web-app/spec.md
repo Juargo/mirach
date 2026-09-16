@@ -283,15 +283,18 @@ Navigation MUST remain available on an empty month (WDM-05).
 
 ### Requirement: WDM-03 — Category groups render the server's order as a collapsed-by-default accordion (CA-03)
 
-Each group MUST render the server's `nombre`, `conteo`, and exact `subtotal` (BigInt-safe string, never
-`Number()`/`parseFloat()`), in the server's exact order — es-CL alphabetical, "Sin categoría" last (MBD-02).
-The client MUST NOT re-group, re-sort, or truncate the payload. Each group MUST render as an accordion whose
+Each group MUST render a bucket-colored icon badge (the group's `icono`, or the generic fallback when
+null — `categoria-icono` CATICO-06; always the fallback for the synthetic Sin categoría group), the
+server's `nombre`, `conteo`, and exact `subtotal` (BigInt-safe string, never `Number()`/
+`parseFloat()`), in the server's exact order — es-CL alphabetical, "Sin categoría" last (MBD-02). The
+client MUST NOT re-group, re-sort, or truncate the payload. Each group MUST render as an accordion whose
 heading is itself the trigger — a real button (hand-rolled, KISS — no new dependency) with
 `aria-expanded`/`aria-controls`, wrapped by the group's `<h2>`. Every group MUST start COLLAPSED regardless
 of its row count (the `destacar` group is the sole exception, WDM-04). Activating the trigger MUST reveal
 ALL of the group's rows — there is no row-count threshold and no partial-reveal control; collapsing hides
 them again. The collapsed panel MUST stay mounted (`hidden`, not unmounted) so in-progress row control state
 (e.g. a reclassify/delete dialog) survives a collapse/expand cycle.
+(Previously: the group heading rendered `nombre`, `conteo`, and `subtotal` with no icon badge.)
 
 #### Scenario: Collapsed by default, then expands to reveal every row (jsdom)
 
@@ -315,6 +318,18 @@ them again. The collapsed panel MUST stay mounted (`hidden`, not unmounted) so i
 - GIVEN a payload whose groups arrive ordered Ñoquis, Zapatería, "Sin categoría"
 - WHEN the page renders
 - THEN the rendered order is identical — no client-side re-sort
+
+#### Scenario: A group heading renders its icono on a bucket-colored badge (jsdom)
+
+- GIVEN a group whose category has `icono: "shopping-cart"`
+- WHEN the group heading renders
+- THEN the badge shows the `shopping-cart` icon on the page's bucket color token
+
+#### Scenario: The Sin categoría group heading always renders the generic fallback (jsdom)
+
+- GIVEN the synthetic Sin categoría group (`icono` always `null`, MBD-02)
+- WHEN its heading renders
+- THEN the badge shows the generic fallback icon
 
 ### Requirement: WDM-04 — Sin categoría group highlight via `?destacar=` and structural no-%/meta (CA-04, decision 2, MBD-03)
 
@@ -520,9 +535,11 @@ carrying `aria-current="page"` and a working `<Link>` (no longer inert). `/confi
 `/configuracion/categorias` MUST list the caller's own categories grouped by bucket in the fixed order
 `Necesidades`, `Deseos`, `Ahorro` — the `Deseos` group heading MUST render the display label `Gustos`
 (reusing `ETIQUETA_BUCKET`, per A1), while the value sent to/read from the API stays the wire value
-`Deseos`. Each row MUST show the categoría name, its pattern tag (WCTG-03), and edit + delete row
-actions. A page-level `Nueva categoría` button MUST sit beside the title (`Nueva` at tablet width per
-§8). An empty catalog MUST render a specified empty state.
+`Deseos`. Each row MUST show a bucket-colored icon badge (the category's `icono`, or the generic
+fallback when null — `categoria-icono` CATICO-06), the categoría name, its pattern tag (WCTG-03), and
+edit + delete row actions. A page-level `Nueva categoría` button MUST sit beside the title (`Nueva`
+at tablet width per §8). An empty catalog MUST render a specified empty state.
+(Previously: rows showed only the categoría name, pattern tag, and actions — no icon badge.)
 
 #### Scenario: Groups render in fixed bucket order with the display label
 
@@ -536,6 +553,18 @@ actions. A page-level `Nueva categoría` button MUST sit beside the title (`Nuev
 - GIVEN a user with zero categories
 - WHEN `/configuracion/categorias` renders
 - THEN a specified empty state renders, not a broken/blank list
+
+#### Scenario: A category with an icono renders it on a bucket-colored badge
+
+- GIVEN a category in `Deseos` with `icono: "house"`
+- WHEN its row renders
+- THEN the badge shows the `house` icon on the `Deseos` bucket color token
+
+#### Scenario: A category with no icono renders the generic fallback badge
+
+- GIVEN a category with `icono: null`
+- WHEN its row renders
+- THEN the badge shows the generic fallback icon on that category's bucket color token
 
 ### Requirement: WCTG-03 — Pattern-count tag has three grammatical forms (§3, wireframes §5)
 
@@ -812,38 +841,31 @@ perfil.", which is false on the categories screen, hence the new sibling constan
 - THEN the verbatim `MENSAJE_DEMO_CATALOGO` copy is shown — a category-specific sentence, distinct from
   (and never falling back to) the existing Perfil surface's `MENSAJE_DEMO_SOLO_LECTURA`
 
-### Requirement: WCTG-12 — Error and success copy is a closed table over 11 codes plus BODY_INVALIDO (§8)
+### Requirement: WCTG-12 — Error and success copy is a closed table over 12 codes plus BODY_INVALIDO (§8)
 
-Error copy MUST be a closed table covering exactly the 11 codes the deployed catalog API returns
+Error copy MUST be a closed table covering exactly the 12 codes the deployed catalog API returns
 (`NOMBRE_INVALIDO`, `BUCKET_NO_ASIGNABLE`, `PATRON_INVALIDO`, `MATCH_TYPE_INVALIDO`, `REGEX_INVALIDA`,
 `PRIORIDAD_INVALIDA`, `DEMO_SOLO_LECTURA`, `CATEGORIA_NO_ENCONTRADA`, `PATRON_NO_ENCONTRADO`,
-`NOMBRE_DUPLICADO`, `PATRON_DUPLICADO`), plus one `BODY_INVALIDO` row for a malformed response body
-(mirroring the `tag: 'parse'` `ApiError` case) — 12 codes total. The mapping's selection key MUST be
-`code` ALONE, never `(status, code)` and never a server-supplied message string, and totality MUST be
-enforced with a `Record<CodigoCatalogo, string>` over the closed 12-member code union — NOT a `switch` +
-`never` on the code axis — so that adding a code without a row fails `tsc` directly. (Reconciled 2026-08-14
-with design.md's accepted CORRECTION Q8b — the spec predated it because spec and design ran in parallel.
-Design's Q8a confirms no code repeats across statuses, which is what makes keying by `code` alone safe: a
-composite `(status, code)` key would carry a discriminator that discriminates nothing here.) (Corrected
-2026-08-14 — round 2 of judgment-day on PR #334: this row is NOT client-only. The backend emits it
-literally — `res.status(400).json({ code: 'BODY_INVALIDO', ... })` in
-`apps/api/src/infrastructure/http-express/routes/categorias.routes.ts` and
-`apps/api/src/infrastructure/http-express/routes/patrones.routes.ts` — whenever `.safeParse()` rejects a
-mutation body, and `errorConCodigo` lifts any body `code` verbatim into `{ tag: 'server', status, code }`
-client-side. It is ALSO produced client-side by a `tag: 'parse'` runtime-validation failure, as already
-documented below. Both producers are real and both are covered by tests.)
+`NOMBRE_DUPLICADO`, `PATRON_DUPLICADO`, `ICONO_INVALIDO`), plus one `BODY_INVALIDO` row for a
+malformed response body (mirroring the `tag: 'parse'` `ApiError` case) — 13 codes total. The
+mapping's selection key MUST be `code` ALONE, never `(status, code)` and never a server-supplied
+message string, and totality MUST be enforced with a `Record<CodigoCatalogo, string>` over the
+closed 13-member code union — NOT a `switch` + `never` on the code axis — so that adding a code
+without a row fails `tsc` directly.
+(Previously — as `WCTG-12 — Error and success copy is a closed table over 11 codes plus BODY_INVALIDO
+(§8)`, see `## REMOVED Requirements` above: the closed table covered 11 codes plus `BODY_INVALIDO`,
+12 total — `ICONO_INVALIDO` did not exist.)
 
 Separately, on a DIFFERENT axis, the function that dispatches on the raw `ApiError` union's `tag` (5
 members: `network`, `unauthorized`, `parse`, `invalid`, `server`) MUST itself be a closed `switch` +
 `never` exhaustiveness guard, so a sixth `ApiError` tag is a compile error, not a silent fallthrough. Both
 guards are required and neither replaces the other. In particular, `tag: 'parse'` — the shape produced when
 a 2xx response body fails runtime DTO validation — MUST map to the `BODY_INVALIDO` row of the code table
-above; before this reconciliation, that mapping was unspecified and shipped unimplemented (the `tag`
-dispatch fell through to a generic fallback instead), which is the gap this reconciliation closes.
+above.
 
-#### Scenario: Every one of the 11 codes maps to fixed client copy
+#### Scenario: Every one of the 12 codes maps to fixed client copy
 
-- GIVEN each of the 11 documented `status:code` responses in turn
+- GIVEN each of the 12 documented `status:code` responses in turn
 - WHEN it is mapped to UI copy
 - THEN a fixed, closed-table string renders — never the server's own `message` field
 
@@ -855,17 +877,50 @@ dispatch fell through to a generic fallback instead), which is the gap this reco
 
 #### Scenario: `ApiError` tag `parse` maps to `BODY_INVALIDO`, not the generic fallback
 
-- GIVEN an `ApiError` with `tag: 'parse'` (the shape the fetch layer actually produces when a 2xx body
-  fails its runtime DTO guard — this shape carries no `code` field at all)
+- GIVEN an `ApiError` with `tag: 'parse'` (no `code` field at all)
 - WHEN the `ApiError`-dispatch `switch` maps it to UI copy
 - THEN the `BODY_INVALIDO` row's copy renders — never the generic fallback string
 
 #### Scenario: An unmapped code fails to compile
 
-- GIVEN a hypothetical new `CodigoCatalogo` member added to the closed union without a corresponding row
-  in the `Record<CodigoCatalogo, string>` table
+- GIVEN a hypothetical new `CodigoCatalogo` member added to the closed union without a corresponding
+  row in the `Record<CodigoCatalogo, string>` table
 - WHEN the mapping table is type-checked
 - THEN `tsc` fails to compile — never a silent runtime fallback
+
+#### Scenario: ICONO_INVALIDO maps to fixed copy, not the generic fallback
+
+- GIVEN a `400 ICONO_INVALIDO` response from `POST`/`PATCH /api/categorias`
+- WHEN it is mapped to UI copy
+- THEN the `ICONO_INVALIDO` row's fixed string renders
+
+### Requirement: Category create/edit forms include an accessible icon picker as part of the identity draft
+
+The `Nueva categoría` creation flow and the edit screen's identity draft (WCTG-04) MUST include an
+icon picker offering the curated allowlist (`categoria-icono` CATICO-01) plus a "no icon" option. A
+selection MUST travel with the identity payload: `POST /api/categorias` on create, and `PATCH
+/api/categorias/:id`'s `Guardar` commit on edit (`categoria-icono` CATICO-02/03) — never as a
+separate save action. Each picker option MUST expose a human-readable accessible name, never the raw
+lucide identifier (`categoria-icono` CATICO-08).
+
+#### Scenario: Selecting an icon on create includes it in the POST body
+
+- GIVEN the `Nueva categoría` form with `nombre`/`bucket` filled and an icon selected
+- WHEN the form is submitted
+- THEN `POST /api/categorias` is called with that `icono` value
+
+#### Scenario: Changing the icon on edit sends it with Guardar, not separately
+
+- GIVEN the edit screen with a different icon selected than the category's current one
+- WHEN the user activates `Guardar`
+- THEN the same `PATCH /api/categorias/:id` request that commits `Nombre`/`Bucket` also carries the
+  new `icono` value
+
+#### Scenario: Picker options expose readable accessible names
+
+- GIVEN the icon picker renders its allowlisted options
+- WHEN an assistive-technology user inspects one option
+- THEN its accessible name is a human-readable label, never the raw lucide identifier
 
 ### Requirement: WCTM-01 — A new `md` (768px) breakpoint tier is scoped to the Configuración surfaces (D-1)
 

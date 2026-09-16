@@ -66,7 +66,8 @@ The M1 header MUST render: the bucket's display label via `ETIQUETA_BUCKET` (e.g
 
 ### Requirement: MDET-03 — GrupoMovimientosMobile: expandable groups and SinCategoria destacado
 
-M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesViewModel`. Each group MUST show a header with categoría name, subtotal, and conteo. Groups with more than 10 rows MUST show the first 10 rows and a `"Ver N más"` pressable that reveals the rest (`accessibilityState={{ expanded: false/true }}`). The `SinCategoria` group ALWAYS carries the stable `testID="grupo-movimientos-sin-categoria"` on its root container. When the URL param `destacar=sin-categoria` is present, an INNER highlight wrapper with `testID="grupo-sin-categoria-destacado"` MUST be rendered INSIDE the `SinCategoria` group root and carry a distinct visual style compared to other groups; this inner wrapper is ONLY rendered when `destacar` is active. Both the stable root testID and the conditional inner testID MUST be asserted independently in the test for the destacado scenario.
+M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesViewModel`. Each group MUST show a header with a bucket-colored icon badge (the group's `icono`, or the generic fallback when null/absent — `categoria-icono` CATICO-06; always the fallback for the `SinCategoria` group), categoría name, subtotal, and conteo. Groups with more than 10 rows MUST show the first 10 rows and a `"Ver N más"` pressable that reveals the rest (`accessibilityState={{ expanded: false/true }}`). The `SinCategoria` group ALWAYS carries the stable `testID="grupo-movimientos-sin-categoria"` on its root container. When the URL param `destacar=sin-categoria` is present, an INNER highlight wrapper with `testID="grupo-sin-categoria-destacado"` MUST be rendered INSIDE the `SinCategoria` group root and carry a distinct visual style compared to other groups; this inner wrapper is ONLY rendered when `destacar` is active. Both the stable root testID and the conditional inner testID MUST be asserted independently in the test for the destacado scenario.
+(Previously: the group header showed categoría name, subtotal, and conteo — no icon badge.)
 
 #### Scenario: Group with 12 rows shows 10 + "Ver 2 más" collapsed (RNTL)
 
@@ -101,6 +102,18 @@ M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesVie
 - WHEN the screen renders
 - THEN the SinCategoria group root still carries `testID="grupo-movimientos-sin-categoria"`
 - AND no element with `testID="grupo-sin-categoria-destacado"` exists anywhere in the tree
+
+#### Scenario: A group header renders its icono on a bucket-colored badge (RNTL)
+
+- GIVEN a group whose category has `icono: "shopping-cart"`
+- WHEN the group header renders
+- THEN the badge shows the `shopping-cart` icon on the screen's bucket color token
+
+#### Scenario: The SinCategoria group header always renders the generic fallback (RNTL)
+
+- GIVEN the `SinCategoria` group (its `icono` is always `null`, MBD-02)
+- WHEN its header renders
+- THEN the badge shows the generic fallback icon
 
 ---
 
