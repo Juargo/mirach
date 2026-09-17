@@ -82,7 +82,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
           },
         },
       },
-      orderBy: [{ fecha: 'asc' }, { id: 'asc' }],
+      orderBy: [{ cargo: 'desc' }, { fecha: 'asc' }, { id: 'asc' }],
     });
 
     return rows.map((row) => ({
