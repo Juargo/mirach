@@ -63,6 +63,32 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     };
   }
 
+  it('ordena por monto DESCENDENTE en SQL, con fecha e id como desempate determinista', async () => {
+    // El orden de las transacciones del detalle se decide ACÁ, en el
+    // `orderBy` de la query: `agruparDetallePorCategoria` preserva el orden
+    // en que llegan las filas y nunca re-sortea. Este assert es el único
+    // lugar donde ese contrato queda fijado.
+    //
+    // Antes de 2026-09-17 era `[{ fecha: 'asc' }, { id: 'asc' }]` y NINGÚN
+    // test lo cubría: se pudo cambiar el orden de toda la pantalla sin poner
+    // un solo test en rojo.
+    //
+    // `cargo` no está cifrado (sí lo está `descripcion`), y por eso puede
+    // ordenarse en la base en vez de en memoria.
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = { transaccion: { findMany } } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Necesidades);
+
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findMany.mock.calls[0][0].orderBy).toEqual([
+      { cargo: 'desc' },
+      { fecha: 'asc' },
+      { id: 'asc' },
+    ]);
+  });
+
   it('CAT037-06: classified categoria (per-user cuid + nombre) folds to { id, nombre }', async () => {
     const findMany = vi.fn().mockResolvedValue([
       makeRow({

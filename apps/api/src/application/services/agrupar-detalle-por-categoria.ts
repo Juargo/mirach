@@ -44,7 +44,10 @@ export interface GrupoDetalleCategoria {
   readonly subtotal: bigint;
   readonly conteo: number;
   /** Proyección recortada sin PII (MBD-08); orden del reader preservado
-   *  (fecha asc, id asc) — no se re-ordena. */
+   *  (monto desc, fecha asc, id asc desde 2026-09-17) — este servicio NO
+   *  re-ordena las filas: el orden de las transacciones lo decide el
+   *  `orderBy` del reader, en SQL, y el de los grupos este servicio, porque
+   *  el subtotal por el que se ordenan solo existe después de agrupar. */
   readonly transacciones: ReadonlyArray<TransaccionDetalleBucketMes>;
 }
 
@@ -60,15 +63,37 @@ const NOMBRE_SIN_CATEGORIA = 'Sin categoría';
 const CLAVE_SIN_CATEGORIA = 'sin-categoria';
 
 /**
- * Orden alfabético es-CL, con "Sin categoría" SIEMPRE al final. Espeja el
- * helper web `agrupar-detalle-por-categoria.ts` (US-013 WCAT-02): el locale
- * es EXPLÍCITO porque los nombres creados por el usuario llevan tildes y ñ y
- * la colación por defecto depende del ICU del runtime.
+ * Orden por SUBTOTAL descendente — el grupo que más gastó primero — con
+ * "Sin categoría" SIEMPRE al final y el nombre es-CL como desempate.
+ *
+ * Era orden alfabético hasta 2026-09-17. Un libro mayor alfabético obliga a
+ * leerlo entero para encontrar dónde se fue la plata; ordenado por monto, la
+ * respuesta es la primera fila.
+ *
+ * Tres reglas, en este orden:
+ *
+ * 1. "Sin categoría" al final, se conserva intacta. Es el resto por
+ *    clasificar, no una categoría del presupuesto, y mezclarlo por monto lo
+ *    pondría arriba justo en los meses en que hay mucho sin clasificar —
+ *    tapando las categorías reales con un grupo que no es una decisión de
+ *    gasto.
+ * 2. Subtotal descendente. La comparación es EXPLÍCITA con `>`/`<` y NUNCA
+ *    `Number(a - b)`: `subtotal` es `bigint`, y `Array.prototype.sort` exige
+ *    un `number`. Restar y castear es el camino corto a perder precisión en
+ *    montos grandes (ADR-015: dinero con tipos exactos, nunca float).
+ * 3. Nombre es-CL como desempate, para que dos categorías con el mismo gasto
+ *    salgan siempre en el mismo orden y la lista no baile entre requests. El
+ *    locale es EXPLÍCITO porque los nombres creados por el usuario llevan
+ *    tildes y ñ, y la colación por defecto depende del ICU del runtime.
  */
-function compararGrupos(a: string, b: string): number {
-  if (a === NOMBRE_SIN_CATEGORIA) return b === NOMBRE_SIN_CATEGORIA ? 0 : 1;
-  if (b === NOMBRE_SIN_CATEGORIA) return -1;
-  return a.localeCompare(b, 'es-CL');
+function compararGrupos(a: GrupoAcumulador, b: GrupoAcumulador): number {
+  if (a.nombre === NOMBRE_SIN_CATEGORIA) {
+    return b.nombre === NOMBRE_SIN_CATEGORIA ? 0 : 1;
+  }
+  if (b.nombre === NOMBRE_SIN_CATEGORIA) return -1;
+  if (a.subtotal > b.subtotal) return -1;
+  if (a.subtotal < b.subtotal) return 1;
+  return a.nombre.localeCompare(b.nombre, 'es-CL');
 }
 
 /** Proyección recortada (MBD-08): solo la forma que el cliente necesita. */
@@ -91,14 +116,16 @@ function recortarTransaccion(
  * agruparDetallePorCategoria — servicio puro que agrupa las transacciones de
  * UN bucket (ya validadas por el use case, D-08) por `categoriaId` (D-03).
  *
- * Espeja las reglas documentadas del helper web `agrupar-detalle-por-categoria.ts`
- * (misma 3ª implementación de agrupación — deliberadamente SIN abstracción
- * cross-layer, ADR-005/008):
+ * Reglas (nacieron espejando un helper web homónimo que YA NO EXISTE —
+ * verificado 2026-09-17: no queda ningún `agrupar-detalle-por-categoria` bajo
+ * `apps/web/src`, así que este archivo es hoy la ÚNICA fuente del orden, para
+ * web y para mobile):
  * - clave de grupo: `categoriaId` (filas con `categoria: null` → grupo
  *   sintético "Sin categoría" con `categoriaId: null`);
  * - subtotal = Σ `cargo` en BigInt (el allowlist del use case excluye
  *   Ingreso, así que no hay rama defensiva abono — D-03);
- * - grupos ordenados por `nombre` es-CL, "Sin categoría" siempre al final;
+ * - grupos ordenados por `subtotal` DESCENDENTE, "Sin categoría" siempre al
+ *   final, nombre es-CL como desempate (ver `compararGrupos`);
  * - solo categorías presentes (nunca grupos vacíos); input vacío → `[]`;
  * - las `transacciones` de cada grupo preservan el orden del reader y son la
  *   proyección recortada sin PII (MBD-08).
@@ -131,7 +158,7 @@ export function agruparDetallePorCategoria(
   }
 
   return Array.from(grupos.values())
-    .sort((a, b) => compararGrupos(a.nombre, b.nombre))
+    .sort(compararGrupos)
     .map((grupo) => ({
       categoriaId: grupo.categoriaId,
       nombre: grupo.nombre,

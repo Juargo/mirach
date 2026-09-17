@@ -3,10 +3,14 @@ import { DetalleBucketRow } from '../ports/detalle-bucket.port';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // US-051 PR1: Unit tests — agruparDetallePorCategoria (pure grouping service,
-// D-03). Mirrors the web helper `agrupar-detalle-por-categoria.ts` semantics
-// (US-013 WCAT-02) on the backend BigInt rows: group key `categoriaId`,
-// subtotal = Σ cargo, es-CL alpha, "Sin categoría" LAST, reader order kept,
-// empty → []. 10 cases per design §4 ledger (as amended by tasks.md 1.1).
+// D-03) on the backend BigInt rows: group key `categoriaId`, subtotal = Σ
+// cargo, "Sin categoría" LAST, reader order kept, empty → [].
+//
+// 2026-09-17: group order is by SUBTOTAL DESC, with the es-CL name only as a
+// tie-break. The alpha cases that predate this change still pass — their rows
+// share the default `cargo`, so their subtotals tie and the name decides —
+// but they now cover the TIE-BREAK, not the primary order. Their titles say
+// so; do not read them as pinning alphabetical order.
 // ──────────────────────────────────────────────────────────────────────────────
 
 const NOMBRE_SIN_CATEGORIA = 'Sin categoría';
@@ -157,7 +161,100 @@ describe('agruparDetallePorCategoria', () => {
     expect(grupos[0].subtotal.toString()).toBe('18014398509481986');
   });
 
-  it('ordena los grupos alfabéticamente es-CL con "Sin categoría" SIEMPRE al final', () => {
+  it('ordena los grupos por SUBTOTAL descendente — el que más gastó primero', () => {
+    const filas = [
+      makeRow({
+        id: 'tx-1',
+        cargo: 10_000n,
+        categoria: conCategoria('cat-cafe', 'Café'),
+      }),
+      makeRow({
+        id: 'tx-2',
+        cargo: 900_000n,
+        categoria: conCategoria('cat-arriendo', 'Arriendo'),
+      }),
+      makeRow({
+        id: 'tx-3',
+        cargo: 120_000n,
+        categoria: conCategoria('cat-super', 'Supermercado'),
+      }),
+    ];
+
+    const grupos = agruparDetallePorCategoria(filas);
+
+    // Alfabéticamente sería Arriendo · Café · Supermercado, así que este
+    // orden solo puede venir del subtotal: el assert no puede pasar bajo el
+    // comparador alfabético anterior.
+    expect(grupos.map((g) => g.nombre)).toEqual([
+      'Arriendo',
+      'Supermercado',
+      'Café',
+    ]);
+    expect(grupos.map((g) => g.subtotal)).toEqual([
+      900_000n,
+      120_000n,
+      10_000n,
+    ]);
+  });
+
+  it('el subtotal manda sobre el nombre incluso con montos más allá de Number.MAX_SAFE_INTEGER', () => {
+    // El comparador compara bigint con `>`/`<`. Si alguien lo reescribiera
+    // como `Number(a.subtotal - b.subtotal)`, estos dos montos colapsarían al
+    // MISMO double y el orden quedaría al azar del nombre.
+    const filas = [
+      makeRow({
+        id: 'tx-1',
+        cargo: 9_007_199_254_740_993n,
+        categoria: conCategoria('cat-a', 'Aaa'),
+      }),
+      makeRow({
+        id: 'tx-2',
+        cargo: 9_007_199_254_740_995n,
+        categoria: conCategoria('cat-z', 'Zzz'),
+      }),
+    ];
+
+    const grupos = agruparDetallePorCategoria(filas);
+
+    expect(grupos.map((g) => g.nombre)).toEqual(['Zzz', 'Aaa']);
+  });
+
+  it('"Sin categoría" queda al final AUNQUE sea el grupo de mayor subtotal', () => {
+    const filas = [
+      makeRow({
+        id: 'tx-1',
+        cargo: 1_000n,
+        categoria: conCategoria('cat-cafe', 'Café'),
+      }),
+      makeRow({ id: 'tx-2', cargo: 5_000_000n, categoria: null }),
+    ];
+
+    // Es el resto por clasificar, no una decisión de gasto: si se mezclara
+    // por monto taparía las categorías reales justo en los meses con mucho
+    // sin clasificar.
+    //
+    // Se afirma con las filas EN LOS DOS ÓRDENES de entrada, y no es
+    // ceremonia: `compararGrupos` tiene dos ramas simétricas para "Sin
+    // categoría" (una por argumento), y V8 decide con qué orden de
+    // argumentos llamar al comparador. Probado por mutación — neutralizando
+    // SOLO la rama de `b`, la versión de una sola dirección de este caso
+    // seguía verde. Con las dos direcciones, no hay rama que se pueda
+    // borrar sin que esto se ponga rojo.
+    expect(agruparDetallePorCategoria(filas).map((g) => g.nombre)).toEqual([
+      'Café',
+      NOMBRE_SIN_CATEGORIA,
+    ]);
+    expect(
+      agruparDetallePorCategoria([...filas].reverse()).map((g) => g.nombre),
+    ).toEqual(['Café', NOMBRE_SIN_CATEGORIA]);
+  });
+
+  it('con subtotales IGUALES desempata alfabéticamente es-CL, con "Sin categoría" SIEMPRE al final', () => {
+    // Las tres filas comparten el `cargo` por defecto, así que el subtotal
+    // empata y el desempate por nombre es lo ÚNICO que decide. Ese empate es
+    // deliberado: sin desempate el orden de dos categorías con el mismo
+    // gasto dependería del orden de inserción del Map y la lista bailaría
+    // entre requests.
     const filas = [
       makeRow({
         id: 'tx-1',
@@ -169,6 +266,7 @@ describe('agruparDetallePorCategoria', () => {
 
     const grupos = agruparDetallePorCategoria(filas);
 
+    expect(new Set(grupos.map((g) => g.subtotal)).size).toBe(1);
     expect(grupos.map((g) => g.nombre)).toEqual([
       'Ñoquis',
       'Zapatería',
@@ -176,10 +274,13 @@ describe('agruparDetallePorCategoria', () => {
     ]);
   });
 
-  it('colación con tildes/ñ bajo locale EXPLÍCITO es-CL (acento como diferencia terciaria)', () => {
+  it('el desempate usa colación con tildes/ñ bajo locale EXPLÍCITO es-CL (acento como diferencia terciaria)', () => {
     // En es-CL, "Águila" ordena junto a la "a" (antes de "Zapatería"): el
     // acento es diferencia terciaria, no codepoint. Sin locale explícito el
     // orden cambiaría entre runtimes (web helper design.md §1/Q7b).
+    //
+    // Las dos filas comparten el `cargo` por defecto: el empate de subtotal
+    // es lo que hace que este caso mida la COLACIÓN y no el monto.
     const filas = [
       makeRow({
         id: 'tx-1',
@@ -233,8 +334,12 @@ describe('agruparDetallePorCategoria', () => {
     expect(agruparDetallePorCategoria([])).toEqual([]);
   });
 
-  it('preserva el orden del reader dentro de cada grupo (fecha asc, id asc — no re-ordena)', () => {
-    // El reader ya entrega fecha asc, id asc; el servicio NO debe re-sortear.
+  it('preserva el orden en que llegan las filas dentro de cada grupo — no re-ordena', () => {
+    // El servicio NO re-sortea las transacciones: el orden de las filas lo
+    // decide el `orderBy` del reader en SQL (desde 2026-09-17: monto desc,
+    // fecha asc, id asc — fijado en `prisma-detalle-bucket.repository.spec`).
+    // Este caso usa un orden arbitrario a propósito, para probar que se
+    // respeta tal cual venga, sea el que sea.
     const filas = [
       makeRow({
         id: 'tx-3',
