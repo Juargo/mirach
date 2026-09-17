@@ -29,17 +29,42 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    # Cada output es `<el filtro dio true> OR <estamos en push a main>` (#726).
+    #
+    # En un PR los filtros mandan y se sigue pagando solo por el workspace que
+    # el diff toca. En un push a `main` TODOS dan `true`, así que corren todos
+    # los jobs: el gate `CI success` trata `skipped` como éxito
+    # (`*) echo "All required jobs passed or were skipped"`), así que sin esto
+    # un `main` verde solo probaba los workspaces que ese commit tocó. Caso
+    # real: el flake de #724 vivió en `main` sin que ningún CI lo mostrara —
+    # apareció corriendo la suite de mobile a mano desde un PR de `apps/api`.
+    #
+    # El OR se escribe con `== 'true'` a la izquierda y NO como
+    # `${{ steps.f.outputs.api || steps.full.outputs.todo }}`: en Actions un
+    # string no vacío es truthy, así que `'false' || 'true'` devuelve `'false'`.
+    # Comparando primero, la expresión es booleana y se serializa `true`/`false`,
+    # que es lo que los `if:` de cada job comparan.
+    #
+    # Los dos jobs de artefactos (`openspec`, `release-please-config`) también
+    # se fuerzan: se verificó que ambos pasan en el `main` actual antes de
+    # cablearlos, para no dejar la rama roja por un check que nunca había
+    # corrido ahí.
     outputs:
-      api: ${{ steps.f.outputs.api }}
-      web: ${{ steps.f.outputs.web }}
-      mobile: ${{ steps.f.outputs.mobile }}
-      landing: ${{ steps.f.outputs.landing }}
-      packages: ${{ steps.f.outputs.packages }}
-      shared: ${{ steps.f.outputs.shared }}
-      release-please-config: ${{ steps.f.outputs.release-please-config }}
-      openspec: ${{ steps.f.outputs.openspec }}
+      api: ${{ steps.f.outputs.api == 'true' || steps.full.outputs.todo == 'true' }}
+      web: ${{ steps.f.outputs.web == 'true' || steps.full.outputs.todo == 'true' }}
+      mobile: ${{ steps.f.outputs.mobile == 'true' || steps.full.outputs.todo == 'true' }}
+      landing: ${{ steps.f.outputs.landing == 'true' || steps.full.outputs.todo == 'true' }}
+      packages: ${{ steps.f.outputs.packages == 'true' || steps.full.outputs.todo == 'true' }}
+      shared: ${{ steps.f.outputs.shared == 'true' || steps.full.outputs.todo == 'true' }}
+      release-please-config: ${{ steps.f.outputs.release-please-config == 'true' || steps.full.outputs.todo == 'true' }}
+      openspec: ${{ steps.f.outputs.openspec == 'true' || steps.full.outputs.todo == 'true' }}
     steps:
       - uses: actions/checkout@v7
+      # La regla de "en main se corre todo" vive SOLO acá. Si el step no corre,
+      # `steps.full.outputs.todo` queda vacío y cada OR cae en su filtro.
+      - id: full
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "todo=true" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: f
         with:
