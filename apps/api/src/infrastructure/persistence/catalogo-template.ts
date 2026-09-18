@@ -2,7 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
 import type { MatchType } from '../../domain/value-objects/patron-clasificacion';
 import type { IconoCategoria } from '../../domain/value-objects/icono-categoria';
-import { BUCKET_IDS } from './bucket-ids';
+import { BUCKET_IDS, BUCKET_ID_TO_BUCKET } from './bucket-ids';
 
 /**
  * catalogo-template.ts — plantilla de catálogo de clasificación (US-037 D-01;
@@ -18,10 +18,10 @@ import { BUCKET_IDS } from './bucket-ids';
  *
  * Tras ADR-037 (retiro del enum `Categoria`), la plantilla es un literal
  * `as const` — es la ÚNICA prueba de consistencia interna que el compilador
- * sigue dando en este cambio: `CategoriaTemplateNombre` fija el universo de
- * nombres que `PATRON_TEMPLATE.categoria` puede referenciar. Sobre datos de
- * usuario ninguna prueba de compilación es posible (la identidad es una fila,
- * no un tipo) — ver ADR-037.
+ * sigue dando en este cambio: `CategoriaTemplateClave` (par `bucket:nombre`,
+ * ADR-042) fija el universo de claves que `PATRON_TEMPLATE.categoria` puede
+ * referenciar. Sobre datos de usuario ninguna prueba de compilación es
+ * posible (la identidad es una fila, no un tipo) — ver ADR-037.
  *
  * `CATEGORIA_IDS` (categoria-ids.ts) sigue siendo la fuente de ids fijos,
  * pero solo el seed la consulta — ningún runtime path la necesita para
@@ -62,53 +62,108 @@ export const CATEGORIA_TEMPLATE = [
 }>;
 
 /**
- * assertSinNombresDuplicados — ADR-042 D-11.
+ * assertSinParesDuplicados — ADR-042 D-11.
  *
- * `copiarCatalogoTemplate`'s `idPorNombre` map (más abajo) queda keyed por
- * `nombre` ÚNICAMENTE, sobre TODA la copia del usuario. ADR-042 permite que
- * dos categorías del MISMO usuario compartan nombre en buckets distintos —
- * si `CATEGORIA_TEMPLATE` alguna vez agregara ese duplicado, `idPorNombre`
- * resolvería "el último bucket que escribió" (last-write-wins) para CUALQUIER
- * entrada de `PATRON_TEMPLATE` que referencie ese nombre, adjuntando
- * patrones al bucket equivocado para cada usuario nuevo, en silencio.
+ * ADR-042 mueve la unicidad de `Categoria` de `(userId, nombre)` a
+ * `(userId, bucketId, nombre)`: dos categorías del MISMO usuario PUEDEN
+ * compartir nombre en buckets distintos — eso ya no es un error, es un caso
+ * válido que la BD permite explícitamente. Lo que sigue sin ser válido es
+ * repetir el MISMO par `(bucket, nombre)` dos veces dentro de la plantilla:
+ * `copiarCatalogoTemplate`'s `idPorClave` map (más abajo) queda keyed por
+ * `(bucket, nombre)` — si `CATEGORIA_TEMPLATE` alguna vez repitiera un par
+ * completo, `idPorClave` resolvería "la última fila que escribió esa clave"
+ * (last-write-wins) para CUALQUIER entrada de `PATRON_TEMPLATE` que
+ * referencie esa clave, adjuntando patrones a la categoría equivocada para
+ * cada usuario nuevo, en silencio. Este guard exige que el UNIVERSO de pares
+ * `(bucket, nombre)` de la plantilla sea único — exactamente el invariante
+ * de BD de ADR-042, verificado en memoria antes de escribir una sola fila.
  *
  * Extraída como función nombrada (en vez de un `if` inline a nivel de
  * módulo) para que sea unit-testable sin depender del side-effect de
  * importar el módulo.
  */
-export function assertSinNombresDuplicados(
-  template: ReadonlyArray<{ nombre: string }>,
+export function assertSinParesDuplicados(
+  template: ReadonlyArray<{ nombre: string; bucket: string }>,
 ): void {
-  const nombresTemplate = template.map((c) => c.nombre);
-  if (new Set(nombresTemplate).size !== nombresTemplate.length) {
+  const claves = template.map((c) => `${c.bucket}:${c.nombre}`);
+  if (new Set(claves).size !== claves.length) {
     throw new Error(
-      'CATEGORIA_TEMPLATE tiene un nombre repetido entre buckets: re-keyea ' +
-        'idPorNombre por (bucket, nombre) antes de agregarlo (ADR-042).',
+      'CATEGORIA_TEMPLATE tiene un par repetido (mismo bucket + nombre): ' +
+        're-keyea idPorClave por (bucket, nombre) antes de agregarlo ' +
+        '(ADR-042).',
     );
   }
 }
 
-// ADR-042 permite el mismo nombre en dos buckets, pero esta plantilla
-// deliberadamente no tiene ninguno — falla en el momento de importar si
-// alguna vez se agrega uno (ver el docblock de assertSinNombresDuplicados).
-assertSinNombresDuplicados(CATEGORIA_TEMPLATE);
+// ADR-042 permite el mismo nombre en dos buckets, pero prohíbe repetir el
+// MISMO par (bucket, nombre) — falla en el momento de importar si alguna vez
+// se agrega uno (ver el docblock de assertSinParesDuplicados).
+assertSinParesDuplicados(CATEGORIA_TEMPLATE);
 
 /**
  * Universo cerrado de nombres de la plantilla semilla — la única prueba de
- * compilación que ADR-037 conserva. `PATRON_TEMPLATE.categoria` y
- * `CATEGORIA_IDS` se re-tipan contra esta unión.
+ * compilación que ADR-037 conserva. Sigue viva porque `prisma/seed.ts`
+ * (`CATEGORIA_CATALOG`) tipa la columna `nombre` de cada fila contra ella;
+ * para referenciar una categoría sin ambigüedad (ids fijos, `PATRON_TEMPLATE`)
+ * usar `CategoriaTemplateClave` en su lugar (abajo).
  */
 export type CategoriaTemplateNombre =
   (typeof CATEGORIA_TEMPLATE)[number]['nombre'];
+
+/**
+ * ClaveDe<T> — deriva el universo cerrado de claves compuestas
+ * `${bucket}:${nombre}` de un array `as const` de filas `{ bucket, nombre }`.
+ *
+ * Al ser `T` un parámetro de tipo "desnudo" en la posición chequeada del
+ * condicional, TypeScript lo distribuye sobre la UNIÓN de las 9 filas
+ * literales de `CATEGORIA_TEMPLATE` — cada rama infiere `B`/`N` de la MISMA
+ * fila, así que el resultado es el universo de PARES REALES, nunca el
+ * producto cartesiano de todos los buckets con todos los nombres.
+ */
+type ClaveDe<T> = T extends {
+  bucket: infer B extends string;
+  nombre: infer N extends string;
+}
+  ? `${B}:${N}`
+  : never;
+
+/**
+ * Universo cerrado de pares (bucket, nombre) de la plantilla — ADR-042.
+ * `PATRON_TEMPLATE.categoria` y `CATEGORIA_IDS` se re-tipan contra esta
+ * unión: referenciar una categoría exige decir de qué bucket, por
+ * construcción, así que dos categorías homónimas en buckets distintos dejan
+ * de ser ambiguas para cualquier consumidor tipado.
+ */
+export type CategoriaTemplateClave = ClaveDe<
+  (typeof CATEGORIA_TEMPLATE)[number]
+>;
+
+/**
+ * claveCategoria — única forma soportada de construir una
+ * `CategoriaTemplateClave` en un write site; evita que cada call site
+ * concatene `${bucket}:${nombre}` a mano y diverja del formato (ADR-042).
+ * Devuelve `string` (no la unión literal) porque los call sites en runtime
+ * (`copiarCatalogoTemplate`'s `idPorClave`, tests) construyen la clave desde
+ * datos leídos de la BD o iterados dinámicamente, que TypeScript no puede
+ * correlacionar de vuelta a una fila literal específica de la plantilla —
+ * un call site que necesite indexar un `Record<CategoriaTemplateClave, _>`
+ * con el resultado debe castear explícitamente, sabiendo que el valor viene
+ * de la misma plantilla.
+ */
+export function claveCategoria(bucket: Bucket, nombre: string): string {
+  return `${bucket}:${nombre}`;
+}
 
 /** Derivado del array — no puede desincronizarse en silencio de los tests. */
 export const CATEGORIA_TEMPLATE_SIZE = CATEGORIA_TEMPLATE.length;
 
 /**
  * Catálogo chileno de patrones (mismo contenido que el histórico
- * `PATRON_CATALOG` de `prisma/seed.ts`, sin ids físicos — `categoria` es el
- * nombre de la fila de plantilla, resuelto a un id real por cada escritor en
- * el momento de escribir).
+ * `PATRON_CATALOG` de `prisma/seed.ts`, sin ids físicos — `categoria` es la
+ * clave compuesta `${bucket}:${nombre}` (ADR-042; `CategoriaTemplateClave`)
+ * de la fila de plantilla que referencia, resuelta a un id real por cada
+ * escritor en el momento de escribir. Nunca solo `nombre`: eso sería
+ * ambiguo el día que dos categorías compartan nombre en buckets distintos).
  *
  * `as const satisfies` en vez de una anotación de tipo, por la misma razón
  * que `CATEGORIA_TEMPLATE`: `satisfies` sigue validando cada entrada contra
@@ -123,67 +178,67 @@ export const PATRON_TEMPLATE = [
   {
     patron: 'lider',
     matchType: 'CONTAINS',
-    categoria: 'Supermercado',
+    categoria: 'Necesidades:Supermercado',
     prioridad: 10,
   },
   {
     patron: 'jumbo',
     matchType: 'CONTAINS',
-    categoria: 'Supermercado',
+    categoria: 'Necesidades:Supermercado',
     prioridad: 10,
   },
   {
     patron: 'unimarc',
     matchType: 'CONTAINS',
-    categoria: 'Supermercado',
+    categoria: 'Necesidades:Supermercado',
     prioridad: 10,
   },
   {
     patron: 'santa isabel',
     matchType: 'CONTAINS',
-    categoria: 'Supermercado',
+    categoria: 'Necesidades:Supermercado',
     prioridad: 10,
   },
   {
     patron: 'tottus',
     matchType: 'CONTAINS',
-    categoria: 'Supermercado',
+    categoria: 'Necesidades:Supermercado',
     prioridad: 10,
   },
   {
     patron: 'copec',
     matchType: 'CONTAINS',
-    categoria: 'Combustible',
+    categoria: 'Necesidades:Combustible',
     prioridad: 15,
   },
   {
     patron: 'shell',
     matchType: 'CONTAINS',
-    categoria: 'Combustible',
+    categoria: 'Necesidades:Combustible',
     prioridad: 15,
   },
   {
     patron: 'farmacia',
     matchType: 'CONTAINS',
-    categoria: 'Farmacia',
+    categoria: 'Necesidades:Farmacia',
     prioridad: 20,
   },
   {
     patron: 'isapre',
     matchType: 'CONTAINS',
-    categoria: 'Salud',
+    categoria: 'Necesidades:Salud',
     prioridad: 20,
   },
   {
     patron: 'transantiago',
     matchType: 'CONTAINS',
-    categoria: 'Transporte',
+    categoria: 'Necesidades:Transporte',
     prioridad: 20,
   },
   {
     patron: 'bip',
     matchType: 'CONTAINS',
-    categoria: 'Transporte',
+    categoria: 'Necesidades:Transporte',
     prioridad: 25,
   },
   // Los dos patrones de `Deuda` se anclan en la subcadena SIN TILDES más
@@ -196,7 +251,7 @@ export const PATRON_TEMPLATE = [
   {
     patron: 'pago deuda tarjeta',
     matchType: 'CONTAINS',
-    categoria: 'Deuda',
+    categoria: 'Necesidades:Deuda',
     prioridad: 10,
   },
   // Cubre toda la glosa de sobregiro (pago automático, comisión, interés):
@@ -207,7 +262,7 @@ export const PATRON_TEMPLATE = [
   {
     patron: 'sobregiro',
     matchType: 'CONTAINS',
-    categoria: 'Deuda',
+    categoria: 'Necesidades:Deuda',
     prioridad: 10,
   },
 
@@ -215,31 +270,31 @@ export const PATRON_TEMPLATE = [
   {
     patron: 'netflix',
     matchType: 'CONTAINS',
-    categoria: 'Streaming',
+    categoria: 'Deseos:Streaming',
     prioridad: 10,
   },
   {
     patron: 'spotify',
     matchType: 'CONTAINS',
-    categoria: 'Streaming',
+    categoria: 'Deseos:Streaming',
     prioridad: 10,
   },
   {
     patron: 'prime video',
     matchType: 'CONTAINS',
-    categoria: 'Streaming',
+    categoria: 'Deseos:Streaming',
     prioridad: 10,
   },
   {
     patron: 'uber eats',
     matchType: 'CONTAINS',
-    categoria: 'Delivery',
+    categoria: 'Deseos:Delivery',
     prioridad: 15,
   },
   {
     patron: 'rappi',
     matchType: 'CONTAINS',
-    categoria: 'Delivery',
+    categoria: 'Deseos:Delivery',
     prioridad: 15,
   },
 
@@ -247,33 +302,33 @@ export const PATRON_TEMPLATE = [
   {
     patron: 'fintual',
     matchType: 'CONTAINS',
-    categoria: 'Ahorro',
+    categoria: 'Ahorro:Ahorro',
     prioridad: 10,
   },
   {
     patron: 'cuenta ahorro',
     matchType: 'CONTAINS',
-    categoria: 'Ahorro',
+    categoria: 'Ahorro:Ahorro',
     prioridad: 20,
   },
   // AFP abreviada en cartola: "AFP ..." — STARTS_WITH para anclar y evitar false positives
   {
     patron: 'afp ',
     matchType: 'STARTS_WITH',
-    categoria: 'Ahorro',
+    categoria: 'Ahorro:Ahorro',
     prioridad: 15,
   },
   // Transferencia a cuenta propia o de ahorro: REGEX acotado
   {
     patron: '^transf(?:erencia)?.*ahorro',
     matchType: 'REGEX',
-    categoria: 'Ahorro',
+    categoria: 'Ahorro:Ahorro',
     prioridad: 25,
   },
 ] as const satisfies ReadonlyArray<{
   patron: string;
   matchType: MatchType;
-  categoria: CategoriaTemplateNombre;
+  categoria: CategoriaTemplateClave;
   prioridad: number;
 }>;
 
@@ -342,12 +397,26 @@ export async function copiarCatalogoTemplate(
     })),
   });
 
+  // select trae `bucketId` (id FÍSICO) además de `id`/`nombre`: sin él no
+  // hay forma de reconstruir la clave compuesta `bucket:nombre` de cada fila
+  // recién creada, porque el bucket SEMÁNTICO no viaja de vuelta desde
+  // Prisma. `BUCKET_ID_TO_BUCKET` (bucket-ids.ts) ya es la autoridad
+  // inversa de `BUCKET_IDS` que el resto del código usa para ese mismo
+  // problema (prisma-resumen-mes/anual) — reusarla acá evita inventar una
+  // segunda inversión de `BUCKET_IDS` (DRY) y mantiene a `BUCKET_IDS` como
+  // la ÚNICA autoridad de ids físicos de bucket (ADR-037 D-02).
   const categoriasCreadas = await tx.categoria.findMany({
     where: { userId },
-    select: { id: true, nombre: true },
+    select: { id: true, nombre: true, bucketId: true },
   });
-  const idPorNombre = new Map<string, string>(
-    categoriasCreadas.map((categoria) => [categoria.nombre, categoria.id]),
+  const idPorClave = new Map<string, string>(
+    categoriasCreadas.map((categoria) => {
+      // bucket SIEMPRE resuelve: bucketId viene de BUCKET_IDS[categoria.bucket]
+      // recién escrito arriba, en el mismo llamado — BUCKET_ID_TO_BUCKET es
+      // su inversa exacta.
+      const bucket = BUCKET_ID_TO_BUCKET.get(categoria.bucketId)!;
+      return [claveCategoria(bucket, categoria.nombre), categoria.id];
+    }),
   );
 
   await tx.patronClasificacion.createMany({
@@ -355,9 +424,9 @@ export async function copiarCatalogoTemplate(
       userId,
       patron: patron.patron,
       matchType: patron.matchType,
-      // El nombre siempre resuelve: viene de la misma CATEGORIA_TEMPLATE que
+      // La clave siempre resuelve: viene de la misma CATEGORIA_TEMPLATE que
       // se acaba de escribir arriba, en el mismo llamado.
-      categoriaId: idPorNombre.get(patron.categoria)!,
+      categoriaId: idPorClave.get(patron.categoria)!,
       prioridad: patron.prioridad,
     })),
   });

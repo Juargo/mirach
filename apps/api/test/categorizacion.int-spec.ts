@@ -371,7 +371,7 @@ describe('Categorización — integración (real dev DB)', () => {
       [
         {
           transaccionId: txNull.id,
-          categoriaId: CATEGORIA_IDS.Supermercado,
+          categoriaId: CATEGORIA_IDS['Necesidades:Supermercado'],
           bucket: Bucket.Necesidades,
         },
       ],
@@ -385,7 +385,9 @@ describe('Categorización — integración (real dev DB)', () => {
     });
     expect(updated?.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
     expect(updated?.bucket?.nombre).toBe(Bucket.Necesidades);
-    expect(updated?.categoriaId).toBe(CATEGORIA_IDS.Supermercado);
+    expect(updated?.categoriaId).toBe(
+      CATEGORIA_IDS['Necesidades:Supermercado'],
+    );
     expect(updated?.categoria?.nombre).toBe('Supermercado');
 
     // Verify a different null-bucket row (from ingesta A setup if any) is still valid
@@ -465,7 +467,9 @@ describe('Categorización — integración (real dev DB)', () => {
     // Resolved through THIS user's own catalog row, never the bootstrap
     // user's fixed CATEGORIA_IDS constant.
     expect(updated.categoriaId).toBe(supermercadoIdDeEsteUsuario);
-    expect(updated.categoriaId).not.toBe(CATEGORIA_IDS.Supermercado);
+    expect(updated.categoriaId).not.toBe(
+      CATEGORIA_IDS['Necesidades:Supermercado'],
+    );
 
     await prisma.transaccion.deleteMany({ where: { ingestaId: ingesta.id } });
     await prisma.ingesta.deleteMany({ where: { id: ingesta.id } });

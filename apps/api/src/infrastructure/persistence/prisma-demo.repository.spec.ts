@@ -6,6 +6,7 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 import { DEMO_TRANSACCIONES } from './demo-data';
 import { CATEGORIA_TEMPLATE, PATRON_TEMPLATE } from './catalogo-template';
+import { BUCKET_IDS } from './bucket-ids';
 
 const AHORA = new Date('2026-07-18T12:00:00.000Z');
 const TOKEN_HASH = 'hash-demo-abc';
@@ -32,10 +33,14 @@ function makeTxMock() {
       createMany: vi
         .fn()
         .mockResolvedValue({ count: CATEGORIA_TEMPLATE.length }),
+      // bucketId incluido: copiarCatalogoTemplate lo pide en el select real
+      // para reconstruir la clave bucket:nombre (ADR-042) — el fake debe
+      // reflejar ese contrato o categoriaId queda mal resuelto en silencio.
       findMany: vi.fn().mockResolvedValue(
         CATEGORIA_TEMPLATE.map((categoria, index) => ({
           id: `categoria-demo-${index}`,
           nombre: categoria.nombre,
+          bucketId: BUCKET_IDS[categoria.bucket],
         })),
       ),
     },
@@ -135,6 +140,7 @@ describe('PrismaDemoRepository', () => {
       return CATEGORIA_TEMPLATE.map((categoria, index) => ({
         id: `categoria-demo-${index}`,
         nombre: categoria.nombre,
+        bucketId: BUCKET_IDS[categoria.bucket],
       }));
     });
     tx.patronClasificacion.createMany.mockImplementation(async () => {

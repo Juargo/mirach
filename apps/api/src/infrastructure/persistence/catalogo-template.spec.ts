@@ -5,11 +5,12 @@ import {
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
   copiarCatalogoTemplate,
-  assertSinNombresDuplicados,
+  assertSinParesDuplicados,
+  claveCategoria,
   type CatalogoTemplateClient,
 } from './catalogo-template';
-import { Bucket } from '../../domain/value-objects/bucket';
 import { BUCKET_IDS } from './bucket-ids';
+import { Bucket } from '../../domain/value-objects/bucket';
 import {
   esIconoCategoria,
   type IconoCategoria,
@@ -77,37 +78,50 @@ describe('CATEGORIA_TEMPLATE', () => {
 });
 
 /**
- * assertSinNombresDuplicados — ADR-042 D-11. `idPorNombre` in
- * `copiarCatalogoTemplate` is keyed by `nombre` alone; a cross-bucket
- * duplicate in `CATEGORIA_TEMPLATE` would silently make `PATRON_TEMPLATE`
- * resolve to whichever bucket wrote last (last-write-wins), attaching
- * patrones to the wrong categoría for every new user. This guard fails
- * loudly at import time instead.
+ * assertSinParesDuplicados — ADR-042 D-11. `idPorClave` in
+ * `copiarCatalogoTemplate` is keyed by the composite `(bucket, nombre)`
+ * pair; a duplicate PAIR in `CATEGORIA_TEMPLATE` would silently make
+ * `PATRON_TEMPLATE` resolve to whichever row wrote last (last-write-wins),
+ * attaching patrones to the wrong categoría for every new user. This guard
+ * fails loudly at import time instead. ADR-042 explicitly ALLOWS the same
+ * `nombre` to repeat across different buckets — only a repeated PAIR is an
+ * error.
  */
-describe('assertSinNombresDuplicados (ADR-042, D-11)', () => {
-  it('the current CATEGORIA_TEMPLATE has no cross-bucket duplicate — passes', () => {
-    expect(() => assertSinNombresDuplicados(CATEGORIA_TEMPLATE)).not.toThrow();
+describe('assertSinParesDuplicados (ADR-042, D-11)', () => {
+  it('the current CATEGORIA_TEMPLATE has no duplicate (bucket, nombre) pair — passes', () => {
+    expect(() => assertSinParesDuplicados(CATEGORIA_TEMPLATE)).not.toThrow();
   });
 
-  it('a synthetic template with a cross-bucket duplicate throws at construction', () => {
-    const conDuplicado = [
+  it('two categorías with the same nombre in DIFFERENT buckets do NOT throw — ADR-042 allows this pair', () => {
+    const nombreRepetidoEntreBuckets = [
       { nombre: 'Transporte', bucket: Bucket.Necesidades },
       { nombre: 'Transporte', bucket: Bucket.Deseos },
     ] as const;
 
-    expect(() => assertSinNombresDuplicados(conDuplicado)).toThrow(
-      /nombre repetido/,
-    );
+    expect(() =>
+      assertSinParesDuplicados(nombreRepetidoEntreBuckets),
+    ).not.toThrow();
+  });
+
+  it('two categorías with the same (bucket, nombre) PAIR throw at construction', () => {
+    const parRepetido = [
+      { nombre: 'Transporte', bucket: Bucket.Necesidades },
+      { nombre: 'Transporte', bucket: Bucket.Necesidades },
+    ] as const;
+
+    expect(() => assertSinParesDuplicados(parRepetido)).toThrow(/par repetido/);
   });
 });
 
 describe('PATRON_TEMPLATE', () => {
-  it('cada entrada referencia un nombre de categoría que existe en la plantilla', () => {
-    const nombresTemplate = new Set(
-      CATEGORIA_TEMPLATE.map((entry) => entry.nombre),
+  it('cada entrada referencia una clave bucket:nombre que existe en la plantilla (ADR-042)', () => {
+    const clavesTemplate = new Set(
+      CATEGORIA_TEMPLATE.map((entry) =>
+        claveCategoria(entry.bucket, entry.nombre),
+      ),
     );
     for (const entry of PATRON_TEMPLATE) {
-      expect(nombresTemplate.has(entry.categoria)).toBe(true);
+      expect(clavesTemplate.has(entry.categoria)).toBe(true);
     }
   });
 
@@ -137,7 +151,11 @@ function makeFakeClient(overrides?: { rejectCategoriaCreateMany?: boolean }) {
     categoriaId: string;
     prioridad: number;
   }> = [];
-  const categoriaRows: Array<{ id: string; nombre: string }> = [];
+  // bucketId viaja acá porque copiarCatalogoTemplate ahora lo pide en el
+  // `select` del findMany real (necesita reconstruir la clave bucket:nombre
+  // — ver su docblock); el fake debe reflejar exactamente ese contrato.
+  const categoriaRows: Array<{ id: string; nombre: string; bucketId: string }> =
+    [];
 
   const client = {
     categoria: {
@@ -158,7 +176,11 @@ function makeFakeClient(overrides?: { rejectCategoriaCreateMany?: boolean }) {
           data.forEach((row, index) => {
             const id = `gen-categoria-${index}`;
             createdCategorias.push(row);
-            categoriaRows.push({ id, nombre: row.nombre });
+            categoriaRows.push({
+              id,
+              nombre: row.nombre,
+              bucketId: row.bucketId,
+            });
           });
           return { count: data.length };
         },
