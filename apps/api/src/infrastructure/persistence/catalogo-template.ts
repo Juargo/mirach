@@ -109,13 +109,16 @@ export const CATEGORIA_TEMPLATE_SIZE = CATEGORIA_TEMPLATE.length;
  * `PATRON_CATALOG` de `prisma/seed.ts`, sin ids físicos — `categoria` es el
  * nombre de la fila de plantilla, resuelto a un id real por cada escritor en
  * el momento de escribir).
+ *
+ * `as const satisfies` en vez de una anotación de tipo, por la misma razón
+ * que `CATEGORIA_TEMPLATE`: `satisfies` sigue validando cada entrada contra
+ * la forma esperada, pero `as const` conserva el TEXTO de cada patrón como
+ * tipo literal en vez de colapsarlo a `string`. Eso es lo que hace posible
+ * `PatronTemplateTexto` (abajo) y, con él, que `PATRON_ID_FIJO` en
+ * `prisma/seed.ts` sea total: agregar un patrón acá sin darle su id fijo
+ * rompe `tsc`, en vez de producir `id: undefined` en silencio.
  */
-export const PATRON_TEMPLATE: ReadonlyArray<{
-  readonly patron: string;
-  readonly matchType: MatchType;
-  readonly categoria: CategoriaTemplateNombre;
-  readonly prioridad: number;
-}> = [
+export const PATRON_TEMPLATE = [
   // ── Necesidades (alimentos, transporte, salud, servicios básicos) ──
   {
     patron: 'lider',
@@ -267,7 +270,25 @@ export const PATRON_TEMPLATE: ReadonlyArray<{
     categoria: 'Ahorro',
     prioridad: 25,
   },
-];
+] as const satisfies ReadonlyArray<{
+  patron: string;
+  matchType: MatchType;
+  categoria: CategoriaTemplateNombre;
+  prioridad: number;
+}>;
+
+/**
+ * Universo cerrado de TEXTOS de patrón — el gemelo de
+ * `CategoriaTemplateNombre` para el lado de los patrones.
+ *
+ * Existe para que `PATRON_ID_FIJO` (`prisma/seed.ts`) pueda tiparse
+ * `Record<PatronTemplateTexto, string>` y volverse TOTAL: el compilador
+ * exige una entrada por patrón, y rechaza una entrada que no corresponda a
+ * ningún patrón. Antes ese mapa era `Record<string, string>`, que acepta
+ * cualquier clave y devuelve `string` aunque no exista — un patrón nuevo sin
+ * su id entraba al seed como `id: undefined`, sin que `tsc` dijera nada.
+ */
+export type PatronTemplateTexto = (typeof PATRON_TEMPLATE)[number]['patron'];
 
 /** Derivado del array — no puede desincronizarse en silencio de los tests. */
 export const PATRON_TEMPLATE_SIZE = PATRON_TEMPLATE.length;

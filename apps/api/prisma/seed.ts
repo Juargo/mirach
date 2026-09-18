@@ -14,6 +14,7 @@ import {
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
   type CategoriaTemplateNombre,
+  type PatronTemplateTexto,
 } from '../src/infrastructure/persistence/catalogo-template';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
@@ -84,7 +85,7 @@ export const CATEGORIA_CATALOG_SIZE = CATEGORIA_TEMPLATE_SIZE;
 // único dentro de la plantilla (D-08 depende de esa unicidad), así que el
 // texto es una clave de lookup segura para reconectar cada entrada de la
 // plantilla con su id histórico de la era pre-US-037.
-const PATRON_ID_FIJO: Record<string, string> = {
+const PATRON_ID_FIJO: Record<PatronTemplateTexto, string> = {
   lider: 'pat-lider',
   jumbo: 'pat-jumbo',
   unimarc: 'pat-unimarc',
