@@ -20,7 +20,7 @@ import {
  *
  * Antes de este cambio la plantilla se DERIVABA de `Object.values(Categoria)`
  * (un enum cerrado); tras el retiro del enum, la plantilla es la única
- * fuente que fija qué 8 categorías y qué bucket llevan — este test las FIJA
+ * fuente que fija qué 9 categorías y qué bucket llevan — este test las FIJA
  * por nombre+bucket. Editar la plantilla ahora requiere editar este test a
  * propósito, que es exactamente el punto (design.md §8.3).
  */
@@ -42,10 +42,15 @@ describe('CATEGORIA_TEMPLATE', () => {
     { nombre: 'Streaming', bucket: Bucket.Deseos, icono: 'tv' },
     { nombre: 'Delivery', bucket: Bucket.Deseos, icono: 'bike' },
     { nombre: 'Ahorro', bucket: Bucket.Ahorro, icono: 'piggy-bank' },
+    {
+      nombre: 'Deuda',
+      bucket: Bucket.Necesidades,
+      icono: 'credit-card',
+    },
   ];
 
-  it('pins exactly 8 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list)', () => {
-    expect(CATEGORIA_TEMPLATE_SIZE).toBe(8);
+  it('pins exactly 9 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list)', () => {
+    expect(CATEGORIA_TEMPLATE_SIZE).toBe(9);
     expect(CATEGORIA_TEMPLATE).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     const actual = CATEGORIA_TEMPLATE.map((entry) => ({
       nombre: entry.nombre,
@@ -111,8 +116,8 @@ describe('PATRON_TEMPLATE', () => {
     expect(new Set(patrones).size).toBe(patrones.length);
   });
 
-  it('size is derived from the array and matches the current PATRON_CATALOG count (20)', () => {
-    expect(PATRON_TEMPLATE_SIZE).toBe(20);
+  it('size is derived from the array and matches the current PATRON_CATALOG count (22)', () => {
+    expect(PATRON_TEMPLATE_SIZE).toBe(22);
     expect(PATRON_TEMPLATE).toHaveLength(PATRON_TEMPLATE_SIZE);
   });
 });

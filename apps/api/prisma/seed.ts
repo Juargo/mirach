@@ -105,6 +105,8 @@ const PATRON_ID_FIJO: Record<string, string> = {
   'cuenta ahorro': 'pat-bci-ahorro',
   'afp ': 'pat-afp',
   '^transf(?:erencia)?.*ahorro': 'pat-transferencia-ahorro',
+  'pago deuda tarjeta': 'pat-pago-deuda-tarjeta',
+  sobregiro: 'pat-sobregiro',
 };
 
 // ── US-012/US-013 S2 / US-037 D-07: Catálogo de patrones chilenos del

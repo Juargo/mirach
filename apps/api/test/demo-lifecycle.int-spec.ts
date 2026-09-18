@@ -88,7 +88,7 @@ describe('Demo lifecycle — catalog copy-on-creation + expiry cleanup (CAT037-0
     await prisma.$disconnect();
   });
 
-  it('CAT037-02: a new demo user owns exactly 8 Categoria + 20 PatronClasificacion rows, created atomically with the user', async () => {
+  it('CAT037-02: a new demo user owns exactly CATEGORIA_TEMPLATE_SIZE Categoria + PATRON_TEMPLATE_SIZE PatronClasificacion rows, created atomically with the user', async () => {
     const result = await repo.crear({
       nombre: `Demo-${RUN_ID}-a`,
       tokenHash: `${RUN_ID}-token-a`,

@@ -27,4 +27,5 @@ export const CATEGORIA_IDS: Record<CategoriaTemplateNombre, string> = {
   Streaming: 'categoria-streaming',
   Delivery: 'categoria-delivery',
   Ahorro: 'categoria-ahorro',
+  Deuda: 'categoria-deuda',
 };

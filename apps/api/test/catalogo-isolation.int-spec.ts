@@ -7,7 +7,7 @@
  * battery of "B's data never leaks into A's reads/writes" assertions.
  *
  * Covers CAT037-05 (RNF-SEC-006 isolation) end to end:
- *   - each user owns a disjoint 8+20-row catalog (structural row count +
+ *   - each user owns a disjoint CATEGORIA_TEMPLATE_SIZE+PATRON_TEMPLATE_SIZE-row catalog (structural row count +
  *     disjoint id sets)
  *   - `ICatalogoClasificacion.findAll(userId)` returns only the owner's rows
  *   - a per-user catalog edit on B never affects what A's `findAll` resolves
@@ -96,7 +96,7 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
     await prisma.$disconnect();
   });
 
-  it('each user owns a disjoint 8 Categoria + 20 PatronClasificacion catalog copy', async () => {
+  it('each user owns a disjoint CATEGORIA_TEMPLATE_SIZE Categoria + PATRON_TEMPLATE_SIZE PatronClasificacion catalog copy', async () => {
     const [catA, catB, patA, patB] = await Promise.all([
       prisma.categoria.findMany({ where: { userId: USER_ID_A } }),
       prisma.categoria.findMany({ where: { userId: USER_ID_B } }),

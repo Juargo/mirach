@@ -122,7 +122,7 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
     process.env.ENCRYPTION_KEY = originalEncryptionKey;
   });
 
-  it('CATEGORIA_IDS cubre exactamente las 8 categorías de la plantilla', () => {
+  it('CATEGORIA_IDS cubre exactamente las categorías de la plantilla', () => {
     expect(Object.keys(CATEGORIA_IDS)).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     for (const entry of CATEGORIA_TEMPLATE) {
       const id = CATEGORIA_IDS[entry.nombre];
