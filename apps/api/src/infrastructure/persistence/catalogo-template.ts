@@ -50,6 +50,11 @@ export const CATEGORIA_TEMPLATE = [
   { nombre: 'Streaming', bucket: Bucket.Deseos, icono: 'tv' },
   { nombre: 'Delivery', bucket: Bucket.Deseos, icono: 'bike' },
   { nombre: 'Ahorro', bucket: Bucket.Ahorro, icono: 'piggy-bank' },
+  {
+    nombre: 'Deuda',
+    bucket: Bucket.Necesidades,
+    icono: 'credit-card',
+  },
 ] as const satisfies ReadonlyArray<{
   nombre: string;
   bucket: Bucket;
@@ -177,6 +182,30 @@ export const PATRON_TEMPLATE: ReadonlyArray<{
     matchType: 'CONTAINS',
     categoria: 'Transporte',
     prioridad: 25,
+  },
+  // Los dos patrones de `Deuda` se anclan en la subcadena SIN TILDES más
+  // larga que sea inequívoca: `coincide()` normaliza a minúsculas pero NO
+  // quita tildes, así que un patrón acentuado deja de matchear el día que el
+  // banco escriba la misma glosa sin tilde (o al revés). Por eso se corta
+  // antes de "crédito", y por eso `sobregiro` se usa solo, sin "línea" ni
+  // "automático". Los últimos 4 dígitos de la tarjeta quedan fuera a
+  // propósito: cambian al renovarla.
+  {
+    patron: 'pago deuda tarjeta',
+    matchType: 'CONTAINS',
+    categoria: 'Deuda',
+    prioridad: 10,
+  },
+  // Cubre toda la glosa de sobregiro (pago automático, comisión, interés):
+  // todas son servicio de la misma deuda y comparten bucket. Usar el uso de
+  // la línea como ingreso NO es un riesgo: la regla de Ingreso de
+  // CategorizarTransaccionUseCase corre antes que el catálogo, así que un
+  // abono nunca llega a evaluarse contra estos patrones.
+  {
+    patron: 'sobregiro',
+    matchType: 'CONTAINS',
+    categoria: 'Deuda',
+    prioridad: 10,
   },
 
   // ── Deseos (entretenimiento, restaurantes, suscripciones) ──

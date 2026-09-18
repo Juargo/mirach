@@ -44,9 +44,9 @@ describe('seed idempotency integration (real dev DB)', () => {
     expect(await prisma.patronClasificacion.count()).toBe(PATRON_CATALOG_SIZE);
   });
 
-  // CAT037-02: seed run twice ⇒ 8+20 rows, ids stable, all owned by
-  // USER_ID_FIJO, no duplicates.
-  it('produce exactamente 8 Categoria propias de USER_ID_FIJO, sin nombres duplicados', async () => {
+  // CAT037-02: seed run twice ⇒ CATEGORIA_TEMPLATE_SIZE+PATRON_CATALOG_SIZE
+  // rows, ids stable, all owned by USER_ID_FIJO, no duplicates.
+  it('produce exactamente CATEGORIA_TEMPLATE_SIZE Categoria propias de USER_ID_FIJO, sin nombres duplicados', async () => {
     const categorias = await prisma.categoria.findMany({
       where: { userId: USER_ID_FIJO },
     });
