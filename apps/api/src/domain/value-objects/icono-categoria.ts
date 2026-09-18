@@ -4,7 +4,7 @@
  *
  * `ICONOS_CATEGORIA` es la ÚNICA autoridad de validez de un `icono` — un
  * nombre real de la librería lucide que no está en esta lista se rechaza
- * exactamente igual que cualquier otro string (CATICO-01). Los 24 valores
+ * exactamente igual que cualquier otro string (CATICO-01). Los 25 valores
  * son el identificador kebab-case de lucide (no PascalCase, no emoji —
  * ADR-027), verificados contra los exports de `lucide-react` y
  * `lucide-react-native` (ver design.md).
@@ -41,6 +41,7 @@ export const ICONOS_CATEGORIA = [
   'piggy-bank',
   'trending-up',
   'credit-card',
+  'circle-help',
 ] as const;
 
 /** Nombre lucide kebab-case perteneciente a la allowlist curada. */

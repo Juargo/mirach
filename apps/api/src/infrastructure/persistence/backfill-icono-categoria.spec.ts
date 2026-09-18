@@ -114,10 +114,17 @@ describe('runBackfillIcono — corrida real (ADR-045, unit, sin BD)', () => {
 
     await runBackfillIcono(client, { dryRun: false });
 
+    // Match por (nombre, bucketId) — NUNCA nombre solo (ADR-042 admite el
+    // mismo nombre repetido entre buckets distintos, p. ej. "Desconocido");
+    // buscar solo por nombre siempre resuelve a la PRIMERA llamada con ese
+    // nombre y compara el bucket equivocado para las demás entradas homónimas.
     for (const entrada of CATEGORIA_TEMPLATE) {
       const call = updateManyCalls.find(
-        (c) => c.where.nombre === entrada.nombre,
+        (c) =>
+          c.where.nombre === entrada.nombre &&
+          c.where.bucketId === BUCKET_IDS[entrada.bucket],
       )!;
+      expect(call).toBeDefined();
       expect(call.where.bucketId).toBe(BUCKET_IDS[entrada.bucket]);
     }
   });
@@ -127,9 +134,12 @@ describe('runBackfillIcono — corrida real (ADR-045, unit, sin BD)', () => {
 
     await runBackfillIcono(client, { dryRun: false });
 
+    // Mismo match por (nombre, bucketId) que el test anterior — ver su comentario.
     for (const entrada of CATEGORIA_TEMPLATE) {
       const call = updateManyCalls.find(
-        (c) => c.where.nombre === entrada.nombre,
+        (c) =>
+          c.where.nombre === entrada.nombre &&
+          c.where.bucketId === BUCKET_IDS[entrada.bucket],
       )!;
       expect(call.data.icono).toBe(entrada.icono);
     }

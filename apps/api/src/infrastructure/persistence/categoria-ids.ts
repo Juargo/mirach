@@ -32,4 +32,7 @@ export const CATEGORIA_IDS: Record<CategoriaTemplateClave, string> = {
   'Deseos:Delivery': 'categoria-delivery',
   'Ahorro:Ahorro': 'categoria-ahorro',
   'Necesidades:Deuda': 'categoria-deuda',
+  'Necesidades:Desconocido': 'categoria-desconocido-necesidades',
+  'Deseos:Desconocido': 'categoria-desconocido-deseos',
+  'Ahorro:Desconocido': 'categoria-desconocido-ahorro',
 };

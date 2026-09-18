@@ -55,6 +55,15 @@ export const CATEGORIA_TEMPLATE = [
     bucket: Bucket.Necesidades,
     icono: 'credit-card',
   },
+  // ── Desconocido (categoria-desconocido, ADR-045 circle-help) ──
+  // Una por cada bucket asignable: transacciones que el usuario no recuerda
+  // a qué gasto corresponden, pero SÍ sabe a qué bucket asignarlas (p. ej.
+  // "esto fue un gusto" sin recordar el detalle → Deseos). Por diseño no
+  // llevan NINGÚN PATRON_TEMPLATE — no existe glosa bancaria que detecte
+  // "no recuerdo qué es esto"; son de asignación manual exclusivamente.
+  { nombre: 'Desconocido', bucket: Bucket.Necesidades, icono: 'circle-help' },
+  { nombre: 'Desconocido', bucket: Bucket.Deseos, icono: 'circle-help' },
+  { nombre: 'Desconocido', bucket: Bucket.Ahorro, icono: 'circle-help' },
 ] as const satisfies ReadonlyArray<{
   nombre: string;
   bucket: Bucket;

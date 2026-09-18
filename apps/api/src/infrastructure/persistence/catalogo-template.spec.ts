@@ -21,7 +21,7 @@ import {
  *
  * Antes de este cambio la plantilla se DERIVABA de `Object.values(Categoria)`
  * (un enum cerrado); tras el retiro del enum, la plantilla es la única
- * fuente que fija qué 9 categorías y qué bucket llevan — este test las FIJA
+ * fuente que fija qué 12 categorías y qué bucket llevan — este test las FIJA
  * por nombre+bucket. Editar la plantilla ahora requiere editar este test a
  * propósito, que es exactamente el punto (design.md §8.3).
  */
@@ -48,10 +48,25 @@ describe('CATEGORIA_TEMPLATE', () => {
       bucket: Bucket.Necesidades,
       icono: 'credit-card',
     },
+    {
+      nombre: 'Desconocido',
+      bucket: Bucket.Necesidades,
+      icono: 'circle-help',
+    },
+    {
+      nombre: 'Desconocido',
+      bucket: Bucket.Deseos,
+      icono: 'circle-help',
+    },
+    {
+      nombre: 'Desconocido',
+      bucket: Bucket.Ahorro,
+      icono: 'circle-help',
+    },
   ];
 
-  it('pins exactly 9 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list)', () => {
-    expect(CATEGORIA_TEMPLATE_SIZE).toBe(9);
+  it('pins exactly 12 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list)', () => {
+    expect(CATEGORIA_TEMPLATE_SIZE).toBe(12);
     expect(CATEGORIA_TEMPLATE).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     const actual = CATEGORIA_TEMPLATE.map((entry) => ({
       nombre: entry.nombre,
@@ -73,6 +88,37 @@ describe('CATEGORIA_TEMPLATE', () => {
   it('cada icono de la plantilla pertenece a la allowlist curada (CATICO-01)', () => {
     for (const entry of CATEGORIA_TEMPLATE) {
       expect(esIconoCategoria(entry.icono)).toBe(true);
+    }
+  });
+});
+
+/**
+ * `Desconocido` — categoria-desconocido. Tres filas homónimas, una por cada
+ * bucket ASIGNABLE (Necesidades, Deseos, Ahorro), habilitadas por el
+ * re-keyeo por (bucket, nombre) de ADR-042/`assertSinParesDuplicados`. Son
+ * de asignación manual exclusivamente: ningún patrón las detecta desde una
+ * glosa bancaria, así que el invariante que este bloque fija es que
+ * PATRON_TEMPLATE nunca les crece uno.
+ */
+describe('Categoria "Desconocido" (categoria-desconocido)', () => {
+  it('existe exactamente una vez por cada bucket asignable (Necesidades, Deseos, Ahorro)', () => {
+    const desconocidas = CATEGORIA_TEMPLATE.filter(
+      (entry) => entry.nombre === 'Desconocido',
+    );
+    expect(desconocidas).toHaveLength(3);
+    expect(desconocidas.map((entry) => entry.bucket).sort()).toEqual(
+      [Bucket.Necesidades, Bucket.Deseos, Bucket.Ahorro].sort(),
+    );
+  });
+
+  it('ninguna fila "Desconocido" es referenciada por PATRON_TEMPLATE (asignación manual exclusivamente)', () => {
+    const clavesDesconocido = new Set(
+      CATEGORIA_TEMPLATE.filter((entry) => entry.nombre === 'Desconocido').map(
+        (entry) => claveCategoria(entry.bucket, entry.nombre),
+      ),
+    );
+    for (const patron of PATRON_TEMPLATE) {
+      expect(clavesDesconocido.has(patron.categoria)).toBe(false);
     }
   });
 });
