@@ -7,8 +7,10 @@ import {
   IDetalleBucketReader,
   DetalleBucketRow,
 } from '../ports/detalle-bucket.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
@@ -33,17 +35,30 @@ const makeRow = (
   ...overrides,
 });
 
-function makeReaders(rows: DetalleBucketRow[]) {
+function makeReaders(
+  rows: DetalleBucketRow[],
+  ultimoPeriodo: PeriodoMes | null = null,
+) {
   const findByPeriodoYBucket = vi.fn().mockResolvedValue(rows);
   const reader = { findByPeriodoYBucket } satisfies IDetalleBucketReader;
-  return { reader, findByPeriodoYBucket };
+  // Default: usuario sin ninguna transacción (issue #747) — la mayoría de
+  // estos specs fija un `periodo` EXPLÍCITO, así que este reader ni se toca.
+  const ultimoPeriodoConDatos = vi.fn().mockResolvedValue(ultimoPeriodo);
+  const ultimoPeriodoReader = {
+    ultimoPeriodoConDatos,
+  } satisfies IUltimoPeriodoConDatosReader;
+  return { reader, findByPeriodoYBucket, ultimoPeriodoReader };
 }
 
 function makeUseCase(
   readers: ReturnType<typeof makeReaders>,
   logger: ILogger = new NoOpLogger(),
 ): ObtenerIngresosMesUseCase {
-  return new ObtenerIngresosMesUseCase(readers.reader, logger);
+  return new ObtenerIngresosMesUseCase(
+    readers.reader,
+    readers.ultimoPeriodoReader,
+    logger,
+  );
 }
 
 /** Serializa sin reventar por BigInt — espeja el patrón del spec hermano. */
@@ -185,7 +200,7 @@ describe('ObtenerIngresosMesUseCase', () => {
   });
 
   describe('periodo resolution (MID-04)', () => {
-    it('periodo ausente → PeriodoMes.actual() pasado al reader (mes UTC actual)', async () => {
+    it('periodo ausente + usuario SIN datos → PeriodoMes.actual() pasado al reader (fallback mes UTC actual, issue #747)', async () => {
       const now = new Date();
       const expectedPeriodo = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
       const readers = makeReaders([makeRow({ id: 'tx-a', abono: 100000n })]);
@@ -200,6 +215,44 @@ describe('ObtenerIngresosMesUseCase', () => {
       expect(readers.findByPeriodoYBucket).toHaveBeenCalledTimes(1);
       const periodoRecibido = readers.findByPeriodoYBucket.mock.calls[0][1];
       expect(periodoRecibido.valor).toBe(expectedPeriodo);
+    });
+
+    it('periodo ausente + usuario CON datos → resuelve al último mes con datos, NO al mes actual (issue #747)', async () => {
+      const readers = makeReaders(
+        [makeRow({ id: 'tx-a', abono: 100000n })],
+        PeriodoMes.crear('2026-05').getValue(),
+      );
+      const uc = makeUseCase(readers);
+
+      const result = await uc.execute({
+        userId: 'user-a',
+        periodo: undefined,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(readers.findByPeriodoYBucket).toHaveBeenCalledTimes(1);
+      const periodoRecibido = readers.findByPeriodoYBucket.mock.calls[0][1];
+      expect(periodoRecibido.valor).toBe('2026-05');
+      expect(
+        readers.ultimoPeriodoReader.ultimoPeriodoConDatos,
+      ).toHaveBeenCalledWith('user-a');
+    });
+
+    it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
+      const readers = makeReaders([], PeriodoMes.crear('2026-05').getValue());
+      const uc = makeUseCase(readers);
+
+      const result = await uc.execute({
+        userId: 'user-a',
+        periodo: '2026-07',
+      });
+
+      expect(result.isOk()).toBe(true);
+      const periodoRecibido = readers.findByPeriodoYBucket.mock.calls[0][1];
+      expect(periodoRecibido.valor).toBe('2026-07');
+      expect(
+        readers.ultimoPeriodoReader.ultimoPeriodoConDatos,
+      ).not.toHaveBeenCalled();
     });
 
     it('periodo inválido → Result.fail(PeriodoInvalidoError), reader NO llamado, sin throw', async () => {

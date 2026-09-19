@@ -1,12 +1,13 @@
 import { Result } from '../../shared/result';
-import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import {
   DetalleBucketRow,
   IDetalleBucketReader,
 } from '../ports/detalle-bucket.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
+import { resolverPeriodo } from './resolver-periodo';
 
 /**
  * TransaccionIngresoMes — proyección de transacción del detalle MES-INGRESOS
@@ -77,13 +78,16 @@ function recortarTransaccionIngreso(
  * PR1); orden del reader preservado (fecha asc, id asc — no se re-ordena).
  * Un mes vacío es Result.ok con `0n`/0/`[]`, nunca un error (MID-01).
  *
- * Periodo (MID-04): ausente → `PeriodoMes.actual()`; inválido → Result.fail
- * (`PeriodoInvalidoError`), el reader nunca se toca. Same disciplina que
- * US-017/US-049/US-051. Never throws (Result<T,E>).
+ * Periodo (MID-04, issue #747): ausente → último mes del usuario con datos
+ * (`resolverPeriodo`, fallback `PeriodoMes.actual()` sin ninguna
+ * transacción); inválido → Result.fail (`PeriodoInvalidoError`), el reader
+ * nunca se toca. Same disciplina que US-017/US-049/US-051. Never throws
+ * (Result<T,E>).
  */
 export class ObtenerIngresosMesUseCase {
   constructor(
     private readonly reader: IDetalleBucketReader,
+    private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
   ) {}
 
@@ -91,17 +95,17 @@ export class ObtenerIngresosMesUseCase {
     userId: string;
     periodo: string | undefined;
   }): Promise<Result<ObtenerIngresosMesResult, PeriodoInvalidoError>> {
-    // 1. Periodo (MID-04): ausente → mes actual; presente → validar VO.
-    let periodoVO: PeriodoMes;
-    if (input.periodo === undefined) {
-      periodoVO = PeriodoMes.actual();
-    } else {
-      const resultado = PeriodoMes.crear(input.periodo);
-      if (resultado.isFail()) {
-        return Result.fail(resultado.getError());
-      }
-      periodoVO = resultado.getValue();
+    // 1. Periodo (MID-04): ausente → último mes con datos (fallback mes
+    //    actual); presente → validar VO.
+    const periodoResult = await resolverPeriodo(
+      this.ultimoPeriodoReader,
+      input.userId,
+      input.periodo,
+    );
+    if (periodoResult.isFail()) {
+      return Result.fail(periodoResult.getError());
     }
+    const periodoVO = periodoResult.getValue();
 
     // 2. Reader existente con Bucket.Ingreso (D-01): el bucket filter
     //    codifica esIngreso — no se filtra ni se re-aplica signo acá (MID-05).

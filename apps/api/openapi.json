@@ -1794,11 +1794,11 @@
             }
           },
           {
-            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
             "in": "query",
             "name": "periodo",
             "schema": {
-              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
               "type": "string"
             }
           }
@@ -1836,11 +1836,11 @@
             }
           },
           {
-            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
             "in": "query",
             "name": "periodo",
             "schema": {
-              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
               "type": "string"
             }
           }
@@ -2312,11 +2312,11 @@
         "description": "Authenticated sibling endpoint to GET /api/buckets/{bucket}/detalle (US-052): returns the monthly income detail — a header with the total Σ abono (BigInt-safe string) and count, and ALL transactions with their origin = bank NAME verbatim (CA-02, MID-02) or \"Manual\", never account PII (tipoCuenta/numeroCuenta, MID-06). Top-level path, NOT a buckets sub-resource: GET /api/buckets/Ingresos/detalle keeps rejecting Ingresos with its own scrubbed 400 (MBD-07, US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
         "parameters": [
           {
-            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
             "in": "query",
             "name": "periodo",
             "schema": {
-              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
               "type": "string"
             }
           }
@@ -2344,11 +2344,11 @@
         "description": "Authenticated endpoint returning the consolidated monthly transaction list (US-014). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
         "parameters": [
           {
-            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
             "in": "query",
             "name": "periodo",
             "schema": {
-              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
               "type": "string"
             }
           }
@@ -2975,11 +2975,11 @@
         "description": "Authenticated endpoint returning the 50/30/20 budget breakdown for a month (US-015/016). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
         "parameters": [
           {
-            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
             "in": "query",
             "name": "periodo",
             "schema": {
-              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
               "type": "string"
             }
           }
@@ -3039,11 +3039,11 @@
         "description": "Authenticated sibling detail endpoint to GET /api/resumen (US-049): exposes the semáforo classification's WHY and WHAT-TO-DO — per-bucket zone-band edges, a backend-generated Spanish diagnosis naming the driving bucket(s), and a CLP amount+direction that would return each Amarillo/Rojo bucket to Verde. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
         "parameters": [
           {
-            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+            "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
             "in": "query",
             "name": "periodo",
             "schema": {
-              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.",
+              "description": "Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.",
               "type": "string"
             }
           }

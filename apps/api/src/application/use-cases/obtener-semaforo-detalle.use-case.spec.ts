@@ -1,6 +1,8 @@
 import { ObtenerSemaforoDetalleUseCase } from './obtener-semaforo-detalle.use-case';
 import { IResumenMesReader, BucketSumRow } from '../ports/resumen-mes.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
@@ -13,6 +15,15 @@ import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 function makeMockReader(rows: BucketSumRow[]): IResumenMesReader {
   return {
     sumarPorBucket: vi.fn().mockResolvedValue(rows),
+  };
+}
+
+/** Fake de IUltimoPeriodoConDatosReader (issue #747) — default: sin datos. */
+function makeUltimoPeriodoReader(
+  periodo: PeriodoMes | null = null,
+): IUltimoPeriodoConDatosReader {
+  return {
+    ultimoPeriodoConDatos: vi.fn().mockResolvedValue(periodo),
   };
 }
 
@@ -43,12 +54,16 @@ function allBucketRows(
 
 describe('ObtenerSemaforoDetalleUseCase', () => {
   describe('periodo resolution', () => {
-    it('absent periodo → resolves to PeriodoMes.actual() (current UTC month)', async () => {
+    it('absent periodo + usuario SIN datos → fallback a PeriodoMes.actual() (current UTC month, issue #747)', async () => {
       const now = new Date();
       const expectedPeriodo = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
       const reader = makeMockReader([]);
-      const uc = new ObtenerSemaforoDetalleUseCase(reader, new NoOpLogger());
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        makeUltimoPeriodoReader(null),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: undefined });
 
@@ -56,9 +71,51 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
       expect(result.getValue().periodo).toBe(expectedPeriodo);
     });
 
+    it('absent periodo + usuario CON datos → resuelve al último mes con datos, NO al mes en curso (issue #747)', async () => {
+      const reader = makeMockReader([]);
+      const ultimoPeriodoReader = makeUltimoPeriodoReader(
+        PeriodoMes.crear('2026-04').getValue(),
+      );
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        ultimoPeriodoReader,
+        new NoOpLogger(),
+      );
+
+      const result = await uc.execute({ userId: 'user-a', periodo: undefined });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-04');
+      expect(ultimoPeriodoReader.ultimoPeriodoConDatos).toHaveBeenCalledWith(
+        'user-a',
+      );
+    });
+
+    it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
+      const reader = makeMockReader([]);
+      const ultimoPeriodoReader = makeUltimoPeriodoReader(
+        PeriodoMes.crear('2026-04').getValue(),
+      );
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        ultimoPeriodoReader,
+        new NoOpLogger(),
+      );
+
+      const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-07');
+      expect(ultimoPeriodoReader.ultimoPeriodoConDatos).not.toHaveBeenCalled();
+    });
+
     it('periodo válido → the reader receives the resolved PeriodoMes', async () => {
       const reader = makeMockReader(allBucketRows());
-      const uc = new ObtenerSemaforoDetalleUseCase(reader, new NoOpLogger());
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -70,7 +127,11 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
 
     it('periodo inválido → Result.fail(PeriodoInvalidoError), reader NOT called', async () => {
       const reader = makeMockReader([]);
-      const uc = new ObtenerSemaforoDetalleUseCase(reader, new NoOpLogger());
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         userId: 'user-a',
@@ -86,7 +147,11 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
   describe('sinIngreso (CA-07): a month with no income is a valid 200, not an error', () => {
     it('returns Result.ok with sinIngreso: true when the reader returns no Ingreso row', async () => {
       const reader = makeMockReader([]);
-      const uc = new ObtenerSemaforoDetalleUseCase(reader, new NoOpLogger());
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -99,7 +164,11 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
   describe('userId isolation (RNF-SEC-006)', () => {
     it('userId flows verbatim to the reader', async () => {
       const reader = makeMockReader(allBucketRows());
-      const uc = new ObtenerSemaforoDetalleUseCase(reader, new NoOpLogger());
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       await uc.execute({ userId: 'user-xyz-789', periodo: '2026-07' });
 
@@ -112,7 +181,11 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
     it('logger.debug receives counts only, never montos and never the diagnosis sentence', async () => {
       const reader = makeMockReader(allBucketRows());
       const logger = new FakeLogger();
-      const uc = new ObtenerSemaforoDetalleUseCase(reader, logger);
+      const uc = new ObtenerSemaforoDetalleUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        logger,
+      );
 
       await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 

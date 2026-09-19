@@ -4,8 +4,10 @@ import { z } from 'zod';
  * Query contract for `GET /api/resumen` (openapi-contract-express Slice 1).
  *
  * TRANSPORT SHAPE ONLY (openapi-contract-express design, layer-honesty gate):
- * `periodo` is an optional string. Absent means "use current month"
- * (`CalcularResumenMesUseCase` default). The YYYY-MM format rule is a DOMAIN
+ * `periodo` is an optional string. Absent means "use the latest month with
+ * data for this user" (`resolverPeriodo` default, issue #747; falls back to
+ * the current month only when the user has no transactions at all). The
+ * YYYY-MM format rule is a DOMAIN
  * rule (`PeriodoMes` VO → `PeriodoInvalidoError`, ADR-005 + DRY) and MUST NOT
  * be duplicated here — a malformed-but-string `periodo` still reaches the
  * use case and gets the existing scrubbed 400.
@@ -15,7 +17,7 @@ export const resumenQuerySchema = z.object({
     .string()
     .optional()
     .describe(
-      'Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.',
+      'Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.',
     ),
 });
 

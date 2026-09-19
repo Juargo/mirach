@@ -43,6 +43,7 @@ import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
 import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/prisma-movimientos-mes.repository';
+import { PrismaUltimoPeriodoConDatosReader } from '../infrastructure/persistence/prisma-ultimo-periodo-con-datos.repository';
 import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaCatalogoClasificacionRepository } from '../infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaReevaluarCategoriasReader } from '../infrastructure/persistence/prisma-reevaluar-categorias.reader';
@@ -221,8 +222,15 @@ export function createContainer(
     logger,
   );
 
+  // issue #747: período ausente ya no resuelve al mes en curso sino al
+  // último mes del usuario con datos (resolverPeriodo). Cada use case de
+  // lectura mensual recibe su PROPIA instancia de
+  // PrismaUltimoPeriodoConDatosReader — mismo patrón un-`new`-por-use-case
+  // stateless que PrismaResumenMesRepository/PrismaDetalleBucketRepository
+  // en este mismo archivo (US-049 D-12 / US-051 D-10 / US-052 D-07).
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),
+    new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
   );
   const calcularResumenAnual = new CalcularResumenAnualUseCase(
@@ -235,11 +243,13 @@ export function createContainer(
   // sub-grafos grandes como auth/ingesta).
   const obtenerSemaforoDetalle = new ObtenerSemaforoDetalleUseCase(
     new PrismaResumenMesRepository(prisma),
+    new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
   );
 
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
     new PrismaDetalleBucketRepository(prisma, crypto),
+    new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
   );
   // US-051, D-10: UNA instancia de PrismaDetalleBucketRepository (misma
@@ -250,6 +260,7 @@ export function createContainer(
   const obtenerDetalleBucketMes = new ObtenerDetalleBucketMesUseCase(
     new PrismaDetalleBucketRepository(prisma, crypto),
     new PrismaResumenMesRepository(prisma),
+    new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
   );
   // US-052, D-07: TERCERA instancia de PrismaDetalleBucketRepository (misma
@@ -260,10 +271,12 @@ export function createContainer(
   // línea por repository.
   const obtenerIngresosMes = new ObtenerIngresosMesUseCase(
     new PrismaDetalleBucketRepository(prisma, crypto),
+    new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
   );
   const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
     new PrismaMovimientosMesRepository(prisma, crypto),
+    new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
   );
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(

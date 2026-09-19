@@ -3,6 +3,7 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { PrismaReclasificarCategoriaRepository } from '../src/infrastructure/persistence/prisma-reclasificar-categoria.repository';
 import { PrismaResumenMesRepository } from '../src/infrastructure/persistence/prisma-resumen-mes.repository';
+import { PrismaUltimoPeriodoConDatosReader } from '../src/infrastructure/persistence/prisma-ultimo-periodo-con-datos.repository';
 import { CalcularResumenMesUseCase } from '../src/application/use-cases/calcular-resumen-mes.use-case';
 import { NoOpLogger } from './support/logger.double';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
@@ -41,6 +42,7 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
   const resumenReader = new PrismaResumenMesRepository(prisma);
   const calcularResumen = new CalcularResumenMesUseCase(
     resumenReader,
+    new PrismaUltimoPeriodoConDatosReader(prisma),
     new NoOpLogger(),
   );
 

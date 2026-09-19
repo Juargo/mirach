@@ -1,6 +1,8 @@
 import { CalcularResumenMesUseCase } from './calcular-resumen-mes.use-case';
 import { IResumenMesReader, BucketSumRow } from '../ports/resumen-mes.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
@@ -12,6 +14,20 @@ import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 function makeMockReader(rows: BucketSumRow[]): IResumenMesReader {
   return {
     sumarPorBucket: vi.fn().mockResolvedValue(rows),
+  };
+}
+
+/**
+ * Fake de IUltimoPeriodoConDatosReader (issue #747). Por defecto `null`
+ * (usuario sin ninguna transacción) — la mayoría de estos specs fija un
+ * `periodo` EXPLÍCITO, así que el resolver nunca lo toca; los tests de la
+ * sección "periodo resolution" lo ejercitan directamente.
+ */
+function makeUltimoPeriodoReader(
+  periodo: PeriodoMes | null = null,
+): IUltimoPeriodoConDatosReader {
+  return {
+    ultimoPeriodoConDatos: vi.fn().mockResolvedValue(periodo),
   };
 }
 
@@ -44,7 +60,11 @@ describe('CalcularResumenMesUseCase', () => {
   describe('happy path (SC-01): all buckets, income present', () => {
     it('returns ok with correct totalIngreso and porcentajeBp for all buckets', async () => {
       const reader = makeMockReader(allBucketRows());
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -64,7 +84,11 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('returns the resolved periodo string', async () => {
       const reader = makeMockReader(allBucketRows());
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -92,7 +116,11 @@ describe('CalcularResumenMesUseCase', () => {
         },
       ];
       const reader = makeMockReader(rows);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -118,7 +146,11 @@ describe('CalcularResumenMesUseCase', () => {
         },
       ];
       const reader = makeMockReader(rows);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -135,7 +167,11 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('is NOT a Result.fail — sinIngreso is a valid data state, not an error (SC-04)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -146,7 +182,11 @@ describe('CalcularResumenMesUseCase', () => {
   describe('empty month (SC-05)', () => {
     it('returns ok with all zeros and sinIngreso=true when reader returns empty array', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -162,12 +202,16 @@ describe('CalcularResumenMesUseCase', () => {
   });
 
   describe('periodo validation', () => {
-    it('absent periodo → resolves to current UTC month (SC-07)', async () => {
+    it('absent periodo + usuario SIN datos → fallback a current UTC month (SC-07, issue #747)', async () => {
       const now = new Date();
       const expectedPeriodo = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(null),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: undefined });
 
@@ -175,9 +219,55 @@ describe('CalcularResumenMesUseCase', () => {
       expect(result.getValue().periodo).toBe(expectedPeriodo);
     });
 
+    it('absent periodo + usuario CON datos → resuelve al último mes con datos, NO al mes en curso (issue #747)', async () => {
+      const reader = makeMockReader([]);
+      const ultimoPeriodoReader = makeUltimoPeriodoReader(
+        PeriodoMes.crear('2026-03').getValue(),
+      );
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        ultimoPeriodoReader,
+        new NoOpLogger(),
+      );
+
+      const result = await uc.execute({ userId: 'user-a', periodo: undefined });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-03');
+      expect(ultimoPeriodoReader.ultimoPeriodoConDatos).toHaveBeenCalledWith(
+        'user-a',
+      );
+      expect(reader.sumarPorBucket).toHaveBeenCalledWith(
+        'user-a',
+        expect.objectContaining({ valor: '2026-03' }),
+      );
+    });
+
+    it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
+      const reader = makeMockReader([]);
+      const ultimoPeriodoReader = makeUltimoPeriodoReader(
+        PeriodoMes.crear('2026-03').getValue(),
+      );
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        ultimoPeriodoReader,
+        new NoOpLogger(),
+      );
+
+      const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-07');
+      expect(ultimoPeriodoReader.ultimoPeriodoConDatos).not.toHaveBeenCalled();
+    });
+
     it('invalid periodo → Result.fail(PeriodoInvalidoError) (SC-08)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({
         userId: 'user-a',
@@ -190,7 +280,11 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('periodo with invalid month (13) → Result.fail (SC-08)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-13' });
 
@@ -200,7 +294,11 @@ describe('CalcularResumenMesUseCase', () => {
 
     it('periodo with month 00 → Result.fail (SC-08)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-00' });
 
@@ -226,7 +324,11 @@ describe('CalcularResumenMesUseCase', () => {
         },
       ];
       const reader = makeMockReader(rows);
-      const uc = new CalcularResumenMesUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        new NoOpLogger(),
+      );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
@@ -244,7 +346,11 @@ describe('CalcularResumenMesUseCase', () => {
     it('NUNCA incluye montos ni descripción en los contexts logueados', async () => {
       const reader = makeMockReader(allBucketRows());
       const logger = new FakeLogger();
-      const uc = new CalcularResumenMesUseCase(reader, logger);
+      const uc = new CalcularResumenMesUseCase(
+        reader,
+        makeUltimoPeriodoReader(),
+        logger,
+      );
 
       await uc.execute({ userId: 'user-a', periodo: '2026-07' });
 
