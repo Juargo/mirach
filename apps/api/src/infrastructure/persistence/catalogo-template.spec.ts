@@ -48,6 +48,17 @@ describe('CATEGORIA_TEMPLATE', () => {
       bucket: Bucket.Necesidades,
       icono: 'credit-card',
     },
+    // Servicios básicos (luz, agua, gas) — issue #746.
+    { nombre: 'Cuentas', bucket: Bucket.Necesidades, icono: 'zap' },
+    {
+      nombre: 'Internet y telefonía',
+      bucket: Bucket.Necesidades,
+      icono: 'wifi',
+    },
+    // Restaurantes / comida fuera de casa y vestuario — issue #746. Sin
+    // PATRON_TEMPLATE a propósito (ver docblock de PATRON_TEMPLATE).
+    { nombre: 'Comida', bucket: Bucket.Deseos, icono: 'utensils' },
+    { nombre: 'Ropa', bucket: Bucket.Deseos, icono: 'shirt' },
     {
       nombre: 'Desconocido',
       bucket: Bucket.Necesidades,
@@ -65,8 +76,8 @@ describe('CATEGORIA_TEMPLATE', () => {
     },
   ];
 
-  it('pins exactly 12 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list)', () => {
-    expect(CATEGORIA_TEMPLATE_SIZE).toBe(12);
+  it('pins exactly 16 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list; issue #746)', () => {
+    expect(CATEGORIA_TEMPLATE_SIZE).toBe(16);
     expect(CATEGORIA_TEMPLATE).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     const actual = CATEGORIA_TEMPLATE.map((entry) => ({
       nombre: entry.nombre,
@@ -176,9 +187,29 @@ describe('PATRON_TEMPLATE', () => {
     expect(new Set(patrones).size).toBe(patrones.length);
   });
 
-  it('size is derived from the array and matches the current PATRON_CATALOG count (22)', () => {
-    expect(PATRON_TEMPLATE_SIZE).toBe(22);
+  it('size is derived from the array and matches the current PATRON_CATALOG count (39, issue #746)', () => {
+    expect(PATRON_TEMPLATE_SIZE).toBe(39);
     expect(PATRON_TEMPLATE).toHaveLength(PATRON_TEMPLATE_SIZE);
+  });
+});
+
+/**
+ * Comida / Ropa (issue #746) — decisión del owner: SIN PATRON_TEMPLATE.
+ * Los nombres de locales chilenos de comida/vestuario son ambiguos y un
+ * patrón malo clasificaría en silencio; se decidirá después con glosas
+ * reales. Este guard fija ese invariante igual que el de "Desconocido".
+ */
+describe('Categoria "Comida" y "Ropa" (issue #746) — sin PATRON_TEMPLATE a propósito', () => {
+  it('ningún patrón de PATRON_TEMPLATE referencia Comida ni Ropa', () => {
+    const clavesSinPatrones = new Set(
+      CATEGORIA_TEMPLATE.filter(
+        (entry) => entry.nombre === 'Comida' || entry.nombre === 'Ropa',
+      ).map((entry) => claveCategoria(entry.bucket, entry.nombre)),
+    );
+    expect(clavesSinPatrones.size).toBe(2);
+    for (const patron of PATRON_TEMPLATE) {
+      expect(clavesSinPatrones.has(patron.categoria)).toBe(false);
+    }
   });
 });
 

@@ -116,6 +116,24 @@ const PATRON_ID_FIJO: Record<PatronTemplateTexto, string> = {
   '^transf(?:erencia)?.*ahorro': 'pat-transferencia-ahorro',
   'pago deuda tarjeta': 'pat-pago-deuda-tarjeta',
   sobregiro: 'pat-sobregiro',
+  // ── Cuentas / Internet y telefonía — issue #746 ──
+  enel: 'pat-enel',
+  cge: 'pat-cge',
+  chilquinta: 'pat-chilquinta',
+  saesa: 'pat-saesa',
+  'aguas andinas': 'pat-aguas-andinas',
+  esval: 'pat-esval',
+  essbio: 'pat-essbio',
+  metrogas: 'pat-metrogas',
+  lipigas: 'pat-lipigas',
+  abastible: 'pat-abastible',
+  gasco: 'pat-gasco',
+  movistar: 'pat-movistar',
+  entel: 'pat-entel',
+  vtr: 'pat-vtr',
+  gtd: 'pat-gtd',
+  'claro chile': 'pat-claro-chile',
+  '\\bwom\\b': 'pat-wom',
 };
 
 // ── US-012/US-013 S2 / US-037 D-07: Catálogo de patrones chilenos del
