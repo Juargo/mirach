@@ -46,13 +46,21 @@ describe('seed idempotency integration (real dev DB)', () => {
 
   // CAT037-02: seed run twice ⇒ CATEGORIA_TEMPLATE_SIZE+PATRON_CATALOG_SIZE
   // rows, ids stable, all owned by USER_ID_FIJO, no duplicates.
-  it('produce exactamente CATEGORIA_TEMPLATE_SIZE Categoria propias de USER_ID_FIJO, sin nombres duplicados', async () => {
+  it('produce exactamente CATEGORIA_TEMPLATE_SIZE Categoria propias de USER_ID_FIJO, sin pares (bucketId, nombre) duplicados', async () => {
     const categorias = await prisma.categoria.findMany({
       where: { userId: USER_ID_FIJO },
     });
     expect(categorias).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
-    const nombres = categorias.map((categoria) => categoria.nombre);
-    expect(new Set(nombres).size).toBe(nombres.length);
+    // Unicidad por PAR (bucketId, nombre), NUNCA por nombre solo: ADR-042
+    // movió el constraint de `(userId, nombre)` a `(userId, bucketId, nombre)`
+    // justamente para admitir homónimas entre buckets (las tres
+    // `Desconocido`). Afirmar nombres distintos exigiría MENOS que el
+    // invariante real en un caso y MÁS en el otro — este assert es el espejo
+    // exacto del @@unique de la tabla.
+    const claves = categorias.map(
+      (categoria) => `${categoria.bucketId}:${categoria.nombre}`,
+    );
+    expect(new Set(claves).size).toBe(claves.length);
   });
 
   it('todas las filas de PatronClasificacion quedan owned por USER_ID_FIJO', async () => {

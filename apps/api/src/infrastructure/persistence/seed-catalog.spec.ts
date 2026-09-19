@@ -13,18 +13,7 @@ import {
   type CategoriaTemplateClave,
   type CategoriaTemplateNombre,
 } from './catalogo-template';
-import { Bucket } from '../../domain/value-objects/bucket';
 import { buildTestEnv } from '../../../test/support/env.fixture';
-
-/**
- * Mapa nombre → bucket derivado de CATEGORIA_TEMPLATE (ADR-037/D-02) —
- * reemplaza el `CATEGORIA_BUCKET` del enum retirado como fuente de verdad
- * para verificar que el seed escribió el `bucketId` correcto.
- */
-const BUCKET_DE_TEMPLATE: Record<CategoriaTemplateNombre, Bucket> =
-  Object.fromEntries(
-    CATEGORIA_TEMPLATE.map((entry) => [entry.nombre, entry.bucket]),
-  ) as Record<CategoriaTemplateNombre, Bucket>;
 
 /**
  * Seed-integrity unit tests (CAT-01, CAT-04) — no DB involved.
@@ -145,18 +134,20 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
     await runSeed(prisma);
 
     expect(stores.categoria.rows.size).toBe(CATEGORIA_CATALOG_SIZE);
-    for (const row of stores.categoria.rows.values()) {
-      const categoriaEsperada = row.nombre as CategoriaTemplateNombre;
-      const bucketEsperado = BUCKET_DE_TEMPLATE[categoriaEsperada];
-      expect(row.bucketId).toBe(BUCKET_IDS[bucketEsperado]);
-      expect(row.id).toBe(
+    // Recorre CATEGORIA_TEMPLATE (no las filas sembradas) y resuelve el id
+    // esperado por (bucket, nombre) — NUNCA por nombre solo (ADR-042 admite
+    // el mismo nombre repetido entre buckets distintos, p. ej.
+    // "Desconocido"): buscar la fila sembrada por nombre solo sería ambiguo
+    // para esas tres entradas homónimas.
+    for (const entry of CATEGORIA_TEMPLATE) {
+      const id =
         CATEGORIA_IDS[
-          claveCategoria(
-            bucketEsperado,
-            categoriaEsperada,
-          ) as CategoriaTemplateClave
-        ],
-      );
+          claveCategoria(entry.bucket, entry.nombre) as CategoriaTemplateClave
+        ];
+      const row = stores.categoria.rows.get(id);
+      expect(row).toBeDefined();
+      expect(row!.nombre).toBe(entry.nombre);
+      expect(row!.bucketId).toBe(BUCKET_IDS[entry.bucket]);
     }
   });
 

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { ICONOS_CATEGORIA, esIconoCategoria } from './icono-categoria';
 
 describe('ICONOS_CATEGORIA', () => {
-  it('tiene exactamente 24 nombres únicos (CATICO-01)', () => {
-    expect(ICONOS_CATEGORIA).toHaveLength(24);
-    expect(new Set(ICONOS_CATEGORIA).size).toBe(24);
+  it('tiene exactamente 25 nombres únicos (CATICO-01)', () => {
+    expect(ICONOS_CATEGORIA).toHaveLength(25);
+    expect(new Set(ICONOS_CATEGORIA).size).toBe(25);
   });
 
   it('cada nombre es un identificador lucide kebab-case (minúsculas, dígitos, guiones)', () => {
