@@ -13,6 +13,8 @@ import {
   CATEGORIA_TEMPLATE_SIZE,
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
+  claveCategoria,
+  type CategoriaTemplateClave,
   type CategoriaTemplateNombre,
   type PatronTemplateTexto,
 } from '../src/infrastructure/persistence/catalogo-template';
@@ -60,7 +62,13 @@ const CATEGORIA_CATALOG: Array<{
   bucketId: string;
   icono: (typeof CATEGORIA_TEMPLATE)[number]['icono'];
 }> = CATEGORIA_TEMPLATE.map((categoria) => ({
-  id: CATEGORIA_IDS[categoria.nombre],
+  // CATEGORIA_IDS está keyed por la clave compuesta bucket:nombre (ADR-042)
+  // — cada fila de CATEGORIA_TEMPLATE trae ambos campos, así que claveCategoria
+  // los correlaciona sin ambigüedad. El cast es seguro: la clave viene de la
+  // MISMA plantilla que define CategoriaTemplateClave.
+  id: CATEGORIA_IDS[
+    claveCategoria(categoria.bucket, categoria.nombre) as CategoriaTemplateClave
+  ],
   nombre: categoria.nombre,
   // bucketId SIEMPRE derivado en el write site (ADR-037 D-02) — BUCKET_IDS
   // sigue siendo la única autoridad de ids físicos, igual que
@@ -113,9 +121,10 @@ const PATRON_ID_FIJO: Record<PatronTemplateTexto, string> = {
 // ── US-012/US-013 S2 / US-037 D-07: Catálogo de patrones chilenos del
 // usuario bootstrap. El CONTENIDO (patrón, matchType, categoría, prioridad)
 // viene single-sourced de PATRON_TEMPLATE (catalogo-template.ts); el seed
-// solo agrega el id fijo (PATRON_ID_FIJO) y resuelve `categoria` (enum) a
-// `categoriaId` (id físico) vía CATEGORIA_IDS — mismo patrón que
-// CATEGORIA_CATALOG arriba (D-07: dos escritores, un contenido).
+// solo agrega el id fijo (PATRON_ID_FIJO) y resuelve `categoria` (clave
+// compuesta bucket:nombre, ADR-042) a `categoriaId` (id físico) vía
+// CATEGORIA_IDS — mismo patrón que CATEGORIA_CATALOG arriba (D-07: dos
+// escritores, un contenido).
 //
 // bucketId no se escribe aquí — PatronClasificacion.bucketId fue DROPeado de
 // la BD (ver migración drop_patron_bucketid); el bucket de cada patrón se

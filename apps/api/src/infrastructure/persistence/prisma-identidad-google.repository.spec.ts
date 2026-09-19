@@ -5,6 +5,7 @@ import { Email } from '../../domain/value-objects/email';
 import type { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../../application/ports/crypto-service.port';
 import { CATEGORIA_TEMPLATE, PATRON_TEMPLATE } from './catalogo-template';
+import { BUCKET_IDS } from './bucket-ids';
 
 /**
  * Unit tests for PrismaIdentidadGoogleRepository (design §5.2/§5.4/§5.5) —
@@ -293,10 +294,14 @@ describe('crearDesdeGoogle (ADR-041 signup-on-first-login)', () => {
         createMany: vi
           .fn()
           .mockResolvedValue({ count: CATEGORIA_TEMPLATE.length }),
+        // bucketId incluido: copiarCatalogoTemplate lo pide en el select real
+        // para reconstruir la clave bucket:nombre (ADR-042) — el fake debe
+        // reflejar ese contrato o categoriaId queda mal resuelto en silencio.
         findMany: vi.fn().mockResolvedValue(
           CATEGORIA_TEMPLATE.map((categoria, index) => ({
             id: `categoria-g-${index}`,
             nombre: categoria.nombre,
+            bucketId: BUCKET_IDS[categoria.bucket],
           })),
         ),
       },
