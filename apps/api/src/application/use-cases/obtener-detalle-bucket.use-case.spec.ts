@@ -4,7 +4,9 @@ import {
   IDetalleBucketReader,
   DetalleBucketRow,
 } from '../ports/detalle-bucket.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
@@ -26,13 +28,23 @@ const makeRow = (
 
 describe('ObtenerDetalleBucketUseCase', () => {
   let readerMock: Mocked<IDetalleBucketReader>;
+  let ultimoPeriodoReaderMock: Mocked<IUltimoPeriodoConDatosReader>;
   let useCase: ObtenerDetalleBucketUseCase;
 
   beforeEach(() => {
     readerMock = {
       findByPeriodoYBucket: vi.fn(),
     };
-    useCase = new ObtenerDetalleBucketUseCase(readerMock, new NoOpLogger());
+    // Default: usuario sin ninguna transacción (issue #747) — la mayoría de
+    // estos specs fija un `periodo` EXPLÍCITO, así que este mock ni se toca.
+    ultimoPeriodoReaderMock = {
+      ultimoPeriodoConDatos: vi.fn().mockResolvedValue(null),
+    };
+    useCase = new ObtenerDetalleBucketUseCase(
+      readerMock,
+      ultimoPeriodoReaderMock,
+      new NoOpLogger(),
+    );
   });
 
   afterEach(() => {
@@ -128,7 +140,7 @@ describe('ObtenerDetalleBucketUseCase', () => {
   });
 
   describe('periodo ausente (undefined)', () => {
-    it('usa PeriodoMes.actual() y llama al reader con el mes actual', async () => {
+    it('usuario SIN datos → usa PeriodoMes.actual() y llama al reader con el mes actual (fallback, issue #747)', async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
 
@@ -145,6 +157,49 @@ describe('ObtenerDetalleBucketUseCase', () => {
       const [, calledPeriodo] = readerMock.findByPeriodoYBucket.mock.calls[0];
       expect(calledPeriodo.valor).toBe('2026-07');
     });
+
+    it('usuario CON datos → resuelve al último mes con datos, NO al mes actual (issue #747)', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+
+      ultimoPeriodoReaderMock.ultimoPeriodoConDatos.mockResolvedValue(
+        PeriodoMes.crear('2026-02').getValue(),
+      );
+      readerMock.findByPeriodoYBucket.mockResolvedValue([makeRow()]);
+
+      const result = await useCase.execute({
+        userId: 'user-1',
+        bucket: Bucket.Necesidades,
+        periodo: undefined,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-02');
+      const [, calledPeriodo] = readerMock.findByPeriodoYBucket.mock.calls[0];
+      expect(calledPeriodo.valor).toBe('2026-02');
+      expect(
+        ultimoPeriodoReaderMock.ultimoPeriodoConDatos,
+      ).toHaveBeenCalledWith('user-1');
+    });
+
+    it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
+      ultimoPeriodoReaderMock.ultimoPeriodoConDatos.mockResolvedValue(
+        PeriodoMes.crear('2026-02').getValue(),
+      );
+      readerMock.findByPeriodoYBucket.mockResolvedValue([makeRow()]);
+
+      const result = await useCase.execute({
+        userId: 'user-1',
+        bucket: Bucket.Necesidades,
+        periodo: '2026-07',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-07');
+      expect(
+        ultimoPeriodoReaderMock.ultimoPeriodoConDatos,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   describe('debug logging (ADR-033 slice C — redaction contract, ADR-013)', () => {
@@ -153,6 +208,7 @@ describe('ObtenerDetalleBucketUseCase', () => {
       const logger = new FakeLogger();
       const useCaseWithFakeLogger = new ObtenerDetalleBucketUseCase(
         readerMock,
+        ultimoPeriodoReaderMock,
         logger,
       );
 

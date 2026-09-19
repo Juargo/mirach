@@ -13,7 +13,7 @@ export const movimientosQuerySchema = z.object({
     .string()
     .optional()
     .describe(
-      'Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the current month. Format is validated by the domain, not this schema.',
+      'Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema.',
     ),
 });
 

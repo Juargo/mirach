@@ -4,8 +4,10 @@ import {
   IMovimientosMesReader,
   MovimientoMesRow,
 } from '../ports/movimientos-mes.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 const makeRow = (
@@ -26,13 +28,22 @@ const makeRow = (
 
 describe('ObtenerMovimientosMesUseCase', () => {
   let readerMock: Mocked<IMovimientosMesReader>;
+  let ultimoPeriodoReaderMock: Mocked<IUltimoPeriodoConDatosReader>;
   let useCase: ObtenerMovimientosMesUseCase;
 
   beforeEach(() => {
     readerMock = {
       findByPeriodo: vi.fn(),
     };
-    useCase = new ObtenerMovimientosMesUseCase(readerMock, new NoOpLogger());
+    // Default: usuario sin ninguna transacción (issue #747).
+    ultimoPeriodoReaderMock = {
+      ultimoPeriodoConDatos: vi.fn().mockResolvedValue(null),
+    };
+    useCase = new ObtenerMovimientosMesUseCase(
+      readerMock,
+      ultimoPeriodoReaderMock,
+      new NoOpLogger(),
+    );
   });
 
   afterEach(() => {
@@ -136,7 +147,7 @@ describe('ObtenerMovimientosMesUseCase', () => {
   });
 
   describe('absent periodo (undefined)', () => {
-    it('uses PeriodoMes.actual() and calls reader with current month', async () => {
+    it('usuario SIN datos → uses PeriodoMes.actual() and calls reader with current month (fallback, issue #747)', async () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
 
@@ -153,6 +164,47 @@ describe('ObtenerMovimientosMesUseCase', () => {
       const [, calledPeriodo] = readerMock.findByPeriodo.mock.calls[0];
       expect(calledPeriodo.valor).toBe('2026-07');
     });
+
+    it('usuario CON datos → resuelve al último mes con datos, NO al mes actual (issue #747)', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-07-15T12:00:00.000Z'));
+
+      ultimoPeriodoReaderMock.ultimoPeriodoConDatos.mockResolvedValue(
+        PeriodoMes.crear('2026-01').getValue(),
+      );
+      readerMock.findByPeriodo.mockResolvedValue([makeRow()]);
+
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: undefined,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-01');
+      const [, calledPeriodo] = readerMock.findByPeriodo.mock.calls[0];
+      expect(calledPeriodo.valor).toBe('2026-01');
+      expect(
+        ultimoPeriodoReaderMock.ultimoPeriodoConDatos,
+      ).toHaveBeenCalledWith('user-1');
+    });
+
+    it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
+      ultimoPeriodoReaderMock.ultimoPeriodoConDatos.mockResolvedValue(
+        PeriodoMes.crear('2026-01').getValue(),
+      );
+      readerMock.findByPeriodo.mockResolvedValue([makeRow()]);
+
+      const result = await useCase.execute({
+        userId: 'user-1',
+        periodo: '2026-07',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().periodo).toBe('2026-07');
+      expect(
+        ultimoPeriodoReaderMock.ultimoPeriodoConDatos,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   describe('debug logging (ADR-033 slice C — redaction contract, ADR-013)', () => {
@@ -161,6 +213,7 @@ describe('ObtenerMovimientosMesUseCase', () => {
       const logger = new FakeLogger();
       const useCaseWithFakeLogger = new ObtenerMovimientosMesUseCase(
         readerMock,
+        ultimoPeriodoReaderMock,
         logger,
       );
 

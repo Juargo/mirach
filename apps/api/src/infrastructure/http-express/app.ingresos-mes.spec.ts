@@ -8,6 +8,7 @@ import {
   type ObtenerIngresosMesResult,
 } from '../../application/use-cases/obtener-ingresos-mes.use-case';
 import type { IDetalleBucketReader } from '../../application/ports/detalle-bucket.port';
+import type { IUltimoPeriodoConDatosReader } from '../../application/ports/ultimo-periodo-con-datos.port';
 import type { ILogger } from '../../application/ports/logger.port';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
@@ -86,6 +87,11 @@ function fakeReader(
 
 function fakeLogger(): ILogger {
   return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+}
+
+/** Sin datos previos → resolverPeriodo cae a PeriodoMes.actual() (issue #747). */
+function fakeUltimoPeriodoReader(): IUltimoPeriodoConDatosReader {
+  return { ultimoPeriodoConDatos: vi.fn().mockResolvedValue(null) };
 }
 
 function fakeContainer(
@@ -226,7 +232,11 @@ describe('GET /api/ingresos/mes — cadena de auth + aislamiento (US-052)', () =
       },
     ]);
     const c = fakeContainer(
-      new ObtenerIngresosMesUseCase(reader, fakeLogger()),
+      new ObtenerIngresosMesUseCase(
+        reader,
+        fakeUltimoPeriodoReader(),
+        fakeLogger(),
+      ),
     );
 
     const res = await request(createApp(c, testEnv))

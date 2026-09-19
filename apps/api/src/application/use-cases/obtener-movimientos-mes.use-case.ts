@@ -1,11 +1,12 @@
 import { Result } from '../../shared/result';
-import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import {
   IMovimientosMesReader,
   MovimientoMesRow,
 } from '../ports/movimientos-mes.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
+import { resolverPeriodo } from './resolver-periodo';
 
 /** Tipo de retorno del use case en caso de éxito. */
 export interface ObtenerMovimientosMesResult {
@@ -25,6 +26,7 @@ export interface ObtenerMovimientosMesResult {
 export class ObtenerMovimientosMesUseCase {
   constructor(
     private readonly reader: IMovimientosMesReader,
+    private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
   ) {}
 
@@ -32,19 +34,17 @@ export class ObtenerMovimientosMesUseCase {
     userId: string;
     periodo: string | undefined;
   }): Promise<Result<ObtenerMovimientosMesResult, PeriodoInvalidoError>> {
-    let periodoVO: PeriodoMes;
-
-    if (input.periodo === undefined) {
-      // Parámetro ausente → mes actual UTC (siempre válido)
-      periodoVO = PeriodoMes.actual();
-    } else {
-      // Parámetro presente → validar con el VO
-      const resultado = PeriodoMes.crear(input.periodo);
-      if (resultado.isFail()) {
-        return Result.fail(resultado.getError());
-      }
-      periodoVO = resultado.getValue();
+    // Parámetro ausente → último mes del usuario con datos (fallback mes
+    // actual UTC); parámetro presente → validar con el VO.
+    const periodoResult = await resolverPeriodo(
+      this.ultimoPeriodoReader,
+      input.userId,
+      input.periodo,
+    );
+    if (periodoResult.isFail()) {
+      return Result.fail(periodoResult.getError());
     }
+    const periodoVO = periodoResult.getValue();
 
     const transacciones = await this.reader.findByPeriodo(
       input.userId,
