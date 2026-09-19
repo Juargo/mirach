@@ -55,6 +55,19 @@ export const CATEGORIA_TEMPLATE = [
     bucket: Bucket.Necesidades,
     icono: 'credit-card',
   },
+  // ── Servicios básicos e internet/telefonía (issue #746) ──
+  { nombre: 'Cuentas', bucket: Bucket.Necesidades, icono: 'zap' },
+  {
+    nombre: 'Internet y telefonía',
+    bucket: Bucket.Necesidades,
+    icono: 'wifi',
+  },
+  // ── Comida / Ropa (issue #746) — DELIBERADAMENTE sin PATRON_TEMPLATE:
+  // los nombres de locales chilenos de comida fuera de casa y de vestuario
+  // son ambiguos, y un patrón malo clasificaría en silencio. Se decidirá
+  // más adelante con glosas reales (owner-approved decision).
+  { nombre: 'Comida', bucket: Bucket.Deseos, icono: 'utensils' },
+  { nombre: 'Ropa', bucket: Bucket.Deseos, icono: 'shirt' },
   // ── Desconocido (categoria-desconocido, ADR-045 circle-help) ──
   // Una por cada bucket asignable: transacciones que el usuario no recuerda
   // a qué gasto corresponden, pero SÍ sabe a qué bucket asignarlas (p. ej.
@@ -333,6 +346,123 @@ export const PATRON_TEMPLATE = [
     matchType: 'REGEX',
     categoria: 'Ahorro:Ahorro',
     prioridad: 25,
+  },
+
+  // ── Cuentas: servicios básicos (luz, agua, gas) — issue #746 ──
+  // Candidatos owner-approved. Ninguno se descartó: todos son marcas/siglas
+  // chilenas de baja ambigüedad como substring (clusters de consonantes
+  // poco frecuentes en español — "cge", "gtd", "vtr" — o nombres largos sin
+  // colisión conocida contra el resto del catálogo).
+  {
+    patron: 'enel',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'cge',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'chilquinta',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'saesa',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'aguas andinas',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'esval',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'essbio',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'metrogas',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'lipigas',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'abastible',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+  {
+    patron: 'gasco',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Cuentas',
+    prioridad: 10,
+  },
+
+  // ── Internet y telefonía — issue #746 ──
+  // `claro` y `wom` NO se agregan como CONTAINS crudo: `coincide()` hace un
+  // substring plano y ambos son lo bastante cortos/comunes para matchear
+  // dentro de otra palabra (p. ej. "claro" es un adverbio común en español;
+  // "wom" es un cluster de 3 letras). Se endurecen en vez de descartarse:
+  // `claro` → ancla la razón social real de facturación ("CLARO CHILE");
+  // `wom` → REGEX con límites de palabra (`\b`) para exigir el token
+  // exacto, no una subcadena de otra palabra.
+  {
+    patron: 'movistar',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Internet y telefonía',
+    prioridad: 10,
+  },
+  {
+    patron: 'entel',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Internet y telefonía',
+    prioridad: 10,
+  },
+  {
+    patron: 'vtr',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Internet y telefonía',
+    prioridad: 10,
+  },
+  {
+    patron: 'gtd',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Internet y telefonía',
+    prioridad: 10,
+  },
+  {
+    patron: 'claro chile',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Internet y telefonía',
+    prioridad: 10,
+  },
+  {
+    patron: '\\bwom\\b',
+    matchType: 'REGEX',
+    categoria: 'Necesidades:Internet y telefonía',
+    prioridad: 10,
   },
 ] as const satisfies ReadonlyArray<{
   patron: string;
