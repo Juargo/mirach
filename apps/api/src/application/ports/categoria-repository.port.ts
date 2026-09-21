@@ -29,6 +29,18 @@ export interface CategoriaConPatrones {
    * future allowlist removal must not turn an existing row into a 500.
    */
   readonly icono: string | null;
+  /**
+   * #778 — `true` para una categoría INTERNA del sistema (hoy, las tres
+   * `Desconocido`): existe porque el producto la necesita, no porque el
+   * usuario la haya creado, y por eso no se puede editar ni eliminar.
+   *
+   * Requerido, no opcional: un productor que se olvide de traerla es un
+   * error de compilación, no un `undefined` que degrade a "no protegida" en
+   * silencio — que es exactamente el modo de falla que importa acá, porque
+   * el valor seguro es `true` y el default de un campo ausente sería
+   * `false`.
+   */
+  readonly esInterna: boolean;
 }
 
 /**

@@ -10,6 +10,7 @@ describe('aCategoriaDto', () => {
       patrones: [],
       transaccionesCount: 0,
       icono: null,
+      esInterna: false,
     });
 
     expect(dto).toEqual({
@@ -38,6 +39,7 @@ describe('aCategoriaDto', () => {
       ],
       transaccionesCount: 0,
       icono: null,
+      esInterna: false,
     });
 
     expect(dto.patrones).toEqual([
@@ -59,6 +61,7 @@ describe('aCategoriaDto', () => {
       patrones: [],
       transaccionesCount: 7,
       icono: null,
+      esInterna: false,
     });
 
     expect(dto.transaccionesCount).toBe(7);
@@ -72,6 +75,7 @@ describe('aCategoriaDto', () => {
       patrones: [],
       transaccionesCount: 0,
       icono: 'paw-print',
+      esInterna: false,
     });
 
     expect(dto.icono).toBe('paw-print');
@@ -85,6 +89,7 @@ describe('aCategoriaDto', () => {
       patrones: [],
       transaccionesCount: 0,
       icono: null,
+      esInterna: false,
     });
 
     expect(dto).toHaveProperty('icono');

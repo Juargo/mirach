@@ -144,6 +144,24 @@ model Categoria {
   // ADR-045). Sin CHECK a nivel de BD — el dominio es la única autoridad
   // (D-03): así una edición del allowlist no exige migración de esquema.
   icono         String?
+  // Categoría INTERNA del sistema (#778): parte de la mecánica del producto,
+  // no del catálogo que el usuario curó. Hoy son las tres `Desconocido`, una
+  // por bucket asignable. No se pueden editar ni eliminar — el rechazo vive
+  // en el dominio (`CategoriaInternaProtegidaError`), no en la UI.
+  //
+  // La marca es ESTA COLUMNA y no el nombre a propósito. La identidad de una
+  // categoría es `(userId, bucketId, nombre)`, y el nombre es justamente lo
+  // que el usuario puede cambiar: identificar "la Desconocido" por nombre
+  // significaría que renombrar cualquier categoría a "Desconocido" la vuelve
+  // intocable, y que renombrar la real la desprotege.
+  //
+  // `DEFAULT false` sin backfill, deliberado: ninguna fila existente cambia
+  // de naturaleza al migrar. Un backfill no puede distinguir "esta es LA
+  // Desconocido del sistema" de "el usuario creó una suya con ese nombre"
+  // — el mismo razonamiento que #740 usó para exigir `--user` explícito en
+  // `backfill-catalogo-faltante.ts`. Qué hacer con los catálogos anteriores
+  // es una decisión de producto abierta (#778 CA-07).
+  esInterna     Boolean               @default(false)
   bucketId      String
   bucket        BucketPresupuesto     @relation(fields: [bucketId], references: [id])
   patrones      PatronClasificacion[]

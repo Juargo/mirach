@@ -2,10 +2,12 @@ import { Result } from '../../shared/result';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
 
 export type EliminarCategoriaError =
   | CatalogoDemoSoloLecturaError
-  | CategoriaNoEncontradaError;
+  | CategoriaNoEncontradaError
+  | CategoriaInternaProtegidaError;
 
 /**
  * EliminarCategoriaUseCase — use case de escritura para
@@ -17,9 +19,24 @@ export type EliminarCategoriaError =
  * `categoriaId: null`; su `bucketId` nunca se toca, así que borrar una
  * categoría no mueve dinero entre buckets (CAT038-04, CA-04).
  *
- * Este use case solo mapea el demo gate + delega — la mecánica del delete
- * (children-first, composite FK) vive en el adapter
- * (`PrismaCategoriaRepository#eliminar`, design.md Q4). Nunca lanza.
+ * La ÚNICA excepción es una categoría INTERNA del sistema (#778): existe
+ * porque el producto la necesita, no porque el usuario la haya creado, así
+ * que no es suya para borrar.
+ *
+ * Ese gate obliga a una LECTURA PREVIA que este use case no hacía: antes
+ * delegaba el delete a ciegas y dejaba que el `WHERE {id, userId}` del
+ * adapter resolviera la pertenencia. Ahora hay que mirar la fila para saber
+ * si está protegida, y esa lectura trae el 404 de regalo.
+ *
+ * No es una carrera nueva: entre el `buscarPorId` y el `eliminar` la fila
+ * podría desaparecer, pero el adapter sigue devolviendo
+ * `CategoriaNoEncontradaError` en ese caso — el mismo error que devolvería
+ * esta lectura, así que el resultado observable no cambia. Lo que NO puede
+ * pasar es lo inverso (que una fila se vuelva interna entre las dos
+ * llamadas): `esInterna` solo se escribe al materializar un catálogo nuevo.
+ *
+ * La mecánica del delete (children-first, composite FK) sigue viviendo en el
+ * adapter (`PrismaCategoriaRepository#eliminar`, design.md Q4). Nunca lanza.
  */
 export class EliminarCategoriaUseCase {
   constructor(private readonly categoriaRepository: ICategoriaRepository) {}
@@ -31,6 +48,17 @@ export class EliminarCategoriaUseCase {
   }): Promise<Result<void, EliminarCategoriaError>> {
     if (input.esDemo) {
       return Result.fail(new CatalogoDemoSoloLecturaError());
+    }
+
+    const actual = await this.categoriaRepository.buscarPorId(
+      input.userId,
+      input.id,
+    );
+    if (actual === null) {
+      return Result.fail(new CategoriaNoEncontradaError(input.id));
+    }
+    if (actual.esInterna) {
+      return Result.fail(new CategoriaInternaProtegidaError(input.id));
     }
 
     return this.categoriaRepository.eliminar(input.userId, input.id);

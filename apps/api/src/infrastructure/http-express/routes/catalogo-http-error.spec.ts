@@ -4,6 +4,7 @@ import { NombreCategoriaInvalidoError } from '../../../domain/errors/nombre-cate
 import { BucketNoAsignableError } from '../../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
+import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
 import { PatronInvalidoError } from '../../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../../domain/errors/match-type-invalido.error';
 import { RegexInvalidaError } from '../../../domain/errors/regex-invalida.error';
@@ -23,6 +24,8 @@ describe('aCatalogoHttpError — one class, exactly one status + code', () => {
     [new RegexInvalidaError('x'), 400, 'REGEX_INVALIDA'],
     [new PrioridadInvalidaError(1000), 400, 'PRIORIDAD_INVALIDA'],
     [new CatalogoDemoSoloLecturaError(), 403, 'DEMO_SOLO_LECTURA'],
+    // #778 — segundo 403 de la familia, code distinto (sujeto vs objeto).
+    [new CategoriaInternaProtegidaError('id'), 403, 'CATEGORIA_INTERNA'],
     [new CategoriaNoEncontradaError('id'), 404, 'CATEGORIA_NO_ENCONTRADA'],
     [new PatronNoEncontradoError('id'), 404, 'PATRON_NO_ENCONTRADO'],
     [new NombreCategoriaDuplicadoError('x'), 409, 'NOMBRE_DUPLICADO'],

@@ -237,6 +237,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       patrones: [],
       transaccionesCount: 0,
       icono: null,
+      esInterna: false,
     });
     expect(categoriaResponseSchema.parse(dto).patrones).toEqual([]);
   });
@@ -249,6 +250,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       patrones: [],
       transaccionesCount: 7,
       icono: null,
+      esInterna: false,
     });
     expect(categoriaResponseSchema.parse(dto).transaccionesCount).toBe(7);
   });
@@ -262,6 +264,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
         patrones: [],
         transaccionesCount: 0,
         icono: null,
+        esInterna: false,
       },
     ]);
     expect(catalogoResponseSchema.parse(dto).categorias).toHaveLength(1);
@@ -275,6 +278,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       patrones: [],
       transaccionesCount: 0,
       icono: 'paw-print',
+      esInterna: false,
     });
     expect(categoriaResponseSchema.parse(dto).icono).toBe('paw-print');
   });
@@ -287,6 +291,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       patrones: [],
       transaccionesCount: 0,
       icono: null,
+      esInterna: false,
     });
     expect(categoriaResponseSchema.parse(dto).icono).toBeNull();
   });

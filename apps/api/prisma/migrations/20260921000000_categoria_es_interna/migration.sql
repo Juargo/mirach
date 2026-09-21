@@ -1,0 +1,18 @@
+-- #778: adds the `esInterna` flag to `Categoria`. A categoría interna is part
+-- of the product's machinery (today: the three `Desconocido`, one per
+-- assignable bucket), not of the catalogue the user curated, and cannot be
+-- edited or deleted — enforced in the domain
+-- (`CategoriaInternaProtegidaError`), not by a DB CHECK: the same reasoning as
+-- `icono` (ADR-045, D-03), the domain stays the sole authority so the rule can
+-- change without a schema migration.
+--
+-- NOT NULL DEFAULT false, and NO backfill, deliberately: no pre-existing row
+-- changes its nature when this runs. A backfill cannot tell "this is THE
+-- system Desconocido" from "the user created one of their own with that
+-- name" — the same reasoning #740 used to require an explicit `--user` in
+-- `backfill-catalogo-faltante.ts`. What to do with catalogues created before
+-- this flag is an open product decision (#778 CA-07).
+--
+-- New catalogues get the flag from `CATEGORIA_TEMPLATE`
+-- (`catalogo-template.ts`), not from SQL.
+ALTER TABLE "Categoria" ADD COLUMN "esInterna" BOOLEAN NOT NULL DEFAULT false;

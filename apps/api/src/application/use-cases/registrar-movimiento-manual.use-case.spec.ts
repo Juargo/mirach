@@ -147,6 +147,7 @@ const CAT_ALIMENTACION: CategoriaConPatrones = {
   patrones: [],
   transaccionesCount: 0,
   icono: null,
+  esInterna: false,
 };
 
 const CAT_ARRIENDO: CategoriaConPatrones = {
@@ -156,6 +157,7 @@ const CAT_ARRIENDO: CategoriaConPatrones = {
   patrones: [],
   transaccionesCount: 0,
   icono: null,
+  esInterna: false,
 };
 
 // ---------------------------------------------------------------------------
