@@ -17,6 +17,8 @@ they govern and are reviewed in the same PR that implements them.
 
 ## Index
 
+Resumen de una línea por decisión **con el estado real de implementación** (qué se construyó, qué quedó como deuda, qué se verificó en prod): [`estado-implementacion.md`](estado-implementacion.md).
+
 | ADR | Título | Estado |
 |-----|--------|--------|
 | [ADR-001](ADR-001-backend-framework.md) | Lenguaje y Framework Backend | ⛔ Supersedido por ADR-028 |
