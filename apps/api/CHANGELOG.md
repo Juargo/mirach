@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.8.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.7.0...api-v0.8.0) (2026-09-21)
+
+
+### Features
+
+* agrega una categoría Desconocido por bucket, con el ícono circle-help ([44f00c1](https://github.com/Juargo/MoneyDiary/commit/44f00c1c14e95a7d39742e5eb0ff9cd8442bd2bd))
+* agrega una categoría Desconocido por bucket, con el ícono circle-help ([17e5b0d](https://github.com/Juargo/MoneyDiary/commit/17e5b0df2f4d0a34340837dac40be9b73a50c48d))
+* **api:** add curated icon allowlist value object and domain error ([c9b1cf6](https://github.com/Juargo/MoneyDiary/commit/c9b1cf60be7743892a48a43f19082904caeae923))
+* **api:** add nullable Categoria.icono column ([0f4991d](https://github.com/Juargo/MoneyDiary/commit/0f4991d882b17c7052d206c4dfbfc98662d47fce))
+* **api:** agrega Cuentas, Internet y telefonía, Comida y Ropa a la plantilla ([3d143c0](https://github.com/Juargo/MoneyDiary/commit/3d143c05bc230e323c978116ae739858bb02ae0d))
+* **api:** agrega la categoría Deuda a la plantilla por defecto ([23b2d05](https://github.com/Juargo/MoneyDiary/commit/23b2d05bec0aa438604bc72c8524d7be70486301))
+* **api:** agrega la categoría Deuda a la plantilla por defecto ([6e06b6b](https://github.com/Juargo/MoneyDiary/commit/6e06b6b3f784d97d83c7b1f1603a13da20a41086))
+* **api:** agrega reader y resolver de último período con datos ([86e20a7](https://github.com/Juargo/MoneyDiary/commit/86e20a7af9a37c4236debbc7d581f6fec64b0b9f))
+* **api:** allowlist de íconos de categoría, columna icono y defaults de seed ([b68b448](https://github.com/Juargo/MoneyDiary/commit/b68b44818583ab385246c371a88b6ff7631f4952))
+* **api:** expose categoria icono in bucket detalle groups ([ad4fd55](https://github.com/Juargo/MoneyDiary/commit/ad4fd559c00a2006973cffb9af0cbdd2228c88f6))
+* **api:** icono en el contrato HTTP de categorías y regeneración de api-client ([99ef7fd](https://github.com/Juargo/MoneyDiary/commit/99ef7fda7393723f2b5d16131ce5e83058329ece))
+* **api:** icono en los grupos del detalle del mes y aislamiento del catálogo ([eade61a](https://github.com/Juargo/MoneyDiary/commit/eade61a82d98ca429aad2a6cab761de1ff88dd0d))
+* **api:** loguea el code de maquina del error en el log del servidor ([5c17272](https://github.com/Juargo/MoneyDiary/commit/5c172724f8ddbd383d9fbb1b784bd420ad837183))
+* **api:** loguea el código de máquina del error en el log del servidor ([23a6436](https://github.com/Juargo/MoneyDiary/commit/23a6436200d4ea4ab81b63728b7baee159875b70))
+* **api:** ordena el detalle de bucket por monto descendente ([b77a44c](https://github.com/Juargo/MoneyDiary/commit/b77a44c147e5a0de0a41b67c6712060ecfe5d76a))
+* **api:** ordena el detalle de bucket por monto descendente ([1ec75a1](https://github.com/Juargo/MoneyDiary/commit/1ec75a1626fe021b1e8bf0d88627765d1913b260))
+* **api:** periodo ausente resuelve al último mes con datos del usuario ([3c547a8](https://github.com/Juargo/MoneyDiary/commit/3c547a820f0286469f92e6dfbf563a2be677779d))
+* **api:** período ausente resuelve al último mes con datos del usuario ([26d428f](https://github.com/Juargo/MoneyDiary/commit/26d428fbf1e3eb45296e674c932728248a8c2f25))
+* **api:** seed default category icons on catalog materialization ([9861ad1](https://github.com/Juargo/MoneyDiary/commit/9861ad18f5408d3d4251d46ac648e2fa30f85092))
+* **api:** thread categoria icono through the HTTP contract ([331b7ad](https://github.com/Juargo/MoneyDiary/commit/331b7adb3f2c19ae0a97459b164aba9fc7374167))
+* **api:** validar y persistir icono al crear y actualizar categoría ([d9d074b](https://github.com/Juargo/MoneyDiary/commit/d9d074b7ebf2e57bd005af713e44359e527b972d))
+* **api:** validate and persist categoria icono on create/update ([09a6595](https://github.com/Juargo/MoneyDiary/commit/09a6595f3f7ce7850015f780efdc3afcdcbe4879))
+* **catalogo:** agregar categorías Cuentas, Internet y telefonía, Comida y Ropa ([9540c36](https://github.com/Juargo/MoneyDiary/commit/9540c361c823bc0737356fd43621263a6e536cf9))
+* iconografía de categorías elegida por el usuario (US-067) ([b8f3a6e](https://github.com/Juargo/MoneyDiary/commit/b8f3a6e1c4a9f869b4bedaed5ef7361d86764a46))
+
+
+### Bug Fixes
+
+* **api:** el int-spec del seed afirmaba nombres únicos, no pares únicos ([36897dd](https://github.com/Juargo/MoneyDiary/commit/36897dd5db9b03a18348e337333e5ac4e27bd45a))
+* **api:** keep categoria icono out of the flat bucket detalle contract ([c2c6cdc](https://github.com/Juargo/MoneyDiary/commit/c2c6cdcf224d90e9920d7d26b56eb8877f8199eb))
+
+
+### Refactors
+
+* **api:** keyea la plantilla de catálogo por (bucket, nombre) ([1e9d54d](https://github.com/Juargo/MoneyDiary/commit/1e9d54d2a922126a226994f131e027939f72dc8f))
+* **api:** keyea la plantilla de catálogo por (bucket, nombre) ([745a2e0](https://github.com/Juargo/MoneyDiary/commit/745a2e0972c80bb8afc0f33a4ee382e50d822a79))
+* **api:** narrow seed catalog icono to the template icon type ([e10a46c](https://github.com/Juargo/MoneyDiary/commit/e10a46c805f562eb2694bf2f691eeee820b65ce3))
+
+
+### Documentation
+
+* **api:** actualiza el default de periodo ausente en CLAUDE.md ([59747e0](https://github.com/Juargo/MoneyDiary/commit/59747e0d3b6b36a55251934f9ecdf62f5bc31c09))
+
 ## [0.7.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.6.0...api-v0.7.0) (2026-09-15)
 
 
