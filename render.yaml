@@ -6,12 +6,24 @@
 # Cómo usarlo:
 #   1. En Render → New → Blueprint → conectar el repo Juargo/MoneyDiary.
 #   2. Render lee este archivo y crea el servicio.
-#   3. Setear los secretos (sync:false) en el dashboard: DATABASE_URL,
-#      DIRECT_URL, API_KEY (ver notas abajo).
+#   3. Cargar a mano en el dashboard TODO lo declarado con `sync:false`:
+#        Obligatorias — sin ellas el servicio NO arranca (env.ts, ADR-029):
+#          DATABASE_URL, DIRECT_URL, API_KEY, ENCRYPTION_KEY
+#        Opcionales — su ausencia APAGA la feature en silencio, sin error:
+#          GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET (login web, all-or-nothing)
+#          GOOGLE_REDIRECT_URI (obligatoria, https, si el par de arriba está)
+#          GOOGLE_CLIENT_ID_ANDROID (login mobile, gate independiente)
 #
-# Seguridad: los 3 secretos van con `sync:false` — NO se commitean; se cargan
-# a mano en el dashboard de Render. API_KEY protege todos los endpoints salvo
-# el health check (apiKeyMiddleware, fail-closed).
+# Seguridad: ningún `sync:false` se commitea con valor — se cargan a mano en el
+# dashboard de Render. API_KEY protege todos los endpoints salvo el health check
+# (apiKeyMiddleware, fail-closed).
+#
+# La fuente de verdad de qué variables existen y cuáles son obligatorias es el
+# schema de Zod en `apps/api/src/config/env.ts` (ADR-029), no este archivo. Este
+# blueprint debe declarar todo lo que el servicio real tiene seteado: si sabe
+# menos que la realidad, deja de servir como artefacto de recuperación (#587).
+# NO declarar `ALLOW_DESTRUCTIVE_DB`: env.ts la PROHIBE en producción (el boot
+# falla si está presente). `PORT` la inyecta Render; `LOG_LEVEL` tiene default.
 
 services:
   - type: web
@@ -83,6 +95,13 @@ services:
       #   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
       - key: API_KEY
         sync: false
+      # Clave AES-256-GCM que cifra Transaccion.descripcion, numeroCuenta y
+      # email en reposo (ADR-013). OBLIGATORIA en todo ambiente: env.ts no la
+      # marca opcional, así que sin ella el boot falla — igual que API_KEY.
+      # Base64 de 32 bytes EXACTOS. Generar con: openssl rand -base64 32
+      # Rotarla sin re-cifrar la BD deja los datos existentes ilegibles.
+      - key: ENCRYPTION_KEY
+        sync: false
       # Fuerza el flag `Secure` en la cookie de sesión. Con NODE_ENV=production
       # ya seteado arriba, app.ts la deriva igual (cookieSecure = NODE_ENV
       # === 'production' || COOKIE_SECURE) — queda explícita acá como
@@ -108,3 +127,27 @@ services:
       # Ampliar con coma si se agrega otro origen de navegador.
       - key: CORS_ALLOWED_ORIGINS
         value: "https://app.moneydiary.cl,https://money-diary-web.vercel.app"
+      # Login con Google (ADR-034 web, ADR-035 mobile). Las cuatro son
+      # OPCIONALES para Zod, y ahí está el riesgo: si faltan, la API arranca
+      # perfecto y la feature queda apagada SIN ningún error. Un servicio
+      # recreado desde este blueprint se quedaría sin login con Google y nadie
+      # se enteraría hasta que un usuario reporte que el botón no está (#587).
+      #
+      # GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET son all-or-nothing (superRefine
+      # en env.ts): exactamente una de las dos presente FALLA el boot, para que
+      # un cliente OAuth a medio configurar nunca sea un apagado silencioso.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # URL absoluta del callback. El pathname debe ser EXACTAMENTE
+      # /api/auth/google/callback (assertion de boot) y en producción va https.
+      # Debe coincidir con lo registrado en Google Cloud Console — eso NO lo
+      # valida el boot, se verifica a mano.
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      # Client ID tipo Android para el login mobile nativo (ADR-035). Su gate
+      # es TOTALMENTE independiente del par web de arriba (AUTH-22): ausente =
+      # login con Google apagado solo en mobile. Ver #586.
+      - key: GOOGLE_CLIENT_ID_ANDROID
+        sync: false
