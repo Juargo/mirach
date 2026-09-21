@@ -1,5 +1,4 @@
 import { Result } from '../../shared/result';
-import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
@@ -7,7 +6,9 @@ import {
   IDetalleBucketReader,
   DetalleBucketRow,
 } from '../ports/detalle-bucket.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
+import { resolverPeriodo } from './resolver-periodo';
 
 /** Tipo de retorno del use case en caso de éxito. */
 export interface ObtenerDetalleBucketResult {
@@ -31,6 +32,7 @@ const BUCKETS_VALIDOS: ReadonlySet<string> = new Set(Object.values(Bucket));
 export class ObtenerDetalleBucketUseCase {
   constructor(
     private readonly reader: IDetalleBucketReader,
+    private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
   ) {}
 
@@ -50,17 +52,17 @@ export class ObtenerDetalleBucketUseCase {
     }
     const bucket = input.bucket as Bucket;
 
-    // 2. Resolve periodo: undefined → PeriodoMes.actual(); present → PeriodoMes.crear().
-    let periodoVO: PeriodoMes;
-    if (input.periodo === undefined) {
-      periodoVO = PeriodoMes.actual();
-    } else {
-      const resultado = PeriodoMes.crear(input.periodo);
-      if (resultado.isFail()) {
-        return Result.fail(resultado.getError());
-      }
-      periodoVO = resultado.getValue();
+    // 2. Resolve periodo via resolverPeriodo: undefined → user's latest
+    //    month with data (fallback PeriodoMes.actual()); present → PeriodoMes.crear().
+    const periodoResult = await resolverPeriodo(
+      this.ultimoPeriodoReader,
+      input.userId,
+      input.periodo,
+    );
+    if (periodoResult.isFail()) {
+      return Result.fail(periodoResult.getError());
     }
+    const periodoVO = periodoResult.getValue();
 
     const transacciones = await this.reader.findByPeriodoYBucket(
       input.userId,

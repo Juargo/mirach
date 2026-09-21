@@ -132,7 +132,7 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
         descripcion: 'Compra Lider',
         cargo: 9500n,
         abono: 0n,
-        categoriaId: CATEGORIA_IDS['Ahorro'],
+        categoriaId: CATEGORIA_IDS['Ahorro:Ahorro'],
         bucketId: BUCKET_IDS[Bucket.Ahorro],
       },
     });
@@ -142,7 +142,7 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
     const afterRun = await prisma.transaccion.findUnique({
       where: { id: tx.id },
     });
-    expect(afterRun?.categoriaId).toBe(CATEGORIA_IDS['Ahorro']);
+    expect(afterRun?.categoriaId).toBe(CATEGORIA_IDS['Ahorro:Ahorro']);
     expect(afterRun?.bucketId).toBe(BUCKET_IDS[Bucket.Ahorro]);
     // This row was never in the totalRows scope for this run.
     expect(summary.totalRows).toBe(0);
@@ -263,7 +263,9 @@ describe('Backfill de categorías — integración (real dev DB)', () => {
       });
       // Must still resolve via the BOOTSTRAP user's own catalog
       // (Supermercado), never the attacker's hijacked categoria (Ahorro).
-      expect(bootstrapRow?.categoriaId).toBe(CATEGORIA_IDS['Supermercado']);
+      expect(bootstrapRow?.categoriaId).toBe(
+        CATEGORIA_IDS['Necesidades:Supermercado'],
+      );
       expect(summary.porCategoria['Supermercado']).toBeGreaterThanOrEqual(1);
     } finally {
       // Cleanup must run even when the assertions above fail (red phase or a

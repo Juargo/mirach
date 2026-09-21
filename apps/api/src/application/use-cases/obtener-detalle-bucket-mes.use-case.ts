@@ -1,5 +1,4 @@
 import { Result } from '../../shared/result';
-import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
@@ -7,11 +6,13 @@ import { BANDAS_SEMAFORO } from '../../domain/value-objects/estado-semaforo';
 import { porcentajeBasisPoints } from '../../domain/value-objects/resumen-mes';
 import { IDetalleBucketReader } from '../ports/detalle-bucket.port';
 import { IResumenMesReader } from '../ports/resumen-mes.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
 import {
   agruparDetallePorCategoria,
   GrupoDetalleCategoria,
 } from '../services/agrupar-detalle-por-categoria';
+import { resolverPeriodo } from './resolver-periodo';
 
 /** Tipo de retorno del use case en caso de éxito — header + grupos (MBD-01/02). */
 export interface ObtenerDetalleBucketMesResult {
@@ -54,8 +55,10 @@ const BUCKETS_DETALLE_MES: ReadonlySet<string> = new Set([
  * (MBD-01) + los grupos por categoría (MBD-02) vía el servicio puro
  * `agruparDetallePorCategoria`.
  *
- * Periodo: ausente → `PeriodoMes.actual()`; inválido → 400
- * (MBD-04, misma disciplina que el flat US-017 y el semáforo US-049).
+ * Periodo (issue #747): ausente → último mes del usuario con datos
+ * (`resolverPeriodo`, fallback `PeriodoMes.actual()` sin ninguna
+ * transacción); inválido → 400 (MBD-04, misma disciplina que el flat
+ * US-017 y el semáforo US-049).
  * Un mes vacío del bucket es Result.ok con totales en cero (MBD-01), nunca
  * un error. Never throws (Result<T,E>).
  */
@@ -63,6 +66,7 @@ export class ObtenerDetalleBucketMesUseCase {
   constructor(
     private readonly reader: IDetalleBucketReader,
     private readonly resumenReader: IResumenMesReader,
+    private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
   ) {}
 
@@ -83,17 +87,17 @@ export class ObtenerDetalleBucketMesUseCase {
     }
     const bucket = input.bucket as Bucket;
 
-    // 2. Periodo (MBD-04): ausente → mes actual; presente → validar VO.
-    let periodoVO: PeriodoMes;
-    if (input.periodo === undefined) {
-      periodoVO = PeriodoMes.actual();
-    } else {
-      const resultado = PeriodoMes.crear(input.periodo);
-      if (resultado.isFail()) {
-        return Result.fail(resultado.getError());
-      }
-      periodoVO = resultado.getValue();
+    // 2. Periodo (MBD-04): ausente → último mes con datos (fallback mes
+    //    actual); presente → validar VO.
+    const periodoResult = await resolverPeriodo(
+      this.ultimoPeriodoReader,
+      input.userId,
+      input.periodo,
+    );
+    if (periodoResult.isFail()) {
+      return Result.fail(periodoResult.getError());
     }
+    const periodoVO = periodoResult.getValue();
 
     // 3. Ambos readers (D-02): filas del bucket + base de ingresos del mes.
     const [rows, resumenRows] = await Promise.all([

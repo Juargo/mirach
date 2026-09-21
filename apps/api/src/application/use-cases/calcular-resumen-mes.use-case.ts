@@ -1,10 +1,11 @@
 import { Result } from '../../shared/result';
-import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { ResumenMes } from '../../domain/value-objects/resumen-mes';
 import { IResumenMesReader } from '../ports/resumen-mes.port';
+import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
 import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
+import { resolverPeriodo } from './resolver-periodo';
 
 /** Tipo de retorno del use case en caso de éxito — mirrors US-014 pattern. */
 export interface CalcularResumenMesResult {
@@ -19,7 +20,8 @@ export interface CalcularResumenMesResult {
  * del ResumenMes VO con los porcentajes 50/30/20 calculados en BigInt.
  *
  * Flow:
- *   1. Resolve periodo: absent → PeriodoMes.actual(); present → PeriodoMes.crear()
+ *   1. Resolve periodo via resolverPeriodo: absent → user's latest month
+ *      with data (fallback PeriodoMes.actual() if none); present → PeriodoMes.crear()
  *   2. Call reader.sumarPorBucket(userId, periodoVO)
  *   3. Extract totalIngreso from Ingreso row's totalAbono (0n if absent)
  *   4. For each spend bucket: total = totalCargo of that row (0n if absent)
@@ -31,6 +33,7 @@ export interface CalcularResumenMesResult {
 export class CalcularResumenMesUseCase {
   constructor(
     private readonly reader: IResumenMesReader,
+    private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
   ) {}
 
@@ -38,19 +41,15 @@ export class CalcularResumenMesUseCase {
     userId: string;
     periodo: string | undefined;
   }): Promise<Result<CalcularResumenMesResult, PeriodoInvalidoError>> {
-    let periodoVO: PeriodoMes;
-
-    if (input.periodo === undefined) {
-      // Absent → current UTC month (always valid)
-      periodoVO = PeriodoMes.actual();
-    } else {
-      // Present → validate with VO
-      const resultado = PeriodoMes.crear(input.periodo);
-      if (resultado.isFail()) {
-        return Result.fail(resultado.getError());
-      }
-      periodoVO = resultado.getValue();
+    const periodoResult = await resolverPeriodo(
+      this.ultimoPeriodoReader,
+      input.userId,
+      input.periodo,
+    );
+    if (periodoResult.isFail()) {
+      return Result.fail(periodoResult.getError());
     }
+    const periodoVO = periodoResult.getValue();
 
     const rows = await this.reader.sumarPorBucket(input.userId, periodoVO);
     // Counts only — never amounts (ADR-013). Row count reflects how many of

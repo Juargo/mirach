@@ -5,11 +5,12 @@ import {
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
   copiarCatalogoTemplate,
-  assertSinNombresDuplicados,
+  assertSinParesDuplicados,
+  claveCategoria,
   type CatalogoTemplateClient,
 } from './catalogo-template';
-import { Bucket } from '../../domain/value-objects/bucket';
 import { BUCKET_IDS } from './bucket-ids';
+import { Bucket } from '../../domain/value-objects/bucket';
 import {
   esIconoCategoria,
   type IconoCategoria,
@@ -20,7 +21,7 @@ import {
  *
  * Antes de este cambio la plantilla se DERIVABA de `Object.values(Categoria)`
  * (un enum cerrado); tras el retiro del enum, la plantilla es la única
- * fuente que fija qué 8 categorías y qué bucket llevan — este test las FIJA
+ * fuente que fija qué 12 categorías y qué bucket llevan — este test las FIJA
  * por nombre+bucket. Editar la plantilla ahora requiere editar este test a
  * propósito, que es exactamente el punto (design.md §8.3).
  */
@@ -42,10 +43,41 @@ describe('CATEGORIA_TEMPLATE', () => {
     { nombre: 'Streaming', bucket: Bucket.Deseos, icono: 'tv' },
     { nombre: 'Delivery', bucket: Bucket.Deseos, icono: 'bike' },
     { nombre: 'Ahorro', bucket: Bucket.Ahorro, icono: 'piggy-bank' },
+    {
+      nombre: 'Deuda',
+      bucket: Bucket.Necesidades,
+      icono: 'credit-card',
+    },
+    // Servicios básicos (luz, agua, gas) — issue #746.
+    { nombre: 'Cuentas', bucket: Bucket.Necesidades, icono: 'zap' },
+    {
+      nombre: 'Internet y telefonía',
+      bucket: Bucket.Necesidades,
+      icono: 'wifi',
+    },
+    // Restaurantes / comida fuera de casa y vestuario — issue #746. Sin
+    // PATRON_TEMPLATE a propósito (ver docblock de PATRON_TEMPLATE).
+    { nombre: 'Comida', bucket: Bucket.Deseos, icono: 'utensils' },
+    { nombre: 'Ropa', bucket: Bucket.Deseos, icono: 'shirt' },
+    {
+      nombre: 'Desconocido',
+      bucket: Bucket.Necesidades,
+      icono: 'circle-help',
+    },
+    {
+      nombre: 'Desconocido',
+      bucket: Bucket.Deseos,
+      icono: 'circle-help',
+    },
+    {
+      nombre: 'Desconocido',
+      bucket: Bucket.Ahorro,
+      icono: 'circle-help',
+    },
   ];
 
-  it('pins exactly 8 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list)', () => {
-    expect(CATEGORIA_TEMPLATE_SIZE).toBe(8);
+  it('pins exactly 16 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list; issue #746)', () => {
+    expect(CATEGORIA_TEMPLATE_SIZE).toBe(16);
     expect(CATEGORIA_TEMPLATE).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     const actual = CATEGORIA_TEMPLATE.map((entry) => ({
       nombre: entry.nombre,
@@ -72,37 +104,81 @@ describe('CATEGORIA_TEMPLATE', () => {
 });
 
 /**
- * assertSinNombresDuplicados — ADR-042 D-11. `idPorNombre` in
- * `copiarCatalogoTemplate` is keyed by `nombre` alone; a cross-bucket
- * duplicate in `CATEGORIA_TEMPLATE` would silently make `PATRON_TEMPLATE`
- * resolve to whichever bucket wrote last (last-write-wins), attaching
- * patrones to the wrong categoría for every new user. This guard fails
- * loudly at import time instead.
+ * `Desconocido` — categoria-desconocido. Tres filas homónimas, una por cada
+ * bucket ASIGNABLE (Necesidades, Deseos, Ahorro), habilitadas por el
+ * re-keyeo por (bucket, nombre) de ADR-042/`assertSinParesDuplicados`. Son
+ * de asignación manual exclusivamente: ningún patrón las detecta desde una
+ * glosa bancaria, así que el invariante que este bloque fija es que
+ * PATRON_TEMPLATE nunca les crece uno.
  */
-describe('assertSinNombresDuplicados (ADR-042, D-11)', () => {
-  it('the current CATEGORIA_TEMPLATE has no cross-bucket duplicate — passes', () => {
-    expect(() => assertSinNombresDuplicados(CATEGORIA_TEMPLATE)).not.toThrow();
+describe('Categoria "Desconocido" (categoria-desconocido)', () => {
+  it('existe exactamente una vez por cada bucket asignable (Necesidades, Deseos, Ahorro)', () => {
+    const desconocidas = CATEGORIA_TEMPLATE.filter(
+      (entry) => entry.nombre === 'Desconocido',
+    );
+    expect(desconocidas).toHaveLength(3);
+    expect(desconocidas.map((entry) => entry.bucket).sort()).toEqual(
+      [Bucket.Necesidades, Bucket.Deseos, Bucket.Ahorro].sort(),
+    );
   });
 
-  it('a synthetic template with a cross-bucket duplicate throws at construction', () => {
-    const conDuplicado = [
+  it('ninguna fila "Desconocido" es referenciada por PATRON_TEMPLATE (asignación manual exclusivamente)', () => {
+    const clavesDesconocido = new Set(
+      CATEGORIA_TEMPLATE.filter((entry) => entry.nombre === 'Desconocido').map(
+        (entry) => claveCategoria(entry.bucket, entry.nombre),
+      ),
+    );
+    for (const patron of PATRON_TEMPLATE) {
+      expect(clavesDesconocido.has(patron.categoria)).toBe(false);
+    }
+  });
+});
+
+/**
+ * assertSinParesDuplicados — ADR-042 D-11. `idPorClave` in
+ * `copiarCatalogoTemplate` is keyed by the composite `(bucket, nombre)`
+ * pair; a duplicate PAIR in `CATEGORIA_TEMPLATE` would silently make
+ * `PATRON_TEMPLATE` resolve to whichever row wrote last (last-write-wins),
+ * attaching patrones to the wrong categoría for every new user. This guard
+ * fails loudly at import time instead. ADR-042 explicitly ALLOWS the same
+ * `nombre` to repeat across different buckets — only a repeated PAIR is an
+ * error.
+ */
+describe('assertSinParesDuplicados (ADR-042, D-11)', () => {
+  it('the current CATEGORIA_TEMPLATE has no duplicate (bucket, nombre) pair — passes', () => {
+    expect(() => assertSinParesDuplicados(CATEGORIA_TEMPLATE)).not.toThrow();
+  });
+
+  it('two categorías with the same nombre in DIFFERENT buckets do NOT throw — ADR-042 allows this pair', () => {
+    const nombreRepetidoEntreBuckets = [
       { nombre: 'Transporte', bucket: Bucket.Necesidades },
       { nombre: 'Transporte', bucket: Bucket.Deseos },
     ] as const;
 
-    expect(() => assertSinNombresDuplicados(conDuplicado)).toThrow(
-      /nombre repetido/,
-    );
+    expect(() =>
+      assertSinParesDuplicados(nombreRepetidoEntreBuckets),
+    ).not.toThrow();
+  });
+
+  it('two categorías with the same (bucket, nombre) PAIR throw at construction', () => {
+    const parRepetido = [
+      { nombre: 'Transporte', bucket: Bucket.Necesidades },
+      { nombre: 'Transporte', bucket: Bucket.Necesidades },
+    ] as const;
+
+    expect(() => assertSinParesDuplicados(parRepetido)).toThrow(/par repetido/);
   });
 });
 
 describe('PATRON_TEMPLATE', () => {
-  it('cada entrada referencia un nombre de categoría que existe en la plantilla', () => {
-    const nombresTemplate = new Set(
-      CATEGORIA_TEMPLATE.map((entry) => entry.nombre),
+  it('cada entrada referencia una clave bucket:nombre que existe en la plantilla (ADR-042)', () => {
+    const clavesTemplate = new Set(
+      CATEGORIA_TEMPLATE.map((entry) =>
+        claveCategoria(entry.bucket, entry.nombre),
+      ),
     );
     for (const entry of PATRON_TEMPLATE) {
-      expect(nombresTemplate.has(entry.categoria)).toBe(true);
+      expect(clavesTemplate.has(entry.categoria)).toBe(true);
     }
   });
 
@@ -111,9 +187,29 @@ describe('PATRON_TEMPLATE', () => {
     expect(new Set(patrones).size).toBe(patrones.length);
   });
 
-  it('size is derived from the array and matches the current PATRON_CATALOG count (20)', () => {
-    expect(PATRON_TEMPLATE_SIZE).toBe(20);
+  it('size is derived from the array and matches the current PATRON_CATALOG count (39, issue #746)', () => {
+    expect(PATRON_TEMPLATE_SIZE).toBe(39);
     expect(PATRON_TEMPLATE).toHaveLength(PATRON_TEMPLATE_SIZE);
+  });
+});
+
+/**
+ * Comida / Ropa (issue #746) — decisión del owner: SIN PATRON_TEMPLATE.
+ * Los nombres de locales chilenos de comida/vestuario son ambiguos y un
+ * patrón malo clasificaría en silencio; se decidirá después con glosas
+ * reales. Este guard fija ese invariante igual que el de "Desconocido".
+ */
+describe('Categoria "Comida" y "Ropa" (issue #746) — sin PATRON_TEMPLATE a propósito', () => {
+  it('ningún patrón de PATRON_TEMPLATE referencia Comida ni Ropa', () => {
+    const clavesSinPatrones = new Set(
+      CATEGORIA_TEMPLATE.filter(
+        (entry) => entry.nombre === 'Comida' || entry.nombre === 'Ropa',
+      ).map((entry) => claveCategoria(entry.bucket, entry.nombre)),
+    );
+    expect(clavesSinPatrones.size).toBe(2);
+    for (const patron of PATRON_TEMPLATE) {
+      expect(clavesSinPatrones.has(patron.categoria)).toBe(false);
+    }
   });
 });
 
@@ -132,7 +228,11 @@ function makeFakeClient(overrides?: { rejectCategoriaCreateMany?: boolean }) {
     categoriaId: string;
     prioridad: number;
   }> = [];
-  const categoriaRows: Array<{ id: string; nombre: string }> = [];
+  // bucketId viaja acá porque copiarCatalogoTemplate ahora lo pide en el
+  // `select` del findMany real (necesita reconstruir la clave bucket:nombre
+  // — ver su docblock); el fake debe reflejar exactamente ese contrato.
+  const categoriaRows: Array<{ id: string; nombre: string; bucketId: string }> =
+    [];
 
   const client = {
     categoria: {
@@ -153,7 +253,11 @@ function makeFakeClient(overrides?: { rejectCategoriaCreateMany?: boolean }) {
           data.forEach((row, index) => {
             const id = `gen-categoria-${index}`;
             createdCategorias.push(row);
-            categoriaRows.push({ id, nombre: row.nombre });
+            categoriaRows.push({
+              id,
+              nombre: row.nombre,
+              bucketId: row.bucketId,
+            });
           });
           return { count: data.length };
         },

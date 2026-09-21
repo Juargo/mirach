@@ -1,4 +1,4 @@
-import type { CategoriaTemplateNombre } from './catalogo-template';
+import type { CategoriaTemplateClave } from './catalogo-template';
 
 /**
  * CATEGORIA_IDS — ids físicos fijos para las filas seed del usuario bootstrap
@@ -15,16 +15,28 @@ import type { CategoriaTemplateNombre } from './catalogo-template';
  * upsert del usuario bootstrap sea idempotente, y porque migraciones de
  * datos ya aplicadas los referencian.
  *
- * Tras ADR-037, las claves se re-tipan a `CategoriaTemplateNombre` — el
- * universo cerrado de nombres que la plantilla define (D-02).
+ * Tras ADR-042, las claves se re-tipan a `CategoriaTemplateClave` — el
+ * universo cerrado de pares `bucket:nombre` que la plantilla define, no solo
+ * el nombre (D-02): dos categorías homónimas en buckets distintos ya no
+ * podrían compartir clave por construcción. Los VALORES (los ids físicos)
+ * NO cambian — son ids ya persistidos en producción; re-keyear este mapa es
+ * un refactor de compilación, nunca una migración de datos.
  */
-export const CATEGORIA_IDS: Record<CategoriaTemplateNombre, string> = {
-  Supermercado: 'categoria-supermercado',
-  Combustible: 'categoria-combustible',
-  Farmacia: 'categoria-farmacia',
-  Salud: 'categoria-salud',
-  Transporte: 'categoria-transporte',
-  Streaming: 'categoria-streaming',
-  Delivery: 'categoria-delivery',
-  Ahorro: 'categoria-ahorro',
+export const CATEGORIA_IDS: Record<CategoriaTemplateClave, string> = {
+  'Necesidades:Supermercado': 'categoria-supermercado',
+  'Necesidades:Combustible': 'categoria-combustible',
+  'Necesidades:Farmacia': 'categoria-farmacia',
+  'Necesidades:Salud': 'categoria-salud',
+  'Necesidades:Transporte': 'categoria-transporte',
+  'Deseos:Streaming': 'categoria-streaming',
+  'Deseos:Delivery': 'categoria-delivery',
+  'Ahorro:Ahorro': 'categoria-ahorro',
+  'Necesidades:Deuda': 'categoria-deuda',
+  'Necesidades:Cuentas': 'categoria-cuentas',
+  'Necesidades:Internet y telefonía': 'categoria-internet-telefonia',
+  'Deseos:Comida': 'categoria-comida',
+  'Deseos:Ropa': 'categoria-ropa',
+  'Necesidades:Desconocido': 'categoria-desconocido-necesidades',
+  'Deseos:Desconocido': 'categoria-desconocido-deseos',
+  'Ahorro:Desconocido': 'categoria-desconocido-ahorro',
 };

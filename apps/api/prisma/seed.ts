@@ -13,7 +13,10 @@ import {
   CATEGORIA_TEMPLATE_SIZE,
   PATRON_TEMPLATE,
   PATRON_TEMPLATE_SIZE,
+  claveCategoria,
+  type CategoriaTemplateClave,
   type CategoriaTemplateNombre,
+  type PatronTemplateTexto,
 } from '../src/infrastructure/persistence/catalogo-template';
 import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db-safety';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
@@ -59,7 +62,13 @@ const CATEGORIA_CATALOG: Array<{
   bucketId: string;
   icono: (typeof CATEGORIA_TEMPLATE)[number]['icono'];
 }> = CATEGORIA_TEMPLATE.map((categoria) => ({
-  id: CATEGORIA_IDS[categoria.nombre],
+  // CATEGORIA_IDS está keyed por la clave compuesta bucket:nombre (ADR-042)
+  // — cada fila de CATEGORIA_TEMPLATE trae ambos campos, así que claveCategoria
+  // los correlaciona sin ambigüedad. El cast es seguro: la clave viene de la
+  // MISMA plantilla que define CategoriaTemplateClave.
+  id: CATEGORIA_IDS[
+    claveCategoria(categoria.bucket, categoria.nombre) as CategoriaTemplateClave
+  ],
   nombre: categoria.nombre,
   // bucketId SIEMPRE derivado en el write site (ADR-037 D-02) — BUCKET_IDS
   // sigue siendo la única autoridad de ids físicos, igual que
@@ -84,7 +93,7 @@ export const CATEGORIA_CATALOG_SIZE = CATEGORIA_TEMPLATE_SIZE;
 // único dentro de la plantilla (D-08 depende de esa unicidad), así que el
 // texto es una clave de lookup segura para reconectar cada entrada de la
 // plantilla con su id histórico de la era pre-US-037.
-const PATRON_ID_FIJO: Record<string, string> = {
+const PATRON_ID_FIJO: Record<PatronTemplateTexto, string> = {
   lider: 'pat-lider',
   jumbo: 'pat-jumbo',
   unimarc: 'pat-unimarc',
@@ -105,14 +114,35 @@ const PATRON_ID_FIJO: Record<string, string> = {
   'cuenta ahorro': 'pat-bci-ahorro',
   'afp ': 'pat-afp',
   '^transf(?:erencia)?.*ahorro': 'pat-transferencia-ahorro',
+  'pago deuda tarjeta': 'pat-pago-deuda-tarjeta',
+  sobregiro: 'pat-sobregiro',
+  // ── Cuentas / Internet y telefonía — issue #746 ──
+  enel: 'pat-enel',
+  cge: 'pat-cge',
+  chilquinta: 'pat-chilquinta',
+  saesa: 'pat-saesa',
+  'aguas andinas': 'pat-aguas-andinas',
+  esval: 'pat-esval',
+  essbio: 'pat-essbio',
+  metrogas: 'pat-metrogas',
+  lipigas: 'pat-lipigas',
+  abastible: 'pat-abastible',
+  gasco: 'pat-gasco',
+  movistar: 'pat-movistar',
+  entel: 'pat-entel',
+  vtr: 'pat-vtr',
+  gtd: 'pat-gtd',
+  'claro chile': 'pat-claro-chile',
+  '\\bwom\\b': 'pat-wom',
 };
 
 // ── US-012/US-013 S2 / US-037 D-07: Catálogo de patrones chilenos del
 // usuario bootstrap. El CONTENIDO (patrón, matchType, categoría, prioridad)
 // viene single-sourced de PATRON_TEMPLATE (catalogo-template.ts); el seed
-// solo agrega el id fijo (PATRON_ID_FIJO) y resuelve `categoria` (enum) a
-// `categoriaId` (id físico) vía CATEGORIA_IDS — mismo patrón que
-// CATEGORIA_CATALOG arriba (D-07: dos escritores, un contenido).
+// solo agrega el id fijo (PATRON_ID_FIJO) y resuelve `categoria` (clave
+// compuesta bucket:nombre, ADR-042) a `categoriaId` (id físico) vía
+// CATEGORIA_IDS — mismo patrón que CATEGORIA_CATALOG arriba (D-07: dos
+// escritores, un contenido).
 //
 // bucketId no se escribe aquí — PatronClasificacion.bucketId fue DROPeado de
 // la BD (ver migración drop_patron_bucketid); el bucket de cada patrón se
