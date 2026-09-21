@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/Juargo/MoneyDiary/compare/landing-v0.3.1...landing-v0.3.2) (2026-09-21)
+
+
+### Documentation
+
+* recorta CLAUDE.md a lo no derivable del código ([8411a9a](https://github.com/Juargo/MoneyDiary/commit/8411a9a00b06a3365fa993e1b654c7d168520e0f))
+* recorta CLAUDE.md a lo no derivable del código ([aedcab2](https://github.com/Juargo/MoneyDiary/commit/aedcab2c9982ebdc5ef0b924a32039d177d028a2))
+
 ## [0.3.1](https://github.com/Juargo/MoneyDiary/compare/landing-v0.3.0...landing-v0.3.1) (2026-09-15)
 
 
