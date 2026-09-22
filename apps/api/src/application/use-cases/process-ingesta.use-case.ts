@@ -26,6 +26,7 @@ import { IRegistrarIngestaFallidaWriter } from '../ports/registrar-ingesta-falli
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { ILogger } from '../ports/logger.port';
+import { CategoriaPorDefecto } from '../services/categoria-por-defecto';
 
 /** Entrada del orquestador: el archivo subido/leído y el usuario dueño de la cuenta. */
 export interface ProcessIngestaInput {
@@ -344,6 +345,9 @@ export class ProcessIngestaUseCase {
    *     (abono>0, cargo=0 → Ingreso), pero SOLO se escriben las filas de Ingreso.
    *     El resto queda bucketId=null (pendiente/reintentable), NUNCA SinCategoria:
    *     así US-013 distingue "no se pudo consultar el catálogo" de "no matcheó".
+   *   - Categoría por defecto (#778) no disponible/falla al resolver → se
+   *     pasa `null` al clasificador, que conserva su propio fail-safe
+   *     (SinCategoria) y loguea su propio warn; esta capa no rompe la ingesta.
    *   - Writer falla → deja bucketId en null en BD; log + continúa.
    *   - Cualquier excepción imprevista → captura, degrada, continúa.
    *
@@ -372,6 +376,22 @@ export class ProcessIngestaUseCase {
         );
       }
 
+      // 1b. Cargar la categoría por defecto (#778) — degrada a null si falla,
+      // igual que un catálogo de patrones caído: no rompe la ingesta. El
+      // clasificador conserva el fail-safe histórico (SinCategoria) y loguea
+      // su propio warn cuando no hay categoriaPorDefecto disponible.
+      let categoriaPorDefecto: CategoriaPorDefecto | null = null;
+      const categoriaPorDefectoResult =
+        await this.catalogoClasificacion.buscarCategoriaPorDefecto(userId);
+      if (categoriaPorDefectoResult.isOk()) {
+        categoriaPorDefecto = categoriaPorDefectoResult.getValue();
+      } else {
+        this.logger.error(
+          'no se pudo resolver la categoría por defecto; el fallback de clasificación degrada a SinCategoria',
+          { errorName: categoriaPorDefectoResult.getError().constructor.name },
+        );
+      }
+
       // 2. Leer transacciones persistidas de ESTA ingesta (scope isolation R-07)
       const txsParaClasificar =
         await this.txParaClasificarReader.findParaClasificar(ingestaId);
@@ -391,6 +411,7 @@ export class ProcessIngestaUseCase {
           .execute(
             { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
             patrones,
+            categoriaPorDefecto,
           )
           .getValue();
         return {

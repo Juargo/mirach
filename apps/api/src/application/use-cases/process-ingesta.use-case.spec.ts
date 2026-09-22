@@ -285,6 +285,12 @@ class FakeCatalogo implements ICatalogoClasificacion {
   patrones: ReadonlyArray<PatronClasificacion> = [];
   receivedUserIds: string[] = [];
 
+  /** Categoría por defecto (#778) a devolver; `null` por defecto (usuario
+   * sin la `Desconocido` de Deseos — el caller degrada al fail-safe). */
+  categoriaPorDefecto: { id: string; nombre: string } | null = null;
+  failWithDefecto?: CategorizacionFallidaError;
+  receivedUserIdsDefecto: string[] = [];
+
   async findAll(
     userId: string,
   ): Promise<
@@ -293,6 +299,16 @@ class FakeCatalogo implements ICatalogoClasificacion {
     this.receivedUserIds.push(userId);
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(this.patrones);
+  }
+
+  async buscarCategoriaPorDefecto(
+    userId: string,
+  ): Promise<
+    Result<{ id: string; nombre: string } | null, CategorizacionFallidaError>
+  > {
+    this.receivedUserIdsDefecto.push(userId);
+    if (this.failWithDefecto) return Result.fail(this.failWithDefecto);
+    return Result.ok(this.categoriaPorDefecto);
   }
 }
 

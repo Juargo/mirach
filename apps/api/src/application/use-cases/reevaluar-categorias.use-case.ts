@@ -87,10 +87,21 @@ export class ReevaluarCategoriasUseCase {
     }> = [];
 
     for (const t of transacciones) {
+      // #778: se pasa `null` a propósito, NUNCA la categoría por defecto real.
+      // Acá `Bucket.SinCategoria` no es un destino — es el CENTINELA de "ningún
+      // patrón matcheó" que el guard de abajo usa para dejar la fila intacta.
+      // Si se inyectara el default real, ese guard dejaría de dispararse (el
+      // resultado ya no sería SinCategoria) y la reevaluación pisaría
+      // clasificaciones manuales: un usuario que clasificó a mano un
+      // movimiento como Necesidades/Salud, tras editar cualquier patrón,
+      // vería ese movimiento reescrito a Gustos/Desconocido. Llevar el default
+      // real a este flujo es otro tramo de #778 (requiere replantear el guard
+      // de abajo, no solo el parámetro).
       const { categoria, bucket } = this.categorizarTransaccionUseCase
         .execute(
           { descripcion: t.descripcion, cargo: t.cargo, abono: t.abono },
           patrones,
+          null,
         )
         .getValue();
 

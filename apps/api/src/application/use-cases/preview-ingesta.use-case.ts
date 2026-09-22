@@ -22,6 +22,7 @@ import { EjecutarPipelineIngestaUseCase } from './ejecutar-pipeline-ingesta.use-
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { rangoFechas, marcarDuplicados } from './marcar-duplicados.helper';
 import { ILogger } from '../ports/logger.port';
+import { CategoriaPorDefecto } from '../services/categoria-por-defecto';
 
 /**
  * Entrada del preview: archivo + usuario propietario (D-06: dedup scoped a
@@ -95,6 +96,11 @@ export type PreviewIngestaError =
  * D-07: `rangoFechas` + `buscarPorCuentaYRango` + `marcarDuplicados` cuando cuenta existe.
  * D-08: sin 50-cap — se devuelven TODAS las filas del archivo (preview completo).
  * D-09: `sugerido` por fila, `Bucket.SinCategoria` → null; Ingreso still classified on catalog-down.
+ *       #778: sin match, `sugerido` apunta a la `Desconocido` del bucket por
+ *       defecto cuando el usuario la tiene — el MISMO destino que escribiría
+ *       `CommitIngestaUseCase` para esa fila (mismo `categoriaPorDefecto`
+ *       inyectado a `CategorizarTransaccionUseCase`). El preview no puede
+ *       sugerir un destino distinto del que el commit terminará persistiendo.
  * D-17: `ITransaccionExistenteReader` recibe descripción ya descifrada — el adapter Prisma
  *       invoca `crypto.decrypt` internamente (load-bearing, ver D-17 en design.md).
  *
@@ -176,6 +182,32 @@ export class PreviewIngestaUseCase {
       );
     }
 
+    // 2b. Categoría por defecto (#778) — preview solo carga PATRONES (no el
+    // catálogo completo de categorías), así que se resuelve vía el port
+    // (mismo método que ProcessIngestaUseCase). Si el catálogo está caído
+    // (`!catalogoDisponible`), la categoría por defecto TAMPOCO está
+    // disponible — mismo fail-safe que "pass [] so Ingreso rule still fires"
+    // más abajo: el preview no puede sugerir una `Desconocido` de un catálogo
+    // que no pudo leer. Cualquier otro fallo puntual de este método degrada
+    // igual a `null`, sin romper el preview.
+    let categoriaPorDefecto: CategoriaPorDefecto | null = null;
+    if (catalogoDisponible) {
+      const categoriaPorDefectoResult =
+        await this.catalogoClasificacion.buscarCategoriaPorDefecto(
+          input.userId,
+        );
+      if (categoriaPorDefectoResult.isOk()) {
+        categoriaPorDefecto = categoriaPorDefectoResult.getValue();
+      } else {
+        this.logger.error(
+          'preview-ingesta: no se pudo resolver la categoría por defecto',
+          {
+            errorName: categoriaPorDefectoResult.getError().constructor.name,
+          },
+        );
+      }
+    }
+
     // 3. Dedup status per row (D-06/D-07)
     const maskResult = await this.buildDedupMask(
       input.userId,
@@ -195,6 +227,9 @@ export class PreviewIngestaUseCase {
             { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
             // catalog-down: pass [] so Ingreso rule still fires (abono>0,cargo=0 → Ingreso)
             catalogoDisponible ? patrones : [],
+            // catalog-down → categoriaPorDefecto ya es null (ver 2b); en ese
+            // caso el fallback conserva SinCategoria, igual que antes de #778.
+            categoriaPorDefecto,
           )
           .getValue();
 

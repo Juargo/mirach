@@ -30,6 +30,10 @@ import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { PersistTransactionsUseCase } from './persist-transactions.use-case';
 import type { TransaccionAPersistir } from '../ports/ingesta-repository.port';
+import {
+  BUCKET_POR_DEFECTO,
+  seleccionarCategoriaPorDefecto,
+} from '../services/categoria-por-defecto';
 
 // ---------------------------------------------------------------------------
 // Public contracts
@@ -326,6 +330,11 @@ export class CommitIngestaUseCase {
     );
     const categoriaIds = new Set<string>(categorias.map((cat) => cat.id));
 
+    // ── 6b. Categoría por defecto (#778) — misma lista ya cargada en el paso
+    // 4, sin query nueva: `seleccionarCategoriaPorDefecto` es la ÚNICA fuente
+    // de verdad de "cuál es la Desconocido de BUCKET_POR_DEFECTO".
+    const categoriaPorDefecto = seleccionarCategoriaPorDefecto(categorias);
+
     // ── 7. Validate overlay categoriaId ∈ own category set (D-10, RNF-SEC-006) ─
     for (const edit of input.edits) {
       if (edit.categoriaId !== null && !categoriaIds.has(edit.categoriaId)) {
@@ -363,12 +372,20 @@ export class CommitIngestaUseCase {
     //     null, non-editable suggestion). Checked FIRST, so it wins over the overlay.
     //
     //   Rule 1 (overlay null = DES-CLASIFICAR): a non-Ingreso row with an overlay
-    //     whose categoriaId is null persists { SinCategoria, null } — the user
-    //     explicitly cleared the suggestion; the auto-classification result is
-    //     DISCARDED for that row (no auto bucket fallback).
+    //     whose categoriaId is null persists in the DEFAULT destination (#778):
+    //     the `Desconocido` category of BUCKET_POR_DEFECTO when the user has it,
+    //     { SinCategoria, null } as the historical fail-safe otherwise — the
+    //     auto-classification result is DISCARDED for that row (no auto bucket
+    //     fallback). Reasoning: a user who explicitly clears a suggestion is
+    //     literally saying "I don't know what this is" — which is exactly what
+    //     `Desconocido` means.
     //
-    //   Non-null overlay: bucket from the Map<categoriaId, Bucket> (D-15).
-    //   No overlay: auto-classify (SinCategoria stays a real FK, D-11/j).
+    //   Non-null overlay: bucket from the Map<categoriaId, Bucket> (D-15). If the
+    //     overlay's categoriaId were somehow absent from that map (defensive —
+    //     step 7/D-10 already validated it against the caller's own set), it
+    //     degrades to the SAME default destination as Rule 1, same fail-safe.
+    //   No overlay: auto-classify (SinCategoria stays a real FK, D-11/j;
+    //     the classifier itself now resolves the #778 default on no-match).
     //
     // Cross-tenant validation (D-10, step 7 above) already ran GLOBALLY over every
     // overlay entry BEFORE this per-row loop — a foreign categoriaId 400s even when
@@ -385,7 +402,15 @@ export class CommitIngestaUseCase {
 
         if (overlay !== undefined) {
           if (overlay.categoriaId === null) {
-            // Rule 1: DES-CLASIFICAR — discard the auto suggestion, persist SinCategoria.
+            // Rule 1: DES-CLASIFICAR — discard the auto suggestion, persist
+            // the #778 default destination (or the historical fail-safe).
+            if (categoriaPorDefecto !== null) {
+              return {
+                transaccion: tx,
+                bucket: BUCKET_POR_DEFECTO,
+                categoriaId: categoriaPorDefecto.id,
+              };
+            }
             return {
               transaccion: tx,
               bucket: Bucket.SinCategoria,
@@ -393,20 +418,35 @@ export class CommitIngestaUseCase {
             };
           }
           // Non-null overlay: bucket from the category map (D-15), not re-classification.
-          // The categoriaId is guaranteed in the map by the D-10 validation gate above.
+          // The categoriaId is guaranteed in the map by the D-10 validation gate above —
+          // this branch is defensive and should be unreachable in practice.
+          const bucketDelOverlay = bucketPorCategoria.get(overlay.categoriaId);
+          if (bucketDelOverlay === undefined) {
+            if (categoriaPorDefecto !== null) {
+              return {
+                transaccion: tx,
+                bucket: BUCKET_POR_DEFECTO,
+                categoriaId: categoriaPorDefecto.id,
+              };
+            }
+            return {
+              transaccion: tx,
+              bucket: Bucket.SinCategoria,
+              categoriaId: null,
+            };
+          }
           return {
             transaccion: tx,
-            bucket:
-              bucketPorCategoria.get(overlay.categoriaId) ??
-              Bucket.SinCategoria,
+            bucket: bucketDelOverlay,
             categoriaId: overlay.categoriaId,
           };
         }
 
         // No overlay — auto-classify. SinCategoria stays as Bucket.SinCategoria (not null)
         // because commit always resolves classification pre-persist (D-11/j).
+        // The classifier itself resolves the #778 default on no-match now.
         const autoResult = this.categorizarTransaccionUseCase
-          .execute(tx, patrones)
+          .execute(tx, patrones, categoriaPorDefecto)
           .getValue();
 
         return {

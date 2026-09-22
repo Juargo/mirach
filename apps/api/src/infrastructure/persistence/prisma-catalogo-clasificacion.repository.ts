@@ -6,6 +6,11 @@ import {
   MatchType,
 } from '../../domain/value-objects/patron-clasificacion';
 import { Bucket } from '../../domain/value-objects/bucket';
+import {
+  BUCKET_POR_DEFECTO,
+  CategoriaPorDefecto,
+} from '../../application/services/categoria-por-defecto';
+import { BUCKET_IDS } from './bucket-ids';
 import type { PrismaClient } from '@prisma/client';
 
 /**
@@ -59,6 +64,30 @@ export class PrismaCatalogoClasificacionRepository implements ICatalogoClasifica
       return Result.fail(
         new CategorizacionFallidaError(
           'no se pudo cargar el catálogo de clasificación',
+          error instanceof Error ? error : undefined,
+        ),
+      );
+    }
+  }
+
+  async buscarCategoriaPorDefecto(
+    userId: string,
+  ): Promise<Result<CategoriaPorDefecto | null, CategorizacionFallidaError>> {
+    try {
+      const fila = await this.prisma.categoria.findFirst({
+        where: {
+          userId,
+          esInterna: true,
+          bucketId: BUCKET_IDS[BUCKET_POR_DEFECTO],
+        },
+      });
+
+      if (!fila) return Result.ok(null);
+      return Result.ok({ id: fila.id, nombre: fila.nombre });
+    } catch (error) {
+      return Result.fail(
+        new CategorizacionFallidaError(
+          'no se pudo buscar la categoría por defecto',
           error instanceof Error ? error : undefined,
         ),
       );

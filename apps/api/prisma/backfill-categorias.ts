@@ -214,8 +214,14 @@ export async function runBackfill(
   const useCase = new CategorizarTransaccionUseCase(logger);
   const clasificadas = rows.map((row) => {
     const descripcion = crypto.decrypt(row.descripcion);
+    // #778: `null` a propósito — script legacy de bootstrap de un único
+    // usuario fijo, se preserva el comportamiento (SinCategoria) tal cual.
     const { categoria, bucket } = useCase
-      .execute({ descripcion, cargo: row.cargo, abono: row.abono }, patrones)
+      .execute(
+        { descripcion, cargo: row.cargo, abono: row.abono },
+        patrones,
+        null,
+      )
       .getValue();
     return {
       id: row.id,

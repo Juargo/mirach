@@ -50,6 +50,14 @@ class FailingCatalogo implements ICatalogoClasificacion {
       new CategorizacionFallidaError('test: catalog unavailable'),
     );
   }
+
+  // Este int-spec ejercita la degradación de PATRONES (#778 es otro tramo);
+  // stub sin uso solo para satisfacer el port.
+  async buscarCategoriaPorDefecto(): Promise<
+    Result<{ id: string; nombre: string } | null, CategorizacionFallidaError>
+  > {
+    return Result.ok(null);
+  }
 }
 
 /**
@@ -82,6 +90,9 @@ async function runCategorizacionStep(
         .execute(
           { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
           patrones,
+          // #778 es otro tramo: este int-spec ejercita la degradación de
+          // PATRONES, no la categoría por defecto.
+          null,
         )
         .getValue();
       return {
@@ -256,6 +267,9 @@ describe('Categorización — integración (real dev DB)', () => {
         .execute(
           { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
           patrones,
+          // #778 es otro tramo: este int-spec ejercita la degradación de
+          // PATRONES, no la categoría por defecto.
+          null,
         )
         .getValue();
       return {

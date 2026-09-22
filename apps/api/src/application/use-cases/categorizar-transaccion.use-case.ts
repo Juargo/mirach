@@ -3,6 +3,10 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { ILogger } from '../ports/logger.port';
+import {
+  BUCKET_POR_DEFECTO,
+  CategoriaPorDefecto,
+} from '../services/categoria-por-defecto';
 
 /** Datos mínimos de una transacción necesarios para la clasificación. */
 export interface TransaccionInput {
@@ -41,10 +45,20 @@ export interface CategorizarTransaccionResult {
  *      solo como desempate final para garantizar un orden total.
  *   3. Primera coincidencia (PatronClasificacion.coincide) → { categoria: patron.categoria,
  *      bucket: patron.bucket } (bucket derivado, nunca aceptado independientemente).
- *   4. Fallback: { categoria: null, bucket: SinCategoria }.
+ *   4. Fallback (issue #778): si el caller trae `categoriaPorDefecto` (la
+ *      `Desconocido` interna del bucket `BUCKET_POR_DEFECTO`, resuelta por
+ *      `seleccionarCategoriaPorDefecto`), la transacción sin coincidencia se
+ *      asigna ahí → { categoria: categoriaPorDefecto, bucket: BUCKET_POR_DEFECTO }.
+ *      Es un fallo RUIDOSO por diseño (ver docblock de `BUCKET_POR_DEFECTO`),
+ *      no un escondite. Si `categoriaPorDefecto` es `null` (usuario previo a
+ *      #738 que todavía no tiene esa fila, o degradación del catálogo aguas
+ *      arriba), se conserva el fail-safe histórico: { categoria: null, bucket:
+ *      SinCategoria } — pero logueando un warn, porque esa degradación
+ *      silenciosa ya no debería ser el camino normal.
  *
  * Contrato: retorna Result<{categoria,bucket},never> — SIEMPRE ok. Nunca lanza.
- * La degradación a SinCategoria ocurre aquí, no en el orquestador.
+ * La degradación (a la categoría por defecto, o a SinCategoria si no existe)
+ * ocurre aquí, no en el orquestador.
  */
 export class CategorizarTransaccionUseCase {
   constructor(private readonly logger: ILogger) {}
@@ -52,6 +66,7 @@ export class CategorizarTransaccionUseCase {
   execute(
     transaccion: TransaccionInput,
     patrones: ReadonlyArray<PatronClasificacion>,
+    categoriaPorDefecto: CategoriaPorDefecto | null,
   ): Result<CategorizarTransaccionResult, never> {
     // 1. Ingreso rule — tiene prioridad sobre todo el catálogo. La regla vive
     //    en el VO (única fuente); aquí se evalúa sobre el read model bigint.
@@ -84,7 +99,24 @@ export class CategorizarTransaccionUseCase {
       }
     }
 
-    // 4. Fallback.
+    // 4. Fallback (#778): la Desconocido del bucket por defecto si existe;
+    //    si no, se conserva el fail-safe histórico pero logueado RUIDOSO.
+    if (categoriaPorDefecto !== null) {
+      const resultado = {
+        categoria: categoriaPorDefecto,
+        bucket: BUCKET_POR_DEFECTO,
+      };
+      this.logDecision(resultado);
+      return Result.ok(resultado);
+    }
+
+    // Usuario sin la categoría Desconocido de BUCKET_POR_DEFECTO (previo a
+    // #738) o catálogo degradado aguas arriba: se conserva SinCategoria como
+    // fail-safe, pero NUNCA en silencio — un operador tiene que poder
+    // encontrar y backfillear estos usuarios.
+    this.logger.warn(
+      'categorizar-transaccion: no hay categoría Desconocido para el bucket por defecto de este usuario — degradando a SinCategoria; correr prisma/backfill-catalogo-faltante.ts --user <id> para el usuario afectado',
+    );
     const resultado = { categoria: null, bucket: Bucket.SinCategoria };
     this.logDecision(resultado);
     return Result.ok(resultado);

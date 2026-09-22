@@ -109,6 +109,7 @@ const INGESTA_ID = 'ingesta-xyz';
 const CAT_NECESIDADES_ID = 'cat-necesidades-1';
 const CAT_AHORRO_ID = 'cat-ahorro-1';
 const CAT_SIN_PATRON_ID = 'cat-sin-patron-1';
+const CAT_DESCONOCIDO_DESEOS_ID = 'cat-desconocido-deseos-1';
 
 // ---------------------------------------------------------------------------
 // Helper: Transaccion factory
@@ -258,6 +259,15 @@ class FakeCatalogoClasificacion implements ICatalogoClasificacion {
   async findAll(): Promise<Result<any, CategorizacionFallidaError>> {
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(this.patrones);
+  }
+
+  // CommitIngestaUseCase resuelve la categoría por defecto (#778) desde
+  // listarConPatrones (categoriaRepo), no desde este método; stub sin uso
+  // solo para satisfacer el port.
+  async buscarCategoriaPorDefecto(): Promise<
+    Result<{ id: string; nombre: string } | null, CategorizacionFallidaError>
+  > {
+    return Result.ok(null);
   }
 }
 
@@ -627,6 +637,42 @@ describe('CommitIngestaUseCase', () => {
       // TX0 — overlay null DES-CLASIFICA: SinCategoria bucket + null categoria (auto Necesidades discarded)
       expect(txs[0].bucket).toBe(Bucket.SinCategoria);
       expect(txs[0].categoriaId).toBeNull();
+    });
+
+    it('rule 1c (#778): overlay null + el usuario TIENE la Desconocido de Deseos ⇒ enruta al default, no a SinCategoria', async () => {
+      // Auto-classification WOULD put TX0 in Necesidades; overlay null must
+      // DES-CLASIFICAR — y, con la Desconocido de Deseos disponible, el
+      // destino por defecto reemplaza al viejo fail-safe SinCategoria.
+      const catalogoClasificacion = new FakeCatalogoClasificacion();
+      catalogoClasificacion.patrones = [patronSupermercado()];
+      const categoriaRepo = new FakeCategoriaRepository();
+      categoriaRepo.categorias = [
+        makeCategoria(CAT_NECESIDADES_ID, Bucket.Necesidades),
+        {
+          ...makeCategoria(CAT_DESCONOCIDO_DESEOS_ID, Bucket.Deseos),
+          nombre: 'Desconocido',
+          esInterna: true,
+        },
+      ];
+      const ingestaRepo = new FakeIngestaRepository();
+      const { sut } = buildSut({
+        catalogoClasificacion,
+        categoriaRepo,
+        ingestaRepo,
+      });
+
+      const edits: CommitEdit[] = [{ rowIndex: 0, categoriaId: null }];
+      const result = await sut.execute({
+        fileReader: FILE_READER,
+        userId: USUARIO_ID,
+        edits,
+        esDemo: false,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const txs = ingestaRepo.calls[0].transacciones;
+      expect(txs[0].bucket).toBe(Bucket.Deseos);
+      expect(txs[0].categoriaId).toBe(CAT_DESCONOCIDO_DESEOS_ID);
     });
 
     it('rule 1b: already-SinCategoria row + overlay null ⇒ {SinCategoria, null}, no error', async () => {
