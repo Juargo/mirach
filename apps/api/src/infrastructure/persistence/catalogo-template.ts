@@ -74,13 +74,37 @@ export const CATEGORIA_TEMPLATE = [
   // "esto fue un gusto" sin recordar el detalle → Deseos). Por diseño no
   // llevan NINGÚN PATRON_TEMPLATE — no existe glosa bancaria que detecte
   // "no recuerdo qué es esto"; son de asignación manual exclusivamente.
-  { nombre: 'Desconocido', bucket: Bucket.Necesidades, icono: 'circle-help' },
-  { nombre: 'Desconocido', bucket: Bucket.Deseos, icono: 'circle-help' },
-  { nombre: 'Desconocido', bucket: Bucket.Ahorro, icono: 'circle-help' },
+  //
+  // `esInterna` (#778): las ÚNICAS tres entradas internas de la plantilla.
+  // Son parte de la mecánica del producto — el destino de un movimiento cuyo
+  // grupo se conoce pero cuya categoría no — así que el usuario no las puede
+  // editar ni eliminar (`CategoriaInternaProtegidaError`). Es una propiedad
+  // de la FILA, no del nombre: renombrar otra categoría a "Desconocido" no
+  // la vuelve interna, y estas no dejan de serlo por llamarse como se llaman.
+  {
+    nombre: 'Desconocido',
+    bucket: Bucket.Necesidades,
+    icono: 'circle-help',
+    esInterna: true,
+  },
+  {
+    nombre: 'Desconocido',
+    bucket: Bucket.Deseos,
+    icono: 'circle-help',
+    esInterna: true,
+  },
+  {
+    nombre: 'Desconocido',
+    bucket: Bucket.Ahorro,
+    icono: 'circle-help',
+    esInterna: true,
+  },
 ] as const satisfies ReadonlyArray<{
   nombre: string;
   bucket: Bucket;
   icono: IconoCategoria;
+  /** Omitido ⇒ `false`. Ver la nota sobre `esInterna` más arriba (#778). */
+  esInterna?: boolean;
 }>;
 
 /**
@@ -533,6 +557,16 @@ export async function copiarCatalogoTemplate(
       // Default seed del allowlist curado (ADR-045 D-06/D-09) — solo en la
       // creación de un catálogo NUEVO, nunca backfillea una fila existente.
       icono: categoria.icono,
+      // #778: mismo criterio que `icono` — solo catálogos NUEVOS nacen con
+      // la marca. La migración deja `false` en todo lo preexistente a
+      // propósito; qué hacer con esos catálogos es una decisión abierta
+      // (#778 CA-07).
+      //
+      // El `in` y no `categoria.esInterna ?? false`: con `as const` cada
+      // entrada de la plantilla es su PROPIO tipo literal, y las trece que
+      // no declaran la marca directamente no tienen la propiedad — leerla
+      // no compila. El guard la lee solo donde existe.
+      esInterna: 'esInterna' in categoria ? categoria.esInterna : false,
     })),
   });
 

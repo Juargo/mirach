@@ -132,6 +132,34 @@ describe('Categoria "Desconocido" (categoria-desconocido)', () => {
       expect(clavesDesconocido.has(patron.categoria)).toBe(false);
     }
   });
+
+  // #778 — la marca de interna. Dos asserts y no uno: uno fija que las tres
+  // Desconocido la llevan, el otro que NINGUNA otra la lleva. Sin el segundo,
+  // marcar toda la plantilla por error pasaría desapercibido.
+  it('las tres "Desconocido" son las ÚNICAS entradas internas de la plantilla', () => {
+    const internas = CATEGORIA_TEMPLATE.filter(
+      (entry) => 'esInterna' in entry && entry.esInterna,
+    );
+
+    expect(internas).toHaveLength(3);
+    expect(internas.every((entry) => entry.nombre === 'Desconocido')).toBe(
+      true,
+    );
+    expect(internas.map((entry) => entry.bucket).sort()).toEqual(
+      [Bucket.Necesidades, Bucket.Deseos, Bucket.Ahorro].sort(),
+    );
+  });
+
+  it('ninguna categoría que NO se llame "Desconocido" es interna', () => {
+    const noDesconocidas = CATEGORIA_TEMPLATE.filter(
+      (entry) => entry.nombre !== 'Desconocido',
+    );
+
+    expect(noDesconocidas).toHaveLength(13);
+    for (const entry of noDesconocidas) {
+      expect('esInterna' in entry && entry.esInterna).toBe(false);
+    }
+  });
 });
 
 /**

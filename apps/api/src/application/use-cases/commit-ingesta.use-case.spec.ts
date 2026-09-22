@@ -340,6 +340,7 @@ function makeCategoria(
     patrones,
     transaccionesCount: 0,
     icono: null,
+    esInterna: false,
   };
 }
 

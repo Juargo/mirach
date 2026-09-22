@@ -44,6 +44,7 @@ interface CategoriaRow {
   patrones: PatronRow[];
   _count: { transacciones: number };
   icono: string | null;
+  esInterna: boolean;
 }
 
 /** Mismo tiebreak (prioridad, patron, id) de CategorizarTransaccionUseCase
@@ -75,6 +76,7 @@ function aCategoriaConPatrones(row: CategoriaRow): CategoriaConPatrones {
     patrones: ordenarPatrones(row.patrones).map(aPatron),
     transaccionesCount: row._count.transacciones,
     icono: row.icono,
+    esInterna: row.esInterna,
   };
 }
 

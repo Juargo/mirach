@@ -1,21 +1,30 @@
 import { ActualizarCategoriaUseCase } from './actualizar-categoria.use-case';
-import { ICategoriaRepository } from '../ports/categoria-repository.port';
+import {
+  CategoriaConPatrones,
+  ICategoriaRepository,
+} from '../ports/categoria-repository.port';
 import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaInvalidoError } from '../../domain/errors/nombre-categoria-invalido.error';
 import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { IconoCategoriaInvalidoError } from '../../domain/errors/icono-categoria-invalido.error';
+import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Result } from '../../shared/result';
 
-const CATEGORIA_ACTUAL = {
+// Tipado explícito a propósito: `buscarPorId` se stubea con un `vi.fn()` sin
+// tipo, así que sin esta anotación un campo faltante del port (p. ej. el
+// `esInterna` de #778) llegaría al use case como `undefined` y degradaría en
+// silencio a "no protegida" — justo el modo de falla que importa acá.
+const CATEGORIA_ACTUAL: CategoriaConPatrones = {
   id: 'cat-1',
   nombre: 'Delivery',
   bucket: Bucket.Deseos,
   patrones: [],
   transaccionesCount: 0,
   icono: null,
+  esInterna: false,
 };
 
 function makeRepo(
@@ -66,6 +75,49 @@ describe('ActualizarCategoriaUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(CategoriaNoEncontradaError);
+  });
+
+  // #778 — el caso que este cambio existe para cubrir.
+  it('403 cuando la fila es interna del sistema — antes de validar campos, y sin tocar el repositorio', async () => {
+    const repo = makeRepo({
+      buscarPorId: vi
+        .fn()
+        .mockResolvedValue({ ...CATEGORIA_ACTUAL, esInterna: true }),
+    });
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      // Nombre VÁLIDO a propósito: el rechazo no puede depender de que el
+      // patch fuera malo. Esta categoría no se edita ni con un patch perfecto.
+      nombre: 'Un nombre impecable',
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(CategoriaInternaProtegidaError);
+    expect(repo.actualizar).not.toHaveBeenCalled();
+    // Ni siquiera se preguntó por unicidad: el gate corta antes de todo.
+    expect(repo.existeNombre).not.toHaveBeenCalled();
+  });
+
+  it('403 de fila interna GANA sobre un nombre inválido (el orden importa: "no se muta" precede a "el campo es malo")', async () => {
+    const repo = makeRepo({
+      buscarPorId: vi
+        .fn()
+        .mockResolvedValue({ ...CATEGORIA_ACTUAL, esInterna: true }),
+    });
+    const useCase = new ActualizarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+      nombre: '   ', // inválido: sin el orden correcto esto daría 400
+    });
+
+    expect(result.getError()).toBeInstanceOf(CategoriaInternaProtegidaError);
   });
 
   it('body parcial: solo nombre es válido (Q4)', async () => {

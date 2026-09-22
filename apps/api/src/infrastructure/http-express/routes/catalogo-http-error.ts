@@ -11,6 +11,7 @@ import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.er
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
+import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
 import { CrearCategoriaError } from '../../../application/use-cases/crear-categoria.use-case';
 import { ActualizarCategoriaError } from '../../../application/use-cases/actualizar-categoria.use-case';
 import { EliminarCategoriaError } from '../../../application/use-cases/eliminar-categoria.use-case';
@@ -29,7 +30,7 @@ export type CatalogoError =
 /**
  * aCatalogoHttpError — ÚNICO traductor de errores para `registrarCategorias`
  * y `registrarPatrones` (US-038, design.md §5.3/§7.4). Un class ⇒
- * exactamente un status ⇒ exactamente un `code` (Q2/Q3) — cubre las 11
+ * exactamente un status ⇒ exactamente un `code` (Q2/Q3) — cubre las 12
  * clases alcanzables desde los 6 use cases de mutación del catálogo (no
  * incluye `CategoriaDesconocidaError`, que solo vive en
  * `PATCH /api/transacciones/:id/categoria`, mapeada por su propio switch
@@ -90,6 +91,14 @@ export function aCatalogoHttpError(error: CatalogoError): {
   }
   if (error instanceof CatalogoDemoSoloLecturaError) {
     return { status: 403, code: 'DEMO_SOLO_LECTURA', message: error.message };
+  }
+  // #778. Segundo `403` de la familia, y el par se sostiene porque describen
+  // cosas distintas: `DEMO_SOLO_LECTURA` es del SUJETO (esta sesión no
+  // escribe nada), `CATEGORIA_INTERNA` es del OBJETO (esta fila no se muta,
+  // la sesión sea cual sea). La invariante "un class ⇒ un status ⇒ un code"
+  // sigue intacta: dos clases, dos codes, mismo status.
+  if (error instanceof CategoriaInternaProtegidaError) {
+    return { status: 403, code: 'CATEGORIA_INTERNA', message: error.message };
   }
   if (error instanceof CategoriaNoEncontradaError) {
     return {
