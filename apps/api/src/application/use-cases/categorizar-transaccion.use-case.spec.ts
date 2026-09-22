@@ -53,6 +53,7 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
     const result = useCase.execute(
       { descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n },
       [],
+      null,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
@@ -64,6 +65,7 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
     const result = useCase.execute(
       { descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n },
       patrones,
+      null,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
@@ -74,6 +76,7 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
     const result = useCase.execute(
       { descripcion: 'TRANSFERENCIA MIXTA', abono: 15000n, cargo: 500n },
       [],
+      null,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
@@ -84,6 +87,7 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
     const result = useCase.execute(
       { descripcion: 'SIN MOVIMIENTO', abono: 0n, cargo: 0n },
       [],
+      null,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
@@ -94,6 +98,7 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
     const result = useCase.execute(
       { descripcion: 'COMPRA LIDER', abono: 0n, cargo: 8000n },
       [],
+      null,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
@@ -105,6 +110,7 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
     const result = useCase.execute(
       { descripcion: 'DEPOSITO SUELDO', abono: 500000n, cargo: 0n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.Ingreso);
@@ -123,6 +129,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'COMPRA LIDER SAN PABLO 123', abono: 0n, cargo: 9500n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
@@ -136,6 +143,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'SUSCRIPCION NETFLIX', abono: 0n, cargo: 5000n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toEqual({
       id: CAT_STREAMING.id,
@@ -149,6 +157,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'COPEC ESTACION 456', abono: 0n, cargo: 30000n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toEqual({
       id: CAT_COMBUSTIBLE.id,
@@ -162,6 +171,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'PAGO COPEC ESTACION 456', abono: 0n, cargo: 30000n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
@@ -174,6 +184,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'JUMBO 007 LAS CONDES', abono: 0n, cargo: 55000n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
@@ -190,6 +201,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
@@ -211,6 +223,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
@@ -238,14 +251,16 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     );
     const descripcion = 'COMPRA AAAZZZ TIENDA';
 
-    const ordenAB = useCase.execute({ descripcion, abono: 0n, cargo: 1000n }, [
-      patronAaa,
-      patronZzz,
-    ]);
-    const ordenBA = useCase.execute({ descripcion, abono: 0n, cargo: 1000n }, [
-      patronZzz,
-      patronAaa,
-    ]);
+    const ordenAB = useCase.execute(
+      { descripcion, abono: 0n, cargo: 1000n },
+      [patronAaa, patronZzz],
+      null,
+    );
+    const ordenBA = useCase.execute(
+      { descripcion, abono: 0n, cargo: 1000n },
+      [patronZzz, patronAaa],
+      null,
+    );
 
     // 'aaa' < 'zzz' por texto de patrón → Supermercado gana, sin importar el
     // orden de entrada ni el orden (contrario) de los ids.
@@ -266,6 +281,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'CASINO XYZ', abono: 0n, cargo: 5000n },
       patrones,
+      null,
     );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
@@ -275,6 +291,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'CUALQUIER COSA', abono: 0n, cargo: 1000n },
       [],
+      null,
     );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
@@ -286,11 +303,13 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       useCase.execute(
         { descripcion: 'cualquier texto', abono: 0n, cargo: 1000n },
         patrones,
+        null,
       ),
     ).not.toThrow();
     const result = useCase.execute(
       { descripcion: 'cualquier texto', abono: 0n, cargo: 1000n },
       patrones,
+      null,
     );
     expect(result.isOk()).toBe(true);
     expect(result.getValue().categoria).toBeNull();
@@ -302,6 +321,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'DEPOSITO SUELDO', abono: 120000n, cargo: 0n },
       [],
+      null,
     );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.Ingreso);
@@ -311,9 +331,74 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     const result = useCase.execute(
       { descripcion: 'COMPRA ONLINE', abono: 0n, cargo: 5000n },
       [],
+      null,
     );
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #778 — fallback por defecto (Desconocido / Deseos) cuando no hay coincidencia
+// ---------------------------------------------------------------------------
+describe('CategorizarTransaccionUseCase — categoría por defecto (#778)', () => {
+  const CATEGORIA_DESCONOCIDO_DESEOS = {
+    id: 'cat-desconocido-deseos',
+    nombre: 'Desconocido',
+  };
+
+  it('sin coincidencia + hay categoría por defecto → {categoria: Desconocido, bucket: Deseos}', () => {
+    const result = useCase.execute(
+      { descripcion: 'CASINO XYZ', abono: 0n, cargo: 5000n },
+      [],
+      CATEGORIA_DESCONOCIDO_DESEOS,
+    );
+    expect(result.getValue().categoria).toEqual(CATEGORIA_DESCONOCIDO_DESEOS);
+    expect(result.getValue().bucket).toBe(Bucket.Deseos);
+  });
+
+  it('sin coincidencia + NO hay categoría por defecto (null) → {categoria: null, bucket: SinCategoria} y se emite un warn', () => {
+    const logger = new FakeLogger();
+    const ucConLogger = new CategorizarTransaccionUseCase(logger);
+
+    const result = ucConLogger.execute(
+      { descripcion: 'CASINO XYZ', abono: 0n, cargo: 5000n },
+      [],
+      null,
+    );
+
+    expect(result.getValue().categoria).toBeNull();
+    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    const warnCalls = logger.calls.filter((c) => c.level === 'warn');
+    expect(warnCalls).toHaveLength(1);
+    expect(warnCalls[0].message).toContain('categoría Desconocido');
+    // ADR-013: el warn nunca debe filtrar descripción ni montos.
+    expect(warnCalls[0].message).not.toContain('CASINO XYZ');
+    expect(warnCalls[0].message).not.toContain('5000');
+  });
+
+  it('la regla Ingreso NO cambia aunque haya categoría por defecto: sigue dando {null, Ingreso}', () => {
+    const result = useCase.execute(
+      { descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n },
+      [],
+      CATEGORIA_DESCONOCIDO_DESEOS,
+    );
+    expect(result.getValue().categoria).toBeNull();
+    expect(result.getValue().bucket).toBe(Bucket.Ingreso);
+  });
+
+  it('una coincidencia de patrón NO usa el default, aunque haya categoría por defecto disponible', () => {
+    const patrones = [makePatron('LIDER', 'CONTAINS', CAT_SUPERMERCADO, 10)];
+    const result = useCase.execute(
+      { descripcion: 'COMPRA LIDER SAN PABLO 123', abono: 0n, cargo: 9500n },
+      patrones,
+      CATEGORIA_DESCONOCIDO_DESEOS,
+    );
+    expect(result.getValue().categoria).toEqual({
+      id: CAT_SUPERMERCADO.id,
+      nombre: CAT_SUPERMERCADO.nombre,
+    });
+    expect(result.getValue().bucket).toBe(Bucket.Necesidades);
   });
 });
 
@@ -328,7 +413,7 @@ describe('CategorizarTransaccionUseCase — contrato Result', () => {
       { descripcion: 'C', abono: 0n, cargo: 0n },
     ];
     for (const input of cases) {
-      const result = useCase.execute(input, []);
+      const result = useCase.execute(input, [], null);
       expect(result.isOk()).toBe(true);
     }
   });
@@ -343,6 +428,7 @@ describe('CategorizarTransaccionUseCase — debug logging (ADR-033 slice B, ADR-
     ucConLogger.execute(
       { descripcion: 'COMPRA LIDER SECRETA 123', abono: 0n, cargo: 9500n },
       patrones,
+      null,
     );
 
     const debugCalls = logger.calls.filter((c) => c.level === 'debug');

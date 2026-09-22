@@ -88,7 +88,12 @@ function fakeTxExistenteReader(): ITransaccionExistenteReader {
 function fakeCatalogo(
   patrones: ReadonlyArray<PatronClasificacion>,
 ): ICatalogoClasificacion {
-  return { findAll: () => Promise.resolve(Result.ok(patrones)) };
+  return {
+    findAll: () => Promise.resolve(Result.ok(patrones)),
+    // Este spec no ejercita la categoría por defecto (#778); stub sin uso
+    // solo para satisfacer el port.
+    buscarCategoriaPorDefecto: () => Promise.resolve(Result.ok(null)),
+  };
 }
 
 /** Patrón que matchea CUALQUIER descripción no vacía (CONTAINS de la letra

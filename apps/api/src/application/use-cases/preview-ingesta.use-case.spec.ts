@@ -12,6 +12,7 @@ import { Result } from '../../shared/result';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
+import { CategoriaPorDefecto } from '../services/categoria-por-defecto';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { ExtensionNoPermitidaError } from '../../domain/errors/extension-no-permitida.error';
@@ -245,11 +246,25 @@ class FakeCatalogo implements ICatalogoClasificacion {
   patrones: ReadonlyArray<PatronClasificacion> = [];
   failWith?: CategorizacionFallidaError;
 
+  /** Categoría por defecto (#778) a devolver; `null` por defecto (usuario sin
+   * la `Desconocido` de Deseos — el caller degrada al fail-safe). */
+  categoriaPorDefecto: CategoriaPorDefecto | null = null;
+  failWithDefecto?: CategorizacionFallidaError;
+  receivedUserIdsDefecto: string[] = [];
+
   async findAll(): Promise<
     Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
   > {
     if (this.failWith) return Result.fail(this.failWith);
     return Result.ok(this.patrones);
+  }
+
+  async buscarCategoriaPorDefecto(
+    userId: string,
+  ): Promise<Result<CategoriaPorDefecto | null, CategorizacionFallidaError>> {
+    this.receivedUserIdsDefecto.push(userId);
+    if (this.failWithDefecto) return Result.fail(this.failWithDefecto);
+    return Result.ok(this.categoriaPorDefecto);
   }
 }
 
@@ -738,6 +753,60 @@ describe('PreviewIngestaUseCase', () => {
       });
       // Non-Ingreso rows → sugerido: null (cannot match without catalog)
       expect(filas[1].sugerido).toBeNull();
+    });
+
+    // #778 — el preview tiene que sugerir EXACTAMENTE el destino que
+    // CommitIngestaUseCase terminaría persistiendo para la misma fila sin
+    // overlay: si divergieran, el preview le mentiría al usuario en la
+    // pantalla donde decide. Ambos use cases inyectan el MISMO
+    // `categoriaPorDefecto` (id/nombre reales) al mismo
+    // `CategorizarTransaccionUseCase.execute()`, así que este test rompe si
+    // alguno de los dos deja de pasarlo (o lo pasa distinto).
+    it('#778: sin match + usuario CON la Desconocido de Deseos → sugerido apunta al MISMO destino que commit persistiría', async () => {
+      const catalogo = new FakeCatalogo(); // sin patrones → ningún match
+      const CATEGORIA_DESCONOCIDO_DESEOS: CategoriaPorDefecto = {
+        id: 'cat-desconocido-deseos-preview',
+        nombre: 'Desconocido',
+      };
+      catalogo.categoriaPorDefecto = CATEGORIA_DESCONOCIDO_DESEOS;
+      const { useCase } = buildUseCase({ catalogo });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const { filas } = result.getValue();
+      // Mismo shape que CommitIngestaUseCase para una fila sin overlay ni
+      // match de patrón: bucket Deseos + categoriaId de la Desconocido.
+      filas.forEach((fila) => {
+        expect(fila.sugerido).toEqual({
+          bucket: Bucket.Deseos,
+          categoriaId: CATEGORIA_DESCONOCIDO_DESEOS.id,
+        });
+      });
+    });
+
+    it('#778: catálogo caído → NO se consulta buscarCategoriaPorDefecto (mismo apagón que los patrones)', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.failWith = new CategorizacionFallidaError('db error');
+      catalogo.categoriaPorDefecto = {
+        id: 'cat-desconocido-deseos-preview',
+        nombre: 'Desconocido',
+      };
+      const { useCase } = buildUseCase({ catalogo });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      expect(result.isOk()).toBe(true);
+      // El apagón de patrones también apaga la categoría por defecto (D-09
+      // degradation): no se llama al método, y las filas no-Ingreso quedan
+      // sugerido:null, NUNCA la Desconocido de un catálogo que no se pudo leer.
+      expect(catalogo.receivedUserIdsDefecto).toHaveLength(0);
     });
   });
 

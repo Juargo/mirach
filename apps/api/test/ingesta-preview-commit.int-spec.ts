@@ -155,6 +155,15 @@ class FailingCatalogo implements ICatalogoClasificacion {
       new CategorizacionFallidaError('catálogo no disponible'),
     );
   }
+
+  // CommitIngestaUseCase resuelve la categoría por defecto (#778) desde
+  // listarConPatrones, no desde este método; stub sin uso solo para
+  // satisfacer el port.
+  async buscarCategoriaPorDefecto(): Promise<
+    Result<{ id: string; nombre: string } | null, CategorizacionFallidaError>
+  > {
+    return Result.ok(null);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

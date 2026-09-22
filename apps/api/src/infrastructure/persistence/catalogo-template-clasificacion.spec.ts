@@ -49,6 +49,7 @@ function clasificar(descripcion: string) {
   const result = useCase.execute(
     { descripcion, abono: 0n, cargo: 5000n },
     PATRONES_REALES,
+    null,
   );
   return {
     categoria: result.getValue().categoria?.nombre ?? null,

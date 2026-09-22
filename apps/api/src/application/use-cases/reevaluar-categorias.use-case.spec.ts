@@ -32,7 +32,12 @@ function patronSupermercado(): PatronClasificacion {
 function makeCatalogo(
   patrones: ReadonlyArray<PatronClasificacion> = [],
 ): ICatalogoClasificacion {
-  return { findAll: vi.fn().mockResolvedValue(Result.ok(patrones)) };
+  return {
+    findAll: vi.fn().mockResolvedValue(Result.ok(patrones)),
+    // ReevaluarCategoriasUseCase no consume la categoría por defecto (#778,
+    // fuera de este tramo); stub sin uso solo para satisfacer el port.
+    buscarCategoriaPorDefecto: vi.fn().mockResolvedValue(Result.ok(null)),
+  };
 }
 
 function makeReader(
@@ -90,6 +95,7 @@ describe('ReevaluarCategoriasUseCase', () => {
     const catalogoError = new CategorizacionFallidaError('boom');
     const catalogo: ICatalogoClasificacion = {
       findAll: vi.fn().mockResolvedValue(Result.fail(catalogoError)),
+      buscarCategoriaPorDefecto: vi.fn().mockResolvedValue(Result.ok(null)),
     };
     const reader = makeReader([]);
     const writer = makeWriter();
@@ -204,6 +210,45 @@ describe('ReevaluarCategoriasUseCase', () => {
 
     const result = await useCase.execute({ userId: 'user-a', esDemo: false });
 
+    expect(writer.escribir).toHaveBeenCalledWith('user-a', []);
+    expect(result.getValue()).toEqual({
+      transaccionesEvaluadas: 1,
+      transaccionesActualizadas: 0,
+    });
+  });
+
+  // #778 (tramo 2) — regresión explícita: el guard SinCategoria-como-centinela
+  // de arriba solo funciona si `execute()` recibe `categoriaPorDefecto: null`
+  // en este flujo. Si alguien conectara el default REAL acá, esta fila
+  // clasificada A MANO (Necesidades/Salud) que ya no matchea ningún patrón
+  // dejaría de ser SinCategoria (pasaría a Deseos/Desconocido) y el guard
+  // NUNCA se dispararía — la reevaluación la pisaría en silencio.
+  it('#778: una fila con clasificación MANUAL que ya no matchea ningún patrón sobrevive intacta (no se pisa con el default)', async () => {
+    const catalogo = makeCatalogo([patronSupermercado()]); // el patrón vigente no matchea esta descripción
+    const rows = [
+      tx({
+        id: 'tx-clasificada-a-mano',
+        descripcion: 'Consulta médica particular',
+        cargo: 45000n,
+        abono: 0n,
+        categoriaIdActual: 'cat-salud',
+        bucketActual: Bucket.Necesidades,
+      }),
+    ];
+    const reader = makeReader(rows);
+    const writer = makeWriter(Result.ok({ actualizadas: 0 }));
+    const useCase = new ReevaluarCategoriasUseCase(
+      catalogo,
+      reader,
+      writer,
+      new CategorizarTransaccionUseCase(new NoOpLogger()),
+      new NoOpLogger(),
+    );
+
+    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+
+    // El writer NUNCA ve esta fila: la clasificación manual (Necesidades/Salud)
+    // sobrevive exactamente como estaba.
     expect(writer.escribir).toHaveBeenCalledWith('user-a', []);
     expect(result.getValue()).toEqual({
       transaccionesEvaluadas: 1,
