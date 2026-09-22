@@ -623,12 +623,12 @@ describe('PrismaCategoriaRepository', () => {
   });
 
   describe('eliminar()', () => {
-    it('runs an array-form $transaction: patterns deleted FIRST, then the category — NO in-use predicate (US-039, CAT038-04 as modified)', async () => {
+    it('reasignarA null: runs an array-form $transaction: patterns deleted FIRST, then the category — NO in-use predicate (US-039, CAT038-04 as modified)', async () => {
       const prisma = makePrismaMock();
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);
 
-      const result = await repo.eliminar(USER_ID, 'cat-1');
+      const result = await repo.eliminar(USER_ID, 'cat-1', null);
 
       expect(result.isOk()).toBe(true);
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -636,12 +636,46 @@ describe('PrismaCategoriaRepository', () => {
       expect(Array.isArray(txArg)).toBe(true);
     });
 
+    it('reasignarA null: NO llama a transaccion.updateMany — deja el SetNull histórico del FK', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.eliminar(USER_ID, 'cat-1', null);
+
+      expect(prisma.transaccion.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('reasignarA con id: reasigna las transacciones a la Desconocido del MISMO bucket ANTES de borrar, filtrando por account.userId (RNF-SEC-006)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.eliminar(USER_ID, 'cat-1', 'cat-desconocido-necesidades');
+
+      expect(prisma.transaccion.updateMany).toHaveBeenCalledWith({
+        where: { categoriaId: 'cat-1', account: { userId: USER_ID } },
+        data: { categoriaId: 'cat-desconocido-necesidades' },
+      });
+    });
+
+    it('reasignarA con id: NO incluye bucketId en el data del updateMany — CA-04, borrar categoría nunca mueve dinero entre buckets', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      await repo.eliminar(USER_ID, 'cat-1', 'cat-desconocido-necesidades');
+
+      const llamada = (prisma.transaccion.updateMany as Mock).mock.calls[0][0];
+      expect(llamada.data).not.toHaveProperty('bucketId');
+    });
+
     it('the child deleteMany WHERE deep-equals {categoriaId, userId} EXACTLY — pins the Q4 invariant (dropping userId reopens the cross-tenant delete PrismaEliminarIngestaRepository guards against)', async () => {
       const prisma = makePrismaMock();
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.eliminar(USER_ID, 'cat-1');
+      await repo.eliminar(USER_ID, 'cat-1', null);
 
       expect(prisma.patronClasificacion.deleteMany).toHaveBeenCalledWith({
         where: { categoriaId: 'cat-1', userId: USER_ID },
@@ -653,7 +687,7 @@ describe('PrismaCategoriaRepository', () => {
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.eliminar(USER_ID, 'cat-1');
+      await repo.eliminar(USER_ID, 'cat-1', null);
 
       expect(prisma.categoria.deleteMany).toHaveBeenCalledWith({
         where: { id: 'cat-1', userId: USER_ID },
@@ -665,7 +699,17 @@ describe('PrismaCategoriaRepository', () => {
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);
 
-      const result = await repo.eliminar(USER_ID, 'cat-1');
+      const result = await repo.eliminar(USER_ID, 'cat-1', null);
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('parent count 1 con reasignarA con id ⇒ Result.ok igual (la reasignación no interfiere con el gate de ownership)', async () => {
+      const prisma = makePrismaMock();
+      (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const result = await repo.eliminar(USER_ID, 'cat-1', 'cat-desconocido');
 
       expect(result.isOk()).toBe(true);
     });
@@ -675,7 +719,7 @@ describe('PrismaCategoriaRepository', () => {
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 0 });
       const repo = new PrismaCategoriaRepository(prisma);
 
-      const result = await repo.eliminar(USER_ID, 'cat-1');
+      const result = await repo.eliminar(USER_ID, 'cat-1', null);
 
       expect(result.isFail()).toBe(true);
       expect(result.getError()).toBeInstanceOf(CategoriaNoEncontradaError);
@@ -686,7 +730,7 @@ describe('PrismaCategoriaRepository', () => {
       (prisma.categoria.deleteMany as Mock).mockResolvedValue({ count: 1 });
       const repo = new PrismaCategoriaRepository(prisma);
 
-      await repo.eliminar(USER_ID, 'cat-1');
+      await repo.eliminar(USER_ID, 'cat-1', null);
 
       expect(prisma.categoria.findFirst).not.toHaveBeenCalled();
     });

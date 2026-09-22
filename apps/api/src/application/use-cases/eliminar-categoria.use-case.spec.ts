@@ -20,20 +20,50 @@ const CATEGORIA: CategoriaConPatrones = {
   esInterna: false,
 };
 
+/** La `Desconocido` de Deseos — el mismo bucket que `CATEGORIA`. */
+const DESCONOCIDO_DESEOS: CategoriaConPatrones = {
+  id: 'cat-desconocido-deseos',
+  nombre: 'Desconocido',
+  bucket: Bucket.Deseos,
+  patrones: [],
+  transaccionesCount: 0,
+  icono: null,
+  esInterna: true,
+};
+
+/** La `Desconocido` de Necesidades — OTRO bucket, nunca debería elegirse para `CATEGORIA`. */
+const DESCONOCIDO_NECESIDADES: CategoriaConPatrones = {
+  id: 'cat-desconocido-necesidades',
+  nombre: 'Desconocido',
+  bucket: Bucket.Necesidades,
+  patrones: [],
+  transaccionesCount: 0,
+  icono: null,
+  esInterna: true,
+};
+
 /**
  * `buscarPorId` dejó de ser un stub inerte (#778): el use case ahora LEE la
  * fila antes de borrarla, para saber si está protegida. El default devuelve
  * una categoría común, así que los casos que no hablan de protección se leen
  * igual que antes.
+ *
+ * `listarConPatrones` (tramo 3) por default trae el catálogo completo con la
+ * `Desconocido` de AMBOS buckets — así un test que no habla de reasignación
+ * sigue viendo el flujo feliz (encuentra la de Deseos, ignora la de
+ * Necesidades) sin tener que declarar el catálogo a mano.
  */
 function makeRepo(
   eliminar: ICategoriaRepository['eliminar'],
   buscarPorId: ICategoriaRepository['buscarPorId'] = vi
     .fn()
     .mockResolvedValue(CATEGORIA),
+  listarConPatrones: ICategoriaRepository['listarConPatrones'] = vi
+    .fn()
+    .mockResolvedValue([DESCONOCIDO_DESEOS, DESCONOCIDO_NECESIDADES]),
 ): ICategoriaRepository {
   return {
-    listarConPatrones: vi.fn(),
+    listarConPatrones,
     buscarPorId,
     existeNombre: vi.fn(),
     crearConPatrones: vi.fn(),
@@ -46,7 +76,8 @@ describe('EliminarCategoriaUseCase', () => {
   it('el demo gate corta ANTES de llamar al repositorio', async () => {
     const eliminar = vi.fn();
     const buscarPorId = vi.fn();
-    const repo = makeRepo(eliminar, buscarPorId);
+    const listarConPatrones = vi.fn();
+    const repo = makeRepo(eliminar, buscarPorId, listarConPatrones);
     const useCase = new EliminarCategoriaUseCase(repo);
 
     const result = await useCase.execute({
@@ -60,9 +91,10 @@ describe('EliminarCategoriaUseCase', () => {
     expect(eliminar).not.toHaveBeenCalled();
     // El demo gate corta antes de TODO, también de la lectura nueva.
     expect(buscarPorId).not.toHaveBeenCalled();
+    expect(listarConPatrones).not.toHaveBeenCalled();
   });
 
-  it('delega en el repositorio con userId + id y propaga Result.ok', async () => {
+  it('delega en el repositorio con userId + id + el id de la Desconocido del MISMO bucket, y propaga Result.ok', async () => {
     const eliminar = vi.fn().mockResolvedValue(Result.ok(undefined));
     const repo = makeRepo(eliminar);
     const useCase = new EliminarCategoriaUseCase(repo);
@@ -74,12 +106,43 @@ describe('EliminarCategoriaUseCase', () => {
     });
 
     expect(result.isOk()).toBe(true);
-    expect(eliminar).toHaveBeenCalledWith('user-1', 'cat-1');
+    // CATEGORIA es de Deseos ⇒ el destino tiene que ser DESCONOCIDO_DESEOS,
+    // NUNCA DESCONOCIDO_NECESIDADES aunque esté en el mismo catálogo.
+    expect(eliminar).toHaveBeenCalledWith(
+      'user-1',
+      'cat-1',
+      'cat-desconocido-deseos',
+    );
   });
 
-  it('devuelve CategoriaNoEncontradaError (404) cuando la fila no es del caller', async () => {
+  it('reasignarA es null cuando el catálogo no tiene una Desconocido en el bucket de la categoría borrada — degrada al SetNull histórico', async () => {
+    const eliminar = vi.fn().mockResolvedValue(Result.ok(undefined));
+    // Catálogo sin ninguna Desconocido de Deseos (solo la de Necesidades).
+    const repo = makeRepo(
+      eliminar,
+      undefined,
+      vi.fn().mockResolvedValue([DESCONOCIDO_NECESIDADES]),
+    );
+    const useCase = new EliminarCategoriaUseCase(repo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      esDemo: false,
+      id: 'cat-1',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(eliminar).toHaveBeenCalledWith('user-1', 'cat-1', null);
+  });
+
+  it('devuelve CategoriaNoEncontradaError (404) cuando la fila no es del caller, y NUNCA llega a listar el catálogo ni a reasignar', async () => {
     const eliminar = vi.fn();
-    const repo = makeRepo(eliminar, vi.fn().mockResolvedValue(null));
+    const listarConPatrones = vi.fn();
+    const repo = makeRepo(
+      eliminar,
+      vi.fn().mockResolvedValue(null),
+      listarConPatrones,
+    );
     const useCase = new EliminarCategoriaUseCase(repo);
 
     const result = await useCase.execute({
@@ -91,6 +154,7 @@ describe('EliminarCategoriaUseCase', () => {
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(CategoriaNoEncontradaError);
     expect(eliminar).not.toHaveBeenCalled();
+    expect(listarConPatrones).not.toHaveBeenCalled();
   });
 
   it('propaga el CategoriaNoEncontradaError del adapter si la fila desaparece entre la lectura y el delete', async () => {
@@ -113,11 +177,13 @@ describe('EliminarCategoriaUseCase', () => {
   });
 
   // #778 — el caso que este cambio existe para cubrir.
-  it('rechaza borrar una categoría interna y NUNCA llama al repositorio', async () => {
+  it('rechaza borrar una categoría interna y NUNCA llama al repositorio (ni a listar el catálogo, ni a eliminar)', async () => {
     const eliminar = vi.fn();
+    const listarConPatrones = vi.fn();
     const repo = makeRepo(
       eliminar,
       vi.fn().mockResolvedValue({ ...CATEGORIA, esInterna: true }),
+      listarConPatrones,
     );
     const useCase = new EliminarCategoriaUseCase(repo);
 
@@ -132,5 +198,6 @@ describe('EliminarCategoriaUseCase', () => {
     // Lo que de verdad importa: el delete no ocurrió. Un rechazo que igual
     // borra la fila sería peor que no tener el gate.
     expect(eliminar).not.toHaveBeenCalled();
+    expect(listarConPatrones).not.toHaveBeenCalled();
   });
 });

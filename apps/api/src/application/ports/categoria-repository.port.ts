@@ -161,10 +161,23 @@ export interface ICategoriaRepository {
    * delete SIEMPRE succeeds cuando la categoría es del caller. Ver
    * PrismaCategoriaRepository#eliminar para el contrato children-first +
    * composite-FK del que depende esta garantía.
+   *
+   * `reasignarA` (#778, tramo 3) — REQUERIDO, no opcional con default:
+   * - un `id` de categoría ⇒ las transacciones que apuntaban a la categoría
+   *   borrada se reasignan a ESA categoría (la `Desconocido` del MISMO
+   *   bucket que la borrada, resuelta por el caller con
+   *   `seleccionarCategoriaInterna`) ANTES de borrar. `bucketId` no se toca.
+   * - `null` ⇒ no hay `Desconocido` en ese bucket; se deja que el FK
+   *   (`onDelete: SetNull`) nulee `Transaccion.categoriaId` como pasaba
+   *   antes de este tramo.
+   * Es requerido a propósito (misma disciplina que `esInterna` en
+   * `e8c20b78`): un caller que se olvide de decidir esto NO puede degradar
+   * en silencio a "dejalo en null" — tiene que ser un error de compilación.
    */
   eliminar(
     userId: string,
     id: string,
+    reasignarA: string | null,
   ): Promise<Result<void, CategoriaNoEncontradaError>>;
 }
 
