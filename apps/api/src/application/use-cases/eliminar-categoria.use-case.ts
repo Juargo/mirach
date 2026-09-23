@@ -3,6 +3,7 @@ import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
+import { seleccionarCategoriaInterna } from '../services/categoria-por-defecto';
 
 export type EliminarCategoriaError =
   | CatalogoDemoSoloLecturaError
@@ -37,6 +38,13 @@ export type EliminarCategoriaError =
  *
  * La mecánica del delete (children-first, composite FK) sigue viviendo en el
  * adapter (`PrismaCategoriaRepository#eliminar`, design.md Q4). Nunca lanza.
+ *
+ * #778 tramo 3 — el destino de la reasignación se resuelve ACÁ, después del
+ * gate `esInterna` y antes del delete: cargamos el catálogo completo del
+ * usuario y buscamos, con `seleccionarCategoriaInterna`, la `Desconocido`
+ * del MISMO bucket que `actual` (nunca `BUCKET_POR_DEFECTO` — ver el
+ * docblock de esa función). El orden de gates NO cambia: "esta fila no se
+ * muta" (demo → 404 → interna) sigue precediendo a cualquier otra cosa.
  */
 export class EliminarCategoriaUseCase {
   constructor(private readonly categoriaRepository: ICategoriaRepository) {}
@@ -61,6 +69,24 @@ export class EliminarCategoriaUseCase {
       return Result.fail(new CategoriaInternaProtegidaError(input.id));
     }
 
-    return this.categoriaRepository.eliminar(input.userId, input.id);
+    const catalogo = await this.categoriaRepository.listarConPatrones(
+      input.userId,
+    );
+    const desconocidoDelBucket = seleccionarCategoriaInterna(
+      catalogo,
+      actual.bucket,
+    );
+    // Sin logger inyectado en este use case: agregar uno solo por este log
+    // sería una dependencia nueva no pedida por el spec (YAGNI). Si
+    // `desconocidoDelBucket` es null, el catálogo del usuario no tiene una
+    // `Desconocido` en este bucket (dato faltante, no debería pasar en un
+    // catálogo seedeado) y el borrado degrada al SetNull histórico — se
+    // remedia corriendo `prisma/backfill-catalogo-faltante.ts --user <id>`.
+
+    return this.categoriaRepository.eliminar(
+      input.userId,
+      input.id,
+      desconocidoDelBucket?.id ?? null,
+    );
   }
 }

@@ -190,9 +190,23 @@ describe('Deleting an in-use category moves no money (CAT038-04, CA-04) — /api
     const tx2Row = await prisma.transaccion.findUniqueOrThrow({
       where: { id: txId2 },
     });
-    expect(tx1Row.categoriaId).toBeNull();
+    // #778 tramo 3: borrar ya NO deja `categoriaId` en null — reasigna a la
+    // `Desconocido` del MISMO bucket. CA-04 se sigue cumpliendo por la misma
+    // razón de siempre: `bucketId` no cambia, y el resumen de abajo lo prueba.
+    //
+    // Afirmar el id concreto es MÁS fuerte que el `toBeNull()` anterior: un
+    // destino en otro bucket (p. ej. `BUCKET_POR_DEFECTO`, que es el del
+    // tramo 2 y NO aplica acá) pone roja esta línea antes de que el resumen
+    // llegue a divergir, y nombra el defecto en vez de mostrar solo dos
+    // totales distintos.
+    const desconocidoDeseosId = await categoriaIdDe(prisma, {
+      userId: USER_ID,
+      bucket: Bucket.Deseos,
+      nombre: 'Desconocido',
+    });
+    expect(tx1Row.categoriaId).toBe(desconocidoDeseosId);
     expect(tx1Row.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
-    expect(tx2Row.categoriaId).toBeNull();
+    expect(tx2Row.categoriaId).toBe(desconocidoDeseosId);
     expect(tx2Row.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
 
     // 3. after — structurally identical AND the same concrete values re-

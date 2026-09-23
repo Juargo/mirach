@@ -270,10 +270,24 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
    *     reintroduce el ataque documentado en PrismaEliminarIngestaRepository
    *     (A borra los patrones de B y recibe un 404 limpio). No lo saques.
    *
-   * (3) Transaccion.categoriaId lo NULea la FK (onDelete: SetNull,
-   *     schema.prisma:199), no código de aplicación — ver design.md §2/D-03.
-   *     bucketId NO se toca: sigue siendo la fuente de verdad del 50/30/20, así
-   *     que borrar una categoría NO mueve dinero (CAT038-04, CA-04).
+   * (3) Transaccion.categoriaId — #778 tramo 3: cuando `reasignarA` NO es
+   *     null, ANTES de borrar reasignamos en código de aplicación las
+   *     transacciones de la categoría borrada a la `Desconocido` del MISMO
+   *     bucket (el caller ya la resolvió con `seleccionarCategoriaInterna`).
+   *     `bucketId` NO se toca: sigue siendo la fuente de verdad del 50/30/20,
+   *     así que borrar una categoría NO mueve dinero entre buckets (CAT038-04,
+   *     CA-04) — solo cambia a qué categoría, DENTRO del mismo bucket, quedan
+   *     apuntando. Cuando `reasignarA` SÍ es null (no hay `Desconocido` en ese
+   *     bucket), se deja que la FK (onDelete: SetNull, schema.prisma:199)
+   *     nulee `Transaccion.categoriaId` como red de seguridad histórica.
+   *
+   *     El filtro `account: { userId }` del reassign es obligatorio
+   *     (RNF-SEC-006) — nunca se filtra en memoria. Reutiliza el MISMO
+   *     argumento de ownership que el resto del método: si `id` no fuera del
+   *     caller, este updateMany igual afecta 0 filas, porque ninguna
+   *     transacción de OTRO usuario puede apuntar a una categoría ajena (la
+   *     categorización siempre asigna categorías del propio catálogo). Dejalo
+   *     así — no hace falta un guard adicional antes del updateMany.
    *
    * deleteMany (no delete) en el padre: el count ES el gate de ownership, así que
    * "no existe" y "no es tuya" quedan indistinguibles (anti-enumeration, CAT038-07).
@@ -281,15 +295,30 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
   async eliminar(
     userId: string,
     id: string,
+    reasignarA: string | null,
   ): Promise<Result<void, CategoriaNoEncontradaError>> {
-    const [, parent] = await this.prisma.$transaction([
+    const reasignar =
+      reasignarA !== null
+        ? [
+            // (3) reasignación PREVIA al borrado — mismo bucket, bucketId intacto.
+            this.prisma.transaccion.updateMany({
+              where: { categoriaId: id, account: { userId } },
+              data: { categoriaId: reasignarA },
+            }),
+          ]
+        : [];
+
+    const resultados = await this.prisma.$transaction([
+      ...reasignar,
       // (1) children FIRST — REQUIRED under the FK's default Restrict.
       this.prisma.patronClasificacion.deleteMany({
         where: { categoriaId: id, userId },
       }),
-      // (2) parent — its count IS the ownership gate; the FK nulls Transaccion.categoriaId.
+      // (2) parent — its count IS the ownership gate; when reasignarA is
+      //     null, the FK nulls Transaccion.categoriaId as before.
       this.prisma.categoria.deleteMany({ where: { id, userId } }),
     ]);
+    const parent = resultados[resultados.length - 1];
 
     if (parent.count === 0) {
       return Result.fail(new CategoriaNoEncontradaError(id));

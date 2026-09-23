@@ -1,5 +1,6 @@
 import {
   BUCKET_POR_DEFECTO,
+  seleccionarCategoriaInterna,
   seleccionarCategoriaPorDefecto,
 } from './categoria-por-defecto';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -83,5 +84,83 @@ describe('seleccionarCategoriaPorDefecto (#778)', () => {
       id: 'cat-primera',
       nombre: 'Desconocido',
     });
+  });
+});
+
+describe('seleccionarCategoriaInterna (#778 tramo 3)', () => {
+  it('encuentra la Desconocido del bucket PEDIDO, no de BUCKET_POR_DEFECTO', () => {
+    const categorias = [
+      {
+        id: 'cat-desconocido-necesidades',
+        nombre: 'Desconocido',
+        bucket: Bucket.Necesidades,
+        esInterna: true,
+      },
+      {
+        id: 'cat-desconocido-deseos',
+        nombre: 'Desconocido',
+        bucket: Bucket.Deseos,
+        esInterna: true,
+      },
+    ];
+
+    expect(seleccionarCategoriaInterna(categorias, Bucket.Necesidades)).toEqual(
+      { id: 'cat-desconocido-necesidades', nombre: 'Desconocido' },
+    );
+  });
+
+  it('ignora una categoría del bucket pedido que NO es interna (esInterna: false)', () => {
+    const categorias = [
+      {
+        id: 'cat-usuario-necesidades',
+        nombre: 'Comida casera',
+        bucket: Bucket.Necesidades,
+        esInterna: false,
+      },
+    ];
+
+    expect(
+      seleccionarCategoriaInterna(categorias, Bucket.Necesidades),
+    ).toBeNull();
+  });
+
+  it('ignora una categoría interna de OTRO bucket', () => {
+    const categorias = [
+      {
+        id: 'cat-desconocido-ahorro',
+        nombre: 'Desconocido',
+        bucket: Bucket.Ahorro,
+        esInterna: true,
+      },
+    ];
+
+    expect(
+      seleccionarCategoriaInterna(categorias, Bucket.Necesidades),
+    ).toBeNull();
+  });
+
+  it('devuelve null si la lista está vacía', () => {
+    expect(seleccionarCategoriaInterna([], Bucket.Necesidades)).toBeNull();
+  });
+
+  it('seleccionarCategoriaPorDefecto delega en seleccionarCategoriaInterna con BUCKET_POR_DEFECTO', () => {
+    const categorias = [
+      {
+        id: 'cat-desconocido-deseos',
+        nombre: 'Desconocido',
+        bucket: Bucket.Deseos,
+        esInterna: true,
+      },
+      {
+        id: 'cat-desconocido-necesidades',
+        nombre: 'Desconocido',
+        bucket: Bucket.Necesidades,
+        esInterna: true,
+      },
+    ];
+
+    expect(seleccionarCategoriaPorDefecto(categorias)).toEqual(
+      seleccionarCategoriaInterna(categorias, BUCKET_POR_DEFECTO),
+    );
   });
 });
