@@ -357,7 +357,7 @@ describe('CategorizarTransaccionUseCase — categoría por defecto (#778)', () =
     expect(result.getValue().bucket).toBe(Bucket.Deseos);
   });
 
-  it('sin coincidencia + NO hay categoría por defecto (null) → {categoria: null, bucket: SinCategoria} y se emite un warn', () => {
+  it('sin coincidencia + NO hay categoría por defecto (null) → {categoria: null, bucket: SinCategoria}, sin warn (#778 tramo 3/5: ya no hay nada accionable para un operador)', () => {
     const logger = new FakeLogger();
     const ucConLogger = new CategorizarTransaccionUseCase(logger);
 
@@ -369,12 +369,13 @@ describe('CategorizarTransaccionUseCase — categoría por defecto (#778)', () =
 
     expect(result.getValue().categoria).toBeNull();
     expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    // #778 tramo 3/5: este `null` ya solo llega desde el centinela deliberado
+    // de ReevaluarCategoriasUseCase o desde la isla degradable de catálogo
+    // CAÍDO — ninguno de los dos es un catálogo incompleto (eso rechaza
+    // antes con CatalogoIncompletoError), así que ya no amerita un warn de
+    // operador. Solo se loguea a nivel debug (logDecision).
     const warnCalls = logger.calls.filter((c) => c.level === 'warn');
-    expect(warnCalls).toHaveLength(1);
-    expect(warnCalls[0].message).toContain('categoría Desconocido');
-    // ADR-013: el warn nunca debe filtrar descripción ni montos.
-    expect(warnCalls[0].message).not.toContain('CASINO XYZ');
-    expect(warnCalls[0].message).not.toContain('5000');
+    expect(warnCalls).toHaveLength(0);
   });
 
   it('la regla Ingreso NO cambia aunque haya categoría por defecto: sigue dando {null, Ingreso}', () => {

@@ -13,6 +13,7 @@ import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
+import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
 import { IAccountReader } from '../ports/account-reader.port';
@@ -22,7 +23,10 @@ import { EjecutarPipelineIngestaUseCase } from './ejecutar-pipeline-ingesta.use-
 import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
 import { rangoFechas, marcarDuplicados } from './marcar-duplicados.helper';
 import { ILogger } from '../ports/logger.port';
-import { CategoriaPorDefecto } from '../services/categoria-por-defecto';
+import {
+  BUCKET_POR_DEFECTO,
+  CategoriaPorDefecto,
+} from '../services/categoria-por-defecto';
 
 /**
  * Entrada del preview: archivo + usuario propietario (D-06: dedup scoped a
@@ -80,6 +84,7 @@ export type PreviewIngestaError =
   | EstructuraPdfInvalidaError
   | RangoFechasInvalidoError
   | SinMovimientosError
+  | CatalogoIncompletoError
   | PersistenciaFallidaError;
 
 /**
@@ -101,6 +106,11 @@ export type PreviewIngestaError =
  *       `CommitIngestaUseCase` para esa fila (mismo `categoriaPorDefecto`
  *       inyectado a `CategorizarTransaccionUseCase`). El preview no puede
  *       sugerir un destino distinto del que el commit terminará persistiendo.
+ *       #778 tramo 3/5: por el mismo motivo, si el catálogo está DISPONIBLE
+ *       pero le falta esa `Desconocido`, el preview RECHAZA con
+ *       `CatalogoIncompletoError` — el mismo error que el commit — en vez de
+ *       mostrar 200 filas cuyo commit fallaría después. Un catálogo CAÍDO
+ *       (fallo de infraestructura) sigue degradando como hoy, NO rechaza.
  * D-17: `ITransaccionExistenteReader` recibe descripción ya descifrada — el adapter Prisma
  *       invoca `crypto.decrypt` internamente (load-bearing, ver D-17 en design.md).
  *
@@ -185,26 +195,34 @@ export class PreviewIngestaUseCase {
     // 2b. Categoría por defecto (#778) — preview solo carga PATRONES (no el
     // catálogo completo de categorías), así que se resuelve vía el port
     // (mismo método que ProcessIngestaUseCase). Si el catálogo está caído
-    // (`!catalogoDisponible`), la categoría por defecto TAMPOCO está
-    // disponible — mismo fail-safe que "pass [] so Ingreso rule still fires"
-    // más abajo: el preview no puede sugerir una `Desconocido` de un catálogo
-    // que no pudo leer. Cualquier otro fallo puntual de este método degrada
-    // igual a `null`, sin romper el preview.
+    // (`!catalogoDisponible`), la categoría por defecto TAMPOCO se consulta
+    // — mismo fail-safe que "pass [] so Ingreso rule still fires" más abajo:
+    // el preview no puede sugerir una `Desconocido` de un catálogo que no
+    // pudo leer, y degrada igual que hoy.
+    //
+    // Cuando el catálogo SÍ respondió pero la consulta puntual devuelve
+    // `null` (#778 tramo 3/5), es un catálogo INCOMPLETO — no una caída — y
+    // el preview rechaza con el MISMO error que rechazaría el commit
+    // (`CatalogoIncompletoError`): mostrar un preview que el commit no puede
+    // honrar sería peor que rechazar antes. Un fallo estructural puntual de
+    // esta consulta (Result.fail) sí degrada a `null`, igual que un catálogo caído.
     let categoriaPorDefecto: CategoriaPorDefecto | null = null;
     if (catalogoDisponible) {
       const categoriaPorDefectoResult =
         await this.catalogoClasificacion.buscarCategoriaPorDefecto(
           input.userId,
         );
-      if (categoriaPorDefectoResult.isOk()) {
-        categoriaPorDefecto = categoriaPorDefectoResult.getValue();
-      } else {
+      if (categoriaPorDefectoResult.isFail()) {
         this.logger.error(
-          'preview-ingesta: no se pudo resolver la categoría por defecto',
+          'preview-ingesta: no se pudo resolver la categoría por defecto; se degrada igual que un catálogo caído',
           {
             errorName: categoriaPorDefectoResult.getError().constructor.name,
           },
         );
+      } else if (categoriaPorDefectoResult.getValue() === null) {
+        return Result.fail(new CatalogoIncompletoError(BUCKET_POR_DEFECTO));
+      } else {
+        categoriaPorDefecto = categoriaPorDefectoResult.getValue();
       }
     }
 

@@ -11,6 +11,7 @@ import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
+import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { RowIndexFueraDeRangoError } from '../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../domain/errors/categoria-fuera-de-catalogo.error';
@@ -33,6 +34,7 @@ import type { TransaccionAPersistir } from '../ports/ingesta-repository.port';
 import {
   BUCKET_POR_DEFECTO,
   seleccionarCategoriaPorDefecto,
+  type CategoriaPorDefecto,
 } from '../services/categoria-por-defecto';
 
 // ---------------------------------------------------------------------------
@@ -104,6 +106,8 @@ export type CommitIngestaError =
   | EdicionesInvalidasError
   | RowIndexFueraDeRangoError
   | CategoriaFueraDeCatalogoError
+  // Catálogo disponible pero incompleto (409, issue #778 tramo 3/5)
+  | CatalogoIncompletoError
   // Infrastructure errors (500)
   | CategorizacionFallidaError
   | PersistenciaFallidaError;
@@ -126,6 +130,11 @@ export type CommitIngestaError =
  *   5. Load patterns (ICatalogoClasificacion.findAll) — REQUIRED (auto-classify; D-10).
  *      Failure → CategorizacionFallidaError; NO FALLIDA.
  *   6. Both loads required — either failure → commit fails, persists nothing (D-10 fail-closed).
+ *   6b. Resolve categoriaPorDefecto (#778) from the SAME categories list —
+ *      `null` here means the catalog IS available but is missing the
+ *      `Desconocido` of BUCKET_POR_DEFECTO (#778 tramo 3/5): commit fails
+ *      with `CatalogoIncompletoError` (409), persists nothing. Distinct from
+ *      step 6's catalog-DOWN fail-closed — this is a config error, not infra.
  *   7. Build Map<categoriaId, Bucket> from categories (D-15 overlay bucket lookup).
  *   8. Validate ALL overlay rowIndex against [0, filas.length) BEFORE classification (D-04/5a).
  *      Any out-of-range or duplicate index → RowIndexFueraDeRangoError 400; nothing persisted.
@@ -333,7 +342,35 @@ export class CommitIngestaUseCase {
     // ── 6b. Categoría por defecto (#778) — misma lista ya cargada en el paso
     // 4, sin query nueva: `seleccionarCategoriaPorDefecto` es la ÚNICA fuente
     // de verdad de "cuál es la Desconocido de BUCKET_POR_DEFECTO".
-    const categoriaPorDefecto = seleccionarCategoriaPorDefecto(categorias);
+    //
+    // #778 tramo 3/5: llegar hasta acá ya prueba que el catálogo está
+    // DISPONIBLE (el paso 4 no lanzó y el paso 5 no falló) — así que un
+    // `null` acá es, por eliminación, un catálogo INCOMPLETO (falta esa fila),
+    // nunca una caída de infraestructura. Rechaza ANTES de tocar el overlay o
+    // persistir nada (D-10 fail-closed, mismo espíritu que el resto de esta
+    // sección).
+    //
+    // La reasignación a `categoriaPorDefecto: CategoriaPorDefecto` (tipo NO
+    // nullable) es deliberada: TODO el código más abajo que la use tipa
+    // `.id` directo, sin `?.`/`??`/guard — si alguien reintrodujera la vieja
+    // rama `{ SinCategoria, null }` tendría que declarar una variable NUEVA
+    // (`CategoriaPorDefecto | null`) para hacerlo, porque este binding ya no
+    // admite `null` en su tipo. Comprobado: `tsc --strict` NO marca
+    // `categoriaPorDefecto === null` como error aunque el tipo no incluya
+    // `null` (los operadores `===`/`??` contra el literal `null` están
+    // exceptuados del chequeo "no overlap" de TypeScript) — la garantía acá
+    // es de LECTURA/revisión de código, no del compilador; por eso este
+    // comentario documenta explícitamente por qué las dos ramas de abajo
+    // (antes de este cambio, líneas ~404-436) ya son inalcanzables: ambas
+    // dependían de `categoriaPorDefecto === null`, y ese caso ahora
+    // RECHAZA el commit entero arriba, antes de que el `.map()` de abajo
+    // exista siquiera.
+    const categoriaPorDefectoResult =
+      seleccionarCategoriaPorDefecto(categorias);
+    if (categoriaPorDefectoResult === null) {
+      return Result.fail(new CatalogoIncompletoError(BUCKET_POR_DEFECTO));
+    }
+    const categoriaPorDefecto: CategoriaPorDefecto = categoriaPorDefectoResult;
 
     // ── 7. Validate overlay categoriaId ∈ own category set (D-10, RNF-SEC-006) ─
     for (const edit of input.edits) {
@@ -373,17 +410,21 @@ export class CommitIngestaUseCase {
     //
     //   Rule 1 (overlay null = DES-CLASIFICAR): a non-Ingreso row with an overlay
     //     whose categoriaId is null persists in the DEFAULT destination (#778):
-    //     the `Desconocido` category of BUCKET_POR_DEFECTO when the user has it,
-    //     { SinCategoria, null } as the historical fail-safe otherwise — the
+    //     the `Desconocido` category of BUCKET_POR_DEFECTO — the
     //     auto-classification result is DISCARDED for that row (no auto bucket
     //     fallback). Reasoning: a user who explicitly clears a suggestion is
     //     literally saying "I don't know what this is" — which is exactly what
-    //     `Desconocido` means.
+    //     `Desconocido` means. #778 tramo 3/5: the historical `{ SinCategoria,
+    //     null }` fail-safe for a MISSING default category is GONE — step 6b
+    //     above rejects the whole commit with `CatalogoIncompletoError` before
+    //     ever reaching this map, so `categoriaPorDefecto` is guaranteed
+    //     non-null here (compiler-enforced, see step 6b).
     //
     //   Non-null overlay: bucket from the Map<categoriaId, Bucket> (D-15). If the
     //     overlay's categoriaId were somehow absent from that map (defensive —
     //     step 7/D-10 already validated it against the caller's own set), it
-    //     degrades to the SAME default destination as Rule 1, same fail-safe.
+    //     degrades to the SAME default destination as Rule 1 (same non-null
+    //     guarantee).
     //   No overlay: auto-classify (SinCategoria stays a real FK, D-11/j;
     //     the classifier itself now resolves the #778 default on no-match).
     //
@@ -402,37 +443,34 @@ export class CommitIngestaUseCase {
 
         if (overlay !== undefined) {
           if (overlay.categoriaId === null) {
-            // Rule 1: DES-CLASIFICAR — discard the auto suggestion, persist
-            // the #778 default destination (or the historical fail-safe).
-            if (categoriaPorDefecto !== null) {
-              return {
-                transaccion: tx,
-                bucket: BUCKET_POR_DEFECTO,
-                categoriaId: categoriaPorDefecto.id,
-              };
-            }
+            // Rule 1: DES-CLASIFICAR — descarta la sugerencia automática,
+            // persiste el destino por defecto (#778). `categoriaPorDefecto`
+            // YA NO puede ser `null` en este punto: el guard del paso 6b
+            // (`CatalogoIncompletoError`) lo garantiza más arriba y su tipo
+            // (`CategoriaPorDefecto`, no `| null`) ya no lo permite —
+            // reabrir la vieja rama `{ SinCategoria, null }` exigiría
+            // declarar una variable nueva tipada `| null` a propósito, no
+            // solo un `if`; ver el comentario del paso 6b para el detalle de
+            // por qué esto es una garantía de revisión, no del compilador.
             return {
               transaccion: tx,
-              bucket: Bucket.SinCategoria,
-              categoriaId: null,
+              bucket: BUCKET_POR_DEFECTO,
+              categoriaId: categoriaPorDefecto.id,
             };
           }
-          // Non-null overlay: bucket from the category map (D-15), not re-classification.
-          // The categoriaId is guaranteed in the map by the D-10 validation gate above —
-          // this branch is defensive and should be unreachable in practice.
+          // Non-null overlay: bucket from the category map (D-15), not
+          // re-classification. The categoriaId is guaranteed in the map by
+          // the D-10 validation gate above — this branch is defensive and
+          // should be unreachable in practice. Same guarantee as Rule 1:
+          // `categoriaPorDefecto` is non-nullable here, so this can only
+          // ever fall back to the #778 default, never the retired
+          // SinCategoria fail-safe.
           const bucketDelOverlay = bucketPorCategoria.get(overlay.categoriaId);
           if (bucketDelOverlay === undefined) {
-            if (categoriaPorDefecto !== null) {
-              return {
-                transaccion: tx,
-                bucket: BUCKET_POR_DEFECTO,
-                categoriaId: categoriaPorDefecto.id,
-              };
-            }
             return {
               transaccion: tx,
-              bucket: Bucket.SinCategoria,
-              categoriaId: null,
+              bucket: BUCKET_POR_DEFECTO,
+              categoriaId: categoriaPorDefecto.id,
             };
           }
           return {

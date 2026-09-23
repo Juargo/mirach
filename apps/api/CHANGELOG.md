@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.8.0...api-v0.9.0) (2026-09-23)
+
+
+### Features
+
+* **api,web:** la ingesta rechaza un catalogo incompleto en vez de degradar ([44cdcae](https://github.com/Juargo/MoneyDiary/commit/44cdcae55c470031418bc64f0bad1d7405a6bfc6))
+* **api,web:** la ingesta rechaza un catálogo incompleto en vez de degradar ([98acfba](https://github.com/Juargo/MoneyDiary/commit/98acfba47541ba83896f1fe29ff4a637e4ac98c4)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** backfill de SinCategoria a Gustos · Desconocido ([fef91fe](https://github.com/Juargo/MoneyDiary/commit/fef91fe77213894898f5377ca3e86074557308f7))
+* **api:** backfill de SinCategoria a Gustos · Desconocido ([a00c5a1](https://github.com/Juargo/MoneyDiary/commit/a00c5a1ce35939b38a8f2eeaabde5dca414d6fe4)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** borrar una categoría reasigna sus movimientos, no los deja huérfanos ([326daa8](https://github.com/Juargo/MoneyDiary/commit/326daa844b7bdfc0df8507227a88c0db34b8ea84))
+* **api:** borrar una categoría reasigna sus movimientos, no los deja huérfanos ([6db117a](https://github.com/Juargo/MoneyDiary/commit/6db117ae5c6ed26721d0786c9501857d97fe78f6)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** lo no clasificado nace en Gustos · Desconocido, no en SinCategoria ([3512636](https://github.com/Juargo/MoneyDiary/commit/35126369da387f6544d7e2278f3b3e7bf29227e7))
+* **api:** lo no clasificado nace en Gustos · Desconocido, no en SinCategoria ([73ff81d](https://github.com/Juargo/MoneyDiary/commit/73ff81d3bc684b8b62dc9f328bc7835765c4fc08)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** marca las categorías internas y prohíbe editarlas o eliminarlas ([e22e65d](https://github.com/Juargo/MoneyDiary/commit/e22e65d598c634ee37ae4b7c3310df2dab1fcc5c))
+* **api:** marca las categorías internas y prohíbe editarlas o eliminarlas ([e8c20b7](https://github.com/Juargo/MoneyDiary/commit/e8c20b781973401e5abd84dcc787ac5880acf59a)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** marca las Desconocido preexistentes como internas (CA-07) ([a275426](https://github.com/Juargo/MoneyDiary/commit/a27542686a2bc5973a86c9758abbcd8152f25b71))
+* **api:** script para marcar las Desconocido preexistentes como internas ([970d8e1](https://github.com/Juargo/MoneyDiary/commit/970d8e19f1f4998159351b06eba025507c8833d0)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+
 ## [0.8.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.7.0...api-v0.8.0) (2026-09-21)
 
 

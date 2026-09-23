@@ -45,6 +45,7 @@ import { RowIndexFueraDeRangoError } from '../../domain/errors/row-index-fuera-d
 import { CategoriaFueraDeCatalogoError } from '../../domain/errors/categoria-fuera-de-catalogo.error';
 import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
+import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
 import type { IFileReader } from '../ports/file-reader.port';
 import type { IBankDetector, DetectedBank } from '../ports/bank-detector.port';
 import type { IPdfBankDetector } from '../ports/pdf-bank-detector.port';
@@ -274,10 +275,19 @@ class FakeCatalogoClasificacion implements ICatalogoClasificacion {
 class FakeCategoriaRepository implements ICategoriaRepository {
   categorias: CategoriaConPatrones[] = [];
   throwWith?: Error;
+  /** #778 tramo 3/5 test default: representa "usuario CON su catálogo
+   * completo" (tiene la `Desconocido` de Deseos) — inyectada automáticamente
+   * en `listarConPatrones()` para que los tests de este archivo que NO
+   * ejercitan esta dimensión (overlay, dedup, pipeline errors, etc.) no
+   * empiecen a rechazar con `CatalogoIncompletoError` por una omisión no
+   * relacionada. Los tests que SÍ quieren simular un catálogo incompleto
+   * ponen esto en `false` explícitamente. */
+  incluirDesconocidoDeseos = true;
 
   async listarConPatrones(): Promise<CategoriaConPatrones[]> {
     if (this.throwWith) throw this.throwWith;
-    return this.categorias;
+    if (!this.incluirDesconocidoDeseos) return this.categorias;
+    return [...this.categorias, CATEGORIA_DESCONOCIDO_DESEOS_DEFAULT];
   }
   async buscarPorId(): Promise<CategoriaConPatrones | null> {
     return null;
@@ -353,6 +363,16 @@ function makeCategoria(
     esInterna: false,
   };
 }
+
+/** #778 tramo 3/5 — la `Desconocido` interna de `BUCKET_POR_DEFECTO` (Deseos)
+ * que `FakeCategoriaRepository.listarConPatrones()` inyecta por defecto.
+ * Reusa el `CAT_DESCONOCIDO_DESEOS_ID` ya declarado más arriba (DRY — no
+ * inventar un segundo id para la misma fila). */
+const CATEGORIA_DESCONOCIDO_DESEOS_DEFAULT: CategoriaConPatrones = {
+  ...makeCategoria(CAT_DESCONOCIDO_DESEOS_ID, Bucket.Deseos),
+  nombre: 'Desconocido',
+  esInterna: true,
+};
 
 // ---------------------------------------------------------------------------
 // Helper: build the SUT — fakes wrapped in concrete use-case wrappers (D-01)
@@ -491,9 +511,12 @@ describe('CommitIngestaUseCase', () => {
       // TX0 (index 0) — overlay applies Necesidades via the Map
       expect(txs[0].bucket).toBe(Bucket.Necesidades);
       expect(txs[0].categoriaId).toBe(CAT_NECESIDADES_ID);
-      // TX1 (index 1) — no overlay, no pattern → SinCategoria (commit always resolves, D-11/j)
-      expect(txs[1].bucket).toBe(Bucket.SinCategoria);
-      expect(txs[1].categoriaId).toBeNull();
+      // TX1 (index 1) — no overlay, no pattern → destino por defecto (#778
+      // tramo 3/5: commit siempre resuelve, y la Desconocido de Deseos que
+      // FakeCategoriaRepository inyecta por defecto reemplaza al viejo
+      // fail-safe SinCategoria — ver CATEGORIA_DESCONOCIDO_DESEOS_DEFAULT).
+      expect(txs[1].bucket).toBe(Bucket.Deseos);
+      expect(txs[1].categoriaId).toBe(CAT_DESCONOCIDO_DESEOS_ID);
       // TX2 (index 2) — Ingreso rule (abono>0, cargo===0); no overlay
       expect(txs[2].bucket).toBe(Bucket.Ingreso);
       expect(txs[2].categoriaId).toBeNull();
@@ -609,11 +632,17 @@ describe('CommitIngestaUseCase', () => {
       });
     }
 
-    it('rule 1a: pattern-matched row + overlay null ⇒ persists {SinCategoria, null}, auto discarded', async () => {
-      // Auto-classification WOULD put TX0 in Necesidades; overlay null must override to SinCategoria.
+    // #778 tramo 3/5: el viejo fail-safe "overlay null + SIN Desconocido de
+    // Deseos ⇒ {SinCategoria, null}" YA NO EXISTE — ese destino de
+    // degradación desapareció. Un catálogo DISPONIBLE pero sin esa fila
+    // ahora rechaza el commit ENTERO con `CatalogoIncompletoError`, antes de
+    // aplicar overlay o persistir nada. "rule 1c" más abajo cubre el caso
+    // feliz (usuario CON la Desconocido); este test cubre el caso sin ella.
+    it('rule 1a: catálogo DISPONIBLE pero SIN Desconocido de Deseos ⇒ rechaza con CatalogoIncompletoError, nada se persiste', async () => {
       const catalogoClasificacion = new FakeCatalogoClasificacion();
       catalogoClasificacion.patrones = [patronSupermercado()];
       const categoriaRepo = new FakeCategoriaRepository();
+      categoriaRepo.incluirDesconocidoDeseos = false;
       categoriaRepo.categorias = [
         makeCategoria(CAT_NECESIDADES_ID, Bucket.Necesidades),
       ];
@@ -632,11 +661,9 @@ describe('CommitIngestaUseCase', () => {
         esDemo: false,
       });
 
-      expect(result.isOk()).toBe(true);
-      const txs = ingestaRepo.calls[0].transacciones;
-      // TX0 — overlay null DES-CLASIFICA: SinCategoria bucket + null categoria (auto Necesidades discarded)
-      expect(txs[0].bucket).toBe(Bucket.SinCategoria);
-      expect(txs[0].categoriaId).toBeNull();
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CatalogoIncompletoError);
+      expect(ingestaRepo.calls).toHaveLength(0);
     });
 
     it('rule 1c (#778): overlay null + el usuario TIENE la Desconocido de Deseos ⇒ enruta al default, no a SinCategoria', async () => {
@@ -675,8 +702,11 @@ describe('CommitIngestaUseCase', () => {
       expect(txs[0].categoriaId).toBe(CAT_DESCONOCIDO_DESEOS_ID);
     });
 
-    it('rule 1b: already-SinCategoria row + overlay null ⇒ {SinCategoria, null}, no error', async () => {
-      // TX1 ('Netflix', cargo) has no matching pattern → auto SinCategoria. Overlay null is a no-op-equivalent.
+    it('rule 1b: already-default-destino row + overlay null ⇒ mismo destino por defecto, no error', async () => {
+      // TX1 ('Netflix', cargo) no tiene patrón que matchee → auto-clasifica
+      // al destino por defecto (#778 tramo 3/5: la Desconocido de Deseos que
+      // FakeCategoriaRepository inyecta por defecto). Overlay null es un
+      // no-op-equivalente: DES-CLASIFICAR route al MISMO destino.
       const ingestaRepo = new FakeIngestaRepository();
       const { sut } = buildSut({ ingestaRepo });
 
@@ -690,8 +720,8 @@ describe('CommitIngestaUseCase', () => {
 
       expect(result.isOk()).toBe(true);
       const txs = ingestaRepo.calls[0].transacciones;
-      expect(txs[1].bucket).toBe(Bucket.SinCategoria);
-      expect(txs[1].categoriaId).toBeNull();
+      expect(txs[1].bucket).toBe(Bucket.Deseos);
+      expect(txs[1].categoriaId).toBe(CAT_DESCONOCIDO_DESEOS_ID);
     });
 
     it('rule 2a: Ingreso row + overlay with a valid own categoriaId ⇒ Ingreso persists, overlay ignored', async () => {
@@ -1273,14 +1303,19 @@ describe('CommitIngestaUseCase', () => {
   });
 
   // --------------------------------------------------------------------------
-  // (j) SinCategoria rows persist bucket: Bucket.SinCategoria (NOT null) (D-11/j)
+  // (j) Unmatched rows persist a REAL FK, never bucketId: null (D-11/j).
+  // #778 tramo 3/5: el destino real de un unmatched cambió de
+  // `Bucket.SinCategoria` (retirado como fail-safe de commit) a la
+  // `Desconocido` de `BUCKET_POR_DEFECTO` — pero la garantía que este test
+  // protege ("commit siempre resuelve pre-persist, nunca deja null") sigue
+  // siendo la misma.
   // --------------------------------------------------------------------------
-  describe('(j) SinCategoria persists real FK, not null', () => {
-    it('unmatched non-Ingreso rows persist bucket: Bucket.SinCategoria (commit never produces bucketId: null)', async () => {
+  describe('(j) unmatched rows persist a real FK (default #778), not null', () => {
+    it('unmatched non-Ingreso rows persist bucket: Bucket.Deseos + la Desconocido (commit never produces bucketId: null)', async () => {
       const ingestaRepo = new FakeIngestaRepository();
       const { sut } = buildSut({ ingestaRepo });
 
-      // TX0 and TX1 have no patterns → SinCategoria; TX2 is Ingreso
+      // TX0 and TX1 have no patterns → destino por defecto (#778); TX2 is Ingreso
       const result = await sut.execute({
         fileReader: FILE_READER,
         userId: USUARIO_ID,
@@ -1290,11 +1325,13 @@ describe('CommitIngestaUseCase', () => {
 
       expect(result.isOk()).toBe(true);
       const txs = ingestaRepo.calls[0].transacciones;
-      // TX0 — SinCategoria (not null — commit resolves pre-persist)
-      expect(txs[0].bucket).toBe(Bucket.SinCategoria);
+      // TX0 — destino por defecto (not null — commit resolves pre-persist)
+      expect(txs[0].bucket).toBe(Bucket.Deseos);
+      expect(txs[0].categoriaId).toBe(CAT_DESCONOCIDO_DESEOS_ID);
       expect(txs[0].bucket).not.toBeNull();
-      // TX1 — SinCategoria
-      expect(txs[1].bucket).toBe(Bucket.SinCategoria);
+      // TX1 — destino por defecto
+      expect(txs[1].bucket).toBe(Bucket.Deseos);
+      expect(txs[1].categoriaId).toBe(CAT_DESCONOCIDO_DESEOS_ID);
       // TX2 — Ingreso
       expect(txs[2].bucket).toBe(Bucket.Ingreso);
     });

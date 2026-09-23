@@ -90,9 +90,17 @@ function fakeCatalogo(
 ): ICatalogoClasificacion {
   return {
     findAll: () => Promise.resolve(Result.ok(patrones)),
-    // Este spec no ejercita la categoría por defecto (#778); stub sin uso
-    // solo para satisfacer el port.
-    buscarCategoriaPorDefecto: () => Promise.resolve(Result.ok(null)),
+    // Este spec no ejercita la categoría por defecto (#778) — pero #778
+    // tramo 3/5 hace que un catálogo DISPONIBLE sin esa fila rechace el
+    // preview entero (`CatalogoIncompletoError`), y eso rompería la prueba
+    // de estabilidad de rowIndex que es el punto de este archivo. Se
+    // devuelve una fila válida fija (usuario CON su catálogo completo) para
+    // que el preview nunca rechace acá; el valor en sí es irrelevante para
+    // lo que este test afirma (rowIndex/descripcion/cargo/abono).
+    buscarCategoriaPorDefecto: () =>
+      Promise.resolve(
+        Result.ok({ id: 'cat-desconocido-deseos-stub', nombre: 'Desconocido' }),
+      ),
   };
 }
 

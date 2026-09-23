@@ -52,6 +52,7 @@ import { PrismaIngestaRepository } from '../src/infrastructure/persistence/prism
 import { PrismaRegistrarIngestaFallidaRepository } from '../src/infrastructure/persistence/prisma-registrar-ingesta-fallida.repository';
 import { PrismaCategoriaRepository } from '../src/infrastructure/persistence/prisma-categoria.repository';
 import { PrismaTransaccionExistenteReader } from '../src/infrastructure/persistence/prisma-transaccion-existente.reader';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 /**
  * Integration tests for US-057 — Import Preview + Commit (PR6, T-33).
@@ -290,6 +291,14 @@ describe('US-057 CA-06.P — user isolation in preview dedup (PREV-EXT-01, RNF-S
 
     await prisma.user.create({ data: { id: USER_A, nombre: `A ${RUN_ID}` } });
     await prisma.user.create({ data: { id: USER_B, nombre: `B ${RUN_ID}` } });
+    // #778 tramo 3/5: ProcessIngestaUseCase/PreviewIngestaUseCase ahora
+    // rechazan con CatalogoIncompletoError cuando el catálogo está
+    // DISPONIBLE pero sin la Desconocido del bucket por defecto. A corre
+    // processIngestaA.execute (escritura real) y AMBOS corren
+    // previewIngesta.execute más abajo — ninguno tenía catálogo antes de
+    // este cambio.
+    await crearCatalogoParaUsuario(prisma, USER_A);
+    await crearCatalogoParaUsuario(prisma, USER_B);
   });
 
   afterAll(async () => {
@@ -300,6 +309,14 @@ describe('US-057 CA-06.P — user isolation in preview dedup (PREV-EXT-01, RNF-S
       where: { userId: { in: [USER_A, USER_B] } },
     });
     await prisma.account.deleteMany({
+      where: { userId: { in: [USER_A, USER_B] } },
+    });
+    // #778 tramo 3/5: patrones antes que categorías —
+    // PatronClasificacion_categoriaId_fkey es ON DELETE RESTRICT.
+    await prisma.patronClasificacion.deleteMany({
+      where: { userId: { in: [USER_A, USER_B] } },
+    });
+    await prisma.categoria.deleteMany({
       where: { userId: { in: [USER_A, USER_B] } },
     });
     await prisma.user.deleteMany({ where: { id: { in: [USER_A, USER_B] } } });
@@ -405,6 +422,12 @@ describe('US-057 CA-06 — commit isolation: cross-tenant categoriaId rejected (
     expect(catIdBelongingToA).toBeTruthy();
 
     await prisma.user.create({ data: { id: USER_B, nombre: `B ${RUN_ID}` } });
+    // #778 tramo 3/5: sin esto, CommitIngestaUseCase rechazaría con
+    // CatalogoIncompletoError ANTES de llegar a validar el categoriaId
+    // cross-tenant (el guard del paso 6b corre antes que el del paso 7) —
+    // B necesita su PROPIO catálogo completo para que este test siga
+    // probando lo que dice probar (cross-tenant, no catálogo incompleto).
+    await crearCatalogoParaUsuario(prisma, USER_B);
   });
 
   afterAll(async () => {
@@ -413,6 +436,9 @@ describe('US-057 CA-06 — commit isolation: cross-tenant categoriaId rejected (
     });
     await prisma.ingesta.deleteMany({ where: { userId: USER_B } });
     await prisma.account.deleteMany({ where: { userId: USER_B } });
+    // #778 tramo 3/5: patrones antes que categorías (FK RESTRICT).
+    await prisma.patronClasificacion.deleteMany({ where: { userId: USER_B } });
+    await prisma.categoria.deleteMany({ where: { userId: USER_B } });
     await prisma.user.deleteMany({ where: { id: USER_B } });
     await prisma.$disconnect();
   });
@@ -507,6 +533,9 @@ describe('US-057 CA-03 — dedup-at-commit: second commit omits duplicates witho
     await prisma.user.create({
       data: { id: USER_ID, nombre: `CA03 ${RUN_ID}` },
     });
+    // #778 tramo 3/5: commitUseCase.execute rechazaría con
+    // CatalogoIncompletoError sin esto (usuario sin catálogo).
+    await crearCatalogoParaUsuario(prisma, USER_ID);
   });
 
   afterAll(async () => {
@@ -515,6 +544,9 @@ describe('US-057 CA-03 — dedup-at-commit: second commit omits duplicates witho
     });
     await prisma.ingesta.deleteMany({ where: { userId: USER_ID } });
     await prisma.account.deleteMany({ where: { userId: USER_ID } });
+    // #778 tramo 3/5: patrones antes que categorías (FK RESTRICT).
+    await prisma.patronClasificacion.deleteMany({ where: { userId: USER_ID } });
+    await prisma.categoria.deleteMany({ where: { userId: USER_ID } });
     await prisma.user.deleteMany({ where: { id: USER_ID } });
     await prisma.$disconnect();
   });
@@ -821,9 +853,28 @@ describe('US-057 catalog-down — commit with findAll failure persists nothing (
  *   - FK-VIOLATION class (aPersistencia mapping a Bucket enum → an invalid FK string
  *     ⇒ Prisma FK constraint throws ⇒ no rows written): THIS is what the integration
  *     guard below catches. If the retype produced a corrupt bucketId, the insert would
- *     fail and no rows would exist; the fact that rows exist + categoriaId is null +
- *     bucketId matches the FK pattern proves the DB-level column path is wired without
- *     an FK-class break.
+ *     fail and no rows would exist; the fact that rows exist + bucketId matches the FK
+ *     pattern proves the DB-level column path is wired without an FK-class break.
+ *
+ * #778 tramo 3/5 — REENFOQUE (no un rediseño del test): esta suite históricamente
+ * le daba a `USER_ID` un usuario SIN catálogo a propósito, porque eso hacía que
+ * TODAS las filas cayeran en el fail-safe `{categoriaId: null}` — una forma
+ * cómoda de probar la propiedad FK sin tener que distinguir filas. Ese atajo ya
+ * no es válido: (a) un catálogo DISPONIBLE pero sin la Desconocido de Deseos
+ * ahora RECHAZA la ingesta entera (`CatalogoIncompletoError`, tramo 3), y (b)
+ * aunque se le diera el catálogo completo, las filas no-Ingreso sin match ya NO
+ * quedan `categoriaId:null` — resuelven al destino por defecto (#778), un FK
+ * real. La propiedad ESTRUCTURAL que este test protege (bucketId nunca es un
+ * string de FK corrupto) no depende de que TODAS las filas queden sin
+ * categoría — depende de que `aPersistencia` mapee el enum `Bucket` a un FK
+ * válido para CUALQUIER fila, así que se sigue verificando sobre TODAS. La
+ * única sub-afirmación que dejó de ser universalmente cierta es
+ * "categoriaId:null para todas las filas"; se REENFOCA sobre las filas de
+ * Ingreso específicamente, que por diseño NUNCA se categorizan (la regla
+ * Ingreso de `CategorizarTransaccionUseCase` corre ANTES que el fallback del
+ * default y siempre devuelve `{categoria: null, bucket: Ingreso}` — ver su
+ * docblock) — esa es la fila "que legítimamente sigue siendo null" que
+ * sobrevive al cambio.
  */
 describe('US-057 §7 TDD constraint b — one-shot regression guard (DB-level)', () => {
   const RUN_ID = `one-shot-reg-${Date.now()}`;
@@ -855,6 +906,10 @@ describe('US-057 §7 TDD constraint b — one-shot regression guard (DB-level)',
     await prisma.user.create({
       data: { id: USER_ID, nombre: `OneShotReg ${RUN_ID}` },
     });
+    // #778 tramo 3/5: sin catálogo, ProcessIngestaUseCase rechazaría con
+    // CatalogoIncompletoError antes de persistir nada — este test necesita
+    // que la ingesta SUCEDA para poder inspeccionar las filas escritas.
+    await crearCatalogoParaUsuario(prisma, USER_ID);
   });
 
   afterAll(async () => {
@@ -863,13 +918,16 @@ describe('US-057 §7 TDD constraint b — one-shot regression guard (DB-level)',
     });
     await prisma.ingesta.deleteMany({ where: { userId: USER_ID } });
     await prisma.account.deleteMany({ where: { userId: USER_ID } });
+    // #778 tramo 3/5: patrones antes que categorías (FK RESTRICT).
+    await prisma.patronClasificacion.deleteMany({ where: { userId: USER_ID } });
+    await prisma.categoria.deleteMany({ where: { userId: USER_ID } });
     await prisma.user.deleteMany({ where: { id: USER_ID } });
     await prisma.$disconnect();
   });
 
   it(
-    'one-shot POST /api/ingestas persists Transaccion rows with categoriaId:null for all rows ' +
-      '(TransaccionAPersistir retype preserves null path, §7 TDD constraint b)',
+    'one-shot POST /api/ingestas: bucketId es siempre un FK válido (nunca corrupto), y las filas de Ingreso conservan categoriaId:null por diseño ' +
+      '(TransaccionAPersistir retype preserva el camino FK, §7 TDD constraint b — reenfocado #778 tramo 3/5)',
     async () => {
       const result = await processIngesta.execute({
         fileReader: new BufferFileReader(
@@ -887,46 +945,57 @@ describe('US-057 §7 TDD constraint b — one-shot regression guard (DB-level)',
       // Fetch all Transaccion rows written by the one-shot pipeline
       const rows = await prisma.transaccion.findMany({
         where: { ingestaId },
-        select: { id: true, bucketId: true, categoriaId: true },
+        select: {
+          id: true,
+          bucketId: true,
+          categoriaId: true,
+          cargo: true,
+          abono: true,
+        },
       });
 
       expect(rows).toHaveLength(total);
 
-      // REGRESSION GUARD (§7 TDD constraint b — DB-level, FK-VIOLATION class only):
+      // REGRESSION GUARD (§7 TDD constraint b — DB-level, FK-VIOLATION class):
       //
       // ProcessIngestaUseCase wraps each nuevas row as
       // { transaccion: tx, bucket: null, categoriaId: null } (T-12, D-11),
       // so aPersistencia maps bucket:null → bucketId:null at initial persist time.
       // After the initial persist, the `runCategorizacion` island runs and updates
-      // bucketId (to 'bucket-sincategoria'/'bucket-ingreso') — that is INTENDED behavior.
+      // bucketId (to a real FK per row's classification) — that is INTENDED behavior.
       //
       // This integration guard does NOT prove the initial persist-time null mapping was
       // correct — the island overwrites bucketId before this query can observe it, so the
       // column-omission class (mapper silently dropping bucketId, island masking it) is
       // caught ONLY by the unit-level T-12 assertion at the persistirProcesada boundary.
       //
-      // What this DB-level guard DOES catch (FK-violation class):
-      //   (a) categoriaId MUST be null for ALL rows — the test user has no catalog patterns,
-      //       so CategorizarTransaccionUseCase resolves every non-Ingreso row to SinCategoria
-      //       with no category, and Ingreso rows to Ingreso with no category. The island writes
-      //       categoriaId:null for both. A non-null categoriaId would signal a broken mapping.
-      //   (b) bucketId MUST be a valid FK string or null — never a corrupt/invalid string.
-      //       If aPersistencia mapped a Bucket enum → an invalid FK string, the Prisma FK
-      //       constraint would throw and the insert would fail (zero rows). The rows existing
-      //       + bucketId matching the FK pattern proves the column path is wired without an
-      //       FK-class break.
-      //
-      // bucketId is deliberately NOT asserted null here (the island legitimately updates it).
+      // What this DB-level guard DOES catch (FK-violation class), for EVERY row
+      // regardless of what it classified to:
+      //   bucketId MUST be null or a valid FK string — never a corrupt/invalid string.
+      //   If aPersistencia mapped a Bucket enum → an invalid FK string, the Prisma FK
+      //   constraint would throw and the insert would fail (zero rows). The rows existing
+      //   + bucketId matching the FK pattern proves the column path is wired without an
+      //   FK-class break.
       for (const row of rows) {
-        // categoriaId must be null for all rows (no pattern matches for this user)
-        expect(row.categoriaId).toBeNull();
-        // bucketId is either null or a valid FK string (asserted by row existence — no FK error)
-        // We only assert it's NOT an obviously wrong value (not the domain enum string).
-        // 'Necesidades', 'Deseos', 'Ahorro', 'Ingreso', 'SinCategoria' are domain strings,
-        // NOT valid FK strings (the FK strings are 'bucket-necesidades' etc.).
         if (row.bucketId !== null) {
+          // 'Necesidades', 'Deseos', 'Ahorro', 'Ingreso', 'SinCategoria' are domain
+          // strings, NOT valid FK strings (the FK strings are 'bucket-necesidades' etc.).
           expect(row.bucketId).toMatch(/^bucket-/);
         }
+      }
+
+      // Sub-guard (survives #778 tramo 3/5): las filas de Ingreso (abono>0,
+      // cargo===0 — regla de dominio, Transaccion.esIngreso) NUNCA se
+      // categorizan, sea cual sea el catálogo del usuario — la regla Ingreso
+      // de CategorizarTransaccionUseCase corre ANTES que el fallback del
+      // default y siempre devuelve `categoria: null`. `movimientos-test.xlsx`
+      // (fixture BCI) tiene ≥1 fila así ("Transferencia recibida...",
+      // "Abono por Reembolso...") — el filtro no puede quedar vacío, si no
+      // esta afirmación pasaría por vacuidad, no por verificar algo real.
+      const filasIngreso = rows.filter((r) => r.abono > 0n && r.cargo === 0n);
+      expect(filasIngreso.length).toBeGreaterThan(0);
+      for (const fila of filasIngreso) {
+        expect(fila.categoriaId).toBeNull();
       }
     },
   );
@@ -1068,6 +1137,12 @@ describe('US-057 CA-06 historial — commit registers PROCESADA; pipeline failur
     await prisma.user.create({
       data: { id: USER_ID, nombre: `Hist ${RUN_ID}` },
     });
+    // #778 tramo 3/5: Historial.1 corre un commit real que debe SUCEDER
+    // (PROCESADA) — sin catálogo, CommitIngestaUseCase rechazaría con
+    // CatalogoIncompletoError antes de persistir nada. Historial.2 (extensión
+    // inválida) falla ANTES de llegar al catálogo, así que no lo necesita,
+    // pero comparte el mismo usuario/fixture setup.
+    await crearCatalogoParaUsuario(prisma, USER_ID);
   });
 
   afterAll(async () => {
@@ -1076,6 +1151,9 @@ describe('US-057 CA-06 historial — commit registers PROCESADA; pipeline failur
     });
     await prisma.ingesta.deleteMany({ where: { userId: USER_ID } });
     await prisma.account.deleteMany({ where: { userId: USER_ID } });
+    // #778 tramo 3/5: patrones antes que categorías (FK RESTRICT).
+    await prisma.patronClasificacion.deleteMany({ where: { userId: USER_ID } });
+    await prisma.categoria.deleteMany({ where: { userId: USER_ID } });
     await prisma.user.deleteMany({ where: { id: USER_ID } });
     await prisma.$disconnect();
   });
