@@ -331,7 +331,16 @@ export async function main(
 if (require.main === module) {
   main()
     .then(() => {
-      console.log('Backfill completado.');
+      // El resumen de arriba ya dice si fue `--dry-run`, pero ESTA es la
+      // línea que un operador skimea al final. "Completado" después de un
+      // dry-run sugiere que algo se escribió, que es exactamente lo
+      // contrario de lo que pasó — y en una herramienta destructiva ese
+      // malentendido se paga caro.
+      console.log(
+        process.argv.includes('--dry-run')
+          ? 'Dry-run completado — nada se escribió.'
+          : 'Backfill completado.',
+      );
     })
     .catch((error) => {
       console.error('Backfill falló:', error);
