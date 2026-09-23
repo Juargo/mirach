@@ -341,6 +341,63 @@ describe('runBackfillDesconocido — precondición: falta una Desconocido (unit,
     ).rejects.toThrow(/Ahorro/);
     expect(getTransactionCalls()).toBe(0);
   });
+
+  it('bucket sin ninguna fila Desconocido → el mensaje manda a backfill-catalogo-faltante.ts', async () => {
+    // Deseos no tiene NINGUNA fila (ni marcada ni sin marcar) — "no existe".
+    const catalogo = seedDesconocido(USER_ID).filter(
+      (c) => c.bucket !== Bucket.Deseos,
+    );
+
+    const { client } = makeFakeClient({
+      categorias: catalogo,
+      transacciones: [],
+    });
+
+    await expect(
+      runBackfillDesconocido(client, { userId: USER_ID, dryRun: false }),
+    ).rejects.toThrow(
+      /Deseos \(no existe — corré `prisma\/backfill-catalogo-faltante\.ts --user user-1`\)/,
+    );
+  });
+
+  it('bucket con la fila Desconocido SIN marcar (esInterna=false) → el mensaje manda a marcar-categorias-internas.ts', async () => {
+    // Deseos SÍ tiene la fila, pero esInterna=false (catálogo pre-#778,
+    // ver e8c20b78) — "existe pero sin marcar", NO "no existe".
+    const catalogo = seedDesconocido(USER_ID).map((c) =>
+      c.bucket === Bucket.Deseos ? { ...c, esInterna: false } : c,
+    );
+
+    const { client } = makeFakeClient({
+      categorias: catalogo,
+      transacciones: [],
+    });
+
+    await expect(
+      runBackfillDesconocido(client, { userId: USER_ID, dryRun: false }),
+    ).rejects.toThrow(
+      /Deseos \(existe pero sin marcar — corré `prisma\/marcar-categorias-internas\.ts --user user-1`\)/,
+    );
+  });
+
+  it('dos buckets faltantes por causas distintas → el mensaje distingue cada uno por separado', async () => {
+    // Necesidades: no existe ninguna fila. Deseos: existe pero sin marcar.
+    const catalogo = seedDesconocido(USER_ID)
+      .filter((c) => c.bucket !== Bucket.Necesidades)
+      .map((c) =>
+        c.bucket === Bucket.Deseos ? { ...c, esInterna: false } : c,
+      );
+
+    const { client } = makeFakeClient({
+      categorias: catalogo,
+      transacciones: [],
+    });
+
+    await expect(
+      runBackfillDesconocido(client, { userId: USER_ID, dryRun: false }),
+    ).rejects.toThrow(
+      /Necesidades \(no existe.*\).*Deseos \(existe pero sin marcar.*\)/,
+    );
+  });
 });
 
 describe('runBackfillDesconocido — --dry-run (unit, sin BD)', () => {

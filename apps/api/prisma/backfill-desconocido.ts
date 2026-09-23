@@ -70,11 +70,29 @@ import { seleccionarCategoriaInterna } from '../src/application/services/categor
  * ── Precondición: abortar, no migrar a medias ────────────────────────────
  *
  * Antes de leer o escribir una sola `Transaccion`, el script verifica que
- * el usuario tenga las TRES `Desconocido` (una por bucket asignable). Si
- * falta alguna, aborta con un error (ni `--dry-run` continúa) indicando
- * cuál falta y cómo remediarlo (`backfill-catalogo-faltante.ts --user
- * <id>`). Migrar solo las categorías que SÍ resuelven dejaría un backfill a
- * medias, exactamente lo que este gate previene.
+ * el usuario tenga las TRES `Desconocido` MARCADAS (`esInterna = true`, una
+ * por bucket asignable). Si falta alguna, aborta con un error (ni
+ * `--dry-run` continúa). Migrar solo las categorías que SÍ resuelven
+ * dejaría un backfill a medias, exactamente lo que este gate previene.
+ *
+ * El mensaje distingue DOS causas posibles por bucket, porque tienen
+ * remediaciones distintas (issue #778 CA-07):
+ *
+ *   (1) la categoría NO EXISTE → `backfill-catalogo-faltante.ts --user
+ *       <id>` (la inserta).
+ *   (2) la categoría EXISTE pero con `esInterna = false` (catálogo
+ *       pre-#778, ver `e8c20b78`: esa columna nunca tuvo backfill) →
+ *       `marcar-categorias-internas.ts --user <id>` (la marca).
+ *
+ * Para distinguirlas, además del filtro por `esInterna === true` (que ya
+ * hacía `seleccionarCategoriaInterna`), este gate mira EXPLÍCITAMENTE si
+ * existe una fila `nombre = 'Desconocido'` sin marcar en ese mismo bucket
+ * — usando el catálogo YA leído más arriba, sin una segunda consulta a la
+ * BD. Esto es solo para elegir el mensaje correcto: `seleccionarCategoriaInterna`
+ * sigue siendo la única fuente de verdad de "cuál es LA Desconocido", y
+ * este backfill JAMÁS acepta una categoría no marcada como si lo fuera —
+ * la marcación sigue siendo un paso consciente y separado
+ * (`marcar-categorias-internas.ts`), nunca una relajación de este gate.
  *
  * ── Aislamiento multi-tenant (RNF-SEC-006) ───────────────────────────────
  *
@@ -241,11 +259,27 @@ export async function runBackfillDesconocido(
     }
   }
   if (faltantes.length > 0) {
+    // Distingue, POR BUCKET, cuál de las dos causas aplica — ver docblock.
+    // Consulta explícita (en memoria, sobre `catalogo` ya leído): busca una
+    // fila `Desconocido` sin marcar en ese bucket. Si existe, el problema es
+    // "falta marcarla"; si no, el problema es "falta crearla".
+    const detalle = faltantes.map((bucket) => {
+      const existeSinMarcar = catalogo.some(
+        (categoria) =>
+          categoria.bucket === bucket &&
+          categoria.nombre === 'Desconocido' &&
+          categoria.esInterna === false,
+      );
+      return existeSinMarcar
+        ? `${bucket} (existe pero sin marcar — corré \`prisma/marcar-categorias-internas.ts --user ${userId}\`)`
+        : `${bucket} (no existe — corré \`prisma/backfill-catalogo-faltante.ts --user ${userId}\`)`;
+    });
+
     throw new Error(
       `backfill-desconocido: al usuario ${userId} le falta la categoría ` +
-        `Desconocido en ${faltantes.join(', ')}. Este backfill NUNCA migra a ` +
-        'medias — corré primero `prisma/backfill-catalogo-faltante.ts --user ' +
-        '<id>` para completar el catálogo y volvé a intentar.',
+        `Desconocido (marcada esInterna=true) en ${detalle.join(', ')}. Este ` +
+        'backfill NUNCA migra a medias — remediá cada bucket con el script ' +
+        'indicado y volvé a intentar.',
     );
   }
 
@@ -447,7 +481,16 @@ export async function main(
 if (require.main === module) {
   main()
     .then(() => {
-      console.log('Backfill completado.');
+      // El resumen de arriba ya dice si fue `--dry-run`, pero ESTA es la
+      // línea que un operador skimea al final. "Completado" después de un
+      // dry-run sugiere que algo se escribió, que es exactamente lo
+      // contrario de lo que pasó — y en una herramienta destructiva ese
+      // malentendido se paga caro.
+      console.log(
+        process.argv.includes('--dry-run')
+          ? 'Dry-run completado — nada se escribió.'
+          : 'Backfill completado.',
+      );
     })
     .catch((error) => {
       console.error('Backfill falló:', error);
