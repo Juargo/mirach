@@ -45,6 +45,7 @@ import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-pas
 import { buildEncryptedEmailFields } from './support/encrypted-email.fixture';
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { Bucket } from '../src/domain/value-objects/bucket';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
@@ -116,6 +117,15 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     });
     userIdA = userA.id;
     userIdB = userB.id;
+
+    // #778 tramo 3/5: POST /api/ingestas (más abajo, con cookieA) corre
+    // ProcessIngestaUseCase de verdad — ahora rechaza con
+    // CatalogoIncompletoError (409) si el catálogo está DISPONIBLE pero sin
+    // la Desconocido del bucket por defecto. userIdA no tenía NINGÚN
+    // catálogo antes de este cambio; le damos el mismo template que usa
+    // producción. userIdB nunca pasa por Process/Preview/Commit en este
+    // archivo, así que no lo necesita.
+    await crearCatalogoParaUsuario(prisma, userIdA);
 
     // US-035 Slice 2: numeroCuenta CIFRADO — GET /api/movimientos y
     // GET /api/buckets/:bucket lo descifran con `crypto` (misma clave
@@ -283,6 +293,13 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     await prisma.session.deleteMany({
       where: { userId: { in: [userIdA, userIdB] } },
     });
+    // #778 tramo 3/5: crearCatalogoParaUsuario (arriba, beforeAll) creó
+    // PatronClasificacion + Categoria para userIdA — hay que borrarlas en
+    // ESTE orden (patrones antes que categorías):
+    // PatronClasificacion_categoriaId_fkey es ON DELETE RESTRICT, mismo
+    // patrón que categorizacion.int-spec.ts / ingesta-duplicados.int-spec.ts.
+    await prisma.patronClasificacion.deleteMany({ where: { userId: userIdA } });
+    await prisma.categoria.deleteMany({ where: { userId: userIdA } });
     await prisma.user.deleteMany({
       where: { id: { in: [userIdA, userIdB] } },
     });

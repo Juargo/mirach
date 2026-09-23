@@ -16,6 +16,7 @@ import { PersistenciaFallidaError } from '../src/domain/errors/persistencia-fall
 import { IFileReader } from '../src/application/ports/file-reader.port';
 import { createPinoLogger } from '../src/infrastructure/logging/pino-logger';
 import { buildTestEnv } from './support/env.fixture';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 /**
  * Integration tests for the US-004 widened historial (design.md §10.2):
@@ -81,6 +82,13 @@ describe('Historial de ingestas (US-004, integration — real dev DB)', () => {
     await prisma.user.create({ data: { id: USER_A, nombre: `A ${RUN_ID}` } });
     await prisma.user.create({ data: { id: USER_B, nombre: `B ${RUN_ID}` } });
     await prisma.user.create({ data: { id: USER_C, nombre: `C ${RUN_ID}` } });
+    // #778 tramo 3/5: ProcessIngestaUseCase ahora rechaza con
+    // CatalogoIncompletoError cuando el catálogo está DISPONIBLE pero sin la
+    // Desconocido del bucket por defecto. USER_A corre `processIngesta.execute`
+    // más abajo (subida real BCI) y necesita el mismo template de catálogo
+    // que usa producción — USER_B/USER_C no llaman al use case (solo
+    // fallidaWriter directo / filas creadas a mano), así que no lo necesitan.
+    await crearCatalogoParaUsuario(prisma, USER_A);
 
     const accC = await prisma.account.create({
       data: {
@@ -106,6 +114,13 @@ describe('Historial de ingestas (US-004, integration — real dev DB)', () => {
       where: { userId: { in: [USER_A, USER_B, USER_C] } },
     });
     await prisma.account.deleteMany({ where: { id: { in: accountIds } } });
+    // #778 tramo 3/5: crearCatalogoParaUsuario (arriba) creó
+    // PatronClasificacion + Categoria para USER_A — borrar en ESTE orden
+    // (patrones antes que categorías): PatronClasificacion_categoriaId_fkey
+    // es ON DELETE RESTRICT (mismo orden que categorizacion.int-spec.ts /
+    // ingesta-duplicados.int-spec.ts).
+    await prisma.patronClasificacion.deleteMany({ where: { userId: USER_A } });
+    await prisma.categoria.deleteMany({ where: { userId: USER_A } });
     await prisma.user.deleteMany({
       where: { id: { in: [USER_A, USER_B, USER_C] } },
     });

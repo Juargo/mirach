@@ -50,11 +50,30 @@ export interface CategorizarTransaccionResult {
  *      `seleccionarCategoriaPorDefecto`), la transacción sin coincidencia se
  *      asigna ahí → { categoria: categoriaPorDefecto, bucket: BUCKET_POR_DEFECTO }.
  *      Es un fallo RUIDOSO por diseño (ver docblock de `BUCKET_POR_DEFECTO`),
- *      no un escondite. Si `categoriaPorDefecto` es `null` (usuario previo a
- *      #738 que todavía no tiene esa fila, o degradación del catálogo aguas
- *      arriba), se conserva el fail-safe histórico: { categoria: null, bucket:
- *      SinCategoria } — pero logueando un warn, porque esa degradación
- *      silenciosa ya no debería ser el camino normal.
+ *      no un escondite. Si `categoriaPorDefecto` es `null`, se conserva el
+ *      fail-safe histórico: { categoria: null, bucket: SinCategoria }.
+ *
+ *      #778 tramo 3/5 — ESTA RAMA CAMBIÓ DE DUEÑO, se conserva por otro
+ *      motivo: hoy `categoriaPorDefecto: null` llega desde DOS callers, y
+ *      NINGUNO de los dos es ya "la ingesta con un catálogo incompleto" (ese
+ *      caso ahora se RECHAZA antes de llegar acá — ver
+ *      `CatalogoIncompletoError` / `ProcessIngestaUseCase.runPipeline` /
+ *      `CommitIngestaUseCase` paso 6b / `PreviewIngestaUseCase` paso 2b):
+ *        (a) `ReevaluarCategoriasUseCase` pasa `null` A PROPÓSITO, siempre —
+ *            usa `Bucket.SinCategoria` como CENTINELA de "ningún patrón
+ *            matcheó" para NO tocar clasificaciones manuales existentes (ver
+ *            su propio docblock). No es una degradación, es su contrato.
+ *        (b) `ProcessIngestaUseCase`/`PreviewIngestaUseCase` en su isla
+ *            degradable histórica, cuando el catálogo está CAÍDO (fallo de
+ *            infraestructura, no config) — ahí `categoriaPorDefecto` nunca
+ *            se llegó a resolver porque no tiene sentido consultarlo si el
+ *            catálogo mismo no respondió.
+ *      Por eso el `logger.warn` que sugería correr un script de backfill se
+ *      ELIMINÓ de la rama de abajo: ese remedio era para "catálogo disponible
+ *      pero sin la fila", que ya no puede llegar acá desde la ingesta (se
+ *      rechaza antes), y no aplica a (a) ni a (b) — en (a) es el flujo normal
+ *      de cada corrida, en (b) el problema es de infraestructura, no de
+ *      catálogo faltante.
  *
  * Contrato: retorna Result<{categoria,bucket},never> — SIEMPRE ok. Nunca lanza.
  * La degradación (a la categoría por defecto, o a SinCategoria si no existe)
@@ -110,13 +129,13 @@ export class CategorizarTransaccionUseCase {
       return Result.ok(resultado);
     }
 
-    // Usuario sin la categoría Desconocido de BUCKET_POR_DEFECTO (previo a
-    // #738) o catálogo degradado aguas arriba: se conserva SinCategoria como
-    // fail-safe, pero NUNCA en silencio — un operador tiene que poder
-    // encontrar y backfillear estos usuarios.
-    this.logger.warn(
-      'categorizar-transaccion: no hay categoría Desconocido para el bucket por defecto de este usuario — degradando a SinCategoria; correr prisma/backfill-catalogo-faltante.ts --user <id> para el usuario afectado',
-    );
+    // `categoriaPorDefecto === null` — hoy SIEMPRE uno de los dos casos del
+    // docblock de arriba (#778 tramo 3/5): el centinela deliberado de
+    // `ReevaluarCategoriasUseCase`, o la isla degradable de catálogo CAÍDO de
+    // la ingesta. Ninguno de los dos es "catálogo disponible pero
+    // incompleto" (ese caso rechaza ANTES de llegar acá), así que ya no hay
+    // nada accionable para un operador que un `warn` deba señalar — `debug`
+    // (vía `logDecision` más abajo) basta.
     const resultado = { categoria: null, bucket: Bucket.SinCategoria };
     this.logDecision(resultado);
     return Result.ok(resultado);

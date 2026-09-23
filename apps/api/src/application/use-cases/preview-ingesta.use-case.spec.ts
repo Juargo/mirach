@@ -25,6 +25,7 @@ import { PdfProtegidoError } from '../../domain/errors/pdf-protegido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
+import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { IFileReader } from '../ports/file-reader.port';
@@ -246,9 +247,17 @@ class FakeCatalogo implements ICatalogoClasificacion {
   patrones: ReadonlyArray<PatronClasificacion> = [];
   failWith?: CategorizacionFallidaError;
 
-  /** Categoría por defecto (#778) a devolver; `null` por defecto (usuario sin
-   * la `Desconocido` de Deseos — el caller degrada al fail-safe). */
-  categoriaPorDefecto: CategoriaPorDefecto | null = null;
+  /** Categoría por defecto (#778) a devolver. Default: usuario CON su
+   * catálogo completo (tiene la `Desconocido` de Deseos) — #778 tramo 3/5:
+   * la mayoría de los tests de este archivo no ejercitan esta dimensión, así
+   * que el default evita que empiecen a rechazar con
+   * `CatalogoIncompletoError` por una omisión no relacionada. Los tests que
+   * SÍ quieren simular un catálogo incompleto ponen esto en `null`
+   * explícitamente (sin `failWith` → catálogo DISPONIBLE pero incompleto). */
+  categoriaPorDefecto: CategoriaPorDefecto | null = {
+    id: 'cat-desconocido-deseos-default',
+    nombre: 'Desconocido',
+  };
   failWithDefecto?: CategorizacionFallidaError;
   receivedUserIdsDefecto: string[] = [];
 
@@ -340,7 +349,9 @@ function buildUseCase(opts?: BuildOptions) {
 
 describe('PreviewIngestaUseCase', () => {
   it('happy path: returns resumen + filas[] with rowIndex/esDuplicado/sugerido', async () => {
-    // Happy path: account exists, no duplicates, empty catalog (SinCategoria → sugerido: null)
+    // Happy path: account exists, no duplicates, catálogo COMPLETO (default
+    // del fake, #778 tramo 3/5) — sin match de patrones, sugerido apunta al
+    // destino por defecto (Desconocido/Deseos), no a `null`.
     const { useCase } = buildUseCase();
 
     const result = await useCase.execute({
@@ -359,8 +370,12 @@ describe('PreviewIngestaUseCase', () => {
     value.filas.forEach((fila, i) => {
       expect(fila.rowIndex).toBe(i);
       expect(fila.esDuplicado).toBe(false);
-      // No catalog pattern, cargo>0 → SinCategoria → sugerido: null (D-09)
-      expect(fila.sugerido).toBeNull();
+      // Sin match de patrones + catálogo completo → sugerido apunta al
+      // destino por defecto (#778), NUNCA null (D-09/tramo 3).
+      expect(fila.sugerido).toEqual({
+        bucket: Bucket.Deseos,
+        categoriaId: 'cat-desconocido-deseos-default',
+      });
     });
   });
 
@@ -679,18 +694,24 @@ describe('PreviewIngestaUseCase', () => {
       });
     });
 
-    it('no match (SinCategoria) → sugerido: null (D-09)', async () => {
-      const { useCase } = buildUseCase(); // empty catalog
+    // #778 tramo 3/5: el viejo fail-safe "sin match → sugerido: null" SOLO
+    // existía cuando el usuario no tenía la `Desconocido` de Deseos. Ese
+    // catálogo INCOMPLETO (disponible, pero sin esa fila) ahora RECHAZA el
+    // preview entero con `CatalogoIncompletoError` — mostrar 200 filas cuyo
+    // commit fallaría después sería peor. Distinto de un catálogo CAÍDO
+    // (ver el test "catalog-down" más abajo), que sigue degradando.
+    it('catálogo DISPONIBLE pero incompleto (sin Desconocido de Deseos) → rechaza con CatalogoIncompletoError, no sugiere sugerido:null', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.categoriaPorDefecto = null; // catálogo disponible, incompleto
+      const { useCase } = buildUseCase({ catalogo });
 
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
       });
 
-      expect(result.isOk()).toBe(true);
-      result.getValue().filas.forEach((fila) => {
-        expect(fila.sugerido).toBeNull();
-      });
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CatalogoIncompletoError);
     });
 
     it('Ingreso rule (abono>0, cargo=0) → sugerido: { bucket: Ingreso, categoriaId: null }', async () => {

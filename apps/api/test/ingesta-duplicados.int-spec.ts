@@ -34,6 +34,7 @@ import { PdfjsTransactionNormalizerService } from '../src/infrastructure/pdf/pdf
 import { IFileReader } from '../src/application/ports/file-reader.port';
 import { createPinoLogger } from '../src/infrastructure/logging/pino-logger';
 import { buildTestEnv } from './support/env.fixture';
+import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 const RUN_ID = `it-reupload-${Date.now()}`;
 const USER_ID = `user-${RUN_ID}`;
@@ -132,6 +133,13 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
     await prisma.user.create({
       data: { id: USER_ID, nombre: 'Test Reupload' },
     });
+    // #778 tramo 3/5: ProcessIngestaUseCase ahora rechaza con
+    // CatalogoIncompletoError cuando el catálogo está DISPONIBLE pero sin la
+    // Desconocido del bucket por defecto — este usuario sintético no tenía
+    // NINGÚN catálogo antes de este cambio (creado por FK, sin filas de
+    // Categoria). `crearCatalogoParaUsuario` le da el mismo template que
+    // usa producción (incluye las 3 filas `esInterna` de Desconocido).
+    await crearCatalogoParaUsuario(prisma, USER_ID);
   });
 
   afterAll(async () => {
@@ -142,6 +150,14 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
       where: { id: { in: createdIngestaIds } },
     });
     await prisma.account.deleteMany({ where: { userId: USER_ID } });
+    // #778 tramo 3/5: crearCatalogoParaUsuario (arriba, beforeAll) crea
+    // PatronClasificacion + Categoria para este usuario — hay que borrarlas
+    // en ESTE orden (patrones antes que categorías, mismo orden que
+    // categorizacion.int-spec.ts) porque
+    // PatronClasificacion_categoriaId_fkey es ON DELETE RESTRICT: borrar la
+    // categoria mientras un patrón todavía la referencia falla.
+    await prisma.patronClasificacion.deleteMany({ where: { userId: USER_ID } });
+    await prisma.categoria.deleteMany({ where: { userId: USER_ID } });
     await prisma.user.deleteMany({ where: { id: USER_ID } });
     await prisma.$disconnect();
   });
