@@ -89,8 +89,16 @@ describe('seed idempotency integration (real dev DB)', () => {
       orderBy: { patron: 'asc' },
     });
 
-    expect(categoriasDespues.map((c) => c.id)).toEqual(
-      categoriasAntes.map((c) => c.id),
+    // #778: tres categorías comparten `nombre: 'Desconocido'` (una por
+    // bucket asignable) — `orderBy: { nombre: 'asc' }` no las desempata
+    // (Postgres no garantiza orden estable entre filas con la misma clave de
+    // sort), así que el ARRAY puede llegar en orden distinto entre corridas
+    // aunque el CONJUNTO de ids sea idéntico. La invariante real de este
+    // test es "el conjunto de ids no se movió", no "el orden de recuperación
+    // es idéntico" — se comparan ordenados por id (determinístico) para no
+    // acoplar la aserción al plan de consulta de Postgres.
+    expect(categoriasDespues.map((c) => c.id).sort()).toEqual(
+      categoriasAntes.map((c) => c.id).sort(),
     );
     expect(patronesDespues.map((p) => p.id)).toEqual(
       patronesAntes.map((p) => p.id),

@@ -20,6 +20,7 @@ import { NormalizacionInvalidaError } from '../../domain/errors/normalizacion-in
 import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
+import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
 import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
@@ -285,9 +286,18 @@ class FakeCatalogo implements ICatalogoClasificacion {
   patrones: ReadonlyArray<PatronClasificacion> = [];
   receivedUserIds: string[] = [];
 
-  /** Categoría por defecto (#778) a devolver; `null` por defecto (usuario
-   * sin la `Desconocido` de Deseos — el caller degrada al fail-safe). */
-  categoriaPorDefecto: { id: string; nombre: string } | null = null;
+  /** Categoría por defecto (#778) a devolver. Default: usuario CON su
+   * catálogo completo (tiene la `Desconocido` de Deseos) — #778 tramo 3/5:
+   * la mayoría de los tests de este archivo no ejercitan esta dimensión, así
+   * que el default evita que empiecen a rechazar con
+   * `CatalogoIncompletoError` por una omisión no relacionada. Los tests que
+   * SÍ quieren simular un catálogo incompleto ponen esto en `null`
+   * explícitamente (con `failWith`/`failWithDefecto` sin usar → catálogo
+   * DISPONIBLE pero incompleto, el caso que ahora rechaza). */
+  categoriaPorDefecto: { id: string; nombre: string } | null = {
+    id: 'cat-desconocido-deseos-default',
+    nombre: 'Desconocido',
+  };
   failWithDefecto?: CategorizacionFallidaError;
   receivedUserIdsDefecto: string[] = [];
 
@@ -1004,6 +1014,82 @@ describe('ProcessIngestaUseCase', () => {
       expect(categorizacion).toEqual({ asignadas: 0, sinCategoria: 0 });
       // Writer must NOT be called when there are no transactions to classify
       expect(bucketWriter.calls.length).toBe(0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // #778 tramo 3/5 — catálogo INCOMPLETO (disponible pero sin la Desconocido
+  // de Deseos) rechaza ANTES de persistir. Distinto de un catálogo CAÍDO
+  // (fallo de infraestructura), que sigue degradando — NO rechaza.
+  // ---------------------------------------------------------------------------
+  describe('#778 tramo 3/5 — catálogo incompleto vs. catálogo caído', () => {
+    it('catálogo DISPONIBLE pero SIN Desconocido de Deseos ⇒ rechaza con CatalogoIncompletoError, NO persiste nada', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.categoriaPorDefecto = null; // findAll ok (disponible), buscarCategoriaPorDefecto → ok(null)
+      const { useCase, ingestaStore, bucketWriter, ingestaFallidaWriter } =
+        buildUseCase({ catalogo });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+        esDemo: false,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CatalogoIncompletoError);
+      // Nada se persiste: ni la ingesta ni ninguna categorización.
+      expect(ingestaStore.ingestas.size).toBe(0);
+      expect(bucketWriter.calls).toHaveLength(0);
+      // El rechazo SÍ se registra como FALLIDA (mismo boundary genérico que
+      // cualquier otro Result.fail de runPipeline — sin carve-out para este error).
+      expect(ingestaFallidaWriter.calls).toHaveLength(1);
+    });
+
+    it('catálogo CAÍDO (findAll falla) ⇒ NO rechaza, sigue degradando como hoy (isla histórica intacta)', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.failWith = new CategorizacionFallidaError('db caída');
+      // Aunque buscarCategoriaPorDefecto pudiera resolver algo, catalogoDisponible
+      // es false ⇒ ni se consulta (mismo gate que PreviewIngestaUseCase).
+      const { useCase, ingestaStore, bucketWriter } = buildUseCase({
+        catalogo,
+      });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+        esDemo: false,
+      });
+
+      // La ingesta sigue PROCESADA — NO rechaza.
+      expect(result.isOk()).toBe(true);
+      const [record] = Array.from(ingestaStore.ingestas.values());
+      expect(record.estado).toBe('PROCESADA');
+      // buscarCategoriaPorDefecto NUNCA se llamó (catalogoDisponible false).
+      expect(catalogo.receivedUserIdsDefecto).toHaveLength(0);
+      // Isla degradable histórica intacta: solo Ingreso se escribe.
+      const allAsignaciones = bucketWriter.calls.flat();
+      expect(
+        allAsignaciones.some((a) => a.bucket === Bucket.SinCategoria),
+      ).toBe(false);
+    });
+
+    it('catálogo COMPLETO (con Desconocido de Deseos) ⇒ sin regresión, ingesta funciona igual que antes', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.categoriaPorDefecto = {
+        id: 'cat-desconocido-deseos-completo',
+        nombre: 'Desconocido',
+      };
+      const { useCase, ingestaStore } = buildUseCase({ catalogo });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+        esDemo: false,
+      });
+
+      expect(result.isOk()).toBe(true);
+      const [record] = Array.from(ingestaStore.ingestas.values());
+      expect(record.estado).toBe('PROCESADA');
     });
   });
 

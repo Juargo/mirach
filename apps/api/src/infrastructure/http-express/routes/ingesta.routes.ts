@@ -29,6 +29,7 @@ import { PdfSinTextoError } from '../../../domain/errors/pdf-sin-texto.error';
 import { EstructuraPdfInvalidaError } from '../../../domain/errors/estructura-pdf-invalida.error';
 import { RangoFechasInvalidoError } from '../../../domain/errors/rango-fechas-invalido.error';
 import { SinMovimientosError } from '../../../domain/errors/sin-movimientos.error';
+import { CatalogoIncompletoError } from '../../../domain/errors/catalogo-incompleto.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import { EdicionesInvalidasError } from '../../../domain/errors/ediciones-invalidas.error';
 import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
@@ -422,6 +423,15 @@ function aCommitHttpError(error: CommitIngestaError): {
   if (error instanceof SinMovimientosError) {
     return { status: 400, message: error.message, code: 'SIN_MOVIMIENTOS' };
   }
+  // Catálogo DISPONIBLE pero INCOMPLETO (#778 tramo 3/5) → 409, no 400: el
+  // archivo del cliente está bien, lo que está mal es el ESTADO de la cuenta
+  // (falta la categoría Desconocido del bucket por defecto) — y reintentar
+  // el mismo request no sirve de nada hasta que el usuario arregle su
+  // catálogo. Distinto de un catálogo CAÍDO (infra), que ni siquiera llega a
+  // producir este error — sigue degradando en silencio como hoy.
+  if (error instanceof CatalogoIncompletoError) {
+    return { status: 409, message: error.message, code: 'CATALOGO_INCOMPLETO' };
+  }
   // Client errors (file + overlay validation) → 400
   if (
     error instanceof ExtensionNoPermitidaError ||
@@ -480,6 +490,14 @@ function aHttpError(error: ProcessIngestaError): {
   // preview (:125, :178).
   if (error instanceof SinMovimientosError) {
     return { status: 400, message: error.message, code: 'SIN_MOVIMIENTOS' };
+  }
+  // Catálogo DISPONIBLE pero INCOMPLETO (#778 tramo 3/5) → 409, no 400: mismo
+  // razonamiento que `aCommitHttpError` arriba — el archivo está bien, el
+  // estado de la cuenta no, y reintentar el mismo request no arregla nada.
+  // Un catálogo CAÍDO (infra) sigue degradando en silencio, nunca produce
+  // este error.
+  if (error instanceof CatalogoIncompletoError) {
+    return { status: 409, message: error.message, code: 'CATALOGO_INCOMPLETO' };
   }
   if (
     error instanceof ExtensionNoPermitidaError ||

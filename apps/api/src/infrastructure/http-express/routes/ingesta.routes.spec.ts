@@ -12,6 +12,7 @@ import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-enco
 import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
 import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
 import { SinMovimientosError } from '../../../domain/errors/sin-movimientos.error';
+import { CatalogoIncompletoError } from '../../../domain/errors/catalogo-incompleto.error';
 import { appLogger } from '../../logging/app-logger';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
@@ -173,6 +174,26 @@ describe('registrarIngestas — POST /api/ingestas', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('SIN_MOVIMIENTOS');
+  });
+
+  // #778 tramo 3/5 — 409 (no 400): el archivo está bien, el ESTADO de la
+  // cuenta (catálogo incompleto) es lo que bloquea, y reintentar el mismo
+  // request no sirve hasta que el usuario arregle su catálogo.
+  it('#778 tramo 3/5: 409 + code CATALOGO_INCOMPLETO cuando el catálogo está disponible pero incompleto', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new CatalogoIncompletoError(Bucket.Deseos)),
+        ),
+    };
+    const res = await request(probeApp({ processIngesta: uc }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('x'), 'cartola.xlsx');
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CATALOGO_INCOMPLETO');
+    expect(res.body.message).toContain('Gustos');
   });
 
   it('issue #500: threads req.esDemo into the use case input', async () => {
@@ -518,6 +539,24 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
     expect(res.body.code).toBe('SIN_MOVIMIENTOS');
   });
 
+  // #778 tramo 3/5 — el preview usa el MISMO `aHttpError` que el one-shot:
+  // el mismo mapeo 409 + CATALOGO_INCOMPLETO aplica acá.
+  it('#778 tramo 3/5: 409 + code CATALOGO_INCOMPLETO cuando el catálogo está disponible pero incompleto', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new CatalogoIncompletoError(Bucket.Deseos)),
+        ),
+    };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CATALOGO_INCOMPLETO');
+  });
+
   it('reenvía req.body.password al PreviewIngestaUseCase (Slice 3)', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(PREVIEW_OK)) };
     await request(probeApp({ previewIngesta: uc }))
@@ -776,6 +815,23 @@ describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.code).toBe('SIN_MOVIMIENTOS');
+  });
+
+  // #778 tramo 3/5 — mismo mapeo que el one-shot/preview, vía aCommitHttpError.
+  it('#778 tramo 3/5: 409 + code CATALOGO_INCOMPLETO cuando el catálogo está disponible pero incompleto', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new CatalogoIncompletoError(Bucket.Deseos)),
+        ),
+    };
+    const res = await request(probeApp({ commitIngesta: uc }))
+      .post('/api/ingestas/commit')
+      .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CATALOGO_INCOMPLETO');
   });
 
   it('D-03: 400 + code PDF_PROTEGIDO en commit cuando el PDF requiere password (Slice 3)', async () => {

@@ -61,6 +61,7 @@ const CATEGORIA_CATALOG: Array<{
   nombre: CategoriaTemplateNombre;
   bucketId: string;
   icono: (typeof CATEGORIA_TEMPLATE)[number]['icono'];
+  esInterna: boolean;
 }> = CATEGORIA_TEMPLATE.map((categoria) => ({
   // CATEGORIA_IDS está keyed por la clave compuesta bucket:nombre (ADR-042)
   // — cada fila de CATEGORIA_TEMPLATE trae ambos campos, así que claveCategoria
@@ -78,6 +79,20 @@ const CATEGORIA_CATALOG: Array<{
   // `create` más abajo (D-09): un usuario que edite su icono a mano no debe
   // ver su elección pisada por un re-seed.
   icono: categoria.icono,
+  // #778: el seed reconstruye el catálogo canónico desde la plantilla, así
+  // que tiene que copiar TODOS los campos que la plantilla define. Omitir
+  // `esInterna` dejaba las tres `Desconocido` del usuario bootstrap en
+  // `false` en toda BD recién seedeada — y desde que la ingesta rechaza un
+  // catálogo incompleto (`CatalogoIncompletoError`), eso rompía 16 e2e
+  // contra una base efímera. A diferencia de `icono`, este campo NO es
+  // editable por el usuario (las internas están protegidas por
+  // `CategoriaInternaProtegidaError`), así que va también en el `update`:
+  // un re-seed lo restaura en vez de dejarlo a la deriva.
+  // Mismo idioma que `copiarCatalogoTemplate` (catalogo-template.ts:569):
+  // el `in` y no `?? false`, porque con `as const` cada entrada es su propio
+  // tipo literal y las que no son internas NO tienen la propiedad — leerla
+  // directamente no compila.
+  esInterna: 'esInterna' in categoria ? categoria.esInterna : false,
 }));
 
 /**
@@ -273,8 +288,13 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
         nombre: categoria.nombre,
         bucketId: categoria.bucketId,
         icono: categoria.icono,
+        esInterna: categoria.esInterna,
       },
-      update: { nombre: categoria.nombre, bucketId: categoria.bucketId },
+      update: {
+        nombre: categoria.nombre,
+        bucketId: categoria.bucketId,
+        esInterna: categoria.esInterna,
+      },
     });
   }
 
