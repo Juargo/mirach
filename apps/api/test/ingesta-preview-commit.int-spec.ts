@@ -52,6 +52,9 @@ import { PrismaIngestaRepository } from '../src/infrastructure/persistence/prism
 import { PrismaRegistrarIngestaFallidaRepository } from '../src/infrastructure/persistence/prisma-registrar-ingesta-fallida.repository';
 import { PrismaCategoriaRepository } from '../src/infrastructure/persistence/prisma-categoria.repository';
 import { PrismaTransaccionExistenteReader } from '../src/infrastructure/persistence/prisma-transaccion-existente.reader';
+import { PrismaAccountReader } from '../src/infrastructure/persistence/prisma-account-reader.repository';
+import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persistence/prisma-transaccion-bucket.repository';
+import { PrismaTransaccionClasificacionRepository } from '../src/infrastructure/persistence/prisma-transaccion-clasificacion.repository';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 
 /**
@@ -145,6 +148,103 @@ function crearCommitIngestaConCatalogo(
       logger,
     ),
     new PrismaRegistrarIngestaFallidaRepository(prisma),
+    logger,
+  );
+}
+
+/**
+ * Builds a real ProcessIngestaUseCase graph with ALL production Prisma
+ * adapters EXCEPT the ICatalogoClasificacion collaborator, which the caller
+ * supplies. Mirrors `crearProcessIngesta` (crear-process-ingesta.ts) —
+ * issue #778 tramo 5a: used to prove the one-shot endpoint ALSO fail-closes
+ * on a catalog-down (real write path, so a leaked write would hit the DB).
+ */
+function crearProcessIngestaConCatalogo(
+  prisma: PrismaClient,
+  crypto: ICryptoService,
+  blindIndex: IBlindIndexService,
+  logger: ILogger,
+  catalogo: ICatalogoClasificacion,
+): ProcessIngestaUseCase {
+  const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
+    new IngestFileUseCase(logger),
+    new DetectBankUseCase(new ExcelBankDetectorService(), logger),
+    new DetectPdfBankUseCase(new PdfjsBankDetectorService(), logger),
+    new ValidateStructureUseCase(new ExcelStructureValidatorService(), logger),
+    new ValidatePdfStructureUseCase(
+      new PdfjsStructureValidatorService(),
+      logger,
+    ),
+    new NormalizeTransactionsUseCase(
+      new ExcelTransactionNormalizerService(),
+      logger,
+    ),
+    new NormalizePdfTransactionsUseCase(
+      new PdfjsTransactionNormalizerService(),
+      logger,
+    ),
+    logger,
+  );
+
+  return new ProcessIngestaUseCase(
+    ejecutarPipelineUseCase,
+    new PrismaAccountRepository(prisma, crypto, blindIndex),
+    new PersistTransactionsUseCase(
+      new PrismaIngestaRepository(prisma, crypto),
+      logger,
+    ),
+    catalogo,
+    new PrismaTransaccionBucketRepository(prisma),
+    new CategorizarTransaccionUseCase(logger),
+    new PrismaTransaccionClasificacionRepository(prisma, crypto),
+    new DetectarDuplicadosUseCase(
+      new PrismaTransaccionExistenteReader(prisma, crypto),
+      logger,
+    ),
+    new PrismaRegistrarIngestaFallidaRepository(prisma),
+    logger,
+  );
+}
+
+/**
+ * Builds a real PreviewIngestaUseCase graph with ALL production Prisma
+ * adapters EXCEPT the ICatalogoClasificacion collaborator. Mirrors
+ * `crearPreviewIngesta` (crear-preview-ingesta.ts) — issue #778 tramo 5a:
+ * used to prove the preview endpoint ALSO fail-closes on a catalog-down.
+ */
+function crearPreviewIngestaConCatalogo(
+  prisma: PrismaClient,
+  crypto: ICryptoService,
+  blindIndex: IBlindIndexService,
+  logger: ILogger,
+  catalogo: ICatalogoClasificacion,
+): PreviewIngestaUseCase {
+  const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
+    new IngestFileUseCase(logger),
+    new DetectBankUseCase(new ExcelBankDetectorService(), logger),
+    new DetectPdfBankUseCase(new PdfjsBankDetectorService(), logger),
+    new ValidateStructureUseCase(new ExcelStructureValidatorService(), logger),
+    new ValidatePdfStructureUseCase(
+      new PdfjsStructureValidatorService(),
+      logger,
+    ),
+    new NormalizeTransactionsUseCase(
+      new ExcelTransactionNormalizerService(),
+      logger,
+    ),
+    new NormalizePdfTransactionsUseCase(
+      new PdfjsTransactionNormalizerService(),
+      logger,
+    ),
+    logger,
+  );
+
+  return new PreviewIngestaUseCase(
+    ejecutarPipelineUseCase,
+    new PrismaAccountReader(prisma, blindIndex),
+    new PrismaTransaccionExistenteReader(prisma, crypto),
+    catalogo,
+    new CategorizarTransaccionUseCase(logger),
     logger,
   );
 }
@@ -830,6 +930,154 @@ describe('US-057 catalog-down — commit with findAll failure persists nothing (
       where: { account: { userId: USER_ID } },
     });
     expect(txCount).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Issue #778 tramo 5a — one-shot (ProcessIngestaUseCase) and preview
+// (PreviewIngestaUseCase) ALSO fail-closed on a catalog-down. Before this
+// tramo, ProcessIngestaUseCase degraded (wrote only Ingreso rows, left the
+// rest bucketId=null) and PreviewIngestaUseCase degraded its suggestions —
+// neither rejected. Mirrors the commit suite above (real write path, so a
+// leaked write would hit the DB).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('US-057/#778 tramo 5a — one-shot catalog-down: rejects, persists ZERO transactions (not even Ingreso rows)', () => {
+  const RUN_ID = `catalog-down-oneshot-${Date.now()}`;
+  const USER_ID = `user-catdown-os-${RUN_ID}`;
+
+  let prisma: PrismaClient;
+  let processConCatalogoCaido: ProcessIngestaUseCase;
+  const xlsxBuffer = fs.readFileSync(xlsxFixture);
+
+  beforeAll(async () => {
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+
+    const cryptoService = new AesGcmCryptoService(
+      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
+    );
+    const blindIdx = new HmacBlindIndexService(
+      deriveBlindIndexKey(Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64')),
+    );
+    const logger = createPinoLogger({ pretty: false });
+
+    processConCatalogoCaido = crearProcessIngestaConCatalogo(
+      prisma,
+      cryptoService,
+      blindIdx,
+      logger,
+      new FailingCatalogo(),
+    );
+
+    await prisma.user.create({
+      data: { id: USER_ID, nombre: `CatDown OneShot ${RUN_ID}` },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.transaccion.deleteMany({
+      where: { account: { userId: USER_ID } },
+    });
+    await prisma.ingesta.deleteMany({ where: { userId: USER_ID } });
+    await prisma.account.deleteMany({ where: { userId: USER_ID } });
+    await prisma.user.deleteMany({ where: { id: USER_ID } });
+    await prisma.$disconnect();
+  });
+
+  it('catalog-down: one-shot returns CategorizacionFallidaError and writes zero Ingesta/Transaccion rows — not even Ingreso rows survive', async () => {
+    const result = await processConCatalogoCaido.execute({
+      fileReader: new BufferFileReader(
+        xlsxBuffer,
+        `catalog-down-oneshot-${RUN_ID}.xlsx`,
+      ),
+      userId: USER_ID,
+      esDemo: false,
+    });
+
+    // Issue #778 tramo 5a: rejects — the pre-tramo isla degradable would
+    // have returned Result.ok here with Ingreso rows written.
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+
+    // No financial data survives: zero Transaccion rows, not even Ingreso.
+    const txCount = await prisma.transaccion.count({
+      where: { account: { userId: USER_ID } },
+    });
+    expect(txCount).toBe(0);
+
+    // ProcessIngestaUseCase's generic boundary (US-004, single-writer-per-state
+    // D1) registers a FALLIDA row for ANY runPipeline rejection — no carve-out
+    // for this error (unlike CommitIngestaUseCase, whose catalog-down path
+    // does NOT go through that boundary). That FALLIDA row is expected and is
+    // NOT the "isla degradable" this test protects — it carries no accountId
+    // and no bucket/categoria data. The load-bearing assertion is that no
+    // PROCESADA ingesta (the one that would carry real transactions) exists.
+    const procesadaCount = await prisma.ingesta.count({
+      where: { userId: USER_ID, estado: 'PROCESADA' },
+    });
+    expect(procesadaCount).toBe(0);
+    const fallidaCount = await prisma.ingesta.count({
+      where: { userId: USER_ID, estado: 'FALLIDA' },
+    });
+    expect(fallidaCount).toBe(1);
+  });
+});
+
+describe('US-057/#778 tramo 5a — preview catalog-down: rejects instead of degrading suggestions', () => {
+  const RUN_ID = `catalog-down-preview-${Date.now()}`;
+  const USER_ID = `user-catdown-prev-${RUN_ID}`;
+
+  let prisma: PrismaClient;
+  let previewConCatalogoCaido: PreviewIngestaUseCase;
+  const xlsxBuffer = fs.readFileSync(xlsxFixture);
+
+  beforeAll(async () => {
+    const env = loadEnv();
+    prisma = createPrismaClient(env);
+    await prisma.$connect();
+
+    const cryptoService = new AesGcmCryptoService(
+      Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64'),
+    );
+    const blindIdx = new HmacBlindIndexService(
+      deriveBlindIndexKey(Buffer.from(buildTestEnv().ENCRYPTION_KEY, 'base64')),
+    );
+    const logger = createPinoLogger({ pretty: false });
+
+    previewConCatalogoCaido = crearPreviewIngestaConCatalogo(
+      prisma,
+      cryptoService,
+      blindIdx,
+      logger,
+      new FailingCatalogo(),
+    );
+
+    await prisma.user.create({
+      data: { id: USER_ID, nombre: `CatDown Preview ${RUN_ID}` },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.account.deleteMany({ where: { userId: USER_ID } });
+    await prisma.user.deleteMany({ where: { id: USER_ID } });
+    await prisma.$disconnect();
+  });
+
+  it('catalog-down: preview returns CategorizacionFallidaError (preview is read-only anyway, but must not report success)', async () => {
+    const result = await previewConCatalogoCaido.execute({
+      fileReader: new BufferFileReader(
+        xlsxBuffer,
+        `catalog-down-preview-${RUN_ID}.xlsx`,
+      ),
+      userId: USER_ID,
+    });
+
+    // Issue #778 tramo 5a: rejects — the pre-tramo isla degradable would
+    // have returned Result.ok here with degraded (mostly-null) suggestions.
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
   });
 });
 

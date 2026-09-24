@@ -739,7 +739,7 @@ describe('PreviewIngestaUseCase', () => {
       });
     });
 
-    it('catalog-down (findAll fails): Ingreso still classified, rest sugerido: null — no 500 (D-09 degradation)', async () => {
+    it('catalog-down (findAll fails, issue #778 tramo 5a): rechaza con CategorizacionFallidaError — el preview ya NO degrada mostrando la Ingreso rule sola', async () => {
       const normalizer = new FakeTransactionNormalizer();
       normalizer.transacciones = [
         Transaccion.crear({
@@ -764,16 +764,12 @@ describe('PreviewIngestaUseCase', () => {
         userId: USER_ID,
       });
 
-      // Must succeed (no 500) — catalog failure degrades gracefully
-      expect(result.isOk()).toBe(true);
-      const { filas } = result.getValue();
-      // Ingreso rule still fires even when catalog is down
-      expect(filas[0].sugerido).toEqual({
-        bucket: Bucket.Ingreso,
-        categoriaId: null,
-      });
-      // Non-Ingreso rows → sugerido: null (cannot match without catalog)
-      expect(filas[1].sugerido).toBeNull();
+      // Issue #778 tramo 5a: el preview rechaza igual que el commit —
+      // mostrar un preview degradado (con la mitad de las filas sin
+      // sugerencia) de un archivo cuyo commit terminaría rechazando sería
+      // peor que rechazar antes.
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
     });
 
     // #778 — el preview tiene que sugerir EXACTAMENTE el destino que
@@ -809,7 +805,7 @@ describe('PreviewIngestaUseCase', () => {
       });
     });
 
-    it('#778: catálogo caído → NO se consulta buscarCategoriaPorDefecto (mismo apagón que los patrones)', async () => {
+    it('#778 tramo 5a: catálogo caído → rechaza SIN consultar buscarCategoriaPorDefecto (corte inmediato en findAll)', async () => {
       const catalogo = new FakeCatalogo();
       catalogo.failWith = new CategorizacionFallidaError('db error');
       catalogo.categoriaPorDefecto = {
@@ -823,10 +819,11 @@ describe('PreviewIngestaUseCase', () => {
         userId: USER_ID,
       });
 
-      expect(result.isOk()).toBe(true);
-      // El apagón de patrones también apaga la categoría por defecto (D-09
-      // degradation): no se llama al método, y las filas no-Ingreso quedan
-      // sugerido:null, NUNCA la Desconocido de un catálogo que no se pudo leer.
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+      // findAll falla primero ⇒ corte inmediato: buscarCategoriaPorDefecto
+      // NUNCA se llama (no tiene sentido consultar una fila puntual de un
+      // catálogo que ya se sabe caído).
       expect(catalogo.receivedUserIdsDefecto).toHaveLength(0);
     });
   });

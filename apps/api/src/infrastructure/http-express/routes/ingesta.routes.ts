@@ -57,6 +57,23 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
  */
 const MAX_PASSWORD_LENGTH = 500;
 
+/**
+ * Mensaje de usuario final para un catálogo de clasificación CAÍDO (issue
+ * #778 tramo 5a) — `CategorizacionFallidaError` cuando `findAll` o
+ * `buscarCategoriaPorDefecto` de `ICatalogoClasificacion` fallan por un
+ * problema de infraestructura. A diferencia de `CatalogoIncompletoError`
+ * (409, error de configuración, permanente hasta que un operador lo
+ * arregle), esta caída es TRANSITORIA: reintentar el mismo request sí puede
+ * funcionar.
+ *
+ * Registro neutro, sin jerga de dominio/puertos — el usuario nunca ve
+ * "catálogo", "port" ni nombres de clase, solo que fue un problema nuestro,
+ * que su archivo está bien, y que no se importó nada.
+ */
+const MENSAJE_CATALOGO_NO_DISPONIBLE =
+  'Tuvimos un problema temporal de nuestro lado y no pudimos procesar tu archivo. ' +
+  'Tu archivo está bien y no se importó ningún movimiento. Intenta de nuevo en unos minutos.';
+
 /** Deps de `registrarIngestas` (US-018, design.md §6.1; +previewIngesta
  * US-003; +commitIngesta US-057 PR4). */
 export interface IngestaRoutesDeps {
@@ -82,8 +99,11 @@ export interface IngestaRoutesDeps {
  * usuario, 204 sin body en éxito.
  *
  * Errores de validación del archivo del cliente → 400; fallo de infra
- * (persistencia) → 500. Todos los mensajes son seguros (nunca interpolan montos
- * ni datos crudos). El userId viene del session middleware.
+ * (persistencia) → 500; catálogo de clasificación CAÍDO (issue #778 tramo
+ * 5a, `CategorizacionFallidaError`) → 503 CATALOGO_NO_DISPONIBLE, distinto
+ * del catálogo INCOMPLETO (409 CATALOGO_INCOMPLETO, tramo 3, permanente).
+ * Todos los mensajes son seguros (nunca interpolan montos ni datos crudos).
+ * El userId viene del session middleware.
  *
  * Demo gate (issue #500): las 3 superficies de escritura (POST one-shot,
  * POST /commit, DELETE) rechazan una sesión demo con 403 DEMO_SOLO_LECTURA
@@ -399,8 +419,18 @@ function aCommitHttpError(error: CommitIngestaError): {
   if (error instanceof PersistenciaFallidaError) {
     return { status: 500, message: error.message };
   }
+  // Catálogo de clasificación CAÍDO (issue #778 tramo 5a) → 503, no 500: a
+  // diferencia de un fallo de persistencia genérico, este SÍ es
+  // transitorio/reintentable — el `code` propio se lo dice al cliente para
+  // que distinga esta caída de un `CatalogoIncompletoError` (409,
+  // permanente) más abajo. Mensaje fijo de usuario final, nunca
+  // `error.message` (que trae el `motivo` técnico interno del error).
   if (error instanceof CategorizacionFallidaError) {
-    return { status: 500, message: error.message };
+    return {
+      status: 503,
+      message: MENSAJE_CATALOGO_NO_DISPONIBLE,
+      code: 'CATALOGO_NO_DISPONIBLE',
+    };
   }
   // PDF protegido con password (design.md D-01/D-03/D-09) — mapeo
   // discriminado por `error.motivo`: el cliente necesita distinguir "falta
@@ -472,6 +502,19 @@ function aHttpError(error: ProcessIngestaError): {
   if (error instanceof PersistenciaFallidaError) {
     // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
     return { status: 500, message: error.message };
+  }
+  // Catálogo de clasificación CAÍDO (issue #778 tramo 5a) → 503, no 500 —
+  // mismo mapeo y mismo razonamiento que `aCommitHttpError` arriba: esta
+  // caída es transitoria (reintentar puede funcionar), a diferencia de un
+  // `CatalogoIncompletoError` (409, permanente) más abajo. Aplica tanto al
+  // one-shot (POST /ingestas) como al preview (POST /ingestas/preview),
+  // que comparten esta función.
+  if (error instanceof CategorizacionFallidaError) {
+    return {
+      status: 503,
+      message: MENSAJE_CATALOGO_NO_DISPONIBLE,
+      code: 'CATALOGO_NO_DISPONIBLE',
+    };
   }
   // PDF protegido con password (design.md D-01/D-03) — mismo mapeo
   // discriminado por `error.motivo` que aCommitHttpError arriba.

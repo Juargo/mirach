@@ -196,6 +196,25 @@ describe('registrarIngestas — POST /api/ingestas', () => {
     expect(res.body.message).toContain('Gustos');
   });
 
+  // issue #778 tramo 5a — catálogo CAÍDO (infra transitoria): 503, no 500 ni
+  // 409. Distinto de CATALOGO_INCOMPLETO (permanente, arriba).
+  it('#778 tramo 5a: 503 + code CATALOGO_NO_DISPONIBLE cuando el catálogo está caído (findAll falla)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new CategorizacionFallidaError('db caída')),
+        ),
+    };
+    const res = await request(probeApp({ processIngesta: uc }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('x'), 'cartola.xlsx');
+
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe('CATALOGO_NO_DISPONIBLE');
+    expect(res.body.message).not.toContain('db caída');
+  });
+
   it('issue #500: threads req.esDemo into the use case input', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(INGESTA_OK)) };
     await request(probeApp({ processIngesta: uc, esDemo: true }))
@@ -557,6 +576,24 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
     expect(res.body.code).toBe('CATALOGO_INCOMPLETO');
   });
 
+  // issue #778 tramo 5a — el preview usa el MISMO `aHttpError`: mismo mapeo
+  // 503 + CATALOGO_NO_DISPONIBLE aplica acá.
+  it('#778 tramo 5a: 503 + code CATALOGO_NO_DISPONIBLE cuando el catálogo está caído (findAll falla)', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new CategorizacionFallidaError('db caída')),
+        ),
+    };
+    const res = await request(probeApp({ previewIngesta: uc }))
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe('CATALOGO_NO_DISPONIBLE');
+  });
+
   it('reenvía req.body.password al PreviewIngestaUseCase (Slice 3)', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(PREVIEW_OK)) };
     await request(probeApp({ previewIngesta: uc }))
@@ -895,7 +932,9 @@ describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
     );
   });
 
-  it('500 ante CategorizacionFallidaError (catalog-load fail, fail-closed)', async () => {
+  // issue #778 tramo 5a: catálogo CAÍDO (infra transitoria) → 503, no 500 —
+  // distinto del catálogo INCOMPLETO (409 CATALOGO_INCOMPLETO, permanente).
+  it('503 + code CATALOGO_NO_DISPONIBLE ante CategorizacionFallidaError (catalog-load fail, fail-closed)', async () => {
     const uc = {
       execute: vi
         .fn()
@@ -907,7 +946,10 @@ describe('registrarIngestas — POST /api/ingestas/commit (US-057 PR4)', () => {
       .post('/api/ingestas/commit')
       .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe('CATALOGO_NO_DISPONIBLE');
+    // Mensaje de usuario final fijo, nunca el motivo técnico interno del error.
+    expect(res.body.message).not.toContain('catálogo caído');
   });
 
   it('issue #500: threads req.esDemo into the use case input', async () => {
