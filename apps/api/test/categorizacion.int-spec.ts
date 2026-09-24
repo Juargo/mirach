@@ -19,8 +19,6 @@ import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persist
 import { PrismaTransaccionClasificacionRepository } from '../src/infrastructure/persistence/prisma-transaccion-clasificacion.repository';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
-import { CategorizacionFallidaError } from '../src/domain/errors/categorizacion-fallida.error';
-import { Result } from '../src/shared/result';
 import { PatronClasificacion } from '../src/domain/value-objects/patron-clasificacion';
 import { ICatalogoClasificacion } from '../src/application/ports/catalogo-clasificacion.port';
 import { Bucket } from '../src/domain/value-objects/bucket';
@@ -34,31 +32,6 @@ import {
 import { buildTestEnv } from './support/env.fixture';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 import { NoOpLogger } from './support/logger.double';
-
-/**
- * Stub catálogo que siempre falla — used to exercise the degrade path end-to-end.
- * The real catalog repo is never called; instead this stub drives the same observable
- * behavior the real pipeline exercises when the DB is unavailable.
- */
-class FailingCatalogo implements ICatalogoClasificacion {
-  async findAll(
-    _userId: string,
-  ): Promise<
-    Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
-  > {
-    return Result.fail(
-      new CategorizacionFallidaError('test: catalog unavailable'),
-    );
-  }
-
-  // Este int-spec ejercita la degradación de PATRONES (#778 es otro tramo);
-  // stub sin uso solo para satisfacer el port.
-  async buscarCategoriaPorDefecto(): Promise<
-    Result<{ id: string; nombre: string } | null, CategorizacionFallidaError>
-  > {
-    return Result.ok(null);
-  }
-}
 
 /**
  * Drives the categorization step synchronously (mirrors runCategorizacion in ProcessIngestaUseCase)
