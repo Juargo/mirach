@@ -36,6 +36,10 @@ interface CreateManyCategoriaCall {
     nombre: string;
     bucketId: string;
     icono: string;
+    // #778: el tipo del doble también omitía `esInterna`, así que tampoco
+    // ayudaba a notar que el script lo dejaba afuera del payload. Un fake
+    // que miente sobre la forma del write no puede cazar un campo faltante.
+    esInterna: boolean;
   }>;
   skipDuplicates: boolean;
 }
@@ -222,6 +226,20 @@ describe('runBackfillCatalogo — categorías faltantes (unit, sin BD)', () => {
         BUCKET_IDS[Bucket.Ahorro],
       ].sort(),
     );
+
+    // #778: las tres nacen MARCADAS. Antes este script insertaba sin
+    // `esInterna` —lo omitía del payload, así que caían en el default
+    // `false`— y por eso no alcanzaba para desbloquear la ingesta: había
+    // que correr `marcar-categorias-internas.ts` después. Se descubrió
+    // operando producción (2026-09-24), no leyendo el código.
+    expect(desconocidoRows.map((d) => d.esInterna)).toEqual([true, true, true]);
+
+    // Y la contracara: una categoría común NO se marca. Sin este assert,
+    // marcar todo pasaría el de arriba.
+    const deudaRow = categoriaCreateManyCalls[0].data.find(
+      (d) => d.nombre === 'Deuda',
+    );
+    expect(deudaRow?.esInterna).toBe(false);
   });
 
   it('un usuario con Desconocido SOLO en Necesidades sigue faltándole Desconocido en Deseos y Ahorro (match por nombre solo las confundiría)', async () => {

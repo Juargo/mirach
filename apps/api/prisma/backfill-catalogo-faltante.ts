@@ -9,6 +9,7 @@ import {
 import {
   CATEGORIA_TEMPLATE,
   PATRON_TEMPLATE,
+  camposDeCategoriaPlantilla,
   claveCategoria,
 } from '../src/infrastructure/persistence/catalogo-template';
 
@@ -79,12 +80,22 @@ import {
  * (gate + PrismaClient) guardado tras `require.main === module`.
  */
 
-/** Fila de categoría a insertar — sin `id` (Prisma lo autogenera). */
+/**
+ * Fila de categoría a insertar — sin `id` (Prisma lo autogenera).
+ *
+ * #778: acá faltaba `esInterna`, y ESA es la razón de que la omisión en el
+ * payload fuera invisible. El tipo describía el write de forma incompleta,
+ * así que el compilador no tenía con qué quejarse: el script insertaba sin
+ * la marca y las tres `Desconocido` caían en el default `false`. Un tipo
+ * estructural de un write tiene que llevar TODOS los campos que la fila
+ * necesita, justamente para que olvidarse de uno no compile.
+ */
 interface CategoriaFaltanteData {
   userId: string;
   nombre: string;
   bucketId: string;
   icono: string;
+  esInterna: boolean;
 }
 
 /** Fila de patrón a insertar — `categoriaId` ya resuelto al id real. */
@@ -209,13 +220,17 @@ export async function runBackfillCatalogo(
   return prisma.$transaction(async (tx) => {
     if (categoriasFaltantes.length > 0) {
       await tx.categoria.createMany({
+        // #778: acá faltaba `esInterna`, y no era cosmético — insertaba las
+        // tres `Desconocido` sin marcar, así que este script NO alcanzaba
+        // para desbloquear la ingesta y había que correr después
+        // `marcar-categorias-internas.ts`. Ahora el mapeo plantilla → fila
+        // vive en `camposDeCategoriaPlantilla`, que devuelve el objeto
+        // COMPLETO: un consumidor que hace spread no puede olvidarse de un
+        // campo (era la TERCERA copia del mismo mapeo, y la segunda que se
+        // olvidaba de la marca).
         data: categoriasFaltantes.map((entrada) => ({
           userId,
-          nombre: entrada.nombre,
-          // bucketId SIEMPRE derivado en el write site (ADR-037 D-02),
-          // nunca literal — mismo patrón que copiarCatalogoTemplate.
-          bucketId: BUCKET_IDS[entrada.bucket],
-          icono: entrada.icono,
+          ...camposDeCategoriaPlantilla(entrada),
         })),
         // Cinturón y tirantes sobre @@unique([userId, bucketId, nombre]) —
         // el filtro de arriba ya debería garantizar 0 duplicados, esto es

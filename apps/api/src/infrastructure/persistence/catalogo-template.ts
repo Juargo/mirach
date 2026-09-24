@@ -543,30 +543,58 @@ export type CatalogoTemplateClient = Pick<
  *
  * Dos round-trips de escritura + una lectura, no 28 statements.
  */
+/**
+ * camposDeCategoriaPlantilla — los campos de `Categoria` que la PLANTILLA
+ * define, derivados en UN solo lugar.
+ *
+ * Existe porque el mapeo plantilla → fila se escribió tres veces (acá, en
+ * `prisma/seed.ts` y en `prisma/backfill-catalogo-faltante.ts`) y DOS de esas
+ * copias se olvidaron de `esInterna` cuando ese campo se agregó en
+ * `e8c20b78`. El síntoma tardó en aparecer y fue caro: toda base recién
+ * seedeada nacía con las tres `Desconocido` sin marcar, y desde que la
+ * ingesta rechaza un catálogo incompleto eso se traduce en que el usuario no
+ * puede importar nada. Se descubrió en producción (2026-09-24).
+ *
+ * Un helper que devuelve el objeto COMPLETO —y no, por ejemplo, solo un
+ * `esInternaDe(entrada)`— es lo que cierra la clase de error: un consumidor
+ * que hace spread no puede olvidarse de un campo, y el día que la plantilla
+ * gane uno nuevo, los tres sitios lo reciben sin tocarlos.
+ *
+ * `bucketId` se deriva acá adentro: `BUCKET_IDS` sigue siendo la única
+ * autoridad de ids físicos (ADR-037 D-02), y cada write site la consultaba
+ * por su cuenta.
+ *
+ * El `in` y no `entrada.esInterna ?? false`: con `as const` cada entrada de
+ * la plantilla es su PROPIO tipo literal, y las que no declaran la marca no
+ * tienen la propiedad — leerla directamente no compila.
+ */
+export function camposDeCategoriaPlantilla(
+  entrada: (typeof CATEGORIA_TEMPLATE)[number],
+): {
+  nombre: (typeof CATEGORIA_TEMPLATE)[number]['nombre'];
+  bucketId: string;
+  icono: (typeof CATEGORIA_TEMPLATE)[number]['icono'];
+  esInterna: boolean;
+} {
+  return {
+    nombre: entrada.nombre,
+    bucketId: BUCKET_IDS[entrada.bucket],
+    icono: entrada.icono,
+    esInterna: 'esInterna' in entrada ? entrada.esInterna : false,
+  };
+}
+
 export async function copiarCatalogoTemplate(
   tx: CatalogoTemplateClient,
   userId: string,
 ): Promise<void> {
   await tx.categoria.createMany({
+    // `icono` y `esInterna` son defaults de plantilla: solo la creación de
+    // un catálogo NUEVO los siembra, nunca backfillean una fila existente
+    // (ADR-045 D-06/D-09; #778 CA-07 para la marca).
     data: CATEGORIA_TEMPLATE.map((categoria) => ({
       userId,
-      nombre: categoria.nombre,
-      // bucketId SIEMPRE derivado en el write site — BUCKET_IDS sigue siendo
-      // la única autoridad de ids físicos (ADR-037 D-02).
-      bucketId: BUCKET_IDS[categoria.bucket],
-      // Default seed del allowlist curado (ADR-045 D-06/D-09) — solo en la
-      // creación de un catálogo NUEVO, nunca backfillea una fila existente.
-      icono: categoria.icono,
-      // #778: mismo criterio que `icono` — solo catálogos NUEVOS nacen con
-      // la marca. La migración deja `false` en todo lo preexistente a
-      // propósito; qué hacer con esos catálogos es una decisión abierta
-      // (#778 CA-07).
-      //
-      // El `in` y no `categoria.esInterna ?? false`: con `as const` cada
-      // entrada de la plantilla es su PROPIO tipo literal, y las trece que
-      // no declaran la marca directamente no tienen la propiedad — leerla
-      // no compila. El guard la lee solo donde existe.
-      esInterna: 'esInterna' in categoria ? categoria.esInterna : false,
+      ...camposDeCategoriaPlantilla(categoria),
     })),
   });
 
