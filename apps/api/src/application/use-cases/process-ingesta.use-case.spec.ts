@@ -49,6 +49,7 @@ import {
   IRegistrarIngestaFallidaWriter,
   RegistrarIngestaFallidaInput,
 } from '../ports/registrar-ingesta-fallida.port';
+import { IRevertirIngestaFallidaWriter } from '../ports/revertir-ingesta-fallida.port';
 import { ITransaccionRepository } from '../ports/transaccion-repository.port';
 import { ICatalogoClasificacion } from '../ports/catalogo-clasificacion.port';
 import { ITransaccionBucketWriter } from '../ports/transaccion-bucket-writer.port';
@@ -275,6 +276,33 @@ class FakeRegistrarIngestaFallidaWriter implements IRegistrarIngestaFallidaWrite
   }
 }
 
+/**
+ * Fake del port de reversión (issue #778 tramo 5a-bis). Distinto del fake de
+ * arriba (`FakeRegistrarIngestaFallidaWriter` CREA filas nuevas): este
+ * modela el UPDATE de una PROCESADA existente — `revertida` deja rastro de
+ * qué (userId, ingestaId) se marcó, para que un test pueda comprobar que
+ * `ProcessIngestaUseCase` NO llama también a `registrarFallo` (evitando la
+ * FALLIDA duplicada que el tramo existe para prevenir).
+ */
+class FakeRevertirIngestaFallidaWriter implements IRevertirIngestaFallidaWriter {
+  readonly calls: Array<{
+    userId: string;
+    ingestaId: string;
+    motivo: string;
+  }> = [];
+  failWith?: PersistenciaFallidaError;
+
+  async revertirYMarcarFallida(
+    userId: string,
+    ingestaId: string,
+    motivo: string,
+  ): Promise<Result<void, PersistenciaFallidaError>> {
+    this.calls.push({ userId, ingestaId, motivo });
+    if (this.failWith) return Result.fail(this.failWith);
+    return Result.ok(undefined);
+  }
+}
+
 /** Filas persistidas que el lector de clasificación devuelve (con ids). */
 const TX_PARA_CLASIFICAR: TransaccionParaClasificar[] = [
   { id: 'tx-persisted-1', descripcion: 'Compra', cargo: 8103n, abono: 0n },
@@ -390,6 +418,7 @@ interface BuildOptions {
   pdfNormalizer?: FakePdfTransactionNormalizer;
   txExistenteReader?: FakeTransaccionExistenteReader;
   ingestaFallidaWriter?: FakeRegistrarIngestaFallidaWriter;
+  revertirIngestaFallidaWriter?: FakeRevertirIngestaFallidaWriter;
   logger?: FakeLogger;
 }
 
@@ -416,6 +445,9 @@ function buildUseCase(opts?: BuildOptions) {
   );
   const ingestaFallidaWriter =
     opts?.ingestaFallidaWriter ?? new FakeRegistrarIngestaFallidaWriter();
+  const revertirIngestaFallidaWriter =
+    opts?.revertirIngestaFallidaWriter ??
+    new FakeRevertirIngestaFallidaWriter();
 
   // US-057 D-01: wrap the 7 individual front-pipeline UCs into
   // EjecutarPipelineIngestaUseCase, matching the new 10-arg ProcessIngestaUseCase
@@ -441,6 +473,7 @@ function buildUseCase(opts?: BuildOptions) {
     txReader,
     detectarDuplicadosUseCase,
     ingestaFallidaWriter,
+    revertirIngestaFallidaWriter,
     logger,
   );
 
@@ -459,6 +492,7 @@ function buildUseCase(opts?: BuildOptions) {
     txReader,
     txExistenteReader,
     ingestaFallidaWriter,
+    revertirIngestaFallidaWriter,
     logger,
   };
 }
@@ -804,9 +838,12 @@ describe('ProcessIngestaUseCase', () => {
         'db error al cargar catálogo',
       );
       const bucketWriter = new FakeBucketWriter();
+      const revertirIngestaFallidaWriter =
+        new FakeRevertirIngestaFallidaWriter();
       const { useCase, ingestaStore } = buildUseCase({
         catalogo,
         bucketWriter,
+        revertirIngestaFallidaWriter,
       });
 
       const result = await useCase.execute({
@@ -822,6 +859,9 @@ describe('ProcessIngestaUseCase', () => {
       expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
       expect(ingestaStore.ingestas.size).toBe(0);
       expect(bucketWriter.calls).toHaveLength(0);
+      // Tramo 5a-bis (reversión post-persist) es un mecanismo DISTINTO —
+      // este rechazo pasa ANTES de persistir, nunca llega a necesitarlo.
+      expect(revertirIngestaFallidaWriter.calls).toHaveLength(0);
     });
 
     it('SC-14 (issue #778 tramo 5a): falla el catálogo ⇒ rechaza incluso con una tx que calificaría para Ingreso — la regla Ingreso ya NO sobrevive como fail-safe a una caída', async () => {
@@ -876,12 +916,23 @@ describe('ProcessIngestaUseCase', () => {
       expect(allIds).not.toContain('tx-persisted-2');
     });
 
-    it('falla el writer → ingesta PROCESADA, no propaga el error al caller', async () => {
+    // EL test del tramo (issue #778 tramo 5a-bis) — reemplaza el test
+    // anterior ("falla el writer → ingesta PROCESADA, no propaga el error al
+    // caller"), que afirmaba EXACTAMENTE la isla degradable que este tramo
+    // cierra: antes protegía "un fallo del writer nunca debe tumbar la
+    // ingesta"; hoy esa garantía es lo contrario de lo que queremos, así que
+    // el título y las aserciones cambian para afirmar la reversión.
+    it('issue #778 tramo 5a-bis: falla el writer ⇒ revierte y rechaza con CategorizacionFallidaError (no registra una FALLIDA duplicada)', async () => {
       const bucketWriter = new FakeBucketWriter();
       bucketWriter.failWith = new CategorizacionFallidaError(
         'error al escribir buckets',
       );
-      const { useCase, ingestaStore } = buildUseCase({ bucketWriter });
+      const revertirIngestaFallidaWriter =
+        new FakeRevertirIngestaFallidaWriter();
+      const { useCase, ingestaStore, ingestaFallidaWriter } = buildUseCase({
+        bucketWriter,
+        revertirIngestaFallidaWriter,
+      });
 
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
@@ -889,10 +940,59 @@ describe('ProcessIngestaUseCase', () => {
         esDemo: false,
       });
 
-      // Ingesta sigue PROCESADA aunque el writer falle
-      expect(result.isOk()).toBe(true);
-      const [record] = Array.from(ingestaStore.ingestas.values());
-      expect(record.estado).toBe('PROCESADA');
+      // Rechaza — ya NO deja la ingesta PROCESADA con bucketId nulo.
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+
+      // La reversión se invoca con el MISMO (userId, ingestaId) de esta corrida.
+      const [ingestaId] = Array.from(ingestaStore.ingestas.keys());
+      expect(revertirIngestaFallidaWriter.calls).toHaveLength(1);
+      expect(revertirIngestaFallidaWriter.calls[0].userId).toBe(USER_ID);
+      expect(revertirIngestaFallidaWriter.calls[0].ingestaId).toBe(ingestaId);
+
+      // single-writer boundary (design.md §3.2): la reversión YA marcó esta
+      // Ingesta como FALLIDA (UPDATE) — `registrarFallo` (que SIEMPRE CREA
+      // una fila nueva) NO debe correr también, o quedaría una FALLIDA
+      // duplicada huérfana.
+      expect(ingestaFallidaWriter.calls).toHaveLength(0);
+    });
+
+    it('issue #778 tramo 5a-bis: si la reversión MISMA falla (riesgo residual), igual rechaza y cae al registro FALLIDA best-effort', async () => {
+      const bucketWriter = new FakeBucketWriter();
+      bucketWriter.failWith = new CategorizacionFallidaError(
+        'error al escribir buckets',
+      );
+      const revertirIngestaFallidaWriter =
+        new FakeRevertirIngestaFallidaWriter();
+      revertirIngestaFallidaWriter.failWith = new PersistenciaFallidaError(
+        'la BD se cayó justo al revertir',
+      );
+      const logger = new FakeLogger();
+      const { useCase, ingestaFallidaWriter } = buildUseCase({
+        bucketWriter,
+        revertirIngestaFallidaWriter,
+        logger,
+      });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+        esDemo: false,
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+
+      // La reversión SÍ falló — a diferencia del caso feliz, acá
+      // `registrarFallo` SÍ debe correr (best-effort fallback): la Ingesta
+      // original queda PROCESADA con bucketId nulo (riesgo residual
+      // conocido), pero al menos una fila FALLIDA aparte queda registrada.
+      expect(ingestaFallidaWriter.calls).toHaveLength(1);
+
+      // Logueado a nivel error para que un operador lo detecte — nunca
+      // descripción/montos (ADR-013), solo userId/ingestaId.
+      const errorLogs = logger.calls.filter((c) => c.level === 'error');
+      expect(errorLogs.some((c) => c.context?.userId === USER_ID)).toBe(true);
     });
 
     it('happy path con catálogo: asignarCategorizacion llamado con el mapeo {categoriaId,bucket} correcto por tx', async () => {

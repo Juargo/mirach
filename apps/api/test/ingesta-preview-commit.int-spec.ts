@@ -50,6 +50,7 @@ import { PdfjsTransactionNormalizerService } from '../src/infrastructure/pdf/pdf
 import { PrismaAccountRepository } from '../src/infrastructure/persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../src/infrastructure/persistence/prisma-ingesta.repository';
 import { PrismaRegistrarIngestaFallidaRepository } from '../src/infrastructure/persistence/prisma-registrar-ingesta-fallida.repository';
+import { PrismaRevertirIngestaFallidaRepository } from '../src/infrastructure/persistence/prisma-revertir-ingesta-fallida.repository';
 import { PrismaCategoriaRepository } from '../src/infrastructure/persistence/prisma-categoria.repository';
 import { PrismaTransaccionExistenteReader } from '../src/infrastructure/persistence/prisma-transaccion-existente.reader';
 import { PrismaAccountReader } from '../src/infrastructure/persistence/prisma-account-reader.repository';
@@ -202,6 +203,7 @@ function crearProcessIngestaConCatalogo(
       logger,
     ),
     new PrismaRegistrarIngestaFallidaRepository(prisma),
+    new PrismaRevertirIngestaFallidaRepository(prisma),
     logger,
   );
 }
