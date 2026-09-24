@@ -2173,6 +2173,9 @@
           },
           "500": {
             "description": "Persistence failure (infrastructure fault, not the uploaded file)."
+          },
+          "503": {
+            "description": "Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault, distinct from the permanent 409 below. Nothing is persisted; retrying later may succeed."
           }
         },
         "summary": "Upload a bank statement (deprecated — use POST /api/ingestas/commit)"
@@ -2256,7 +2259,10 @@
             "description": "The calling session is a demo session (issue #500). Nothing is persisted."
           },
           "500": {
-            "description": "Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure (PersistenciaFallidaError / CategorizacionFallidaError). Retryable."
+            "description": "Infrastructure fault (DB) — ensure, dedup, or persist failure (PersistenciaFallidaError). Retryable."
+          },
+          "503": {
+            "description": "Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault, distinct from the permanent 409 above. Fail-closed: nothing is persisted (D-10); retrying later may succeed."
           }
         },
         "summary": "Commit a bank statement import with optional edits overlay (US-057)"
@@ -2302,6 +2308,9 @@
           },
           "400": {
             "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
+          },
+          "503": {
+            "description": "Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault. Preview rejects rather than showing a degraded suggestion set the commit could never honor."
           }
         },
         "summary": "Preview a bank statement (dry run, US-057)"

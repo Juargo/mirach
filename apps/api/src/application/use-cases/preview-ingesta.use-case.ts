@@ -1,7 +1,6 @@
 import { Result } from '../../shared/result';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { ExtensionNoPermitidaError } from '../../domain/errors/extension-no-permitida.error';
 import { BancoNoReconocidoError } from '../../domain/errors/banco-no-reconocido.error';
@@ -14,6 +13,7 @@ import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-i
 import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-invalido.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
+import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
 import { IAccountReader } from '../ports/account-reader.port';
@@ -85,6 +85,7 @@ export type PreviewIngestaError =
   | RangoFechasInvalidoError
   | SinMovimientosError
   | CatalogoIncompletoError
+  | CategorizacionFallidaError
   | PersistenciaFallidaError;
 
 /**
@@ -100,7 +101,7 @@ export type PreviewIngestaError =
  * D-06: `findByBanco` → null → todo esDuplicado:false, reader de existentes NO consultado.
  * D-07: `rangoFechas` + `buscarPorCuentaYRango` + `marcarDuplicados` cuando cuenta existe.
  * D-08: sin 50-cap — se devuelven TODAS las filas del archivo (preview completo).
- * D-09: `sugerido` por fila, `Bucket.SinCategoria` → null; Ingreso still classified on catalog-down.
+ * D-09: `sugerido` por fila, `Bucket.SinCategoria` → null.
  *       #778: sin match, `sugerido` apunta a la `Desconocido` del bucket por
  *       defecto cuando el usuario la tiene — el MISMO destino que escribiría
  *       `CommitIngestaUseCase` para esa fila (mismo `categoriaPorDefecto`
@@ -109,14 +110,18 @@ export type PreviewIngestaError =
  *       #778 tramo 3/5: por el mismo motivo, si el catálogo está DISPONIBLE
  *       pero le falta esa `Desconocido`, el preview RECHAZA con
  *       `CatalogoIncompletoError` — el mismo error que el commit — en vez de
- *       mostrar 200 filas cuyo commit fallaría después. Un catálogo CAÍDO
- *       (fallo de infraestructura) sigue degradando como hoy, NO rechaza.
+ *       mostrar 200 filas cuyo commit fallaría después.
+ *       #778 tramo 5a: un catálogo CAÍDO (fallo de infraestructura) TAMBIÉN
+ *       rechaza ahora, con `CategorizacionFallidaError` (503) — antes
+ *       degradaba mostrando la Ingreso rule sola y `sugerido:null` para el
+ *       resto; esa degradación se elimina por el mismo motivo que en
+ *       `ProcessIngestaUseCase` (ver su docblock y `apps/api/CLAUDE.md`).
  * D-17: `ITransaccionExistenteReader` recibe descripción ya descifrada — el adapter Prisma
  *       invoca `crypto.decrypt` internamente (load-bearing, ver D-17 en design.md).
  *
  * NUNCA lanza — cualquier excepción de un colaborador se captura y se traduce
- * a Result.fail (pipeline delegado a EjecutarPipelineIngestaUseCase) o se
- * degrada silenciosamente (catálogo down → Ingreso still classified, resto sugerido:null).
+ * a Result.fail (pipeline delegado a EjecutarPipelineIngestaUseCase, o
+ * catálogo caído/incompleto — tramo 5a/3, sin persistencia en ningún caso).
  */
 export class PreviewIngestaUseCase {
   constructor(
@@ -176,55 +181,42 @@ export class PreviewIngestaUseCase {
         ? transacciones.length
         : estructura.totalFilasDatos;
 
-    // 2. Load catalog (best-effort island — D-09 degradation)
-    let patrones: ReadonlyArray<PatronClasificacion> = [];
-    let catalogoDisponible = true;
+    // 2. Load catalog — #778 tramo 5a: ya NO es una isla best-effort. Si el
+    // catálogo no responde, el preview rechaza igual que rechazaría el
+    // commit (mismo motivo que 2b más abajo): mostrar un preview degradado
+    // de un archivo cuyo commit terminaría rechazando sería peor que
+    // rechazar antes.
     const catalogResult = await this.catalogoClasificacion.findAll(
       input.userId,
     );
-    if (catalogResult.isOk()) {
-      patrones = catalogResult.getValue();
-    } else {
-      catalogoDisponible = false;
-      this.logger.error(
-        'preview-ingesta: catálogo no disponible; solo Ingreso rule activa',
-        { errorName: catalogResult.getError().constructor.name },
-      );
+    if (catalogResult.isFail()) {
+      return Result.fail(catalogResult.getError());
     }
+    const patrones = catalogResult.getValue();
 
     // 2b. Categoría por defecto (#778) — preview solo carga PATRONES (no el
     // catálogo completo de categorías), así que se resuelve vía el port
-    // (mismo método que ProcessIngestaUseCase). Si el catálogo está caído
-    // (`!catalogoDisponible`), la categoría por defecto TAMPOCO se consulta
-    // — mismo fail-safe que "pass [] so Ingreso rule still fires" más abajo:
-    // el preview no puede sugerir una `Desconocido` de un catálogo que no
-    // pudo leer, y degrada igual que hoy.
+    // (mismo método que ProcessIngestaUseCase). Un fallo ESTRUCTURAL de esta
+    // consulta puntual es la MISMA clase de caída de infraestructura que
+    // `findAll` de arriba — mismo rechazo (tramo 5a), no una degradación
+    // distinta.
     //
     // Cuando el catálogo SÍ respondió pero la consulta puntual devuelve
     // `null` (#778 tramo 3/5), es un catálogo INCOMPLETO — no una caída — y
     // el preview rechaza con el MISMO error que rechazaría el commit
     // (`CatalogoIncompletoError`): mostrar un preview que el commit no puede
-    // honrar sería peor que rechazar antes. Un fallo estructural puntual de
-    // esta consulta (Result.fail) sí degrada a `null`, igual que un catálogo caído.
-    let categoriaPorDefecto: CategoriaPorDefecto | null = null;
-    if (catalogoDisponible) {
-      const categoriaPorDefectoResult =
-        await this.catalogoClasificacion.buscarCategoriaPorDefecto(
-          input.userId,
-        );
-      if (categoriaPorDefectoResult.isFail()) {
-        this.logger.error(
-          'preview-ingesta: no se pudo resolver la categoría por defecto; se degrada igual que un catálogo caído',
-          {
-            errorName: categoriaPorDefectoResult.getError().constructor.name,
-          },
-        );
-      } else if (categoriaPorDefectoResult.getValue() === null) {
-        return Result.fail(new CatalogoIncompletoError(BUCKET_POR_DEFECTO));
-      } else {
-        categoriaPorDefecto = categoriaPorDefectoResult.getValue();
-      }
+    // honrar sería peor que rechazar antes.
+    const categoriaPorDefectoResult =
+      await this.catalogoClasificacion.buscarCategoriaPorDefecto(input.userId);
+    if (categoriaPorDefectoResult.isFail()) {
+      return Result.fail(categoriaPorDefectoResult.getError());
     }
+    const categoriaPorDefectoEncontrada = categoriaPorDefectoResult.getValue();
+    if (categoriaPorDefectoEncontrada === null) {
+      return Result.fail(new CatalogoIncompletoError(BUCKET_POR_DEFECTO));
+    }
+    const categoriaPorDefecto: CategoriaPorDefecto =
+      categoriaPorDefectoEncontrada;
 
     // 3. Dedup status per row (D-06/D-07)
     const maskResult = await this.buildDedupMask(
@@ -243,10 +235,7 @@ export class PreviewIngestaUseCase {
         this.categorizarTransaccionUseCase
           .execute(
             { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
-            // catalog-down: pass [] so Ingreso rule still fires (abono>0,cargo=0 → Ingreso)
-            catalogoDisponible ? patrones : [],
-            // catalog-down → categoriaPorDefecto ya es null (ver 2b); en ese
-            // caso el fallback conserva SinCategoria, igual que antes de #778.
+            patrones,
             categoriaPorDefecto,
           )
           .getValue();

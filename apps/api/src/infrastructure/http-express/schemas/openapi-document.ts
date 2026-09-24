@@ -265,6 +265,12 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
       description:
         'Persistence failure (infrastructure fault, not the uploaded file).',
     },
+    '503': {
+      description:
+        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
+        'slice 5a) — transient infrastructure fault, distinct from the permanent 409 below. ' +
+        'Nothing is persisted; retrying later may succeed.',
+    },
   },
 };
 
@@ -294,6 +300,12 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
       description:
         'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
         'structure/normalization, or an oversized file (>10 MB).',
+    },
+    '503': {
+      description:
+        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
+        'slice 5a) — transient infrastructure fault. Preview rejects rather than showing a ' +
+        'degraded suggestion set the commit could never honor.',
     },
   },
 };
@@ -348,8 +360,14 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     },
     '500': {
       description:
-        'Infrastructure fault (DB) — ensure, dedup, catalog load, or persist failure ' +
-        '(PersistenciaFallidaError / CategorizacionFallidaError). Retryable.',
+        'Infrastructure fault (DB) — ensure, dedup, or persist failure ' +
+        '(PersistenciaFallidaError). Retryable.',
+    },
+    '503': {
+      description:
+        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
+        'slice 5a) — transient infrastructure fault, distinct from the permanent 409 above. ' +
+        'Fail-closed: nothing is persisted (D-10); retrying later may succeed.',
     },
   },
 };

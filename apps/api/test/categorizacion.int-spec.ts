@@ -19,8 +19,6 @@ import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persist
 import { PrismaTransaccionClasificacionRepository } from '../src/infrastructure/persistence/prisma-transaccion-clasificacion.repository';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
-import { CategorizacionFallidaError } from '../src/domain/errors/categorizacion-fallida.error';
-import { Result } from '../src/shared/result';
 import { PatronClasificacion } from '../src/domain/value-objects/patron-clasificacion';
 import { ICatalogoClasificacion } from '../src/application/ports/catalogo-clasificacion.port';
 import { Bucket } from '../src/domain/value-objects/bucket';
@@ -34,31 +32,6 @@ import {
 import { buildTestEnv } from './support/env.fixture';
 import { crearCatalogoParaUsuario } from './support/catalogo.fixture';
 import { NoOpLogger } from './support/logger.double';
-
-/**
- * Stub catálogo que siempre falla — used to exercise the degrade path end-to-end.
- * The real catalog repo is never called; instead this stub drives the same observable
- * behavior the real pipeline exercises when the DB is unavailable.
- */
-class FailingCatalogo implements ICatalogoClasificacion {
-  async findAll(
-    _userId: string,
-  ): Promise<
-    Result<ReadonlyArray<PatronClasificacion>, CategorizacionFallidaError>
-  > {
-    return Result.fail(
-      new CategorizacionFallidaError('test: catalog unavailable'),
-    );
-  }
-
-  // Este int-spec ejercita la degradación de PATRONES (#778 es otro tramo);
-  // stub sin uso solo para satisfacer el port.
-  async buscarCategoriaPorDefecto(): Promise<
-    Result<{ id: string; nombre: string } | null, CategorizacionFallidaError>
-  > {
-    return Result.ok(null);
-  }
-}
 
 /**
  * Drives the categorization step synchronously (mirrors runCategorizacion in ProcessIngestaUseCase)
@@ -301,67 +274,30 @@ describe('Categorización — integración (real dev DB)', () => {
     }
   });
 
-  // T19 — SC-13: catalog load failure → PROCESADA + rows stay null
-  // Rewritten to actually drive the pipeline with a FailingCatalogo stub.
-  // The test will fail if the degrade island is removed (no more passthrough).
-  it('T19/SC-13: catálogo falla → pipeline degrada; filas de gasto quedan null, ingesta continúa PROCESADA', async () => {
-    // Insert 2 transactions: one expense (cargo>0), one income (abono>0).
-    // `descripcion` cifrada (US-036): runCategorizacionStep llama
-    // txClasificacionReader.findParaClasificar internamente, que decrypta.
-    const txExpense = await prisma.transaccion.create({
-      data: {
-        ingestaId: testIngestaBId,
-        accountId: ACCOUNT_ID_FIJO,
-        fecha: new Date('2026-07-02'),
-        descripcion: crypto.encrypt('Compra sin clasificar'),
-        cargo: 5000n,
-        abono: 0n,
-      },
-    });
-    const txIncome = await prisma.transaccion.create({
-      data: {
-        ingestaId: testIngestaBId,
-        accountId: ACCOUNT_ID_FIJO,
-        fecha: new Date('2026-07-02'),
-        descripcion: crypto.encrypt('Deposito sueldo'),
-        cargo: 0n,
-        abono: 1200000n,
-      },
-    });
-
-    // Drive the categorization step with a stub catalog that always fails.
-    const failingCatalog = new FailingCatalogo();
-    const resumen = await runCategorizacionStep(
-      testIngestaBId,
-      USER_ID_FIJO,
-      failingCatalog,
-      txClasificacionReader,
-      bucketWriter,
-      categorizarUseCase,
-    );
-
-    // (a) The pipeline did not throw — it returned a resumen (degrade island held)
-    expect(resumen).toBeDefined();
-
-    // (b) Expense row: bucketId must remain null (catalog failed, pattern matching skipped)
-    const afterExpense = await prisma.transaccion.findUnique({
-      where: { id: txExpense.id },
-    });
-    expect(afterExpense?.bucketId).toBeNull();
-
-    // (c) Income row: Ingreso rule still fires even when catalog fails (abono>0, cargo=0)
-    //     so bucketId should be the Ingreso bucket, not null.
-    const afterIncome = await prisma.transaccion.findUnique({
-      where: { id: txIncome.id },
-    });
-    expect(afterIncome?.bucketId).toBe(BUCKET_IDS[Bucket.Ingreso]);
-
-    // Ingesta remains PROCESADA (was set in beforeEach, nothing should change it here)
-    const ingesta = await prisma.ingesta.findUnique({
-      where: { id: testIngestaBId },
-    });
-    expect(ingesta?.estado).toBe('PROCESADA');
-  });
+  // T19/SC-13 — RETIRADO en el tramo 5a de #778.
+  //
+  // Afirmaba "catálogo falla → pipeline degrada; filas de gasto quedan null,
+  // ingesta continúa PROCESADA". Ese comportamiento ya no existe: con el
+  // catálogo caído la ingesta se RECHAZA entera y no se persiste ninguna
+  // fila.
+  //
+  // Se retira y no se reescribe acá por dos razones. La primera es que el
+  // comportamiento nuevo ya está cubierto contra Postgres real en
+  // `ingesta-preview-commit.int-spec.ts`, ejercitando `ProcessIngestaUseCase`
+  // y `PreviewIngestaUseCase` de verdad.
+  //
+  // La segunda es la que importa: este test corría sobre
+  // `runCategorizacionStep`, una REIMPLEMENTACIÓN local de la lógica del
+  // pipeline que vive en este archivo, no sobre el use case real. Su propio
+  // comentario prometía "the test will fail if the degrade island is
+  // removed" — y cuando la isla se eliminó, siguió en VERDE, porque lo que
+  // ejercitaba era su propia copia. Un guard que no guarda da confianza
+  // falsa, que es peor que no tenerlo.
+  //
+  // Los otros tests de este archivo siguen usando ese helper para cosas que
+  // sí son ciertas (aislamiento entre ingestas, integridad de FKs, patrones
+  // per-user). Si alguno empieza a describir producción de forma inexacta,
+  // vale el mismo criterio.
 
   // T21 — FK integrity: assigned categoriaId/bucketId resolve to Categoria/BucketPresupuesto; null rows remain valid
   it('T21: asignarCategorizacion persiste FKs válidas (categoriaId+bucketId); filas con bucketId null pre-existentes siguen siendo válidas', async () => {

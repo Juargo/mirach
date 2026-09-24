@@ -798,7 +798,7 @@ describe('ProcessIngestaUseCase', () => {
 
   // T16 — Categorization orchestration tests (US-012, SC-13, SC-14, SC-15)
   describe('categorización post-persistencia', () => {
-    it('SC-13: falla el catálogo → ingesta PROCESADA; filas no-Ingreso quedan null (no se escriben)', async () => {
+    it('SC-13 (issue #778 tramo 5a): falla el catálogo ⇒ rechaza con CategorizacionFallidaError, NO persiste nada (ni la ingesta ni la fila de gasto)', async () => {
       const catalogo = new FakeCatalogo();
       catalogo.failWith = new CategorizacionFallidaError(
         'db error al cargar catálogo',
@@ -815,32 +815,24 @@ describe('ProcessIngestaUseCase', () => {
         esDemo: false,
       });
 
-      // Ingesta SIEMPRE PROCESADA
-      expect(result.isOk()).toBe(true);
-      const [record] = Array.from(ingestaStore.ingestas.values());
-      expect(record.estado).toBe('PROCESADA');
-
-      // Bajo fallo de catálogo, una tx de gasto (cargo>0, abono=0) NO se escribe:
-      // queda bucketId null (pendiente/reintentable), nunca SinCategoria.
-      // TX_PARA_CLASIFICAR[0] = { cargo: 8103n, abono: 0n }.
-      const allAsignaciones = bucketWriter.calls.flat();
-      const expenseAsig = allAsignaciones.find(
-        (a) => a.transaccionId === 'tx-persisted-1',
-      );
-      expect(expenseAsig).toBeUndefined();
-      // Ninguna asignación SinCategoria se escribe durante la degradación.
-      expect(
-        allAsignaciones.some((a) => a.bucket === Bucket.SinCategoria),
-      ).toBe(false);
+      // Issue #778 tramo 5a: un catálogo caído YA NO degrada (antes dejaba
+      // la ingesta PROCESADA con la fila de gasto en null) — rechaza la
+      // ingesta ENTERA antes de persistir nada.
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+      expect(ingestaStore.ingestas.size).toBe(0);
+      expect(bucketWriter.calls).toHaveLength(0);
     });
 
-    it('SC-14: falla el catálogo pero una tx tiene abono>0, cargo=0 → esa tx recibe Ingreso, ingesta PROCESADA', async () => {
+    it('SC-14 (issue #778 tramo 5a): falla el catálogo ⇒ rechaza incluso con una tx que calificaría para Ingreso — la regla Ingreso ya NO sobrevive como fail-safe a una caída', async () => {
       const catalogo = new FakeCatalogo();
       catalogo.failWith = new CategorizacionFallidaError(
         'db error al cargar catálogo',
       );
       const bucketWriter = new FakeBucketWriter();
-      // TX_PARA_CLASIFICAR[1] = { cargo: 0, abono: 1500000 } → debe ser Ingreso
+      // TX_PARA_CLASIFICAR[1] = { cargo: 0, abono: 1500000 } calificaría para
+      // Ingreso — pero el catálogo caído rechaza ANTES de llegar a
+      // clasificar ninguna fila (tramo 5a: ya no hay Ingreso "fail-safe").
       const { useCase } = buildUseCase({ catalogo, bucketWriter });
 
       const result = await useCase.execute({
@@ -849,15 +841,9 @@ describe('ProcessIngestaUseCase', () => {
         esDemo: false,
       });
 
-      expect(result.isOk()).toBe(true);
-      // bucketWriter debe haber sido llamado con la tx de Ingreso
-      expect(bucketWriter.calls.length).toBeGreaterThan(0);
-      const todasLasAsignaciones = bucketWriter.calls.flat();
-      const ingresoAsignacion = todasLasAsignaciones.find(
-        (a) => a.transaccionId === 'tx-persisted-2',
-      );
-      expect(ingresoAsignacion).toBeDefined();
-      expect(ingresoAsignacion!.bucket).toBe(Bucket.Ingreso);
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+      expect(bucketWriter.calls).toHaveLength(0);
     });
 
     it('SC-15 (scope isolation): asignarCategorizacion solo se llama con ids de la ingesta actual', async () => {
@@ -1018,11 +1004,13 @@ describe('ProcessIngestaUseCase', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // #778 tramo 3/5 — catálogo INCOMPLETO (disponible pero sin la Desconocido
-  // de Deseos) rechaza ANTES de persistir. Distinto de un catálogo CAÍDO
-  // (fallo de infraestructura), que sigue degradando — NO rechaza.
+  // #778 tramo 3/5/5a — catálogo INCOMPLETO (disponible pero sin la
+  // Desconocido de Deseos, rechaza con 409) y catálogo CAÍDO (fallo de
+  // infraestructura, rechaza con 503, tramo 5a) — AMBOS rechazan ahora sin
+  // persistir nada. Antes del tramo 5a, un catálogo caído degradaba en vez
+  // de rechazar (isla eliminada, ver `apps/api/CLAUDE.md`).
   // ---------------------------------------------------------------------------
-  describe('#778 tramo 3/5 — catálogo incompleto vs. catálogo caído', () => {
+  describe('#778 tramo 3/5/5a — catálogo incompleto vs. catálogo caído (ambos rechazan)', () => {
     it('catálogo DISPONIBLE pero SIN Desconocido de Deseos ⇒ rechaza con CatalogoIncompletoError, NO persiste nada', async () => {
       const catalogo = new FakeCatalogo();
       catalogo.categoriaPorDefecto = null; // findAll ok (disponible), buscarCategoriaPorDefecto → ok(null)
@@ -1045,14 +1033,13 @@ describe('ProcessIngestaUseCase', () => {
       expect(ingestaFallidaWriter.calls).toHaveLength(1);
     });
 
-    it('catálogo CAÍDO (findAll falla) ⇒ NO rechaza, sigue degradando como hoy (isla histórica intacta)', async () => {
+    it('catálogo CAÍDO (findAll falla) ⇒ SÍ rechaza con CategorizacionFallidaError, NO persiste nada (issue #778 tramo 5a — isla degradable eliminada)', async () => {
       const catalogo = new FakeCatalogo();
       catalogo.failWith = new CategorizacionFallidaError('db caída');
-      // Aunque buscarCategoriaPorDefecto pudiera resolver algo, catalogoDisponible
-      // es false ⇒ ni se consulta (mismo gate que PreviewIngestaUseCase).
-      const { useCase, ingestaStore, bucketWriter } = buildUseCase({
-        catalogo,
-      });
+      const { useCase, ingestaStore, bucketWriter, ingestaFallidaWriter } =
+        buildUseCase({
+          catalogo,
+        });
 
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
@@ -1060,17 +1047,18 @@ describe('ProcessIngestaUseCase', () => {
         esDemo: false,
       });
 
-      // La ingesta sigue PROCESADA — NO rechaza.
-      expect(result.isOk()).toBe(true);
-      const [record] = Array.from(ingestaStore.ingestas.values());
-      expect(record.estado).toBe('PROCESADA');
-      // buscarCategoriaPorDefecto NUNCA se llamó (catalogoDisponible false).
+      // Issue #778 tramo 5a: la ingesta RECHAZA — ya no degrada como antes.
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CategorizacionFallidaError);
+      // Nada se persiste: ni la ingesta ni ninguna categorización.
+      expect(ingestaStore.ingestas.size).toBe(0);
+      expect(bucketWriter.calls).toHaveLength(0);
+      // buscarCategoriaPorDefecto NUNCA se llamó: findAll falló primero, corte
+      // inmediato (mismo gate que PreviewIngestaUseCase).
       expect(catalogo.receivedUserIdsDefecto).toHaveLength(0);
-      // Isla degradable histórica intacta: solo Ingreso se escribe.
-      const allAsignaciones = bucketWriter.calls.flat();
-      expect(
-        allAsignaciones.some((a) => a.bucket === Bucket.SinCategoria),
-      ).toBe(false);
+      // El rechazo SÍ se registra como FALLIDA (mismo boundary genérico que
+      // CatalogoIncompletoError arriba — sin carve-out para este error).
+      expect(ingestaFallidaWriter.calls).toHaveLength(1);
     });
 
     it('catálogo COMPLETO (con Desconocido de Deseos) ⇒ sin regresión, ingesta funciona igual que antes', async () => {

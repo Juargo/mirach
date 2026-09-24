@@ -18,7 +18,13 @@ import { IFileReader } from '../application/ports/file-reader.port';
 //   2. ALLOWLIST (verified against actual adapter implementations):
 //      - account.findUnique           (PrismaAccountReader)
 //      - transaccion.findMany         (PrismaTransaccionExistenteReader)
-//      - patronClasificacion.findMany (PrismaCatalogoClasificacionRepository)
+//      - patronClasificacion.findMany (PrismaCatalogoClasificacionRepository.findAll)
+//      - categoria.findFirst          (PrismaCatalogoClasificacionRepository.buscarCategoriaPorDefecto,
+//                                       issue #778 — resolves the default category BEFORE the
+//                                       account read; a fail here now REJECTS the preview
+//                                       (tramo 5a), it no longer degrades, so it must resolve
+//                                       a real row for the happy-path tests below to reach
+//                                       account.findUnique at all)
 //   3. Because the Proxy denies by default, this catches ANY future write
 //      adapter (account.create, ingesta.upsert, transaccion.createMany, …) —
 //      not just a hand-enumerated denylist.
@@ -67,7 +73,13 @@ class FakeFileReaderWithValidCartola implements IFileReader {
  *   - account.findUnique           → PrismaAccountReader.findByBanco
  *   - transaccion.findMany         → PrismaTransaccionExistenteReader.buscarPorCuentaYRango
  *   - patronClasificacion.findMany → PrismaCatalogoClasificacionRepository.findAll
- * Each returns an empty/null result the adapters handle gracefully.
+ *   - categoria.findFirst          → PrismaCatalogoClasificacionRepository.buscarCategoriaPorDefecto
+ * `account`/`transaccion`/`patronClasificacion` return an empty/null result the
+ * adapters handle gracefully. `categoria.findFirst` returns a REAL row (issue
+ * #778 tramo 5a): a `null` here means "catálogo incompleto" (409) and any
+ * thrown/forbidden access now REJECTS the preview outright (it no longer
+ * degrades to `categoriaPorDefecto: null`), so the happy-path tests below
+ * need a resolved default category to reach the account read at all.
  *
  * Any (model, method) NOT in this map — ANY future write adapter such as
  * `ingesta.upsert`, `account.create`, `transaccion.createMany`, etc. — THROWS.
@@ -79,6 +91,10 @@ const ALLOWLIST: Record<
   account: { findUnique: () => Promise.resolve(null) },
   transaccion: { findMany: () => Promise.resolve([]) },
   patronClasificacion: { findMany: () => Promise.resolve([]) },
+  categoria: {
+    findFirst: () =>
+      Promise.resolve({ id: 'cat-desconocido-stub', nombre: 'Desconocido' }),
+  },
 };
 
 /** Recording of every (model, method) access — for post-run assertions. */

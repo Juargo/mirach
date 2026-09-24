@@ -108,8 +108,9 @@ export type CommitIngestaError =
   | CategoriaFueraDeCatalogoError
   // Catálogo disponible pero incompleto (409, issue #778 tramo 3/5)
   | CatalogoIncompletoError
-  // Infrastructure errors (500)
+  // Catálogo CAÍDO (503, issue #778 tramo 5a) — infra transitoria/reintentable.
   | CategorizacionFallidaError
+  // Otros errores de infraestructura (500)
   | PersistenciaFallidaError;
 
 // ---------------------------------------------------------------------------
