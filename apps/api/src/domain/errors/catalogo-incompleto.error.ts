@@ -12,8 +12,25 @@ import { ETIQUETA_BUCKET_COPY } from '../value-objects/semaforo-detalle';
  * Reemplaza al fail-safe silencioso que degradaba a `Bucket.SinCategoria`
  * (tramo 2): el tramo 5 ELIMINA ese bucket, así que un catálogo incompleto
  * deja de tener un destino de degradación disponible — pasa a ser un error
- * de CONFIGURACIÓN explícito que el usuario tiene que resolver (recrear esa
- * categoría), no algo que la ingesta pueda absorber en silencio.
+ * de CONFIGURACIÓN explícito, no algo que la ingesta pueda absorber en
+ * silencio.
+ *
+ * ⚠️ El usuario NO puede resolverlo desde la app, y el mensaje NO debe
+ * sugerirle que sí. Se comprobó en producción (2026-09-24): la primera
+ * versión de este copy decía "restaura o crea esa categoría", y las dos
+ * cosas son callejones sin salida. La `Desconocido` es una categoría del
+ * sistema: está protegida contra edición y borrado
+ * (`CategoriaInternaProtegidaError`), y una que el usuario cree a mano
+ * nacería con `esInterna = false` — invisible para
+ * `seleccionarCategoriaInterna`, que es lo único que este guard consulta. Y
+ * si ya existe sin marcar (el caso REAL y más frecuente, todo catálogo
+ * anterior a #781), crear otra choca contra
+ * `@@unique([userId, bucketId, nombre])`.
+ *
+ * La remediación es de operador: `prisma/marcar-categorias-internas.ts`
+ * cuando la fila existe sin marcar, `prisma/backfill-catalogo-faltante.ts`
+ * cuando no existe. Eso NO va en el mensaje — es lenguaje de operador, no
+ * de usuario final.
  *
  * Distinto de un catálogo CAÍDO (fallo de infraestructura — `Result.fail` de
  * `ICatalogoClasificacion.findAll`/`buscarCategoriaPorDefecto`): esa isla
@@ -33,8 +50,9 @@ import { ETIQUETA_BUCKET_COPY } from '../value-objects/semaforo-detalle';
 export class CatalogoIncompletoError extends Error {
   constructor(readonly bucket: keyof typeof ETIQUETA_BUCKET_COPY) {
     super(
-      `Tu catálogo de categorías está incompleto: falta la categoría Desconocido en ${ETIQUETA_BUCKET_COPY[bucket]}. ` +
-        `No podemos clasificar los movimientos sin ella. Restaura o crea esa categoría en tu catálogo antes de volver a intentarlo.`,
+      `No pudimos clasificar los movimientos: falta la categoría Desconocido de ${ETIQUETA_BUCKET_COPY[bucket]} en tu catálogo. ` +
+        `Es una categoría del sistema, así que no se puede crear ni restaurar desde la app: hay que resolverlo por dentro. ` +
+        `Tu archivo está bien y no se importó nada.`,
     );
     this.name = 'CatalogoIncompletoError';
   }
