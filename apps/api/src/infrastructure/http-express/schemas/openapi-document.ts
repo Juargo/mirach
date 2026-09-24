@@ -268,8 +268,10 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     '503': {
       description:
         'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
-        'slice 5a) — transient infrastructure fault, distinct from the permanent 409 below. ' +
-        'Nothing is persisted; retrying later may succeed.',
+        'slice 5a), OR the post-persist bucket-classification write failed and the import ' +
+        'was rolled back (issue #778 slice 5a-bis) — transient infrastructure fault, distinct ' +
+        'from the permanent 409 below. Nothing is persisted (in the 5a-bis case, anything ' +
+        'written during this request was deleted); retrying later may succeed.',
     },
   },
 };

@@ -58,13 +58,18 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_PASSWORD_LENGTH = 500;
 
 /**
- * Mensaje de usuario final para un catálogo de clasificación CAÍDO (issue
- * #778 tramo 5a) — `CategorizacionFallidaError` cuando `findAll` o
- * `buscarCategoriaPorDefecto` de `ICatalogoClasificacion` fallan por un
- * problema de infraestructura. A diferencia de `CatalogoIncompletoError`
- * (409, error de configuración, permanente hasta que un operador lo
- * arregle), esta caída es TRANSITORIA: reintentar el mismo request sí puede
- * funcionar.
+ * Mensaje de usuario final para un `CategorizacionFallidaError` — cubre DOS
+ * causas distintas que comparten el mismo 503:
+ *   - Catálogo de clasificación CAÍDO (issue #778 tramo 5a): `findAll` o
+ *     `buscarCategoriaPorDefecto` de `ICatalogoClasificacion` fallan por un
+ *     problema de infraestructura ANTES de persistir nada.
+ *   - WRITER de buckets fallando DESPUÉS de persistir (issue #778 tramo
+ *     5a-bis, solo alcanzable en el one-shot POST /ingestas): la ingesta se
+ *     revierte (`ProcessIngestaUseCase.revertirYRechazar`) y responde con
+ *     este mismo error.
+ * A diferencia de `CatalogoIncompletoError` (409, error de configuración,
+ * permanente hasta que un operador lo arregle), ambas causas son
+ * TRANSITORIAS: reintentar el mismo request sí puede funcionar.
  *
  * Registro neutro, sin jerga de dominio/puertos — el usuario nunca ve
  * "catálogo", "port" ni nombres de clase, solo que fue un problema nuestro,
@@ -99,8 +104,9 @@ export interface IngestaRoutesDeps {
  * usuario, 204 sin body en éxito.
  *
  * Errores de validación del archivo del cliente → 400; fallo de infra
- * (persistencia) → 500; catálogo de clasificación CAÍDO (issue #778 tramo
- * 5a, `CategorizacionFallidaError`) → 503 CATALOGO_NO_DISPONIBLE, distinto
+ * (persistencia) → 500; catálogo de clasificación CAÍDO O writer de buckets
+ * fallando post-persist (issue #778 tramos 5a/5a-bis, ambos
+ * `CategorizacionFallidaError`) → 503 CATALOGO_NO_DISPONIBLE, distinto
  * del catálogo INCOMPLETO (409 CATALOGO_INCOMPLETO, tramo 3, permanente).
  * Todos los mensajes son seguros (nunca interpolan montos ni datos crudos).
  * El userId viene del session middleware.

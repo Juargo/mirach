@@ -45,12 +45,14 @@ export interface ReevaluarCategoriasResult {
  * Demo gate: una sesión demo corta ANTES de tocar catálogo, reader o writer
  * (mismo patrón que `EliminarMovimientoManualUseCase`/`ProcessIngestaUseCase`).
  *
- * Un fallo al cargar el catálogo aborta la operación completa (a diferencia
- * de la isla degradable de `ProcessIngestaUseCase`): esta es una acción
- * explícita disparada por el usuario, no un paso best-effort de un pipeline
- * de ingesta — sin catálogo confiable, reevaluar podría escribir resultados
- * incompletos silenciosamente. Nunca lanza: retorna `Result.fail` con el
- * mismo `CategorizacionFallidaError` que produjo el reader del catálogo.
+ * Un fallo al cargar el catálogo aborta la operación completa (mismo
+ * criterio de rechazo que `ProcessIngestaUseCase` desde el tramo 5a/5a-bis
+ * de issue #778 — ya NO queda ninguna isla degradable en ese pipeline):
+ * esta es una acción explícita disparada por el usuario, no un paso
+ * best-effort de un pipeline de ingesta — sin catálogo confiable, reevaluar
+ * podría escribir resultados incompletos silenciosamente. Nunca lanza:
+ * retorna `Result.fail` con el mismo `CategorizacionFallidaError` que
+ * produjo el reader del catálogo.
  */
 export class ReevaluarCategoriasUseCase {
   constructor(

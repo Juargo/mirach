@@ -6,6 +6,7 @@ import { loadEnv } from '../src/config/env';
 import { PrismaAccountRepository } from '../src/infrastructure/persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../src/infrastructure/persistence/prisma-ingesta.repository';
 import { PrismaRegistrarIngestaFallidaRepository } from '../src/infrastructure/persistence/prisma-registrar-ingesta-fallida.repository';
+import { PrismaRevertirIngestaFallidaRepository } from '../src/infrastructure/persistence/prisma-revertir-ingesta-fallida.repository';
 import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../src/infrastructure/persistence/prisma-transaccion-bucket.repository';
 import { PrismaTransaccionClasificacionRepository } from '../src/infrastructure/persistence/prisma-transaccion-clasificacion.repository';
@@ -119,6 +120,7 @@ describe('Re-upload dedupe end-to-end (US-005, real dev DB)', () => {
       logger,
     ),
     new PrismaRegistrarIngestaFallidaRepository(prisma),
+    new PrismaRevertirIngestaFallidaRepository(prisma),
     logger,
   );
 

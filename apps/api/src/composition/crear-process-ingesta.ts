@@ -26,6 +26,7 @@ import { PdfjsTransactionNormalizerService } from '../infrastructure/pdf/pdfjs-t
 import { PrismaAccountRepository } from '../infrastructure/persistence/prisma-account.repository';
 import { PrismaIngestaRepository } from '../infrastructure/persistence/prisma-ingesta.repository';
 import { PrismaRegistrarIngestaFallidaRepository } from '../infrastructure/persistence/prisma-registrar-ingesta-fallida.repository';
+import { PrismaRevertirIngestaFallidaRepository } from '../infrastructure/persistence/prisma-revertir-ingesta-fallida.repository';
 import { PrismaCatalogoClasificacionRepository } from '../infrastructure/persistence/prisma-catalogo-clasificacion.repository';
 import { PrismaTransaccionBucketRepository } from '../infrastructure/persistence/prisma-transaccion-bucket.repository';
 import { PrismaTransaccionClasificacionRepository } from '../infrastructure/persistence/prisma-transaccion-clasificacion.repository';
@@ -73,6 +74,10 @@ export function crearProcessIngesta(
   const ingestaFallidaWriter = new PrismaRegistrarIngestaFallidaRepository(
     prisma,
   );
+  // Issue #778 tramo 5a-bis: revierte una PROCESADA cuando el WRITER de
+  // buckets falla post-persist (ver docblock de ProcessIngestaUseCase).
+  const revertirIngestaFallidaWriter =
+    new PrismaRevertirIngestaFallidaRepository(prisma);
   const catalogoClasificacion = new PrismaCatalogoClasificacionRepository(
     prisma,
   );
@@ -118,6 +123,7 @@ export function crearProcessIngesta(
     txParaClasificarReader,
     new DetectarDuplicadosUseCase(txExistenteReader, logger),
     ingestaFallidaWriter,
+    revertirIngestaFallidaWriter,
     logger,
   );
 }
