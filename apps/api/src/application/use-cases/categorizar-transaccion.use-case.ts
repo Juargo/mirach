@@ -16,26 +16,50 @@ export interface TransaccionInput {
 }
 
 /**
- * Resultado de la clasificación: siempre ok (nunca falla por transacción).
- *
- * US-013 (CAT-03), re-tipado por ADR-037/Q5 (us-038): `categoria` es `null`
- * para Ingreso y para SinCategoria (no hay categoría que asignar en ninguno
- * de esos dos casos); cuando un patrón matchea, `categoria` es `{ id, nombre
- * }` de la fila propia del usuario que matcheó (ya no un miembro del enum
- * retirado) y `bucket` es SIEMPRE el derivado de esa categoría (`patron.bucket`,
- * getter de PatronClasificacion) — nunca un bucket independiente.
+ * Clasificación DETERMINADA — el use case decidió un destino: la regla
+ * Ingreso, un patrón que matcheó, o (si el caller trae `categoriaPorDefecto`)
+ * la `Desconocido` del bucket por defecto (#778). `categoria` es `null` solo
+ * para Ingreso (no hay categoría que asignar); en cualquier otro caso trae la
+ * fila `{ id, nombre }` de la categoría propia del usuario. `bucket` es
+ * SIEMPRE el derivado de esa decisión — nunca un bucket independiente.
  */
-export interface CategorizarTransaccionResult {
+export interface CategorizarTransaccionResultClasificada {
+  readonly tipo: 'clasificada';
   readonly categoria: { id: string; nombre: string } | null;
   readonly bucket: Bucket;
 }
 
 /**
+ * Ningún patrón matcheó Y el caller no trae `categoriaPorDefecto` (pasó
+ * `null` explícito). No hay `categoria` ni `bucket` que ofrecer — no hubo
+ * ninguna decisión de clasificación que tomar.
+ *
+ * #778 tramo 3/5b: este es el ÚNICO caller que hoy pasa `null` a propósito —
+ * `ReevaluarCategoriasUseCase` lo usa como CENTINELA de "ningún patrón
+ * matcheó" para NO tocar clasificaciones manuales existentes (ver su propio
+ * docblock). Antes de este tramo esa señal viajaba como
+ * `{ categoria: null, bucket: Bucket.SinCategoria }`, sobrecargando el enum
+ * `Bucket` como si fuera, a la vez, un destino de persistencia (la ingesta) y
+ * un centinela de "no toques esta fila" (`reevaluar-categorias`) — ver
+ * [[sincategoria-centinela-vs-destino]]. Esta variante separa esa señal del
+ * tipo `Bucket`, para que issue #778 tramo 5 pueda retirar
+ * `Bucket.SinCategoria` del enum sin tocar esta lógica.
+ */
+export interface CategorizarTransaccionResultSinCoincidencia {
+  readonly tipo: 'sinCoincidencia';
+}
+
+export type CategorizarTransaccionResult =
+  | CategorizarTransaccionResultClasificada
+  | CategorizarTransaccionResultSinCoincidencia;
+
+/**
  * CategorizarTransaccionUseCase — clasifica UNA transacción en su categoría/bucket.
  *
  * Algoritmo (R-02, R-03, R-04, CAT-03):
- *   1. Ingreso rule: abono > 0 AND cargo === 0 → { categoria: null, bucket: Ingreso }
- *      (sin consultar patrones).
+ *   1. Ingreso rule: abono > 0 AND cargo === 0 →
+ *      { tipo: 'clasificada', categoria: null, bucket: Ingreso } (sin
+ *      consultar patrones).
  *   2. Ordenar patrones por prioridad asc, luego patron (texto) asc, luego id asc
  *      (tiebreak determinístico — design.md D-08, US-037). `id` YA NO es el
  *      primer desempate: bajo copias per-user los ids son cuid()s generados,
@@ -43,45 +67,52 @@ export interface CategorizarTransaccionResult {
  *      colisión de igual prioridad de forma distinta si el orden dependiera
  *      del id. `patron` es estable y user-independiente; `id` se conserva
  *      solo como desempate final para garantizar un orden total.
- *   3. Primera coincidencia (PatronClasificacion.coincide) → { categoria: patron.categoria,
- *      bucket: patron.bucket } (bucket derivado, nunca aceptado independientemente).
+ *   3. Primera coincidencia (PatronClasificacion.coincide) →
+ *      { tipo: 'clasificada', categoria: patron.categoria, bucket: patron.bucket }
+ *      (bucket derivado, nunca aceptado independientemente).
  *   4. Fallback (issue #778): si el caller trae `categoriaPorDefecto` (la
  *      `Desconocido` interna del bucket `BUCKET_POR_DEFECTO`, resuelta por
  *      `seleccionarCategoriaPorDefecto`), la transacción sin coincidencia se
- *      asigna ahí → { categoria: categoriaPorDefecto, bucket: BUCKET_POR_DEFECTO }.
- *      Es un fallo RUIDOSO por diseño (ver docblock de `BUCKET_POR_DEFECTO`),
- *      no un escondite. Si `categoriaPorDefecto` es `null`, se conserva el
- *      fail-safe histórico: { categoria: null, bucket: SinCategoria }.
+ *      asigna ahí → { tipo: 'clasificada', categoria: categoriaPorDefecto,
+ *      bucket: BUCKET_POR_DEFECTO }. Es un fallo RUIDOSO por diseño (ver
+ *      docblock de `BUCKET_POR_DEFECTO`), no un escondite. Si
+ *      `categoriaPorDefecto` es `null`, retorna
+ *      { tipo: 'sinCoincidencia' } — ver
+ *      `CategorizarTransaccionResultSinCoincidencia` para quién consume esto
+ *      y por qué.
  *
- *      #778 tramo 3/5 — ESTA RAMA CAMBIÓ DE DUEÑO, se conserva por otro
- *      motivo: hoy `categoriaPorDefecto: null` llega desde DOS callers, y
- *      NINGUNO de los dos es ya "la ingesta con un catálogo incompleto" (ese
- *      caso ahora se RECHAZA antes de llegar acá — ver
- *      `CatalogoIncompletoError` / `ProcessIngestaUseCase.runPipeline` /
- *      `CommitIngestaUseCase` paso 6b / `PreviewIngestaUseCase` paso 2b):
- *        (a) `ReevaluarCategoriasUseCase` pasa `null` A PROPÓSITO, siempre —
- *            usa `Bucket.SinCategoria` como CENTINELA de "ningún patrón
- *            matcheó" para NO tocar clasificaciones manuales existentes (ver
- *            su propio docblock). No es una degradación, es su contrato.
- *        (b) `ProcessIngestaUseCase`/`PreviewIngestaUseCase` en su isla
- *            degradable histórica, cuando el catálogo está CAÍDO (fallo de
- *            infraestructura, no config) — ahí `categoriaPorDefecto` nunca
- *            se llegó a resolver porque no tiene sentido consultarlo si el
- *            catálogo mismo no respondió.
- *      Por eso el `logger.warn` que sugería correr un script de backfill se
- *      ELIMINÓ de la rama de abajo: ese remedio era para "catálogo disponible
- *      pero sin la fila", que ya no puede llegar acá desde la ingesta (se
- *      rechaza antes), y no aplica a (a) ni a (b) — en (a) es el flujo normal
- *      de cada corrida, en (b) el problema es de infraestructura, no de
- *      catálogo faltante.
+ * Contrato de tipos (#778 tramo 5b): dos overloads sobre el mismo tercer
+ * parámetro.
+ *   - `categoriaPorDefecto: CategoriaPorDefecto` (no nulo) → el resultado es
+ *     SIEMPRE `CategorizarTransaccionResultClasificada` —
+ *     `'sinCoincidencia'` es TIPO-inalcanzable, no solo en runtime. Los tres
+ *     callers de la ingesta (`ProcessIngestaUseCase`, `PreviewIngestaUseCase`,
+ *     `CommitIngestaUseCase`) ya garantizan un default no-nulo antes de
+ *     llegar acá (rechazan con `CatalogoIncompletoError`/
+ *     `CategorizacionFallidaError` si no lo tienen), así que este overload
+ *     documenta esa garantía en el compilador, no solo en comentarios.
+ *   - `categoriaPorDefecto: CategoriaPorDefecto | null` → el resultado es la
+ *     unión completa `CategorizarTransaccionResult`; el caller DEBE
+ *     discriminar por `tipo` antes de leer `categoria`/`bucket`.
+ *     `ReevaluarCategoriasUseCase` es el único caller que hoy pasa `null`.
  *
- * Contrato: retorna Result<{categoria,bucket},never> — SIEMPRE ok. Nunca lanza.
- * La degradación (a la categoría por defecto, o a SinCategoria si no existe)
- * ocurre aquí, no en el orquestador.
+ * Contrato: retorna Result<CategorizarTransaccionResult,never> — SIEMPRE ok.
+ * Nunca lanza. La degradación (a la categoría por defecto, o a
+ * `sinCoincidencia` si no existe) ocurre aquí, no en el orquestador.
  */
 export class CategorizarTransaccionUseCase {
   constructor(private readonly logger: ILogger) {}
 
+  execute(
+    transaccion: TransaccionInput,
+    patrones: ReadonlyArray<PatronClasificacion>,
+    categoriaPorDefecto: CategoriaPorDefecto,
+  ): Result<CategorizarTransaccionResultClasificada, never>;
+  execute(
+    transaccion: TransaccionInput,
+    patrones: ReadonlyArray<PatronClasificacion>,
+    categoriaPorDefecto: CategoriaPorDefecto | null,
+  ): Result<CategorizarTransaccionResult, never>;
   execute(
     transaccion: TransaccionInput,
     patrones: ReadonlyArray<PatronClasificacion>,
@@ -90,7 +121,11 @@ export class CategorizarTransaccionUseCase {
     // 1. Ingreso rule — tiene prioridad sobre todo el catálogo. La regla vive
     //    en el VO (única fuente); aquí se evalúa sobre el read model bigint.
     if (Transaccion.esIngreso(transaccion.cargo, transaccion.abono)) {
-      const resultado = { categoria: null, bucket: Bucket.Ingreso };
+      const resultado: CategorizarTransaccionResultClasificada = {
+        tipo: 'clasificada',
+        categoria: null,
+        bucket: Bucket.Ingreso,
+      };
       this.logDecision(resultado);
       return Result.ok(resultado);
     }
@@ -106,7 +141,8 @@ export class CategorizarTransaccionUseCase {
     // 3. Primera coincidencia gana.
     for (const patron of ordenados) {
       if (patron.coincide(transaccion.descripcion)) {
-        const resultado = {
+        const resultado: CategorizarTransaccionResultClasificada = {
+          tipo: 'clasificada',
           categoria: {
             id: patron.categoria.id,
             nombre: patron.categoria.nombre,
@@ -119,9 +155,11 @@ export class CategorizarTransaccionUseCase {
     }
 
     // 4. Fallback (#778): la Desconocido del bucket por defecto si existe;
-    //    si no, se conserva el fail-safe histórico pero logueado RUIDOSO.
+    //    si no, `sinCoincidencia` — ver docblock de
+    //    `CategorizarTransaccionResultSinCoincidencia`.
     if (categoriaPorDefecto !== null) {
-      const resultado = {
+      const resultado: CategorizarTransaccionResultClasificada = {
+        tipo: 'clasificada',
         categoria: categoriaPorDefecto,
         bucket: BUCKET_POR_DEFECTO,
       };
@@ -129,14 +167,13 @@ export class CategorizarTransaccionUseCase {
       return Result.ok(resultado);
     }
 
-    // `categoriaPorDefecto === null` — hoy SIEMPRE uno de los dos casos del
-    // docblock de arriba (#778 tramo 3/5): el centinela deliberado de
-    // `ReevaluarCategoriasUseCase`, o la isla degradable de catálogo CAÍDO de
-    // la ingesta. Ninguno de los dos es "catálogo disponible pero
-    // incompleto" (ese caso rechaza ANTES de llegar acá), así que ya no hay
-    // nada accionable para un operador que un `warn` deba señalar — `debug`
-    // (vía `logDecision` más abajo) basta.
-    const resultado = { categoria: null, bucket: Bucket.SinCategoria };
+    // `categoriaPorDefecto === null` — hoy SIEMPRE el centinela deliberado de
+    // `ReevaluarCategoriasUseCase` ("ningún patrón matcheó, no toques esta
+    // fila"). Ya no hay nada accionable para un operador que un `warn` deba
+    // señalar — `debug` (vía `logDecision` más abajo) basta.
+    const resultado: CategorizarTransaccionResultSinCoincidencia = {
+      tipo: 'sinCoincidencia',
+    };
     this.logDecision(resultado);
     return Result.ok(resultado);
   }
@@ -144,6 +181,12 @@ export class CategorizarTransaccionUseCase {
   /** Solo el bucket/nombre de categoría (enums de configuración) — nunca la
    * descripción ni los montos de la transacción clasificada (ADR-013). */
   private logDecision(resultado: CategorizarTransaccionResult): void {
+    if (resultado.tipo === 'sinCoincidencia') {
+      this.logger.debug('categorizar-transaccion: classification decision', {
+        tipo: resultado.tipo,
+      });
+      return;
+    }
     this.logger.debug('categorizar-transaccion: classification decision', {
       bucket: resultado.bucket,
       categoria: resultado.categoria,

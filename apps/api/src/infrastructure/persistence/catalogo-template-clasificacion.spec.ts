@@ -46,14 +46,17 @@ const PATRONES_REALES: readonly PatronClasificacion[] = PATRON_TEMPLATE.map(
 const useCase = new CategorizarTransaccionUseCase(new NoOpLogger());
 
 function clasificar(descripcion: string) {
-  const result = useCase.execute(
-    { descripcion, abono: 0n, cargo: 5000n },
-    PATRONES_REALES,
-    null,
-  );
+  const value = useCase
+    .execute({ descripcion, abono: 0n, cargo: 5000n }, PATRONES_REALES, null)
+    .getValue();
+  // #778 tramo 5b: esta tabla es un pin de glosa→categoría/bucket (issue
+  // #746) — sigue afirmando `Bucket.SinCategoria` para las glosas sin match
+  // a propósito, aunque `CategorizarTransaccionUseCase` ya no lo devuelva:
+  // la traducción vive ACÁ, local a este test.
   return {
-    categoria: result.getValue().categoria?.nombre ?? null,
-    bucket: result.getValue().bucket,
+    categoria:
+      value.tipo === 'clasificada' ? (value.categoria?.nombre ?? null) : null,
+    bucket: value.tipo === 'clasificada' ? value.bucket : Bucket.SinCategoria,
   };
 }
 
