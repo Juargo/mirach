@@ -26,8 +26,12 @@ function mesLabel(fecha: Date): string {
  * + in-memory reduce is simpler and safer (KISS) than hand-rolled raw SQL
  * with BigInt driver-serialization risk.
  *
- * Folds bucketId=null (and unrecognized bucketIds) into Bucket.SinCategoria —
- * mirrors PrismaResumenMesRepository's SC-03 fold rule (ADD, never overwrite).
+ * Folds bucketId=null (and unrecognized bucketIds) into Bucket.Deseos via
+ * `resolverBucket` (issue #778 tramo 5b — see bucket-ids.ts docblock) —
+ * mirrors PrismaResumenMesRepository's SC-03 fold rule: the null fold and
+ * the real Bucket.SinCategoria group (physical `bucket-sincategoria` id)
+ * are DIFFERENT groups and never merge; within each group, ADD, never
+ * overwrite.
  *
  * User isolation is structural: `account: { userId }` in the WHERE clause.
  * Amounts stay BigInt; no number, no float here.

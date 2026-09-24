@@ -13,7 +13,8 @@ import { BUCKET_IDS } from './bucket-ids';
  *       aislamiento estructural — TODAS las transacciones del usuario, sin
  *       filtro por categoriaId ni por período).
  *   (b) mapeo correcto de campos, incluido el fold de `bucketId` físico →
- *       `Bucket` de dominio (null → SinCategoria).
+ *       `Bucket` de dominio (null → Deseos, issue #778 tramo 5b, vía
+ *       `resolverBucket` compartido).
  *   (c) `descripcion` se descifra vía `crypto.decrypt()` (ADR-013) — mismo
  *       motivo que `PrismaTransaccionClasificacionRepository`.
  *   (d) montos BigInt viajan exactos, sin conversión a `Number`.
@@ -54,7 +55,7 @@ describe('PrismaReevaluarCategoriasReader', () => {
     );
   });
 
-  it('mapea categoriaId=null y bucketId=null a { categoriaIdActual: null, bucketActual: SinCategoria }', async () => {
+  it('mapea categoriaId=null y bucketId=null a { categoriaIdActual: null, bucketActual: Deseos } (issue #778 tramo 5b)', async () => {
     const rows = [
       {
         id: 'tx-1',
@@ -76,8 +77,27 @@ describe('PrismaReevaluarCategoriasReader', () => {
       cargo: 1000n,
       abono: 0n,
       categoriaIdActual: null,
-      bucketActual: Bucket.SinCategoria,
+      bucketActual: Bucket.Deseos,
     });
+  });
+
+  it('resuelve el id físico REAL de bucket-sincategoria a Bucket.SinCategoria — distinto de bucketId null', async () => {
+    const rows = [
+      {
+        id: 'tx-real-sincategoria',
+        descripcion: 'compra',
+        cargo: 1000n,
+        abono: 0n,
+        categoriaId: null,
+        bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      },
+    ];
+    const prisma = makePrismaMock(rows);
+    const reader = new PrismaReevaluarCategoriasReader(prisma, makeCrypto());
+
+    const result = await reader.findTodasDelUsuario('user-a');
+
+    expect(result[0].bucketActual).toBe(Bucket.SinCategoria);
   });
 
   it('resuelve un bucketId físico no nulo a su Bucket de dominio', async () => {

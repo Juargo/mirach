@@ -9,12 +9,16 @@
  *
  * Covered scenarios (guards the design's flagged HIGH-risk correctness item):
  *   - SC-01: valid bucket returns only rows matching that bucket, in the period window
- *   - SC-03: SinCategoria null-fold — a null-bucketId row AND a real
- *     'bucket-sincategoria' row BOTH appear when querying SinCategoria, and
- *     NEITHER appears when querying a different bucket
+ *   - SC-03 (issue #778 tramo 5b): null-bucketId rows fold to Deseos, NOT
+ *     SinCategoria — a null-bucketId row appears ONLY when querying Deseos;
+ *     the real 'bucket-sincategoria' row appears ONLY when querying
+ *     SinCategoria; the two never overlap (partition, no double count)
  *   - CA-03: half-open [desde, hasta) window (desde inclusive, hasta exclusive)
  *   - User isolation (RNF-SEC-006): user B's data must NOT bleed into user A
  *   - Ordering: fecha asc, id asc tiebreak
+ *   - Grand-total invariant: summing cargo across all 5 buckets' detail
+ *     queries reconciles with the total cargo actually seeded, regardless of
+ *     how many rows have a null bucketId (no double count, no loss)
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaDetalleBucketRepository } from './prisma-detalle-bucket.repository';
@@ -23,6 +27,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { BUCKET_IDS } from './bucket-ids';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { NoOpCryptoService } from './no-op-crypto.service';
+import { appLogger } from '../logging/app-logger';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 
@@ -276,6 +281,223 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
   });
 });
 
+/**
+ * Unit tests (mocked PrismaClient) for the #778 tramo 5b Desconocido
+ * display-fold — mirrors the pattern proven in
+ * prisma-movimientos-mes.repository.spec.ts. Only exercised when querying
+ * `Bucket.Deseos`: a `bucketId IS NULL` row is the only source of orphans
+ * `construirFiltroBucket` can surface for this bucket.
+ */
+describe('PrismaDetalleBucketRepository — Desconocido display-fold (unit, #778 tramo 5b)', () => {
+  const periodo = PeriodoMes.crear('2026-07').getValue();
+
+  function makeRawRow(overrides: {
+    id: string;
+    bucketId: string | null;
+    categoria: { id: string; nombre: string; icono: string | null } | null;
+  }) {
+    return {
+      id: overrides.id,
+      fecha: new Date('2026-07-10T00:00:00.000Z'),
+      descripcion: 'Test tx',
+      cargo: 1000n,
+      abono: 0n,
+      bucketId: overrides.bucketId,
+      categoria: overrides.categoria,
+      account: {
+        banco: 'BCI',
+        tipoCuenta: 'Cuenta Corriente',
+        numeroCuenta: 'acc-1',
+      },
+    };
+  }
+
+  it('bucketId null AND categoria null → categoria becomes the fetched Desconocido de Deseos (icono null)', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        makeRawRow({ id: 'tx-huerfana', bucketId: null, categoria: null }),
+      ]);
+    const findFirst = vi.fn().mockResolvedValue({
+      id: 'cat-desconocido-deseos',
+      nombre: 'Desconocido',
+    });
+    const prisma = {
+      transaccion: { findMany },
+      categoria: { findFirst },
+    } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Deseos,
+    );
+
+    expect(rows[0].categoria).toEqual({
+      id: 'cat-desconocido-deseos',
+      nombre: 'Desconocido',
+      icono: null,
+    });
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: 'user-1' }),
+      }),
+    );
+  });
+
+  it('catalog incomplete (no Desconocido de Deseos) → categoria stays null, does not throw', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        makeRawRow({ id: 'tx-huerfana', bucketId: null, categoria: null }),
+      ]);
+    const prisma = {
+      transaccion: { findMany },
+      categoria: { findFirst: vi.fn().mockResolvedValue(null) },
+    } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Deseos,
+    );
+
+    expect(rows[0].categoria).toBeNull();
+  });
+
+  it('a row that already carries a real categoria keeps it — the fold NEVER overwrites an existing categoria', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      makeRawRow({
+        id: 'tx-ya-categorizada',
+        bucketId: null,
+        categoria: {
+          id: 'cat-real',
+          nombre: 'Supermercado',
+          icono: 'shopping-cart',
+        },
+      }),
+    ]);
+    const findFirst = vi.fn();
+    const prisma = {
+      transaccion: { findMany },
+      categoria: { findFirst },
+    } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Deseos,
+    );
+
+    expect(rows[0].categoria).toEqual({
+      id: 'cat-real',
+      nombre: 'Supermercado',
+      icono: 'shopping-cart',
+    });
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('a normal (non-orphan) Deseos row is unaffected by the fold', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      makeRawRow({
+        id: 'tx-normal',
+        bucketId: 'bucket-deseos',
+        categoria: { id: 'cat-paseos', nombre: 'Paseos', icono: null },
+      }),
+    ]);
+    const findFirst = vi.fn();
+    const prisma = {
+      transaccion: { findMany },
+      categoria: { findFirst },
+    } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    const rows = await repo.findByPeriodoYBucket(
+      'user-1',
+      periodo,
+      Bucket.Deseos,
+    );
+
+    expect(rows[0].categoria).toEqual({
+      id: 'cat-paseos',
+      nombre: 'Paseos',
+      icono: null,
+    });
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('no orphan rows → the Desconocido lookup never runs (no N+1, no unconditional query)', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const findFirst = vi.fn();
+    const prisma = {
+      transaccion: { findMany },
+      categoria: { findFirst },
+    } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    await repo.findByPeriodoYBucket('user-1', periodo, Bucket.SinCategoria);
+
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('several orphan rows in the same page trigger the Desconocido lookup exactly ONCE (no N+1)', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        makeRawRow({ id: 'tx-1', bucketId: null, categoria: null }),
+        makeRawRow({ id: 'tx-2', bucketId: null, categoria: null }),
+        makeRawRow({ id: 'tx-3', bucketId: null, categoria: null }),
+      ]);
+    const findFirst = vi.fn().mockResolvedValue({
+      id: 'cat-desconocido-deseos',
+      nombre: 'Desconocido',
+    });
+    const prisma = {
+      transaccion: { findMany },
+      categoria: { findFirst },
+    } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+
+    await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Deseos);
+
+    expect(findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs a WARN with userId + bucket + count only (never montos/descripcion, ADR-013) when orphan rows are found', async () => {
+    const findMany = vi
+      .fn()
+      .mockResolvedValue([
+        makeRawRow({ id: 'tx-1', bucketId: null, categoria: null }),
+        makeRawRow({ id: 'tx-2', bucketId: null, categoria: null }),
+      ]);
+    const prisma = {
+      transaccion: { findMany },
+      categoria: { findFirst: vi.fn().mockResolvedValue(null) },
+    } as unknown as PrismaClient;
+    const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
+    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+
+    await repo.findByPeriodoYBucket('user-orphan', periodo, Bucket.Deseos);
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const [, context] = warnSpy.mock.calls[0];
+    expect(context).toEqual(
+      expect.objectContaining({
+        userId: 'user-orphan',
+        bucket: Bucket.Deseos,
+        filasSinBucket: 2,
+      }),
+    );
+    const serialized = JSON.stringify(warnSpy.mock.calls[0]);
+    expect(serialized).not.toContain('Test tx');
+    expect(serialized).not.toContain('1000');
+    warnSpy.mockRestore();
+  });
+});
+
 const RUN_ID = `detalle-bucket-repo-${Date.now()}`;
 const PERIODO = '2026-07';
 
@@ -407,9 +629,9 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
     expect(rows[0].numeroCuenta).toBe('ACC-sc01');
   });
 
-  // ─── SC-03: SinCategoria null-fold (HIGHEST RISK) ─────────────────────────
+  // ─── SC-03: null-bucket fold → Deseos, NOT SinCategoria (issue #778 tramo 5b) ──
 
-  it('SC-03: SinCategoria query returns BOTH null-bucketId AND real SinCategoria rows', async () => {
+  it('SC-03: Deseos query returns the null-bucketId row; SinCategoria query returns ONLY the real bucket-sincategoria row — never both', async () => {
     if (!ALLOW) return;
 
     const userId = `${RUN_ID}-user-sc03`;
@@ -455,18 +677,31 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       abono: 0n,
     });
 
-    const rows = await repo.findByPeriodoYBucket(
+    // The null-bucketId row now belongs to Deseos, not SinCategoria.
+    const deseosRows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.Deseos,
+    );
+    const deseosIds = deseosRows.map((r) => r.id);
+    expect(deseosIds).toContain(nullId);
+    expect(deseosIds).not.toContain(sinCategoriaId);
+    expect(deseosIds).not.toContain(necId);
+
+    // SinCategoria now contains ONLY the real bucket-sincategoria row — the
+    // null-fold row must be ABSENT (proves the old `OR: [{bucketId: null}, ...]`
+    // branch was actually removed, not merely relabeled).
+    const sinCategoriaRows = await repo.findByPeriodoYBucket(
       userId,
       periodoVO,
       Bucket.SinCategoria,
     );
-    const ids = rows.map((r) => r.id);
+    const sinCategoriaIds = sinCategoriaRows.map((r) => r.id);
+    expect(sinCategoriaIds).toContain(sinCategoriaId);
+    expect(sinCategoriaIds).not.toContain(nullId);
+    expect(sinCategoriaIds).not.toContain(necId);
 
-    expect(ids).toContain(nullId);
-    expect(ids).toContain(sinCategoriaId);
-    expect(ids).not.toContain(necId);
-
-    // Querying a DIFFERENT bucket must NOT include the null-fold rows.
+    // Querying a DIFFERENT bucket must NOT include either fold row.
     const necRows = await repo.findByPeriodoYBucket(
       userId,
       periodoVO,
@@ -475,6 +710,141 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
     const necIds = necRows.map((r) => r.id);
     expect(necIds).not.toContain(nullId);
     expect(necIds).not.toContain(sinCategoriaId);
+  });
+
+  it('SC-03: the null-bucketId (orphan) row displays under the user’s Desconocido de Deseos categoria, not "Sin categoría"', async () => {
+    if (!ALLOW) return;
+
+    const userId = `${RUN_ID}-user-sc03-desconocido`;
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId, nombre: 'Test User sc03-desconocido' },
+    });
+    const accountId = `${RUN_ID}-account-sc03-desconocido`;
+    await prisma.account.upsert({
+      where: { id: accountId },
+      update: {},
+      create: {
+        id: accountId,
+        userId,
+        banco: 'TestBank',
+        tipoCuenta: 'CuentaCorriente',
+        numeroCuenta: 'ACC-sc03-desconocido',
+      },
+    });
+    createdAccountIds.push(accountId);
+    const desconocidoId = `${RUN_ID}-cat-desconocido-deseos`;
+    await prisma.categoria.create({
+      data: {
+        id: desconocidoId,
+        userId,
+        nombre: 'Desconocido',
+        bucketId: BUCKET_IDS[Bucket.Deseos],
+        esInterna: true,
+      },
+    });
+    const ingestaId = await seedIngesta(accountId, 'sc03-desconocido');
+
+    const nullId = await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: null,
+      cargo: 75_000n,
+      abono: 0n,
+    });
+
+    const rows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.Deseos,
+    );
+    const fila = rows.find((r) => r.id === nullId);
+
+    expect(fila?.categoria).toEqual({
+      id: desconocidoId,
+      nombre: 'Desconocido',
+      icono: null,
+    });
+  });
+
+  it('grand-total invariant: summing cargo across all 5 buckets’ detail queries equals the total cargo seeded (no double count, no loss)', async () => {
+    if (!ALLOW) return;
+
+    const userId = `${RUN_ID}-user-sc03-invariante`;
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId, nombre: 'Test User sc03-invariante' },
+    });
+    const accountId = `${RUN_ID}-account-sc03-invariante`;
+    await prisma.account.upsert({
+      where: { id: accountId },
+      update: {},
+      create: {
+        id: accountId,
+        userId,
+        banco: 'TestBank',
+        tipoCuenta: 'CuentaCorriente',
+        numeroCuenta: 'ACC-sc03-invariante',
+      },
+    });
+    createdAccountIds.push(accountId);
+    const ingestaId = await seedIngesta(accountId, 'sc03-invariante');
+
+    const cargos = [
+      { bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 500_000n },
+      { bucketId: BUCKET_IDS[Bucket.Deseos], cargo: 200_000n },
+      { bucketId: BUCKET_IDS[Bucket.Ahorro], cargo: 300_000n },
+      { bucketId: BUCKET_IDS[Bucket.SinCategoria], cargo: 50_000n },
+      { bucketId: null, cargo: 150_000n }, // orphan — must land in Deseos ONLY
+      { bucketId: null, cargo: 25_000n }, // orphan — must land in Deseos ONLY
+    ];
+    let totalSeeded = 0n;
+    for (const { bucketId, cargo } of cargos) {
+      await seedTransaccion({
+        accountId,
+        ingestaId,
+        bucketId,
+        cargo,
+        abono: 0n,
+      });
+      totalSeeded += cargo;
+    }
+
+    let totalLeido = 0n;
+    for (const bucket of [
+      Bucket.Necesidades,
+      Bucket.Deseos,
+      Bucket.Ahorro,
+      Bucket.SinCategoria,
+      // Bucket.Ingreso deliberately excluded — findByPeriodoYBucket
+      // supports it but no Ingreso rows were seeded here.
+    ]) {
+      const rows = await repo.findByPeriodoYBucket(userId, periodoVO, bucket);
+      totalLeido += rows.reduce((acc, r) => acc + r.cargo, 0n);
+    }
+
+    expect(totalLeido).toBe(totalSeeded);
+
+    // Sharpen the invariant: Deseos alone must equal its own 3 rows
+    // (200_000 + 150_000 + 25_000), proving the orphans did NOT also leak
+    // into SinCategoria (which would make the grand total pass by
+    // coincidence — e.g. loss in one bucket offset by a gain in another).
+    const deseosRows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.Deseos,
+    );
+    expect(deseosRows.reduce((acc, r) => acc + r.cargo, 0n)).toBe(375_000n);
+    const sinCategoriaRows = await repo.findByPeriodoYBucket(
+      userId,
+      periodoVO,
+      Bucket.SinCategoria,
+    );
+    expect(sinCategoriaRows.reduce((acc, r) => acc + r.cargo, 0n)).toBe(
+      50_000n,
+    );
   });
 
   // ─── CA-03: half-open window ───────────────────────────────────────────────
