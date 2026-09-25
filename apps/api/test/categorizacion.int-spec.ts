@@ -59,7 +59,7 @@ async function runCategorizacionStep(
     if (txs.length === 0) return { asignadas: 0, sinCategoria: 0 };
 
     const clasificadas = txs.map((tx) => {
-      const { categoria, bucket } = categorizarUseCase
+      const resultado = categorizarUseCase
         .execute(
           { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
           patrones,
@@ -68,6 +68,17 @@ async function runCategorizacionStep(
           null,
         )
         .getValue();
+      // #778 tramo 5b: `CategorizarTransaccionUseCase` ya no devuelve
+      // `Bucket.SinCategoria` como centinela — este int-spec espeja
+      // `runCategorizacion` (que SIEMPRE pasa un default no-nulo), así que
+      // acá la traducción a `SinCategoria` para "sin coincidencia" es local,
+      // solo para mantener el shape write-path que ejercita el test.
+      const categoria =
+        resultado.tipo === 'clasificada' ? resultado.categoria : null;
+      const bucket =
+        resultado.tipo === 'clasificada'
+          ? resultado.bucket
+          : Bucket.SinCategoria;
       return {
         transaccionId: tx.id,
         categoriaId: categoria?.id ?? null,
@@ -236,7 +247,7 @@ describe('Categorización — integración (real dev DB)', () => {
     const txParaClasificar =
       await txClasificacionReader.findParaClasificar(testIngestaBId);
     const asignaciones = txParaClasificar.map((tx) => {
-      const { categoria, bucket } = categorizarUseCase
+      const resultado = categorizarUseCase
         .execute(
           { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
           patrones,
@@ -245,6 +256,14 @@ describe('Categorización — integración (real dev DB)', () => {
           null,
         )
         .getValue();
+      // #778 tramo 5b: traducción local — ver comentario equivalente más
+      // arriba en `runCategorizacionStep`.
+      const categoria =
+        resultado.tipo === 'clasificada' ? resultado.categoria : null;
+      const bucket =
+        resultado.tipo === 'clasificada'
+          ? resultado.bucket
+          : Bucket.SinCategoria;
       return {
         transaccionId: tx.id,
         categoriaId: categoria?.id ?? null,
