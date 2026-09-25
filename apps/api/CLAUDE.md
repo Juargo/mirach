@@ -25,16 +25,3 @@ Conocimiento no obvio del backend ya entregado — durable, no derivable de un v
 ## Fixtures de prueba
 
 Los fixtures llevan sufijo `-test` y contienen datos anonimizados (los originales, con info sensible real, se eliminaron del repo).
-
-```
-apps/api/test/fixtures/
-  Últimos_Movimientos_CuentaRUT_test.xlsx            ← BancoEstado ✅ detectado
-  movimientos-test.xlsx                              ← BCI ✅ detectado
-  ultimos movimientos-Cuenta Corriente-test.xlsx     ← Santander ✅ detectado
-  cartola-test.xls     ← placeholder .xls (sin datos) — solo para el test de rechazo por extensión (ADR-007)
-  pdf/                 ← cartolas PDF de prueba (ADR-009, pdfjs-dist), al menos una por banco:
-    bancochile-cartola-test.pdf · bancoestado-cartola-test.pdf · bci-cartola-test.pdf · santander-cartola-test.pdf
-    bci-cartola-montos-grandes-test.pdf ← 2ª cartola BCI sintética (recalibración rangosX 2026-08-30): cargos/abonos anchos right-aligned, fila $0 literal, sección de totales; se regenera con generar-bci-cartola-montos-grandes-test.ts (mismo directorio)
-    bancochile-cartola-montos-grandes-test.pdf ← 2ª cartola Banco de Chile sintética (recalibración rangosX 2026-08-30): abonos anchos right-aligned (el bug real: la banda vieja solo cubría abonos chicos), SALDO INICIAL/FINAL fechados, resumen sin fecha; se regenera con generar-bancochile-cartola-montos-grandes-test.ts (mismo directorio)
-    bci-cartola-variante-test.pdf ← 3ª cartola BCI sintética (2ª variante de layout publicada por el banco, change SDD bci-cartola-variante): fechas de fila con guion, columna SUCURSAL propia, ancla PERIODO partida en 3 tokens, encabezado de tabla en una sola línea física, cargos sub-1000 right-aligned dentro del catchment de rescate por borde derecho; se regenera con generar-bci-cartola-variante-test.ts (mismo directorio)
-```
