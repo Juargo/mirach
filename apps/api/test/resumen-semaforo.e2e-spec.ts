@@ -323,14 +323,14 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     await seedTx({
       accountId: accountA,
       ingestaId: ingestaA,
-      bucketId: null, // uncategorized
+      bucketId: null, // uncategorized — issue #778 tramo 5b: folds into Deseos
       cargo: 7_000n,
       abono: 0n,
     });
     await seedTx({
       accountId: accountA,
       ingestaId: ingestaA,
-      bucketId: null, // uncategorized
+      bucketId: null, // uncategorized — issue #778 tramo 5b: folds into Deseos
       cargo: 3_000n,
       abono: 0n,
     });
@@ -396,13 +396,18 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     const deseos = res.body.buckets.find(
       (b: { bucket: string }) => b.bucket === Bucket.Deseos,
     );
-    expect(deseos.total).toBe('500000');
+    // issue #778 tramo 5b: Deseos' total now INCLUDES A's 2 uncategorized
+    // rows (500_000 + 7_000 + 3_000 = 510_000) — the null-bucket fold target
+    // moved from SinCategoria to Deseos. This also doubles as the isolation
+    // proof formerly carried by res.body.sinCategoria below: 510_000 is
+    // EXACTLY A's own money, never touched by the alien's 4 rows.
+    expect(deseos.total).toBe('510000');
     expect(deseos.estadoSemaforo).toBe('rojo');
     // A's exact CLP-to-Verde advice — computable from the known seed
-    // (montoMaximoConBpHasta(1_000_000n, 3000n) = 300_049n; 500_000 - 300_049).
+    // (montoMaximoConBpHasta(1_000_000n, 3000n) = 300_049n; 510_000 - 300_049).
     expect(deseos.consejo).toEqual({
       direccion: 'reducir',
-      monto: '199951',
+      monto: '209951',
       mensaje:
         'Para volver a Muy Saludable, reduce {monto} en Gustos este mes.',
     });
@@ -414,8 +419,10 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     expect(ahorro.estadoSemaforo).toBe('verde');
     expect(ahorro.consejo).toBeNull();
 
-    // A's exact uncategorized count/total — never B's (4 rows, ~4006 total).
-    expect(res.body.sinCategoria).toEqual({ cantidad: 2, total: '10000' });
+    // issue #778 tramo 5b: no row carries the REAL bucket-sincategoria id in
+    // this scenario — sinCategoria (US-049) stays zeroed; the uncategorized
+    // isolation proof moved to deseos.total above.
+    expect(res.body.sinCategoria).toEqual({ cantidad: 0, total: '0' });
 
     // Coarse secondary net: the alien's id must never appear on the wire.
     expect(JSON.stringify(res.body)).not.toContain(alienUserId);
@@ -550,10 +557,18 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     const deseos = res.body.buckets.find(
       (b: { bucket: string }) => b.bucket === Bucket.Deseos,
     );
+    // issue #778 tramo 5b: Deseos' total now INCLUDES C's 3 uncategorized
+    // rows (400_000 + 5_000 + 5_001 + 5_002 = 415_003) — still comfortably
+    // Verde (bp≈2075 < verdeMax 3000), so consejo stays null. This is also
+    // the isolation proof formerly carried by res.body.sinCategoria below:
+    // 415_003 is EXACTLY C's own money, never the alien's 9_000.
+    expect(deseos.total).toBe('415003');
     expect(deseos.consejo).toBeNull();
 
-    // C's exact uncategorized count/total — never the alien's (1 row, 9000).
-    expect(res.body.sinCategoria).toEqual({ cantidad: 3, total: '15003' });
+    // issue #778 tramo 5b: no row carries the REAL bucket-sincategoria id in
+    // this scenario — sinCategoria (US-049) stays zeroed; the uncategorized
+    // isolation proof moved to deseos.total above.
+    expect(res.body.sinCategoria).toEqual({ cantidad: 0, total: '0' });
 
     expect(JSON.stringify(res.body)).not.toContain(alienUserId);
   });
