@@ -15,8 +15,9 @@
  *     Bearer transport, upgraded to the CA-08 pattern from
  *     `resumen-anual.e2e-spec.ts` (the house's stronger idiom): each variant
  *     authenticates AS a fresh, credentialed user with a fully KNOWN state
- *     and asserts EXACT matches on diagnostico/bucketsCriticos/consejo/
- *     sinCategoria — not just totalIngreso/bucket-total inequalities
+ *     and asserts EXACT matches on diagnostico/bucketsCriticos/consejo and
+ *     the Deseos total (which absorbs uncategorized rows since #778 tramo
+ *     5b) — not just totalIngreso/bucket-total inequalities
  *     (judgment-day round 1 finding, see tasks.md T8.2 correction note)
  */
 import request from 'supertest';
@@ -229,9 +230,9 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     }
     expect(typeof res.body.diagnostico).toBe('string');
     expect(res.body.diagnostico.length).toBeGreaterThan(0);
-    expect(res.body.sinCategoria).toBeDefined();
-    expect(typeof res.body.sinCategoria.cantidad).toBe('number');
-    expect(typeof res.body.sinCategoria.total).toBe('string');
+    // issue #778 tramo 5b: the SinCategoria bucket no longer exists, so the
+    // US-049 `sinCategoria` block is gone from the contract.
+    expect(res.body).not.toHaveProperty('sinCategoria');
   });
 
   // ── empty month → sinIngreso shape ─────────────────────────────────────
@@ -263,13 +264,13 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
   // per `resumen-anual.e2e-spec.ts`'s stronger precedent): each variant
   // authenticates AS a fresh, credentialed user with a FULLY KNOWN state and
   // asserts EXACT matches on the new US-049 fields — diagnostico,
-  // bucketsCriticos, per-bucket consejo (monto/mensaje), and sinCategoria —
+  // bucketsCriticos, and per-bucket consejo (monto/mensaje) —
   // not just totalIngreso/bucket-total inequalities. The alien user gets a
   // DIFFERENT known state (different driving bucket, different uncategorized
   // rows) so an exact match on the authenticated user's numbers is only
   // possible if isolation actually held.
 
-  it('aislamiento de dos usuarios (cookie transport, CA-08): diagnostico/bucketsCriticos/consejo/sinCategoria son exactamente los de A, nunca los de B', async () => {
+  it('aislamiento de dos usuarios (cookie transport, CA-08): diagnostico/bucketsCriticos/consejo/Deseos son exactamente los de A, nunca los de B', async () => {
     if (!ALLOW) return; // Skip if no real DB
 
     const PASSWORD_A = 'iso-cookie-userA-password-123';
@@ -419,10 +420,9 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     expect(ahorro.estadoSemaforo).toBe('verde');
     expect(ahorro.consejo).toBeNull();
 
-    // issue #778 tramo 5b: no row carries the REAL bucket-sincategoria id in
-    // this scenario — sinCategoria (US-049) stays zeroed; the uncategorized
-    // isolation proof moved to deseos.total above.
-    expect(res.body.sinCategoria).toEqual({ cantidad: 0, total: '0' });
+    // issue #778 tramo 5b: `sinCategoria` (US-049) left the contract; the
+    // uncategorized isolation proof moved to deseos.total above.
+    expect(res.body).not.toHaveProperty('sinCategoria');
 
     // Coarse secondary net: the alien's id must never appear on the wire.
     expect(JSON.stringify(res.body)).not.toContain(alienUserId);
@@ -565,10 +565,9 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     expect(deseos.total).toBe('415003');
     expect(deseos.consejo).toBeNull();
 
-    // issue #778 tramo 5b: no row carries the REAL bucket-sincategoria id in
-    // this scenario — sinCategoria (US-049) stays zeroed; the uncategorized
-    // isolation proof moved to deseos.total above.
-    expect(res.body.sinCategoria).toEqual({ cantidad: 0, total: '0' });
+    // issue #778 tramo 5b: `sinCategoria` (US-049) left the contract; the
+    // uncategorized isolation proof moved to deseos.total above.
+    expect(res.body).not.toHaveProperty('sinCategoria');
 
     expect(JSON.stringify(res.body)).not.toContain(alienUserId);
   });
