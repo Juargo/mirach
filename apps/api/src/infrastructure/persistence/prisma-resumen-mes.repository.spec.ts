@@ -7,14 +7,16 @@
  *
  * Covered scenarios:
  *   - groupBy correctness (SC-01): per-bucket cargo/abono sums + cantidadCargos
- *   - null→Deseos fold (SC-03, issue #778 tramo 5b): HIGHEST RISK — a
- *     null-bucket row folds into Deseos, NOT SinCategoria; the real
- *     SinCategoria row stays separate (the two must NEVER merge); within
- *     each group, multiple matching rows are still ADDED, never overwritten
- *     (sums AND counts)
- *   - Grand-total invariant: the sum of totalCargo across all 5 buckets
+ *   - null→Deseos AND legacy-bucket-sincategoria→Deseos fold (SC-03, issue
+ *     #778 tramo 5b PR5): HIGHEST RISK — `Bucket.SinCategoria` was removed
+ *     from the domain, so a row still holding the legacy physical id
+ *     `bucket-sincategoria` is now an unrecognized bucketId that folds into
+ *     Deseos, exactly like null; within each group, multiple matching rows
+ *     (null, the legacy id, AND the real bucket-deseos id) are still ADDED,
+ *     never overwritten (sums AND counts) — no double count, no loss
+ *   - Grand-total invariant: the sum of totalCargo across all 4 buckets
  *     equals the total cargo of every seeded row, regardless of how many
- *     have a null bucketId (no double count, no loss)
+ *     have a null or legacy-SinCategoria bucketId (no double count, no loss)
  *   - Empty month (SC-05): no rows → all buckets 0n / 0 cantidadCargos
  *   - No-income month (SC-04): spends present but Ingreso row absent
  *   - User isolation (SC-09, RNF-SEC-006): user B's data must NOT bleed into
@@ -27,7 +29,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaResumenMesRepository } from './prisma-resumen-mes.repository';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { BUCKET_IDS } from './bucket-ids';
+import { BUCKET_IDS, ID_BUCKET_SINCATEGORIA_LEGACY } from './bucket-ids';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 
@@ -169,13 +171,6 @@ describe('PrismaResumenMesRepository (integration)', () => {
       cargo: 300_000n,
       abono: 0n,
     });
-    await seedTransaccion({
-      accountId,
-      ingestaId,
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
-      cargo: 90_000n,
-      abono: 0n,
-    });
 
     const rows = await repo.sumarPorBucket(userId, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
@@ -184,7 +179,6 @@ describe('PrismaResumenMesRepository (integration)', () => {
     expect(byBucket.get(Bucket.Necesidades)?.totalCargo).toBe(750_000n);
     expect(byBucket.get(Bucket.Deseos)?.totalCargo).toBe(360_000n);
     expect(byBucket.get(Bucket.Ahorro)?.totalCargo).toBe(300_000n);
-    expect(byBucket.get(Bucket.SinCategoria)?.totalCargo).toBe(90_000n);
 
     // US-045 SC-01 extended: per-bucket cargo counts match the seeded cargo
     // rows. Ingreso's only row is an abono, so its count must be 0.
@@ -192,19 +186,18 @@ describe('PrismaResumenMesRepository (integration)', () => {
     expect(byBucket.get(Bucket.Necesidades)?.cantidadCargos).toBe(1);
     expect(byBucket.get(Bucket.Deseos)?.cantidadCargos).toBe(1);
     expect(byBucket.get(Bucket.Ahorro)?.cantidadCargos).toBe(1);
-    expect(byBucket.get(Bucket.SinCategoria)?.cantidadCargos).toBe(1);
   });
 
-  // ─── SC-03: null→Deseos fold (issue #778 tramo 5b, HIGHEST RISK) ──────────
+  // ─── SC-03: null→Deseos AND legacy-SinCategoria→Deseos fold (issue #778 tramo 5b PR5, HIGHEST RISK) ──────────
 
-  it('SC-03: null bucketId folds into Deseos; real SinCategoria bucketId stays separate — the two NEVER merge', async () => {
+  it('SC-03: null bucketId AND the legacy bucket-sincategoria id BOTH fold into Deseos, adding with the real Deseos row — no double count, no loss', async () => {
     if (!ALLOW) return;
 
     const accountId = await seedAccount('sc03');
     const userId = `${RUN_ID}-user-sc03`;
     const ingestaId = await seedIngesta(accountId, 'sc03');
 
-    // null-bucket row: cargo=150_000n — now folds to Deseos
+    // null-bucket row: cargo=150_000n — folds to Deseos
     await seedTransaccion({
       accountId,
       ingestaId,
@@ -212,17 +205,18 @@ describe('PrismaResumenMesRepository (integration)', () => {
       cargo: 150_000n,
       abono: 0n,
     });
-    // real SinCategoria row: cargo=50_000n — stays SinCategoria
+    // legacy bucket-sincategoria row: cargo=50_000n — issue #778 tramo 5b
+    // PR5 removed Bucket.SinCategoria from the domain, so this physical id
+    // is now just another unrecognized bucketId. It ALSO folds to Deseos.
     await seedTransaccion({
       accountId,
       ingestaId,
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
       cargo: 50_000n,
       abono: 0n,
     });
-    // real Deseos row: cargo=20_000n — must ADD with the null-fold row, not
-    // be overwritten by it (SC-03's ADD-not-overwrite rule, restated for
-    // the new fold target).
+    // real Deseos row: cargo=20_000n — must ADD with both fold sources
+    // above, not be overwritten by either (SC-03's ADD-not-overwrite rule).
     await seedTransaccion({
       accountId,
       ingestaId,
@@ -242,16 +236,17 @@ describe('PrismaResumenMesRepository (integration)', () => {
     const rows = await repo.sumarPorBucket(userId, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
 
-    // CRITICAL: Deseos = 150_000 (null-fold) + 20_000 (real Deseos) = 170_000.
-    expect(byBucket.get(Bucket.Deseos)?.totalCargo).toBe(170_000n);
-    expect(byBucket.get(Bucket.Deseos)?.cantidadCargos).toBe(2);
-    // CRITICAL: SinCategoria is its OWN 50_000 only — NOT 200_000. Reverting
-    // the fold (null → SinCategoria again) would make this assert red.
-    expect(byBucket.get(Bucket.SinCategoria)?.totalCargo).toBe(50_000n);
-    expect(byBucket.get(Bucket.SinCategoria)?.cantidadCargos).toBe(1);
+    // CRITICAL: Deseos = 150_000 (null-fold) + 50_000 (legacy SinCategoria
+    // id) + 20_000 (real Deseos) = 220_000. Splitting the legacy id back
+    // into its own group (the pre-PR5 behavior) would make this assert red.
+    expect(byBucket.get(Bucket.Deseos)?.totalCargo).toBe(220_000n);
+    expect(byBucket.get(Bucket.Deseos)?.cantidadCargos).toBe(3);
+    // No 5th bucket appears anywhere — every row landed in exactly one of
+    // the 4 real buckets.
+    expect(rows).toHaveLength(4);
   });
 
-  it('grand-total invariant: summing totalCargo across all 5 buckets equals the total cargo seeded (no double count, no loss)', async () => {
+  it('grand-total invariant: summing totalCargo across all 4 buckets equals the total cargo seeded (no double count, no loss)', async () => {
     if (!ALLOW) return;
 
     const accountId = await seedAccount('sc03-invariante');
@@ -262,7 +257,7 @@ describe('PrismaResumenMesRepository (integration)', () => {
       { bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 500_000n },
       { bucketId: BUCKET_IDS[Bucket.Deseos], cargo: 200_000n },
       { bucketId: BUCKET_IDS[Bucket.Ahorro], cargo: 300_000n },
-      { bucketId: BUCKET_IDS[Bucket.SinCategoria], cargo: 50_000n },
+      { bucketId: ID_BUCKET_SINCATEGORIA_LEGACY, cargo: 50_000n }, // legacy id → folds to Deseos
       { bucketId: null, cargo: 150_000n },
       { bucketId: null, cargo: 25_000n },
       { bucketId: 'not-a-real-bucket-id', cargo: 5_000n }, // integrity anomaly → also Deseos
@@ -285,11 +280,11 @@ describe('PrismaResumenMesRepository (integration)', () => {
     expect(totalLeido).toBe(totalSeeded);
 
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
-    // Sharpen: Deseos alone = 200_000 + 150_000 + 25_000 + 5_000 = 380_000 —
-    // proves the invariant isn't passing by a loss-in-one/gain-in-another
+    // Sharpen: Deseos alone = 200_000 (real) + 50_000 (legacy SinCategoria
+    // id) + 150_000 + 25_000 (nulls) + 5_000 (anomaly) = 430_000 — proves
+    // the invariant isn't passing by a loss-in-one/gain-in-another
     // coincidence.
-    expect(byBucket.get(Bucket.Deseos)?.totalCargo).toBe(380_000n);
-    expect(byBucket.get(Bucket.SinCategoria)?.totalCargo).toBe(50_000n);
+    expect(byBucket.get(Bucket.Deseos)?.totalCargo).toBe(430_000n);
   });
 
   // ─── SC-10: cargos-only count, does not leak into sums (US-045 D-05 R-2) ──
@@ -333,7 +328,7 @@ describe('PrismaResumenMesRepository (integration)', () => {
 
   // ─── SC-05: empty month ────────────────────────────────────────────────────
 
-  it('SC-05: empty month → all 5 buckets return 0n', async () => {
+  it('SC-05: empty month → all 4 buckets return 0n', async () => {
     if (!ALLOW) return;
 
     await seedAccount('sc05');
@@ -343,7 +338,7 @@ describe('PrismaResumenMesRepository (integration)', () => {
     const rows = await repo.sumarPorBucket(userId, periodoVO);
     const byBucket = new Map(rows.map((r) => [r.bucket, r]));
 
-    // All 5 buckets should be present with 0n
+    // All 4 buckets should be present with 0n
     for (const bucket of Object.values(Bucket)) {
       expect(byBucket.get(bucket)?.totalCargo).toBe(0n);
       expect(byBucket.get(bucket)?.totalAbono).toBe(0n);

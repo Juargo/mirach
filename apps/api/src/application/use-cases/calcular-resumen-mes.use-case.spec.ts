@@ -44,7 +44,6 @@ function allBucketRows(
     [Bucket.Necesidades]: { cargo: 750_000n, abono: 0n, cantidadCargos: 3 },
     [Bucket.Deseos]: { cargo: 360_000n, abono: 0n, cantidadCargos: 2 },
     [Bucket.Ahorro]: { cargo: 300_000n, abono: 0n, cantidadCargos: 1 },
-    [Bucket.SinCategoria]: { cargo: 90_000n, abono: 0n, cantidadCargos: 7 },
   };
 
   return (Object.keys(defaults) as Bucket[]).map((bucket) => ({
@@ -73,13 +72,10 @@ describe('CalcularResumenMesUseCase', () => {
       expect(resumen.totalIngreso).toBe(1_500_000n);
       expect(resumen.sinIngreso).toBe(false);
 
-      const [necesidades, deseos, ahorro, sinCat] = resumen.buckets;
+      const [necesidades, deseos, ahorro] = resumen.buckets;
       expect(necesidades.porcentajeBp).toBe(5000n); // 50.00%
       expect(deseos.porcentajeBp).toBe(2400n); // 24.00%
       expect(ahorro.porcentajeBp).toBe(2000n); // 20.00%
-      expect(sinCat.porcentajeBp).toBe(600n); // 6.00%
-      // US-045: SinCategoria's cantidadCargos row value carries onto the VO
-      expect(resumen.cantidadSinCategoria).toBe(7);
     });
 
     it('returns the resolved periodo string', async () => {
@@ -97,9 +93,10 @@ describe('CalcularResumenMesUseCase', () => {
     });
   });
 
-  describe('null-fold in use case (SC-03): SinCategoria already folded by repo', () => {
-    it('maps SinCategoria row correctly — folding is the repo responsibility', async () => {
-      // The use case receives already-folded rows from the reader (port contract).
+  describe('null-fold in use case (SC-03): fold to Deseos already done by repo', () => {
+    it('maps an already-folded bucket row correctly — folding is the repo responsibility', async () => {
+      // The use case receives already-folded rows from the reader (port contract,
+      // issue #778 tramo 5b: unrecognized bucketIds fold to Deseos, not SinCategoria).
       // Fold correctness is tested at the repository layer.
       const rows: BucketSumRow[] = [
         {
@@ -109,7 +106,7 @@ describe('CalcularResumenMesUseCase', () => {
           cantidadCargos: 0,
         },
         {
-          bucket: Bucket.SinCategoria,
+          bucket: Bucket.Deseos,
           totalCargo: 200_000n,
           totalAbono: 0n,
           cantidadCargos: 4,
@@ -126,12 +123,9 @@ describe('CalcularResumenMesUseCase', () => {
 
       expect(result.isOk()).toBe(true);
       const { resumen } = result.getValue();
-      const sinCat = resumen.buckets.find(
-        (b) => b.bucket === Bucket.SinCategoria,
-      );
-      expect(sinCat?.total).toBe(200_000n);
-      expect(sinCat?.porcentajeBp).toBe(2000n); // 200000/1000000 = 20.00%
-      expect(resumen.cantidadSinCategoria).toBe(4);
+      const deseos = resumen.buckets.find((b) => b.bucket === Bucket.Deseos);
+      expect(deseos?.total).toBe(200_000n);
+      expect(deseos?.porcentajeBp).toBe(2000n); // 200000/1000000 = 20.00%
     });
   });
 
@@ -161,8 +155,6 @@ describe('CalcularResumenMesUseCase', () => {
       for (const slice of resumen.buckets) {
         expect(slice.porcentajeBp).toBeNull();
       }
-      // No SinCategoria row in the reader's result → count defaults to 0
-      expect(resumen.cantidadSinCategoria).toBe(0);
     });
 
     it('is NOT a Result.fail — sinIngreso is a valid data state, not an error (SC-04)', async () => {
@@ -365,7 +357,6 @@ describe('CalcularResumenMesUseCase', () => {
       expect(serializedContexts).not.toContain('750000');
       expect(serializedContexts).not.toContain('360000');
       expect(serializedContexts).not.toContain('300000');
-      expect(serializedContexts).not.toContain('90000');
       expect(serializedContexts).not.toContain('@');
     });
   });

@@ -50,8 +50,6 @@ function makeResumen(totalIngreso: bigint, necesidades = 0n): ResumenMes {
     necesidades,
     deseos: 0n,
     ahorro: 0n,
-    sinCategoria: 0n,
-    cantidadSinCategoria: 0,
   });
 }
 

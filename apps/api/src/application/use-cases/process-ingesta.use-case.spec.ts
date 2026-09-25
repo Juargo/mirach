@@ -1083,7 +1083,7 @@ describe('ProcessIngestaUseCase', () => {
       expect(bucketWriter.receivedUserIds[0]).toBe(USER_ID);
     });
 
-    it('ingesta vacía (reader devuelve []): resultado { asignadas: 0, sinCategoria: 0 }, writer NO invocado', async () => {
+    it('ingesta vacía (reader devuelve []): resultado { asignadas: 0 }, writer NO invocado', async () => {
       const bucketWriter = new FakeBucketWriter();
       const txReader = new FakeTxParaClasificarReader();
       txReader.rows = [];
@@ -1097,7 +1097,7 @@ describe('ProcessIngestaUseCase', () => {
 
       expect(result.isOk()).toBe(true);
       const { categorizacion } = result.getValue();
-      expect(categorizacion).toEqual({ asignadas: 0, sinCategoria: 0 });
+      expect(categorizacion).toEqual({ asignadas: 0 });
       // Writer must NOT be called when there are no transactions to classify
       expect(bucketWriter.calls.length).toBe(0);
     });

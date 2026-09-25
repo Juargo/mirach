@@ -48,13 +48,13 @@ describe('aDetalleBucketDto', () => {
   it('bucket refleja el valor validado en el envelope', () => {
     const data: ObtenerDetalleBucketResult = {
       periodo: '2026-07',
-      bucket: Bucket.SinCategoria,
+      bucket: Bucket.Deseos,
       transacciones: [],
     };
 
     const dto = aDetalleBucketDto(data);
 
-    expect(dto.bucket).toBe(Bucket.SinCategoria);
+    expect(dto.bucket).toBe(Bucket.Deseos);
     expect(dto.periodo).toBe('2026-07');
     expect(dto.transacciones).toEqual([]);
   });

@@ -101,7 +101,12 @@ export type PreviewIngestaError =
  * D-06: `findByBanco` → null → todo esDuplicado:false, reader de existentes NO consultado.
  * D-07: `rangoFechas` + `buscarPorCuentaYRango` + `marcarDuplicados` cuando cuenta existe.
  * D-08: sin 50-cap — se devuelven TODAS las filas del archivo (preview completo).
- * D-09: `sugerido` por fila, `Bucket.SinCategoria` → null.
+ * D-09: `sugerido` por fila — SIEMPRE presente hoy (nunca `null`) porque el
+ *       catálogo del usuario garantiza una `Desconocido` por bucket antes de
+ *       llegar acá (ver #778 abajo); el tipo se mantiene `| null` por
+ *       disciplina defensiva de contrato, no porque exista un camino vivo
+ *       que lo produzca. `Bucket.SinCategoria` como destino del `sugerido`
+ *       fue retirado (issue #778 tramo 5b PR5 — ya no existe en el dominio).
  *       #778: sin match, `sugerido` apunta a la `Desconocido` del bucket por
  *       defecto cuando el usuario la tiene — el MISMO destino que escribiría
  *       `CommitIngestaUseCase` para esa fila (mismo `categoriaPorDefecto`
@@ -240,11 +245,13 @@ export class PreviewIngestaUseCase {
           )
           .getValue();
 
-      // D-09: SinCategoria → null; Ingreso/Necesidades/etc → { bucket, categoriaId }
-      const sugerido: SugeridoClasificacion | null =
-        bucketSugerido === Bucket.SinCategoria
-          ? null
-          : { bucket: bucketSugerido, categoriaId: categoria?.id ?? null };
+      // D-09: el catálogo garantiza una Desconocido por bucket antes de
+      // llegar acá, así que `bucketSugerido` es SIEMPRE un destino real
+      // (nunca el retirado Bucket.SinCategoria) — ver docblock de la clase.
+      const sugerido: SugeridoClasificacion | null = {
+        bucket: bucketSugerido,
+        categoriaId: categoria?.id ?? null,
+      };
 
       return {
         rowIndex: i,

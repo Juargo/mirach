@@ -11,9 +11,11 @@ import {
  * shared (D7: trivial duplication is preferable to coupling two features).
  *
  * US-057 PR2: extended with dedup status and classification suggestion.
- * The `sugerido` field is null when there is no match or the bucket is
- * SinCategoria (D-09). Full HTTP contract formalisation is PR4/5
- * (openapi.json + zod schemas updated there).
+ * The `sugerido` field is `| null` by contract, but in practice is always
+ * present today — the user's catalog guarantees a Desconocido per bucket
+ * before this point (issue #778; `SinCategoria`, the original null-cause,
+ * was removed from the domain in tramo 5b PR5). Full HTTP contract
+ * formalisation is PR4/5 (openapi.json + zod schemas updated there).
  */
 export interface PreviewTransaccionDto {
   rowIndex: number;

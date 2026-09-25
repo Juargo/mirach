@@ -19,13 +19,14 @@ import { appLogger } from '../logging/app-logger';
  * (user isolation estructural en la cláusula WHERE) y por el período con la
  * ventana half-open [desde, hasta), idéntico a PrismaMovimientosMesRepository.
  *
- * Correctness-critical: null-fold (issue #778 tramo 5b) — el filtro DEBE
+ * Correctness-critical: null-fold (issue #778 tramo 5b PR5) — el filtro DEBE
  * reproducir EXACTAMENTE `construirFiltroBucket` (bucket-ids.ts), la MISMA
  * función que resuelve el fold en memoria de `resolverBucket` (SC-03), o los
- * totales del drill-down no reconciliarán con la tarjeta de resumen. Deseos
- * → `OR: [{bucketId: null}, {bucketId: 'bucket-deseos'}]`; SinCategoria →
- * SOLO `{bucketId: 'bucket-sincategoria'}` (ya no incluye null); cualquier
- * otro bucket → `{bucketId: BUCKET_IDS[bucket]}`.
+ * totales del drill-down no reconciliarán con la tarjeta de resumen. `Bucket.
+ * SinCategoria` ya no existe en el dominio: Deseos → `OR: [{bucketId: null},
+ * {bucketId: 'bucket-deseos'}, {bucketId: 'bucket-sincategoria'}]` (una fila
+ * con el id físico legacy `bucket-sincategoria` aparece acá, en el drill-down
+ * de Deseos); cualquier otro bucket → `{bucketId: BUCKET_IDS[bucket]}`.
  *
  * Depende de `PrismaClient` (base), no de `PrismaService` (artefacto Nest) —
  * así el composition root de Express le pasa un cliente plano (ADR-028).

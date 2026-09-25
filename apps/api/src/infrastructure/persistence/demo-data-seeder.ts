@@ -1,7 +1,22 @@
 import type { Prisma } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { DemoTransaccionDef } from './demo-data';
+import { DemoTransaccionDef, ID_BUCKET_SINCATEGORIA_LEGACY } from './demo-data';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
+
+/**
+ * Resuelve `def.bucketKey` a un id físico — `bucketIds[bucketKey]` para un
+ * `Bucket` real, o el literal legacy tal cual cuando `bucketKey` es
+ * `ID_BUCKET_SINCATEGORIA_LEGACY` (issue #778 tramo 5b PR5: ya no hay un
+ * `Bucket.SinCategoria` que indexar en `bucketIds`).
+ */
+function resolverBucketIdDemo(
+  bucketIds: Record<Bucket, string>,
+  bucketKey: Bucket | typeof ID_BUCKET_SINCATEGORIA_LEGACY,
+): string {
+  return bucketKey === ID_BUCKET_SINCATEGORIA_LEGACY
+    ? bucketKey
+    : bucketIds[bucketKey];
+}
 
 /**
  * seedDemoTransacciones — mapea las definiciones estáticas de `demo-data.ts`
@@ -35,7 +50,7 @@ export function seedDemoTransacciones(
     descripcion: crypto.encrypt(def.descripcion),
     cargo: def.cargo,
     abono: def.abono,
-    bucketId: bucketIds[def.bucketKey],
+    bucketId: resolverBucketIdDemo(bucketIds, def.bucketKey),
     fecha: new Date(ahora.getTime() - def.daysAgo * unDiaMs),
   }));
 }

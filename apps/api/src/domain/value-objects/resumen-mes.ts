@@ -51,7 +51,6 @@ const SPEND_BUCKETS = [
   Bucket.Necesidades,
   Bucket.Deseos,
   Bucket.Ahorro,
-  Bucket.SinCategoria,
 ] as const;
 
 /** Shape of each spend-bucket slice in the resumen. */
@@ -59,7 +58,7 @@ export interface BucketSlice {
   readonly bucket: Bucket;
   readonly total: bigint;
   readonly porcentajeBp: bigint | null;
-  /** Traffic-light health estado for this bucket (US-016). null for SinCategoria or sinIngreso. */
+  /** Traffic-light health estado for this bucket (US-016). null for sinIngreso. */
   readonly estadoSemaforo: EstadoSemaforo | null;
 }
 
@@ -69,17 +68,6 @@ export interface ResumenMesInput {
   readonly necesidades: bigint;
   readonly deseos: bigint;
   readonly ahorro: bigint;
-  readonly sinCategoria: bigint;
-  /**
-   * US-045: count of uncategorized cargo transactions (cargos only — never
-   * abonos). Required, not optional (D-04): `tsc` must force every
-   * construction site to state a value rather than let a forgotten wiring
-   * path ship a silent, permanent `0` on the wire. Carried verbatim onto the
-   * VO — no computation happens here. Income-independent (D-08): must stay
-   * populated even when totalIngreso === 0n (unlike porcentajeBp, which goes
-   * null with no base to divide by).
-   */
-  readonly cantidadSinCategoria: number;
 }
 
 /**
@@ -89,7 +77,7 @@ export interface ResumenMesInput {
  * a valid sinIngreso state, not an error). Holds:
  *   - totalIngreso: sum of Ingreso-bucket abono for the month.
  *   - sinIngreso: true when totalIngreso === 0n.
- *   - buckets: exactly 4 spend slices (Necesidades, Deseos, Ahorro, SinCategoria).
+ *   - buckets: exactly 3 spend slices (Necesidades, Deseos, Ahorro).
  *     Ingreso is the denominator; it is NOT a slice.
  *
  * All monetary values stay bigint through this VO; conversion to string happens
@@ -101,20 +89,16 @@ export class ResumenMes {
   readonly buckets: ReadonlyArray<BucketSlice>;
   /** Worst traffic-light estado across Necesidades/Deseos/Ahorro (US-016). null when sinIngreso. */
   readonly estadoGlobal: EstadoSemaforo | null;
-  /** US-045: count of uncategorized cargo transactions. Carried verbatim from input — see ResumenMesInput. */
-  readonly cantidadSinCategoria: number;
 
   private constructor(
     totalIngreso: bigint,
     buckets: ReadonlyArray<BucketSlice>,
     estadoGlobal: EstadoSemaforo | null,
-    cantidadSinCategoria: number,
   ) {
     this.totalIngreso = totalIngreso;
     this.sinIngreso = totalIngreso === 0n;
     this.buckets = buckets;
     this.estadoGlobal = estadoGlobal;
-    this.cantidadSinCategoria = cantidadSinCategoria;
   }
 
   /**
@@ -126,7 +110,6 @@ export class ResumenMes {
       [Bucket.Necesidades]: input.necesidades,
       [Bucket.Deseos]: input.deseos,
       [Bucket.Ahorro]: input.ahorro,
-      [Bucket.SinCategoria]: input.sinCategoria,
     };
 
     const buckets: BucketSlice[] = SPEND_BUCKETS.map((bucket) => {
@@ -144,11 +127,6 @@ export class ResumenMes {
       buckets.map((b) => b.estadoSemaforo),
     );
 
-    return new ResumenMes(
-      input.totalIngreso,
-      buckets,
-      estadoGlobal,
-      input.cantidadSinCategoria,
-    );
+    return new ResumenMes(input.totalIngreso, buckets, estadoGlobal);
   }
 }

@@ -4,7 +4,7 @@ import {
   type BackfillDesconocidoClient,
   type BackfillDesconocidoTxClient,
 } from '../../../prisma/backfill-desconocido';
-import { BUCKET_IDS } from './bucket-ids';
+import { BUCKET_IDS, ID_BUCKET_SINCATEGORIA_LEGACY } from './bucket-ids';
 import { Bucket } from '../../domain/value-objects/bucket';
 
 /**
@@ -160,7 +160,7 @@ describe('runBackfillDesconocido — migración (A) SinCategoria → Deseos/Desc
           fecha: fecha('2026-06-15'),
           cargo: 5000n,
           abono: 0n,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
           categoriaId: null,
         },
       ],
@@ -312,7 +312,7 @@ describe('runBackfillDesconocido — precondición: falta una Desconocido (unit,
           fecha: fecha('2026-06-15'),
           cargo: 5000n,
           abono: 0n,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
           categoriaId: null,
         },
       ],
@@ -414,7 +414,7 @@ describe('runBackfillDesconocido — --dry-run (unit, sin BD)', () => {
             fecha: fecha('2026-06-15'),
             cargo: 5000n,
             abono: 0n,
-            bucketId: BUCKET_IDS[Bucket.SinCategoria],
+            bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
             categoriaId: null,
           },
           {
@@ -442,7 +442,7 @@ describe('runBackfillDesconocido — --dry-run (unit, sin BD)', () => {
 
     // Estado real intacto — nada mutó.
     const tx1 = getTransacciones().find((t) => t.id === 'tx-1')!;
-    expect(tx1.bucketId).toBe(BUCKET_IDS[Bucket.SinCategoria]);
+    expect(tx1.bucketId).toBe(ID_BUCKET_SINCATEGORIA_LEGACY);
     expect(tx1.categoriaId).toBeNull();
     const tx2 = getTransacciones().find((t) => t.id === 'tx-2')!;
     expect(tx2.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
@@ -464,7 +464,7 @@ describe('runBackfillDesconocido — aislamiento multi-tenant (unit, sin BD)', (
           fecha: fecha('2026-06-15'),
           cargo: 5000n,
           abono: 0n,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
           categoriaId: null,
         },
         {
@@ -473,7 +473,7 @@ describe('runBackfillDesconocido — aislamiento multi-tenant (unit, sin BD)', (
           fecha: fecha('2026-06-15'),
           cargo: 9999n,
           abono: 0n,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
           categoriaId: null,
         },
       ],
@@ -487,7 +487,7 @@ describe('runBackfillDesconocido — aislamiento multi-tenant (unit, sin BD)', (
     expect(summary.migracionSinCategoria.filasMigradas).toBe(1);
 
     const filaAjena = getTransacciones().find((t) => t.id === 'tx-ajena')!;
-    expect(filaAjena.bucketId).toBe(BUCKET_IDS[Bucket.SinCategoria]);
+    expect(filaAjena.bucketId).toBe(ID_BUCKET_SINCATEGORIA_LEGACY);
     expect(filaAjena.categoriaId).toBeNull();
   });
 });
@@ -505,7 +505,7 @@ describe('runBackfillDesconocido — resumen por período (unit, sin BD)', () =>
           fecha: fecha('2026-06-05'),
           cargo: 5000n,
           abono: 0n,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
           categoriaId: null,
         },
         {
@@ -514,7 +514,7 @@ describe('runBackfillDesconocido — resumen por período (unit, sin BD)', () =>
           fecha: fecha('2026-06-20'),
           cargo: 3000n,
           abono: 0n,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
           categoriaId: null,
         },
         {
@@ -523,7 +523,7 @@ describe('runBackfillDesconocido — resumen por período (unit, sin BD)', () =>
           fecha: fecha('2026-07-01'),
           cargo: 7000n,
           abono: 0n,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
           categoriaId: null,
         },
       ],

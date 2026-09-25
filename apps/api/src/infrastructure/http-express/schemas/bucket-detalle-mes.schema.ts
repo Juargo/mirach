@@ -104,7 +104,7 @@ export const bucketDetalleMesResponseSchema = z
       .int()
       .nullable()
       .describe(
-        'Basis-point percentage, round-half-up. null when the bucket has no meta rule (SinCategoria) or the month has no income (D-05).',
+        'Basis-point percentage, round-half-up. null when the month has no income (D-05).',
       ),
     metaBp: z
       .number()

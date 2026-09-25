@@ -193,7 +193,6 @@ describe('aCommitIngestaResponseDto', () => {
       [Bucket.Deseos, 'Deseos'],
       [Bucket.Ahorro, 'Ahorro'],
       [Bucket.Ingreso, 'Ingreso'],
-      [Bucket.SinCategoria, 'SinCategoria'],
     ];
 
     for (const [bucket, expected] of bucketValues) {

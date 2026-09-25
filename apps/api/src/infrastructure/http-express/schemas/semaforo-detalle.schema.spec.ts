@@ -69,7 +69,6 @@ function makeDetalle(): SemaforoDetalle {
         consejo: null,
       },
     ],
-    sinCategoria: { cantidad: 3, total: 90_000n },
   };
 }
 

@@ -201,7 +201,7 @@
                 "type": "null"
               }
             ],
-            "description": "Basis-point percentage, round-half-up. null when the bucket has no meta rule (SinCategoria) or the month has no income (D-05)."
+            "description": "Basis-point percentage, round-half-up. null when the month has no income (D-05)."
           },
           "total": {
             "description": "BigInt-safe decimal string amount (never a JSON number).",
@@ -362,7 +362,7 @@
                   "type": "string"
                 },
                 "bucket": {
-                  "description": "Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso|SinCategoria). Always present for commit rows — classification is resolved pre-persist (D-11).",
+                  "description": "Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso). Always present for commit rows — classification is resolved pre-persist (D-11).",
                   "type": "string"
                 },
                 "cargo": {
@@ -458,7 +458,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Folded category, or null for Ingreso/SinCategoria rows."
+                  "description": "Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket)."
                 },
                 "descripcion": {
                   "type": "string"
@@ -775,7 +775,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Folded category, or null for Ingreso/SinCategoria rows."
+                  "description": "Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket)."
                 },
                 "descripcion": {
                   "type": "string"
@@ -1037,7 +1037,7 @@
         "description": "POST /api/transacciones/reevaluar 200 — reevaluation outcome counts.",
         "properties": {
           "transaccionesActualizadas": {
-            "description": "Rows whose categoria/bucket actually changed and were written. Rows that resolved to SinCategoria (no pattern matched) are left untouched and never counted here.",
+            "description": "Rows whose categoria/bucket actually changed and were written. Rows where no pattern matched are left untouched and never counted here.",
             "type": "number"
           },
           "transaccionesEvaluadas": {
@@ -1134,7 +1134,7 @@
         "description": "GET /api/resumen — 50/30/20 monthly breakdown (US-015/016).",
         "properties": {
           "buckets": {
-            "description": "Always 4 entries: Necesidades, Deseos, Ahorro, SinCategoria.",
+            "description": "Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape.",
             "items": {
               "additionalProperties": false,
               "properties": {
@@ -1185,12 +1185,6 @@
               "type": "object"
             },
             "type": "array"
-          },
-          "cantidadSinCategoria": {
-            "description": "US-045: count of uncategorized cargo transactions (row count, not money). Always present.",
-            "maximum": 9007199254740991,
-            "minimum": 0,
-            "type": "integer"
           },
           "estadoGlobal": {
             "anyOf": [
@@ -1247,8 +1241,7 @@
           "sinIngreso",
           "buckets",
           "targets",
-          "estadoGlobal",
-          "cantidadSinCategoria"
+          "estadoGlobal"
         ],
         "type": "object"
       },
@@ -1430,26 +1423,6 @@
             "description": "Resolved period, format YYYY-MM.",
             "type": "string"
           },
-          "sinCategoria": {
-            "additionalProperties": false,
-            "description": "Re-exposed from /api/resumen, never recomputed independently (SEM-05).",
-            "properties": {
-              "cantidad": {
-                "maximum": 9007199254740991,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "total": {
-                "description": "BigInt-safe decimal string amount (never a JSON number).",
-                "type": "string"
-              }
-            },
-            "required": [
-              "cantidad",
-              "total"
-            ],
-            "type": "object"
-          },
           "sinIngreso": {
             "type": "boolean"
           },
@@ -1465,8 +1438,7 @@
           "estadoGlobal",
           "diagnostico",
           "bucketsCriticos",
-          "buckets",
-          "sinCategoria"
+          "buckets"
         ],
         "type": "object"
       },
@@ -1823,7 +1795,7 @@
     },
     "/api/buckets/{bucket}/detalle": {
       "get": {
-        "description": "Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the month×bucket detail GROUPED by category — a header with totals and % vs meta, and category groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). Accepts only the four spend buckets (Necesidades, Deseos, Ahorro, SinCategoria); Ingresos is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
+        "description": "Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the month×bucket detail GROUPED by category — a header with totals and % vs meta, and category groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). Accepts only the three spend buckets (Necesidades, Deseos, Ahorro); Ingreso is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).",
         "parameters": [
           {
             "description": "Bucket name (raw path param). Validated against the domain enum by the use case, not this schema.",
@@ -2418,7 +2390,7 @@
                     "description": "Gasto variant — requires bucket ∈ {Necesidades, Deseos, Ahorro} and categoriaId.",
                     "properties": {
                       "bucket": {
-                        "description": "Required for Gasto. One of Necesidades | Deseos | Ahorro. Ingreso and SinCategoria are invalid here (D-12).",
+                        "description": "Required for Gasto. One of Necesidades | Deseos | Ahorro. Ingreso is invalid here (D-12).",
                         "enum": [
                           "Necesidades",
                           "Deseos",
@@ -3131,7 +3103,7 @@
     },
     "/api/transacciones/reevaluar": {
       "post": {
-        "description": "Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT pattern catalog against ALL of their persisted transactions — categorized or not, no period filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the existing categoria/bucket. A row that resolves to SinCategoria (no pattern matched) is left exactly as it is — never cleared. Rows whose determined classification already matches their current value are not re-written (transaccionesActualizadas counts real changes only). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
+        "description": "Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT pattern catalog against ALL of their persisted transactions — categorized or not, no period filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the existing categoria/bucket. A row where no pattern matched is left exactly as it is — never cleared. Rows whose determined classification already matches their current value are not re-written (transaccionesActualizadas counts real changes only). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).",
         "responses": {
           "200": {
             "content": {

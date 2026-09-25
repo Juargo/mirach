@@ -8,7 +8,8 @@ import { Bucket } from '../../domain/value-objects/bucket';
  *
  * Escribe en bloque `categoriaId` + `bucketId` para las filas cuya
  * clasificación cambió (el use case ya filtró: solo llegan asignaciones
- * "determinadas" — nunca `Bucket.SinCategoria` — y solo las que difieren del
+ * "determinadas" — nunca el retirado `Bucket.SinCategoria` (issue #778
+ * tramo 5b PR5) — y solo las que difieren del
  * valor actual). Mirrors `ITransaccionBucketWriter` (US-013) pero SIN el
  * scope de `ingestaId`: el `WHERE` de la implementación es
  * `{ id IN (...), account: { userId } }` — alcance TODO el historial del

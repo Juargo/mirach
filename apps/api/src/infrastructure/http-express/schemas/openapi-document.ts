@@ -741,7 +741,7 @@ const reevaluarCategoriasResponseSchema = z
       .number()
       .describe(
         'Rows whose categoria/bucket actually changed and were written. ' +
-          'Rows that resolved to SinCategoria (no pattern matched) are left untouched ' +
+          'Rows where no pattern matched are left untouched ' +
           'and never counted here.',
       ),
   })
@@ -758,10 +758,9 @@ const reevaluarCategoriasResponseSchema = z
  *
  * Per-row semantics (critical): a determined classification (a pattern
  * matched, or the Ingreso rule applied) OVERWRITES whatever categoria/bucket
- * the row had before. A row that resolves to SinCategoria (no pattern
- * matched) is left EXACTLY as it was — never cleared. Without this
- * distinction, an incomplete pattern catalog would wipe every row it doesn't
- * cover back to SinCategoria.
+ * the row had before. A row where no pattern matched is left EXACTLY as it
+ * was — never cleared. Without this distinction, an incomplete pattern
+ * catalog would silently wipe every row it doesn't cover.
  */
 const reevaluarCategoriasOperation: ZodOpenApiOperationObject = {
   summary: "Re-run the caller's classification patterns over all transactions",
@@ -769,7 +768,7 @@ const reevaluarCategoriasOperation: ZodOpenApiOperationObject = {
     "Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT " +
     'pattern catalog against ALL of their persisted transactions — categorized or not, no period ' +
     'filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the ' +
-    'existing categoria/bucket. A row that resolves to SinCategoria (no pattern matched) is left ' +
+    'existing categoria/bucket. A row where no pattern matched is left ' +
     'exactly as it is — never cleared. Rows whose determined classification already matches their ' +
     'current value are not re-written (transaccionesActualizadas counts real changes only). ' +
     'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo ' +
@@ -1280,7 +1279,7 @@ const bucketDetalleMesOperation: ZodOpenApiOperationObject = {
     'Authenticated sibling detail endpoint to GET /api/buckets/{bucket} (US-051): returns the ' +
     'month×bucket detail GROUPED by category — a header with totals and % vs meta, and category ' +
     'groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). ' +
-    'Accepts only the four spend buckets (Necesidades, Deseos, Ahorro, SinCategoria); Ingresos ' +
+    'Accepts only the three spend buckets (Necesidades, Deseos, Ahorro); Ingreso ' +
     'is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid ' +
     'session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
   requestParams: {
@@ -1378,7 +1377,7 @@ const registrarMovimientoManualRequestOpenApiSchema = z.union([
         .enum(['Necesidades', 'Deseos', 'Ahorro'])
         .describe(
           'Required for Gasto. One of Necesidades | Deseos | Ahorro. ' +
-            'Ingreso and SinCategoria are invalid here (D-12).',
+            'Ingreso is invalid here (D-12).',
         ),
       categoriaId: z
         .string()

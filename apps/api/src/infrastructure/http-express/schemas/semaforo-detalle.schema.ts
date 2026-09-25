@@ -113,16 +113,6 @@ export const semaforoDetalleResponseSchema = z
       .describe(
         'Always exactly 3 entries: Necesidades, Deseos, Ahorro (D-03).',
       ),
-    sinCategoria: z
-      .object({
-        cantidad: z.number().int().nonnegative(),
-        total: z
-          .string()
-          .describe('BigInt-safe decimal string amount (never a JSON number).'),
-      })
-      .describe(
-        'Re-exposed from /api/resumen, never recomputed independently (SEM-05).',
-      ),
   })
   .meta({
     id: 'SemaforoDetalleResponse',

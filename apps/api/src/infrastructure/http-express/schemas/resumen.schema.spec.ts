@@ -47,16 +47,12 @@ function makeResumen(opts: {
   necesidades?: bigint;
   deseos?: bigint;
   ahorro?: bigint;
-  sinCategoria?: bigint;
-  cantidadSinCategoria?: number;
 }): ResumenMes {
   return ResumenMes.crear({
     totalIngreso: opts.totalIngreso,
     necesidades: opts.necesidades ?? 0n,
     deseos: opts.deseos ?? 0n,
     ahorro: opts.ahorro ?? 0n,
-    sinCategoria: opts.sinCategoria ?? 0n,
-    cantidadSinCategoria: opts.cantidadSinCategoria ?? 0,
   });
 }
 
@@ -103,7 +99,8 @@ describe('resumenResponseSchema (sync guarantee)', () => {
     expect(bucketNames).toContain(Bucket.Necesidades);
     expect(bucketNames).toContain(Bucket.Deseos);
     expect(bucketNames).toContain(Bucket.Ahorro);
-    expect(bucketNames).toContain(Bucket.SinCategoria);
+    // issue #778 tramo 5b PR5: SinCategoria no longer exists as a bucket.
+    expect(bucketNames).toHaveLength(3);
   });
 
   it('rejects a payload where a money field is a JSON number (never a string)', () => {
@@ -132,9 +129,8 @@ describe('resumenResponseSchema (sync guarantee)', () => {
     expect(() => resumenResponseSchema.parse(invalid)).toThrow();
   });
 
-  // ── US-045: cantidadSinCategoria (Phase 6, design D-06) ────────────────────
-
-  describe('US-045: cantidadSinCategoria (D-06 — required field)', () => {
+  // issue #778 tramo 5b PR5: cantidadSinCategoria removed from the contract.
+  describe('cantidadSinCategoria removed from the contract (issue #778 tramo 5b PR5)', () => {
     const validPayload = {
       periodo: '2026-07',
       totalIngreso: '1500000',
@@ -142,22 +138,16 @@ describe('resumenResponseSchema (sync guarantee)', () => {
       buckets: [],
       targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
       estadoGlobal: null,
-      cantidadSinCategoria: 7,
     };
 
-    it('rejects a payload where cantidadSinCategoria is a string', () => {
-      const invalid = { ...validPayload, cantidadSinCategoria: '7' };
-      expect(() => resumenResponseSchema.parse(invalid)).toThrow();
+    it('parses without the field (it is no longer required)', () => {
+      expect(() => resumenResponseSchema.parse(validPayload)).not.toThrow();
     });
 
-    it('rejects a payload missing cantidadSinCategoria (proves required)', () => {
-      const { cantidadSinCategoria: _omit, ...withoutField } = validPayload;
-      expect(() => resumenResponseSchema.parse(withoutField)).toThrow();
-    });
-
-    it('accepts 0', () => {
-      const payload = { ...validPayload, cantidadSinCategoria: 0 };
-      expect(() => resumenResponseSchema.parse(payload)).not.toThrow();
+    it('strips the field when present (never round-trips it)', () => {
+      const withStaleField = { ...validPayload, cantidadSinCategoria: 7 };
+      const parsed = resumenResponseSchema.parse(withStaleField);
+      expect('cantidadSinCategoria' in parsed).toBe(false);
     });
   });
 });

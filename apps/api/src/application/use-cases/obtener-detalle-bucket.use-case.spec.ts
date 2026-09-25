@@ -113,7 +113,7 @@ describe('ObtenerDetalleBucketUseCase', () => {
 
       const result = await useCase.execute({
         userId: 'user-1',
-        bucket: Bucket.SinCategoria,
+        bucket: Bucket.Deseos,
         periodo: '2026-07',
       });
 

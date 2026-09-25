@@ -17,8 +17,9 @@ import { validarPatron } from './validar-patron';
 const NOMBRE_MIN = 1;
 const NOMBRE_MAX = 40;
 
-/** Buckets asignables por el usuario — `Ingreso`/`SinCategoria` son estados
- * computados y NUNCA asignables (CAT038-01). `bucket.ts` permanece
+/** Buckets asignables por el usuario — `Ingreso` es un estado computado y
+ * NUNCA asignable (CAT038-01); `SinCategoria` cubría el mismo caso hasta
+ * que issue #778 tramo 5b PR5 lo removió del dominio. `bucket.ts` permanece
  * intocado (design.md §4.1) por eso este set vive aquí, no en el VO. */
 const BUCKETS_ASIGNABLES = ['Necesidades', 'Deseos', 'Ahorro'] as const;
 

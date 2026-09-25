@@ -4,9 +4,11 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 /**
  * BucketSumRow — aggregated sums per budget bucket for a calendar month.
  *
- * The repository folds bucketId=null (uncategorized) into Bucket.SinCategoria
- * before returning rows to the use case. The use case receives only semantic
- * Bucket enum keys — never raw DB bucketId strings.
+ * The repository folds bucketId=null (uncategorized) AND any unrecognized
+ * bucketId into Bucket.Deseos (issue #778 tramo 5b PR5: `Bucket.SinCategoria`
+ * no longer exists in the domain) before returning rows to the use case. The
+ * use case receives only semantic Bucket enum keys — never raw DB bucketId
+ * strings.
  *
  * Amounts stay BigInt — no number, no string at application layer.
  */
@@ -16,9 +18,11 @@ export interface BucketSumRow {
   readonly totalAbono: bigint;
   /**
    * US-045 (D-05): count of rows with `cargo > 0` in this bucket — never
-   * abono rows. Reported uniformly for all five buckets (a raw aggregation
-   * row does not pick and choose); the domain layer narrows this down to
-   * only SinCategoria (D-04).
+   * abono rows. Reported uniformly for all four buckets (a raw aggregation
+   * row does not pick and choose). Unconsumed by the domain layer since
+   * issue #778 tramo 5b PR5 removed `cantidadSinCategoria` (its only
+   * consumer) — kept as general per-bucket infra, not narrowed to any one
+   * bucket anymore.
    */
   readonly cantidadCargos: number;
 }

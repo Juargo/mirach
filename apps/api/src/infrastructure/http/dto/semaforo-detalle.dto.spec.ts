@@ -68,21 +68,25 @@ function makeDetalle(
         consejo: null,
       },
     ],
-    sinCategoria: { cantidad: 3, total: 90_000n },
     ...overrides,
   };
 }
 
 describe('aSemaforoDetalleDto', () => {
-  it('serializes BigInt money fields (totalIngreso, consejo.monto, sinCategoria.total) as decimal strings', () => {
+  it('serializes BigInt money fields (totalIngreso, consejo.monto) as decimal strings', () => {
     const dto = aSemaforoDetalleDto('2026-07', makeDetalle());
 
     expect(dto.totalIngreso).toBe('1500000');
     expect(typeof dto.totalIngreso).toBe('string');
     expect(dto.buckets[0]?.consejo?.monto).toBe('49995');
     expect(typeof dto.buckets[0]?.consejo?.monto).toBe('string');
-    expect(dto.sinCategoria.total).toBe('90000');
-    expect(typeof dto.sinCategoria.total).toBe('string');
+  });
+
+  // issue #778 tramo 5b PR5: sinCategoria removed from the wire contract.
+  it('SemaforoDetalleDto no longer has a sinCategoria key', () => {
+    const dto = aSemaforoDetalleDto('2026-07', makeDetalle());
+
+    expect('sinCategoria' in dto).toBe(false);
   });
 
   it('serializes porcentajeBp/metaBp/band edges as JS numbers', () => {

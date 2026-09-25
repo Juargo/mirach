@@ -248,17 +248,16 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     for (const mes of res.body.meses) {
       expect(typeof mes.totalIngreso).toBe('string');
       expect(typeof mes.sinIngreso).toBe('boolean');
-      expect(mes.buckets).toHaveLength(4);
-      expect(typeof mes.cantidadSinCategoria).toBe('number');
+      // issue #778 tramo 5b PR5: SinCategoria removed, cantidadSinCategoria gone.
+      expect(mes.buckets).toHaveLength(3);
+      expect('cantidadSinCategoria' in mes).toBe(false);
     }
 
     if (ALLOW) {
       // Index 4 = May — proves the annual reduce carries the REAL total
       // through per-month, not a placeholder 0 (D-07). issue #778 tramo 5b:
-      // the null-bucket row folds to Deseos now, not SinCategoria, so
-      // cantidadSinCategoria stays 0 here — the non-placeholder proof moves
-      // to Deseos' total instead.
-      expect(res.body.meses[4].cantidadSinCategoria).toBe(0);
+      // the null-bucket row folds to Deseos now, not SinCategoria — the
+      // non-placeholder proof is Deseos' total instead.
       const mayoDeseos = res.body.meses[4].buckets.find(
         (b: { bucket: string }) => b.bucket === Bucket.Deseos,
       );
@@ -348,8 +347,6 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     // isolation were broken, user B's 9M would leak in, either replacing or
     // summing with A's total, so an exact match rules out both failure modes.
     expect(BigInt(marzo.totalIngreso)).toBe(1_000_000n);
-    // issue #778 tramo 5b: no real SinCategoria rows seeded — cantidadSinCategoria stays 0.
-    expect(marzo.cantidadSinCategoria).toBe(0);
     // US-045/CA-08 (retargeted to Deseos): A's Deseos total reflects only
     // A's 1 uncategorized cargo row (5_000) — never B's 3 rows
     // (6_000+6_001+6_002=18_003) (isolation at the annual endpoint boundary).
@@ -403,7 +400,6 @@ describe('ResumenController (e2e) — GET /api/resumen/anual', () => {
     expect(diciembre.sinIngreso).toBe(true);
     expect(diciembre.estadoGlobal).toBeNull();
     expect(diciembre.totalIngreso).toBe('0');
-    expect(diciembre.cantidadSinCategoria).toBe(0);
     for (const bucket of diciembre.buckets) {
       expect(bucket.total).toBe('0');
       expect(bucket.porcentajeBp).toBeNull();

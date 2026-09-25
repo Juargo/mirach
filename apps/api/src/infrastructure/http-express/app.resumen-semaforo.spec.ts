@@ -67,7 +67,6 @@ const SEMAFORO_DETALLE_OK: SemaforoDetalle = {
       consejo: null,
     },
   ],
-  sinCategoria: { cantidad: 0, total: 0n },
 };
 
 function fakeContainer(): Container {

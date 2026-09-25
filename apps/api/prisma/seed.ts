@@ -247,12 +247,17 @@ export async function runSeed(prisma: SeedClient): Promise<void> {
   });
 
   // ── US-012: 5 BucketPresupuesto con ids fijos (single-sourced via BUCKET_IDS) ──
+  // El literal 'bucket-sincategoria'/'SinCategoria' de abajo NO viene de
+  // BUCKET_IDS/Bucket.SinCategoria — issue #778 tramo 5b PR5 removió ese
+  // miembro del dominio. Esta fila de BucketPresupuesto sigue existiendo en
+  // BD a propósito (out of scope de PR5, ver CLAUDE.md del change); PR 6
+  // (#778) la elimina junto con la migración de datos.
   const buckets: Array<{ id: string; nombre: string }> = [
     { id: BUCKET_IDS[Bucket.Necesidades], nombre: Bucket.Necesidades },
     { id: BUCKET_IDS[Bucket.Deseos], nombre: Bucket.Deseos },
     { id: BUCKET_IDS[Bucket.Ahorro], nombre: Bucket.Ahorro },
     { id: BUCKET_IDS[Bucket.Ingreso], nombre: Bucket.Ingreso },
-    { id: BUCKET_IDS[Bucket.SinCategoria], nombre: Bucket.SinCategoria },
+    { id: 'bucket-sincategoria', nombre: 'SinCategoria' }, // PR 6 (#778) removes this
   ];
 
   for (const bucket of buckets) {

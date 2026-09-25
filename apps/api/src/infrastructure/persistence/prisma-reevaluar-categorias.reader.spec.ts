@@ -3,7 +3,7 @@ import { PrismaReevaluarCategoriasReader } from './prisma-reevaluar-categorias.r
 import { PrismaClient } from '@prisma/client';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { BUCKET_IDS } from './bucket-ids';
+import { BUCKET_IDS, ID_BUCKET_SINCATEGORIA_LEGACY } from './bucket-ids';
 
 /**
  * Unit tests for PrismaReevaluarCategoriasReader.
@@ -81,15 +81,15 @@ describe('PrismaReevaluarCategoriasReader', () => {
     });
   });
 
-  it('resuelve el id físico REAL de bucket-sincategoria a Bucket.SinCategoria — distinto de bucketId null', async () => {
+  it('resuelve el id físico legacy bucket-sincategoria a Bucket.Deseos (issue #778 tramo 5b PR5: Bucket.SinCategoria ya no existe)', async () => {
     const rows = [
       {
-        id: 'tx-real-sincategoria',
+        id: 'tx-legacy-sincategoria',
         descripcion: 'compra',
         cargo: 1000n,
         abono: 0n,
         categoriaId: null,
-        bucketId: BUCKET_IDS[Bucket.SinCategoria],
+        bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
       },
     ];
     const prisma = makePrismaMock(rows);
@@ -97,7 +97,7 @@ describe('PrismaReevaluarCategoriasReader', () => {
 
     const result = await reader.findTodasDelUsuario('user-a');
 
-    expect(result[0].bucketActual).toBe(Bucket.SinCategoria);
+    expect(result[0].bucketActual).toBe(Bucket.Deseos);
   });
 
   it('resuelve un bucketId físico no nulo a su Bucket de dominio', async () => {

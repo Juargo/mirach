@@ -40,7 +40,6 @@ function allBucketRows(
     [Bucket.Necesidades]: { cargo: 650_000n, abono: 0n, cantidadCargos: 3 },
     [Bucket.Deseos]: { cargo: 240_000n, abono: 0n, cantidadCargos: 2 },
     [Bucket.Ahorro]: { cargo: 200_000n, abono: 0n, cantidadCargos: 1 },
-    [Bucket.SinCategoria]: { cargo: 90_000n, abono: 0n, cantidadCargos: 7 },
   };
 
   return (Object.keys(defaults) as Bucket[]).map((bucket) => ({

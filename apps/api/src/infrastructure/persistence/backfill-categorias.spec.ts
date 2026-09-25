@@ -11,6 +11,17 @@ import { AesGcmCryptoService } from './aes-gcm-crypto.service';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 
 /**
+ * `ID_BUCKET_SINCATEGORIA_LEGACY` — el id físico `bucket-sincategoria`, ya no
+ * accesible vía `BUCKET_IDS[Bucket.SinCategoria]` (issue #778 tramo 5b PR5
+ * removió ese miembro del dominio). `backfill-categorias.ts` sigue siendo un
+ * script FROZEN bootstrap-user-only que preserva a propósito el
+ * comportamiento pre-#801 de escribir este id físico cuando una fila sin
+ * bucket previo no matchea ningún patrón — ver su docblock local
+ * `SIN_CATEGORIA_LEGACY`.
+ */
+const ID_BUCKET_SINCATEGORIA_LEGACY = 'bucket-sincategoria';
+
+/**
  * backfill-categorias — unit tests (CAT-05, sin BD).
  *
  * `runBackfill` solo depende de un subconjunto estructural de PrismaClient
@@ -187,10 +198,10 @@ describe('runBackfill — clasificación (CAT-05, unit, sin BD)', () => {
     expect(updateManyCalls[0]).toMatchObject({
       ids: ['tx-2'],
       categoriaId: null,
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
     });
     expect(transacciones[0].categoriaId).toBeNull();
-    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.SinCategoria]);
+    expect(transacciones[0].bucketId).toBe(ID_BUCKET_SINCATEGORIA_LEGACY);
   });
 
   it('la regla Ingreso no consulta patrones y deriva bucket Ingreso con categoriaId null', async () => {
@@ -369,7 +380,7 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
           cargo: 9500n,
           abono: 0n,
           categoriaId: null,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
         },
       ],
     );
@@ -378,7 +389,7 @@ describe('runBackfill — preservación de bucket existente (fix/backfill-preser
 
     expect(updateManyCalls).toHaveLength(0);
     expect(transacciones[0].categoriaId).toBeNull();
-    expect(transacciones[0].bucketId).toBe(BUCKET_IDS[Bucket.SinCategoria]);
+    expect(transacciones[0].bucketId).toBe(ID_BUCKET_SINCATEGORIA_LEGACY);
     expect(summary.categoriaAgregadaBucketPreservado).toBe(0);
     expect(summary.bucketChanges).toBe(0);
   });

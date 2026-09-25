@@ -101,7 +101,7 @@ function estadoDesdeBandas(bp: bigint, b: BandasBucket): EstadoSemaforo {
  *
  * Rules:
  * - porcentajeBp === null (sinIngreso)   → null (no income, no meaningful state)
- * - bucket not in BANDAS_SEMAFORO        → null (SinCategoria, Ingreso, etc. — no rule defined)
+ * -  * - bucket not in BANDAS_SEMAFORO        → null (Ingreso, etc. — no rule defined)
  * - bucket in BANDAS_SEMAFORO            → estadoDesdeBandas(bp, BANDAS_SEMAFORO[bucket])
  */
 export function calcularEstadoBucket(
@@ -120,8 +120,7 @@ export function calcularEstadoBucket(
  * highest severity rank (Rojo > Amarillo > Verde). Returns null when every
  * estado is null (sinIngreso path or all-null list).
  *
- * Designed to receive all 4 BucketSlice estados (including SinCategoria).
- * SinCategoria's estado is naturally null → skipped → does not affect the result.
+ * Designed to receive all 3 BucketSlice estados (Necesidades/Deseos/Ahorro).
  */
 export function calcularEstadoGlobal(
   estados: ReadonlyArray<EstadoSemaforo | null>,

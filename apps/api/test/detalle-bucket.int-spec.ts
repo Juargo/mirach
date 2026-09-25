@@ -25,9 +25,11 @@ import { categoriaIdDe } from './helpers/categoria-fixture';
  *
  *   1. Isolation: a user B transaction in the queried bucket/period NEVER
  *      appears in user A's result (row-identity assertion).
- *   2. Null-fold correctness: a user A transaction with bucketId = null
- *      appears when querying SinCategoria, and does NOT appear when
- *      querying any other bucket — guards the SC-03 fold mirrored from
+ *   2. Null-fold correctness (issue #778 tramo 5b PR5, `Bucket.SinCategoria`
+ *      removed from the domain): a user A transaction with bucketId = null,
+ *      AND one holding the legacy physical id `bucket-sincategoria`, BOTH
+ *      appear when querying Deseos, and do NOT appear when querying any
+ *      other bucket — guards the SC-03 fold mirrored from
  *      prisma-resumen-mes.repository.ts (design's flagged HIGH-risk item).
  */
 
@@ -180,7 +182,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     expect(returnedIds).not.toContain(userBTx.id);
   });
 
-  it('null-fold: a user A transaction with bucketId=null appears when querying Deseos, never when querying SinCategoria or another bucket (#778 tramo 5b)', async () => {
+  it('null-fold AND legacy-SinCategoria-fold: both appear when querying Deseos, never under any other bucket (#778 tramo 5b PR5)', async () => {
     const nullTx = await createTx(
       accountIdA,
       ingestaIdA,
@@ -190,17 +192,31 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
       0n,
       'Sin bucket asignado',
     );
+    // issue #778 tramo 5b PR5 removed Bucket.SinCategoria from the domain —
+    // a row still holding this legacy physical id is an unrecognized
+    // bucketId that ALSO folds to Deseos, exactly like null.
+    const legacySinCategoriaTx = await createTx(
+      accountIdA,
+      ingestaIdA,
+      new Date('2026-07-15T00:00:00.000Z'),
+      'bucket-sincategoria',
+      13000n,
+      0n,
+      'Bucket legacy SinCategoria',
+    );
 
     const idsDe = async (bucket: Bucket) =>
       (
         await repo.findByPeriodoYBucket(TEST_USER_ID_A, periodoJulio, bucket)
       ).map((r) => r.id);
 
-    expect(await idsDe(Bucket.Deseos)).toContain(nullTx.id);
-    // Deseos and SinCategoria are a partition: the same money must never
-    // show up in both drill-downs.
-    expect(await idsDe(Bucket.SinCategoria)).not.toContain(nullTx.id);
-    expect(await idsDe(Bucket.Necesidades)).not.toContain(nullTx.id);
+    const deseosIds = await idsDe(Bucket.Deseos);
+    expect(deseosIds).toContain(nullTx.id);
+    expect(deseosIds).toContain(legacySinCategoriaTx.id);
+    // Neither fold source leaks into an unrelated bucket's drill-down.
+    const necesidadesIds = await idsDe(Bucket.Necesidades);
+    expect(necesidadesIds).not.toContain(nullTx.id);
+    expect(necesidadesIds).not.toContain(legacySinCategoriaTx.id);
   });
 
   it("null-fold: a bucketId=null row in the Deseos drill-down carries the user's internal Desconocido category (#778 tramo 5b)", async () => {

@@ -26,9 +26,9 @@ const tipoGasto = 'Gasto' as const;
 /**
  * Valid Gasto buckets at the transport layer.
  *
- * Ingreso and SinCategoria are NOT valid caller-supplied Gasto buckets:
- * - Ingreso is assigned by construction (D-10).
- * - SinCategoria is a system fallback sentinel, never a request value.
+ * Ingreso is NOT a valid caller-supplied Gasto bucket: it is assigned by
+ * construction (D-10). `SinCategoria` was excluded here too until issue
+ * #778 tramo 5b PR5 removed it from the domain entirely.
  */
 const GASTO_BUCKETS = ['Necesidades', 'Deseos', 'Ahorro'] as const;
 

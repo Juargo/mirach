@@ -14,9 +14,9 @@ import type { PrismaClient } from '@prisma/client';
  * sin conversión a number (regla del proyecto: el dinero usa tipos exactos, nunca float).
  *
  * `descripcion` se descifra AQUÍ, en infra (ADR-013) — CategorizarTransaccionUseCase
- * hace pattern matching por descripción; si se le pasara el ciphertext, TODA
- * transacción degradaría a SinCategoria en silencio. Mismo patrón que
- * `PrismaTransaccionExistenteReader`.
+ * hace pattern matching por descripción; si se le pasara el ciphertext, NINGÚN
+ * patrón matchearía y toda transacción quedaría sin clasificar en silencio.
+ * Mismo patrón que `PrismaTransaccionExistenteReader`.
  *
  * Nunca lanza: errores se propagan como excepción al orquestador que los maneja
  * dentro de su try/catch island de categorización.

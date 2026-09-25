@@ -45,25 +45,31 @@ const PATRONES_REALES: readonly PatronClasificacion[] = PATRON_TEMPLATE.map(
 
 const useCase = new CategorizarTransaccionUseCase(new NoOpLogger());
 
+/**
+ * `SIN_MATCH` — sentinel LOCAL a este test, no un `Bucket` del dominio
+ * (issue #778 tramo 5b PR5 removió `Bucket.SinCategoria`). Esta tabla es un
+ * pin de glosa→categoría/bucket (issue #746) y necesita distinguir, en el
+ * `bucket` esperado por caso, "ningún patrón matcheó" de un bucket real —
+ * `CategorizarTransaccionUseCase` ya no devuelve ese centinela (#801), así
+ * que la traducción vive ACÁ, local a este test.
+ */
+const SIN_MATCH = 'sin-match' as const;
+
 function clasificar(descripcion: string) {
   const value = useCase
     .execute({ descripcion, abono: 0n, cargo: 5000n }, PATRONES_REALES, null)
     .getValue();
-  // #778 tramo 5b: esta tabla es un pin de glosa→categoría/bucket (issue
-  // #746) — sigue afirmando `Bucket.SinCategoria` para las glosas sin match
-  // a propósito, aunque `CategorizarTransaccionUseCase` ya no lo devuelva:
-  // la traducción vive ACÁ, local a este test.
   return {
     categoria:
       value.tipo === 'clasificada' ? (value.categoria?.nombre ?? null) : null,
-    bucket: value.tipo === 'clasificada' ? value.bucket : Bucket.SinCategoria,
+    bucket: value.tipo === 'clasificada' ? value.bucket : SIN_MATCH,
   };
 }
 
 const CASOS: ReadonlyArray<{
   glosa: string;
   categoria: string | null;
-  bucket: Bucket;
+  bucket: Bucket | typeof SIN_MATCH;
 }> = [
   // ── Existentes — pin de no-regresión: deben seguir resolviendo igual ──
   {
@@ -219,30 +225,30 @@ const CASOS: ReadonlyArray<{
   },
 
   // ── Negativos: los tokens endurecidos NO deben matchear como substring ──
-  { glosa: 'ESTA CLARO QUE SI', categoria: null, bucket: Bucket.SinCategoria },
+  { glosa: 'ESTA CLARO QUE SI', categoria: null, bucket: SIN_MATCH },
   {
     glosa: 'PAGO ANTEWOM SERVICIOS',
     categoria: null,
-    bucket: Bucket.SinCategoria,
+    bucket: SIN_MATCH,
   },
 
   // ── Comida / Ropa: sin patrones — nunca deben aparecer como resultado ──
   {
     glosa: 'RESTAURANT DONDE AUGUSTO',
     categoria: null,
-    bucket: Bucket.SinCategoria,
+    bucket: SIN_MATCH,
   },
   {
     glosa: 'TIENDA FALABELLA ROPA',
     categoria: null,
-    bucket: Bucket.SinCategoria,
+    bucket: SIN_MATCH,
   },
 
   // ── Genérico sin match ──
   {
     glosa: 'COMPRA VARIOS XYZ123',
     categoria: null,
-    bucket: Bucket.SinCategoria,
+    bucket: SIN_MATCH,
   },
 ];
 

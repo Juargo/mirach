@@ -10,8 +10,9 @@ import { Bucket } from '../../domain/value-objects/bucket';
  * string ocurre solo en el DTO HTTP.
  *
  * `categoria` (US-013 CATAPI-05, US-037/ADR-037 CAT037-06) es el
- * `{id, nombre}` de la fila del usuario ya foldeada — `null` solo para
- * filas Ingreso/SinCategoria, vía el mismo `foldCategoria`
+ * `{id, nombre}` de la fila del usuario ya foldeada — `null` para filas
+ * Ingreso o cualquier fila sin categoría asignada (issue #778 tramo 5b:
+ * `SinCategoria` ya no existe como bucket), vía el mismo `foldCategoria`
  * (fold-categoria.ts) compartido con PrismaMovimientosMesRepository.
  * `nombre` es `string`: ownership (`WHERE userId`) es la única autoridad de
  * validez, ya no un enum cerrado (D-01). `icono` (categoria-iconografia

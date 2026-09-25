@@ -7,8 +7,10 @@ import type { ObtenerDetalleBucketMesResult } from '../../../application/use-cas
  * Sigue la disciplina BigInt-safe de `ResumenMesDto`/`SemaforoDetalleDto`:
  * - dinero (`total`, `subtotal`, `monto`) como strings decimales (CA-05) —
  *   el typechecker no puede redondear un string;
- * - `porcentajeBp`/`metaBp` como JS numbers (bp ≤ 10000 ≪ 2^53), `null`
- *   para SinCategoria (D-05);
+ * - `porcentajeBp`/`metaBp` como JS numbers (bp ≤ 10000 ≪ 2^53); `porcentajeBp`
+ *   es `null` cuando el mes no tiene ingreso (D-05) — `SinCategoria` ya no es
+ *   un bucket válido aquí (issue #778 tramo 5b: `GET /api/buckets/SinCategoria`
+ *   ahora responde 400);
  * - `fecha` ISO-8601 UTC completo vía `toISOString()` (convención bloqueada);
  * - SIN PII de CUENTA (MBD-08): `tipoCuenta`/`numeroCuenta` no existen ni
  *   siquiera en el TIPO — fueron recortados en el borde de aplicación (gate
