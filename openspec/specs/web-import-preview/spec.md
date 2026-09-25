@@ -743,81 +743,112 @@ no reclassification and no amount computation — group headings never sum amoun
 - THEN no bucket/categoría select, no row checkbox, and no "+" inline-creation trigger is
   rendered anywhere in the grouped summary
 
-### Requirement: WEB-PRV-20 — The editable review table groups rows by bucket · categoría of the server suggestion, with the category icon
+### Requirement: WEB-PRV-20 — The editable review table groups rows in a two-level accordion, bucket then categoría, of the server suggestion
 
 The editable review table (WEB-PRV-02, `PreviewMuestra`) MUST group its rows into a
-per-group accordion, distinct from the READ-ONLY decision-step summary (WEB-PRV-19):
+TWO-LEVEL accordion — bucket, then categoría within that bucket — distinct from the
+READ-ONLY decision-step summary (WEB-PRV-19):
 
 1. Grouping key = `fila.sugerido` (the SERVER SUGGESTION) ONLY — never the merged
    classification value (`edits` overlay wins for display, WEB-PRV-05/06, but never for
    grouping). A row the user reclassifies via its own bucket/categoría select MUST stay in
-   its ORIGINAL group until the preview is reloaded or re-run (WEB-PRV-15); only a fresh
-   preview response, which recomputes every row's `sugerido`, may move a row to a
-   different group.
-2. A row with `sugerido.bucket === 'Ingreso'` (the backend's immutable verdict,
-   `CommitIngestaUseCase` Rule 2, `categoriaId` always null) groups alone under a plain
-   "Ingreso" heading — no "· Ingreso" suffix.
-3. A row with `sugerido === null` groups under "Sin categoría", which MUST render LAST,
-   after every other group, regardless of file order.
+   its ORIGINAL bucket/categoría until the preview is reloaded or re-run (WEB-PRV-15); only
+   a fresh preview response, which recomputes every row's `sugerido`, may move a row to a
+   different bucket or categoría.
+2. Level 1 (bucket) shows one entry per PRESENT bucket among Necesidades, Deseos (labeled
+   "Gustos"), Ahorro, in that order, then Ingreso last; a bucket with no rows is absent
+   entirely, never rendered empty. Each bucket heading shows the UI label and the row count
+   with correct Spanish singular/plural agreement.
+3. Level 2 (categoría) exists only for the three asignable buckets: one entry per
+   `categoriaId` within that bucket, showing the category's icon (`CategoriaDto.icono`,
+   resolved from the already-loaded catalog — no additional request; unknown/absent icon
+   falls back to a generic glyph rather than omitting it), the categoría name, and the row
+   count. `sugerido.bucket === 'Ingreso'` (the backend's immutable verdict,
+   `CommitIngestaUseCase` Rule 2, `categoriaId` always null) NEVER gets a level 2 — opening
+   the Ingreso bucket shows its rows DIRECTLY.
 4. A row whose `sugerido.categoriaId` is present but not resolvable in the loaded catalog
    (catalog `cargando`/`error`, or a stale/deleted id) still groups by
-   `(sugerido.bucket, sugerido.categoriaId)`, with a safe fallback label ("Categoría no
-   disponible") instead of failing to render.
+   `(sugerido.bucket, sugerido.categoriaId)` under its real bucket, with a safe fallback
+   label ("Categoría no disponible") instead of failing to render.
 5. A duplicate row (`esDuplicado`) groups by its `sugerido` like any other row — WEB-PRV-04
    already renders it visually distinct (greyed, badge, disabled selects) inline; this
    requirement does NOT carve duplicates into a separate group the way WEB-PRV-19 does for
    the read-only summary.
-6. Group order: the catalog's canonical bucket order (Necesidades, Deseos, Ahorro), then
-   Ingreso, then "Sin categoría" last. Within the same bucket tier, groups sort by
-   categoría name (`localeCompare('es')`).
-7. Rows inside a group sort by `fecha` ascending, with `rowIndex` as a stable tiebreak.
-8. Each group heading MUST show the category's icon (`CategoriaDto.icono`, resolved from
-   the already-loaded catalog — no additional request), the label from rules 2–4 (or
-   "{Bucket label} · {Categoría nombre}" via `ETIQUETA_BUCKET`, e.g. "Gustos · Comida" for
-   the Deseos bucket), and the row count with correct Spanish singular/plural agreement.
-   A group renders its icon via the badge fallback (unknown/absent icon → generic icon)
-   rather than omitting it.
+6. Within a bucket, categorías sort by name (`localeCompare('es')`), with the categoría's
+   own stable key as an ordinal tiebreak.
+7. Rows inside a categoría (or inside Ingreso's direct rows) sort by `fecha` ascending, with
+   `rowIndex` as a stable tiebreak.
+8. There is NO "Sin categoría" group at either level: since issue #778 the backend never
+   sends `sugerido: null` (every non-Ingreso row gets at least that bucket's `Desconocido`
+   fallback category). A row with `sugerido: null` MUST be dropped from the accordion
+   entirely rather than rendered under a synthetic top-level group — the wire type keeps
+   `sugerido: {...} | null` for defensive contract discipline, not because a live path still
+   produces `null`.
 
-Every group MUST render as an accordion, expanded by default (a review flow never hides
-work by default) and keyed by a STABLE identity (`bucket`/`categoriaId`), not by array
-index or by date.
+Both levels MUST render as an accordion, COLLAPSED by default (a drill-down accordion never
+opens itself), and keyed by a STABLE identity — the bucket name for level 1, `(bucket,
+categoriaId)` for level 2 — never by array index or by date. If a preview re-run moves a
+row whose "+" trigger currently holds focus into a bucket and/or categoría that is still
+collapsed, the table MUST expand that bucket and (unless the row landed on Ingreso) that
+categoría so focus can land on the trigger in its new location, instead of dropping focus
+to `<body>`.
 
-#### Scenario: Rows group by bucket · categoría of the sugerido, with the icon
+#### Scenario: Rows group by bucket (level 1), then categoría within it (level 2), with the icon
 
 - GIVEN two non-duplicate rows classified into `(Necesidades, cat-nec-1)` and
   `(Deseos, cat-des-1)`, and a loaded catalog naming both categorías with icons
 - WHEN the editable review table renders
-- THEN a "Necesidades · {categoría nombre}" group heading and a "Gustos · {categoría
-  nombre}" group heading are both visible, each showing the category's icon and "1
-  movimiento"
+- THEN a "Necesidades" bucket heading and a "Gustos" bucket heading are both visible,
+  collapsed, each showing its row count
+- AND opening each bucket reveals its own categoría heading ("Supermercado" / "Restaurantes")
+  showing that category's icon and "1 movimiento"
 
-#### Scenario: An Ingreso row groups alone, without a "· Ingreso" suffix
+#### Scenario: An Ingreso row groups alone under its bucket, with no level 2
 
 - GIVEN a row with `sugerido: { bucket: 'Ingreso', categoriaId: null }`
 - WHEN the editable review table renders
-- THEN an "Ingreso" group heading is visible, with no "· Ingreso" suffix
+- THEN an "Ingreso" bucket heading is visible, collapsed
+- AND opening it shows the row DIRECTLY, with no categoría heading in between
 
-#### Scenario: Rows with no sugerido group under "Sin categoría", always last
+#### Scenario: A row with no sugerido is dropped, not shown under a synthetic group
 
 - GIVEN one row with `sugerido: null` and one row with a resolvable `sugerido`, in that
   file order
 - WHEN the editable review table renders
-- THEN the "Sin categoría" group heading is the LAST group, after the classified group
+- THEN only the classified row's bucket is shown
+- AND no "Sin categoría" heading, or any other group, is created for the dropped row
 
 #### Scenario: Editing a row's category does not move it until the preview reloads
 
-- GIVEN a row suggested as `(Necesidades, cat-nec-1)` is rendered under that group
+- GIVEN a row suggested as `(Necesidades, cat-nec-1)` is rendered under that bucket/categoría
 - WHEN the user reclassifies it to a different categoría via its own select (an edit,
   WEB-PRV-05), without reloading or re-running the preview
-- THEN the row remains under the ORIGINAL "Necesidades · {categoría nombre}" group
+- THEN the row remains under the ORIGINAL bucket ("Necesidades") and categoría
+  ("Supermercado")
 - AND the row's own select shows the newly edited categoría as its value
 
-#### Scenario: Rows inside a group are ordered by fecha, not file order
+#### Scenario: Rows inside a categoría are ordered by fecha, not file order
 
 - GIVEN two rows suggested into the same `(bucket, categoriaId)`, with the later-dated row
   appearing first in the file
 - WHEN the editable review table renders
-- THEN the earlier-dated row renders first within that group
+- THEN the earlier-dated row renders first within that categoría
+
+#### Scenario: Both levels start collapsed
+
+- GIVEN a preview with rows classified into two different buckets
+- WHEN the editable review table first renders
+- THEN every bucket heading shows `aria-expanded="false"`
+- AND no row and no categoría heading is visible until its bucket (and, for an asignable
+  bucket, its categoría) is opened
+
+#### Scenario: A re-run expands a still-collapsed destination so a moved, focused row keeps focus
+
+- GIVEN the row whose "+" trigger currently has focus gets reclassified by a preview re-run
+  into a bucket/categoría that has never been opened
+- WHEN the re-run's response commits
+- THEN that bucket and categoría expand
+- AND the "+" trigger for that row regains focus in its new location
 
 ## Out of Scope
 
