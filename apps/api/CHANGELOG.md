@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.10.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.9.0...api-v0.10.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** GET /api/resumen no longer returns `cantidadSinCategoria` and its `buckets` array now has 3 entries instead of 4 (SinCategoria dropped). GET /api/resumen/semaforo no longer returns a `sinCategoria` object. GET /api/buckets/SinCategoria and its /detalle variant now respond 400 instead of 200.
+
+### Features
+
+* **api:** con el catalogo caido la ingesta rechaza, no guarda a medias ([6637893](https://github.com/Juargo/MoneyDiary/commit/6637893efe697c7b98a8010caa75877ff1c1335b))
+* **api:** con el catálogo caído la ingesta rechaza, no guarda a medias ([98705b8](https://github.com/Juargo/MoneyDiary/commit/98705b8030aaad29381803d44f97b667baf62367)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** las filas sin bucket se leen como Gustos · Desconocido ([2f7c41f](https://github.com/Juargo/MoneyDiary/commit/2f7c41fae378b942b48a0073e04d446a56c8120b))
+* **api:** las filas sin bucket se leen como Gustos · Desconocido ([deae086](https://github.com/Juargo/MoneyDiary/commit/deae086912303785eee6bd34140d92201a4b00cf))
+* **api:** migra las filas de bucket-sincategoria a Gustos · Desconocido y borra el bucket ([d87f53b](https://github.com/Juargo/MoneyDiary/commit/d87f53b7a00c797386e983603ea99805777393d7))
+* **api:** migra las filas de bucket-sincategoria y borra el bucket ([96fc36f](https://github.com/Juargo/MoneyDiary/commit/96fc36f87f1959b951a4ae962f66e2287ca00f7b))
+* **api:** remove Bucket.SinCategoria from domain and HTTP contract ([dce8542](https://github.com/Juargo/MoneyDiary/commit/dce8542c740e8d2619c4b9a29bdf99cf14167092))
+* **api:** si el writer de buckets falla, la ingesta se revierte entera ([17e8bc5](https://github.com/Juargo/MoneyDiary/commit/17e8bc5f27bb7de6603950c51821a840a39d934a))
+* **api:** si el writer de buckets falla, la ingesta se revierte entera ([f62c7c2](https://github.com/Juargo/MoneyDiary/commit/f62c7c259e3787f0e1d3bcdd7405b4542c40115c)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+
+
+### Bug Fixes
+
+* **api:** el mapeo plantilla → categoría vive en un solo lugar ([c7d3e4d](https://github.com/Juargo/MoneyDiary/commit/c7d3e4d7a4c2334e2bbb0a2a1dfc7a74f4002d3f)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** el mapeo plantilla a categoria vive en un solo lugar ([0b2a9a8](https://github.com/Juargo/MoneyDiary/commit/0b2a9a8cb2c41c901aa2d0f34e3dce3272168b8a))
+* **api:** el mensaje de catalogo incompleto deja de pedir algo imposible ([30ab231](https://github.com/Juargo/MoneyDiary/commit/30ab2315703b55c47ffb00e67e0b6dfc785f2f21))
+* **api:** el mensaje de catálogo incompleto deja de pedir algo imposible ([12fbeb3](https://github.com/Juargo/MoneyDiary/commit/12fbeb3b066049e6e6f821d00b8f3aec69506a24)), closes [#778](https://github.com/Juargo/MoneyDiary/issues/778)
+* **api:** en la migración el bucket sigue a la categoría ya asignada ([f9eec29](https://github.com/Juargo/MoneyDiary/commit/f9eec296e8e138dc2124cea5ee84965400f816b7))
+* **api:** reattach decidirEscritura's docblock after eslint --fix reflow ([278b65e](https://github.com/Juargo/MoneyDiary/commit/278b65ebb304b7e493f4d959d93d18049196a8d9))
+
+
+### Refactors
+
+* **api:** categorizar distingue "sin coincidencia" sin usar SinCategoria como centinela ([143f6b3](https://github.com/Juargo/MoneyDiary/commit/143f6b32467b12027faa3b915ff9061310561483))
+* **api:** categorizar distingue "sin coincidencia" sin usar SinCategoria como centinela ([6b6daf0](https://github.com/Juargo/MoneyDiary/commit/6b6daf0033b1f42bf6a019169007c42e0367f8d7))
+
+
+### Documentation
+
+* **api:** quita el árbol de fixtures de CLAUDE.md, derivable del repo ([36ebb31](https://github.com/Juargo/MoneyDiary/commit/36ebb31cd9739f39df95dfe1432cd33e23460019))
+* **api:** quita el árbol de fixtures de CLAUDE.md, derivable del repo ([d253ca5](https://github.com/Juargo/MoneyDiary/commit/d253ca503ecba5a46792daac7422ef915867e169))
+
 ## [0.9.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.8.0...api-v0.9.0) (2026-09-23)
 
 
