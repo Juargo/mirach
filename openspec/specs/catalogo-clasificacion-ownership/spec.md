@@ -270,8 +270,9 @@ chain MUST NOT raise a foreign-key violation.
 ### Requirement: CAT038-01 — Category creation requires nombre and an assignable bucket
 
 `POST /api/categorias` MUST require `nombre` (trimmed, 1–40 chars) and `bucket`. `bucket` MUST be one of
-`Necesidades`/`Deseos`/`Ahorro`; `Ingreso` and `SinCategoria` are computed states and MUST NOT be
-assignable. `nombre` uniqueness MUST be scoped to `(userId, bucket)`, case-insensitive: a user MAY create
+`Necesidades`/`Deseos`/`Ahorro`; `Ingreso` is a computed state and MUST NOT be assignable, and `SinCategoria`
+— no longer a domain concept at all since issue #778 tramo 5b retired `Bucket.SinCategoria` — is rejected the
+same way, as any other unrecognized bucket value. `nombre` uniqueness MUST be scoped to `(userId, bucket)`, case-insensitive: a user MAY create
 a categoría whose `nombre` already exists in one of their OTHER buckets, and MUST NOT create one whose
 `nombre` already exists in the SAME bucket (`409 NOMBRE_DUPLICADO`). `bucket` travels through `application`
 as a validated bucket NAME (never `bucketId`, ADR-005); only the persistence adapter resolves it.

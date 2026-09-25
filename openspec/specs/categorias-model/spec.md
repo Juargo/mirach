@@ -40,24 +40,38 @@ different buckets to coexist on the same transaction.
 - WHEN the transaction is read
 - THEN `bucketId` resolves to Deseos, matching the categoría's bucket
 
-#### Scenario: Ingreso and SinCategoria transactions have no categoría but a real bucket
+#### Scenario: Ingreso transactions have no categoría but a real bucket
 
-- GIVEN a transaction classified as Ingreso (abono>0, cargo=0) or unmatched
-  (SinCategoria)
+- GIVEN a transaction classified as Ingreso (abono>0, cargo=0)
 - WHEN the transaction is read
-- THEN `categoriaId` is null AND `bucketId` resolves to Ingreso or
-  SinCategoria respectively (never null)
+- THEN `categoriaId` is null AND `bucketId` resolves to Ingreso (never null)
+  (issue #778 tramo 5b retired `Bucket.SinCategoria`; an unmatched row now
+  gets the `Desconocido` categoría of `BUCKET_POR_DEFECTO` instead of a
+  null categoría — see CAT-03)
 
 ### Requirement: CAT-03 — Automatic classification persists `categoriaId`
 
-`CategorizarTransaccionUseCase` MUST return `{ categoriaId, bucket }` (was
-`{ bucket }`). Rules, in order, unchanged from US-012 except for the added
-categoría:
+`CategorizarTransaccionUseCase.execute` MUST return a tagged result — either
+`{ tipo: 'clasificada', categoria: { id, nombre } | null, bucket }` or
+`{ tipo: 'sinCoincidencia' }` (issue #778 tramo 5b: replaced the earlier
+`{ categoriaId, bucket }` shape, which overloaded the now-retired
+`Bucket.SinCategoria` as both a persistence destination and a sentinel).
+Rules, in order:
 
-1. Ingreso rule (`abono>0 && cargo===0`) → `categoriaId=null`, bucket Ingreso.
-2. First matching pattern (priority asc, id asc tiebreak, unchanged) → the
-   matched pattern's `categoriaId`; bucket = that categoría's bucket.
-3. No match → `categoriaId=null`, bucket SinCategoria.
+1. Ingreso rule (`abono>0 && cargo===0`) → `{ tipo: 'clasificada', categoria:
+   null, bucket: Ingreso }` — never consults patterns.
+2. First matching pattern (priority asc, patrón asc, id asc tiebreak) →
+   `{ tipo: 'clasificada', categoria: <matched categoría>, bucket: <that
+   categoría's bucket> }`.
+3. No match, and the caller supplies a non-null `categoriaPorDefecto` (the
+   `Desconocido` categoría of `BUCKET_POR_DEFECTO`, i.e. Deseos) →
+   `{ tipo: 'clasificada', categoria: categoriaPorDefecto, bucket:
+   BUCKET_POR_DEFECTO }`.
+4. No match, and the caller passes `categoriaPorDefecto: null` →
+   `{ tipo: 'sinCoincidencia' }` (no categoría, no bucket) — a sentinel
+   consumed only by `ReevaluarCategoriasUseCase` to skip a row without
+   disturbing an existing manual classification; it MUST NOT be persisted
+   as-is.
 
 The use case MUST still never throw and MUST always return `Result.ok`.
 
@@ -66,20 +80,30 @@ The use case MUST still never throw and MUST always return `Result.ok`.
 - GIVEN a transaction description containing "netflix" and the seed pattern
   mapping it to categoría "Streaming"
 - WHEN classification runs
-- THEN the result is `{ categoriaId: <streaming-id>, bucket: Deseos }`
+- THEN the result is `{ tipo: 'clasificada', categoria: { id: <streaming-id>,
+  nombre: "Streaming" }, bucket: Deseos }`
 
-#### Scenario: An unmatched transaction gets no categoría
+#### Scenario: An unmatched transaction falls back to the default bucket's Desconocido categoría
 
 - GIVEN a transaction description matching no pattern and not satisfying the
-  Ingreso rule
+  Ingreso rule, and the caller passes the `Desconocido` categoría of Deseos
+  as `categoriaPorDefecto`
 - WHEN classification runs
-- THEN the result is `{ categoriaId: null, bucket: SinCategoria }`
+- THEN the result is `{ tipo: 'clasificada', categoria: <desconocido>,
+  bucket: Deseos }`
+
+#### Scenario: An unmatched transaction with no default falls back to sinCoincidencia
+
+- GIVEN a transaction description matching no pattern and not satisfying the
+  Ingreso rule, and the caller passes `categoriaPorDefecto: null`
+- WHEN classification runs
+- THEN the result is `{ tipo: 'sinCoincidencia' }`
 
 ### Requirement: CAT-04 — Fixed taxonomy is the single source of categorías
 
 The categoría catalog MUST be exactly: Necesidades → {Supermercado,
 Combustible, Farmacia, Salud, Transporte}; Deseos → {Streaming, Delivery};
-Ahorro → {Ahorro}; Ingreso and SinCategoria have no categoría. The seed MUST
+Ahorro → {Ahorro}; Ingreso has no categoría. The seed MUST
 be idempotent (fixed ids, upsert) and MUST rewire every existing pattern to
 reference a `categoriaId` consistent with its current bucket.
 
@@ -95,9 +119,12 @@ A one-time backfill MUST re-run pattern classification (CAT-03) over every
 existing `Transaccion` that has no `categoriaId` yet (scope = `categoriaId IS
 NULL`, which also makes the backfill safe to re-run without clobbering any
 row a user has since manually reclassified): matched rows get `categoriaId` +
-reconciled `bucketId`; unmatched rows get `categoriaId=null` and keep/receive
-SinCategoria — the backfill MUST NOT guess a categoría for a row that no
-pattern matches. The backfill MUST run under the existing
+reconciled `bucketId`; unmatched rows keep `categoriaId=null` and fold to
+`BUCKET_POR_DEFECTO` (Deseos) — the same "no match" destination the ingestion
+pipeline uses (`categoria-por-defecto.ts`) — never a guessed categoría, and
+never the retired `Bucket.SinCategoria` (issue #778 tramo 5b PR6 removed the
+last script that wrote its legacy physical id). The backfill MUST run under
+the existing
 `ALLOW_DESTRUCTIVE_DB` gate (reject production connection strings by default;
 production runs MUST require an explicit second acknowledgment on top of the
 gate — see the shipped `allowProductionAck` + Supabase-host-detection posture
@@ -119,11 +146,12 @@ never silently re-bucketed.
 - WHEN it runs again
 - THEN no transaction's `categoriaId`/`bucketId` changes
 
-#### Scenario: Non-matching existing rows land on SinCategoria, not a guess
+#### Scenario: Non-matching existing rows fold to Deseos, not a guess
 
 - GIVEN an existing transaction whose description matches no current pattern
 - WHEN the backfill runs
-- THEN `categoriaId` stays null and bucket resolves to SinCategoria
+- THEN `categoriaId` stays null and bucket resolves to Deseos
+  (`BUCKET_POR_DEFECTO`)
 
 #### Scenario: Backfill refuses to run without the destructive gate
 

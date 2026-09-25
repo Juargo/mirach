@@ -19,10 +19,11 @@ Established by change us-051-mes-bucket-detalle (2026-08-17), US-051 / issue #28
 
 The response MUST expose a header with `total` (the bucket's accumulated spend for the period, as a
 BigInt-safe string), `totalTransacciones` (number of transactions), `totalCategorias` (number of
-category groups in the payload, INCLUDING the synthetic Sin categoría group when present — for the
-SinCategoria bucket this is always 1), `porcentajeBp` (% vs meta, in basis points, round-half-up)
-and `metaBp` (the bucket's target from `BANDAS_SEMAFORO`; null when the bucket has no rule, e.g.
-SinCategoria). A period with no transactions for the bucket is a SUCCESS case: 200 with zeroed
+category groups in the payload, INCLUDING the synthetic Sin categoría group when present),
+`porcentajeBp` (% vs meta, in basis points, round-half-up) and `metaBp` (the bucket's target from
+`BANDAS_SEMAFORO`). Since the route only accepts the three spend buckets (MBD-07), `BANDAS_SEMAFORO`
+always has a rule for it, so `metaBp`/`porcentajeBp` are never null for a bucket this endpoint
+actually serves. A period with no transactions for the bucket is a SUCCESS case: 200 with zeroed
 totals and an empty `grupos` array, never an error.
 
 #### Scenario: Header exposes correct BigInt string and basis-point values
@@ -42,8 +43,8 @@ totals and an empty `grupos` array, never an error.
 ### Requirement: MBD-02 — Category groups carry ALL of the bucket's transactions, es-CL alphabetical, "Sin categoría" last (CA-02)
 
 The response MUST expose `grupos`, one entry per category present in the period, plus a synthetic
-Sin categoría group when the bucket contains null-categoria rows (and always for the SinCategoria
-bucket itself). Each group MUST expose `categoriaId` (null for Sin categoría), `nombre` (the
+Sin categoría group when the bucket contains null-categoria rows. Each group MUST expose
+`categoriaId` (null for Sin categoría), `nombre` (the
 category's name, or "Sin categoría" for the synthetic group), `icono` (the category's curated icon
 name, or `null` when unset or for the synthetic Sin categoría group — `categoria-icono` CATICO-01),
 `subtotal` (sum of the group's transaction `monto`, as a BigInt-safe string), `conteo` (transaction count), and `transacciones` — the COMPLETE list of that group's transactions, each
@@ -82,20 +83,6 @@ deterministic order (fecha asc, id asc).
 - WHEN a client calls the detalle endpoint for a bucket containing a Sin categoría group
 - THEN that group's `icono` is always `null`, regardless of any category's own icono elsewhere in
   the response
-
-### Requirement: MBD-03 — Sin categoría exposes no meta and no % vs meta (CA-03)
-
-For the SinCategoria bucket, `metaBp` MUST be null because `BANDAS_SEMAFORO` contains no rule for
-Sin categoría, and consequently `porcentajeBp` MUST also be null. No special-casing and no
-synthetic default rule: the single threshold table is the only source of truth (for real buckets
-`metaBp` comes from that same table — Necesidades 5000, Deseos 3000, Ahorro 2000).
-
-#### Scenario: SinCategoria bucket returns null metaBp and null porcentajeBp
-
-- GIVEN a period with uncategorized cargo transactions and income
-- WHEN a client calls `GET /api/buckets/SinCategoria/detalle?periodo=<period>`
-- THEN `metaBp` is null
-- AND `porcentajeBp` is null
 
 ### Requirement: MBD-04 — Absent period defaults to the current month; invalid period is rejected with a scrubbed 400 (CA-04)
 
@@ -158,15 +145,27 @@ regardless of parameters or transport.
 - THEN the response contains only A's transactions, groups, and header values
 - AND no field reflects B's data
 
-### Requirement: MBD-07 — Route accepts only the four spend buckets; Ingresos is rejected with a scrubbed 400
+### Requirement: MBD-07 — Route accepts only the three spend buckets; Ingresos and SinCategoria are rejected with a scrubbed 400
 
-The route MUST accept the allowlist {Necesidades, Deseos, Ahorro, SinCategoria}. Any other bucket —
-including `Ingresos` (US-052, out of scope) — MUST be rejected with 400 (`BucketInvalidoError`) and
-a scrubbed message that does not echo the raw bucket value.
+The route MUST accept the allowlist {Necesidades, Deseos, Ahorro} — the three spend buckets. Any other
+bucket — including `Ingresos` (US-052, out of scope) and `SinCategoria` (issue #778 tramo 5b: retired
+from the domain, no longer a bucket at all) — MUST be rejected with 400 (`BucketInvalidoError`) and a
+scrubbed message that does not echo the raw bucket value.
+(Previously: the allowlist included `SinCategoria`, and `GET /api/buckets/SinCategoria/detalle`
+returned 200 with a single synthetic Sin categoría group, null `metaBp`, and null `porcentajeBp` — see
+the retired MBD-03. Issue #778 tramo 5b PR5 removed `Bucket.SinCategoria` from the domain, so that
+route now 400s the same as any other unrecognized bucket.)
 
 #### Scenario: Ingresos is rejected with 400 BucketInvalidoError
 
 - GIVEN a client with a valid session calls `GET /api/buckets/Ingresos/detalle?periodo=<period>`
+- WHEN the request is processed
+- THEN the response status is 400
+- AND the message references an invalid bucket without echoing the raw value
+
+#### Scenario: SinCategoria is rejected with 400 BucketInvalidoError
+
+- GIVEN a client with a valid session calls `GET /api/buckets/SinCategoria/detalle?periodo=<period>`
 - WHEN the request is processed
 - THEN the response status is 400
 - AND the message references an invalid bucket without echoing the raw value
