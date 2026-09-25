@@ -756,9 +756,11 @@ READ-ONLY decision-step summary (WEB-PRV-19):
    a fresh preview response, which recomputes every row's `sugerido`, may move a row to a
    different bucket or categoría.
 2. Level 1 (bucket) shows one entry per PRESENT bucket among Necesidades, Deseos (labeled
-   "Gustos"), Ahorro, in that order, then Ingreso last; a bucket with no rows is absent
-   entirely, never rendered empty. Each bucket heading shows the UI label and the row count
-   with correct Spanish singular/plural agreement.
+   "Gustos"), Ahorro, in that order, then Ingreso, then a TRAILING "Revisar" entry for rows
+   the table cannot place under a real bucket (see rule 8); a bucket with no rows is absent
+   entirely, never rendered empty, and "Revisar" itself is absent whenever no such row exists
+   (the normal flow, since the API always sends a recognized bucket). Each level-1 heading
+   shows its label and the row count with correct Spanish singular/plural agreement.
 3. Level 2 (categoría) exists only for the three asignable buckets: one entry per
    `categoriaId` within that bucket, showing the category's icon (`CategoriaDto.icono`,
    resolved from the already-loaded catalog — no additional request; unknown/absent icon
@@ -780,17 +782,22 @@ READ-ONLY decision-step summary (WEB-PRV-19):
    `rowIndex` as a stable tiebreak.
 8. There is NO "Sin categoría" group at either level: since issue #778 the backend never
    sends `sugerido: null` (every non-Ingreso row gets at least that bucket's `Desconocido`
-   fallback category). A row with `sugerido: null` MUST be dropped from the accordion
-   entirely rather than rendered under a synthetic top-level group — the wire type keeps
-   `sugerido: {...} | null` for defensive contract discipline, not because a live path still
-   produces `null`.
+   fallback category). The wire type keeps `sugerido: {...} | null` for defensive contract
+   discipline, not because a live path still produces `null`.
+9. A row the accordion cannot place — `sugerido: null`, or a `sugerido.bucket` outside
+   Necesidades, Deseos, Ahorro and Ingreso — MUST NOT disappear: it still counts in the
+   resumen and is still committed, so the user must be able to see and classify it. Such rows
+   go to a trailing level-1 entry labeled "Revisar", rendered after Ingreso, that exists ONLY
+   when at least one such row exists. Like Ingreso it has no level 2: opening it shows its
+   rows DIRECTLY (fecha ascending, `rowIndex` tiebreak), with their selects fully usable. In
+   the normal flow the backend always sends a known bucket, so "Revisar" never appears.
 
 Both levels MUST render as an accordion, COLLAPSED by default (a drill-down accordion never
 opens itself), and keyed by a STABLE identity — the bucket name for level 1, `(bucket,
 categoriaId)` for level 2 — never by array index or by date. If a preview re-run moves a
-row whose "+" trigger currently holds focus into a bucket and/or categoría that is still
-collapsed, the table MUST expand that bucket and (unless the row landed on Ingreso) that
-categoría so focus can land on the trigger in its new location, instead of dropping focus
+row whose "+" trigger currently holds focus into a bucket, categoría or the "Revisar" entry
+that is still collapsed, the table MUST expand it and (unless the row landed on Ingreso or
+"Revisar") that categoría so focus can land on the trigger in its new location, instead of dropping focus
 to `<body>`.
 
 #### Scenario: Rows group by bucket (level 1), then categoría within it (level 2), with the icon
@@ -810,13 +817,26 @@ to `<body>`.
 - THEN an "Ingreso" bucket heading is visible, collapsed
 - AND opening it shows the row DIRECTLY, with no categoría heading in between
 
-#### Scenario: A row with no sugerido is dropped, not shown under a synthetic group
+#### Scenario: A row with no sugerido goes to a trailing "Revisar" entry, never dropped
 
-- GIVEN one row with `sugerido: null` and one row with a resolvable `sugerido`, in that
-  file order
+- GIVEN one row with `sugerido: null` and one row with a resolvable `sugerido`
 - WHEN the editable review table renders
-- THEN only the classified row's bucket is shown
-- AND no "Sin categoría" heading, or any other group, is created for the dropped row
+- THEN the classified row's bucket heading is shown first
+- AND a "Revisar" heading, collapsed and showing "1 movimiento", is the LAST level-1 entry
+- AND opening it shows that row directly, with its bucket and categoría selects usable
+- AND no "Sin categoría" heading exists
+
+#### Scenario: A row with an unknown bucket also goes to "Revisar"
+
+- GIVEN a row with `sugerido: { bucket: 'Otro', categoriaId: 'cat-x' }`
+- WHEN the editable review table renders
+- THEN that row is listed under the "Revisar" entry, not silently omitted
+
+#### Scenario: "Revisar" is absent in the normal flow
+
+- GIVEN every row's `sugerido.bucket` is Necesidades, Deseos, Ahorro or Ingreso
+- WHEN the editable review table renders
+- THEN no "Revisar" heading is rendered
 
 #### Scenario: Editing a row's category does not move it until the preview reloads
 
