@@ -14,9 +14,9 @@ import { resolverBucket } from './bucket-ids';
  * bucket, plus a second scoped groupBy to count cargo-only rows (US-045
  * D-05), both batched in one `$transaction` array-form call (one snapshot
  * for both queries). Folds bucketId=null AND any unrecognized bucketId
- * (including the legacy physical `bucket-sincategoria` id — `Bucket.SinCategoria`
- * no longer exists in the domain, issue #778 tramo 5b PR5) into
- * `Bucket.Deseos` via `resolverBucket` (see its docblock in bucket-ids.ts).
+ * (integrity anomaly — `Bucket.SinCategoria` no longer exists in the domain,
+ * issue #778 tramo 5b) into `Bucket.Deseos` via `resolverBucket` (see its
+ * docblock in bucket-ids.ts).
  * `Object.values(Bucket)` below now enumerates exactly the 4 real buckets,
  * so every row — however it folds — lands in one of those 4 accumulator
  * slots (SC-03: within EACH slot, sums/counts still ADD across every

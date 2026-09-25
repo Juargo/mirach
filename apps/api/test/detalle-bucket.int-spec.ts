@@ -25,12 +25,17 @@ import { categoriaIdDe } from './helpers/categoria-fixture';
  *
  *   1. Isolation: a user B transaction in the queried bucket/period NEVER
  *      appears in user A's result (row-identity assertion).
- *   2. Null-fold correctness (issue #778 tramo 5b PR5, `Bucket.SinCategoria`
- *      removed from the domain): a user A transaction with bucketId = null,
- *      AND one holding the legacy physical id `bucket-sincategoria`, BOTH
- *      appear when querying Deseos, and do NOT appear when querying any
+ *   2. Null-fold correctness (issue #778 tramo 5b, `Bucket.SinCategoria`
+ *      removed from the domain): a user A transaction with bucketId = null
+ *      appears when querying Deseos, and does NOT appear when querying any
  *      other bucket — guards the SC-03 fold mirrored from
  *      prisma-resumen-mes.repository.ts (design's flagged HIGH-risk item).
+ *      (Issue #778 tramo 5b PR6 migrated every row that used to carry the
+ *      legacy physical id `bucket-sincategoria` and deleted that
+ *      `BucketPresupuesto` row — the FK now makes that id impossible to
+ *      write, so this suite no longer seeds it; see
+ *      drop-bucket-sincategoria-migration.int-spec.ts for the migration's
+ *      own coverage.)
  */
 
 const RUN_ID = `detbucketint-${Date.now()}`;
@@ -182,7 +187,7 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
     expect(returnedIds).not.toContain(userBTx.id);
   });
 
-  it('null-fold AND legacy-SinCategoria-fold: both appear when querying Deseos, never under any other bucket (#778 tramo 5b PR5)', async () => {
+  it('null-fold: appears when querying Deseos, never under any other bucket (#778 tramo 5b)', async () => {
     const nullTx = await createTx(
       accountIdA,
       ingestaIdA,
@@ -192,18 +197,6 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
       0n,
       'Sin bucket asignado',
     );
-    // issue #778 tramo 5b PR5 removed Bucket.SinCategoria from the domain —
-    // a row still holding this legacy physical id is an unrecognized
-    // bucketId that ALSO folds to Deseos, exactly like null.
-    const legacySinCategoriaTx = await createTx(
-      accountIdA,
-      ingestaIdA,
-      new Date('2026-07-15T00:00:00.000Z'),
-      'bucket-sincategoria',
-      13000n,
-      0n,
-      'Bucket legacy SinCategoria',
-    );
 
     const idsDe = async (bucket: Bucket) =>
       (
@@ -212,11 +205,9 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
 
     const deseosIds = await idsDe(Bucket.Deseos);
     expect(deseosIds).toContain(nullTx.id);
-    expect(deseosIds).toContain(legacySinCategoriaTx.id);
-    // Neither fold source leaks into an unrelated bucket's drill-down.
+    // Doesn't leak into an unrelated bucket's drill-down.
     const necesidadesIds = await idsDe(Bucket.Necesidades);
     expect(necesidadesIds).not.toContain(nullTx.id);
-    expect(necesidadesIds).not.toContain(legacySinCategoriaTx.id);
   });
 
   it("null-fold: a bucketId=null row in the Deseos drill-down carries the user's internal Desconocido category (#778 tramo 5b)", async () => {

@@ -66,7 +66,7 @@ The M1 header MUST render: the bucket's display label via `ETIQUETA_BUCKET` (e.g
 
 ### Requirement: MDET-03 — GrupoMovimientosMobile: expandable groups and SinCategoria destacado
 
-M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesViewModel`. Each group MUST show a header with a bucket-colored icon badge (the group's `icono`, or the generic fallback when null/absent — `categoria-icono` CATICO-06; always the fallback for the `SinCategoria` group), categoría name, subtotal, and conteo. Groups with more than 10 rows MUST show the first 10 rows and a `"Ver N más"` pressable that reveals the rest (`accessibilityState={{ expanded: false/true }}`). The `SinCategoria` group ALWAYS carries the stable `testID="grupo-movimientos-sin-categoria"` on its root container. When the URL param `destacar=sin-categoria` is present, an INNER highlight wrapper with `testID="grupo-sin-categoria-destacado"` MUST be rendered INSIDE the `SinCategoria` group root and carry a distinct visual style compared to other groups; this inner wrapper is ONLY rendered when `destacar` is active. Both the stable root testID and the conditional inner testID MUST be asserted independently in the test for the destacado scenario.
+M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesViewModel`. Each group MUST show a header with a bucket-colored icon badge (the group's `icono`, or the generic fallback when null/absent — `categoria-icono` CATICO-06; always the fallback for the synthetic Sin categoría group, `categoriaId: null`), categoría name, subtotal, and conteo. Groups with more than 10 rows MUST show the first 10 rows and a `"Ver N más"` pressable that reveals the rest (`accessibilityState={{ expanded: false/true }}`). The Sin categoría group (`categoriaId: null`; internally named `SinCategoria` in code/testIDs — unrelated to the retired `Bucket.SinCategoria` enum member, issue #778 tramo 5b) ALWAYS carries the stable `testID="grupo-movimientos-sin-categoria"` on its root container, in WHICHEVER of the three spend buckets (Necesidades/Deseos/Ahorro) it appears. When the URL param `destacar=sin-categoria` is present, an INNER highlight wrapper with `testID="grupo-sin-categoria-destacado"` MUST be rendered INSIDE that group's root and carry a distinct visual style compared to other groups; this inner wrapper is ONLY rendered when `destacar` is active. Both the stable root testID and the conditional inner testID MUST be asserted independently in the test for the destacado scenario.
 (Previously: the group header showed categoría name, subtotal, and conteo — no icon badge.)
 
 #### Scenario: Group with 12 rows shows 10 + "Ver 2 más" collapsed (RNTL)
@@ -89,18 +89,18 @@ M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesVie
 - WHEN the group first renders
 - THEN all 10 rows are visible and no `"Ver N más"` pressable is rendered
 
-#### Scenario: SinCategoria group is highlighted when destacar param is set (RNTL)
+#### Scenario: The Sin categoría group is highlighted when destacar is set (RNTL)
 
-- GIVEN `useLocalSearchParams` returns `{ bucket: "SinCategoria", destacar: "sin-categoria" }`
-- WHEN the screen renders
-- THEN the SinCategoria group's root container carries `testID="grupo-movimientos-sin-categoria"` (always present)
+- GIVEN a group with `categoriaId: null` ("Sin categoría") rendered inside a real bucket (e.g. `bucket="Deseos"`) with `destacar="sin-categoria"`
+- WHEN the group renders
+- THEN its root container carries `testID="grupo-movimientos-sin-categoria"` (always present)
 - AND an INNER element with `testID="grupo-sin-categoria-destacado"` is rendered inside it with a distinct visual style — this inner wrapper is only present when `destacar` is active
 
 #### Scenario: Groups without the destacar param render without highlight (RNTL)
 
-- GIVEN `useLocalSearchParams` returns `{ bucket: "Necesidades" }` (no `destacar`)
-- WHEN the screen renders
-- THEN the SinCategoria group root still carries `testID="grupo-movimientos-sin-categoria"`
+- GIVEN a group with `categoriaId: null` rendered inside bucket `"Deseos"` with `destacar` absent
+- WHEN the group renders
+- THEN its root still carries `testID="grupo-movimientos-sin-categoria"`
 - AND no element with `testID="grupo-sin-categoria-destacado"` exists anywhere in the tree
 
 #### Scenario: A group header renders its icono on a bucket-colored badge (RNTL)
@@ -109,9 +109,9 @@ M1 MUST render one `GrupoMovimientosMobile` per group from `aDetalleBucketMesVie
 - WHEN the group header renders
 - THEN the badge shows the `shopping-cart` icon on the screen's bucket color token
 
-#### Scenario: The SinCategoria group header always renders the generic fallback (RNTL)
+#### Scenario: The Sin categoría group header always renders the generic fallback (RNTL)
 
-- GIVEN the `SinCategoria` group (its `icono` is always `null`, MBD-02)
+- GIVEN the Sin categoría group (`categoriaId: null`; its `icono` is always `null`, MBD-02)
 - WHEN its header renders
 - THEN the badge shows the generic fallback icon
 

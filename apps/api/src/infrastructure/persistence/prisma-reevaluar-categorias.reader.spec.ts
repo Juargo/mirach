@@ -3,7 +3,7 @@ import { PrismaReevaluarCategoriasReader } from './prisma-reevaluar-categorias.r
 import { PrismaClient } from '@prisma/client';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { BUCKET_IDS, ID_BUCKET_SINCATEGORIA_LEGACY } from './bucket-ids';
+import { BUCKET_IDS } from './bucket-ids';
 
 /**
  * Unit tests for PrismaReevaluarCategoriasReader.
@@ -81,15 +81,15 @@ describe('PrismaReevaluarCategoriasReader', () => {
     });
   });
 
-  it('resuelve el id físico legacy bucket-sincategoria a Bucket.Deseos (issue #778 tramo 5b PR5: Bucket.SinCategoria ya no existe)', async () => {
+  it('resuelve un bucketId físico no reconocido (anomalía de integridad) a Bucket.Deseos — fold defensivo, issue #778 tramo 5b PR6', async () => {
     const rows = [
       {
-        id: 'tx-legacy-sincategoria',
+        id: 'tx-bucket-desconocido',
         descripcion: 'compra',
         cargo: 1000n,
         abono: 0n,
         categoriaId: null,
-        bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
+        bucketId: 'bucket-id-invalido',
       },
     ];
     const prisma = makePrismaMock(rows);

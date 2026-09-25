@@ -1,5 +1,5 @@
 import { seedDemoTransacciones } from './demo-data-seeder';
-import { DEMO_TRANSACCIONES, ID_BUCKET_SINCATEGORIA_LEGACY } from './demo-data';
+import { DEMO_TRANSACCIONES } from './demo-data';
 import { BUCKET_IDS } from './bucket-ids';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
@@ -20,7 +20,7 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     expect(DEMO_TRANSACCIONES.length).toBeLessThanOrEqual(35);
   });
 
-  it('cubre los 4 buckets del dominio, más el bucket físico legacy, con al menos 1 transacción cada uno (DEMO-DATA-01)', () => {
+  it('cubre los 4 buckets del dominio, con al menos 1 transacción cada uno (DEMO-DATA-01)', () => {
     const bucketsCubiertos = new Set(
       DEMO_TRANSACCIONES.map((def) => def.bucketKey),
     );
@@ -28,10 +28,6 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     for (const bucket of Object.values(Bucket)) {
       expect(bucketsCubiertos.has(bucket)).toBe(true);
     }
-    // issue #778 tramo 5b PR5: SinCategoria left the domain, but demo-data.ts
-    // keeps its 2 legacy-bucket rows untouched (out of scope — PR 6 removes
-    // them). This bucket is still expected to appear here.
-    expect(bucketsCubiertos.has(ID_BUCKET_SINCATEGORIA_LEGACY)).toBe(true);
   });
 
   it('incluye exactamente 1 transacción de ingreso (abono) ~$1.200.000 (DEMO-DATA-02)', () => {
@@ -62,12 +58,12 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     expect(porcentaje).toBeLessThanOrEqual(0.65);
   });
 
-  it('Deseos cae entre 15% y 25% del total de gastos (DEMO-DATA-02)', () => {
+  it('Deseos cae entre 15% y 30% del total de gastos (DEMO-DATA-02, issue #778 tramo 5b PR6: incluye las 2 ex-SinCategoria)', () => {
     const { deseos, totalGastos } = totalesPorBucket();
     const porcentaje = Number(deseos) / Number(totalGastos);
 
     expect(porcentaje).toBeGreaterThanOrEqual(0.15);
-    expect(porcentaje).toBeLessThanOrEqual(0.25);
+    expect(porcentaje).toBeLessThanOrEqual(0.3);
   });
 
   it('Ahorro cae entre 5% y 15% del total de gastos, con la transferencia ~$120K (DEMO-DATA-02)', () => {
@@ -86,18 +82,11 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
   });
 
   function totalesPorBucket() {
-    // `Record<string, bigint>` (not `Record<Bucket, bigint>`): issue #778
-    // tramo 5b PR5 removed `Bucket.SinCategoria`, but demo-data.ts's 2
-    // legacy-bucket rows are untouched (out of scope, PR 6 removes them) —
-    // this helper keeps summing them under their raw physical id so the
-    // DEMO-DATA-02 percentage assertions below see the SAME totalGastos as
-    // before this PR (no behavior change, only a typing fix).
-    const sums: Record<string, bigint> = {
+    const sums: Record<Bucket, bigint> = {
       [Bucket.Necesidades]: 0n,
       [Bucket.Deseos]: 0n,
       [Bucket.Ahorro]: 0n,
       [Bucket.Ingreso]: 0n,
-      [ID_BUCKET_SINCATEGORIA_LEGACY]: 0n,
     };
 
     for (const def of DEMO_TRANSACCIONES) {
@@ -105,10 +94,7 @@ describe('DEMO_TRANSACCIONES (demo-data.ts) — DEMO-DATA-01/02/03', () => {
     }
 
     const totalGastos =
-      sums[Bucket.Necesidades] +
-      sums[Bucket.Deseos] +
-      sums[Bucket.Ahorro] +
-      sums[ID_BUCKET_SINCATEGORIA_LEGACY];
+      sums[Bucket.Necesidades] + sums[Bucket.Deseos] + sums[Bucket.Ahorro];
 
     return {
       necesidades: sums[Bucket.Necesidades],
@@ -138,15 +124,7 @@ describe('seedDemoTransacciones()', () => {
       expect(row.ingestaId).toBe(INGESTA_ID);
       expect(row.cargo).toBe(def.cargo);
       expect(row.abono).toBe(def.abono);
-      // `def.bucketKey` may be the legacy literal `ID_BUCKET_SINCATEGORIA_LEGACY`
-      // (issue #778 tramo 5b PR5), which is NOT a key of `BUCKET_IDS` —
-      // `seedDemoTransacciones` resolves it to itself verbatim (see its
-      // `resolverBucketIdDemo` helper).
-      const idEsperado =
-        def.bucketKey === ID_BUCKET_SINCATEGORIA_LEGACY
-          ? ID_BUCKET_SINCATEGORIA_LEGACY
-          : BUCKET_IDS[def.bucketKey];
-      expect(row.bucketId).toBe(idEsperado);
+      expect(row.bucketId).toBe(BUCKET_IDS[def.bucketKey]);
     });
   });
 
@@ -192,7 +170,7 @@ describe('seedDemoTransacciones()', () => {
     );
   });
 
-  it('todos los bucketId resueltos son valores conocidos de BUCKET_IDS o el legacy ID_BUCKET_SINCATEGORIA_LEGACY', () => {
+  it('todos los bucketId resueltos son valores conocidos de BUCKET_IDS', () => {
     const rows = seedDemoTransacciones(
       DEMO_TRANSACCIONES,
       BUCKET_IDS,
@@ -201,13 +179,7 @@ describe('seedDemoTransacciones()', () => {
       AHORA,
       CRYPTO,
     );
-    // issue #778 tramo 5b PR5: `Bucket.SinCategoria` no longer exists, so
-    // `BUCKET_IDS` alone doesn't cover the 2 legacy demo rows — PR 6 (#778)
-    // removes them along with `ID_BUCKET_SINCATEGORIA_LEGACY` itself.
-    const idsValidos = new Set([
-      ...Object.values(BUCKET_IDS),
-      ID_BUCKET_SINCATEGORIA_LEGACY,
-    ]);
+    const idsValidos = new Set(Object.values(BUCKET_IDS));
 
     for (const row of rows) {
       expect(idsValidos.has(row.bucketId as string)).toBe(true);

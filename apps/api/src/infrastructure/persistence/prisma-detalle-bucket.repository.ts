@@ -24,9 +24,12 @@ import { appLogger } from '../logging/app-logger';
  * función que resuelve el fold en memoria de `resolverBucket` (SC-03), o los
  * totales del drill-down no reconciliarán con la tarjeta de resumen. `Bucket.
  * SinCategoria` ya no existe en el dominio: Deseos → `OR: [{bucketId: null},
- * {bucketId: 'bucket-deseos'}, {bucketId: 'bucket-sincategoria'}]` (una fila
- * con el id físico legacy `bucket-sincategoria` aparece acá, en el drill-down
- * de Deseos); cualquier otro bucket → `{bucketId: BUCKET_IDS[bucket]}`.
+ * {bucketId: 'bucket-deseos'}]`; cualquier otro bucket →
+ * `{bucketId: BUCKET_IDS[bucket]}`. Tramo 5b PR6 migró toda fila con el id
+ * físico legacy `bucket-sincategoria` a `bucket-deseos` y borró esa fila de
+ * `BucketPresupuesto` — la FK ya hace ese id físicamente imposible de
+ * reescribir, así que el OR de Deseos ya no necesita una cláusula aparte
+ * para él.
  *
  * Depende de `PrismaClient` (base), no de `PrismaService` (artefacto Nest) —
  * así el composition root de Express le pasa un cliente plano (ADR-028).

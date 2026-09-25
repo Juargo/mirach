@@ -13,14 +13,16 @@ import { Bucket } from '../src/domain/value-objects/bucket';
  * El commit `e8c20b78` agregó `Categoria.esInterna` SIN backfill, a
  * propósito: "ninguna fila existente cambia de naturaleza". Consecuencia
  * real, verificada contra una BD de producción: las tres `Desconocido` que
- * ya existían en un usuario quedan con `esInterna = false`. Cuando
- * `backfill-desconocido.ts` (tramo 4) corre después, su precondición
- * (`seleccionarCategoriaInterna`, que filtra por `esInterna === true`) las
- * trata como si no existieran, y aborta mandando a `backfill-catalogo-
- * faltante.ts` — un script que solo hace `categoria.createMany` y por lo
- * tanto SALTEA la fila por duplicado (`@@unique([userId, bucketId,
- * nombre])`) sin tocar `esInterna` nunca. Sin este script, ese backfill
- * queda abortando para siempre en cualquier usuario con catálogo pre-#778.
+ * ya existían en un usuario quedan con `esInterna = false`. Cualquier
+ * consumidor con la misma precondición (`seleccionarCategoriaInterna`, que
+ * filtra por `esInterna === true` — p. ej. el `backfill-desconocido.ts` de
+ * tramo 4, retirado en tramo 5b PR6 por quedar superseded por la migración
+ * de datos de esa PR) las trata como si no existieran, y aborta mandando a
+ * `backfill-catalogo-faltante.ts` — un script que solo hace
+ * `categoria.createMany` y por lo tanto SALTEA la fila por duplicado
+ * (`@@unique([userId, bucketId, nombre])`) sin tocar `esInterna` nunca. Sin
+ * este script, ese consumidor queda abortando para siempre en cualquier
+ * usuario con catálogo pre-#778.
  *
  * Esta es la remediación deliberada de esa laguna: marcar, para UN usuario
  * y bajo supervisión, las `Desconocido` preexistentes que de verdad son la
@@ -55,10 +57,9 @@ import { Bucket } from '../src/domain/value-objects/bucket';
  *
  * - Solo toca `Categoria` con `nombre = 'Desconocido'` Y `esInterna = false`
  *   en los tres buckets ASIGNABLES (Necesidades, Deseos, Ahorro). Nunca en
- *   `Ingreso` ni `SinCategoria` — ninguno de los dos es un bucket que
- *   `seleccionarCategoriaInterna` resuelva jamás (ver
- *   `backfill-desconocido.ts`), así que tampoco tiene sentido marcar nada
- *   ahí.
+ *   `Ingreso` — no es un bucket que `seleccionarCategoriaInterna` resuelva
+ *   jamás, así que tampoco tiene sentido marcar nada ahí. `SinCategoria` ya
+ *   ni siquiera existe como bucket (issue #778 tramo 5b).
  * - Si un bucket asignable tiene MÁS DE UNA fila `nombre = 'Desconocido'`,
  *   el script ABORTA SIN ESCRIBIR NADA (ni en ese bucket ni en los otros) y
  *   lista los ids candidatos. Eso significaría un catálogo con datos raros
