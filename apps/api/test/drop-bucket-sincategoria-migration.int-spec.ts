@@ -170,7 +170,7 @@ describe('migration 20260925000000_drop_bucket_sincategoria (integration — rea
     await prisma.$disconnect();
   });
 
-  it('mueve la plata legacy a Deseos, rellena la Desconocido del DUEÑO (nunca de otro usuario), preserva categoriaId ya asignado, deja NULL cuando el dueño no tiene Desconocido, y borra la fila BucketPresupuesto', async () => {
+  it('mueve la plata legacy a Deseos, rellena la Desconocido del DUEÑO (nunca de otro usuario), preserva categoriaId ya asignado (y el bucket lo sigue), deja NULL cuando el dueño no tiene Desconocido, y borra la fila BucketPresupuesto', async () => {
     await restaurarBucketLegacy();
 
     const { ingestaId: ingestaA, accountId: accountA } =
@@ -274,9 +274,11 @@ describe('migration 20260925000000_drop_bucket_sincategoria (integration — rea
     expect(rowA1.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
     expect(rowA1.categoriaId).toBe(desconocidoDeseosA);
 
-    expect(rowA2.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
-    // Preserved verbatim — the migration never overwrites an existing categoriaId.
+    // Preserved verbatim — the migration never overwrites an existing
+    // categoriaId, and the bucket FOLLOWS that categoria (Ahorro), so the row
+    // never ends up with an Ahorro categoria stored under Deseos.
     expect(rowA2.categoriaId).toBe(ahorroCategoriaA);
+    expect(rowA2.bucketId).toBe(BUCKET_IDS[Bucket.Ahorro]);
 
     expect(rowB.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
     expect(rowB.categoriaId).toBe(desconocidoDeseosB);

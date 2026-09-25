@@ -37,7 +37,9 @@
 -- Una fila que YA tenía categoriaId (no debería existir — SinCategoria nunca
 -- fue un destino de categorización real — pero si existiera por integridad
 -- de datos anómala) conserva su categoriaId intacto vía COALESCE: esta
--- migración NUNCA pisa una categoría ya asignada.
+-- migración NUNCA pisa una categoría ya asignada. En ese caso el bucket SIGUE
+-- a la categoría (p. ej. una categoría de Ahorro deja la fila en Ahorro, no
+-- en Deseos), para no guardar una categoría de un bucket bajo otro.
 --
 -- @migration-step: update-transacciones (marcador leído por
 -- test/drop-bucket-sincategoria-migration.int-spec.ts para ejecutar/probar
@@ -56,7 +58,13 @@ SET
       LIMIT 1
     )
   ),
-  "bucketId" = 'bucket-deseos'
+  -- The bucket follows the category when the row already has one, so a
+  -- pre-assigned categoria from another bucket (e.g. Ahorro) never ends up
+  -- stored under Deseos. Only rows without a categoria land in Deseos.
+  "bucketId" = COALESCE(
+    (SELECT c."bucketId" FROM "Categoria" c WHERE c."id" = t."categoriaId"),
+    'bucket-deseos'
+  )
 WHERE t."bucketId" = 'bucket-sincategoria';
 
 -- ── Guardia: fallar ruidoso, nunca plata orfanada en silencio ────────────
