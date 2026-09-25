@@ -30,7 +30,7 @@ const API_KEY = process.env.API_KEY ?? '';
  *   - 200 with empty envelope for valid pero empty month
  *   - 200 with rows: cargo/abono as strings, fecha ISO, shape matches DTO
  *   - 200 for absent periodo → current UTC month (AC-12)
- *   - MOV-01: category field is the folded domain Bucket ('SinCategoria' /
+ *   - MOV-01: category field is the folded domain Bucket ('Deseos' /
  *     'Necesidades'), never the raw physical bucketId
  */
 describe('MovimientosController (e2e) — GET /api/movimientos', () => {
@@ -154,7 +154,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
 
   // ── Happy path with seeded rows ──────────────────────────────────────────
 
-  it('AC-08/AC-09/AC-11/MOV-01: seeded rows → 200, cargo/abono as strings, fecha ISO, bucket folded (SinCategoria + Necesidades), shape matches DTO', async () => {
+  it('AC-08/AC-09/AC-11/MOV-01: seeded rows → 200, cargo/abono as strings, fecha ISO, bucket folded (Deseos + Necesidades), shape matches DTO', async () => {
     // US-036/US-035: la app (createContainer) decripta con env.ENCRYPTION_KEY
     // (clave de RUNTIME, aleatoria en CI) — los seeds deben cifrarse con esa
     // misma clave, no la fija de test/support/env.fixture.ts (ver
@@ -274,8 +274,8 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     expect(bigRow).toBeDefined();
     expect(bigRow!.cargo).toBe('9007199254740993');
     expect(bigRow!.abono).toBe('0');
-    // Uncategorized row folds to SinCategoria (MOV-01)
-    expect(bigRow!.bucket).toBe('SinCategoria');
+    // A row without bucketId folds to Deseos (MOV-01, #778 tramo 5b)
+    expect(bigRow!.bucket).toBe('Deseos');
 
     // Zero-cargo row
     const abonoRow = ourRows.find((tx) =>
@@ -284,7 +284,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     expect(abonoRow).toBeDefined();
     expect(abonoRow!.cargo).toBe('0');
     expect(abonoRow!.abono).toBe('150000');
-    expect(abonoRow!.bucket).toBe('SinCategoria');
+    expect(abonoRow!.bucket).toBe('Deseos');
 
     // Categorized row folds to its domain Bucket, not the raw physical id (MOV-01)
     const categorizadoRow = ourRows.find((tx) =>

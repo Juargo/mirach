@@ -176,8 +176,9 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     ).id;
 
     // A's data — modest amounts. Includes 2 uncategorized (null-bucket)
-    // cargo rows — ISO-02 delta (US-045): A's cantidadSinCategoria must be
-    // 2, never contaminated by B's count below.
+    // cargo rows — issue #778 tramo 5b: these now fold into Deseos, never
+    // SinCategoria; ISO-02 delta (US-045): A's Deseos total must reflect
+    // only these 2 rows, never contaminated by B's 5 below.
     await prisma.transaccion.createMany({
       data: [
         {
@@ -320,14 +321,21 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       (b: { bucket: string }) => b.bucket === Bucket.Necesidades,
     );
     expect(necesidades.total).toBe('200000');
-    // US-045 ISO-02 delta: A's count reflects only A's 2 uncategorized cargo
-    // rows — never B's 5 (proves isolation at the HTTP boundary, not just
-    // the repository — the repository-level SC-09 already covers that).
-    expect(res.body.cantidadSinCategoria).toBe(2);
+    // issue #778 tramo 5b: a null bucketId now folds into Deseos, not
+    // SinCategoria — cantidadSinCategoria (US-045) stays 0 since no row has
+    // the REAL bucket-sincategoria id here, and A's 2 null-bucket rows
+    // (10_000 + 15_000 = 25_000) show up in Deseos instead. Never B's 5 rows
+    // (proves isolation at the HTTP boundary, not just the repository — the
+    // repository-level SC-09 already covers that).
+    expect(res.body.cantidadSinCategoria).toBe(0);
     const sinCategoria = res.body.buckets.find(
       (b: { bucket: string }) => b.bucket === Bucket.SinCategoria,
     );
-    expect(sinCategoria.total).toBe('25000');
+    expect(sinCategoria.total).toBe('0');
+    const deseos = res.body.buckets.find(
+      (b: { bucket: string }) => b.bucket === Bucket.Deseos,
+    );
+    expect(deseos.total).toBe('25000');
   });
 
   it('GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)', async () => {
@@ -340,7 +348,9 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       .expect(200);
 
     expect(res.body.totalIngreso).toBe('1000000');
-    expect(res.body.cantidadSinCategoria).toBe(2);
+    // issue #778 tramo 5b: no real SinCategoria rows seeded — see the cookie
+    // transport test above for the full null→Deseos fold assertion.
+    expect(res.body.cantidadSinCategoria).toBe(0);
   });
 
   it('GET /api/resumen: valid x-api-key but NO session (neither cookie nor Bearer) → 401 — no keyless fallback (ISO-01)', async () => {

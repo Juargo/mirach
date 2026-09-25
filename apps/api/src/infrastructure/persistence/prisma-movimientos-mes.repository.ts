@@ -5,9 +5,11 @@ import {
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import type { PrismaClient } from '@prisma/client';
-import { BUCKET_ID_TO_BUCKET } from './bucket-ids';
+import { resolverBucket } from './bucket-ids';
 import { foldCategoria } from './fold-categoria';
+import { buscarCategoriaDesconocidaDeseos } from './categoria-desconocida-lookup';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
+import { appLogger } from '../logging/app-logger';
 
 /**
  * PrismaMovimientosMesRepository — implementación del port de lectura mensual
@@ -19,14 +21,25 @@ import { ICryptoService } from '../../application/ports/crypto-service.port';
  *
  * Orden determinista: fecha asc, id asc como tiebreak para same-date rows.
  *
- * Fold bucketId → Bucket (MOV-01): mirroring prisma-resumen-mes.repository.ts.
- * Este es un `map` por fila, no un `groupBy` acumulador — foldear una fila a
- * SinCategoria nunca reclasifica otra fila (SC-03 aplicado por fila, no hay
- * "add vs overwrite" porque no hay merge).
+ * Fold bucketId → Bucket (MOV-01): vía `resolverBucket` (bucket-ids.ts) —
+ * MISMA función que usan prisma-resumen-mes/prisma-resumen-anual (issue #778
+ * tramo 5b: dejó de duplicar la comparación inline sobre
+ * `BUCKET_ID_TO_BUCKET`, ahora reconciliado con las otras dos). Este es un
+ * `map` por fila, no un `groupBy` acumulador — foldear una fila a Deseos
+ * nunca reclasifica otra fila (SC-03 aplicado por fila, no hay "add vs
+ * overwrite" porque no hay merge).
  *
  * Fold categoria → { id, nombre } | null (CATAPI-05, CAT037-06): vía
  * foldCategoria (fold-categoria.ts), que resuelve por `nombre`, no por un id
  * físico fijo — compartido con PrismaDetalleBucketRepository.
+ *
+ * Fold Desconocido (issue #778 tramo 5b, decisión del humano): una fila con
+ * `bucketId IS NULL` Y `categoriaId IS NULL` (riesgo residual de
+ * `ProcessIngestaUseCase.revertirYRechazar`) no muestra `categoria: null`
+ * ("Sin categoría") — se le asigna la `Desconocido` DE Deseos
+ * (`buscarCategoriaDesconocidaDeseos`, lazy, UNA query por llamada, solo si
+ * aparece al menos una fila así). Catálogo incompleto (sin `Desconocido` de
+ * Deseos) degrada a `categoria: null` sin romper la lectura.
  *
  * `descripcion` se descifra AQUÍ, en infra (ADR-013) — este reader alimenta
  * la respuesta HTTP de `GET /api/movimientos`; sin descifrar, el cliente
@@ -68,14 +81,28 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
       orderBy: [{ fecha: 'asc' }, { id: 'asc' }],
     });
 
+    // Lazy, at most ONE extra query per call — only fired when a null-bucket
+    // row with no categoria actually shows up (never unconditionally).
+    const filasHuerfanas = rows.filter(
+      (row) => row.bucketId === null && row.categoria === null,
+    );
+    let desconocido: { id: string; nombre: string } | null = null;
+    if (filasHuerfanas.length > 0) {
+      desconocido = await buscarCategoriaDesconocidaDeseos(this.prisma, userId);
+      // Counts only — never montos/descripcion/numeroCuenta (ADR-013).
+      appLogger.warn(
+        'prisma-movimientos-mes: filas con bucketId nulo encontradas al leer (riesgo residual #778 tramo 5a-bis)',
+        { userId, filasSinBucket: filasHuerfanas.length },
+      );
+    }
+
     return rows.map((row) => {
-      // Resolve physical bucketId → domain Bucket enum.
-      // null bucketId → SinCategoria (degradation from US-012).
-      // Unrecognized non-null bucketId → also SinCategoria (defensive).
-      const bucket: Bucket =
-        row.bucketId === null
-          ? Bucket.SinCategoria
-          : (BUCKET_ID_TO_BUCKET.get(row.bucketId) ?? Bucket.SinCategoria);
+      const bucket: Bucket = resolverBucket(row.bucketId);
+      const categoriaFoldeada = foldCategoria(row.categoria);
+      const categoria =
+        categoriaFoldeada === null && row.bucketId === null && desconocido
+          ? { id: desconocido.id, nombre: desconocido.nombre }
+          : categoriaFoldeada;
 
       return {
         id: row.id,
@@ -84,7 +111,7 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
         cargo: row.cargo,
         abono: row.abono,
         bucket,
-        categoria: foldCategoria(row.categoria),
+        categoria,
         banco: row.account.banco,
         tipoCuenta: row.account.tipoCuenta,
         numeroCuenta: this.crypto.decrypt(row.account.numeroCuenta),

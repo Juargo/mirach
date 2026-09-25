@@ -8,8 +8,10 @@
  * Covered scenarios:
  *   - Single-query aggregation (SC-01): per-(month, bucket) cargo/abono sums
  *     across the whole year, in one repository call.
- *   - null→SinCategoria fold (SC-03): same fold rule as the monthly repo —
- *     null-bucket and real SinCategoria rows MUST be ADDED, not overwritten.
+ *   - null→Deseos fold (SC-03, issue #778 tramo 5b): same fold rule as the
+ *     monthly repo — a null-bucket row folds into Deseos, the real
+ *     SinCategoria row stays separate; within a group, rows still ADD, never
+ *     overwrite.
  *   - Empty year (SC-05): no rows → all 12 months × 5 buckets return 0n.
  *   - User isolation (SC-09, RNF-SEC-006): user B's data must NOT bleed into
  *     user A's annual query.
@@ -162,9 +164,9 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     expect(junio?.cantidadCargos).toBe(1);
   });
 
-  // ─── SC-03: null→SinCategoria fold (HIGHEST RISK) ─────────────────────────
+  // ─── SC-03: null→Deseos fold (issue #778 tramo 5b, HIGHEST RISK) ──────────
 
-  it('SC-03: null bucketId AND real SinCategoria both fold into SinCategoria for that month (ADDED, not overwritten)', async () => {
+  it('SC-03: null bucketId folds into Deseos for that month; real SinCategoria bucketId stays separate — never merged', async () => {
     if (!ALLOW) return;
 
     const accountId = await seedAccount('sc03');
@@ -188,16 +190,31 @@ describe('PrismaResumenAnualRepository (integration)', () => {
       abono: 0n,
       fecha,
     });
+    await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Deseos],
+      cargo: 20_000n,
+      abono: 0n,
+      fecha,
+    });
 
     const rows = await repo.sumarPorBucketAnual(userId, anioVO);
-    const marzo = rows.find(
+    const marzoDeseos = rows.find(
+      (r) => r.mes === `${ANIO}-03` && r.bucket === Bucket.Deseos,
+    );
+    const marzoSinCategoria = rows.find(
       (r) => r.mes === `${ANIO}-03` && r.bucket === Bucket.SinCategoria,
     );
 
-    expect(marzo?.totalCargo).toBe(200_000n);
+    // CRITICAL: Deseos = 150_000 (null-fold) + 20_000 (real Deseos) = 170_000.
+    expect(marzoDeseos?.totalCargo).toBe(170_000n);
     // US-045 D-07: both cargo rows fold into the same (month, bucket) key
     // and must ADD their counts too — 2, not 1.
-    expect(marzo?.cantidadCargos).toBe(2);
+    expect(marzoDeseos?.cantidadCargos).toBe(2);
+    // CRITICAL: SinCategoria is its OWN 50_000 only — NOT 200_000.
+    expect(marzoSinCategoria?.totalCargo).toBe(50_000n);
+    expect(marzoSinCategoria?.cantidadCargos).toBe(1);
   });
 
   // ─── SC-05: empty year ─────────────────────────────────────────────────────

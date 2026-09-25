@@ -14,9 +14,13 @@ import { resolverBucket } from './bucket-ids';
  * bucket, plus a second scoped groupBy to count cargo-only rows (US-045
  * D-05), both batched in one `$transaction` array-form call (one snapshot
  * for both queries). Folds bucketId=null (and unrecognized bucketIds) into
- * Bucket.SinCategoria — BOTH a null group AND a real SinCategoria group can
- * coexist and MUST be added, never overwritten (SC-03, highest-risk), now
- * for counts too.
+ * Bucket.Deseos via `resolverBucket` (issue #778 tramo 5b — see its
+ * docblock in bucket-ids.ts for why Deseos, not SinCategoria) — a null
+ * group and a real Bucket.SinCategoria group (the physical
+ * `bucket-sincategoria` id) are DIFFERENT groups now and must NEVER be
+ * merged (SC-03 restated for this fold: null folds into Deseos, the real
+ * SinCategoria id stays SinCategoria; within EACH group, sums/counts still
+ * ADD across every matching row, never overwrite).
  *
  * User isolation is structural: `account: { userId }` in the WHERE clause.
  * Amounts stay BigInt; no number, no float here. `cantidadCargos` is a plain
@@ -84,9 +88,10 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
       const cargo = grupo._sum.cargo ?? 0n;
       const abono = grupo._sum.abono ?? 0n;
 
-      // CRITICAL: ADD into accumulator — do NOT overwrite.
-      // Both a bucketId=null group AND a bucket-sincategoria group can coexist
-      // in the same Prisma groupBy result, and both must contribute to the sum.
+      // CRITICAL: ADD into accumulator — do NOT overwrite. Several distinct
+      // physical bucketId values (or null) can fold into the SAME domain
+      // bucket in one Prisma groupBy result (e.g. null AND 'bucket-deseos'
+      // both fold to Deseos) and all of them must contribute to the sum.
       const current = accum.get(bucket)!;
       accum.set(bucket, {
         ...current,
