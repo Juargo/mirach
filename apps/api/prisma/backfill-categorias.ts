@@ -216,13 +216,21 @@ export async function runBackfill(
     const descripcion = crypto.decrypt(row.descripcion);
     // #778: `null` a propósito — script legacy de bootstrap de un único
     // usuario fijo, se preserva el comportamiento (SinCategoria) tal cual.
-    const { categoria, bucket } = useCase
+    // #778 tramo 5b: `CategorizarTransaccionUseCase` ya no devuelve
+    // `Bucket.SinCategoria` como centinela de "sin coincidencia" — la
+    // traducción a ese bucket (para preservar el comportamiento congelado de
+    // este script) vive ACÁ, localmente, no en el use case compartido.
+    const resultado = useCase
       .execute(
         { descripcion, cargo: row.cargo, abono: row.abono },
         patrones,
         null,
       )
       .getValue();
+    const categoria =
+      resultado.tipo === 'clasificada' ? resultado.categoria : null;
+    const bucket =
+      resultado.tipo === 'clasificada' ? resultado.bucket : Bucket.SinCategoria;
     return {
       id: row.id,
       categoria,

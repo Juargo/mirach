@@ -1,6 +1,11 @@
-import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-case';
+import {
+  CategorizarTransaccionUseCase,
+  CategorizarTransaccionResult,
+  CategorizarTransaccionResultClasificada,
+} from './categorizar-transaccion.use-case';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { Bucket } from '../../domain/value-objects/bucket';
+import { Result } from '../../shared/result';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ---------------------------------------------------------------------------
@@ -43,21 +48,41 @@ function makePatron(
   });
 }
 
+/**
+ * Narrows `Result<CategorizarTransaccionResult, never>` (el overload que
+ * acepta `categoriaPorDefecto: null`) a la variante `'clasificada'`. Falla el
+ * test RUIDOSO (nunca `as`/`!`) si el resultado fue `'sinCoincidencia'` — un
+ * test que espera una clasificación determinada nunca debe pasar en
+ * silencio si el use case cambió de idea.
+ */
+function comoClasificada(
+  result: Result<CategorizarTransaccionResult, never>,
+): CategorizarTransaccionResultClasificada {
+  const value = result.getValue();
+  if (value.tipo !== 'clasificada') {
+    throw new Error(
+      `se esperaba tipo 'clasificada', se obtuvo '${value.tipo}'`,
+    );
+  }
+  return value;
+}
+
 const useCase = new CategorizarTransaccionUseCase(new NoOpLogger());
 
 // ---------------------------------------------------------------------------
 // T05 — Regla Ingreso: boundaries (SC-01..SC-04)
 // ---------------------------------------------------------------------------
 describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
-  it('SC-01: abono > 0 y cargo = 0 → { categoria: null, bucket: Ingreso } (con catálogo vacío)', () => {
+  it('SC-01: abono > 0 y cargo = 0 → clasificada { categoria: null, bucket: Ingreso } (con catálogo vacío)', () => {
     const result = useCase.execute(
       { descripcion: 'ABONO SUELDO', abono: 15000n, cargo: 0n },
       [],
       null,
     );
     expect(result.isOk()).toBe(true);
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.Ingreso);
+    const value = comoClasificada(result);
+    expect(value.categoria).toBeNull();
+    expect(value.bucket).toBe(Bucket.Ingreso);
   });
 
   it('SC-01 variante: abono > 0 y cargo = 0 → Ingreso (con patrones no vacíos)', () => {
@@ -68,41 +93,39 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
       null,
     );
     expect(result.isOk()).toBe(true);
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.Ingreso);
+    const value = comoClasificada(result);
+    expect(value.categoria).toBeNull();
+    expect(value.bucket).toBe(Bucket.Ingreso);
   });
 
-  it('SC-02: abono > 0 pero cargo > 0 → NO Ingreso, cae a SinCategoria (catálogo vacío)', () => {
+  it('SC-02: abono > 0 pero cargo > 0 → NO Ingreso, cae a sinCoincidencia (catálogo vacío)', () => {
     const result = useCase.execute(
       { descripcion: 'TRANSFERENCIA MIXTA', abono: 15000n, cargo: 500n },
       [],
       null,
     );
     expect(result.isOk()).toBe(true);
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 
-  it('SC-03: abono = 0 y cargo = 0 → NO Ingreso, cae a SinCategoria (catálogo vacío)', () => {
+  it('SC-03: abono = 0 y cargo = 0 → NO Ingreso, cae a sinCoincidencia (catálogo vacío)', () => {
     const result = useCase.execute(
       { descripcion: 'SIN MOVIMIENTO', abono: 0n, cargo: 0n },
       [],
       null,
     );
     expect(result.isOk()).toBe(true);
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 
-  it('SC-04: abono = 0 y cargo > 0 → NO Ingreso, cae a SinCategoria (catálogo vacío)', () => {
+  it('SC-04: abono = 0 y cargo > 0 → NO Ingreso, cae a sinCoincidencia (catálogo vacío)', () => {
     const result = useCase.execute(
       { descripcion: 'COMPRA LIDER', abono: 0n, cargo: 8000n },
       [],
       null,
     );
     expect(result.isOk()).toBe(true);
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 
   it('regla Ingreso gana sin importar los patrones: incluso si un patrón coincide, es Ingreso (sin categoría)', () => {
@@ -112,13 +135,14 @@ describe('CategorizarTransaccionUseCase — regla Ingreso', () => {
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.Ingreso);
+    const value = comoClasificada(result);
+    expect(value.categoria).toBeNull();
+    expect(value.bucket).toBe(Bucket.Ingreso);
   });
 });
 
 // ---------------------------------------------------------------------------
-// T06 — Tipos de coincidencia, prioridad, SinCategoria, matcher-never-throws (SC-05..SC-14)
+// T06 — Tipos de coincidencia, prioridad, sinCoincidencia, matcher-never-throws (SC-05..SC-14)
 // CAT-03 / Q5 (us-038): un match persiste `{ id, nombre }` de la categoría del
 // patrón (ya no el enum completo); el bucket es el derivado de esa categoría
 // (patron.bucket, getter de PatronClasificacion).
@@ -131,11 +155,12 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toEqual({
+    const value = comoClasificada(result);
+    expect(value.categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
       nombre: CAT_SUPERMERCADO.nombre,
     });
-    expect(result.getValue().bucket).toBe(Bucket.Necesidades);
+    expect(value.bucket).toBe(Bucket.Necesidades);
   });
 
   it('SC-06: CONTAINS es insensible a mayúsculas (descripción UPPERCASE, patrón lowercase)', () => {
@@ -145,11 +170,12 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toEqual({
+    const value = comoClasificada(result);
+    expect(value.categoria).toEqual({
       id: CAT_STREAMING.id,
       nombre: CAT_STREAMING.nombre,
     });
-    expect(result.getValue().bucket).toBe(Bucket.Deseos);
+    expect(value.bucket).toBe(Bucket.Deseos);
   });
 
   it('SC-07: STARTS_WITH coincide cuando la descripción empieza con el patrón', () => {
@@ -159,22 +185,22 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toEqual({
+    const value = comoClasificada(result);
+    expect(value.categoria).toEqual({
       id: CAT_COMBUSTIBLE.id,
       nombre: CAT_COMBUSTIBLE.nombre,
     });
-    expect(result.getValue().bucket).toBe(Bucket.Necesidades);
+    expect(value.bucket).toBe(Bucket.Necesidades);
   });
 
-  it('SC-08: STARTS_WITH NO coincide cuando el patrón aparece en el medio → SinCategoria, categoria null', () => {
+  it('SC-08: STARTS_WITH NO coincide cuando el patrón aparece en el medio → sinCoincidencia', () => {
     const patrones = [makePatron('COPEC', 'STARTS_WITH', CAT_COMBUSTIBLE, 15)];
     const result = useCase.execute(
       { descripcion: 'PAGO COPEC ESTACION 456', abono: 0n, cargo: 30000n },
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 
   it('SC-09: REGEX coincide con flag i', () => {
@@ -186,11 +212,12 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toEqual({
+    const value = comoClasificada(result);
+    expect(value.categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
       nombre: CAT_SUPERMERCADO.nombre,
     });
-    expect(result.getValue().bucket).toBe(Bucket.Necesidades);
+    expect(value.bucket).toBe(Bucket.Necesidades);
   });
 
   it('SC-10: menor prioridad (número más bajo) gana — primer match wins (persiste la categoría de ESE patrón)', () => {
@@ -203,11 +230,12 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toEqual({
+    const value = comoClasificada(result);
+    expect(value.categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
       nombre: CAT_SUPERMERCADO.nombre,
     });
-    expect(result.getValue().bucket).toBe(Bucket.Necesidades);
+    expect(value.bucket).toBe(Bucket.Necesidades);
   });
 
   // GUARDRAIL (ADR-036 precondition 2 / D-08, us-038 §9 constraint 4): el
@@ -225,11 +253,12 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toEqual({
+    const value = comoClasificada(result);
+    expect(value.categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
       nombre: CAT_SUPERMERCADO.nombre,
     });
-    expect(result.getValue().bucket).toBe(Bucket.Necesidades);
+    expect(value.bucket).toBe(Bucket.Necesidades);
   });
 
   it('D-08: dos patrones de igual prioridad con ids cuid() resuelven por texto de patrón, determinísticamente, en ambos órdenes de entrada', () => {
@@ -264,37 +293,37 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
 
     // 'aaa' < 'zzz' por texto de patrón → Supermercado gana, sin importar el
     // orden de entrada ni el orden (contrario) de los ids.
-    expect(ordenAB.getValue().categoria).toEqual({
+    const valueAB = comoClasificada(ordenAB);
+    const valueBA = comoClasificada(ordenBA);
+    expect(valueAB.categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
       nombre: CAT_SUPERMERCADO.nombre,
     });
-    expect(ordenAB.getValue().bucket).toBe(Bucket.Necesidades);
-    expect(ordenBA.getValue().categoria).toEqual({
+    expect(valueAB.bucket).toBe(Bucket.Necesidades);
+    expect(valueBA.categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
       nombre: CAT_SUPERMERCADO.nombre,
     });
-    expect(ordenBA.getValue().bucket).toBe(Bucket.Necesidades);
+    expect(valueBA.bucket).toBe(Bucket.Necesidades);
   });
 
-  it('SC-11: SinCategoria cuando ningún patrón coincide (categoria null)', () => {
+  it('SC-11: sinCoincidencia cuando ningún patrón coincide', () => {
     const patrones = [makePatron('JUMBO', 'CONTAINS', CAT_SUPERMERCADO, 10)];
     const result = useCase.execute(
       { descripcion: 'CASINO XYZ', abono: 0n, cargo: 5000n },
       patrones,
       null,
     );
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 
-  it('SC-12: SinCategoria cuando el catálogo está vacío (categoria null)', () => {
+  it('SC-12: sinCoincidencia cuando el catálogo está vacío', () => {
     const result = useCase.execute(
       { descripcion: 'CUALQUIER COSA', abono: 0n, cargo: 1000n },
       [],
       null,
     );
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 
   it('matcher-never-throws: regex malformada en un patrón → use case retorna Result.ok', () => {
@@ -312,8 +341,7 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       null,
     );
     expect(result.isOk()).toBe(true);
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 
   // SC-14: reconciliación — Ingreso sobrevive cuando el catálogo no está disponible
@@ -323,18 +351,18 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
       [],
       null,
     );
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.Ingreso);
+    const value = comoClasificada(result);
+    expect(value.categoria).toBeNull();
+    expect(value.bucket).toBe(Bucket.Ingreso);
   });
 
-  it('SC-14: catálogo vacío + tx sin abono → SinCategoria', () => {
+  it('SC-14: catálogo vacío + tx sin abono → sinCoincidencia', () => {
     const result = useCase.execute(
       { descripcion: 'COMPRA ONLINE', abono: 0n, cargo: 5000n },
       [],
       null,
     );
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
   });
 });
 
@@ -347,17 +375,18 @@ describe('CategorizarTransaccionUseCase — categoría por defecto (#778)', () =
     nombre: 'Desconocido',
   };
 
-  it('sin coincidencia + hay categoría por defecto → {categoria: Desconocido, bucket: Deseos}', () => {
+  it('sin coincidencia + hay categoría por defecto → clasificada {categoria: Desconocido, bucket: Deseos}', () => {
     const result = useCase.execute(
       { descripcion: 'CASINO XYZ', abono: 0n, cargo: 5000n },
       [],
       CATEGORIA_DESCONOCIDO_DESEOS,
     );
+    expect(result.getValue().tipo).toBe('clasificada');
     expect(result.getValue().categoria).toEqual(CATEGORIA_DESCONOCIDO_DESEOS);
     expect(result.getValue().bucket).toBe(Bucket.Deseos);
   });
 
-  it('sin coincidencia + NO hay categoría por defecto (null) → {categoria: null, bucket: SinCategoria}, sin warn (#778 tramo 3/5: ya no hay nada accionable para un operador)', () => {
+  it('sin coincidencia + NO hay categoría por defecto (null) → tipo sinCoincidencia, sin warn (#778 tramo 3/5: ya no hay nada accionable para un operador)', () => {
     const logger = new FakeLogger();
     const ucConLogger = new CategorizarTransaccionUseCase(logger);
 
@@ -367,8 +396,7 @@ describe('CategorizarTransaccionUseCase — categoría por defecto (#778)', () =
       null,
     );
 
-    expect(result.getValue().categoria).toBeNull();
-    expect(result.getValue().bucket).toBe(Bucket.SinCategoria);
+    expect(result.getValue().tipo).toBe('sinCoincidencia');
     // #778 tramo 3/5: este `null` ya solo llega desde el centinela deliberado
     // de ReevaluarCategoriasUseCase o desde la isla degradable de catálogo
     // CAÍDO — ninguno de los dos es un catálogo incompleto (eso rechaza
@@ -449,5 +477,25 @@ describe('CategorizarTransaccionUseCase — debug logging (ADR-033 slice B, ADR-
     const serializedContexts = JSON.stringify(debugCalls.map((c) => c.context));
     expect(serializedContexts).not.toContain('LIDER SECRETA');
     expect(serializedContexts).not.toContain('9500');
+  });
+
+  it('loguea solo `tipo` cuando el resultado es sinCoincidencia (no hay bucket/categoria que ofrecer)', () => {
+    const logger = new FakeLogger();
+    const ucConLogger = new CategorizarTransaccionUseCase(logger);
+
+    ucConLogger.execute(
+      { descripcion: 'CASINO SECRETO 123', abono: 0n, cargo: 5000n },
+      [],
+      null,
+    );
+
+    const debugCalls = logger.calls.filter((c) => c.level === 'debug');
+    expect(debugCalls).toEqual([
+      {
+        level: 'debug',
+        message: 'categorizar-transaccion: classification decision',
+        context: { tipo: 'sinCoincidencia' },
+      },
+    ]);
   });
 });

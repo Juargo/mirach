@@ -560,9 +560,11 @@ export class ProcessIngestaUseCase {
    * ANTES de persistir (#778 tramo 3/5/5a): un catálogo incompleto (409) o
    * CAÍDO (503, tramo 5a) rechaza la ingesta entera más arriba, sin escribir
    * nada — este método nunca ve ninguno de los dos casos.
-   * `categoriaPorDefecto` llega siempre resuelto (tipo NO nullable): la rama
-   * `null → SinCategoria` de `CategorizarTransaccionUseCase` es un CENTINELA
-   * exclusivo de `ReevaluarCategoriasUseCase` ("no matcheó"), no se usa acá.
+   * `categoriaPorDefecto` llega siempre resuelto (tipo NO nullable): eso
+   * selecciona el overload de `CategorizarTransaccionUseCase.execute` cuyo
+   * resultado es SIEMPRE `tipo: 'clasificada'` — `'sinCoincidencia'` es el
+   * CENTINELA exclusivo de `ReevaluarCategoriasUseCase` ("no matcheó"), no
+   * se usa acá (#778 tramo 5b).
    *
    * Issue #778 tramo 5a-bis: esto YA NO es una isla degradable. Antes, si el
    * WRITER de buckets fallaba DESPUÉS de que las transacciones ya fueron
