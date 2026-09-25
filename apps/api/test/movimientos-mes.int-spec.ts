@@ -382,7 +382,7 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     expect(returnedIds).not.toContain(userBTx.id);
   });
 
-  it('MOV-01: bucketId=null folds to Bucket.SinCategoria when transaction has no bucket assigned', async () => {
+  it('MOV-01: bucketId=null folds to Bucket.Deseos when transaction has no bucket assigned (#778 tramo 5b)', async () => {
     const tx = await createTx(
       accountIdA1,
       ingestaIdA1,
@@ -395,7 +395,35 @@ describe('PrismaMovimientosMesRepository (integration — real dev DB)', () => {
     const rows = await repo.findByPeriodo(TEST_USER_ID, periodoJulio);
     const found = rows.find((r) => r.id === tx.id);
     expect(found).toBeDefined();
-    expect(found!.bucket).toBe(Bucket.SinCategoria);
+    expect(found!.bucket).toBe(Bucket.Deseos);
+  });
+
+  it("MOV-01: a bucketId=null row is shown under the user's internal Desconocido of Deseos (#778 tramo 5b)", async () => {
+    const desconocidoIdB = await categoriaIdDe(prisma, {
+      userId: TEST_USER_ID_B,
+      bucket: Bucket.Deseos,
+      nombre: 'Desconocido',
+    });
+    const tx = await prisma.transaccion.create({
+      data: {
+        accountId: accountIdB,
+        ingestaId: ingestaIdB,
+        fecha: new Date('2026-07-23T00:00:00.000Z'),
+        cargo: 7000n,
+        abono: 0n,
+        descripcion: crypto.encrypt('Sin bucket asignado'),
+        bucketId: null,
+      },
+    });
+
+    const rows = await repo.findByPeriodo(TEST_USER_ID_B, periodoJulio);
+    const found = rows.find((r) => r.id === tx.id);
+    expect(found).toBeDefined();
+    expect(found!.bucket).toBe(Bucket.Deseos);
+    expect(found!.categoria).toMatchObject({
+      id: desconocidoIdB,
+      nombre: 'Desconocido',
+    });
   });
 
   it('MOV-01: a recognized physical bucketId folds to its domain Bucket (e.g. Necesidades)', async () => {
