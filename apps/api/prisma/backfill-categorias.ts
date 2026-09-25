@@ -127,20 +127,6 @@ export interface BackfillSummary {
 }
 
 /**
- * Decide, para UNA fila ya clasificada, si corresponde escribir algo y qué.
- *
- * Regla de preservación (fix/backfill-preserve-bucket):
- *  - `bucketIdAnterior === null` (fila nunca bucketeada): clasificación
- *    completa de siempre — se escriben categoriaId Y bucketId.
- *  - `bucketIdAnterior !== null` (fila YA bucketeada — incluye
- *    SinCategoria/Necesidades/Deseos/Ahorro/Ingreso): el bucket NUNCA se
- *    toca. Solo se agrega categoriaId si el match tiene categoría (no
- *    null) Y el bucket que esa categoría deriva es EXACTAMENTE el bucket
- *    que la fila ya tiene. En cualquier otro caso (sin match, o match a
- *    un bucket distinto) la fila queda intacta — nunca se mueve una fila
- *    ya bucketeada a otro bucket.
- */
-/**
  * `SIN_CATEGORIA_LEGACY` — sentinel LOCAL a este script, no un `Bucket` del
  * dominio (issue #778 tramo 5b PR5 removió `Bucket.SinCategoria`). Este
  * script está congelado (bootstrap-user-only, ver docblock del archivo) y
@@ -186,6 +172,20 @@ function agruparLocal(
   return Array.from(porGrupo.values());
 }
 
+/**
+ * Decide, para UNA fila ya clasificada, si corresponde escribir algo y qué.
+ *
+ * Regla de preservación (fix/backfill-preserve-bucket):
+ *  - `bucketIdAnterior === null` (fila nunca bucketeada): clasificación
+ *    completa de siempre — se escriben categoriaId Y bucketId.
+ *  - `bucketIdAnterior !== null` (fila YA bucketeada — incluye
+ *    SinCategoria/Necesidades/Deseos/Ahorro/Ingreso): el bucket NUNCA se
+ *    toca. Solo se agrega categoriaId si el match tiene categoría (no
+ *    null) Y el bucket que esa categoría deriva es EXACTAMENTE el bucket
+ *    que la fila ya tiene. En cualquier otro caso (sin match, o match a
+ *    un bucket distinto) la fila queda intacta — nunca se mueve una fila
+ *    ya bucketeada a otro bucket.
+ */
 function decidirEscritura(c: {
   id: string;
   categoriaId: string | null;
