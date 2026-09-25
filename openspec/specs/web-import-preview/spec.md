@@ -757,7 +757,7 @@ READ-ONLY decision-step summary (WEB-PRV-19):
    different bucket or categoría.
 2. Level 1 (bucket) shows one entry per PRESENT bucket among Necesidades, Deseos (labeled
    "Gustos"), Ahorro, in that order, then Ingreso, then a TRAILING "Revisar" entry for rows
-   the table cannot place under a real bucket (see rule 8); a bucket with no rows is absent
+   the table cannot place under a real bucket (see rule 9); a bucket with no rows is absent
    entirely, never rendered empty, and "Revisar" itself is absent whenever no such row exists
    (the normal flow, since the API always sends a recognized bucket). Each level-1 heading
    shows its label and the row count with correct Spanish singular/plural agreement.
