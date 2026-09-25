@@ -141,13 +141,13 @@ describe('calcularEstadoBucket — Ahorro bidirectional (SC-A-01..10)', () => {
   });
 });
 
-describe('calcularEstadoBucket — SinCategoria always null (SC-SC-01..02)', () => {
-  it('SC-SC-01: SinCategoria with non-null bp → null (no rule applies)', () => {
-    expect(calcularEstadoBucket(Bucket.SinCategoria, 2000n)).toBeNull();
+describe('calcularEstadoBucket — Ingreso always null (SC-SC-01..02, issue #778 tramo 5b: SinCategoria fue removido, Ingreso es el único bucket restante sin regla)', () => {
+  it('SC-SC-01: Ingreso with non-null bp → null (no rule applies)', () => {
+    expect(calcularEstadoBucket(Bucket.Ingreso, 2000n)).toBeNull();
   });
 
-  it('SC-SC-02: SinCategoria at 0n → null', () => {
-    expect(calcularEstadoBucket(Bucket.SinCategoria, 0n)).toBeNull();
+  it('SC-SC-02: Ingreso at 0n → null', () => {
+    expect(calcularEstadoBucket(Bucket.Ingreso, 0n)).toBeNull();
   });
 });
 

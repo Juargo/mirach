@@ -8,7 +8,8 @@
  * Covered scenarios (spec BDD):
  *   - SC-07: periodo absent → defaults to current UTC month, HTTP 200
  *   - SC-08: invalid periodo → HTTP 400, scrubbed body (raw input not echoed)
- *   - SC-01: DTO shape — 4 buckets, string totals, number|null porcentajeBp, targets,
+ *   - SC-01: DTO shape — 3 buckets (issue #778 tramo 5b PR5: SinCategoria
+ *            removed), string totals, number|null porcentajeBp, targets,
  *            estadoSemaforo per bucket, estadoGlobal at top-level (US-016)
  *   - SC-04: sinIngreso=true path — HTTP 200, all porcentajeBp null,
  *            all estadoSemaforo null, estadoGlobal null (US-016 SC-SI-01)
@@ -187,7 +188,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
 
   // ── SC-01: DTO shape + happy path ──────────────────────────────────────────
 
-  it('SC-01: DTO shape — 4 buckets, string totals, number porcentajeBp, targets 50/30/20', async () => {
+  it('SC-01: DTO shape — 3 buckets, string totals, number porcentajeBp, targets 50/30/20', async () => {
     if (!ALLOW) {
       // Shape can be validated with empty data (sinIngreso=true but shape is still valid)
       const res = await request(app)
@@ -242,14 +243,6 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
       cargo: 300_000n,
       abono: 0n,
     });
-    await seedTx({
-      accountId,
-      ingestaId,
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
-      cargo: 90_000n,
-      abono: 0n,
-    });
-
     // Note: fixed user (USER_ID_FIJO) gets the seeded data; this verifies shape
     // The endpoint uses USER_ID_FIJO, not our seeded userId. Shape test still works.
     const res = await request(app)
@@ -259,7 +252,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
       .expect(200);
 
     // DTO shape invariants (SC-01)
-    expect(res.body.buckets).toHaveLength(4);
+    expect(res.body.buckets).toHaveLength(3);
     expect(typeof res.body.totalIngreso).toBe('string');
     expect(typeof res.body.sinIngreso).toBe('boolean');
     expect(res.body.targets).toEqual({
@@ -287,8 +280,8 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     if (res.body.estadoGlobal !== null) {
       expect(['verde', 'amarillo', 'rojo']).toContain(res.body.estadoGlobal);
     }
-    // US-045: cantidadSinCategoria top-level scalar, always a JS number (D-02/D-03)
-    expect(typeof res.body.cantidadSinCategoria).toBe('number');
+    // issue #778 tramo 5b PR5: cantidadSinCategoria removed from the contract.
+    expect('cantidadSinCategoria' in res.body).toBe(false);
   });
 
   // ── SC-04: sinIngreso=true shape ───────────────────────────────────────────
@@ -303,7 +296,7 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
 
     expect(res.body.sinIngreso).toBe(true);
     expect(res.body.totalIngreso).toBe('0');
-    expect(res.body.buckets).toHaveLength(4);
+    expect(res.body.buckets).toHaveLength(3);
     for (const bucket of res.body.buckets) {
       expect(bucket.porcentajeBp).toBeNull();
       expect(bucket.total).toBe('0');
@@ -312,9 +305,8 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     }
     // US-016 SC-SI-01: estadoGlobal null when sinIngreso=true
     expect(res.body.estadoGlobal).toBeNull();
-    // US-045/CA-01: cantidadSinCategoria present and 0 on an empty month —
-    // never omitted, never null (D-01's "always present" evidence).
-    expect(res.body.cantidadSinCategoria).toBe(0);
+    // issue #778 tramo 5b PR5: cantidadSinCategoria removed from the contract.
+    expect('cantidadSinCategoria' in res.body).toBe(false);
   });
 
   // ── SC-09: user isolation (MANDATORY RNF-SEC-006) ─────────────────────────

@@ -26,8 +26,6 @@ function resumenCon(
     necesidades: bigint;
     deseos: bigint;
     ahorro: bigint;
-    sinCategoria: bigint;
-    cantidadSinCategoria: number;
   }>,
 ): ResumenMes {
   return ResumenMes.crear({
@@ -35,8 +33,6 @@ function resumenCon(
     necesidades: fields.necesidades ?? 0n,
     deseos: fields.deseos ?? 0n,
     ahorro: fields.ahorro ?? 0n,
-    sinCategoria: fields.sinCategoria ?? 0n,
-    cantidadSinCategoria: fields.cantidadSinCategoria ?? 0,
   });
 }
 
@@ -166,10 +162,6 @@ describe('montoParaVerde (Group C — R1/R2/D-05/D-09/D-11)', () => {
     expect(consejo).not.toBeNull();
     expect(consejo?.direccion).toBe('reducir');
     expect(consejo?.monto).toBe(400_050n);
-  });
-
-  it('SinCategoria → null (no rule defined)', () => {
-    expect(montoParaVerde(Bucket.SinCategoria, 100n, BASE)).toBeNull();
   });
 
   it('Ingreso → null (no rule defined)', () => {
@@ -466,11 +458,9 @@ describe('construirSemaforoDetalle (Group G — SEM-01/02/05/06, D-01/D-03)', ()
     ]);
   });
 
-  it('sinCategoria {cantidad,total} is carried verbatim from ResumenMes, not recomputed (SEM-05)', () => {
-    const detalle = construirSemaforoDetalle(
-      resumenCon({ sinCategoria: 12_345n, cantidadSinCategoria: 7 }),
-    );
-    expect(detalle.sinCategoria).toEqual({ cantidad: 7, total: 12_345n });
+  it('SemaforoDetalle no longer exposes sinCategoria (issue #778 tramo 5b)', () => {
+    const detalle = construirSemaforoDetalle(resumenCon({}));
+    expect('sinCategoria' in detalle).toBe(false);
   });
 
   it('sinIngreso → every consejo/estado null, diagnostico is D1 (SEM-06/CA-07)', () => {

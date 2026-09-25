@@ -576,9 +576,11 @@ describe('BucketDetalleMes (e2e) — GET /api/buckets/:bucket/detalle', () => {
       .expect(400);
 
     expect(JSON.stringify(res.body)).not.toContain('Ingresos');
-    // El mensaje lista la allowlist de 4 buckets de gasto (D-08/D-07).
+    // El mensaje lista la allowlist de 3 buckets de gasto (D-08/D-07) —
+    // issue #778 tramo 5b PR5 removió SinCategoria de esa allowlist.
     expect(JSON.stringify(res.body)).toContain('Necesidades');
-    expect(JSON.stringify(res.body)).toContain('SinCategoria');
+    expect(JSON.stringify(res.body)).toContain('Ahorro');
+    expect(JSON.stringify(res.body)).not.toContain('SinCategoria');
   });
 
   // ── W-1: header lleno con ingreso 1 500 000 ────────────────────────────

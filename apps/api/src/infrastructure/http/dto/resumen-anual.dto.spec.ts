@@ -16,8 +16,6 @@ function mesVacio(): ResumenMes {
     necesidades: 0n,
     deseos: 0n,
     ahorro: 0n,
-    sinCategoria: 0n,
-    cantidadSinCategoria: 0,
   });
 }
 
@@ -27,8 +25,6 @@ function mesConIngreso(totalIngreso: bigint, necesidades: bigint): ResumenMes {
     necesidades,
     deseos: 0n,
     ahorro: 0n,
-    sinCategoria: 0n,
-    cantidadSinCategoria: 0,
   });
 }
 

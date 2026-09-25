@@ -175,24 +175,5 @@ describe('transaccion.mapper', () => {
       expect(row.bucketId).toBe('bucket-ingreso');
       expect(row.categoriaId).toBeNull();
     });
-
-    it('aPersistencia with bucket: SinCategoria resolves to bucket-sincategoria FK (Fix 9)', () => {
-      const tx = Transaccion.crear({
-        fecha: new Date('2026-06-03T00:00:00.000Z'),
-        descripcion: 'Movimiento sin clasificar',
-        cargo: 42000n,
-        abono: 0n,
-      }).getValue();
-
-      const entry = {
-        transaccion: tx,
-        bucket: Bucket.SinCategoria,
-        categoriaId: null,
-      };
-      const row = aPersistencia(entry, crypto);
-
-      expect(row.bucketId).toBe('bucket-sincategoria');
-      expect(row.categoriaId).toBeNull();
-    });
   });
 });

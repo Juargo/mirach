@@ -202,7 +202,7 @@ describe('PrismaTransaccionBucketRepository', () => {
         {
           transaccionId: 'tx-1',
           categoriaId: null,
-          bucket: Bucket.SinCategoria,
+          bucket: Bucket.Ingreso,
         },
       ];
       await expect(
@@ -242,7 +242,7 @@ describe('PrismaTransaccionBucketRepository', () => {
       });
     });
 
-    it('maps a null categoriaId verbatim (Ingreso / SinCategoria rows)', async () => {
+    it('maps a null categoriaId verbatim (Ingreso rows)', async () => {
       const prisma = makePrismaMock();
       const updateMany = prisma.transaccion.updateMany as Mock;
       const repo = new PrismaTransaccionBucketRepository(prisma);
@@ -251,7 +251,7 @@ describe('PrismaTransaccionBucketRepository', () => {
         {
           transaccionId: 'tx-1',
           categoriaId: null,
-          bucket: Bucket.SinCategoria,
+          bucket: Bucket.Ingreso,
         },
       ]);
 
@@ -263,7 +263,7 @@ describe('PrismaTransaccionBucketRepository', () => {
         },
         data: {
           categoriaId: null,
-          bucketId: BUCKET_IDS[Bucket.SinCategoria],
+          bucketId: BUCKET_IDS[Bucket.Ingreso],
         },
       });
     });

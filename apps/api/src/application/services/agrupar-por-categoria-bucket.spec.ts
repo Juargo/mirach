@@ -66,24 +66,24 @@ describe('agruparPorCategoriaBucket()', () => {
     expect(combustible?.ids).toEqual(['tx-2']);
   });
 
-  it('groups null categoriaId (Ingreso/SinCategoria) rows by bucket', () => {
+  it('groups null categoriaId (Ingreso/Ahorro) rows by bucket', () => {
     const grupos = agruparPorCategoriaBucket([
       { id: 'tx-1', categoriaId: null, bucket: Bucket.Ingreso },
       { id: 'tx-2', categoriaId: null, bucket: Bucket.Ingreso },
-      { id: 'tx-3', categoriaId: null, bucket: Bucket.SinCategoria },
+      { id: 'tx-3', categoriaId: null, bucket: Bucket.Ahorro },
     ]);
 
     expect(grupos).toHaveLength(2);
     const ingreso = grupos.find((g) => g.bucket === Bucket.Ingreso);
-    const sinCategoria = grupos.find((g) => g.bucket === Bucket.SinCategoria);
+    const ahorro = grupos.find((g) => g.bucket === Bucket.Ahorro);
     expect(ingreso).toEqual({
       categoriaId: null,
       bucket: Bucket.Ingreso,
       ids: ['tx-1', 'tx-2'],
     });
-    expect(sinCategoria).toEqual({
+    expect(ahorro).toEqual({
       categoriaId: null,
-      bucket: Bucket.SinCategoria,
+      bucket: Bucket.Ahorro,
       ids: ['tx-3'],
     });
   });

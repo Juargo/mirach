@@ -321,21 +321,16 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       (b: { bucket: string }) => b.bucket === Bucket.Necesidades,
     );
     expect(necesidades.total).toBe('200000');
-    // issue #778 tramo 5b: a null bucketId now folds into Deseos, not
-    // SinCategoria — cantidadSinCategoria (US-045) stays 0 since no row has
-    // the REAL bucket-sincategoria id here, and A's 2 null-bucket rows
-    // (10_000 + 15_000 = 25_000) show up in Deseos instead. Never B's 5 rows
-    // (proves isolation at the HTTP boundary, not just the repository — the
-    // repository-level SC-09 already covers that).
-    expect(res.body.cantidadSinCategoria).toBe(0);
-    const sinCategoria = res.body.buckets.find(
-      (b: { bucket: string }) => b.bucket === Bucket.SinCategoria,
-    );
-    expect(sinCategoria.total).toBe('0');
+    // issue #778 tramo 5b PR5: Bucket.SinCategoria no longer exists — a null
+    // bucketId folds into Deseos. A's 2 null-bucket rows (10_000 + 15_000 =
+    // 25_000) show up in Deseos, never B's 5 rows (proves isolation at the
+    // HTTP boundary, not just the repository — the repository-level SC-09
+    // already covers that).
     const deseos = res.body.buckets.find(
       (b: { bucket: string }) => b.bucket === Bucket.Deseos,
     );
     expect(deseos.total).toBe('25000');
+    expect(res.body.buckets).toHaveLength(3);
   });
 
   it('GET /api/resumen (Authorization: Bearer): identical result to the cookie transport (ISO-02 mobile scenario)', async () => {
@@ -348,9 +343,12 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
       .expect(200);
 
     expect(res.body.totalIngreso).toBe('1000000');
-    // issue #778 tramo 5b: no real SinCategoria rows seeded — see the cookie
-    // transport test above for the full null→Deseos fold assertion.
-    expect(res.body.cantidadSinCategoria).toBe(0);
+    // issue #778 tramo 5b PR5: see the cookie transport test above for the
+    // full null→Deseos fold assertion.
+    const deseos = res.body.buckets.find(
+      (b: { bucket: string }) => b.bucket === Bucket.Deseos,
+    );
+    expect(deseos.total).toBe('25000');
   });
 
   it('GET /api/resumen: valid x-api-key but NO session (neither cookie nor Bearer) → 401 — no keyless fallback (ISO-01)', async () => {

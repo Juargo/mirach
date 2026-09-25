@@ -48,13 +48,6 @@ function rowsFor(mes: string): BucketSumRowAnual[] {
       totalAbono: 0n,
       cantidadCargos: 1,
     },
-    {
-      mes,
-      bucket: Bucket.SinCategoria,
-      totalCargo: 0n,
-      totalAbono: 0n,
-      cantidadCargos: 3,
-    },
   ];
 }
 
@@ -77,9 +70,6 @@ describe('CalcularResumenAnualUseCase', () => {
       for (const mes of resumenAnual.meses) {
         expect(mes.totalIngreso).toBe(1_000_000n);
         expect(mes.sinIngreso).toBe(false);
-        // US-045 (D-07): cantidadCargos widens BucketSumRowAnual and
-        // propagates through the shared assembly, per month.
-        expect(mes.cantidadSinCategoria).toBe(3);
       }
     });
 
@@ -94,11 +84,11 @@ describe('CalcularResumenAnualUseCase', () => {
     });
   });
 
-  describe('month with only SOME buckets present (not all 5, not empty)', () => {
+  describe('month with only SOME buckets present (not all 4, not empty)', () => {
     it('missing buckets default to 0n; percentages/semáforo compute from the present rows only', async () => {
-      // Only Ingreso and Necesidades rows exist for this month — Deseos,
-      // Ahorro, SinCategoria are genuinely ABSENT from the reader's result
-      // (not zero-valued rows). Pins the `rowMap.get(...) ?? 0n` defaulting
+      // Only Ingreso and Necesidades rows exist for this month — Deseos and
+      // Ahorro are genuinely ABSENT from the reader's result (not
+      // zero-valued rows). Pins the `rowMap.get(...) ?? 0n` defaulting
       // in construirResumenMesDesdeFilas.
       const rows: BucketSumRowAnual[] = [
         {
@@ -135,17 +125,10 @@ describe('CalcularResumenAnualUseCase', () => {
 
       const deseos = enero.buckets.find((b) => b.bucket === Bucket.Deseos);
       const ahorro = enero.buckets.find((b) => b.bucket === Bucket.Ahorro);
-      const sinCategoria = enero.buckets.find(
-        (b) => b.bucket === Bucket.SinCategoria,
-      );
       expect(deseos?.total).toBe(0n);
       expect(deseos?.porcentajeBp).toBe(0n);
       expect(ahorro?.total).toBe(0n);
       expect(ahorro?.porcentajeBp).toBe(0n);
-      expect(sinCategoria?.total).toBe(0n);
-      expect(sinCategoria?.porcentajeBp).toBe(0n);
-      // SinCategoria row genuinely absent from the reader's result → count defaults to 0
-      expect(enero.cantidadSinCategoria).toBe(0);
     });
   });
 
@@ -163,11 +146,9 @@ describe('CalcularResumenAnualUseCase', () => {
 
       expect(enero.totalIngreso).toBe(1_000_000n);
       expect(enero.sinIngreso).toBe(false);
-      expect(enero.cantidadSinCategoria).toBe(3);
 
       expect(febrero.totalIngreso).toBe(0n);
       expect(febrero.sinIngreso).toBe(true);
-      expect(febrero.cantidadSinCategoria).toBe(0);
 
       for (const mes of resto) {
         expect(mes.sinIngreso).toBe(true);

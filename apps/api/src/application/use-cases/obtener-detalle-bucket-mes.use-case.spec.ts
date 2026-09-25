@@ -82,7 +82,6 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       [Bucket.Necesidades, 5000n],
       [Bucket.Deseos, 3000n],
       [Bucket.Ahorro, 2000n],
-      [Bucket.SinCategoria, null],
     ])(
       'acepta %s y expone su metaBp de BANDAS_SEMAFORO (%s)',
       async (bucket, metaBp) => {
@@ -124,6 +123,25 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       const result = await uc.execute({
         userId: 'user-a',
         bucket: 'no-existe',
+        periodo: '2026-07',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(BucketInvalidoError);
+      expect(readers.reader.findByPeriodoYBucket).not.toHaveBeenCalled();
+      expect(readers.resumenReader.sumarPorBucket).not.toHaveBeenCalled();
+    });
+
+    // issue #778 tramo 5b PR5: Bucket.SinCategoria was removed from the
+    // domain — the literal string is now just another unrecognized bucket,
+    // same 400 as any other invalid value (GET /api/buckets/SinCategoria).
+    it('"SinCategoria" (retirado, issue #778 tramo 5b) → Result.fail(BucketInvalidoError), ningún reader llamado', async () => {
+      const readers = makeReaders([], []);
+      const uc = makeUseCase(readers);
+
+      const result = await uc.execute({
+        userId: 'user-a',
+        bucket: 'SinCategoria',
         periodo: '2026-07',
       });
 
@@ -304,7 +322,12 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       expect(header.metaBp).toBe(5000n);
     });
 
-    it('SinCategoria → porcentajeBp null y metaBp null, totalCategorias 1 (grupo sintético)', async () => {
+    // issue #778 tramo 5b PR5: querying the retired Bucket.SinCategoria is
+    // now covered by the "bucket allowlist" rejection tests above (400).
+    // The "Sin categoría" synthetic group (categoriaId null rows WITHIN a
+    // real bucket) is a distinct, surviving concept — covered below by the
+    // W-2 test against Bucket.Necesidades.
+    it('categoria: null rows dentro de un bucket real agrupan como "Sin categoría" (grupo sintético)', async () => {
       const readers = makeReaders(
         [
           makeRow({ id: 'tx-1', cargo: 40000n, categoria: null }),
@@ -316,7 +339,7 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
 
       const result = await uc.execute({
         userId: 'user-a',
-        bucket: Bucket.SinCategoria,
+        bucket: Bucket.Necesidades,
         periodo: '2026-07',
       });
 
@@ -324,8 +347,6 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       const header = result.getValue();
       expect(header.total).toBe(100000n);
       expect(header.totalCategorias).toBe(1);
-      expect(header.porcentajeBp).toBeNull();
-      expect(header.metaBp).toBeNull();
       expect(header.grupos[0].categoriaId).toBeNull();
       expect(header.grupos[0].nombre).toBe(NOMBRE_SIN_CATEGORIA);
     });

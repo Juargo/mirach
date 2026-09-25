@@ -44,7 +44,7 @@ async function runCategorizacionStep(
   txReader: PrismaTransaccionClasificacionRepository,
   bucketWriter: PrismaTransaccionBucketRepository,
   categorizarUseCase: CategorizarTransaccionUseCase,
-): Promise<{ asignadas: number; sinCategoria: number } | undefined> {
+): Promise<{ asignadas: number } | undefined> {
   try {
     let patrones: ReadonlyArray<PatronClasificacion> = [];
     let catalogoDisponible = true;
@@ -56,45 +56,39 @@ async function runCategorizacionStep(
     }
 
     const txs = await txReader.findParaClasificar(ingestaId);
-    if (txs.length === 0) return { asignadas: 0, sinCategoria: 0 };
+    if (txs.length === 0) return { asignadas: 0 };
 
-    const clasificadas = txs.map((tx) => {
-      const resultado = categorizarUseCase
-        .execute(
-          { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
-          patrones,
-          // #778 es otro tramo: este int-spec ejercita la degradación de
-          // PATRONES, no la categoría por defecto.
-          null,
-        )
-        .getValue();
-      // #778 tramo 5b: `CategorizarTransaccionUseCase` ya no devuelve
-      // `Bucket.SinCategoria` como centinela — este int-spec espeja
-      // `runCategorizacion` (que SIEMPRE pasa un default no-nulo), así que
-      // acá la traducción a `SinCategoria` para "sin coincidencia" es local,
-      // solo para mantener el shape write-path que ejercita el test.
-      const categoria =
-        resultado.tipo === 'clasificada' ? resultado.categoria : null;
-      const bucket =
-        resultado.tipo === 'clasificada'
-          ? resultado.bucket
-          : Bucket.SinCategoria;
-      return {
-        transaccionId: tx.id,
-        categoriaId: categoria?.id ?? null,
-        bucket,
-      };
-    });
+    // #778 tramo 5b PR5: `Bucket.SinCategoria` no longer exists — a
+    // `'sinCoincidencia'` result (no pattern matched AND no
+    // `categoriaPorDefecto`, deliberately `null` below: este int-spec
+    // ejercita la degradación de PATRONES, no la categoría por defecto) no
+    // tiene NINGÚN destino de bucket que escribir, así que esas filas se
+    // EXCLUYEN de `asignaciones` (quedan `bucketId` intacto/null), igual que
+    // `ReevaluarCategoriasUseCase` las trata como "no tocar esta fila".
+    const clasificadas = txs
+      .map((tx) => {
+        const resultado = categorizarUseCase
+          .execute(
+            { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
+            patrones,
+            null,
+          )
+          .getValue();
+        return resultado.tipo === 'clasificada'
+          ? {
+              transaccionId: tx.id,
+              categoriaId: resultado.categoria?.id ?? null,
+              bucket: resultado.bucket,
+            }
+          : null;
+      })
+      .filter((a): a is NonNullable<typeof a> => a !== null);
 
     // Espeja runCategorizacion: catálogo caído → solo se escriben filas de Ingreso;
-    // el resto queda null (pendiente). Catálogo disponible → se escribe todo.
+    // el resto queda null (pendiente). Catálogo disponible → se escribe todo lo clasificado.
     const asignaciones = catalogoDisponible
       ? clasificadas
       : clasificadas.filter((a) => a.bucket === Bucket.Ingreso);
-
-    const sinCategoria = catalogoDisponible
-      ? clasificadas.filter((a) => a.bucket === Bucket.SinCategoria).length
-      : 0;
 
     const writeResult = await bucketWriter.asignarCategorizacion(
       userId,
@@ -103,7 +97,7 @@ async function runCategorizacionStep(
     );
     if (writeResult.isFail()) return undefined;
 
-    return { asignadas: writeResult.getValue().actualizadas, sinCategoria };
+    return { asignadas: writeResult.getValue().actualizadas };
   } catch {
     return undefined;
   }
@@ -246,30 +240,30 @@ describe('Categorización — integración (real dev DB)', () => {
     const patrones = catalogResult.isOk() ? catalogResult.getValue() : [];
     const txParaClasificar =
       await txClasificacionReader.findParaClasificar(testIngestaBId);
-    const asignaciones = txParaClasificar.map((tx) => {
-      const resultado = categorizarUseCase
-        .execute(
-          { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
-          patrones,
-          // #778 es otro tramo: este int-spec ejercita la degradación de
-          // PATRONES, no la categoría por defecto.
-          null,
-        )
-        .getValue();
-      // #778 tramo 5b: traducción local — ver comentario equivalente más
-      // arriba en `runCategorizacionStep`.
-      const categoria =
-        resultado.tipo === 'clasificada' ? resultado.categoria : null;
-      const bucket =
-        resultado.tipo === 'clasificada'
-          ? resultado.bucket
-          : Bucket.SinCategoria;
-      return {
-        transaccionId: tx.id,
-        categoriaId: categoria?.id ?? null,
-        bucket,
-      };
-    });
+    // #778 tramo 5b PR5: `Bucket.SinCategoria` no longer exists — see the
+    // equivalent comment in `runCategorizacionStep` above. Every row here
+    // (Lider/Sueldo/Spotify) DOES match a pattern or the Ingreso rule, so
+    // this filter is defensive, not exercised by this fixture.
+    const asignaciones = txParaClasificar
+      .map((tx) => {
+        const resultado = categorizarUseCase
+          .execute(
+            { descripcion: tx.descripcion, cargo: tx.cargo, abono: tx.abono },
+            patrones,
+            // #778 es otro tramo: este int-spec ejercita la degradación de
+            // PATRONES, no la categoría por defecto.
+            null,
+          )
+          .getValue();
+        return resultado.tipo === 'clasificada'
+          ? {
+              transaccionId: tx.id,
+              categoriaId: resultado.categoria?.id ?? null,
+              bucket: resultado.bucket,
+            }
+          : null;
+      })
+      .filter((a): a is NonNullable<typeof a> => a !== null);
     await bucketWriter.asignarCategorizacion(
       USER_ID_FIJO,
       testIngestaBId,

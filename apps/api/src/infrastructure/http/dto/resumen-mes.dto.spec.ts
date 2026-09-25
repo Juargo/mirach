@@ -13,16 +13,12 @@ function makeResumen(opts: {
   necesidades?: bigint;
   deseos?: bigint;
   ahorro?: bigint;
-  sinCategoria?: bigint;
-  cantidadSinCategoria?: number;
 }): ResumenMes {
   return ResumenMes.crear({
     totalIngreso: opts.totalIngreso,
     necesidades: opts.necesidades ?? 0n,
     deseos: opts.deseos ?? 0n,
     ahorro: opts.ahorro ?? 0n,
-    sinCategoria: opts.sinCategoria ?? 0n,
-    cantidadSinCategoria: opts.cantidadSinCategoria ?? 0,
   });
 }
 
@@ -134,16 +130,6 @@ describe('aResumenMesDto', () => {
       expect(nec?.estadoSemaforo).toBe('rojo');
     });
 
-    it('SC-W-04: SinCategoria estadoSemaforo → null in DTO', () => {
-      const resumen = makeResumen({
-        totalIngreso: 1_500_000n,
-        sinCategoria: 90_000n,
-      });
-      const dto = aResumenMesDto('2026-07', resumen);
-      const sinCat = dto.buckets.find((b) => b.bucket === Bucket.SinCategoria);
-      expect(sinCat?.estadoSemaforo).toBeNull();
-    });
-
     it('SC-W-04: null estadoSemaforo passes through as JSON null (not omitted)', () => {
       const resumen = makeResumen({ totalIngreso: 0n, necesidades: 100_000n });
       const dto = aResumenMesDto('2026-07', resumen);
@@ -193,11 +179,11 @@ describe('aResumenMesDto', () => {
   });
 
   describe('DTO shape invariants', () => {
-    it('buckets always has exactly 4 entries', () => {
+    it('buckets always has exactly 3 entries (issue #778 tramo 5b PR5: SinCategoria removed)', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
       const dto = aResumenMesDto('2026-07', resumen);
 
-      expect(dto.buckets).toHaveLength(4);
+      expect(dto.buckets).toHaveLength(3);
     });
 
     it('targets shape is { Necesidades: 50, Deseos: 30, Ahorro: 20 }', () => {
@@ -222,8 +208,9 @@ describe('aResumenMesDto', () => {
       expect(bucketNames).toContain(Bucket.Necesidades);
       expect(bucketNames).toContain(Bucket.Deseos);
       expect(bucketNames).toContain(Bucket.Ahorro);
-      expect(bucketNames).toContain(Bucket.SinCategoria);
       expect(bucketNames).not.toContain(Bucket.Ingreso);
+      // issue #778 tramo 5b PR5: SinCategoria no longer exists as a bucket.
+      expect(bucketNames).toHaveLength(3);
     });
 
     it('total for each bucket is a string (not number or bigint)', () => {
@@ -240,46 +227,19 @@ describe('aResumenMesDto', () => {
     });
   });
 
-  // ── US-045: cantidadSinCategoria (Phase 5, design D-02) ────────────────────
-
-  describe('US-045: cantidadSinCategoria top-level scalar (D-02)', () => {
-    it('is always present as a key, even when 0', () => {
+  // issue #778 tramo 5b PR5: cantidadSinCategoria removed from the wire
+  // contract entirely (US-045's field, no longer producible now that
+  // Bucket.SinCategoria doesn't exist).
+  describe('cantidadSinCategoria removed from the wire contract (issue #778 tramo 5b PR5)', () => {
+    it('ResumenMesDto no longer has a cantidadSinCategoria key', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
       const dto = aResumenMesDto('2026-07', resumen);
 
-      expect('cantidadSinCategoria' in dto).toBe(true);
-      expect(dto.cantidadSinCategoria).toBe(0);
-    });
-
-    it('is a JS number, never a string', () => {
-      const resumen = makeResumen({
-        totalIngreso: 1_000_000n,
-        sinCategoria: 90_000n,
-        cantidadSinCategoria: 7,
-      });
-      const dto = aResumenMesDto('2026-07', resumen);
-
-      expect(typeof dto.cantidadSinCategoria).toBe('number');
-    });
-
-    it('equals the VO value verbatim', () => {
-      const resumen = makeResumen({
-        totalIngreso: 1_000_000n,
-        sinCategoria: 90_000n,
-        cantidadSinCategoria: 7,
-      });
-      const dto = aResumenMesDto('2026-07', resumen);
-
-      expect(dto.cantidadSinCategoria).toBe(resumen.cantidadSinCategoria);
-      expect(dto.cantidadSinCategoria).toBe(7);
+      expect('cantidadSinCategoria' in dto).toBe(false);
     });
 
     it('BucketResumenDto entries still have exactly the 4 known keys (ISP boundary, D-02)', () => {
-      const resumen = makeResumen({
-        totalIngreso: 1_000_000n,
-        sinCategoria: 90_000n,
-        cantidadSinCategoria: 7,
-      });
+      const resumen = makeResumen({ totalIngreso: 1_000_000n });
       const dto = aResumenMesDto('2026-07', resumen);
 
       for (const bucket of dto.buckets) {

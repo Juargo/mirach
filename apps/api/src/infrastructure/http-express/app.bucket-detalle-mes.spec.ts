@@ -163,9 +163,11 @@ describe('GET /api/buckets/:bucket/detalle — cadena de auth + aislamiento (US-
 
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).not.toContain('Ingresos');
-    // El mensaje lista la allowlist de 4 buckets de gasto (D-07).
+    // El mensaje lista la allowlist de 3 buckets de gasto (D-07) — issue
+    // #778 tramo 5b PR5 removió SinCategoria de esa allowlist.
     expect(JSON.stringify(res.body)).toContain('Necesidades');
-    expect(JSON.stringify(res.body)).toContain('SinCategoria');
+    expect(JSON.stringify(res.body)).toContain('Ahorro');
+    expect(JSON.stringify(res.body)).not.toContain('SinCategoria');
   });
 
   it('el body 200 real cumple bucketDetalleMesResponseSchema (garantía de sincronía DTO↔schema)', async () => {

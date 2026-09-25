@@ -9,22 +9,24 @@
  *
  * Covered scenarios (guards the design's flagged HIGH-risk correctness item):
  *   - SC-01: valid bucket returns only rows matching that bucket, in the period window
- *   - SC-03 (issue #778 tramo 5b): null-bucketId rows fold to Deseos, NOT
- *     SinCategoria — a null-bucketId row appears ONLY when querying Deseos;
- *     the real 'bucket-sincategoria' row appears ONLY when querying
- *     SinCategoria; the two never overlap (partition, no double count)
+ *   - SC-03 (issue #778 tramo 5b PR5): `Bucket.SinCategoria` was removed from
+ *     the domain — a null-bucketId row AND a row still holding the legacy
+ *     physical id `bucket-sincategoria` BOTH fold to Deseos and BOTH appear
+ *     in the Deseos drill-down (no double count, no loss); neither appears
+ *     under any OTHER bucket's drill-down
  *   - CA-03: half-open [desde, hasta) window (desde inclusive, hasta exclusive)
  *   - User isolation (RNF-SEC-006): user B's data must NOT bleed into user A
  *   - Ordering: fecha asc, id asc tiebreak
- *   - Grand-total invariant: summing cargo across all 5 buckets' detail
+ *   - Grand-total invariant: summing cargo across all 4 buckets' detail
  *     queries reconciles with the total cargo actually seeded, regardless of
- *     how many rows have a null bucketId (no double count, no loss)
+ *     how many rows have a null or legacy-SinCategoria bucketId (no double
+ *     count, no loss)
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaDetalleBucketRepository } from './prisma-detalle-bucket.repository';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { BUCKET_IDS } from './bucket-ids';
+import { BUCKET_IDS, ID_BUCKET_SINCATEGORIA_LEGACY } from './bucket-ids';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
 import { NoOpCryptoService } from './no-op-crypto.service';
 import { appLogger } from '../logging/app-logger';
@@ -163,7 +165,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     expect(rows[0].categoria?.icono).toBeNull();
   });
 
-  it('CAT037-06: null categoria (Ingreso/SinCategoria row) folds to null', async () => {
+  it('CAT037-06: null categoria (Ingreso row) folds to null', async () => {
     const findMany = vi
       .fn()
       .mockResolvedValue([makeRow({ id: 'tx-null', categoria: null })]);
@@ -173,7 +175,7 @@ describe('PrismaDetalleBucketRepository — categoria fold (unit)', () => {
     const rows = await repo.findByPeriodoYBucket(
       'user-1',
       periodo,
-      Bucket.SinCategoria,
+      Bucket.Deseos,
     );
 
     expect(rows[0].categoria).toBeNull();
@@ -438,7 +440,7 @@ describe('PrismaDetalleBucketRepository — Desconocido display-fold (unit, #778
     } as unknown as PrismaClient;
     const repo = new PrismaDetalleBucketRepository(prisma, makeCrypto());
 
-    await repo.findByPeriodoYBucket('user-1', periodo, Bucket.SinCategoria);
+    await repo.findByPeriodoYBucket('user-1', periodo, Bucket.Ahorro);
 
     expect(findFirst).not.toHaveBeenCalled();
   });
@@ -629,9 +631,9 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
     expect(rows[0].numeroCuenta).toBe('ACC-sc01');
   });
 
-  // ─── SC-03: null-bucket fold → Deseos, NOT SinCategoria (issue #778 tramo 5b) ──
+  // ─── SC-03: null-bucket AND legacy-SinCategoria fold → Deseos (issue #778 tramo 5b PR5) ──
 
-  it('SC-03: Deseos query returns the null-bucketId row; SinCategoria query returns ONLY the real bucket-sincategoria row — never both', async () => {
+  it('SC-03: Deseos query returns BOTH the null-bucketId row AND the legacy bucket-sincategoria row — no double count, no loss', async () => {
     if (!ALLOW) return;
 
     const userId = `${RUN_ID}-user-sc03`;
@@ -662,11 +664,21 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       cargo: 150_000n,
       abono: 0n,
     });
-    const sinCategoriaId = await seedTransaccion({
+    // issue #778 tramo 5b PR5 removed Bucket.SinCategoria from the domain —
+    // a row still holding this legacy physical id is now an unrecognized
+    // bucketId that folds to Deseos, exactly like null.
+    const sinCategoriaLegacyId = await seedTransaccion({
       accountId,
       ingestaId,
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      bucketId: ID_BUCKET_SINCATEGORIA_LEGACY,
       cargo: 50_000n,
+      abono: 0n,
+    });
+    const deseosId = await seedTransaccion({
+      accountId,
+      ingestaId,
+      bucketId: BUCKET_IDS[Bucket.Deseos],
+      cargo: 20_000n,
       abono: 0n,
     });
     const necId = await seedTransaccion({
@@ -677,7 +689,8 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       abono: 0n,
     });
 
-    // The null-bucketId row now belongs to Deseos, not SinCategoria.
+    // Deseos drill-down: null-fold row + legacy SinCategoria-id row + the
+    // real Deseos row — all three, exactly once each (no double count).
     const deseosRows = await repo.findByPeriodoYBucket(
       userId,
       periodoVO,
@@ -685,31 +698,24 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
     );
     const deseosIds = deseosRows.map((r) => r.id);
     expect(deseosIds).toContain(nullId);
-    expect(deseosIds).not.toContain(sinCategoriaId);
+    expect(deseosIds).toContain(sinCategoriaLegacyId);
+    expect(deseosIds).toContain(deseosId);
     expect(deseosIds).not.toContain(necId);
+    expect(deseosRows.length).toBe(3);
+    const deseosTotal = deseosRows.reduce((acc, r) => acc + r.cargo, 0n);
+    expect(deseosTotal).toBe(150_000n + 50_000n + 20_000n);
 
-    // SinCategoria now contains ONLY the real bucket-sincategoria row — the
-    // null-fold row must be ABSENT (proves the old `OR: [{bucketId: null}, ...]`
-    // branch was actually removed, not merely relabeled).
-    const sinCategoriaRows = await repo.findByPeriodoYBucket(
-      userId,
-      periodoVO,
-      Bucket.SinCategoria,
-    );
-    const sinCategoriaIds = sinCategoriaRows.map((r) => r.id);
-    expect(sinCategoriaIds).toContain(sinCategoriaId);
-    expect(sinCategoriaIds).not.toContain(nullId);
-    expect(sinCategoriaIds).not.toContain(necId);
-
-    // Querying a DIFFERENT bucket must NOT include either fold row.
+    // Querying a DIFFERENT bucket must NOT include either fold row
+    // (no loss the other way: they don't leak into an unrelated bucket).
     const necRows = await repo.findByPeriodoYBucket(
       userId,
       periodoVO,
       Bucket.Necesidades,
     );
     const necIds = necRows.map((r) => r.id);
+    expect(necIds).toEqual([necId]);
     expect(necIds).not.toContain(nullId);
-    expect(necIds).not.toContain(sinCategoriaId);
+    expect(necIds).not.toContain(sinCategoriaLegacyId);
   });
 
   it('SC-03: the null-bucketId (orphan) row displays under the user’s Desconocido de Deseos categoria, not "Sin categoría"', async () => {
@@ -796,7 +802,9 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       { bucketId: BUCKET_IDS[Bucket.Necesidades], cargo: 500_000n },
       { bucketId: BUCKET_IDS[Bucket.Deseos], cargo: 200_000n },
       { bucketId: BUCKET_IDS[Bucket.Ahorro], cargo: 300_000n },
-      { bucketId: BUCKET_IDS[Bucket.SinCategoria], cargo: 50_000n },
+      // issue #778 tramo 5b PR5: this legacy physical id is no longer a
+      // real bucket — it's an unrecognized id that folds to Deseos.
+      { bucketId: ID_BUCKET_SINCATEGORIA_LEGACY, cargo: 50_000n },
       { bucketId: null, cargo: 150_000n }, // orphan — must land in Deseos ONLY
       { bucketId: null, cargo: 25_000n }, // orphan — must land in Deseos ONLY
     ];
@@ -817,7 +825,6 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
       Bucket.Necesidades,
       Bucket.Deseos,
       Bucket.Ahorro,
-      Bucket.SinCategoria,
       // Bucket.Ingreso deliberately excluded — findByPeriodoYBucket
       // supports it but no Ingreso rows were seeded here.
     ]) {
@@ -827,24 +834,19 @@ describe('PrismaDetalleBucketRepository (integration)', () => {
 
     expect(totalLeido).toBe(totalSeeded);
 
-    // Sharpen the invariant: Deseos alone must equal its own 3 rows
-    // (200_000 + 150_000 + 25_000), proving the orphans did NOT also leak
-    // into SinCategoria (which would make the grand total pass by
-    // coincidence — e.g. loss in one bucket offset by a gain in another).
+    // Sharpen the invariant: Deseos alone must equal its own 4 rows
+    // (200_000 real + 50_000 legacy-SinCategoria-id + 150_000 + 25_000
+    // orphans) — proving the fold sources ADD together rather than one
+    // silently overwriting or losing another (which would make the grand
+    // total pass by coincidence — e.g. loss in one source offset by a gain
+    // elsewhere).
     const deseosRows = await repo.findByPeriodoYBucket(
       userId,
       periodoVO,
       Bucket.Deseos,
     );
-    expect(deseosRows.reduce((acc, r) => acc + r.cargo, 0n)).toBe(375_000n);
-    const sinCategoriaRows = await repo.findByPeriodoYBucket(
-      userId,
-      periodoVO,
-      Bucket.SinCategoria,
-    );
-    expect(sinCategoriaRows.reduce((acc, r) => acc + r.cargo, 0n)).toBe(
-      50_000n,
-    );
+    expect(deseosRows.reduce((acc, r) => acc + r.cargo, 0n)).toBe(425_000n);
+    expect(deseosRows.length).toBe(4);
   });
 
   // ─── CA-03: half-open window ───────────────────────────────────────────────

@@ -21,7 +21,7 @@ const makeRow = (
   banco: 'BCI',
   tipoCuenta: 'Cuenta Corriente',
   numeroCuenta: '12345678',
-  bucket: Bucket.SinCategoria,
+  bucket: Bucket.Deseos,
   categoria: null,
   ...overrides,
 });

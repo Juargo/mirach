@@ -1,12 +1,13 @@
 import { Bucket } from '../../domain/value-objects/bucket';
 import {
   BUCKET_IDS,
+  ID_BUCKET_SINCATEGORIA_LEGACY,
   resolverBucket,
   construirFiltroBucket,
 } from './bucket-ids';
 
 describe('BUCKET_IDS', () => {
-  it('covers all 5 Bucket enum members', () => {
+  it('covers all 4 Bucket enum members', () => {
     const bucketValues = Object.values(Bucket) as Bucket[];
     for (const bucket of bucketValues) {
       expect(BUCKET_IDS).toHaveProperty(bucket);
@@ -26,17 +27,26 @@ describe('BUCKET_IDS', () => {
     expect(unique.size).toBe(ids.length);
   });
 
-  it('has exactly 5 entries matching the Bucket enum', () => {
+  it('has exactly 4 entries matching the Bucket enum (issue #778 tramo 5b: SinCategoria was removed)', () => {
     const bucketCount = Object.values(Bucket).length;
+    expect(bucketCount).toBe(4);
     expect(Object.keys(BUCKET_IDS).length).toBe(bucketCount);
+  });
+
+  it('no longer has a SinCategoria entry', () => {
+    expect(BUCKET_IDS).not.toHaveProperty('SinCategoria');
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// resolverBucket / construirFiltroBucket — issue #778 tramo 5b: the
-// null-bucket read fold moved from SinCategoria to Deseos. These are FAST,
-// DB-less proofs of the fold itself; the DB-backed reconciliation across the
-// three consumer repositories is covered by their own integration specs.
+// resolverBucket / construirFiltroBucket — issue #778 tramo 5b PR5:
+// `Bucket.SinCategoria` was removed from the domain entirely. A row still
+// holding the legacy physical id `bucket-sincategoria` (written before this
+// change, until tramo 6 migrates/wipes it) is now just another unrecognized
+// bucketId, and folds to Deseos exactly like null or any other integrity
+// anomaly. These are FAST, DB-less proofs of the fold itself; the DB-backed
+// reconciliation across the three consumer repositories is covered by their
+// own integration specs.
 // ─────────────────────────────────────────────────────────────────────────
 describe('resolverBucket', () => {
   it('null bucketId folds to Bucket.Deseos (issue #778 tramo 5b)', () => {
@@ -47,10 +57,8 @@ describe('resolverBucket', () => {
     expect(resolverBucket('not-a-real-bucket-id')).toBe(Bucket.Deseos);
   });
 
-  it('the REAL bucket-sincategoria physical id still resolves to Bucket.SinCategoria', () => {
-    expect(resolverBucket(BUCKET_IDS[Bucket.SinCategoria])).toBe(
-      Bucket.SinCategoria,
-    );
+  it('the legacy bucket-sincategoria physical id ALSO folds to Bucket.Deseos (issue #778 tramo 5b PR5)', () => {
+    expect(resolverBucket(ID_BUCKET_SINCATEGORIA_LEGACY)).toBe(Bucket.Deseos);
   });
 
   it('every other real physical id resolves to its own bucket, unaffected by the null-fold change', () => {
@@ -64,19 +72,14 @@ describe('resolverBucket', () => {
 });
 
 describe('construirFiltroBucket', () => {
-  it('Bucket.Deseos includes both null AND the real bucket-deseos id (reconciles with resolverBucket)', () => {
+  it('Bucket.Deseos includes null, the real bucket-deseos id, AND the legacy bucket-sincategoria id (reconciles with resolverBucket)', () => {
     expect(construirFiltroBucket(Bucket.Deseos)).toEqual({
-      OR: [{ bucketId: null }, { bucketId: BUCKET_IDS[Bucket.Deseos] }],
+      OR: [
+        { bucketId: null },
+        { bucketId: BUCKET_IDS[Bucket.Deseos] },
+        { bucketId: ID_BUCKET_SINCATEGORIA_LEGACY },
+      ],
     });
-  });
-
-  it('Bucket.SinCategoria matches ONLY the real bucket-sincategoria id — no OR with null', () => {
-    const filtro = construirFiltroBucket(Bucket.SinCategoria);
-    expect(filtro).toEqual({ bucketId: BUCKET_IDS[Bucket.SinCategoria] });
-    // Explicit negative: proves this can fail — reverting to the old
-    // `OR: [{bucketId: null}, ...]` shape for SinCategoria would still
-    // satisfy a looser assertion, but not this exact-shape one.
-    expect(filtro).not.toHaveProperty('OR');
   });
 
   it('any other bucket filters by its own physical id only', () => {
@@ -88,19 +91,20 @@ describe('construirFiltroBucket', () => {
     });
   });
 
-  it('SinCategoria and Deseos filters partition null vs non-null bucketId — never overlap', () => {
-    // Every possible bucketId value must match EXACTLY ONE of the two
-    // filters below, or the same transaction would render on two detail
-    // screens (double count).
+  it('a row with the legacy bucket-sincategoria id matches ONLY the Deseos filter, never any other bucket (no double count, no loss)', () => {
+    // Every fixed bucket id (Necesidades/Deseos/Ahorro/Ingreso) is a literal
+    // string that never equals the legacy SinCategoria id — so it can only
+    // ever satisfy the Deseos OR-clause above, exactly once, and every
+    // OTHER bucket's own-id filter naturally excludes it.
     const deseos = construirFiltroBucket(Bucket.Deseos) as {
       OR: Array<{ bucketId: string | null }>;
     };
-    const sinCategoria = construirFiltroBucket(Bucket.SinCategoria) as {
-      bucketId: string;
-    };
-
     const deseosIds = deseos.OR.map((clause) => clause.bucketId);
-    expect(deseosIds).toContain(null);
-    expect(deseosIds).not.toContain(sinCategoria.bucketId);
+    expect(deseosIds).toContain(ID_BUCKET_SINCATEGORIA_LEGACY);
+
+    for (const bucket of [Bucket.Necesidades, Bucket.Ahorro, Bucket.Ingreso]) {
+      const filtro = construirFiltroBucket(bucket) as { bucketId: string };
+      expect(filtro.bucketId).not.toBe(ID_BUCKET_SINCATEGORIA_LEGACY);
+    }
   });
 });

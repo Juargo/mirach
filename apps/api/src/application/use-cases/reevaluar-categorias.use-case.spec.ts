@@ -64,7 +64,7 @@ function tx(
     cargo: 0n,
     abono: 0n,
     categoriaIdActual: null,
-    bucketActual: Bucket.SinCategoria,
+    bucketActual: Bucket.Deseos,
     ...overrides,
   };
 }
@@ -319,7 +319,7 @@ describe('ReevaluarCategoriasUseCase', () => {
         id: 'tx-1',
         descripcion: 'compra en Lider',
         categoriaIdActual: null,
-        bucketActual: Bucket.SinCategoria,
+        bucketActual: Bucket.Deseos,
       }),
     ];
     const reader = makeReader(rows);
