@@ -35,9 +35,12 @@ describe('seed idempotency integration (real dev DB)', () => {
     );
   });
 
-  // T20 — seed idempotency: exactamente 5 BucketPresupuesto, sin duplicados
-  it('produce exactamente 5 BucketPresupuesto (sin duplicados)', async () => {
-    expect(await prisma.bucketPresupuesto.count()).toBe(5);
+  // T20 — seed idempotency: exactamente 4 BucketPresupuesto, sin duplicados.
+  // Issue #778 tramo 5b PR6: seed.ts dejó de sembrar la fila física legacy
+  // 'bucket-sincategoria' (ese bucket salió del dominio en tramo 5b PR5) —
+  // baja de 5 a 4.
+  it('produce exactamente 4 BucketPresupuesto (sin duplicados)', async () => {
+    expect(await prisma.bucketPresupuesto.count()).toBe(4);
   });
 
   it('no crea PatronClasificacion duplicados', async () => {

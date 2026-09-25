@@ -1,28 +1,13 @@
 import type { Prisma } from '@prisma/client';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { DemoTransaccionDef, ID_BUCKET_SINCATEGORIA_LEGACY } from './demo-data';
+import { DemoTransaccionDef } from './demo-data';
 import { ICryptoService } from '../../application/ports/crypto-service.port';
-
-/**
- * Resuelve `def.bucketKey` a un id físico — `bucketIds[bucketKey]` para un
- * `Bucket` real, o el literal legacy tal cual cuando `bucketKey` es
- * `ID_BUCKET_SINCATEGORIA_LEGACY` (issue #778 tramo 5b PR5: ya no hay un
- * `Bucket.SinCategoria` que indexar en `bucketIds`).
- */
-function resolverBucketIdDemo(
-  bucketIds: Record<Bucket, string>,
-  bucketKey: Bucket | typeof ID_BUCKET_SINCATEGORIA_LEGACY,
-): string {
-  return bucketKey === ID_BUCKET_SINCATEGORIA_LEGACY
-    ? bucketKey
-    : bucketIds[bucketKey];
-}
 
 /**
  * seedDemoTransacciones — mapea las definiciones estáticas de `demo-data.ts`
  * a filas insertables (`Prisma.TransaccionCreateManyInput`), resolviendo
  * `bucketKey → bucketId` vía `bucketIds` en tiempo de ejecución (DEMO-DATA-05
- * — nunca hardcodea ids, así el seed sobrevive a migraciones de bucket) y
+ * — nunca hardcodea ids, así el seed demo sobrevive a migraciones de bucket) y
  * `daysAgo → fecha` absoluta relativa a `ahora`.
  *
  * `descripcion` se cifra at rest a través del `ICryptoService` inyectado —
@@ -50,7 +35,7 @@ export function seedDemoTransacciones(
     descripcion: crypto.encrypt(def.descripcion),
     cargo: def.cargo,
     abono: def.abono,
-    bucketId: resolverBucketIdDemo(bucketIds, def.bucketKey),
+    bucketId: bucketIds[def.bucketKey],
     fecha: new Date(ahora.getTime() - def.daysAgo * unDiaMs),
   }));
 }

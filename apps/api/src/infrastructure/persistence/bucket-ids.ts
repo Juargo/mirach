@@ -19,18 +19,6 @@ export const BUCKET_IDS: Record<Bucket, string> = {
 };
 
 /**
- * ID_BUCKET_SINCATEGORIA_LEGACY — el id físico `bucket-sincategoria`, ya NO
- * parte de `BUCKET_IDS` (issue #778 tramo 5b PR5: `Bucket.SinCategoria` salió
- * del dominio). Una fila con este `bucketId` puede seguir existiendo en BD
- * hasta que tramo 6 migre/limpie la columna — no es un bucket, es un id "no
- * reconocido" que debe plegar a `Bucket.Deseos`, igual que un `bucketId` NULL
- * (ver `resolverBucket`/`construirFiltroBucket` abajo). Mantenido como
- * constante nombrada (no un string suelto) para que `resolverBucket` y
- * `construirFiltroBucket` referencien el MISMO literal.
- */
-export const ID_BUCKET_SINCATEGORIA_LEGACY = 'bucket-sincategoria';
-
-/**
  * BUCKET_ID_TO_BUCKET — inverse map: physical bucketId string → domain Bucket enum.
  *
  * Built once at module load from BUCKET_IDS (single source of truth, DRY).
@@ -59,14 +47,14 @@ export const BUCKET_ID_TO_BUCKET: ReadonlyMap<string, Bucket> = new Map(
  *
  * Unrecognized non-null bucketId (a row referencing an id outside
  * `BUCKET_ID_TO_BUCKET`) also folds to `Deseos`, for the SAME reason and to
- * keep exactly ONE fold target. This now INCLUDES the legacy
- * `bucket-sincategoria` physical id (issue #778 tramo 5b PR5:
- * `Bucket.SinCategoria` was removed from the domain — that enum member no
- * longer exists, so `BUCKET_ID_TO_BUCKET` has no entry for it and it falls
- * into this same unrecognized-id path). A row with that literal id can
- * still exist in BD until tramo 6 migrates/wipes the column; nothing here
- * rewrites history, it simply reads as "unknown" like any other stale id
- * and folds to `Deseos` — never a silent second "unknown" destination.
+ * keep exactly ONE fold target — kept as a DEFENSIVE branch (integrity
+ * anomaly, should never happen behind the FK) rather than removed. Issue
+ * #778 tramo 5b PR6 migrated every row that used to carry the legacy
+ * `bucket-sincategoria` physical id to `bucket-deseos` and DELETED that
+ * `BucketPresupuesto` row (see its migration) — the FK now makes that
+ * specific id physically impossible to write again, so this branch has no
+ * currently-known live source, but stays as the single fold target for any
+ * future integrity anomaly instead of silently returning nothing.
  *
  * Shared fold rule for every repository that reads `bucketId` off
  * `Transaccion` (`prisma-resumen-mes.repository.ts`,
@@ -76,10 +64,10 @@ export const BUCKET_ID_TO_BUCKET: ReadonlyMap<string, Bucket> = new Map(
  * time) — both are built from the SAME BUCKET_IDS/BUCKET_ID_TO_BUCKET maps
  * so a bucketId can never resolve one way for the WHERE and another way for
  * the in-memory fold. A single resolver is the structural mitigation for
- * the SC-03 rule ("a null-bucket row and a legacy bucket-sincategoria row
- * are DIFFERENT physical values but must fold to the SAME bucket and must
- * never be double-counted"): if each call site re-implemented this mapping,
- * one could silently drift from the others.
+ * the SC-03 rule ("a null-bucket row and any other unrecognized bucketId
+ * must fold to the SAME bucket and must never be double-counted"): if each
+ * call site re-implemented this mapping, one could silently drift from the
+ * others.
  */
 export function resolverBucket(bucketId: string | null): Bucket {
   return bucketId === null
@@ -93,12 +81,15 @@ export function resolverBucket(bucketId: string | null): Bucket {
  * (SC-03: the two MUST reconcile, or a bucket's SQL-filtered detail total
  * would disagree with its in-memory-folded aggregate total).
  *
- * - `Bucket.Deseos` → `bucketId IS NULL` OR the real `bucket-deseos` id OR
- *   the legacy `bucket-sincategoria` id (both are unrecognized-id fold
- *   targets per `resolverBucket` now that `Bucket.SinCategoria` no longer
- *   exists in the domain). Deseos absorbs every "unknown" bucketId, exactly
- *   mirroring the in-memory fold — no row can resolve to Deseos in
- *   `resolverBucket` yet be excluded from this WHERE, or vice versa.
+ * - `Bucket.Deseos` → `bucketId IS NULL` OR the real `bucket-deseos` id
+ *   (both are unrecognized/absent-id fold targets per `resolverBucket`).
+ *   Deseos absorbs every "unknown" bucketId, exactly mirroring the
+ *   in-memory fold — no row can resolve to Deseos in `resolverBucket` yet
+ *   be excluded from this WHERE, or vice versa. Issue #778 tramo 5b PR6
+ *   dropped the legacy `bucket-sincategoria` id from this OR — every row
+ *   that carried it was migrated to the real `bucket-deseos` id and the FK
+ *   now makes that legacy id physically impossible to write again (see its
+ *   migration), so it no longer needs its own clause here.
  * - Any other bucket → its own physical id (an unrecognized non-null id
  *   never matches any of the 4 fixed ids, so it naturally falls out of
  *   every OTHER bucket's SQL filter — consistent with `resolverBucket`
@@ -111,11 +102,7 @@ export function construirFiltroBucket(
 ): { bucketId: string } | { OR: Array<{ bucketId: string | null }> } {
   if (bucket === Bucket.Deseos) {
     return {
-      OR: [
-        { bucketId: null },
-        { bucketId: BUCKET_IDS[Bucket.Deseos] },
-        { bucketId: ID_BUCKET_SINCATEGORIA_LEGACY },
-      ],
+      OR: [{ bucketId: null }, { bucketId: BUCKET_IDS[Bucket.Deseos] }],
     };
   }
   return { bucketId: BUCKET_IDS[bucket] };

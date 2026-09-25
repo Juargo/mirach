@@ -26,10 +26,9 @@ function mesLabel(fecha: Date): string {
  * + in-memory reduce is simpler and safer (KISS) than hand-rolled raw SQL
  * with BigInt driver-serialization risk.
  *
- * Folds bucketId=null AND any unrecognized bucketId (including the legacy
- * physical `bucket-sincategoria` id — `Bucket.SinCategoria` no longer
- * exists in the domain, issue #778 tramo 5b PR5) into `Bucket.Deseos` via
- * `resolverBucket` (see bucket-ids.ts docblock) — mirrors
+ * Folds bucketId=null AND any unrecognized bucketId (integrity anomaly —
+ * `Bucket.SinCategoria` no longer exists in the domain, issue #778 tramo 5b)
+ * into `Bucket.Deseos` via `resolverBucket` (see bucket-ids.ts docblock) — mirrors
  * PrismaResumenMesRepository's SC-03 fold rule: within each of the 4 real
  * bucket groups, ADD, never overwrite.
  *
