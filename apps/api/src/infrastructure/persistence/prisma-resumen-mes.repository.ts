@@ -13,14 +13,14 @@ import { resolverBucket } from './bucket-ids';
  * Implements IResumenMesReader. Uses Prisma groupBy to sum cargo/abono per
  * bucket, plus a second scoped groupBy to count cargo-only rows (US-045
  * D-05), both batched in one `$transaction` array-form call (one snapshot
- * for both queries). Folds bucketId=null (and unrecognized bucketIds) into
- * Bucket.Deseos via `resolverBucket` (issue #778 tramo 5b — see its
- * docblock in bucket-ids.ts for why Deseos, not SinCategoria) — a null
- * group and a real Bucket.SinCategoria group (the physical
- * `bucket-sincategoria` id) are DIFFERENT groups now and must NEVER be
- * merged (SC-03 restated for this fold: null folds into Deseos, the real
- * SinCategoria id stays SinCategoria; within EACH group, sums/counts still
- * ADD across every matching row, never overwrite).
+ * for both queries). Folds bucketId=null AND any unrecognized bucketId
+ * (including the legacy physical `bucket-sincategoria` id — `Bucket.SinCategoria`
+ * no longer exists in the domain, issue #778 tramo 5b PR5) into
+ * `Bucket.Deseos` via `resolverBucket` (see its docblock in bucket-ids.ts).
+ * `Object.values(Bucket)` below now enumerates exactly the 4 real buckets,
+ * so every row — however it folds — lands in one of those 4 accumulator
+ * slots (SC-03: within EACH slot, sums/counts still ADD across every
+ * matching row, never overwrite).
  *
  * User isolation is structural: `account: { userId }` in the WHERE clause.
  * Amounts stay BigInt; no number, no float here. `cantidadCargos` is a plain
@@ -71,7 +71,7 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
       queryCargo,
     ]);
 
-    // Initialize accumulator with 0n/0 for ALL 5 buckets so empty months
+    // Initialize accumulator with 0n/0 for ALL 4 buckets so empty months
     // always return a full set of rows.
     const accum = new Map<
       Bucket,
@@ -112,7 +112,7 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
       });
     }
 
-    // Return all 5 bucket rows (including Ingreso — use case reads Ingreso.totalAbono as base)
+    // Return all 4 bucket rows (including Ingreso — use case reads Ingreso.totalAbono as base)
     return Array.from(accum.entries()).map(([bucket, sums]) => ({
       bucket,
       totalCargo: sums.totalCargo,

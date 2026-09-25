@@ -9,8 +9,9 @@ import { ObtenerDetalleBucketResult } from '../../../application/use-cases/obten
  * completo via toISOString() — convención bloqueada (ver movimiento-mes.dto.ts).
  *
  * `categoria` (US-013 CATAPI-05) es `{ id, nombre } | null` ya foldeado —
- * `null` para filas Ingreso/SinCategoria. Campo aditivo, no rompe contrato
- * existente.
+ * `null` para filas Ingreso o cualquier fila sin categoría asignada (issue
+ * #778 tramo 5b: `SinCategoria` ya no existe como bucket). Campo aditivo,
+ * no rompe contrato existente.
  */
 export interface DetalleBucketTransaccionDto {
   readonly id: string;

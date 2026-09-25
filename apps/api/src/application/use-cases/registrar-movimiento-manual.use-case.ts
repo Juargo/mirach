@@ -12,14 +12,12 @@ import type { ILogger } from '../ports/logger.port';
 /**
  * BucketDeGasto — buckets valid for a Gasto movement (spec line 109, D-12).
  *
- * Ingreso and SinCategoria are NOT valid choices for a Gasto: the system
- * assigns Bucket.Ingreso by construction (D-10) and SinCategoria is a
- * fallback sentinel, never a caller-supplied value.
+ * Ingreso is NOT a valid choice for a Gasto: the system assigns
+ * Bucket.Ingreso by construction (D-10). `SinCategoria` was excluded here
+ * too until issue #778 tramo 5b PR5 removed it from the domain entirely —
+ * it no longer exists to exclude.
  */
-export type BucketDeGasto = Exclude<
-  Bucket,
-  Bucket.Ingreso | Bucket.SinCategoria
->;
+export type BucketDeGasto = Exclude<Bucket, Bucket.Ingreso>;
 
 /**
  * Comando de entrada del use case (D-11) — discriminated union on `tipo`.
@@ -32,7 +30,7 @@ export type BucketDeGasto = Exclude<
  * - Variant `tipo: 'Gasto'`  — `bucket: BucketDeGasto` and `categoriaId: string`
  *   are REQUIRED. Both must pass the catalog cascade (D-11, step 3).
  *   `bucket` is narrowed to `BucketDeGasto` (Necesidades | Deseos | Ahorro)
- *   per spec line 109 and D-12; Ingreso and SinCategoria are excluded.
+ *   per spec line 109 and D-12; Ingreso is excluded.
  *
  * `monto` is received as a positive decimal string (BigInt-safe) — the
  * conversion and overflow guard happen in `MovimientoManual.crear` (D-01-a).

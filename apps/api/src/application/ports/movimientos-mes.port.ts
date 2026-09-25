@@ -14,7 +14,9 @@ import { Bucket } from '../../domain/value-objects/bucket';
  *
  * `categoria` (US-013 CATAPI-05, re-tipado por ADR-037/D-01) es el
  * `{id, nombre}` de la fila del usuario ya foldeada (nunca el categoriaId
- * físico) — `null` solo para filas Ingreso/SinCategoria. `nombre` es
+ * físico) — `null` para filas Ingreso o cualquier fila sin categoría
+ * asignada (issue #778 tramo 5b: `SinCategoria` ya no existe como bucket).
+ * `nombre` es
  * `string`: la ownership de la query (`WHERE userId`) es la única
  * autoridad de validez, ya no un enum cerrado.
  */

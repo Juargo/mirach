@@ -26,12 +26,12 @@ function mesLabel(fecha: Date): string {
  * + in-memory reduce is simpler and safer (KISS) than hand-rolled raw SQL
  * with BigInt driver-serialization risk.
  *
- * Folds bucketId=null (and unrecognized bucketIds) into Bucket.Deseos via
- * `resolverBucket` (issue #778 tramo 5b — see bucket-ids.ts docblock) —
- * mirrors PrismaResumenMesRepository's SC-03 fold rule: the null fold and
- * the real Bucket.SinCategoria group (physical `bucket-sincategoria` id)
- * are DIFFERENT groups and never merge; within each group, ADD, never
- * overwrite.
+ * Folds bucketId=null AND any unrecognized bucketId (including the legacy
+ * physical `bucket-sincategoria` id — `Bucket.SinCategoria` no longer
+ * exists in the domain, issue #778 tramo 5b PR5) into `Bucket.Deseos` via
+ * `resolverBucket` (see bucket-ids.ts docblock) — mirrors
+ * PrismaResumenMesRepository's SC-03 fold rule: within each of the 4 real
+ * bucket groups, ADD, never overwrite.
  *
  * User isolation is structural: `account: { userId }` in the WHERE clause.
  * Amounts stay BigInt; no number, no float here.
@@ -51,7 +51,7 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
       select: { fecha: true, bucketId: true, cargo: true, abono: true },
     });
 
-    // Pre-seed all 12 months × 5 buckets with 0n so empty months/buckets
+    // Pre-seed all 12 months × 4 buckets with 0n so empty months/buckets
     // always return a full set of rows (mirrors monthly repo's SC-05).
     const accum = new Map<
       string,

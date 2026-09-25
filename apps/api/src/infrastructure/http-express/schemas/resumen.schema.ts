@@ -58,7 +58,9 @@ export const resumenResponseSchema = z
     sinIngreso: z.boolean(),
     buckets: z
       .array(bucketResumenSchema)
-      .describe('Always 4 entries: Necesidades, Deseos, Ahorro, SinCategoria.'),
+      .describe(
+        'Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape.',
+      ),
     targets: z
       .object({
         Necesidades: z.number(),
@@ -70,13 +72,6 @@ export const resumenResponseSchema = z
       .enum(['verde', 'amarillo', 'rojo'])
       .nullable()
       .describe('Worst traffic-light state across measured buckets, or null.'),
-    cantidadSinCategoria: z
-      .number()
-      .int()
-      .nonnegative()
-      .describe(
-        'US-045: count of uncategorized cargo transactions (row count, not money). Always present.',
-      ),
   })
   .meta({
     id: 'ResumenMesResponse',

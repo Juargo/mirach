@@ -160,8 +160,8 @@ export function diagnosticar(resumen: ResumenMes): string {
  */
 function mensajeConsejo(
   // Judgment-day hardening: the 3-member union (not the full Bucket enum)
-  // makes an Ingreso/SinCategoria call a COMPILE error — a stray call could
-  // otherwise render the literal "undefined" inside user-facing copy.
+  // makes an Ingreso call a COMPILE error — a stray call could otherwise
+  // render the literal "undefined" inside user-facing copy.
   bucket: (typeof BUCKETS_SEMAFORO_ORDEN)[number],
   caso: CasoConsejo,
   direccion: DireccionConsejo,
@@ -188,9 +188,9 @@ function mensajeConsejo(
  * rather than ever shipping wrong advice — fail-closed, same discipline as
  * the rest of the money code (R1 mitigation).
  */
-// Judgment-day hardening: type predicate so the SinCategoria/Ingreso guard
-// also NARROWS at compile time — downstream copy helpers take the 3-member
-// union and a stray call can never render "undefined" in user-facing text.
+// Judgment-day hardening: type predicate so the Ingreso guard also NARROWS
+// at compile time — downstream copy helpers take the 3-member union and a
+// stray call can never render "undefined" in user-facing text.
 function esBucketSemaforo(
   bucket: Bucket,
 ): bucket is (typeof BUCKETS_SEMAFORO_ORDEN)[number] {
@@ -203,7 +203,7 @@ export function montoParaVerde(
   base: bigint,
 ): ConsejoVerde | null {
   if (base === 0n) return null; // sinIngreso — nothing to advise
-  if (!esBucketSemaforo(bucket)) return null; // SinCategoria / Ingreso — no rule defined
+  if (!esBucketSemaforo(bucket)) return null; // Ingreso — no rule defined
   const bandas = BANDAS_SEMAFORO[bucket];
 
   const bp = porcentajeBasisPoints(total, base);
@@ -255,9 +255,7 @@ export function montoParaVerde(
   };
 }
 
-/** Per-bucket detail row — the 3 rule buckets only (D-03). SinCategoria has no
- * band/estado/target, so its count+total travel in `SemaforoDetalle.sinCategoria`
- * instead of a 4th nullable-everything row. */
+/** Per-bucket detail row — the 3 rule buckets only (D-03). */
 export interface BucketSemaforoDetalle {
   readonly bucket: Bucket;
   readonly total: bigint;
@@ -274,14 +272,12 @@ export interface SemaforoDetalle {
   readonly diagnostico: string;
   readonly bucketsCriticos: ReadonlyArray<Bucket>;
   readonly buckets: ReadonlyArray<BucketSemaforoDetalle>;
-  readonly sinCategoria: { readonly cantidad: number; readonly total: bigint };
 }
 
 /**
  * construirSemaforoDetalle — assembles the full detail VO from an existing
  * `ResumenMes` (D-01: reuses the SAME reader/assembly as `/api/resumen`, no
- * second query path, no independently recomputed Sin categoría count/total —
- * SEM-05). `buckets` is exactly 3, fixed order (D-03).
+ * second query path). `buckets` is exactly 3, fixed order (D-03).
  */
 export function construirSemaforoDetalle(resumen: ResumenMes): SemaforoDetalle {
   const buckets: BucketSemaforoDetalle[] = BUCKETS_SEMAFORO_ORDEN.map(
@@ -299,10 +295,6 @@ export function construirSemaforoDetalle(resumen: ResumenMes): SemaforoDetalle {
     },
   );
 
-  const sinCategoriaSlice = resumen.buckets.find(
-    (s) => s.bucket === Bucket.SinCategoria,
-  );
-
   return {
     totalIngreso: resumen.totalIngreso,
     sinIngreso: resumen.sinIngreso,
@@ -310,9 +302,5 @@ export function construirSemaforoDetalle(resumen: ResumenMes): SemaforoDetalle {
     diagnostico: diagnosticar(resumen),
     bucketsCriticos: bucketsQueDrivenEstadoGlobal(resumen),
     buckets,
-    sinCategoria: {
-      cantidad: resumen.cantidadSinCategoria,
-      total: sinCategoriaSlice?.total ?? 0n,
-    },
   };
 }

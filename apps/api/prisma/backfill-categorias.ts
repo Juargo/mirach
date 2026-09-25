@@ -5,10 +5,6 @@ import { assertDestructiveDbAllowed } from '../src/infrastructure/persistence/db
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
 import {
-  agruparPorCategoriaBucket,
-  type AsignacionCategoriaBucket,
-} from '../src/application/services/agrupar-por-categoria-bucket';
-import {
   PatronClasificacion,
   MatchType,
 } from '../src/domain/value-objects/patron-clasificacion';
@@ -144,16 +140,65 @@ export interface BackfillSummary {
  *    un bucket distinto) la fila queda intacta — nunca se mueve una fila
  *    ya bucketeada a otro bucket.
  */
+/**
+ * `SIN_CATEGORIA_LEGACY` — sentinel LOCAL a este script, no un `Bucket` del
+ * dominio (issue #778 tramo 5b PR5 removió `Bucket.SinCategoria`). Este
+ * script está congelado (bootstrap-user-only, ver docblock del archivo) y
+ * preserva a propósito su comportamiento pre-#801: una fila sin match Y sin
+ * bucket previo sigue aterrizando en el bucket físico legacy
+ * `bucket-sincategoria` — ver `backfill-categorias.spec.ts` ("una fila sin
+ * match aterriza en SinCategoria"). Por eso el tipo local `BucketOLegacy`
+ * (no `Bucket`) y `idFisicoLocal`/`agruparLocal` (no
+ * `BUCKET_IDS`/`agruparPorCategoriaBucket` compartidos) — ensanchar el
+ * puerto compartido para dar cabida a un concepto retirado del dominio, por
+ * un único script congelado, sería peor (YAGNI) que duplicar ~10 líneas de
+ * agrupación aquí.
+ */
+const SIN_CATEGORIA_LEGACY = 'SinCategoria' as const;
+type BucketOLegacy = Bucket | typeof SIN_CATEGORIA_LEGACY;
+
+function idFisicoLocal(bucket: BucketOLegacy): string {
+  return bucket === SIN_CATEGORIA_LEGACY
+    ? 'bucket-sincategoria' // PR 6 (#778) removes this
+    : BUCKET_IDS[bucket];
+}
+
+interface AsignacionLocal {
+  readonly id: string;
+  readonly categoriaId: string | null;
+  readonly bucket: BucketOLegacy;
+}
+
+/** Agrupación local por (categoriaId, bucket) — ver docblock de `SIN_CATEGORIA_LEGACY`. */
+function agruparLocal(
+  asignaciones: ReadonlyArray<AsignacionLocal>,
+): Array<{ categoriaId: string | null; bucket: BucketOLegacy; ids: string[] }> {
+  const porGrupo = new Map<
+    string,
+    { categoriaId: string | null; bucket: BucketOLegacy; ids: string[] }
+  >();
+  for (const { id, categoriaId, bucket } of asignaciones) {
+    const key = `${categoriaId ?? ' '}::${bucket}`;
+    const grupo = porGrupo.get(key) ?? { categoriaId, bucket, ids: [] };
+    grupo.ids.push(id);
+    porGrupo.set(key, grupo);
+  }
+  return Array.from(porGrupo.values());
+}
+
 function decidirEscritura(c: {
   id: string;
   categoriaId: string | null;
-  bucket: Bucket;
+  bucket: BucketOLegacy;
   bucketIdAnterior: string | null;
-}): AsignacionCategoriaBucket | null {
+}): AsignacionLocal | null {
   if (c.bucketIdAnterior === null) {
     return { id: c.id, categoriaId: c.categoriaId, bucket: c.bucket };
   }
-  if (c.categoriaId !== null && BUCKET_IDS[c.bucket] === c.bucketIdAnterior) {
+  if (
+    c.categoriaId !== null &&
+    idFisicoLocal(c.bucket) === c.bucketIdAnterior
+  ) {
     return { id: c.id, categoriaId: c.categoriaId, bucket: c.bucket };
   }
   return null;
@@ -229,8 +274,10 @@ export async function runBackfill(
       .getValue();
     const categoria =
       resultado.tipo === 'clasificada' ? resultado.categoria : null;
-    const bucket =
-      resultado.tipo === 'clasificada' ? resultado.bucket : Bucket.SinCategoria;
+    const bucket: BucketOLegacy =
+      resultado.tipo === 'clasificada'
+        ? resultado.bucket
+        : SIN_CATEGORIA_LEGACY;
     return {
       id: row.id,
       categoria,
@@ -246,7 +293,7 @@ export async function runBackfill(
   let categoriaAgregadaBucketPreservado = 0;
   let bucketAsignadoDesdeNulo = 0;
   let bucketChanges = 0;
-  const aEscribir: AsignacionCategoriaBucket[] = [];
+  const aEscribir: AsignacionLocal[] = [];
 
   for (const c of clasificadas) {
     const key = c.categoria?.nombre ?? 'null';
@@ -275,14 +322,14 @@ export async function runBackfill(
   // fila real del pattern que matcheó) — ADR-037/Q5, ya no hay lookup vía
   // un mapa de ids fijos.
   if (!options.dryRun && aEscribir.length > 0) {
-    const grupos = agruparPorCategoriaBucket(aEscribir);
+    const grupos = agruparLocal(aEscribir);
 
     const operaciones = grupos.map(({ categoriaId, bucket, ids }) =>
       prisma.transaccion.updateMany({
         where: { id: { in: ids } },
         data: {
           categoriaId,
-          bucketId: BUCKET_IDS[bucket],
+          bucketId: idFisicoLocal(bucket),
         },
       }),
     );

@@ -8,8 +8,9 @@ import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
  * `mes` uses the same "YYYY-MM" format as PeriodoMes.valor, so the use case
  * can match rows back to PeriodoAnio.meses() by string equality.
  *
- * The repository folds bucketId=null (uncategorized) into Bucket.SinCategoria
- * before returning rows — same contract as IResumenMesReader.
+ * The repository folds bucketId=null (uncategorized) AND any unrecognized
+ * bucketId into Bucket.Deseos (issue #778 tramo 5b PR5) before returning
+ * rows — same contract as IResumenMesReader.
  */
 export interface BucketSumRowAnual {
   readonly mes: string; // 'YYYY-MM'

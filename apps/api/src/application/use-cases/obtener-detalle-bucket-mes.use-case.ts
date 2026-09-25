@@ -35,14 +35,15 @@ export interface ObtenerDetalleBucketMesResult {
 }
 
 /**
- * Allowlist del detalle MES-BUCKET (D-08): solo los 4 buckets de gasto.
- * Ingreso (US-052, fuera de alcance) y cualquier otro valor → 400.
+ * Allowlist del detalle MES-BUCKET (D-08): solo los 3 buckets de gasto.
+ * Ingreso (US-052, fuera de alcance), `SinCategoria` (issue #778 tramo 5b
+ * PR5 — ya no existe como bucket; `GET /api/buckets/SinCategoria` ahora
+ * responde 400 vía este mismo allowlist) y cualquier otro valor → 400.
  */
 const BUCKETS_DETALLE_MES: ReadonlySet<string> = new Set([
   Bucket.Necesidades,
   Bucket.Deseos,
   Bucket.Ahorro,
-  Bucket.SinCategoria,
 ]);
 
 /**

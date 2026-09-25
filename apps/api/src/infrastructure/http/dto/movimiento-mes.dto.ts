@@ -8,12 +8,13 @@ import { ObtenerMovimientosMesResult } from '../../../application/use-cases/obte
  * (REQ-07 / AC-08). fecha como ISO 8601 UTC string.
  *
  * `bucket` es el valor del Bucket de dominio ya foldeado (ej: `'Necesidades'`,
- * `'SinCategoria'`) — NUNCA el bucketId físico crudo (MOV-01). El fold ocurre
- * en el repositorio; este mapper es un pass-through.
+ * `'Deseos'`) — NUNCA el bucketId físico crudo (MOV-01). El fold ocurre
+ * en el repositorio; este mapper es un pass-through. `'SinCategoria'` ya no
+ * es un valor posible (issue #778 tramo 5b: removido del dominio).
  *
  * `categoria` (US-013 CATAPI-05) es `{ id, nombre } | null` ya foldeado —
- * `null` para filas Ingreso/SinCategoria. Campo aditivo, no rompe contrato
- * existente.
+ * `null` para filas Ingreso o cualquier fila sin categoría asignada. Campo
+ * aditivo, no rompe contrato existente.
  */
 export interface MovimientoMesItemDto {
   id: string;

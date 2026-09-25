@@ -26,7 +26,6 @@ import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-cas
 import { DetectarDuplicadosUseCase } from './detectar-duplicados.use-case';
 import { IRegistrarIngestaFallidaWriter } from '../ports/registrar-ingesta-fallida.port';
 import { IRevertirIngestaFallidaWriter } from '../ports/revertir-ingesta-fallida.port';
-import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { ILogger } from '../ports/logger.port';
 import {
@@ -42,10 +41,17 @@ export interface ProcessIngestaInput {
   esDemo: boolean;
 }
 
-/** Resumen opcional del paso de categorización (non-breaking). */
+/**
+ * Resumen opcional del paso de categorización (non-breaking). `sinCategoria`
+ * fue removido (issue #778 tramo 5b PR5): con `categoriaPorDefecto` siempre
+ * resuelto antes de llegar a `runCategorizacion`, el resultado del
+ * categorizador es SIEMPRE `tipo: 'clasificada'` (tramo 5a-bis) — el conteo
+ * de filas sin bucket ya no puede ser distinto de 0, así que dejó de ser
+ * información. Nunca estuvo expuesto por HTTP (`IngestaResponseDto` no lo
+ * incluye) — solo alimentaba un log de debug.
+ */
 export interface CategorizacionResumen {
   asignadas: number;
-  sinCategoria: number;
 }
 
 /** Salida agregada: todo lo que CLI/HTTP necesitan para reportar el resultado. */
@@ -593,9 +599,8 @@ export class ProcessIngestaUseCase {
       if (txsParaClasificar.length === 0) {
         this.logger.debug('process-ingesta: categorization pass completed', {
           asignadas: 0,
-          sinCategoria: 0,
         });
-        return { ok: true, resumen: { asignadas: 0, sinCategoria: 0 } };
+        return { ok: true, resumen: { asignadas: 0 } };
       }
 
       // 3. Clasificar cada transacción (nunca lanza, siempre retorna Result.ok)
@@ -615,11 +620,7 @@ export class ProcessIngestaUseCase {
       });
 
       // 4. El catálogo ya está garantizado disponible (rechazado más arriba
-      // si no lo estaba, tramo 5a) — TODO se escribe. SinCategoria es un
-      // estado definitivo, no "pendiente".
-      const sinCategoria = clasificadas.filter(
-        (a) => a.bucket === Bucket.SinCategoria,
-      ).length;
+      // si no lo estaba, tramo 5a) — TODO se escribe.
 
       // 5. Escribir categoría+bucket en BD, atómico por lote (issue #778
       // tramo 5a-bis: un fallo acá YA NO degrada — `runPipeline` revierte
@@ -644,13 +645,11 @@ export class ProcessIngestaUseCase {
       // las transacciones clasificadas, solo conteos (ADR-013).
       this.logger.debug('process-ingesta: categorization pass completed', {
         asignadas: writeResult.getValue().actualizadas,
-        sinCategoria,
       });
       return {
         ok: true,
         resumen: {
           asignadas: writeResult.getValue().actualizadas,
-          sinCategoria,
         },
       };
     } catch {

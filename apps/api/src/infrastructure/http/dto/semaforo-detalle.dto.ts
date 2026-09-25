@@ -5,15 +5,18 @@ import type { SemaforoDetalle } from '../../../domain/value-objects/semaforo-det
  * SemaforoDetalleDto — HTTP shape for `GET /api/resumen/semaforo` (US-049,
  * design §1.6). Mirrors `ResumenMesDto`'s BigInt-safety discipline:
  *
- * - Money (`totalIngreso`, `consejo.monto`, `sinCategoria.total`) travels as
- *   decimal strings — no precision loss (SEM-07).
+ * - Money (`totalIngreso`, `consejo.monto`) travels as decimal strings — no
+ *   precision loss (SEM-07).
  * - `porcentajeBp`/`metaBp`/band edges travel as JS numbers (bp ≤ 10000
  *   ≪ 2^53) — same discipline as `porcentajeBp` in `ResumenMesDto`.
  * - `estadoGlobal`/`estadoSemaforo` are the lowercase wire enum (`aWire()`).
  *
  * `buckets` is always exactly 3 entries (Necesidades, Deseos, Ahorro, fixed
- * order) — SinCategoria has no band/estado/target, so its count+total travel
- * in the separate `sinCategoria` object instead (D-03).
+ * order). The separate `sinCategoria` object (count+total) was removed
+ * (issue #778 tramo 5b PR5: `Bucket.SinCategoria` no longer exists in the
+ * domain) — a BREAKING change of this wire contract; web/mobile clients
+ * tolerate both the old (with `sinCategoria`) and new (without it) shapes
+ * during the deploy window (see their `esSemaforoDetalleDto` guards).
  */
 export interface SemaforoDetalleDto {
   readonly periodo: string;
@@ -40,7 +43,6 @@ export interface SemaforoDetalleDto {
       readonly mensaje: string;
     } | null;
   }>;
-  readonly sinCategoria: { readonly cantidad: number; readonly total: string };
 }
 
 /**
@@ -101,9 +103,5 @@ export function aSemaforoDetalleDto(
               mensaje: slice.consejo.mensaje,
             },
     })),
-    sinCategoria: {
-      cantidad: detalle.sinCategoria.cantidad,
-      total: String(detalle.sinCategoria.total),
-    },
   };
 }

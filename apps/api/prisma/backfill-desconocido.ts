@@ -285,11 +285,18 @@ export async function runBackfillDesconocido(
 
   // 2. Migración (A): SinCategoria → Deseos/Desconocido. MUEVE PLATA ENTRE
   // BUCKETS (ver docblock del archivo). Filtro por bucketId CRUDO — nunca
-  // por resolverBucket() (esa función foldea null → SinCategoria para
-  // agregación de reportes, no para decidir qué migrar).
+  // por resolverBucket() (esa función foldea null y cualquier bucketId no
+  // reconocido, incluido el legacy 'bucket-sincategoria', a Deseos para
+  // agregación de reportes; no se usa acá para decidir qué migrar).
+  //
+  // El literal 'bucket-sincategoria' de abajo NO viene de
+  // BUCKET_IDS[Bucket.SinCategoria] — issue #778 tramo 5b PR5 removió ese
+  // miembro del dominio. Este script migra filas físicas escritas ANTES de
+  // ese cambio, así que necesita el id físico tal cual, no el enum. PR 6
+  // (#778) retira este script junto con la columna/migración de datos.
   const filasSinCategoria = await prisma.transaccion.findMany({
     where: {
-      bucketId: BUCKET_IDS[Bucket.SinCategoria],
+      bucketId: 'bucket-sincategoria', // PR 6 (#778) removes this
       account: { userId },
     },
     select: { id: true, fecha: true, cargo: true, abono: true, bucketId: true },

@@ -17,7 +17,7 @@ export class BucketInvalidoError extends Error {
 
   constructor(raw: string) {
     super(
-      'El bucket no es válido. Valores esperados: Necesidades, Deseos, Ahorro, Ingreso, SinCategoria.',
+      'El bucket no es válido. Valores esperados: Necesidades, Deseos, Ahorro, Ingreso.',
     );
     this.name = 'BucketInvalidoError';
     this.rawValue = raw;

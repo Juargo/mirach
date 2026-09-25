@@ -1,18 +1,30 @@
 import { Bucket } from '../../domain/value-objects/bucket';
 
 /**
+ * `ID_BUCKET_SINCATEGORIA_LEGACY` — el id físico `bucket-sincategoria`, ya no
+ * representable como `Bucket.SinCategoria` (issue #778 tramo 5b PR5 removió
+ * ese miembro del dominio). Out of scope de PR5 tocar la demo data en sí
+ * (eso es PR 6, junto con la migración de datos) — este literal preserva a
+ * propósito las 2 transacciones demo que hoy aterrizan en ese bucket físico.
+ */
+export const ID_BUCKET_SINCATEGORIA_LEGACY = 'bucket-sincategoria';
+
+/**
  * DemoTransaccionDef — definición estática de una transacción demo.
  *
  * `cargo`/`abono` son `bigint` (dinero exacto, nunca float — CLAUDE.md). Solo
  * uno de los dos es distinto de cero por fila, igual que `Transaccion` real.
  * `daysAgo` se resuelve a una fecha absoluta en el seeder, relativa al
  * instante de creación del usuario demo (`ahora`).
+ *
+ * `bucketKey` acepta el literal legacy `ID_BUCKET_SINCATEGORIA_LEGACY`
+ * además de `Bucket` — PR 6 (#778) lo retira junto con esas filas.
  */
 export interface DemoTransaccionDef {
   readonly descripcion: string;
   readonly cargo: bigint;
   readonly abono: bigint;
-  readonly bucketKey: Bucket;
+  readonly bucketKey: Bucket | typeof ID_BUCKET_SINCATEGORIA_LEGACY;
   readonly daysAgo: number;
 }
 
@@ -209,19 +221,20 @@ export const DEMO_TRANSACCIONES: readonly DemoTransaccionDef[] = [
     daysAgo: 28,
   },
 
-  // SinCategoria (2 transacciones, $58.000 — cobertura del bucket, DEMO-DATA-01)
+  // SinCategoria (2 transacciones, $58.000 — cobertura del bucket físico
+  // legacy, DEMO-DATA-01). PR 6 (#778) retira estas filas.
   {
     descripcion: 'Retiro Cajero Automático',
     cargo: 50_000n,
     abono: 0n,
-    bucketKey: Bucket.SinCategoria,
+    bucketKey: ID_BUCKET_SINCATEGORIA_LEGACY,
     daysAgo: 7,
   },
   {
     descripcion: 'Transferencia sin glosa',
     cargo: 8_000n,
     abono: 0n,
-    bucketKey: Bucket.SinCategoria,
+    bucketKey: ID_BUCKET_SINCATEGORIA_LEGACY,
     daysAgo: 19,
   },
 ];

@@ -13,7 +13,7 @@ import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
  *   - USER-LOCKED DECISION: integer number, NOT a string.
  * estadoSemaforo: lowercase wire representation of EstadoSemaforo (US-016).
  *   - 'verde' | 'amarillo' | 'rojo' | null
- *   - null for SinCategoria or sinIngreso path.
+ *   - null for the sinIngreso path.
  */
 export interface BucketResumenDto {
   readonly bucket: string;
@@ -27,15 +27,17 @@ export interface BucketResumenDto {
  *
  * totalIngreso: BigInt as decimal string (SC-06 BigInt-safe).
  * sinIngreso: true when totalIngreso === "0" (HTTP 200, not an error — SC-04).
- * buckets: always 4 entries (Necesidades, Deseos, Ahorro, SinCategoria).
+ * buckets: always 3 entries (Necesidades, Deseos, Ahorro) — issue #778 tramo
+ *   5b PR5 removed `Bucket.SinCategoria`/`cantidadSinCategoria` from the
+ *   domain AND this wire contract. This is a BREAKING change of the
+ *   `/api/resumen` response shape; web/mobile clients tolerate both the old
+ *   (4 buckets + cantidadSinCategoria) and new (3 buckets, no
+ *   cantidadSinCategoria) shapes during the deploy window (see their
+ *   `esResumenMesDto` guards).
  * targets: hardcoded 50/30/20 reference for US-016/UI.
  * estadoGlobal: worst traffic-light state across measured buckets (US-016).
  *   - lowercase: 'verde' | 'amarillo' | 'rojo' | null
  *   - null when sinIngreso=true.
- * cantidadSinCategoria: US-045 — count of uncategorized cargo transactions.
- *   - top-level scalar (design D-02), NOT a field on BucketResumenDto — keeps
- *     that shape uniform across all four bucket slices (ISP).
- *   - always present, JS number (row count, not money — D-03).
  */
 export interface ResumenMesDto {
   readonly periodo: string;
@@ -48,7 +50,6 @@ export interface ResumenMesDto {
     readonly Ahorro: number;
   };
   readonly estadoGlobal: string | null;
-  readonly cantidadSinCategoria: number;
 }
 
 /**
@@ -97,6 +98,5 @@ export function aResumenMesDto(
       [Bucket.Ahorro]: TARGETS_503020[Bucket.Ahorro]!,
     },
     estadoGlobal: aWire(resumen.estadoGlobal),
-    cantidadSinCategoria: resumen.cantidadSinCategoria,
   };
 }

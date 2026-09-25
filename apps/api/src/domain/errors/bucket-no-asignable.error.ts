@@ -3,8 +3,9 @@
  *
  * Se produce cuando el `bucket` recibido al crear o actualizar una categoría
  * no es uno de los tres buckets asignables (`Necesidades`/`Deseos`/`Ahorro`).
- * Cubre `bucket` faltante, desconocido, y los estados computados `Ingreso` /
- * `SinCategoria`, que NO son asignables (CAT038-01). El mensaje enumera los
+ * Cubre `bucket` faltante, desconocido, y el estado computado `Ingreso`,
+ * que NO es asignable (CAT038-01) — `SinCategoria` cubría el mismo caso
+ * hasta que issue #778 tramo 5b PR5 lo removió del dominio. El mensaje enumera los
  * valores válidos porque `Bucket` es una taxonomía global fija, no un dato
  * de usuario — enumerarla no es anti-enumeration risk. Ver design.md §5.2.
  */

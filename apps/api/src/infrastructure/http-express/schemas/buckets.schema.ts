@@ -37,7 +37,9 @@ const categoriaSchema = z
     nombre: z.string(),
   })
   .nullable()
-  .describe('Folded category, or null for Ingreso/SinCategoria rows.');
+  .describe(
+    'Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).',
+  );
 
 const bucketTransaccionSchema = z.object({
   id: z.string(),

@@ -62,7 +62,7 @@ const commitTransaccionResponseSchema = z.object({
   bucket: z
     .string()
     .describe(
-      'Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso|SinCategoria). ' +
+      'Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso). ' +
         'Always present for commit rows — classification is resolved pre-persist (D-11).',
     ),
   categoriaId: z

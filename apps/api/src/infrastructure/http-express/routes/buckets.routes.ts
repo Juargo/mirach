@@ -45,7 +45,7 @@ export function registrarBuckets(
         if (error instanceof BucketInvalidoError) {
           res.status(400).json({
             message:
-              'El bucket no es válido. Valores esperados: Necesidades, Deseos, Ahorro, Ingreso, SinCategoria.',
+              'El bucket no es válido. Valores esperados: Necesidades, Deseos, Ahorro, Ingreso.',
           });
           return;
         }
@@ -113,7 +113,7 @@ export function registrarBucketDetalleMes(
         if (error instanceof BucketInvalidoError) {
           res.status(400).json({
             message:
-              'El bucket no es válido. Valores esperados: Necesidades, Deseos, Ahorro, SinCategoria.',
+              'El bucket no es válido. Valores esperados: Necesidades, Deseos, Ahorro.',
           });
           return;
         }

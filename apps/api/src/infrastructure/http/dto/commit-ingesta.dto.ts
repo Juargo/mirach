@@ -115,9 +115,9 @@ export interface CommitTransaccionResponseDto {
   abono: string;
   /**
    * Serialized Bucket enum value (design §5.2). ALWAYS present for a commit row:
-   * commit resolves classification pre-persist (SinCategoria and Ingreso both
-   * yield a concrete bucket — see D-11). `bucketId: null` is a one-shot-only
-   * pending state that commit never produces, so this is `string`, not `string | null`.
+   * commit resolves classification pre-persist — every row yields a concrete
+   * bucket (see D-11). `bucketId: null` is a one-shot-only pending state that
+   * commit never produces, so this is `string`, not `string | null`.
    */
   bucket: string;
   categoriaId: string | null;

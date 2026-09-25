@@ -14,8 +14,10 @@
  * categoría creada por el usuario (el mismo defecto que ADR-036 D-09
  * corrigió, re-armado por otro vector).
  *
- * `null`/`undefined` → `null` (Ingreso/SinCategoria, sin match) — semántica
- * sin cambios. En cualquier otro caso devuelve `{ id: categoria.id, nombre:
+ * `null`/`undefined` → `null` (Ingreso, o cualquier fila sin match/sin
+ * categoría asignada — issue #778 tramo 5b: `SinCategoria` ya no existe
+ * como bucket) — semántica sin cambios. En cualquier otro caso devuelve
+ * `{ id: categoria.id, nombre:
  * categoria.nombre }` — el id REAL de la fila.
  */
 export function foldCategoria(
