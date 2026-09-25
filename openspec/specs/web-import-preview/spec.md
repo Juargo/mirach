@@ -583,7 +583,7 @@ which MAY be the new categoría if one of its patrones matches.
 - WHEN any other row's categoría select is opened afterward
 - THEN the new categoría appears among its bucket's options
 
-### Requirement: WEB-PRV-16 — The re-run announces how many rows changed suggestion, and the progress readout reflects it
+### Requirement: WEB-PRV-16 — The re-run announces how many rows changed suggestion
 
 After a successful save and preview re-run (WEB-PRV-15), the system MUST
 announce, via a `role="status"` region, how many rows changed suggested
@@ -593,9 +593,7 @@ message when N = 0). "Changed" MUST be computed by comparing each row's
 merged categoría before vs. after the re-run, excluding the originating row
 (which always changes, per WEB-PRV-15, and is not part of this count) and
 excluding rows with a prior explicit edit (which cannot change, per
-WEB-PRV-15). The classification progress readout (the "N de M clasificadas"
-count and its progress bar — the same readout `resolverCategoriaMerged`
-already backs) MUST reflect the post-re-run state.
+WEB-PRV-15).
 
 #### Scenario: Announcement reports a positive count
 
@@ -609,12 +607,6 @@ already backs) MUST reflect the post-re-run state.
 - WHEN the re-run completes
 - THEN the `role="status"` region announces that no other row matched
 - AND this is not treated as an error state
-
-#### Scenario: The classification progress readout updates after the re-run
-
-- GIVEN the "N de M clasificadas" readout showed a given count before the save
-- WHEN the re-run completes and additional rows now have a merged categoría
-- THEN the readout's count and progress bar reflect the new, larger classified count
 
 ### Requirement: WEB-PRV-17 — A preview re-run failure after a successful save does not lose the created categoría or the prior review state
 
@@ -771,7 +763,7 @@ no reclassification and no amount computation — group headings never sum amoun
 | Unit — creation form | Prefilled first patrón from row description; bucket read-only; add/remove entries; zero-patrones submission allowed; Escape cancels; focus enters on open, returns to trigger on close |
 | Unit — save error handling | Per-patrón error placed at the correct entry via its index; form-level errors (duplicate nombre) via `mensajeDeErrorCatalogo`; nothing persisted, form stays open |
 | Unit/Integration — save success orchestration | Originating row's edit set to new id even with zero matching patrones; catalog query invalidated; preview re-run called with the same `File`; prior edits preserved through the re-run |
-| Unit — announcement | Correct count computed excluding the originating row and previously-edited rows; zero case renders a non-error message; progress readout reflects the new classified count |
+| Unit — announcement | Correct count computed excluding the originating row and previously-edited rows; zero case renders a non-error message |
 | Integration — re-run failure | Prior table and edits preserved on re-run failure; created categoría still selectable; inline error shown |
 | Backend/parser — rowIndex stability | Same file bytes parsed twice yield an identical `rowIndex` ↔ row mapping (WEB-PRV-18) |
 
