@@ -19,9 +19,9 @@ export interface TransaccionParaReevaluar {
   /** Categoría actualmente persistida (antes de reevaluar). */
   readonly categoriaIdActual: string | null;
   /** Bucket actualmente persistido (antes de reevaluar), ya resuelto a enum
-   * de dominio — `null` físico (y cualquier bucketId no reconocido, incluido
-   * el legacy `bucket-sincategoria`) se resuelve a `Bucket.Deseos` (mismo
-   * fold que `resolverBucket`, infra; issue #778 tramo 5b PR5). */
+   * de dominio — `null` físico (y cualquier bucketId no reconocido) se
+   * resuelve a `Bucket.Deseos` (mismo fold que `resolverBucket`, infra;
+   * issue #778 tramo 5b). */
   readonly bucketActual: Bucket;
 }
 
