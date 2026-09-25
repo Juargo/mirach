@@ -11,8 +11,7 @@ import { Bucket } from '../../domain/value-objects/bucket';
  *
  * `runMarcarCategoriasInternas` solo depende de un subconjunto estructural
  * de PrismaClient (MarcarInternasClient); este fake reproduce
- * findMany/updateMany en memoria (mismo patrón que
- * backfill-desconocido.spec.ts).
+ * findMany/updateMany en memoria (mismo patrón que backfill-categorias.spec.ts).
  */
 
 const USER_ID = 'user-1';
