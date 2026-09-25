@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines the read-only Expo screen (`apps/mobile`) that renders `GET /api/resumen` — income, 50/30/20 buckets, and semáforo — with BigInt-safe money formatting (ADR-015 money emphasis) and the loading/empty/error/data states the Maestro flow asserts against. As of the US-050 redesigned dashboard (change `us-050-mobile-dashboard`, 2026-08-17, issue #284), the data state composes a 4-item donut ring, 5-row legend, static semáforo tag, and an annual section — see MOB-08..MOB-15.
+Defines the read-only Expo screen (`apps/mobile`) that renders `GET /api/resumen` — income, 50/30/20 buckets, and semáforo — with BigInt-safe money formatting (ADR-015 money emphasis) and the loading/empty/error/data states the Maestro flow asserts against. As of the US-050 redesigned dashboard (change `us-050-mobile-dashboard`, 2026-08-17, issue #284), the data state composes a donut ring, legend, static semáforo tag, and an annual section — see MOB-08..MOB-15. Issue #778 tramo 5b (2026-09-25) retired the `SinCategoria` bucket: the ring/legend are now 3-item/4-row (MOB-08).
 
 ## Requirements
 
@@ -46,9 +46,9 @@ The client MUST map a 401 response, a network failure, and a malformed/unparseab
 
 The screen MUST render exactly one of: loading, empty (`sinIngreso: true`),
 error, or data — and MUST NOT render partial/undefined content while
-transitioning. The data state MUST compose the 4-item donut ring + 5-row
+transitioning. The data state MUST compose the 3-item donut ring + 4-row
 legend (MOB-08), the static semáforo tag (MOB-09), and the annual section
-(MOB-10) — replacing the Sprint-3 three-bucket-only breakdown.
+(MOB-10).
 
 > Note: the base spec's MOB-03 required a per-bucket `estadoSemaforo`
 > indicator; that indicator was already dead in shipped code (never
@@ -85,12 +85,13 @@ legend (MOB-08), the static semáforo tag (MOB-09), and the annual section
 
 #### Scenario: Data state renders the ring, legend, semáforo tag, and annual section
 
-- GIVEN the API responds 200 with `sinIngreso: false` and 4 buckets
-  (`Necesidades`, `Deseos`, `Ahorro`, `SinCategoria`)
+- GIVEN the API responds 200 with `sinIngreso: false` and 3 buckets
+  (`Necesidades`, `Deseos`, `Ahorro` — issue #778 tramo 5b removed
+  `SinCategoria`)
 - WHEN the screen renders the response
 - THEN `totalIngreso` is shown formatted as CLP (MOB-05)
-- AND the donut ring shows 4 slices per MOB-08
-- AND the legend shows 5 rows per MOB-08
+- AND the donut ring shows 3 slices per MOB-08
+- AND the legend shows 4 rows per MOB-08
 - AND the semáforo tag renders `estadoGlobal` per MOB-09
 - AND the annual section (MOB-10) renders below the chart card
 
@@ -163,27 +164,28 @@ Rendering of `porcentajeBp` MUST NOT display `null` as `"0%"`; `null` MUST rende
 - THEN `login.yaml` is absent
 - AND `resumen-semaforo.yaml` contains no `runFlow: login.yaml` step
 
-### Requirement: MOB-08 — Chart card renders a 4-item donut ring and a 5-row legend, with each legend row a pressable navigation target
+### Requirement: MOB-08 — Chart card renders a 3-item donut ring and a 4-row legend, with each legend row a pressable navigation target
 
-The donut ring MUST apportion its slices over the 4 canonical buckets
-(`Necesidades`, `Deseos`, `Ahorro`, `SinCategoria`, per `BUCKETS_ANILLO`
-semantics, US-047 WG5-13) using the ported largest-remainder apportionment,
-not the 3-bucket-only apportionment. The legend MUST render exactly 5 rows in
-this order: `Necesidades`, `Deseos` (labeled "Gustos"), `Ahorro` — each with
-its ring `porcentaje` and signed CLP amount — then `Ingresos` (signed `+`,
-`totalIngreso`) and `Sin categoría · {cantidadSinCategoria} tx` (signed `-`).
-Money amounts in the legend MUST be formatted via the signed CLP formatter
-(never `parseFloat`/`Number` on the amount — MOB-05's discipline applies to
-this formatter too).
+The donut ring MUST apportion its slices over the 3 spend buckets
+(`Necesidades`, `Deseos`, `Ahorro`, per `BUCKETS_ANILLO` semantics) using the
+ported largest-remainder apportionment. Issue #778 tramo 5b PR2 removed
+`SinCategoria` from `BUCKETS_ANILLO`: the API may still send a `SinCategoria`
+entry in `buckets[]` (deploy-order safety — the contract itself dropped it in
+PR5), but the ring/legend ignore it entirely, excluding it from BOTH the
+numerator and the denominator so the 3 slices always sum to exactly 100. The
+legend MUST render exactly 4 rows in this order: `Necesidades`, `Deseos`
+(labeled "Gustos"), `Ahorro` — each with its ring `porcentaje` and signed CLP
+amount — then `Ingresos` (signed `+`, `totalIngreso`). There is no Sin
+categoría legend row. Money amounts in the legend MUST be formatted via the
+signed CLP formatter (never `parseFloat`/`Number` on the amount — MOB-05's
+discipline applies to this formatter too).
 
-Each of the 5 legend rows MUST be a `Pressable` (`accessibilityRole="button"`)
+Each of the 4 legend rows MUST be a `Pressable` (`accessibilityRole="button"`)
 with an explicit Spanish accessibility label and a `testID` following the
 `"leyenda-fila-{key}"` pattern (e.g. `testID="leyenda-fila-Necesidades"`,
-`testID="leyenda-fila-Deseos"`, `testID="leyenda-fila-Ahorro"`, `testID="leyenda-fila-ingreso"`,
-`testID="leyenda-fila-SinCategoria"`). Pressing a spend-bucket row MUST call
+`testID="leyenda-fila-Deseos"`, `testID="leyenda-fila-Ahorro"`,
+`testID="leyenda-fila-ingreso"`). Pressing a spend-bucket row MUST call
 the `onNavegar` callback with the exact path string (e.g. `/bucket/Necesidades?periodo=2026-07`).
-Pressing the `SinCategoria` row MUST call `onNavegar` with the exact string
-`/bucket/SinCategoria?destacar=sin-categoria&periodo=${periodo}`.
 Pressing the `Ingresos` row MUST call `onNavegar` with the exact string
 `/ingresos?periodo=${periodo}`.
 The `onNavegar` callback (required prop, passed from `index.tsx` as `router.push`) is
@@ -198,48 +200,46 @@ MUST NOT have per-slice press handlers (D-01).
 (Previously: legend rows rendered `porcentaje` + signed CLP and were explicitly
 non-interactive — US-050 binding decision 2 mandated no pressability, no
 chevrons, no navigation. This MODIFIED requirement reverses that decision for
-the 5 legend rows ONLY, adding `Pressable` wrappers and three navigation
+the legend rows, adding `Pressable` wrappers and navigation
 targets while leaving the donut SVG itself decorative and unpressable.
 Updated by change `us-056-mobile-detalle-mes` (2026-08-21, issue #290).)
+(Previously: the ring apportioned over 4 canonical buckets including
+`SinCategoria`, per `BUCKETS_ANILLO` semantics US-047 WG5-13, and the legend
+rendered a 5th row, `Sin categoría · {cantidadSinCategoria} tx` (signed `-`),
+navigating to `/bucket/SinCategoria?destacar=sin-categoria&periodo=${periodo}`.
+Issue #778 tramo 5b PR2 retired the `SinCategoria` ring member and legend row
+entirely — see `WG5-13`'s retirement in `web-app` for the equivalent web-side
+change.)
 
-#### Scenario: SinCategoria with a nonzero total dilutes the three spend-bucket ring percentages (RNTL)
+#### Scenario: A legacy SinCategoria entry in the response is ignored, undiluted (RNTL)
 
-- GIVEN a resumen response where `SinCategoria.total` is nonzero alongside
-  nonzero `Necesidades`/`Deseos`/`Ahorro` totals
-- WHEN the ring computes its 4 slice percentages
-- THEN `SinCategoria` receives its own nonzero slice
+- GIVEN a resumen response where a `SinCategoria` bucket entry is present with
+  a nonzero total, alongside nonzero `Necesidades`/`Deseos`/`Ahorro` totals
+- WHEN the ring computes its 3 slice percentages
+- THEN `SinCategoria` is excluded from both the numerator and the denominator
+  — it receives no slice and does not dilute the other three
 - AND the `Necesidades`/`Deseos`/`Ahorro` percentages are the SAME numbers
   shown in the legend rows for those buckets (no independent
-  re-normalization to 3 buckets in the legend)
-- AND all 4 slice percentages sum to exactly 100
+  re-normalization in the legend)
+- AND all 3 slice percentages sum to exactly 100
 
-#### Scenario: Legend renders 5 rows in the fixed order with signed amounts (RNTL)
+#### Scenario: Legend renders 4 rows in the fixed order with signed amounts (RNTL)
 
-- GIVEN a resumen response with `sinIngreso: false`, 4 buckets, and
-  `cantidadSinCategoria: 3`
+- GIVEN a resumen response with `sinIngreso: false` and 3 buckets
 - WHEN the legend renders
-- THEN the rows appear in order: Necesidades, Gustos, Ahorro, Ingresos, "Sin
-  categoría · 3 tx"
-- AND the Necesidades/Gustos/Ahorro/Sin-categoría rows show a `-` sign
-  amount
+- THEN the rows appear in order: Necesidades, Gustos, Ahorro, Ingresos
+- AND the Necesidades/Gustos/Ahorro rows show a `-` sign amount
 - AND the Ingresos row shows a `+` sign amount equal to `totalIngreso`
-
-#### Scenario: cantidadSinCategoria of zero still renders an explicit "0 tx" row (RNTL)
-
-- GIVEN `cantidadSinCategoria: 0` in the resumen response
-- WHEN the legend renders the "Sin categoría" row
-- THEN the row shows "Sin categoría · 0 tx", never omitted and never blank
 
 #### Scenario: No spending yields an empty ring without dividing by zero (RNTL)
 
-- GIVEN all 4 bucket totals are `"0"`
+- GIVEN all 3 bucket totals are `"0"`
 - WHEN the ring renders
 - THEN it shows a muted placeholder instead of computing a percentage split
 - AND the Necesidades/Gustos/Ahorro rows (`leyendaPrincipal`) are absent,
   per the underlying `calcularDistribucionGasto([])` contract
-- AND the Ingresos and Sin categoría rows (`leyendaComplemento`) still
-  render regardless of spending — Sin categoría shows its explicit "0 tx" /
-  $0, never absent
+- AND the Ingresos row (`leyendaComplemento`) still renders regardless of
+  spending
 
 #### Scenario: Tapping a spend-bucket legend row navigates to M1 with the current periodo (RNTL)
 
@@ -254,12 +254,6 @@ Updated by change `us-056-mobile-detalle-mes` (2026-08-21, issue #290).)
 - WHEN the user presses the row labeled `"Gustos"` (`testID="leyenda-fila-Deseos"`)
 - THEN `onNavegar` is called with the exact string `/bucket/Deseos?periodo=2026-06` — the wire key `Deseos` (not the display label `Gustos`) is used as the route segment; a display-label-as-segment implementation fails this scenario
 
-#### Scenario: Tapping Sin categoría row navigates to M1 with destacar param (RNTL)
-
-- GIVEN the dashboard is showing `periodo="2026-05"`
-- WHEN the user presses the `"Sin categoría · N tx"` row (`testID="leyenda-fila-SinCategoria"`)
-- THEN `onNavegar` is called with the exact string `/bucket/SinCategoria?destacar=sin-categoria&periodo=2026-05`
-
 #### Scenario: Tapping Ingresos row navigates to M2 with the current periodo (RNTL)
 
 - GIVEN the dashboard is showing `periodo="2026-07"`
@@ -268,16 +262,16 @@ Updated by change `us-056-mobile-detalle-mes` (2026-08-21, issue #290).)
 
 #### Scenario: Donut SVG has no per-slice press handler (RNTL)
 
-- GIVEN the chart card has rendered with 4 non-zero slices
+- GIVEN the chart card has rendered with 3 non-zero slices
 - WHEN the SVG element with `accessibilityLabel="Distribución del gasto"` is inspected
 - THEN no child element inside the SVG has an `onPress` handler
 - AND the SVG `accessibilityLabel` remains `"Distribución del gasto"` unchanged
 
-#### Scenario: All 5 legend rows carry accessibilityRole="button" (RNTL)
+#### Scenario: All 4 legend rows carry accessibilityRole="button" (RNTL)
 
 - GIVEN the data state has rendered with income data present
 - WHEN all legend row elements are queried by `testID` regex `/^leyenda-fila-/` (RNTL accepts string-exact or regex — glob is not a valid query form)
-- THEN exactly 5 elements are found and each has `accessibilityRole="button"`
+- THEN exactly 4 elements are found and each has `accessibilityRole="button"`
 
 ### Requirement: MOB-09 — The semáforo tag is a static, non-interactive indicator
 

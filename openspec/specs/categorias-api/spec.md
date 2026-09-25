@@ -92,9 +92,14 @@ after a successful reclassify.
 
 `GET /api/movimientos` and `GET /api/buckets/:bucket` row shapes MUST include
 a `categoria` field (`{ id, nombre } | null`). It MUST be `null` for Ingreso
-and SinCategoria rows (and any unmatched row), and the categoría's own
-`{id, nombre}` otherwise. This is additive — existing fields (`bucket`, money
-strings) are unchanged.
+rows (categoría-less by design, CAT-02) and for any residual row that truly
+has no categoría (e.g. a legacy row never backfilled, or the documented
+`bucketId IS NULL` revert-the-revert residual — `bucket-detalle-mes`), and
+the categoría's own `{id, nombre}` otherwise. Since issue #778 tramo 5b, a
+normally-ingested unmatched row is NOT one of these null cases: it carries
+the non-null `Desconocido` categoría of its default bucket
+(`categorias-model` CAT-03) — `Bucket.SinCategoria` no longer exists. This is
+additive — existing fields (`bucket`, money strings) are unchanged.
 
 #### Scenario: A classified row exposes its categoría
 
@@ -102,11 +107,11 @@ strings) are unchanged.
 - WHEN the movimientos endpoint is called
 - THEN the row's `categoria` field is `{ id: <id>, nombre: "Supermercado" }`
 
-#### Scenario: Ingreso and SinCategoria rows expose null categoría
+#### Scenario: Ingreso rows expose null categoría
 
-- GIVEN one Ingreso row and one SinCategoria row in the period
+- GIVEN one Ingreso row in the period
 - WHEN the movimientos endpoint is called
-- THEN both rows' `categoria` field is `null`
+- THEN the row's `categoria` field is `null`
 
 ## Non-Goals
 

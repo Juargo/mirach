@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Dashboard drill-down: clicking a bucket (or Sin categoría) in the 50/30/20
+Dashboard drill-down: clicking a bucket in the 50/30/20
 pie/legend navigates to that bucket's Detalle MES-BUCKET page (`/buckets/:bucket`),
 which shows only that bucket's transactions for the viewed month, grouped by the
 finer `categoria` exposed by `categorias-api`, with an active reclassify control
@@ -102,7 +102,7 @@ money-move `<p>` message, focus MUST move to the Confirmar button on open, and f
 confirmation step. On success, the page's group list AND the resumen (pie/traffic-light) MUST refresh; on a
 cross-bucket move, the page-owned `role="status"` region (D-04) MUST announce «Movida a {bucket}.»
 where `{bucket}` is the destination bucket's display label (`ETIQUETA_BUCKET[bucketNuevo]`, e.g. `Gustos` for `Deseos`); no announcement is made for same-bucket moves. The region text is visible to sighted users and screen readers from the same node (no separate sr-only span); it persists until replaced by a subsequent cross-bucket move or page unmount.
-The SinCategoria "Clasificar" CTA MUST behave the same way via the same control. A categoría created,
+The reclassify control on an uncategorized ("Sin categoría") row MUST behave the same way via the same control. A categoría created,
 renamed, or deleted through `/configuracion/categorias` MUST be reflected here with no code change.
 (Previously: the offered set was "ALL of the caller's own categorías, grouped by bucket" — now restricted
 to categorías in `BUCKETS_ASIGNABLES` only (D-02), removing the `agruparPorBucket` "Otros" catch-all group
@@ -200,16 +200,17 @@ ported to the Detalle MES-BUCKET page unchanged — its render site is the page'
 - WHEN the dialog closes
 - THEN focus is on the `<select>` that triggered the confirmation — not on the page body or any other element
 
-#### Scenario: SinCategoria row reclassifies and its row leaves the destacado group (jsdom)
+#### Scenario: An uncategorized row reclassifies and leaves the destacado Sin categoría group (jsdom)
 
-- GIVEN `/buckets/SinCategoria?periodo=2026-07&destacar=…` with one uncategorized transaction
-- WHEN the user uses the "Clasificar" CTA to reclassify it to "Supermercado" (Necesidades)
+- GIVEN `/buckets/Necesidades?periodo=2026-07&destacar=…` with one uncategorized transaction
+  (`categoriaId: null`) inside the highlighted Sin categoría group
+- WHEN the user uses the reclassify control to assign it "Supermercado" (also Necesidades)
 - THEN the invalidation runs as defined by WDM-07, the page refetches, and the previously uncategorized row
   no longer appears in the Sin categoría group (CA-04; no new page is navigated to)
 
 ### Requirement: WCAT-05 — Reclassify control is accessible (ADR-018, WCAG 2.2 AA)
 
-The reclassify control (and the SinCategoria "Clasificar" CTA) MUST be
+The reclassify control (including on an uncategorized "Sin categoría" row) MUST be
 operable by keyboard alone and MUST expose an accessible name that identifies
 which transaction it edits (not a generic "Editar categoría" with no context
 for assistive tech). The control MUST be disabled (not removed) while its
@@ -331,32 +332,33 @@ them again. The collapsed panel MUST stay mounted (`hidden`, not unmounted) so i
 - WHEN its heading renders
 - THEN the badge shows the generic fallback icon
 
-### Requirement: WDM-04 — Sin categoría group highlight via `?destacar=` and structural no-%/meta (CA-04, decision 2, MBD-03)
+### Requirement: WDM-04 — Sin categoría group highlight via `?destacar=`, reachable by direct link (CA-04, decision 2)
 
-WHEN the page is reached with the `destacar` search param, the Sin categoría group MUST render visually
-highlighted AND start EXPANDED (the sole exception to WDM-03's collapsed-by-default accordion rule) — every
-other group on the page still starts collapsed. The %/meta TAG MUST NOT render only for the SinCategoria
-bucket (`metaBp` null); the usage BAR MUST NOT render whenever `porcentajeBp` is null — a no-income month
-(`porcentajeBp: null`, `metaBp` non-null) keeps the tag rendered as `SIN_PORCENTAJE_LABEL` (MBD-03, WDM-01).
+WHEN the page is reached with the `destacar` search param, the synthetic Sin categoría group
+(`categoriaId: null`, present on any of the three spend buckets when it has uncategorized rows —
+`bucket-detalle-mes` MBD-02) MUST render visually highlighted AND start EXPANDED (the sole exception to
+WDM-03's collapsed-by-default accordion rule) — every other group on the page still starts collapsed.
+Issue #778 tramo 5b retired `Bucket.SinCategoria` and the dashboard no longer offers a Sin categoría
+wedge/legend row to click (WDM-06): this highlight is reachable ONLY by a direct link carrying
+`?destacar=` on a real bucket page (e.g. `/buckets/Necesidades?destacar=…`) — `/buckets/SinCategoria`
+itself now 400s (`bucket-detalle-mes` MBD-07).
+(Previously: the %/meta tag and usage bar were structurally absent when viewing the SinCategoria bucket
+itself, whose `metaBp`/`porcentajeBp` were always null — MBD-03. That bucket, and MBD-03, are retired;
+WDM-01's `SIN_PORCENTAJE_LABEL`/"Sin meta" handling already covers the surviving no-income case for a
+real bucket.)
 
 #### Scenario: Arrival with `destacar` highlights the Sin categoría group (jsdom)
 
-- GIVEN navigation from the dashboard's Sin categoría chart item carrying a `destacar` search param
+- GIVEN a direct link to `/buckets/Necesidades?destacar=…` where Necesidades has uncategorized rows
 - WHEN the page renders
 - THEN the Sin categoría group carries the highlight; a plain arrival (no `destacar`) renders no highlight
 
 #### Scenario: The destacado group starts expanded; every other group starts collapsed (jsdom)
 
-- GIVEN a fresh arrival at `/buckets/SinCategoria?destacar=…`
+- GIVEN a fresh arrival at `/buckets/Necesidades?destacar=…`
 - WHEN the page renders
 - THEN the Sin categoría group's accordion trigger reads `aria-expanded="true"` and its rows are visible
 - AND every other group's trigger reads `aria-expanded="false"` with its rows hidden
-
-#### Scenario: SinCategoria bucket renders no %/meta and no usage bar (jsdom)
-
-- GIVEN `/buckets/SinCategoria` with null `metaBp`/`porcentajeBp`
-- WHEN the page renders
-- THEN no %/meta tag and no usage bar render
 
 ### Requirement: WDM-05 — Explicit empty-month state (decision 4)
 
@@ -374,22 +376,19 @@ NOT render.
 
 ### Requirement: WDM-06 — Dashboard wiring: pie/legend navigate; US-047 interim panel retired (CA-05)
 
-Clicking a spend-bucket or Sin categoría pie wedge or legend row MUST navigate to `/buckets/{bucket}`
-carrying the current `periodo` search param — never swap an inline panel (WCAT-01). The Sin categoría item
-MUST additionally carry `destacar` (WDM-04). The US-047 interim panel MUST be retired: `ResumenScreen` MUST
+Clicking a spend-bucket pie wedge or legend row MUST navigate to `/buckets/{bucket}`
+carrying the current `periodo` search param — never swap an inline panel (WCAT-01). The US-047 interim panel MUST be retired: `ResumenScreen` MUST
 have no bucket-selection state and no inline detail panel.
+(Previously: this requirement also covered a Sin categoría pie wedge/legend row that additionally carried
+`destacar`. Issue #778 tramo 5b retired that row entirely — `ResumenScreen`'s `onSelectBucket` no longer
+computes or passes a `destacar` flag at all. The underlying highlight mechanism survives at the bucket
+detail page as a direct-link-only affordance — see WDM-04.)
 
 #### Scenario: A spend-bucket row navigates without `destacar` (jsdom)
 
 - GIVEN the dashboard is viewing `2026-07`
 - WHEN the user clicks the Deseos legend row
 - THEN the URL becomes `/buckets/Deseos?periodo=2026-07` (no `destacar`) and no panel swaps
-
-#### Scenario: The Sin categoría row navigates carrying `destacar` (jsdom)
-
-- GIVEN the dashboard is viewing `2026-07`
-- WHEN the user clicks the Sin categoría row
-- THEN the URL becomes `/buckets/SinCategoria?periodo=2026-07&destacar=…` and the group highlights on arrival
 
 ### Requirement: WDM-07 — Reclassify is ported per row with a complete 4-key invalidation set (decision 1, D-03)
 
@@ -1496,14 +1495,12 @@ classes (e.g. `slate-*`, `gray-*`) MUST NOT appear anywhere in this markup.
 - THEN no raw Tailwind color-palette utility classes are present — only
   Serene Finance token-based classes/variables
 
-### Requirement: WG5-01 — Main chart renders as a 4-wedge donut, proportions from a client-side share-of-spending apportionment, not from `porcentajeBp` (CA-01, CA-06, ADR-024)
+### Requirement: WG5-01 — Main chart renders as a 3-wedge donut, proportions from a client-side share-of-spending apportionment, not from `porcentajeBp` (CA-01, CA-06, ADR-024)
 
-The dashboard's main chart MUST render as a ring (donut), replacing today's filled pie, with exactly 4
-wedges — Necesidades, Deseos, Ahorro, Sin categoría — in that order. Wedge proportions MUST be derived from
+The dashboard's main chart MUST render as a ring (donut), replacing today's filled pie, with exactly 3
+wedges — Necesidades, Deseos, Ahorro — in that order. Wedge proportions MUST be derived from
 `calcularDistribucionGasto`'s share-of-spending ratio: a largest-remainder apportionment computed
-client-side over the raw BigInt totals of the 4 `BUCKETS_ANILLO` items. This is the same pre-existing
-client-side derivation the app already performed before this change (previously over the 3 spend buckets
-only); this change extends its input set to 4 by adding Sin categoría. It is a sanctioned presentation
+client-side over the raw BigInt totals of the 3 `BUCKETS_ANILLO` items. It is a sanctioned presentation
 derivation under ADR-024 — it changes neither the money shown nor how a transaction is classified, only how
 already-shown totals are apportioned into wedge angles.
 
@@ -1515,32 +1512,42 @@ derives its own ratios client-side from `dto.targets` (the wire's hardcoded 50/3
 documented "Hardcoded 50/30/20 reference targets", not period data), computed as
 `Math.round((valores[bucket] / total) * 100)` in `DistribucionPie.tsx`'s `slicesIdeales`. This is a third,
 pre-existing client-side percentage derivation, distinct from both the ring apportionment and from
-`porcentajeBp`, unchanged by this change (design D-02). See `WG5-13` for the semantic consequence of
-widening the ring's denominator to include Sin categoría.
+`porcentajeBp`, unchanged by this change (design D-02).
 
 Ingresos MUST NOT appear as a ring wedge — it is excluded by construction (its item never enters the ring's
-data set), not filtered out at render time.
+data set), not filtered out at render time. Since issue #778 tramo 5b, a `SinCategoria` entry the API may
+still send in `buckets[]` (deploy-order safety) is likewise excluded by construction — `BUCKETS_ANILLO` no
+longer includes it, so it never enters the ring's data set and cannot dilute the 3 spend-bucket shares (the
+retired `WG5-13` described the opposite, now-obsolete behavior).
 
-#### Scenario: The ring renders exactly 4 wedges, in the fixed bucket order (jsdom)
+#### Scenario: The ring renders exactly 3 wedges, in the fixed bucket order (jsdom)
 
-- GIVEN a period with data in all 4 spend-and-uncategorized items
+- GIVEN a period with data in all 3 spend buckets
 - WHEN the dashboard's chart renders
-- THEN the ring shows exactly 4 wedges, ordered Necesidades, Deseos, Ahorro, Sin categoría — never a
-  5th wedge for Ingresos
+- THEN the ring shows exactly 3 wedges, ordered Necesidades, Deseos, Ahorro — never a 4th wedge for
+  Ingresos or Sin categoría
 
 #### Scenario: Wedge proportions equal `calcularDistribucionGasto`'s share-of-spending ratio, not `porcentajeBp` (jsdom)
 
-- GIVEN the raw BigInt totals for the 4 `BUCKETS_ANILLO` items
+- GIVEN the raw BigInt totals for the 3 `BUCKETS_ANILLO` items
 - WHEN the ring's wedge angles are computed
 - THEN each wedge's arc is proportional to that item's share of the combined ring total, apportioned via
-  `calcularDistribucionGasto`'s existing largest-remainder rule so the four wedges sum to exactly 100 —
+  `calcularDistribucionGasto`'s existing largest-remainder rule so the three wedges sum to exactly 100 —
   never derived from `porcentajeBp`
 
 #### Scenario: Ingresos never appears as a ring wedge, even when it is the largest amount (jsdom)
 
 - GIVEN a period where `totalIngreso` is larger than any spend bucket's total
 - WHEN the ring renders
-- THEN it still shows only the 4 wedges above — Ingresos has no ring representation at any amount
+- THEN it still shows only the 3 wedges above — Ingresos has no ring representation at any amount
+
+#### Scenario: A legacy SinCategoria bucket entry is ignored, never a 4th wedge (jsdom)
+
+- GIVEN a `/api/resumen` payload that still carries a `SinCategoria` entry in `buckets[]` with a nonzero
+  total (deploy-order safety shape)
+- WHEN the dashboard's chart renders
+- THEN the ring still shows exactly the same 3 wedges, with the same proportions as an equivalent payload
+  without that entry
 
 ### Requirement: WG5-02 — `PeriodoSelector` stays page-level and unchanged; the semáforo tag renders in the chart card's own header row — an accepted deviation from the wireframe's single combined row (CA-01, CA-03)
 
@@ -1569,26 +1576,19 @@ wireframe row composition, but this change MUST NOT attempt the relocation.
 - THEN the semáforo tag (`WG5-07`) appears in the card's own header row, next to the card's title — this
   is the accepted layout deviation from the wireframe's single combined row, not a defect
 
-### Requirement: WG5-03 — Legend renders exactly 5 rows, in a fixed order, with a divider between spend items and the remainder (CA-02)
+### Requirement: WG5-03 — Legend renders exactly 4 rows, in a fixed order, with a divider between spend items and Ingresos (CA-02)
 
-The legend MUST render exactly 5 rows in this fixed order: Necesidades, Deseos, Ahorro (each shaped
-`name · % · CLP amount` with a color dot and a chevron, clickable), a visual divider, Ingresos (shaped
-`name · CLP amount` — no `%` — clickable, navigating to `/ingresos` per `WG5-06`), and Sin categoría (shaped
-`name · N tx · CLP amount` with a chevron, clickable), where `N` is `cantidadSinCategoria` from the wire
-response. The 3 spend-bucket
+The legend MUST render exactly 4 rows in this fixed order: Necesidades, Deseos, Ahorro (each shaped
+`name · % · CLP amount` with a color dot and a chevron, clickable), a visual divider, and Ingresos (shaped
+`name · CLP amount` — no `%` — clickable, navigating to `/ingresos` per `WG5-06`). There is no Sin categoría
+legend row (issue #778 tramo 5b retired it — see `WG5-05` and the retired `WG5-13`). The 3 spend-bucket
 percentages MUST be the same ring-share value the ring itself uses for that bucket (`WG5-01`) —
-`calcularDistribucionGasto`'s client-side share-of-spending apportionment over the 4 `BUCKETS_ANILLO`
+`calcularDistribucionGasto`'s client-side share-of-spending apportionment over the 3 `BUCKETS_ANILLO`
 totals, not `porcentajeBp`. The legend performs no independent percentage computation of its own; it reuses
 the ring's own value. Activating a clickable row MUST navigate to that bucket's Detalle MES-BUCKET page
 (`WCAT-01`, `WDM-06`) — never swap an inline panel.
 
-The Sin categoría legend row's `%`-omission is scoped to the LEGEND row only. The ring's on-wedge label
-follows the same uniform `≥5 %` rule for all 4 wedges (pre-existing `showLabels` behavior in
-`DistribucionPie.tsx`, kept unchanged per design D-08) — the Sin categoría wedge shows its
-on-wedge percentage exactly like any other wedge when its share is `≥5 %`; only the legend row drops the
-`%` in favor of the transaction count.
-
-The divider between the spend-bucket rows and the Ingresos/Sin categoría rows is viewport-conditional: it
+The divider between the spend-bucket rows and the Ingresos row is viewport-conditional: it
 MUST render at the desktop tier (`lg:` and above, ≥1024px) and MUST NOT render at the T1 tablet tier
 (768–1023px) or below — a CSS-only conditional (e.g. `hidden lg:block`), never JS branching. This mirrors a
 documented wireframe difference between the T1 tablet mock (no divider) and the desktop mock (divider
@@ -1597,12 +1597,16 @@ present); see `WG5-10` for the rendered-geometry proof.
 the panel — rows now navigate to the Detalle MES-BUCKET page.)
 (Previously: the Ingresos row was NOT clickable — no interactive role, no navigation; US-054 makes it a
 navigation target to `/ingresos` (`WG5-06`).)
+(Previously: the legend rendered a 5th row, Sin categoría (shaped `name · N tx · CLP amount` with a
+chevron, `N` from `cantidadSinCategoria`), whose `%`-omission was scoped to the legend row only — the
+ring's on-wedge label followed the same uniform `≥5 %` rule for all 4 wedges. Issue #778 tramo 5b retired
+that row and the ring wedge entirely.)
 
-#### Scenario: Exactly 5 rows render in the fixed order (jsdom)
+#### Scenario: Exactly 4 rows render in the fixed order (jsdom)
 
 - GIVEN a period with data across all items
 - WHEN the legend renders
-- THEN it shows exactly 5 rows in order: Necesidades, Deseos, Ahorro, [divider], Ingresos, Sin categoría
+- THEN it shows exactly 4 rows in order: Necesidades, Deseos, Ahorro, [divider], Ingresos
 
 #### Scenario: Each spend-bucket row shows name, percentage, amount, and a chevron, and is clickable (jsdom)
 
@@ -1619,26 +1623,19 @@ navigation target to `/ingresos` (`WG5-06`).)
 - THEN it shows only the name and the CLP amount (no `%`), and activating it (mouse or keyboard) navigates
   to `/ingresos` carrying the current `periodo` (`WG5-06`) — it is a real interactive/focusable control
 
-#### Scenario: The Sin categoría row shows its transaction count from `cantidadSinCategoria` (jsdom)
-
-- GIVEN a period where the backend reports `cantidadSinCategoria: 7`
-- WHEN the Sin categoría legend row renders
-- THEN it shows the name, `7` as its transaction count, its CLP amount, and a chevron, and activating it
-  navigates to `/buckets/SinCategoria` with the current `periodo` plus `destacar` (`WDM-04`, `WDM-06`)
-
 ### Requirement: WG5-04 — Sign prefix is a pure client-side derivation by item kind; backend magnitudes stay unsigned (CA-02, ADR-024)
 
-Amount rendering MUST prefix `−` for the 3 spend buckets and Sin categoría, and `+` for Ingresos. This sign
-MUST be chosen by the view-model from the item's kind (spend/uncategorized vs. income) — never read off the
+Amount rendering MUST prefix `−` for the 3 spend buckets, and `+` for Ingresos. This sign
+MUST be chosen by the view-model from the item's kind (spend vs. income) — never read off the
 wire, since the backend continues to send unsigned magnitudes for every amount field (`total`,
 `totalIngreso`). No other client-side derivation beyond sign prefix, CLP formatting, and labels is permitted
 on these amounts (ADR-024 guard, same boundary `WG5-01` states for percentages/estado).
 
-#### Scenario: Spend buckets and Sin categoría render a minus sign (jsdom)
+#### Scenario: Spend buckets render a minus sign (jsdom)
 
-- GIVEN the Necesidades, Deseos, Ahorro, and Sin categoría rows
+- GIVEN the Necesidades, Deseos, and Ahorro rows
 - WHEN their amounts render
-- THEN each is prefixed with `−`, even though the backend's `total`/equivalent field for each is an
+- THEN each is prefixed with `−`, even though the backend's `total` field for each is an
   unsigned magnitude
 
 #### Scenario: Ingresos renders a plus sign (jsdom)
@@ -1648,31 +1645,35 @@ on these amounts (ADR-024 guard, same boundary `WG5-01` states for percentages/e
 - THEN it is prefixed with `+`, derived from the row being the Ingresos kind — not from any sign present on
   `totalIngreso` itself (which stays unsigned on the wire)
 
-### Requirement: WG5-05 — `esResumenMesDto` gains a `cantidadSinCategoria` guard, and the view-model maps a real zero as a real zero, never an omission (CA-02)
+### Requirement: WG5-05 — `esResumenMesDto` tolerates a legacy `cantidadSinCategoria` field but never reads it (CA-02)
 
-`esResumenMesDto` (`apps/web/src/api/client.ts`) does not currently validate `cantidadSinCategoria` — a
-payload missing the field, or carrying it as the wrong type, passes the guard unchanged today. Extending
-`esResumenMesDto` to require `typeof cantidadSinCategoria === 'number'` (alongside the pre-existing
-`totalIngreso` check) IS IN SCOPE of this change, since the legend now depends on the field and a payload
-that silently lacks it must be rejected the same way any other structurally invalid `ResumenMesDto` already
-is. Once a valid payload is guaranteed, the view-model MUST map `cantidadSinCategoria` and `totalIngreso`
-into the legend's Sin categoría and Ingresos rows respectively, and `cantidadSinCategoria: 0` MUST map to a
-genuine, rendered zero — the view-model MUST treat a valid zero as data, not as a signal that the field is
-absent, and MUST NOT silently render a row that looks identical to an omitted one.
+Issue #778 tramo 5b PR5 removed `cantidadSinCategoria` and the 4th (SinCategoria) bucket entry from the
+`GET /api/resumen` contract; the web stopped mapping either one into the legend back in tramo 5b PR1
+(`resumen-view-model.ts`'s `aLeyendaComplemento` only ever builds an `ingreso` item — WG5-03). `esResumenMesDto`
+(`apps/web/src/api/client.ts`) MUST NOT require `cantidadSinCategoria` — a payload that omits it (the new
+3-bucket shape) is valid — but MUST reject it if present with the wrong type, tolerating the old 4-bucket
+shape during the independent web/API deploy window (Vercel vs. Render). The view-model MUST NOT read
+`cantidadSinCategoria` at all, whether present or absent.
+(Previously: this requirement made `cantidadSinCategoria` a REQUIRED numeric field and had the view-model
+map it, and a real zero, into a Sin categoría legend row. That row and its wiring are retired — WG5-03.)
 
-#### Scenario: A payload missing `cantidadSinCategoria`, or carrying the wrong type, is rejected by the DTO guard (jsdom)
+#### Scenario: A payload without `cantidadSinCategoria` is valid (jsdom)
 
-- GIVEN a `/api/resumen` payload that omits `cantidadSinCategoria`, or sends it as a non-number
+- GIVEN a `/api/resumen` payload with 3 `buckets` entries and no `cantidadSinCategoria` field
 - WHEN `esResumenMesDto` validates the payload
-- THEN it returns `false`, and the existing error path (the same one `WAC-02` already exercises for other
-  malformed fields) handles it — no new error-handling code is introduced
+- THEN it returns `true`
 
-#### Scenario: `cantidadSinCategoria: 0` is mapped as a real zero, not treated as an omitted field (jsdom)
+#### Scenario: A payload with `cantidadSinCategoria` of the wrong type is rejected (jsdom)
 
-- GIVEN a period where every transaction is categorized (`cantidadSinCategoria: 0`)
-- WHEN the legend renders
-- THEN the Sin categoría row still renders, showing `0` transactions and its (zero) amount — the
-  view-model treats the valid zero as data, and the row is never omitted
+- GIVEN a `/api/resumen` payload where `cantidadSinCategoria` is present but not a number
+- WHEN `esResumenMesDto` validates the payload
+- THEN it returns `false`
+
+#### Scenario: A legacy payload with a numeric `cantidadSinCategoria` is still accepted, and the value is never rendered (jsdom)
+
+- GIVEN a `/api/resumen` payload carrying the old 4-bucket shape with `cantidadSinCategoria: 7`
+- WHEN the page renders the legend
+- THEN the payload passes the DTO guard, and no "Sin categoría" row or count appears anywhere in the legend
 
 ### Requirement: WG5-06 — Ingresos navigates to its Detalle MES-INGRESOS page; the US-047 interim comment is removed (CA-04)
 
@@ -1695,11 +1696,11 @@ change turns that drill-down into navigation, so the Ingresos exclusion is resta
 - THEN the URL becomes `/ingresos` with the current `periodo` — the row carries an interactive role and is
   reached by Tab
 
-#### Scenario: Sin categoría, the 3 spend buckets, and Ingresos all navigate (jsdom)
+#### Scenario: The 3 spend buckets and Ingresos all navigate (jsdom)
 
 - GIVEN the same legend render
-- WHEN the user clicks the Sin categoría row, any spend-bucket row, or the Ingresos row
-- THEN the spend buckets and Sin categoría navigate to their Detalle MES-BUCKET pages (`WCAT-01`/`WDM-06`)
+- WHEN the user clicks any spend-bucket row or the Ingresos row
+- THEN the spend buckets navigate to their Detalle MES-BUCKET pages (`WCAT-01`/`WDM-06`)
   and Ingresos navigates to `/ingresos` (`WG5-06`) — navigation is the only drill-down behavior these rows
   have after this change
 
@@ -1883,25 +1884,10 @@ bucket MUST NOT render an advice row.
 - WHEN `/semaforo` renders
 - THEN the Deseos row shows no advice sentence
 
-### Requirement: WSEM-05 — Sin categoría warning shows count and total, and links to its bucket detail (CA-06)
-
-The page MUST render a Sin categoría warning showing its transaction count and total (from
-`resumen-semaforo` SEM-05) and a link navigating to `/buckets/SinCategoria` (the existing
-bucket-detail route, `WCAT-*`). The warning MUST be softened or omitted when the count is zero,
-consistent with the app's existing zero-impact softening precedent (`WCTG-08`).
-
-#### Scenario: A nonzero Sin categoría count renders the warning with a working link (jsdom)
-
-- GIVEN `GET /api/resumen/semaforo` returns a nonzero Sin categoría count and total on the wire
-- WHEN `/semaforo` renders
-- THEN a warning shows the count and total, with a link that navigates to
-  `/buckets/SinCategoria`
-
-#### Scenario: A zero Sin categoría count is softened or omitted (jsdom)
-
-- GIVEN `GET /api/resumen/semaforo` returns a Sin categoría count of zero on the wire
-- WHEN `/semaforo` renders
-- THEN the warning is not shown in its full alarming form (softened or omitted)
+> WSEM-05 (Sin categoría warning + link to `/buckets/SinCategoria`) retired by issue #778 tramo 5b:
+> `GET /api/resumen/semaforo` no longer sends a Sin categoría count/total on the wire, and
+> `/buckets/SinCategoria` now 400s (`bucket-detalle-mes` MBD-07). `SemaforoDetallePage` no longer renders
+> this notice.
 
 ### Requirement: WSEM-06 — A no-income month renders a self-explanatory state instead of empty percentages (CA-07)
 
@@ -1984,7 +1970,7 @@ present in the markup does NOT prove the variant is in effect at that width, the
 - WHEN the dashboard's main chart card renders
 - THEN it matches the wireframe's tablet (T1) layout variant, asserted by rendered/computed geometry at
   that real viewport — including that the legend's divider between the spend-bucket rows and
-  Ingresos/Sin categoría is NOT rendered (absent from the visual/accessible tree) at this viewport,
+  Ingresos is NOT rendered (absent from the visual/accessible tree) at this viewport,
   distinguishing T1 from the desktop layout, where it is rendered (`WG5-03`)
 
 #### Scenario: A `md:`-prefixed class existing in markup is not sufficient proof of the tablet variant (Playwright, anti-pattern named)
@@ -2000,7 +1986,7 @@ present in the markup does NOT prove the variant is in effect at that width, the
 
 - GIVEN the viewport is at the mobile tier (360px)
 - WHEN the dashboard's main chart card renders
-- THEN the legend's divider between the spend-bucket rows and Ingresos/Sin categoría is NOT rendered
+- THEN the legend's divider between the spend-bucket rows and Ingresos is NOT rendered
   (absent from the visual/accessible tree, zero-area bounding box) at this viewport too — closing the gap
   where `WG5-03`'s "T1 or below" divider-absence text otherwise has no mobile-viewport geometry proof,
   only the tablet one above
@@ -2013,9 +1999,8 @@ client-side for these values. Percentage handling is scoped precisely to three n
 more:
 
 1. The ring's wedge angles and the legend's 3 spend-bucket percentages are the pre-existing, sanctioned
-   `calcularDistribucionGasto` share-of-spending apportionment (`WG5-01`/`WG5-03`; an ADR-024
-   presentation-only derivation, extended in this change to 4 items including Sin categoría — see
-   `WG5-13`).
+   `calcularDistribucionGasto` share-of-spending apportionment over the 3 spend buckets (`WG5-01`/`WG5-03`;
+   an ADR-024 presentation-only derivation).
 2. `porcentajeBp` MUST continue to pass through verbatim wherever it is consumed today
    (`BucketViewModel.porcentajeLabel`), with no recomputation.
 3. The IDEAL 50/30/20 inset's wedge ratios are a pre-existing, sanctioned client-side derivation over
@@ -2052,12 +2037,13 @@ existing US-042/043/063 precedent (`WCFG-12`, `WCTM-*`) and this change's own fi
 `D-05`/`D-08`.
 The donut ring's `<svg>` MUST expose an accessible name/description (role and aria pattern consistent with
 the existing `SemaforoBadge`'s `role="img"` + `aria-label` convention — never color alone). The 3
-spend-bucket rows, the Sin categoría row, and the Ingresos row MUST remain keyboard-operable
+spend-bucket rows and the Ingresos row MUST remain keyboard-operable
 (Tab/Enter/Space), matching their `<button>` semantics — the Ingresos row is now a real interactive control
 (`WG5-06`). The semáforo tag MUST be keyboard-operable (Tab/Enter/Space) with a visible focus ring.
-(Previously: only the 3 spend-bucket rows and the Sin categoría row were keyboard-operable; the Ingresos
+(Previously: only the 3 spend-bucket rows and a Sin categoría row were keyboard-operable; the Ingresos
 row was excluded from Tab order under WG5-06's not-clickable rule. US-054 adds the Ingresos page's own
-files to the same scoped override — WDI-07.)
+files to the same scoped override — WDI-07. Issue #778 tramo 5b later retired the Sin categoría row
+entirely — WG5-03.)
 
 #### Scenario: The scoped lint gate is clean on every touched file
 
@@ -2075,29 +2061,15 @@ files to the same scoped override — WDI-07.)
 #### Scenario: A keyboard-only user can operate every clickable legend row and the semáforo tag (jsdom)
 
 - GIVEN a keyboard-only user tabs through the chart card
-- WHEN they reach a spend-bucket row, the Sin categoría row, the Ingresos row, or the semáforo tag, and
+- WHEN they reach a spend-bucket row, the Ingresos row, or the semáforo tag, and
   activate it with Enter or Space
 - THEN each behaves identically to its mouse-click behavior, with a visible focus ring at every step — the
   Ingresos row is reached by Tab and navigates to `/ingresos` on activation (`WG5-06`)
 
-### Requirement: WG5-13 — Sin categoría entering the ring denominator dilutes the three spend-bucket ring percentages (R-5, CA-06, ADR-024)
-
-Since `BUCKETS_ANILLO` now includes Sin categoría, `calcularDistribucionGasto`'s largest-remainder
-apportionment sums across 4 items instead of 3. This MUST be treated as a deliberate, product-approved
-semantic change: the Necesidades/Deseos/Ahorro ring percentages (and the matching legend percentages,
-`WG5-03`) numerically shrink relative to the previous 3-slice chart whenever Sin categoría carries a
-nonzero total, because the same three amounts now share a denominator that also contains a fourth item.
-This dilution MUST NOT be treated as a regression to fix — it is the intended reading: a wedge showing 20%
-now means "20% of everything in the ring, including what's unclassified," not "20% of my three spend
-buckets." This requirement does not change `porcentajeBp` or the 50/30/20 IDEAL inset, which are unaffected
-(`WG5-01`, `WG5-11`).
-
-#### Scenario: A period with a non-zero Sin categoría total shows lower ring percentages for the three spend buckets than before this change (jsdom)
-
-- GIVEN a period where Sin categoría carries a non-zero total alongside the three spend buckets
-- WHEN the ring's wedge proportions and the legend's spend-bucket percentages are computed
-- THEN each of the three spend buckets' shares is smaller than it would be if the denominator excluded Sin
-  categoría — this is the intended dilution, not a bug
+> WG5-13 (Sin categoría diluting the ring/legend denominator) retired by issue #778 tramo 5b:
+> `BUCKETS_ANILLO` no longer includes `SinCategoria` (mobile mirrors this — `mobile-resumen-screen`
+> MOB-08), so the ring/legend apportion over exactly the 3 spend buckets with no dilution — see the
+> rewritten `WG5-01`.
 
 ## Detalle MES-INGRESOS — Income detail page (`/ingresos`)
 
@@ -2299,25 +2271,29 @@ Labels: **(jsdom)** = DOM/text/accessible-name/pure-function truth, verifiable b
 
 | Referenced | Governs |
 |---|---|
-| `WG5-01`/`WG5-13` | 4-item ring apportionment; Sin categoría dilutes the 3 spend shares |
+| `WG5-01` | 3-item ring apportionment over the spend buckets only (`WG5-13` retired — no dilution) |
 | `WG5-07`/`WG5-08` | Semáforo tag is a navigable link; `null` estado → "Sin datos", still live |
 | `WSEM-01..08` | `/semaforo` detail page (US-049, issue #283) |
 | `WG5-10` | Rendered-geometry verification, never className presence alone |
 | `WPER-*`/`WMYP-*` | Period-navigation plumbing (reused unchanged) |
 | `WDS-04` | Capability `web-dashboard-shell`, defined only in the **un-archived** change `openspec/changes/web-dashboard-redesign-mobile/specs/web-dashboard-shell/spec.md` — its own verify-report records this grid's `2/3/4`-column layout as an **accepted-but-unratified deviation** (⚠️ PARTIAL/SUGGESTION), not a locked living requirement. What IS locked and green is the code-level `ResumenAnual.test.tsx` grid-columns test; this change does not re-litigate that test |
 
-### Requirement: WTA-01 — Each mini renders the same 4-item ring reading as the main chart, apportioned over its own month's totals (CA-01)
+### Requirement: WTA-01 — Each mini renders the same 3-item ring reading as the main chart, apportioned over its own month's totals (CA-01)
 
 Every month cell's mini ring MUST call `calcularDistribucionGasto` with no bucket-set override, yielding the
-`WG5-01` 4-wedge reading (Necesidades, Deseos, Ahorro, Sin categoría) apportioned from THAT month's own
-`buckets` totals (`WG5-13` dilution applies per-mini). The `BUCKETS_5030` override and its interim comment
-MUST NOT exist after this change.
+`WG5-01` 3-wedge reading (Necesidades, Deseos, Ahorro) apportioned from THAT month's own `buckets` totals. A
+legacy `SinCategoria` entry a month's `buckets` may still carry is ignored the same way the main chart
+ignores it (`WG5-01`) — never a 4th mini wedge, never dilution (`WG5-13` retired). The `BUCKETS_5030`
+override and its interim comment MUST NOT exist after this change.
+(Previously: the mini reading included a 4th Sin categoría wedge, diluting the three spend shares per the
+now-retired `WG5-13`.)
 
-#### Scenario: A mini renders 4 wedges from its own month's totals (jsdom)
+#### Scenario: A mini renders 3 wedges from its own month's totals (jsdom)
 
-- GIVEN 12 months of `buckets` data, one with a nonzero Sin categoría total
+- GIVEN 12 months of `buckets` data, one with a nonzero legacy `SinCategoria` total
 - WHEN the grid renders
-- THEN every mini shows 4 wedges in fixed order, proportioned from that month's own totals
+- THEN every mini shows exactly 3 wedges in fixed order, proportioned from that month's own totals, with the
+  `SinCategoria` entry ignored
 
 #### Scenario: No 3-slice override remains (jsdom)
 
