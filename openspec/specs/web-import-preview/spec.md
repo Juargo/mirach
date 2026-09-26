@@ -678,12 +678,14 @@ NON-duplicate row, plus its own trailing duplicates entry:
    absent icon falls back to a generic glyph), name, and row count. A `categoriaId` present
    but NOT resolvable (catalog still loading, in error, or the id no longer exists in a
    loaded catalog) still groups under its real bucket, with a "Categoría no disponible"
-   fallback name and no icon, instead of a separate top-level group or "Sin clasificar".
+   fallback name and the generic fallback glyph, instead of a separate top-level group or
+   "Sin clasificar".
    Ingreso, "Revisar", and "Duplicadas" all have NO level 2 — opening them shows their
    rows DIRECTLY.
 3. Group order (level 1): Necesidades, Deseos, Ahorro, Ingreso, Revisar, Duplicadas.
-   Within a bucket (level 2): named-categoría subgroups sort by `nombre`
-   (`localeCompare('es')`) before any "Categoría no disponible" subgroup. Rows keep
+   Within a bucket (level 2): categoría subgroups sort by displayed name
+   (`localeCompare('es')`, the "Categoría no disponible" fallback included), with the
+   subgroup's stable key as an ordinal tiebreak — the same order as WEB-PRV-20. Rows keep
    fecha-ascending order (`rowIndex` tiebreak) within every group.
 4. Every heading (level 1 and level 2) MUST show its row count, with correct Spanish
    singular/plural agreement ("1 movimiento" / "N movimientos").
