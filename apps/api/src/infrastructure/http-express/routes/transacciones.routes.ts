@@ -3,6 +3,7 @@ import { ReclasificarTransaccionUseCase } from '../../../application/use-cases/r
 import { ReevaluarCategoriasUseCase } from '../../../application/use-cases/reevaluar-categorias.use-case';
 import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
+import { ReclasificarDemoSoloLecturaError } from '../../../domain/errors/reclasificar-demo-solo-lectura.error';
 import { ReevaluarDemoSoloLecturaError } from '../../../domain/errors/reevaluar-demo-solo-lectura.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import {
@@ -31,6 +32,12 @@ import { responderErrorTraducido } from './responder-error-traducido';
  *   catálogo (un id que no resuelve contra el catálogo REAL del caller, o
  *   que no le pertenece).
  * TransaccionNoEncontradaError → 404 (funde no-existe y no-es-tuya: anti-enumeración).
+ *
+ * Demo gate (issue #597): `esDemoDeSesion(req)` (fail-closed) se hilvana en
+ * el input del use case, que corta ANTES de tocar el writer — mismo patrón
+ * que movimientos/categorías/patrones/ingesta. Toda respuesta de error pasa
+ * por `responderErrorTraducido`, el chokepoint que loguea `logDemoGateTrip`
+ * cuando `code === 'DEMO_SOLO_LECTURA'`.
  */
 export function registrarTransacciones(
   router: Router,
@@ -51,18 +58,29 @@ export function registrarTransacciones(
         userId: req.userId!, // garantizado por el session middleware previo
         transaccionId: req.params.id,
         categoriaId,
+        esDemo: esDemoDeSesion(req),
       });
 
       if (result.isFail()) {
         const error = result.getError();
+        if (error instanceof ReclasificarDemoSoloLecturaError) {
+          responderErrorTraducido(res, req, {
+            status: 403,
+            code: 'DEMO_SOLO_LECTURA',
+            message: error.message,
+          });
+          return;
+        }
         if (error instanceof CategoriaDesconocidaError) {
-          res.status(400).json({
+          responderErrorTraducido(res, req, {
+            status: 400,
             message: 'La categoría indicada no existe en tu catálogo.',
           });
           return;
         }
         if (error instanceof TransaccionNoEncontradaError) {
-          res.status(404).json({
+          responderErrorTraducido(res, req, {
+            status: 404,
             message:
               'La transacción no existe o no pertenece al usuario autenticado.',
           });
@@ -70,7 +88,10 @@ export function registrarTransacciones(
         }
         const _exhaustive: never = error;
         void _exhaustive;
-        res.status(500).json({ message: 'Error inesperado' });
+        responderErrorTraducido(res, req, {
+          status: 500,
+          message: 'Error inesperado',
+        });
         return;
       }
 
