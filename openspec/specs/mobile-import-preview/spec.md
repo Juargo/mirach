@@ -85,8 +85,11 @@ On a successful, guard-passing preview response, the system MUST render:
 No EDITABLE row list is shown at this step — `ListaRevision`/`FilaRevisionMobile` stay
 exclusive to "Revisar y editar" (MOB-PRV-05/06).
 
-The grouped summary (2) uses the SAME grouping rules as the web client (WEB-PRV-19,
-`agrupar-preview-por-categoria.ts`, ported per-app per ADR-008):
+The grouped summary (2) uses the SAME grouping rules the web client used before
+`resumen-acordeon-bucket` reworked its summary into a two-level accordion (WEB-PRV-19);
+this mobile mirror (ported per-app per ADR-008, out of scope for that web-only change)
+still implements the flat shape below, not yet realigned with the web client's current
+two-level breakdown:
 
 1. A non-duplicate row with `sugerido` non-null and `sugerido.categoriaId` resolvable →
    grouped by `(sugerido.bucket, sugerido.categoriaId)`, heading "{Bucket label} ·
