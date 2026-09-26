@@ -690,12 +690,18 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
  * (`routes/transacciones.routes.ts`) is left UNCHANGED — no `.safeParse()`
  * boundary validation is wired in, to preserve the exact existing
  * reclassification behavior on this sensitive endpoint.
+ *
+ * Demo gate (issue #597): this was the only write in the catalog/movements
+ * area without it — closed by threading `esDemoDeSesion(req)` into
+ * `ReclasificarTransaccionUseCase`, mirroring `DELETE /api/movimientos/:id`
+ * / `POST /api/transacciones/reevaluar`.
  */
 const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
   summary: 'Reclassify a transaction',
   description:
     'Authenticated endpoint that manually reassigns a transaction to a category (and its derived ' +
-    'bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
+    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA, issue #597).',
   requestParams: {
     path: transaccionesCategoriaPathParamsSchema,
   },
@@ -716,6 +722,10 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
         "Invalid categoriaId — the given id does not resolve against the caller's own catalog, " +
         'or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed ' +
         'enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name).',
+    },
+    '403': {
+      description:
+        'The calling session is a demo session (issue #597). Nothing is written.',
     },
     '404': {
       description:

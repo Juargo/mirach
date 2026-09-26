@@ -4,6 +4,7 @@ import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no-encontrada.error';
 import { CategoriaDesconocidaError } from '../../domain/errors/categoria-desconocida.error';
+import { ReclasificarDemoSoloLecturaError } from '../../domain/errors/reclasificar-demo-solo-lectura.error';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,6 +44,7 @@ describe('ReclasificarTransaccionUseCase', () => {
       userId: 'user-a',
       transaccionId: 'tx-1',
       categoriaId: 'cat-transporte-row-id',
+      esDemo: false,
     });
 
     expect(result.isOk()).toBe(true);
@@ -68,6 +70,7 @@ describe('ReclasificarTransaccionUseCase', () => {
       userId: 'user-a',
       transaccionId: 'tx-1',
       categoriaId: 'cat-mascotas-row-id',
+      esDemo: false,
     });
 
     expect(result.isOk()).toBe(true);
@@ -88,6 +91,7 @@ describe('ReclasificarTransaccionUseCase', () => {
       userId: 'user-a',
       transaccionId: 'tx-1',
       categoriaId: 'cat-no-existe',
+      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -104,9 +108,33 @@ describe('ReclasificarTransaccionUseCase', () => {
       userId: 'user-a',
       transaccionId: 'tx-ajena',
       categoriaId: 'cat-transporte-row-id',
+      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(TransaccionNoEncontradaError);
+  });
+
+  it('issue #597: esDemo=true ⇒ ReclasificarDemoSoloLecturaError, el writer NUNCA se llama', async () => {
+    const writer = makeWriter(
+      Result.ok({
+        id: 'tx-1',
+        categoriaId: 'cat-transporte-row-id',
+        categoria: 'Transporte',
+        bucket: Bucket.Necesidades,
+      }),
+    );
+    const useCase = new ReclasificarTransaccionUseCase(writer);
+
+    const result = await useCase.execute({
+      userId: 'user-a',
+      transaccionId: 'tx-1',
+      categoriaId: 'cat-transporte-row-id',
+      esDemo: true,
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(ReclasificarDemoSoloLecturaError);
+    expect(writer.reasignar).not.toHaveBeenCalled();
   });
 });

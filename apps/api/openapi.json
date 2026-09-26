@@ -3049,7 +3049,7 @@
     },
     "/api/transacciones/{id}/categoria": {
       "patch": {
-        "description": "Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).",
+        "description": "Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA, issue #597).",
         "parameters": [
           {
             "description": "Transaction id (raw path param). Existence/ownership is checked by the use case, not this schema.",
@@ -3093,6 +3093,9 @@
           },
           "400": {
             "description": "Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name)."
+          },
+          "403": {
+            "description": "The calling session is a demo session (issue #597). Nothing is written."
           },
           "404": {
             "description": "Anti-enumeration: the transaction does not exist or does not belong to the authenticated user."
