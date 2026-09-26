@@ -650,7 +650,7 @@ index, both times).
 - WHEN it is previewed twice in sequence (same bytes, two separate server parse runs)
 - THEN every `rowIndex` in the second run's `filas[]` refers to the same logical row (identical `fecha`/`descripcion`/`cargo`/`abono`) as that same `rowIndex` did in the first run
 
-### Requirement: WEB-PRV-19 — Decision step shows a read-only grouped summary; its actions are explicit and accessible
+### Requirement: WEB-PRV-19 — Decision step shows a read-only, two-level grouped summary; its actions are explicit and accessible
 
 The decision step MUST present exactly two commit-path actions — "Subir tal cual" and
 "Revisar y editar" — plus "Descartar" (WEB-PRV-07). Each control MUST have an
@@ -660,34 +660,37 @@ inline editing (bucket/categoría cascade, WEB-PRV-05) and inline categoría cre
 (WEB-PRV-12–18) remain reachable only after this transition.
 
 Below the resumen (WEB-PRV-02) and above the three actions, the decision step MUST also
-render a READ-ONLY accordion summary of `filas[]`, grouped as follows (cartola-decision-agrupada):
+render a READ-ONLY accordion summary of `filas[]` (`MuestraAgrupada`). Since
+`resumen-acordeon-bucket`, this summary uses the SAME two-level bucket→categoría grouping
+rules as the editable table (WEB-PRV-20, `agruparFilasPorBucketYCategoria`) for every
+NON-duplicate row, plus its own trailing duplicates entry:
 
-1. A non-duplicate row with `sugerido` non-null and `sugerido.categoriaId` resolvable in
-   the loaded catalog → grouped by `(sugerido.bucket, sugerido.categoriaId)`, heading
-   "{Bucket label} · {Categoría nombre}".
-2. A non-duplicate row with `sugerido` non-null but `sugerido.categoriaId === null` and
-   `sugerido.bucket === 'Ingreso'` (the backend's immutable verdict, `CommitIngestaUseCase`
-   Rule 2) → grouped by bucket alone, heading "Ingreso" with NO "Sin categoría" suffix,
-   since an Ingreso row needs no categoría at all.
-3. A non-duplicate row with `sugerido === null`, OR with `sugerido` non-null,
-   `sugerido.categoriaId === null`, and a bucket OTHER than Ingreso (unreachable through
-   today's classifier — YAGNI, no speculative group shape for it) → the single "Sin
-   clasificar" group.
-4. A non-duplicate row whose `sugerido.categoriaId` is present but NOT resolvable (catalog
-   still loading, in error, or the id no longer exists in a loaded catalog) → its own group
-   keyed by `(sugerido.bucket, sugerido.categoriaId)`, heading "{Bucket label} · Categoría
-   no disponible" — kept separate from rule 2's group so a temporary catalog outage never
-   reads as "no categoría" for a row that actually has one.
-5. A duplicate row (`esDuplicado`) → the single "Duplicadas (no se importan)" group,
-   regardless of its `sugerido` — duplicates are never committed (WEB-PRV-01/`ingesta-preview-commit`).
-6. Group order: the catalog's canonical bucket order (Necesidades, Deseos, Ahorro), then
-   Ingreso, then "Sin clasificar", then "Duplicadas". Within a bucket, named-categoría
-   subgroups sort by `nombre` (`localeCompare('es')`) before any "Categoría no disponible"
-   subgroup. Rows keep file order within every group.
-7. Every group heading MUST show its row count, with correct Spanish singular/plural
-   agreement ("1 movimiento" / "N movimientos").
+1. Level 1 shows one entry per PRESENT bucket among Necesidades, Deseos (labeled
+   "Gustos"), Ahorro, in that order, then Ingreso, then a trailing "Revisar" entry for a
+   non-duplicate row the grouping rules cannot place under a real bucket (`sugerido ===
+   null`, or a `sugerido.bucket` outside the four recognized buckets) — present only when
+   at least one such row exists — then a trailing "Duplicadas (no se importan)" entry for
+   every row with `esDuplicado` (carved out BEFORE the bucket/categoría grouping runs, so
+   a duplicate never also appears under its bucket) — present only when at least one
+   duplicate exists. A bucket with no rows is absent entirely, never rendered empty.
+2. Level 2 exists only for the three asignable buckets: one entry per `categoriaId` within
+   that bucket, showing the categoría's icon (resolved from the loaded catalog; unknown/
+   absent icon falls back to a generic glyph), name, and row count. A `categoriaId` present
+   but NOT resolvable (catalog still loading, in error, or the id no longer exists in a
+   loaded catalog) still groups under its real bucket, with a "Categoría no disponible"
+   fallback name and the generic fallback glyph, instead of a separate top-level group or
+   "Sin clasificar".
+   Ingreso, "Revisar", and "Duplicadas" all have NO level 2 — opening them shows their
+   rows DIRECTLY.
+3. Group order (level 1): Necesidades, Deseos, Ahorro, Ingreso, Revisar, Duplicadas.
+   Within a bucket (level 2): categoría subgroups sort by displayed name
+   (`localeCompare('es')`, the "Categoría no disponible" fallback included), with the
+   subgroup's stable key as an ordinal tiebreak — the same order as WEB-PRV-20. Rows keep
+   fecha-ascending order (`rowIndex` tiebreak) within every group.
+4. Every heading (level 1 and level 2) MUST show its row count, with correct Spanish
+   singular/plural agreement ("1 movimiento" / "N movimientos").
 
-Every group MUST render collapsed by default. Each group's rows show `fecha`,
+Both levels MUST render collapsed by default. Each group's rows show `fecha`,
 `descripcion`, and the row's signed amount (`formatearMontoConSigno`/`formatearMontoCLP`,
 display-only) — no cargo/abono pair, no classification control, no checkbox, and no
 inline categoría-creation trigger anywhere in this summary (ADR-024: presentation only,
@@ -706,40 +709,61 @@ no reclassification and no amount computation — group headings never sum amoun
 - THEN the editable review table (WEB-PRV-02) renders
 - AND clicking "Subir tal cual" instead never renders that table
 
-#### Scenario: Grouped summary groups by bucket and categoría, collapsed by default
+#### Scenario: Level 1 shows only bucket entries, collapsed — categoría headers stay hidden
 
 - GIVEN a successful preview with two non-duplicate rows classified into `(Necesidades,
   cat-nec-1)` and `(Deseos, cat-des-1)`, and a loaded catalog naming both categorías
 - WHEN the decision step renders
-- THEN a "Necesidades · {categoría nombre}" group heading and a "Gustos · {categoría
-  nombre}" group heading are both visible, each showing "1 movimiento"
-- AND both groups are collapsed (their rows are not visible until expanded)
+- THEN a "Necesidades" level-1 heading and a "Gustos" level-1 heading are both visible,
+  each showing "1 movimiento"
+- AND no categoría heading is present yet, and both buckets are collapsed (their rows are
+  not visible until both levels are expanded)
 
-#### Scenario: Ingreso rows group on their own, without a "Sin categoría" suffix
+#### Scenario: Opening a bucket reveals its categoría headings, icon included
+
+- GIVEN the same preview and catalog as above, with `cat-nec-1` carrying `icono:
+  'shopping-cart'`
+- WHEN the user opens the "Necesidades" bucket
+- THEN a "{categoría nombre} · 1 movimiento" level-2 heading is visible for `cat-nec-1`,
+  carrying its `shopping-cart` icon glyph
+
+#### Scenario: Ingreso rows group on their own, without a level 2
 
 - GIVEN a successful preview containing an Ingreso row (`sugerido: { bucket: 'Ingreso',
   categoriaId: null }`)
 - WHEN the decision step renders
-- THEN an "Ingreso" group heading is visible, with no "Sin categoría" suffix
+- THEN an "Ingreso" level-1 heading is visible, with no level-2 heading underneath it
+- AND opening it shows the row directly
 
-#### Scenario: A stale or unresolvable categoriaId groups separately from "Sin clasificar"
+#### Scenario: A stale or unresolvable categoriaId groups under its real bucket, not "Revisar"
 
-- GIVEN a successful preview row classified with `categoriaId: 'cat-borrada'`, and a
-  loaded catalog that does not contain that id
+- GIVEN a successful preview row classified with `sugerido: { bucket: 'Necesidades',
+  categoriaId: 'cat-borrada' }`, and a loaded catalog that does not contain that id
+- WHEN the user opens the "Necesidades" bucket
+- THEN a "Categoría no disponible · 1 movimiento" level-2 heading is visible under
+  Necesidades
+
+#### Scenario: An unplaceable row lands on the trailing "Revisar" entry, present only when needed
+
+- GIVEN a successful preview row with `sugerido: null`
 - WHEN the decision step renders
-- THEN a "{Bucket label} · Categoría no disponible" group heading is visible for that row
-- AND it is a DIFFERENT group than "Sin clasificar"
+- THEN a "Revisar" level-1 heading is visible, showing that row directly once opened
+- AND no "Revisar" heading is rendered when every row lands on a real bucket
 
-#### Scenario: Duplicates group separately and are never committed
+#### Scenario: Duplicates carve into a trailing "Duplicadas" entry, excluded from their bucket
 
-- GIVEN a successful preview containing a duplicate row (`esDuplicado: true`)
+- GIVEN a successful preview containing a duplicate row (`esDuplicado: true`) classified
+  into `(Necesidades, cat-nec-1)`
 - WHEN the decision step renders
-- THEN a "Duplicadas (no se importan)" group heading is visible, listing that row
+- THEN a "Duplicadas (no se importan)" level-1 heading is visible, showing that row
+  directly once opened
+- AND the Necesidades bucket's count does NOT include that row
+- AND no "Duplicadas" heading is rendered when there are no duplicates
 
 #### Scenario: The grouped summary never renders an editing control
 
 - GIVEN a successful preview with no restored draft
-- WHEN the decision step renders and every group is expanded
+- WHEN the decision step renders and every level is expanded
 - THEN no bucket/categoría select, no row checkbox, and no "+" inline-creation trigger is
   rendered anywhere in the grouped summary
 
