@@ -1,9 +1,20 @@
 # Web Manual Movement Registration Specification
 
 **Type**: Web client capability of `movimiento-manual`
-**Status**: Complete & deployed (US-060)
+**Status**: Implemented, hidden from navigation and routing (US-060, #825)
 **Depends on**: `openspec/specs/movimiento-manual/spec.md` (canonical backend contract — `POST /api/movimientos`)
 **Issue**: #294 · Sprint-15 · epic:gestion-datos
+
+> **Hidden as of #825 (final delivery, 2026-09-27):** the `/registrar` route,
+> the "Registrar" nav item, and the "Registrar movimiento" Ayuda link were
+> removed from `apps/web` so this capability is not reachable from the
+> delivered product. The implementation below — `RegistrarMovimientoForm`,
+> `useRegistrarMovimiento`, and the `POST /api/movimientos` client — is
+> retained in the codebase with its tests, unrouted. The requirements and
+> scenarios below still describe the implementation as it exists; where a
+> scenario asserts that `/registrar` or its nav entry is reachable, that
+> reachability is currently suspended (see the note on WEB-REG-01 below) and
+> is expected to resume when the feature is re-enabled.
 
 ---
 
@@ -27,22 +38,30 @@ any business rule.
 
 ### Requirement: WEB-REG-01 — `/registrar` route renders the form with a nav entry
 
-The system MUST expose a `/registrar` leaf route under the authenticated layout.
-The route MUST be a thin container: it reads `esDemo` from the authenticated route
-context and renders `<RegistrarMovimientoForm esDemo={esDemo} />` with no logic of
-its own. A **"Registrar"** item MUST appear in the main navigation at the same level
+> **Suspended by #825:** as of the final delivery, the `/registrar` route and
+> its "Registrar" nav item are removed from the app. `RegistrarMovimientoForm`
+> is no longer mounted anywhere in `apps/web`. This requirement and its
+> scenarios describe the route/nav-entry contract as designed and previously
+> shipped (US-060); re-enabling the feature means restoring exactly this
+> contract — see `RegistrarMovimientoForm.tsx`'s top-of-file note for the
+> restore steps.
+
+When enabled, the system MUST expose a `/registrar` leaf route under the authenticated
+layout. The route MUST be a thin container: it reads `esDemo` from the authenticated
+route context and renders `<RegistrarMovimientoForm esDemo={esDemo} />` with no logic
+of its own. A **"Registrar"** item MUST appear in the main navigation at the same level
 as "Subir nuevo archivo", linking to `/registrar`.
 
-#### Scenario: Authenticated user can navigate to /registrar
+#### Scenario: Authenticated user can navigate to /registrar (suspended by #825)
 
-- GIVEN a logged-in user
+- GIVEN a logged-in user, and the feature re-enabled per the note above
 - WHEN they navigate to `/registrar`
 - THEN the `RegistrarMovimientoForm` renders
 - AND the nav item "Registrar" is visible and active
 
-#### Scenario: Unauthenticated access is blocked by the existing auth guard
+#### Scenario: Unauthenticated access is blocked by the existing auth guard (suspended by #825)
 
-- GIVEN no authenticated session
+- GIVEN no authenticated session, and the feature re-enabled per the note above
 - WHEN the browser loads `/registrar`
 - THEN the existing authenticated layout guard redirects to the login route
 - AND `RegistrarMovimientoForm` is never mounted
@@ -329,9 +348,9 @@ Every form field MUST have an associated `<label>` reachable via `getByLabelText
 When the Gasto cascade appears (the bucket select newly rendered; the categoría select rendered disabled until a bucket is chosen), focus
 management MUST ensure the first newly-revealed control receives focus or is announced
 by a live region. Confirmation and error messages MUST use `aria-live` / `role="alert"`
-or `role="status"` as appropriate. The new files (`registrar.tsx` and
-`RegistrarMovimientoForm.tsx`) MUST have zero `jsx-a11y` errors under the scoped
-ERROR-level ESLint block added to `apps/web/eslint.config.js`.
+or `role="status"` as appropriate. `RegistrarMovimientoForm.tsx` (and `registrar.tsx`
+when the route is restored, per the note on WEB-REG-01) MUST have zero `jsx-a11y`
+errors under the scoped ERROR-level ESLint block added to `apps/web/eslint.config.js`.
 
 #### Scenario: Every field has an associated label
 
@@ -384,4 +403,4 @@ fields and transmits the correct discriminated-union variant.
 
 ## Client Consumers
 
-- **Web UI (US-060)** — `RegistrarMovimientoForm` (`apps/web/src/components/RegistrarMovimientoForm.tsx`) at `/registrar` is the first consumer of `POST /api/movimientos`; deployed at main `110407f3` (2026-08-22). Specification at `openspec/specs/web-registro-manual/spec.md`.
+- **Web UI (US-060)** — `RegistrarMovimientoForm` (`apps/web/src/components/RegistrarMovimientoForm.tsx`) was the first consumer of `POST /api/movimientos`, deployed at `/registrar` on main `110407f3` (2026-08-22). As of #825 (2026-09-27, final delivery), the `/registrar` route and its nav/help entries are removed; the form, its hook, and the API client remain in the codebase, unrouted (see the note atop `RegistrarMovimientoForm.tsx`). Specification at `openspec/specs/web-registro-manual/spec.md`.
