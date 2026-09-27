@@ -44,6 +44,12 @@
   --color-tertiary-container: #b8a56c;
   --color-on-tertiary-container: #483b0b;
 
+  /* 50/30/20 buckets - same hues the app uses (steel blue, plum, jade).
+     Fills only, never text; every use carries a text label. */
+  --color-bucket-necesidades: #4a679a;
+  --color-bucket-deseos: #6f3057;
+  --color-bucket-ahorro: #3f8f72;
+
   /* Surface */
   --color-surface: #f9f9f9;
   --color-surface-dim: #dadada;

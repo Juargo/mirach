@@ -1,0 +1,70 @@
+---
+export interface Bucket {
+  share: number;
+  name: string;
+  definition: string;
+  examples: string;
+  color: string;
+}
+
+// Shares follow the 50/30/20 rule; each column's width on large screens is
+// proportional to its share, so the layout itself reads as the split.
+const buckets: Bucket[] = [
+  {
+    share: 50,
+    name: 'Necesidades',
+    definition: 'Lo que tienes que pagar sí o sí para vivir y trabajar.',
+    examples: 'Arriendo o dividendo, supermercado, cuentas básicas, transporte, salud y deudas.',
+    color: 'var(--color-bucket-necesidades)',
+  },
+  {
+    share: 30,
+    name: 'Deseos',
+    definition: 'Lo que eliges por gusto y podrías recortar si hace falta.',
+    examples: 'Delivery, salidas, suscripciones, compras y viajes.',
+    color: 'var(--color-bucket-deseos)',
+  },
+  {
+    share: 20,
+    name: 'Ahorro',
+    definition: 'Lo que guardas para tu futuro en vez de gastarlo hoy.',
+    examples: 'Fondo de emergencia, inversiones y el pie de una vivienda.',
+    color: 'var(--color-bucket-ahorro)',
+  },
+];
+---
+
+<section id="regla-50-30-20" data-reveal class="scroll-mt-20 px-6 py-16 sm:py-24">
+  <h2
+    class="font-display text-center text-headline-lg font-bold leading-[1.05] tracking-tight text-balance text-on-surface sm:text-4xl md:text-5xl"
+  >
+    ¿Qué es una necesidad, un deseo y un ahorro?
+  </h2>
+
+  <p class="mx-auto mt-4 max-w-2xl text-center text-body-sm text-on-surface-variant">
+    La regla 50/30/20 reparte lo que ganas en tres partes. MoneyDiary ubica
+    cada gasto en una de ellas.
+  </p>
+
+  <ol class="mx-auto mt-12 grid max-w-6xl gap-10 lg:grid-cols-[5fr_3fr_2fr] lg:gap-6">
+    {buckets.map((b) => (
+      <li class="flex flex-col" style={`--share: ${b.share}%; --bucket: ${b.color}`}>
+        <div class="h-2 w-full bg-surface-container-high lg:bg-transparent" aria-hidden="true">
+          <div class="h-full w-(--share) bg-(--bucket) lg:w-full" />
+        </div>
+        <p class="font-display mt-5 text-4xl font-bold tabular-nums tracking-tight text-on-surface">
+          {b.share}%
+        </p>
+        <h3 class="font-display mt-1 text-title-md font-semibold text-on-surface">
+          {b.name}
+        </h3>
+        <p class="mt-2 max-w-sm text-body-sm leading-relaxed text-on-surface">
+          {b.definition}
+        </p>
+        <p class="mt-2 max-w-sm text-body-sm leading-relaxed text-on-surface-variant">
+          {b.examples}
+        </p>
+      </li>
+    ))}
+  </ol>
+</section>
