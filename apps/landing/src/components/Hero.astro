@@ -1,8 +1,3 @@
----
-import CtaButton from './CtaButton.astro';
-import { CTA } from '../config';
----
-
 <section
   id="hero"
   class="flex min-h-[80dvh] flex-col items-center justify-center px-6 pb-16 pt-12 md:pt-16"
@@ -29,12 +24,6 @@ import { CTA } from '../config';
         finanzas, identifica oportunidades de ahorro y comienza a generar
         resultados con solo subir tu cartola bancaria.
       </p>
-      <div class="animate-hero-in mt-8 flex flex-col gap-4 sm:flex-row" style="--reveal-delay: 180ms">
-        <CtaButton href={CTA.href}>{CTA.label}</CtaButton>
-        <CtaButton href="#como-funciona" variant="ghost">
-          Ver cómo funciona
-        </CtaButton>
-      </div>
     </div>
     <div class="animate-hero-in shrink-0" style="--reveal-delay: 270ms">
       <picture>
