@@ -7,12 +7,6 @@ export const SITE = {
   twitter: '@moneydiary',
 } as const;
 
-export const CTA = {
-  /** Set to a TestFlight/Play Store URL when available via PR; fallback to email */
-  href: 'mailto:beta@moneydiary.cl',
-  label: 'Solicitar acceso beta',
-} as const;
-
 const APP_URL = import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173';
 
 export const APP = {
