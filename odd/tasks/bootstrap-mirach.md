@@ -1,0 +1,69 @@
+# Bootstrap Mirach
+
+## Objective
+
+Turn the imported API and landing (filtered from `Juargo/MoneyDiary`) into the clean base of the Mirach repository: decisions recorded, web/mobile leftovers pruned, names updated, CI green.
+
+## Problem
+
+The history import (plan phase 2) moved `apps/api`, `apps/landing` and the root tooling verbatim. Root scripts, CI jobs, release-please, lint-staged and pnpm overrides still reference `apps/web`, `apps/mobile` and `packages/api-client`, which did not move. Package names and service names still say `moneydiary`. The gitleaks ignore list points at commit SHAs that `git filter-repo` rewrote.
+
+## Why
+
+Plan phases 1 and 3: <https://claude.ai/artifact/687mgbtMNsW2n1xfDyq57j>. The native apps (Swift first, Kotlin second) need a green, honest base before any mobile code lands.
+
+## Scope
+
+- In: ADR for the founding decisions; pruning of web/mobile/api-client references; `@moneydiary/*` → `@mirach/*` package scope and the identifiers derived from it; regenerated `.gitleaksignore`; new README, CLAUDE.md, AGENTS.md; historical ADRs marked in the index.
+- Out: domains (`moneydiary.cl`, `api.moneydiary.cl`) and landing copy/brand stay until the new domain is decided (plan phase 9); new infrastructure (phase 4); API auth changes (phase 5).
+
+## Constraints
+
+- No behaviour change in the API. Tests and builds must stay green after every task.
+- Piezas web del API quedan dormidas (D5): do not delete cookie session, CORS, Sec-Fetch guard, demo mode or Google web OAuth.
+- ADRs keep their original numbers (D6).
+- Never copy `.env` files or secrets from the old repo.
+- Commits: Conventional Commits, no AI attribution.
+
+## TDD
+
+- Mode: strict (session configuration). Source: gentle-ai session instructions.
+- Runner: `pnpm --filter @mirach/api test` (vitest; `@moneydiary/api` until T4).
+- These tasks change tooling, docs and identifiers, not behaviour, so no RED test applies; the checks below are the proof.
+
+## Delivery
+
+- Branch: `chore/bootstrap-mirach`. Strategy: `ask-on-risk`. Forecast: config/docs heavy; rename touches ~50 files outside docs.
+- Push and PR are the user's decisions.
+
+## Tasks
+
+- [x] **T1 — ADR-046: founding decisions of Mirach.** One ADR recording D1–D9 of the plan, plus its row in `docs/adr/README.md` and `estado-implementacion.md`. Route: inline (single doc file + 2 index rows).
+- [ ] **T2 — Prune web, mobile and api-client references.** Root `package.json` scripts, `.lintstagedrc.json`, `pnpm-workspace.yaml` overrides used only by web/Expo, `.github/workflows/ci.yml` jobs and path filters, `mobile-release.yml`, `release-please-config.json` and manifest, `dependabot.yml`, `scripts/`. Route: delegated writer (2+ non-trivial files, ci.yml is 48 KB).
+- [ ] **T3 — Regenerate `.gitleaksignore`.** New fingerprints for the 5 known false positives after the SHA rewrite. Route: inline.
+- [ ] **T4 — Rename package scope to `@mirach/*`.** Package names, every `pnpm --filter`, root shortcuts, Render service name in `render.yaml`, docker-compose names. Domains untouched. Route: delegated writer.
+- [ ] **T5 — Repository docs.** New README, CLAUDE.md, AGENTS.md for Mirach; historical ADRs (web, Expo, academic scope) marked in the index; review the pre-push OpenSpec artifact check now that `openspec/changes` did not move. Route: delegated writer.
+
+## Acceptance criteria
+
+- `rg -i 'apps/(web|mobile)|api-client' --glob '!docs/adr/**' --glob '!openspec/**' --glob '!pnpm-lock.yaml'` returns nothing actionable.
+- `pnpm install --frozen-lockfile`, API tests, API build and landing build pass locally.
+- `gitleaks git .` reports no leaks.
+- CI runs green on GitHub once pushed.
+
+## Checks
+
+- `pnpm install --frozen-lockfile`
+- `DATABASE_URL=postgresql://u:p@localhost:5432/fake pnpm --filter <api> exec prisma generate && pnpm --filter <api> test`
+- `pnpm --filter <api> build` · `pnpm --filter <landing> build`
+- `gitleaks git . --no-banner --redact`
+
+## Progress
+
+- Phase 2 done: repo created private at `Juargo/mirach`, 1,243 commits, 15 API/landing tags, first own commit `173d21b`. 2,927 API tests green, API and landing builds green. Initial push used `--no-verify` because the pre-push hook needs `origin/main`, which did not exist yet.
+- Engram mirror `odd/bootstrap-mirach/tasks`: PENDING (save refused: several active sessions match the project).
+- T1 done: `docs/adr/ADR-046-fundacion-mirach.md` plus rows in `README.md` and `estado-implementacion.md`. Check: structural readback (docs only).
+
+## Next step
+
+T2.
