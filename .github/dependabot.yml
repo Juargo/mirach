@@ -8,8 +8,6 @@ updates:
     directories:
       - '/'
       - '/apps/api'
-      - '/apps/web'
-      - '/apps/mobile'
       - '/apps/landing'
     schedule:
       interval: weekly

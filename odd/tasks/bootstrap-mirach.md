@@ -39,7 +39,7 @@ Plan phases 1 and 3: <https://claude.ai/artifact/687mgbtMNsW2n1xfDyq57j>. The na
 ## Tasks
 
 - [x] **T1 — ADR-046: founding decisions of Mirach.** One ADR recording D1–D9 of the plan, plus its row in `docs/adr/README.md` and `estado-implementacion.md`. Route: inline (single doc file + 2 index rows).
-- [ ] **T2 — Prune web, mobile and api-client references.** Root `package.json` scripts, `.lintstagedrc.json`, `pnpm-workspace.yaml` overrides used only by web/Expo, `.github/workflows/ci.yml` jobs and path filters, `mobile-release.yml`, `release-please-config.json` and manifest, `dependabot.yml`, `scripts/`. Route: delegated writer (2+ non-trivial files, ci.yml is 48 KB).
+- [x] **T2 — Prune web, mobile and api-client references.** Root `package.json` scripts, `.lintstagedrc.json`, `pnpm-workspace.yaml` overrides used only by web/Expo, `.github/workflows/ci.yml` jobs and path filters, `mobile-release.yml`, `release-please-config.json` and manifest, `dependabot.yml`, `scripts/`. Route: delegated writer (2+ non-trivial files, ci.yml is 48 KB).
 - [ ] **T3 — Regenerate `.gitleaksignore`.** New fingerprints for the 5 known false positives after the SHA rewrite. Route: inline.
 - [ ] **T4 — Rename package scope to `@mirach/*`.** Package names, every `pnpm --filter`, root shortcuts, Render service name in `render.yaml`, docker-compose names. Domains untouched. Route: delegated writer.
 - [ ] **T5 — Repository docs.** New README, CLAUDE.md, AGENTS.md for Mirach; historical ADRs (web, Expo, academic scope) marked in the index; review the pre-push OpenSpec artifact check now that `openspec/changes` did not move. Route: delegated writer.
@@ -63,7 +63,8 @@ Plan phases 1 and 3: <https://claude.ai/artifact/687mgbtMNsW2n1xfDyq57j>. The na
 - Phase 2 done: repo created private at `Juargo/mirach`, 1,243 commits, 15 API/landing tags, first own commit `173d21b`. 2,927 API tests green, API and landing builds green. Initial push used `--no-verify` because the pre-push hook needs `origin/main`, which did not exist yet.
 - Engram mirror `odd/bootstrap-mirach/tasks`: PENDING (save refused: several active sessions match the project).
 - T1 done: `docs/adr/ADR-046-fundacion-mirach.md` plus rows in `README.md` and `estado-implementacion.md`. Check: structural readback (docs only).
+- T2 done: commit the commit that introduces this line. Removed web/mobile/api-client from package.json, lint-staged, ci.yml (jobs api-client, web, web-e2e, mobile, outputs, sast paths, ci-success needs), release-please (mobile-build job, config, manifest), mobile-release.yml, dependabot, vercel-ignore-build.sh, workspace `packages/*` and the `browserslist` and `@xmldom/xmldom` overrides (absent from lockfile; lockfile lost only those 2 override lines) plus 2 image-size audit ignores. Checks: actionlint OK, `pnpm install --frozen-lockfile` OK, API tests 2927 passed, API and landing builds OK, jq OK.
 
 ## Next step
 
-T2.
+T3.
