@@ -1,10 +1,10 @@
-# render.yaml — Blueprint de despliegue del backend MoneyDiary (ADR-004).
+# render.yaml — Blueprint de despliegue del backend Mirach (ADR-004).
 #
 # Despliega apps/api (Express — ADR-028) como Web Service en Render, apuntando
 # a la BD Supabase (ADR-002). El frontend web/mobile NO se despliegan aquí.
 #
 # Cómo usarlo:
-#   1. En Render → New → Blueprint → conectar el repo Juargo/MoneyDiary.
+#   1. En Render → New → Blueprint → conectar el repo Juargo/mirach.
 #   2. Render lee este archivo y crea el servicio.
 #   3. Cargar a mano en el dashboard TODO lo declarado con `sync:false`:
 #        Obligatorias — sin ellas el servicio NO arranca (env.ts, ADR-029):
@@ -27,7 +27,7 @@
 
 services:
   - type: web
-    name: moneydiary-api
+    name: mirach-api
     runtime: node
     region: oregon
     plan: free
@@ -43,9 +43,9 @@ services:
       corepack enable &&
       pnpm install --frozen-lockfile &&
       rm -rf apps/api/dist &&
-      pnpm --filter @moneydiary/api exec prisma generate &&
-      pnpm --filter @moneydiary/api build
-    startCommand: pnpm --filter @moneydiary/api start:prod
+      pnpm --filter @mirach/api exec prisma generate &&
+      pnpm --filter @mirach/api build
+    startCommand: pnpm --filter @mirach/api start:prod
     # Health check público (ruta Express `GET /`, fuera de /api) — sin API key.
     healthCheckPath: /
     # Hybrid CD (versioning-release-automation, Slice D): rebuild only when

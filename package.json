@@ -1,5 +1,5 @@
 {
-  "name": "moneydiary",
+  "name": "mirach",
   "version": "0.0.1",
   "description": "Personal finance app to consolidate and analyze bank transactions from Chilean banks. Built with NestJS · React · TypeScript · Clean Architecture.",
   "author": "Juargo",
@@ -8,8 +8,8 @@
   "packageManager": "pnpm@11.24.0",
   "scripts": {
     "prepare": "husky",
-    "api": "pnpm --filter @moneydiary/api",
-    "landing": "pnpm --filter @moneydiary/landing",
+    "api": "pnpm --filter @mirach/api",
+    "landing": "pnpm --filter @mirach/landing",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"

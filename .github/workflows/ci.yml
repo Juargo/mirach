@@ -264,21 +264,21 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: moneydiary
-          POSTGRES_PASSWORD: moneydiary
-          POSTGRES_DB: moneydiary_test
+          POSTGRES_USER: mirach
+          POSTGRES_PASSWORD: mirach
+          POSTGRES_DB: mirach_test
         ports:
           - 5432:5432
         # GitHub waits for the service to report healthy before running steps.
         options: >-
-          --health-cmd "pg_isready -U moneydiary -d moneydiary_test"
+          --health-cmd "pg_isready -U mirach -d mirach_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
       # Localhost service container → db-safety gate accepts it (not prod/supabase).
-      DATABASE_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
-      DIRECT_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      DATABASE_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
+      DIRECT_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
       ALLOW_DESTRUCTIVE_DB: '1'
       # Test-only values (localhost DB, throwaway) — NOT secrets. The scripts set
       # DOTENV_CONFIG_PATH=.env.test, which is absent in CI; dotenv tolerates the
@@ -350,19 +350,19 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: moneydiary
-          POSTGRES_PASSWORD: moneydiary
-          POSTGRES_DB: moneydiary_test
+          POSTGRES_USER: mirach
+          POSTGRES_PASSWORD: mirach
+          POSTGRES_DB: mirach_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U moneydiary -d moneydiary_test"
+          --health-cmd "pg_isready -U mirach -d mirach_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
-      DIRECT_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      DATABASE_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
+      DIRECT_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
       ALLOW_DESTRUCTIVE_DB: '1'
       API_KEY: local-ci-api-key-not-a-secret-0000000000
       COOKIE_SECURE: 'false'

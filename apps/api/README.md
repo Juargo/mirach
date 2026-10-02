@@ -1,6 +1,6 @@
-# @moneydiary/api
+# @mirach/api
 
-Backend NestJS de MoneyDiary. Arquitectura, convenciones y comandos generales: ver [CLAUDE.md](../../CLAUDE.md) en la raíz del repo.
+Backend de Mirach. Arquitectura, convenciones y comandos generales: ver [CLAUDE.md](../../CLAUDE.md) en la raíz del repo.
 
 ## Modo mono-usuario (MVP)
 

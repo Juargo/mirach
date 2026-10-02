@@ -17,7 +17,7 @@ correr el flujo real en un dispositivo Android.
    B1, B2, B3, C1, C2 — código completo, incluidos los 3 gates manuales de
    dispositivo de la slice C2).
 2. Acceso a: Google Cloud Console (mismo proyecto OAuth que el client web de
-   ADR-034), Render (dashboard del servicio `moneydiary-api`), EAS
+   ADR-034), Render (dashboard del servicio `mirach-api`), EAS
    (`eas login` con la cuenta del proyecto).
 3. Un dispositivo Android físico o un emulador para el checklist final.
 
@@ -55,7 +55,7 @@ correr el flujo real en un dispositivo Android.
    fue configurada por el change web (ADR-034) y debe otorgar los scopes
    `openid`, `email`, `profile`. No crear una pantalla nueva.
 
-5. **Configurar Render.** Dashboard del servicio `moneydiary-api` →
+5. **Configurar Render.** Dashboard del servicio `mirach-api` →
    Environment → agregar `GOOGLE_CLIENT_ID_ANDROID=<client id del paso 2>` →
    guardar → esperar el restart automático.
 
