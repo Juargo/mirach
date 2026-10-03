@@ -3,12 +3,11 @@
 # Ecosistema npm sobre pnpm: Dependabot detecta pnpm-lock.yaml automáticamente.
 version: 2
 updates:
-  # Dependencias de todos los workspaces del monorepo + la raíz.
+  # Dependencias de todos los workspaces del monorepo + la raíz. Con pnpm
+  # workspaces el directorio raíz ya cubre cada paquete: listar además
+  # '/apps/api' y '/apps/landing' duplicaba cada PR (uno por directorio).
   - package-ecosystem: npm
-    directories:
-      - '/'
-      - '/apps/api'
-      - '/apps/landing'
+    directory: '/'
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
@@ -19,6 +18,13 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # @types/node queda en la línea 22 (versión de Node del proyecto): una
+      # mayor más nueva rompe los tipos de ExcelJS. Ver CLAUDE.md, notas de
+      # seguridad.
+      - dependency-name: '@types/node'
+        versions:
+          - '>=23.0.0'
     commit-message:
       prefix: chore
       include: scope
