@@ -29,7 +29,9 @@ services:
   - type: web
     name: mirach-api
     runtime: node
-    region: oregon
+    # Misma región que la BD (Supabase us-east-1): cada request hace varias
+    # consultas, así que la latencia API↔BD pesa más que la del cliente.
+    region: virginia
     plan: free
     branch: main
     # El repo es un monorepo pnpm; se instala y construye desde la raíz.
@@ -118,15 +120,14 @@ services:
         value: "20"
       - key: LOGIN_RATELIMIT_WINDOW_MS
         value: "900000"
-      # CORS allowlist (ADR-029): orígenes de navegador autorizados a leer el
-      # `GET /version` público cross-origin que consume el web. NO es secreto
-      # —son orígenes públicos—, por eso va versionado como `value:` (no
-      # `sync:false`). Es una allowlist EXACTA, jamás "*".
-      #   - https://app.moneydiary.cl        → dominio propio del web (canónico)
-      #   - https://money-diary-web.vercel.app → alias de Vercel (respaldo/transición)
-      # Ampliar con coma si se agrega otro origen de navegador.
+      # CORS allowlist (ADR-029): orígenes de navegador autorizados a leer
+      # respuestas cross-origin. Las apps nativas no usan CORS y el web está
+      # dormido (ADR-046, D5), así que va VACÍA a propósito. Vacía y explícita:
+      # si la variable faltara, env.ts caería al default de desarrollo
+      # (http://localhost:5173). Es una allowlist EXACTA, jamás "*"; se amplía
+      # con coma solo si vuelve un cliente de navegador.
       - key: CORS_ALLOWED_ORIGINS
-        value: "https://app.moneydiary.cl,https://money-diary-web.vercel.app"
+        value: ""
       # Login con Google (ADR-034 web, ADR-035 mobile). Las cuatro son
       # OPCIONALES para Zod, y ahí está el riesgo: si faltan, la API arranca
       # perfecto y la feature queda apagada SIN ningún error. Un servicio
@@ -136,6 +137,11 @@ services:
       # GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET son all-or-nothing (superRefine
       # en env.ts): exactamente una de las dos presente FALLA el boot, para que
       # un cliente OAuth a medio configurar nunca sea un apagado silencioso.
+      #
+      # Mirach: el par web y GOOGLE_REDIRECT_URI quedan SIN cargar a propósito
+      # (flujo web dormido, ADR-046 D5). GOOGLE_CLIENT_ID_ANDROID se carga
+      # recién cuando exista la app Android; el login con Google de iOS
+      # necesita su propio client ID (fase 5 del plan).
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
