@@ -16,8 +16,8 @@ a mano con este contenido (apunta al Postgres local; NO es secreto — DB local)
 
 ```dotenv
 # DB local (coincide con docker-compose.yml). Sin "prod"/"supabase" → pasa el gate.
-DATABASE_URL=postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
-DIRECT_URL=postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+DATABASE_URL=postgresql://mirach:mirach@localhost:5432/mirach_test
+DIRECT_URL=postgresql://mirach:mirach@localhost:5432/mirach_test
 
 # Clave de cifrado de TEST (AES-256, ADR-013) — REQUERIDA desde US-034/035: el
 # seed cifra descripcion/numeroCuenta/email y los tests descifran con ella, así
@@ -73,9 +73,9 @@ pnpm api db:down               # = docker compose down — apaga (conserva datos
 brew install postgresql@16
 brew services start postgresql@16
 # Crear el rol y la DB que espera la URL de .env.test:
-createuser -s moneydiary
-psql postgres -c "ALTER USER moneydiary WITH PASSWORD 'moneydiary';"
-createdb -O moneydiary moneydiary_test
+createuser -s mirach
+psql postgres -c "ALTER USER mirach WITH PASSWORD 'mirach';"
+createdb -O mirach mirach_test
 ```
 > Si el puerto 5432 ya está ocupado, cambialo en `docker-compose.yml` **y** en `.env.test`.
 

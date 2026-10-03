@@ -25,7 +25,7 @@ import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
  * observable 404, different and now deliberate reason).
  *
  * Requires a live Postgres reachable via `.env.test` — run via
- * `pnpm --filter @moneydiary/api test:integration` against the local
+ * `pnpm --filter @mirach/api test:integration` against the local
  * disposable Postgres (localhost:5432, seeded, ADR-029/apps/api/docs/local-test-db.md).
  */
 

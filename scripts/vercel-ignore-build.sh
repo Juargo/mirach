@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# vercel-ignore-build.sh — Vercel "Ignored Build Step" for apps/web and apps/landing.
+# vercel-ignore-build.sh — Vercel "Ignored Build Step" for apps/landing.
 #
-# Vercel runs each project's `ignoreCommand` from its Root Directory
-# (`apps/web` or `apps/landing`) and reads the exit code: 0 skips the build
+# Vercel runs the project's `ignoreCommand` from its Root Directory
+# (`apps/landing`) and reads the exit code: 0 skips the build
 # (the deployment ends CANCELED), anything else builds.
 #
 # Why not `git diff HEAD^ HEAD`
@@ -54,7 +54,7 @@ if [ "${VERCEL_ENV:-}" = "production" ]; then
   diff_against HEAD^ "previous commit on main"
 fi
 
-repo_url="https://github.com/${VERCEL_GIT_REPO_OWNER:-Juargo}/${VERCEL_GIT_REPO_SLUG:-MoneyDiary}.git"
+repo_url="https://github.com/${VERCEL_GIT_REPO_OWNER:-Juargo}/${VERCEL_GIT_REPO_SLUG:-mirach}.git"
 if ! git fetch --quiet --no-tags --depth="$MAIN_FETCH_DEPTH" "$repo_url" main; then
   build "could not fetch main"
 fi

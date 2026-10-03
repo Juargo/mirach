@@ -1,6 +1,5 @@
 packages:
   - 'apps/*'
-  - 'packages/*'
 
 allowBuilds:
   '@prisma/engines': true
@@ -25,9 +24,11 @@ overrides:
   js-yaml: '>=4.3.2 <5.0.0'
   # Piso subido a 3.1.6: GHSA-5jgf-p345-68v8 + GHSA-f65p-4m7j-42xc +
   # GHSA-fph4-wmhf-6fwf + GHSA-jqff-g426-hqxp (host confusion y SSRF, high).
-  # Alcanzable desde deps de producción: @moneydiary/api -> @prisma/client ->
+  # Alcanzable desde deps de producción: @mirach/api -> @prisma/client ->
   # prisma -> @prisma/dev -> @prisma/streams-local -> ajv -> fast-uri.
-  fast-uri: '>=3.1.6 <4.0.0'
+  # Burn-down 2026-10-02: piso subido a 3.1.7 por GHSA-qw65-cvwx-89v3 y
+  # GHSA-58mr-gqgx-xq4g (high), que 3.1.6 no cubre.
+  fast-uri: '>=3.1.7 <4.0.0'
   # nanoid < 3.3.17: GHSA-28wg-ghj8-5hjv + GHSA-2v37-7h3g-55p8 (high) —
   # transitivo dev de vite/postcss (build tooling, no llega a prod). Acotado
   # a la línea 3.x: postcss requiere nanoid CJS (4+ es ESM-only) y un rango
@@ -48,21 +49,21 @@ overrides:
   hono: '>=4.12.25 <5.0.0'
   # GHSA-r28c-9q8g-f849 — path traversal en el source map (high). Build tooling.
   postcss: '>=8.5.18 <9.0.0'
-  # GHSA-c83g-rgw3-j3cx (memoria sin tope) + GHSA-73wf-gq98-2v4g (escritura de
-  # prototipo vía browserslist-stats.json). Transitivo de apps/mobile > expo.
-  # 4.28.2 -> 4.28.7 es un patch dentro del mismo minor, no el salto de riesgo
-  # que sugería la entrada anterior del baseline.
-  browserslist: '>=4.28.7 <5.0.0'
+  # Burn-down 2026-10-02: pisos subidos a 1.1.20 / 2.1.6 / 5.0.11 por
+  # GHSA-6j4f-fj2g-mc7p y GHSA-qhr7-859c-m2p7 (alcanzable en runtime vía
+  # exceljs > archiver > minimatch).
   # GHSA-3jxr-9vmj-r5cp + GHSA-mh99-v99m-4gvg + GHSA-rgw5-rvv9-x895 — DoS por
   # expansión no acotada (high). El árbol tiene TRES líneas mayores vivas
   # (1.x de exceljs, 2.x y 5.x de eslint/typescript-eslint), así que cada una
   # lleva su propio piso: un override único las colapsaría a 5.x.
-  'brace-expansion@1': '>=1.1.18 <2.0.0'
-  'brace-expansion@2': '>=2.1.4 <3.0.0'
-  'brace-expansion@5': '>=5.0.9 <6.0.0'
+  'brace-expansion@1': '>=1.1.20 <2.0.0'
+  'brace-expansion@2': '>=2.1.6 <3.0.0'
+  'brace-expansion@5': '>=5.0.11 <6.0.0'
   # GHSA-4cwx-7wf7-3272 — cross-user information disclosure (high). Transitivo
   # dev de vitest/jsdom; no llega a prod, pero el piso es gratis.
-  undici: '>=7.29.0 <8.0.0'
+  # Burn-down 2026-10-02: piso subido a 7.29.1 por GHSA-rfgv-xxqx-mfg5 y
+  # GHSA-w293-vg96-wgc3 (high), que 7.29.0 no cubre.
+  undici: '>=7.29.1 <8.0.0'
 
   # --- Burn-down 2026-09-08 (desbloquea el gate `pnpm audit` de ADR-021) ---
   # Las advisories de estos dos se publicaron DESPUÉS del burn-down anterior,
@@ -71,11 +72,6 @@ overrides:
   # las dos versiones necesita dispensa de `minimumReleaseAgeExclude` — ambas
   # superan los 7 días de cuarentena (publicadas 2026-08-21 y 2026-08-24).
 
-  # DIECINUEVE advisories high en un solo paquete (DoS de parser, confusión de
-  # namespace y mis-parseo de entidades). Transitivo de apps/mobile > expo.
-  # Acotado a la línea 0.8.x: existe 0.9.x, pero el consumidor pide 0.8 y un
-  # rango abierto lo saltaría de minor (misma trampa que nanoid, arriba).
-  '@xmldom/xmldom': '>=0.8.15 <0.9.0'
   # GHSA-w27v-7q3p-w38r — `removeScripts` deja pasar links ejecutables por
   # bypass de namespace y caracteres de control (high). Transitivo de
   # apps/landing > astro. Build tooling, no llega al runtime del usuario.
@@ -91,6 +87,14 @@ overrides:
   # (publicada 2026-08-11) — supera los 7 días de cuarentena, así que no
   # necesita dispensa en minimumReleaseAgeExclude.
   smol-toml: '>=1.7.1 <2.0.0'
+
+  # --- Burn-down 2026-10-02 ---
+  # GHSA-j22f-vq7h-c4qm + GHSA-mcm9-63f2-9j32 + GHSA-x5rw-q4pp-hg5g — devalue
+  # <=5.9.2 (high). Transitivo de apps/landing > astro (astro lo fija exacto en
+  # 5.8.1); build tooling de un sitio estático, no llega al runtime. 5.9.3 se
+  # publicó 2026-09-18 (>7 días), así que no necesita dispensa. Acotado a 5.x
+  # por la misma razón que el resto.
+  devalue: '>=5.9.3 <6.0.0'
 
 # ADR-006 — defensas de instalación. Viven ACÁ, no en `.npmrc`: pnpm 11 lee sus
 # settings de este archivo. Declararlos en `.npmrc` los deja INERTES sin ningún
@@ -140,6 +144,4 @@ blockExoticSubdeps: true
 # NO agregar entradas nuevas sin justificación — el gate existe para eso.
 auditConfig:
   ignoreGhsas:
-    - GHSA-w3rx-r6r6-pgpr # image-size — DoS parser ICNS. Transitivo de metro (bundler Expo); solo mide assets del propio repo, nunca input de usuario. SIN PARCHE UPSTREAM: el advisory cubre <=2.0.2 y 2.0.2 es la última versión publicada (verificado 2026-09-04), así que no hay a dónde subir. Corrige la nota anterior, que decía que el parche exigía un salto 1.x→2.x — 2.x es igual de vulnerable. Solo se retira cuando image-size publique el fix
-    - GHSA-5p2g-fcmc-qvqq # image-size — DoS parsers JXL/HEIF. Misma justificación que la entrada anterior (sin parche upstream, no un parche caro)
     - GHSA-3f6p-5ww8-9rcr # mysql2 — downgrade del plugin de auth a mysql_clear_password filtra credenciales en texto plano. Driver MySQL que prisma arrastra como opcional y que este proyecto NO usa: apps/api/prisma/schema.prisma declara provider = "postgresql" (ADR-002). Código inalcanzable en runtime

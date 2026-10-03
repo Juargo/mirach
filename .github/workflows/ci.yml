@@ -37,7 +37,7 @@ jobs:
     # (`*) echo "All required jobs passed or were skipped"`), así que sin esto
     # un `main` verde solo probaba los workspaces que ese commit tocó. Caso
     # real: el flake de #724 vivió en `main` sin que ningún CI lo mostrara —
-    # apareció corriendo la suite de mobile a mano desde un PR de `apps/api`.
+    # apareció corriendo la suite de otro workspace a mano desde un PR de `apps/api`.
     #
     # El OR se escribe con `== 'true'` a la izquierda y NO como
     # `${{ steps.f.outputs.api || steps.full.outputs.todo }}`: en Actions un
@@ -51,10 +51,7 @@ jobs:
     # corrido ahí.
     outputs:
       api: ${{ steps.f.outputs.api == 'true' || steps.full.outputs.todo == 'true' }}
-      web: ${{ steps.f.outputs.web == 'true' || steps.full.outputs.todo == 'true' }}
-      mobile: ${{ steps.f.outputs.mobile == 'true' || steps.full.outputs.todo == 'true' }}
       landing: ${{ steps.f.outputs.landing == 'true' || steps.full.outputs.todo == 'true' }}
-      packages: ${{ steps.f.outputs.packages == 'true' || steps.full.outputs.todo == 'true' }}
       shared: ${{ steps.f.outputs.shared == 'true' || steps.full.outputs.todo == 'true' }}
       release-please-config: ${{ steps.f.outputs.release-please-config == 'true' || steps.full.outputs.todo == 'true' }}
       openspec: ${{ steps.f.outputs.openspec == 'true' || steps.full.outputs.todo == 'true' }}
@@ -70,10 +67,7 @@ jobs:
         with:
           filters: |
             api:     ['apps/api/**']
-            web:     ['apps/web/**']
-            mobile:  ['apps/mobile/**']
             landing: ['apps/landing/**']
-            packages: ['packages/**']
             # Fail-safe: security/build-relevant ROOT files must trigger the
             # workspace jobs, so a change to them can never skip the secret-scans
             # (fail-open on unlisted root files was the original bug). Listed
@@ -270,21 +264,21 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: moneydiary
-          POSTGRES_PASSWORD: moneydiary
-          POSTGRES_DB: moneydiary_test
+          POSTGRES_USER: mirach
+          POSTGRES_PASSWORD: mirach
+          POSTGRES_DB: mirach_test
         ports:
           - 5432:5432
         # GitHub waits for the service to report healthy before running steps.
         options: >-
-          --health-cmd "pg_isready -U moneydiary -d moneydiary_test"
+          --health-cmd "pg_isready -U mirach -d mirach_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
       # Localhost service container → db-safety gate accepts it (not prod/supabase).
-      DATABASE_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
-      DIRECT_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      DATABASE_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
+      DIRECT_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
       ALLOW_DESTRUCTIVE_DB: '1'
       # Test-only values (localhost DB, throwaway) — NOT secrets. The scripts set
       # DOTENV_CONFIG_PATH=.env.test, which is absent in CI; dotenv tolerates the
@@ -356,19 +350,19 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: moneydiary
-          POSTGRES_PASSWORD: moneydiary
-          POSTGRES_DB: moneydiary_test
+          POSTGRES_USER: mirach
+          POSTGRES_PASSWORD: mirach
+          POSTGRES_DB: mirach_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U moneydiary -d moneydiary_test"
+          --health-cmd "pg_isready -U mirach -d mirach_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
-      DIRECT_URL: postgresql://moneydiary:moneydiary@localhost:5432/moneydiary_test
+      DATABASE_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
+      DIRECT_URL: postgresql://mirach:mirach@localhost:5432/mirach_test
       ALLOW_DESTRUCTIVE_DB: '1'
       API_KEY: local-ci-api-key-not-a-secret-0000000000
       COOKIE_SECURE: 'false'
@@ -584,185 +578,6 @@ jobs:
             exit 1
           fi
 
-  # api-client-package Slice 1 — CI drift gate for the generated contract
-  # types. `types.gen.ts` is committed (design.md "Drift gates in CI"), so
-  # this mirrors `pnpm api openapi:check`: regenerate against the committed
-  # `apps/api/openapi.json`, then fail if the committed file diverges.
-  # Triggers on `api` too because a contract edit changes this gate's INPUT.
-  api-client:
-    name: Typecheck & contract-drift (api-client)
-    needs: changes
-    if: ${{ needs.changes.outputs.api == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Regenerate contract types
-        run: pnpm api-client generate
-
-      - name: Fail if types.gen.ts is stale
-        run: |
-          git diff --exit-code -- packages/api-client/src/types.gen.ts \
-            || { echo "::error::types.gen.ts is out of date. Run 'pnpm api-client generate' and commit."; exit 1; }
-
-      - name: Typecheck api-client
-        run: pnpm api-client typecheck
-
-  web:
-    name: Typecheck & unit tests (web)
-    needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Typecheck web
-        run: pnpm web typecheck
-
-      # ESLint gate (ADR-020): same rationale as the API lint step. web's `lint`
-      # is `eslint .` (no --fix, already a pure check); `dist` is ignored via
-      # globalIgnores and the generated routeTree.gen.ts (from `tsr generate` in
-      # the typecheck step above) ships an /* eslint-disable */ header.
-      - name: Lint web
-        run: pnpm web lint
-
-      - name: Unit tests web
-        run: pnpm web test
-
-      # Needed so `apps/web/dist/` exists for the secret-scan step below.
-      - name: Build web
-        run: pnpm web build
-
-      # Fail-closed guard for the `apps/web` secret boundary (Tarea 0-W):
-      # the API key must be injected server-side only (Vite dev proxy /
-      # Vercel function), never bundled into client code.
-      - name: Web secret-scan (fail on bundled API key)
-        run: |
-          ! grep -rEni 'VITE_.*(KEY|SECRET|TOKEN)' apps/web/src
-          test -d apps/web/dist
-          ! grep -rEn 'x-api-key' apps/web/dist
-
-  # NEW job (US-063 D-11/D-12) — the ONLY acceptance layer for the M2/M3
-  # mobile-viewport work: D-08 chose CSS-only responsive behaviour, so
-  # `pnpm web test` (jsdom, no layout engine) cannot assert any of it as a
-  # user-visible outcome (design.md §1.4). A SEPARATE job from `web`, not
-  # extra steps appended to it — a geometry failure must be distinguishable
-  # at a glance from a unit failure, and the Chromium download must not
-  # slow that job's fast gate. Same path filter as `web` (this suite lives
-  # entirely under `apps/web/e2e`).
-  #
-  # ⚠️ Hand-off (maintainer decision D-B, US-063 tasks.md task 7): this job
-  # is delivered here as a workflow addition ONLY. Making it a BLOCKING
-  # required status check on `main`'s branch protection is a repository-
-  # admin action (ADR-030 C.7) that cannot be performed from a PR — it is
-  # NOT yet enforced by this change. The maintainer must add "E2E
-  # (Playwright, web)" to the required-checks list before US-063 PR #2
-  # merges; until that happens, this job is informational only, exactly
-  # like every other check in this file that is not yet required.
-  web-e2e:
-    name: E2E (Playwright, web)
-    needs: changes
-    if: ${{ needs.changes.outputs.web == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Cache key follows the RESOLVED `@playwright/test` version, not the
-      # lockfile hash — the browser binaries this step downloads are tied
-      # to that exact version, so it is the correct invalidation signal.
-      - name: Resolve installed Playwright version
-        id: playwright-version
-        run: |
-          VERSION=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ steps.playwright-version.outputs.version }}
-
-      # On a cache hit the browser binary is already present — only the OS
-      # packages (`install-deps`) still need to be (re)applied on a fresh
-      # runner image. On a miss, `install --with-deps` does both in one
-      # step. Chromium only (design.md D-11): every criterion here is a
-      # layout fact of one CSS engine.
-      - name: Install Chromium browser (Playwright)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @moneydiary/web exec playwright install --with-deps chromium
-
-      - name: Install Chromium's OS dependencies (Playwright, cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter @moneydiary/web exec playwright install-deps chromium
-
-      - name: E2E tests (web, Chromium, 3 viewport projects)
-        run: pnpm web test:e2e
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: apps/web/playwright-report/
-          retention-days: 7
-
-  # NEW job (ADR-017) — jest-expo/RNTL had no CI job before this slice.
-  mobile:
-    name: Typecheck & unit tests (mobile)
-    needs: changes
-    if: ${{ needs.changes.outputs.mobile == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.shared == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Typecheck mobile
-        run: pnpm --filter @moneydiary/mobile exec tsc --noEmit
-
-      # ESLint gate (ADR-020): parity with api/web. Base is eslint-config-expo
-      # (Expo's idiomatic RN/React ruleset) plus Prettier via
-      # eslint-plugin-prettier. `lint` is `eslint .` (pure check, no --fix).
-      # Warnings do not fail the run by design — only errors do. Needs ESLint 9
-      # (eslint-config-expo 57 pulls eslint-plugin-react, which predates the
-      # ESLint 10 rule-context API).
-      - name: Lint mobile
-        run: pnpm --filter @moneydiary/mobile lint
-
-      - name: Unit tests mobile
-        run: pnpm --filter @moneydiary/mobile test
-
   landing:
     name: Typecheck & build landing
     needs: changes
@@ -829,10 +644,7 @@ jobs:
     needs: changes
     if: >-
       ${{ needs.changes.outputs.api == 'true'
-        || needs.changes.outputs.web == 'true'
-        || needs.changes.outputs.mobile == 'true'
         || needs.changes.outputs.landing == 'true'
-        || needs.changes.outputs.packages == 'true'
         || needs.changes.outputs.shared == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -851,7 +663,7 @@ jobs:
           uvx semgrep@1.175.0 scan \
             --config=p/typescript --config=p/owasp-top-ten \
             --json --output=semgrep.json --quiet \
-            apps/api/src apps/web/src apps/mobile/src apps/landing/src packages
+            apps/api/src apps/landing/src
           RUN_STATUS=$?
           set -e
 
@@ -895,6 +707,12 @@ jobs:
   security:
     name: Security (audit + secrets)
     runs-on: ubuntu-latest
+    # gitleaks-action lists the PR's commits through the API. In a private
+    # repository that call needs pull-requests: read; the workflow-level block
+    # only grants contents: read, so the job re-grants both explicitly.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -977,7 +795,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, api-client, web, web-e2e, mobile, landing, security]
+    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, landing, security]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed

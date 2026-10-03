@@ -13,20 +13,20 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: moneydiary-test-db
+    container_name: mirach-test-db
     environment:
-      POSTGRES_USER: moneydiary
-      POSTGRES_PASSWORD: moneydiary
-      POSTGRES_DB: moneydiary_test
+      POSTGRES_USER: mirach
+      POSTGRES_PASSWORD: mirach
+      POSTGRES_DB: mirach_test
     ports:
       - '5432:5432'
     volumes:
-      - moneydiary_test_pg:/var/lib/postgresql/data
+      - mirach_test_pg:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U moneydiary -d moneydiary_test']
+      test: ['CMD-SHELL', 'pg_isready -U mirach -d mirach_test']
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
-  moneydiary_test_pg:
+  mirach_test_pg:

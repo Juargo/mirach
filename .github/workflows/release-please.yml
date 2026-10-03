@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   # Manual trigger: re-runs release-please without inventing a commit on `main`
-  # (added 2026-08-15, when merging `landing 0.2.0` left `web`/`mobile` DIRTY).
+  # (added 2026-08-15, when merging `landing 0.2.0` left sibling release PRs DIRTY).
   #
   # It does NOT unstick a conflicting release PR by itself. Release PRs all
   # touch `.release-please-manifest.json`, whose package lines are adjacent, so
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       # `paths_released` is a JSON array of the package paths released in this
-      # run, e.g. `["apps/mobile"]`. Chosen over the per-path
+      # run, e.g. `["apps/api"]`. Chosen over the per-path
       # `<path>--release_created` outputs because it is the documented, stable
       # surface for manifest mode; the per-path keys embed `--` and need
       # bracket access, which is easy to get subtly wrong and fails silently
@@ -51,28 +51,9 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # Makes the wiring auditable. If `mobile-build` below ever fails to fire
-      # when it should, this line in the log says whether the cause was an
-      # empty output or a bad condition.
+      # Makes the wiring auditable: the log says whether a run released
+      # anything and which paths.
       - name: Report what was released
         run: |
           echo "paths_released: ${{ steps.rp.outputs.paths_released || '(empty)' }}"
           echo "releases_created: ${{ steps.rp.outputs.releases_created || '(empty)' }}"
-
-  # ADR-030's mobile CD, re-attached. It used to hang off `mobile-release.yml`'s
-  # `push: tags: mobile-v*` trigger, which CANNOT fire for a release-please tag:
-  # GitHub does not start workflow runs from events created with GITHUB_TOKEN.
-  # `mobile-release.yml` had zero runs in its entire history as a result.
-  #
-  # Calling it as a reusable workflow keeps everything in this run, so no new
-  # credential is needed — the alternative fix is a PAT, which means holding a
-  # repo-write token in CI purely to re-enable an event.
-  mobile-build:
-    needs: release-please
-    if: contains(fromJSON(needs.release-please.outputs.paths_released || '[]'), 'apps/mobile')
-    uses: ./.github/workflows/mobile-release.yml
-    # EXPO_TOKEN lives in the called workflow; without `inherit` it would not
-    # be visible there. NOTE (2026-08-15): this repo currently has NO secrets
-    # configured, so the called workflow's preflight step will fail loudly
-    # until EXPO_TOKEN is added.
-    secrets: inherit

@@ -1,11 +1,17 @@
 # gitleaks false-positive fingerprints (commit:file:rule:line)
-# design.md:389 — rule matched documentation prose, no secret (PR #251)
-99b792bb4a530fcc1e1db1c04fbe7c2c42646051:openspec/changes/auth-google-login-mobile/design.md:generic-api-key:389
-# self-referential FP: a prior version of this file quoted the matched prose in its comment
-6d3e033d753da7cf2a9de8402c02367e65698dc4:.gitleaksignore:generic-api-key:2
-# US-041 (PR #318): fixture de test, nunca un secreto real. El valor se siembra
-# y se descarta en cada corrida de `vinculacion-google.int-spec.ts`; la regla
-# saltó por entropía (3.74) sobre una constante llamada PASSWORD. En el tip de
-# la rama el literal ya fue reemplazado por uno obviamente falso y de baja
-# entropía — este fingerprint cubre solo el commit histórico que lo introdujo.
-42a1fddc876091ff1d00234e287a491e57c772df:apps/api/test/vinculacion-google.int-spec.ts:generic-api-key:41
+#
+# Regenerated after `git filter-repo` rewrote every commit SHA when this
+# repository was split from Juargo/MoneyDiary (ADR-046). Each entry covers one
+# historical commit only; none of them is a real secret.
+
+# Test fixture passwords, seeded and discarded on every integration run.
+# The rule fired on entropy over constants named PASSWORD.
+4481312846d756f24437a9efe297c041e26e8e0a:apps/api/test/vinculacion-google.int-spec.ts:generic-api-key:41
+4d50ee6dfc18d4f1d78ca7e00b6e835668c6b39d:apps/api/test/perfil-crud.int-spec.ts:generic-api-key:27
+e0019d5b3b684ff7033566d75f0d831deb20afd0:apps/api/test/auth-isolation.int-spec.ts:generic-api-key:48
+
+# Placeholder value in the env template ("replace with a random key").
+11f156ebdd5c2ef960a49df8ba54d216e4d7e4b8:apps/api/.env.example:generic-api-key:15
+
+# Self-referential: an older version of this file quoted matched prose in a comment.
+b26aee35b045d6114df0ccd4fc8d96dbccc20fb6:.gitleaksignore:generic-api-key:2

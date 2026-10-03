@@ -1,5 +1,7 @@
 # Runbook — Activación de "Ingresar con Google" en mobile (ADR-035, M1)
 
+> **Nota (ADR-046):** este runbook documenta el flujo anterior con Expo/EAS de MoneyDiary. Se conserva como referencia para el cliente nativo de Android (Kotlin) de Mirach; no describe infraestructura ni pasos vigentes de este repositorio.
+
 Runbook de activación en producción (o cualquier ambiente) para el flujo
 "Ingresar con Google" de `apps/mobile` (Android, ADR-035). El código del change
 `auth-google-login-mobile` (slices A1–C2) queda **inerte** al mergear: sin la
@@ -17,7 +19,7 @@ correr el flujo real en un dispositivo Android.
    B1, B2, B3, C1, C2 — código completo, incluidos los 3 gates manuales de
    dispositivo de la slice C2).
 2. Acceso a: Google Cloud Console (mismo proyecto OAuth que el client web de
-   ADR-034), Render (dashboard del servicio `moneydiary-api`), EAS
+   ADR-034), Render (dashboard del servicio `mirach-api`), EAS
    (`eas login` con la cuenta del proyecto).
 3. Un dispositivo Android físico o un emulador para el checklist final.
 
@@ -55,7 +57,7 @@ correr el flujo real en un dispositivo Android.
    fue configurada por el change web (ADR-034) y debe otorgar los scopes
    `openid`, `email`, `profile`. No crear una pantalla nueva.
 
-5. **Configurar Render.** Dashboard del servicio `moneydiary-api` →
+5. **Configurar Render.** Dashboard del servicio `mirach-api` →
    Environment → agregar `GOOGLE_CLIENT_ID_ANDROID=<client id del paso 2>` →
    guardar → esperar el restart automático.
 

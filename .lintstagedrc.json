@@ -1,5 +1,3 @@
 {
-  "apps/api/**/*.ts": "pnpm --filter @moneydiary/api exec eslint --fix",
-  "apps/web/**/*.{ts,tsx}": "pnpm --filter @moneydiary/web exec eslint --fix",
-  "apps/mobile/**/*.{ts,tsx}": "pnpm --filter @moneydiary/mobile exec eslint --fix"
+  "apps/api/**/*.ts": "pnpm --filter @mirach/api exec eslint --fix"
 }
