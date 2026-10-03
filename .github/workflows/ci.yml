@@ -707,6 +707,12 @@ jobs:
   security:
     name: Security (audit + secrets)
     runs-on: ubuntu-latest
+    # gitleaks-action lists the PR's commits through the API. In a private
+    # repository that call needs pull-requests: read; the workflow-level block
+    # only grants contents: read, so the job re-grants both explicitly.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
