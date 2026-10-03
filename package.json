@@ -1,7 +1,7 @@
 {
   "name": "mirach",
   "version": "0.0.1",
-  "description": "Personal finance app to consolidate and analyze bank transactions from Chilean banks. Built with NestJS · React · TypeScript · Clean Architecture.",
+  "description": "Mirach — personal finance app that consolidates and analyzes bank transactions from Chilean banks.",
   "author": "Juargo",
   "private": true,
   "license": "MIT",

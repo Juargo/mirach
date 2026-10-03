@@ -1,5 +1,7 @@
 # Runbook — Activación de "Ingresar con Google" en mobile (ADR-035, M1)
 
+> **Nota (ADR-046):** este runbook documenta el flujo anterior con Expo/EAS de MoneyDiary. Se conserva como referencia para el cliente nativo de Android (Kotlin) de Mirach; no describe infraestructura ni pasos vigentes de este repositorio.
+
 Runbook de activación en producción (o cualquier ambiente) para el flujo
 "Ingresar con Google" de `apps/mobile` (Android, ADR-035). El código del change
 `auth-google-login-mobile` (slices A1–C2) queda **inerte** al mergear: sin la

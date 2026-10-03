@@ -1,7 +1,7 @@
 {
   "name": "@mirach/api",
   "version": "0.10.0",
-  "description": "MoneyDiary backend — Express + Clean Architecture, pipeline de ingesta de movimientos bancarios.",
+  "description": "Mirach backend — Express + Clean Architecture, pipeline de ingesta de movimientos bancarios.",
   "author": "Juargo",
   "private": true,
   "license": "MIT",

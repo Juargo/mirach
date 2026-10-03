@@ -54,7 +54,7 @@ if [ "${VERCEL_ENV:-}" = "production" ]; then
   diff_against HEAD^ "previous commit on main"
 fi
 
-repo_url="https://github.com/${VERCEL_GIT_REPO_OWNER:-Juargo}/${VERCEL_GIT_REPO_SLUG:-MoneyDiary}.git"
+repo_url="https://github.com/${VERCEL_GIT_REPO_OWNER:-Juargo}/${VERCEL_GIT_REPO_SLUG:-mirach}.git"
 if ! git fetch --quiet --no-tags --depth="$MAIN_FETCH_DEPTH" "$repo_url" main; then
   build "could not fetch main"
 fi
