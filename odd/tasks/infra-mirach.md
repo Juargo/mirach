@@ -27,12 +27,12 @@ Strict mode is configured, but these tasks are configuration and provisioning, n
 
 ## Tasks
 
-- [ ] **T1 — Blueprint for Mirach.** `render.yaml`: region `virginia`, empty `CORS_ALLOWED_ORIGINS` (explicit, so env.ts does not fall back to the dev default), Google variables documented as intentionally unset. Route: inline. Check: YAML parses; reviewed in PR.
+- [x] **T1 — Blueprint for Mirach.** `render.yaml`: region `virginia`, empty `CORS_ALLOWED_ORIGINS` (explicit, so env.ts does not fall back to the dev default), Google variables documented as intentionally unset. Route: inline. Check: YAML parses; reviewed in PR.
 - [x] **T2 — Supabase project.** Created `mirach` (ref `astnyucjavxzmpgjmdko`) in `us-east-1`, org "Juargo's Org", free plan, via the Supabase connector with user authorization (2026-10-03).
 - [ ] **T3 — Secrets.** Generate `API_KEY` (64 hex) and `ENCRYPTION_KEY` (base64 of 32 random bytes) into `~/.config/mirach/prod.env` (mode `600`). The user adds `DATABASE_URL` (transaction pooler, port 6543) and `DIRECT_URL` (session pooler, port 5432) from the Supabase dashboard after setting the database password.
 - [ ] **T4 — Schema.** `prisma migrate deploy` against Supabase with both URLs from the secrets file; then decide whether the seed applies (catalog template only, never demo or test users).
 - [ ] **T5 — Render service.** User: Render → New → Blueprint → `Juargo/mirach` (grant Render access to the private repo), load the `sync:false` secrets that apply (`DATABASE_URL`, `DIRECT_URL`, `API_KEY`, `ENCRYPTION_KEY`), leave Google ones empty.
-- [ ] **T6 — Verify.** `GET /` (health) and `GET /version` on the `onrender.com` URL; an authenticated call with the new `API_KEY` returns 2xx/4xx, never 5xx.
+- [ ] **T6 — Verify.** `GET /` (health) and `GET /version` on the `onrender.com` URL; an authenticated call with the new `API_KEY` returns 2xx/4xx, never 5xx; a request with `Origin: http://localhost:5173` gets no `Access-Control-Allow-Origin` header (proves Render kept the empty CORS value).
 
 ## Notes
 
@@ -41,7 +41,9 @@ Strict mode is configured, but these tasks are configuration and provisioning, n
 ## Progress
 
 - T2 done (see above).
+- T1 done: commit `f43b47a`. Review: high, granted, four lenses, approved and acknowledged. Two warnings said nothing proved that an empty `CORS_ALLOWED_ORIGINS` avoids the dev default. Added env tests for empty (→ `[]`) and missing (→ dev default) in this commit; proven able to fail by removing the empty-origin filter in env.ts (1 failed), restored (67 passed). Whether Render keeps an empty value is checked live in T6.
+- T3 partial: `~/.config/mirach/prod.env` created (mode 600) with fresh `API_KEY` and `ENCRYPTION_KEY`; `DATABASE_URL` and `DIRECT_URL` pending from the user.
 
 ## Next step
 
-T1, then T3.
+User sets the Supabase DB password and fills both URLs; then T4.

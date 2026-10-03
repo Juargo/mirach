@@ -164,6 +164,20 @@ describe('loadEnv — LOCALHOST_PATTERN anclado, no substring (design.md §3)', 
   });
 });
 
+describe('loadEnv — CORS_ALLOWED_ORIGINS vacío vs ausente (ADR-046, D5)', () => {
+  it('un string vacío explícito es una allowlist vacía, sin caer al default de desarrollo', () => {
+    const env = loadEnv({ ...baseProdSource, CORS_ALLOWED_ORIGINS: '' });
+
+    expect(env.CORS_ALLOWED_ORIGINS).toEqual([]);
+  });
+
+  it('ausente aplica el default de desarrollo (por eso render.yaml lo declara vacío)', () => {
+    const env = loadEnv(omit(baseProdSource, 'CORS_ALLOWED_ORIGINS'));
+
+    expect(env.CORS_ALLOWED_ORIGINS).toEqual(['http://localhost:5173']);
+  });
+});
+
 describe('loadEnv — COOKIE_SECURE vía enum, no coerción (ENV-05)', () => {
   it('COOKIE_SECURE ausente aplica el default "false" (boolean false)', () => {
     const env = loadEnv(omit(baseDevSource, 'COOKIE_SECURE'));
