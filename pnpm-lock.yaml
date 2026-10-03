@@ -88,8 +88,8 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
       zod-openapi:
-        specifier: 5.4.2
-        version: 5.4.2(zod@4.4.3)
+        specifier: 6.0.2
+        version: 6.0.2(zod@4.4.3)
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0
@@ -4465,11 +4465,11 @@ packages:
     resolution: {integrity: sha512-9qv4rlDiopXg4E69k+vMHjNN63YFMe9sZMrdlvKnCjlCRWeCBswPPMPUfx+ipsAWq1LXHe70RcbaHdJJpS6hyQ==}
     engines: {node: '>= 10'}
 
-  zod-openapi@5.4.2:
-    resolution: {integrity: sha512-F2s/1E/8Ahd43JhrkqE/dc13qjaGF/VTdUVq7rtRKvyDWyuYYryyzdxHnzH1ff1zLpd4KkvNvIpeBnVQShlxYg==}
-    engines: {node: '>=20'}
+  zod-openapi@6.0.2:
+    resolution: {integrity: sha512-SwC5Ppi2ov8WimzNWP/XK95VqPyLDzxPYj10HgNPzhZH9gO7zx0sxdYL9eq7wOADHx1JddOApjhYDmMWQvnVnw==}
+    engines: {node: '>=22.14.0'}
     peerDependencies:
-      zod: ^3.25.74 || ^4.0.0
+      zod: ^4.0.0
 
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
@@ -8790,7 +8790,7 @@ snapshots:
       compress-commons: 4.1.2
       readable-stream: 3.6.2
 
-  zod-openapi@5.4.2(zod@4.4.3):
+  zod-openapi@6.0.2(zod@4.4.3):
     dependencies:
       zod: 4.4.3
 
