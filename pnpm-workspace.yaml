@@ -145,3 +145,4 @@ blockExoticSubdeps: true
 auditConfig:
   ignoreGhsas:
     - GHSA-3f6p-5ww8-9rcr # mysql2 — downgrade del plugin de auth a mysql_clear_password filtra credenciales en texto plano. Driver MySQL que prisma arrastra como opcional y que este proyecto NO usa: apps/api/prisma/schema.prisma declara provider = "postgresql" (ADR-002). Código inalcanzable en runtime
+    - GHSA-ch52-4w7c-c8xp # http-cache-semantics <=4.2.0 — el manejo de max-stale puede servir respuestas cacheadas de otro usuario. Sin versión parcheada publicada (2026-10-03; 4.2.0 es la última). Llega solo vía apps/landing > astro, que lo usa al compilar; el landing se publica como sitio estático, sin un servidor que cachee respuestas por usuario. Retirar cuando exista una versión parcheada (override con piso) o astro deje de depender de él
