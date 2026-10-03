@@ -172,7 +172,8 @@ describe('loadEnv — CORS_ALLOWED_ORIGINS vacío vs ausente (ADR-046, D5)', () 
   });
 
   it('ausente aplica el default de desarrollo (por eso render.yaml lo declara vacío)', () => {
-    const env = loadEnv(omit(baseProdSource, 'CORS_ALLOWED_ORIGINS'));
+    // baseProdSource no declara CORS_ALLOWED_ORIGINS: la variable está ausente.
+    const env = loadEnv(baseProdSource);
 
     expect(env.CORS_ALLOWED_ORIGINS).toEqual(['http://localhost:5173']);
   });
