@@ -78,6 +78,16 @@ xcodebuild -project Mirach.xcodeproj -scheme Mirach \
 - `MirachTests`: pruebas unitarias con Swift Testing (`@Test`, `#expect`) del view model (con un `MirachAPI` falso) y del adaptador (con un transporte falso que alimenta el cliente generado real).
 - `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con el argumento `-uiTestStubbedClient`, que hace que use una API con respuesta fija; así no dependen de la red.
 
+## Integración continua
+
+El job `ios` de `.github/workflows/ci.yml` corre en `macos-26` (imagen estable con Xcode 26.6, Swift 6.2 y simuladores iPhone 17; Xcode 27 aún es preview en los runners). Solo se ejecuta si cambia `apps/ios/**`, `apps/api/openapi.json`, `design/**`, el validador de tokens o el propio workflow (en `main` corre siempre), y un job omitido cuenta como éxito en `CI success`. Pasos:
+
+1. Instala XcodeGen 2.46.0 (binario del release, versión fija).
+2. Regenera el cliente (`./scripts/generate-api.sh`) y falla si difiere de lo commiteado: avisa que cambió `openapi.json` sin regenerar.
+3. `node scripts/check-design-tokens.mjs` (equivale a `pnpm design:check`, sin instalar dependencias).
+4. Crea un `Secrets.xcconfig` de relleno desde el ejemplo y genera el proyecto.
+5. `xcodebuild test` en el primer simulador iPhone disponible, con `CODE_SIGNING_ALLOWED=NO` (el CI no tiene certificados). Límite: 30 minutos.
+
 ## Estructura
 
 ```
