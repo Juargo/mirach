@@ -40,6 +40,7 @@ import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
 import { registrarVersion } from './routes/version.routes';
 import { registrarCategorias } from './routes/categorias.routes';
 import { registrarPatrones } from './routes/patrones.routes';
+import { registrarCuenta } from './routes/cuenta.routes';
 import { registrarPerfil } from './routes/perfil.routes';
 import {
   registrarPerfilGoogleVincular,
@@ -222,6 +223,10 @@ export function createApp(container: Container, env: Env): Express {
   registrarCategorias(protectedApi, container.catalogo);
   registrarPatrones(protectedApi, container.catalogo);
   registrarPerfil(protectedApi, container.perfil);
+  registrarCuenta(protectedApi, {
+    eliminarCuenta: container.eliminarCuenta,
+    cookieSecure,
+  });
   // Vinculación explícita de Google (US-041, design §1/Q2b, binding item
   // #4): MISMO gate `container.googleAuth !== undefined` que
   // `registrarAuthGoogle`/`registrarAuthGoogleDeshabilitado` arriba —

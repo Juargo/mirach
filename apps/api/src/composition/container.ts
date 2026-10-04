@@ -18,6 +18,7 @@ import { ReevaluarCategoriasUseCase } from '../application/use-cases/reevaluar-c
 import { CategorizarTransaccionUseCase } from '../application/use-cases/categorizar-transaccion.use-case';
 import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
 import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingesta.use-case';
+import { EliminarCuentaUseCase } from '../application/use-cases/eliminar-cuenta.use-case';
 import { EliminarMovimientoManualUseCase } from '../application/use-cases/eliminar-movimiento-manual.use-case';
 import { ListarIngestasUseCase } from '../application/use-cases/listar-ingestas.use-case';
 import { LoginRateLimiter } from '../infrastructure/http/auth/login-rate-limiter';
@@ -47,6 +48,8 @@ import { PrismaCatalogoClasificacionRepository } from '../infrastructure/persist
 import { PrismaReevaluarCategoriasReader } from '../infrastructure/persistence/prisma-reevaluar-categorias.reader';
 import { PrismaReevaluarCategoriasWriter } from '../infrastructure/persistence/prisma-reevaluar-categorias.writer';
 import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
+import { PrismaCuentaRepository } from '../infrastructure/persistence/prisma-cuenta.repository';
+import { NoopRevocadorIdentidadExterna } from '../infrastructure/identity/noop-revocador-identidad-externa';
 import { PrismaEliminarMovimientoManualRepository } from '../infrastructure/persistence/prisma-eliminar-movimiento-manual.repository';
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
 import { AesGcmCryptoService } from '../infrastructure/persistence/aes-gcm-crypto.service';
@@ -119,6 +122,8 @@ export interface Container {
   readonly listarIngestas: ListarIngestasUseCase;
   /** Catálogo CRUD (US-038) — `/api/categorias` + `/api/patrones`. */
   readonly catalogo: CatalogoGraph;
+  /** Eliminación de la cuenta propia — `DELETE /api/cuenta`. */
+  readonly eliminarCuenta: EliminarCuentaUseCase;
   /** Edición de perfil (US-040, PR#1) — `PATCH /api/perfil`. */
   readonly perfil: PerfilGraph;
   /** Login por credenciales — POST /api/auth/login. */
@@ -324,6 +329,12 @@ export function createContainer(
     new PrismaListarIngestasReader(prisma),
     logger,
   );
+  // La revocación externa es un no-op hasta T4 (Sign in with Apple).
+  const eliminarCuenta = new EliminarCuentaUseCase(
+    new PrismaCuentaRepository(prisma),
+    new NoopRevocadorIdentidadExterna(),
+    logger,
+  );
   const catalogo = crearCatalogo(prisma);
   // US-040: reusa las MISMAS instancias crypto/blindIndex derivadas arriba —
   // nunca una re-derivación (mismo carry-forward que googleAuth/googleAuthMobile).
@@ -348,6 +359,7 @@ export function createContainer(
     eliminarMovimientoManual,
     listarIngestas,
     catalogo,
+    eliminarCuenta,
     perfil,
     login: auth.login,
     logout: auth.logout,

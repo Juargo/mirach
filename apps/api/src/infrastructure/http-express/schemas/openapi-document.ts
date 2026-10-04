@@ -83,6 +83,10 @@ import {
   passwordUpdateRequestSchema,
 } from './perfil.schema';
 import {
+  cuentaDeleteRequestSchema,
+  cuentaErrorResponseSchema,
+} from './cuenta.schema';
+import {
   vincularGoogleRequestSchema,
   vincularGoogleResponseSchema,
   desvincularGoogleRequestSchema,
@@ -1213,6 +1217,37 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
   },
 };
 
+/**
+ * `DELETE /api/cuenta` — in-app account deletion (Apple 5.1.1(v), Google
+ * Play, Ley 21.719). The account is always the session's; the body only
+ * carries the explicit confirmation.
+ */
+const cuentaDeleteOperation: ZodOpenApiOperationObject = {
+  summary: 'Delete the current account and all its data',
+  description:
+    "Authenticated endpoint that permanently deletes the CALLER's account in one transaction: " +
+    'every session (all devices), transaction, ingestion, classification pattern, category, bank ' +
+    'account and the user itself. Requires x-api-key + a valid session and the explicit body ' +
+    'confirmation "ELIMINAR" (a valid session alone is not enough). Irreversible. External ' +
+    'identity tokens are revoked best-effort first; a revocation failure never blocks the ' +
+    'deletion. The session cookie is cleared on success; a repeated call with the now-deleted ' +
+    'session answers 401.',
+  requestBody: {
+    content: { 'application/json': { schema: cuentaDeleteRequestSchema } },
+  },
+  responses: {
+    '204': { description: 'Account and data deleted. No response body.' },
+    '400': {
+      description:
+        'Missing or wrong confirmation (code CONFIRMACION_INVALIDA). Nothing was deleted.',
+      content: { 'application/json': { schema: cuentaErrorResponseSchema } },
+    },
+    '401': {
+      description: 'No valid session (missing, expired, or invalid token).',
+    },
+  },
+};
+
 const semaforoDetalleOperation: ZodOpenApiOperationObject = {
   summary:
     'Semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice',
@@ -1542,6 +1577,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/perfil/google/desvincular': {
     post: perfilGoogleDesvincularOperation,
   },
+  '/api/cuenta': { delete: cuentaDeleteOperation },
   '/api/resumen/semaforo': { get: semaforoDetalleOperation },
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
   '/api/ingresos/mes': { get: ingresosMesOperation },
