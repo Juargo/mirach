@@ -20,7 +20,7 @@ model User {
   email         String?
   // Blind index (HMAC-SHA256 determinístico sobre el email normalizado) — la
   // unicidad y la búsqueda por igualdad (login) se hacen acá. Nullable: los
-  // usuarios demo no tienen email (múltiples NULL permitidos por Postgres).
+  // usuarios sin email (múltiples NULL permitidos por Postgres).
   emailBlindIndex String? @unique
   passwordHash  String?
   // auth-google-login (AUTH-14, slice A): identificador OIDC opaco de
@@ -29,8 +29,6 @@ model User {
   // de los usuarios no tienen login con Google. Additive-only: filas
   // existentes quedan en NULL.
   googleSub     String?   @unique
-  esDemo        Boolean   @default(false)
-  demoCreatedAt DateTime?
   creadoEn      DateTime  @default(now())
   accounts      Account[]
   sessions      Session[]
