@@ -1,0 +1,7 @@
+# The Xcode project is generated from project.yml (ADR-048).
+*.xcodeproj
+DerivedData/
+*.xcuserstate
+xcuserdata/
+build/
+.DS_Store
