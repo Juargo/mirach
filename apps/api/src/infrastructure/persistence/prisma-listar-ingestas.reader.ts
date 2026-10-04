@@ -45,7 +45,9 @@ export class PrismaListarIngestasReader implements IListarIngestasReader {
         userId,
         estado: { in: [EstadoIngesta.PROCESADA, EstadoIngesta.FALLIDA] },
       },
-      orderBy: { creadoEn: 'desc' },
+      // Newest first; `id` breaks a `creadoEn` tie so the order never depends
+      // on physical row order (contract: documented in the OpenAPI operation).
+      orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
         banco: true,

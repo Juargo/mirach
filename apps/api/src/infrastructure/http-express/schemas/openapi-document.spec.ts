@@ -672,4 +672,58 @@ describe('buildOpenApiDocument', () => {
       expect(con403).toEqual([]);
     });
   });
+
+  describe('list ordering is documented', () => {
+    const casos: Array<[string, string, string, RegExp]> = [
+      [
+        'get',
+        '/api/categorias',
+        'GET /api/categorias',
+        /Ordering:.*`nombre` ascending.*es-CL.*`id`.*`prioridad`/s,
+      ],
+      [
+        'get',
+        '/api/ingestas',
+        'GET /api/ingestas',
+        /Ordering:.*newest first.*`id` descending/s,
+      ],
+      [
+        'get',
+        '/api/buckets/{bucket}',
+        'GET /api/buckets/{bucket}',
+        /Ordering:.*amount descending.*`fecha` ascending.*`id`/s,
+      ],
+      [
+        'get',
+        '/api/buckets/{bucket}/detalle',
+        'GET /api/buckets/{bucket}/detalle',
+        /Ordering:.*`grupos`.*`subtotal` descending.*Sin categoría.*last.*`transacciones`.*`fecha` ascending/s,
+      ],
+      [
+        'get',
+        '/api/ingresos/mes',
+        'GET /api/ingresos/mes',
+        /Ordering:.*`fecha` ascending.*`id`/s,
+      ],
+      [
+        'get',
+        '/api/resumen/anual',
+        'GET /api/resumen/anual',
+        /Ordering:.*12.*January.*December/s,
+      ],
+      [
+        'get',
+        '/api/movimientos',
+        'GET /api/movimientos',
+        /Ordering:.*`fecha` ascending.*`id`/s,
+      ],
+    ];
+
+    it.each(casos)('%s %s', (metodo, ruta, _nombre, patron) => {
+      const op = buildOpenApiDocument().paths?.[ruta]?.[metodo as 'get'] as {
+        description?: string;
+      };
+      expect(op.description).toMatch(patron);
+    });
+  });
 });

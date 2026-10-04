@@ -37,7 +37,10 @@ const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const API_KEY = process.env.API_KEY ?? '';
 const RUN_ID = `auth-apple-token-int-${Date.now()}`;
 const BODY = { identityToken: 'fake.identity.token', nonce: 'nonce-crudo' };
-const GENERIC_401 = { message: 'Credenciales inválidas.' };
+const GENERIC_401 = {
+  message: 'Credenciales inválidas.',
+  code: 'CREDENCIALES_INVALIDAS',
+};
 
 describe('POST /api/auth/apple/token (int) — LoginConAppleUseCase against a real DB', () => {
   let prisma: PrismaClient;

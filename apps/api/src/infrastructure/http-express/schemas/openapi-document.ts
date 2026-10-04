@@ -172,7 +172,8 @@ const resumenAnualOperation: ZodOpenApiOperationObject = {
   summary: 'Annual 50/30/20 breakdown',
   description:
     'Authenticated endpoint returning the 50/30/20 budget breakdown for all 12 months of a year (US-030). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: `meses` always holds exactly 12 entries, January to December (ascending `periodo`).',
   requestParams: {
     query: resumenAnualQuerySchema,
   },
@@ -195,7 +196,8 @@ const movimientosOperation: ZodOpenApiOperationObject = {
   summary: 'Monthly transaction list',
   description:
     'Authenticated endpoint returning the consolidated monthly transaction list (US-014). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: transactions by `fecha` ascending, ties by `id` ascending.',
   requestParams: {
     query: movimientosQuerySchema,
   },
@@ -218,7 +220,8 @@ const bucketsOperation: ZodOpenApiOperationObject = {
   summary: 'Bucket drill-down',
   description:
     'Authenticated endpoint returning the transaction detail for a single spend bucket (US-017). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: transactions by amount descending, then `fecha` ascending, then `id` ascending.',
   requestParams: {
     path: bucketsPathParamsSchema,
     query: bucketsQuerySchema,
@@ -242,7 +245,8 @@ const ingestasOperation: ZodOpenApiOperationObject = {
   summary: 'List ingestas',
   description:
     'Authenticated endpoint returning the per-user ingesta history (US-004/US-018). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: newest first — `fecha` (when the ingesta was created) descending, ties by `id` descending.',
   responses: {
     '401': respuesta401Protegida,
     '200': {
@@ -886,7 +890,8 @@ const categoriasListOperation: ZodOpenApiOperationObject = {
     "Authenticated endpoint returning the caller's own categories with their nested classification " +
     'patterns and an all-history `transaccionesCount` per category — the caller-scoped impact ' +
     'preview for a destructive delete (US-038, CAT038-02; US-039, CAT039-01). Requires x-api-key + ' +
-    'a valid session (RNF-SEC-006, per-user isolation).',
+    'a valid session (RNF-SEC-006, per-user isolation).' +
+    " Ordering: categories by `nombre` ascending (es-CL collation, independent of the database), ties by `id` ascending; each category's nested `patrones` by `prioridad` ascending, then `patron`, then `id`.",
   responses: {
     '401': respuesta401Protegida,
     '200': {
@@ -1366,7 +1371,8 @@ const bucketDetalleMesOperation: ZodOpenApiOperationObject = {
     'groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). ' +
     'Accepts only the three spend buckets (Necesidades, Deseos, Ahorro); Ingreso ' +
     'is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid ' +
-    'session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
+    'session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).' +
+    ' Ordering: `grupos` by `subtotal` descending, ties by category name (es-CL), with the synthetic "Sin categoría" group always last; within a group, `transacciones` by amount (`monto`) descending, then `fecha` ascending, then `id` ascending.',
   requestParams: {
     path: bucketsPathParamsSchema,
     query: bucketDetalleMesQuerySchema,
@@ -1395,7 +1401,8 @@ const ingresosMesOperation: ZodOpenApiOperationObject = {
     'ALL transactions with their origin = bank NAME verbatim (CA-02, MID-02) or "Manual", never ' +
     'account PII (tipoCuenta/numeroCuenta, MID-06). Top-level path, NOT a buckets sub-resource: ' +
     'GET /api/buckets/Ingresos/detalle keeps rejecting Ingresos with its own scrubbed 400 (MBD-07, ' +
-    'US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
+    'US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).' +
+    ' Ordering: `transacciones` by `fecha` ascending, ties by `id` ascending.',
   requestParams: {
     query: ingresosMesQuerySchema,
   },
