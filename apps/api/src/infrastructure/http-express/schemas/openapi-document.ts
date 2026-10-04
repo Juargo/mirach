@@ -35,6 +35,7 @@ import {
   ingresosMesQuerySchema,
   ingresosMesResponseSchema,
 } from './ingresos-mes.schema';
+import { periodosResponseSchema } from './periodos.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
 import {
   ingestaUploadRequestSchema,
@@ -1424,6 +1425,27 @@ const ingresosMesOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const periodosOperation: ZodOpenApiOperationObject = {
+  summary: 'Months that have movements for the session user',
+  description:
+    'Feeds the month selector of Resumen, Detalle de bucket and Ingresos del mes. Lists every ' +
+    'month (YYYY-MM, UTC) in which the session user has at least one movement: any transaction ' +
+    'counts, expense or income-only, whatever its category (internal categories included) — the ' +
+    'same rule as the default period of GET /api/resumen, with the same UTC month derivation, so a ' +
+    'listed month always has data there. Requires x-api-key + a valid session (RNF-SEC-006, ' +
+    'per-user isolation). Ordering: `periodos` most recent first, no duplicates; empty list when ' +
+    'the user has no movements.',
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: 'Months with data, most recent first.',
+      content: {
+        'application/json': { schema: periodosResponseSchema },
+      },
+    },
+  },
+};
+
 /**
  * OpenAPI request schema for `POST /api/movimientos` (US-058, D-12, T-20).
  *
@@ -1676,6 +1698,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/resumen/semaforo': { get: semaforoDetalleOperation },
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
   '/api/ingresos/mes': { get: ingresosMesOperation },
+  '/api/periodos': { get: periodosOperation },
   '/api/ingestas/commit': { post: ingestaCommitOperation },
   '/api/transacciones/reevaluar': { post: reevaluarCategoriasOperation },
 };

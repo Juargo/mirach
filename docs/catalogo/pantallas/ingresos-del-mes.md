@@ -21,7 +21,7 @@ La respuesta no trae el campo `periodo`: la pantalla recibe el mes desde la nave
 
 | Acción | Endpoint | Resultado |
 |---|---|---|
-| Cambiar de mes | `GET /api/ingresos/mes?periodo=AAAA-MM` | Reemplaza el contenido |
+| Cambiar de mes (el selector ofrece los meses de `GET /api/periodos`) | `GET /api/ingresos/mes?periodo=AAAA-MM` | Reemplaza el contenido |
 | Tirar para refrescar | `GET /api/ingresos/mes` con el mismo período | Recarga |
 
 No hay acciones de escritura: el borrado de movimientos manuales y el ingreso manual están fuera de la v1.
@@ -30,6 +30,7 @@ No hay acciones de escritura: el borrado de movimientos manuales y el ingreso ma
 
 | Método | Ruta | Cuándo se llama | Códigos relevantes |
 |---|---|---|---|
+| GET | `/api/periodos` | Al abrir el selector de mes | 200 `{periodos}`, 401 |
 | GET | `/api/ingresos/mes` | Al abrir y al cambiar de mes | 200, 400 (período mal formado), 401 |
 
 ## Estados

@@ -30,7 +30,7 @@ Strict. Runner: `pnpm --filter @mirach/api test` (vitest, fake `DATABASE_URL`, n
 - [x] **P1 — Contract.** Declare in OpenAPI the upload error codes (`PDF_PROTEGIDO`, `PDF_PASSWORD_INCORRECTA`, `SIN_MOVIMIENTOS`, `CATALOGO_INCOMPLETO` 409, `CATALOGO_NO_DISPONIBLE`, and any other the ingestion routes return) and `403 CATEGORIA_INTERNA`; add `esInterna` to `CategoriaResponse`; give 401 responses a stable `code` that tells "session invalid/expired" from "API key invalid/missing"; document (and pin with tests) the ordering of list endpoints. Route: delegated writer.
 - [x] **P2 — Spend share.** The month summary returns each spending bucket's share of total spend in basis points, summing to exactly 10 000 when there is spend (rounding rule documented and tested), and a defined value when there is none. Route: delegated writer.
 - [x] **P3 — Server copy.** "Gustos" → "Deseos" in user-facing text; voseo → neutral Spanish with "tú". Route: delegated writer.
-- [ ] **P4 — Months with data.** An endpoint listing the months (`YYYY-MM`) that have movements for the session user, for the month selector; isolation test. Route: delegated writer.
+- [x] **P4 — Months with data.** An endpoint listing the months (`YYYY-MM`) that have movements for the session user, for the month selector; isolation test. Route: delegated writer.
 
 ## Delivery
 
@@ -56,6 +56,12 @@ One PR per slice, stacked to `main` in order. Each slice keeps tests and docs wi
   - Tests updated first (RED: 6 failures), then source: error specs, `semaforo-detalle.spec.ts`, `ingesta.routes.spec.ts`, `resumen-semaforo.e2e-spec.ts`.
   - Kept on purpose (not user-facing): `db-safety.ts` boot error "definí ALLOW_DESTRUCTIVE_DB=1" and `env.ts` boot/describe texts ("acá"), both operator-facing at startup; inline comments in `process-ingesta` and `reevaluar-categorias` use cases that say "Gustos"; fixture name `'Gustos personales'` in `categoria-por-defecto.spec.ts`; the bucket enum value was already `Deseos`.
 
+- **P4 done** (branch `feat/months-with-data`). Route: delegated writer.
+  - `GET /api/periodos` (behind the session middleware) returns `{ periodos: string[] }`, `YYYY-MM`, most recent first, no duplicates, `[]` when the user has no movements. Use case `ListarPeriodosConDatosUseCase` (owns order and dedup) over port `IPeriodosConDatosReader`; Prisma reader runs one `GROUP BY to_char(fecha, 'YYYY-MM')` joined to `Account` with `a."userId" = $1`.
+  - Rule: any movement counts, so income-only months count, and movements of internal categories (`esInterna`, a category flag; there is no transfer flag on transactions) count too, exactly as in the default-period reader and the monthly readers. Month = UTC month (`fecha` is `timestamp` without tz written as UTC), the same derivation as `PeriodoMes`; years outside 2000..2999 are skipped because `/api/resumen` would answer 400.
+  - Tests: use case (empty, ordering, dedup), app route (200 shape, 401 `API_KEY_INVALIDA` / `SESION_INVALIDA`, session userId), integration with two users (income-only month, internal-category month, UTC boundary 23:59:59.999Z vs 00:00Z, isolation, every listed month yields data in the summary reader).
+  - Catalog: gap 10 removed; month selector of Resumen, Detalle de bucket and Ingresos del mes now uses the endpoint.
+
 ## Next step
 
-P3 PR, then P4.
+P4 PR; API gaps closed except Apple revocation (phase 5 T4).

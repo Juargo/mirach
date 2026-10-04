@@ -27,7 +27,7 @@ El grupo con `categoriaId: null` es «Sin categoría»: sus movimientos se puede
 
 | Acción | Endpoint | Cuerpo | Éxito | Fallo |
 |---|---|---|---|---|
-| Cambiar de mes | `GET /api/buckets/{bucket}/detalle?periodo=AAAA-MM` | — | Reemplaza el contenido | 400 error genérico; 401 ver reglas globales |
+| Cambiar de mes (el selector ofrece los meses de `GET /api/periodos`) | `GET /api/buckets/{bucket}/detalle?periodo=AAAA-MM` | — | Reemplaza el contenido | 400 error genérico; 401 ver reglas globales |
 | Reclasificar un movimiento | `PATCH /api/transacciones/{id}/categoria` | `{"categoriaId": "<id de la categoría elegida>"}` | 200 `{id, categoria, bucket}`: se cierra la hoja, se anuncia «Movida a {bucket} · {categoría}» y se repite `GET /api/buckets/{bucket}/detalle` (el movimiento puede haber cambiado de grupo o de bucket) | 400 la categoría ya no existe o no es del usuario: mensaje y se recarga el catálogo; 404 el movimiento ya no existe: mensaje y se recarga el detalle |
 | Crear una categoría desde la hoja de reclasificación | `POST /api/categorias` | `{"nombre": "...", "bucket": "Necesidades"\|"Deseos"\|"Ahorro", "icono": "<opcional>"}` | 201 `CategoriaResponse`: se agrega al catálogo en memoria, queda elegida y se continúa con la reclasificación de arriba | 400 con `code` `NOMBRE_INVALIDO`, `BUCKET_NO_ASIGNABLE` o `ICONO_INVALIDO`: mensaje en el formulario; 409 `NOMBRE_DUPLICADO`: «Ya tienes una categoría con ese nombre» |
 
@@ -43,6 +43,7 @@ Reglas de la reclasificación:
 
 | Método | Ruta | Cuándo se llama | Códigos relevantes |
 |---|---|---|---|
+| GET | `/api/periodos` | Al abrir el selector de mes | 200 `{periodos}`, 401 |
 | GET | `/api/buckets/{bucket}/detalle` | Al abrir, al cambiar de mes, tras reclasificar | 200, 400 (bucket o período inválido), 401 |
 | GET | `/api/categorias` | Al abrir la hoja de reclasificación por primera vez | 200, 401 |
 | PATCH | `/api/transacciones/{id}/categoria` | Al confirmar la categoría elegida | 200, 400, 404, 401 |
