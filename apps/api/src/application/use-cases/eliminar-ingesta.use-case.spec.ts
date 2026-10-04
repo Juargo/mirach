@@ -2,7 +2,6 @@ import { EliminarIngestaUseCase } from './eliminar-ingesta.use-case';
 import { IEliminarIngestaWriter } from '../ports/eliminar-ingesta.port';
 import { Result } from '../../shared/result';
 import { IngestaNoEncontradaError } from '../../domain/errors/ingesta-no-encontrada.error';
-import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 function makeWriter(
@@ -14,28 +13,12 @@ function makeWriter(
 }
 
 describe('EliminarIngestaUseCase', () => {
-  it('issue #500: el demo gate corta ANTES de llamar al writer', async () => {
-    const writer = makeWriter(Result.ok(undefined));
-    const useCase = new EliminarIngestaUseCase(writer, new NoOpLogger());
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      ingestaId: 'ing-1',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(IngestaDemoSoloLecturaError);
-    expect(writer.eliminarConTransacciones).not.toHaveBeenCalled();
-  });
-
   it('T1.4a: delega en el writer con userId + ingestaId y propaga Result.ok', async () => {
     const writer = makeWriter(Result.ok(undefined));
     const useCase = new EliminarIngestaUseCase(writer, new NoOpLogger());
 
     const result = await useCase.execute({
       userId: 'user-a',
-      esDemo: false,
       ingestaId: 'ing-1',
     });
 
@@ -54,7 +37,6 @@ describe('EliminarIngestaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-a',
-      esDemo: false,
       ingestaId: 'ing-ajena',
     });
 
@@ -70,7 +52,6 @@ describe('EliminarIngestaUseCase', () => {
 
       await useCase.execute({
         userId: 'user-secreto',
-        esDemo: false,
         ingestaId: 'ing-1',
       });
 

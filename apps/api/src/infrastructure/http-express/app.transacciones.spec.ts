@@ -16,9 +16,7 @@ function fakeContainer(): Container {
     validarSesion: {
       execute: vi
         .fn()
-        .mockResolvedValue(
-          Result.ok({ userId: 'user-de-sesion', esDemo: false }),
-        ),
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: { execute: vi.fn() },
     calcularResumenAnual: { execute: vi.fn() },
@@ -63,7 +61,6 @@ describe('PATCH /api/transacciones/:id/categoria — cadena de auth + aislamient
       userId: 'user-de-sesion',
       transaccionId: 'tx-1',
       categoriaId: 'cat-supermercado-row-id',
-      esDemo: false,
     });
   });
 

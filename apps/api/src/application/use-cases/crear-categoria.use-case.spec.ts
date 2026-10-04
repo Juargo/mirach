@@ -1,7 +1,6 @@
 import { CrearCategoriaUseCase } from './crear-categoria.use-case';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { IPatronRepository } from '../ports/patron-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaInvalidoError } from '../../domain/errors/nombre-categoria-invalido.error';
 import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
@@ -49,25 +48,6 @@ function makePatronRepo(
 }
 
 describe('CrearCategoriaUseCase', () => {
-  it('el demo gate corta ANTES de cualquier llamada a los repositorios (D-04/D-05)', async () => {
-    const repo = makeRepo();
-    const patronRepo = makePatronRepo();
-    const useCase = new CrearCategoriaUseCase(repo, patronRepo);
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      nombre: 'Mascotas',
-      bucket: 'Deseos',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CatalogoDemoSoloLecturaError);
-    expect(repo.existeNombre).not.toHaveBeenCalled();
-    expect(repo.crearConPatrones).not.toHaveBeenCalled();
-    expect(patronRepo.existePatron).not.toHaveBeenCalled();
-  });
-
   it('crea la categoría con nombre + bucket válidos (CA-01), patrones ausente ⇒ [] byte-identical', async () => {
     const repo = makeRepo();
     const patronRepo = makePatronRepo();
@@ -75,7 +55,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: '  Mascotas  ',
       bucket: 'Deseos',
     });
@@ -96,7 +75,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       patrones: [],
@@ -120,7 +98,6 @@ describe('CrearCategoriaUseCase', () => {
 
       const result = await useCase.execute({
         userId: 'user-1',
-        esDemo: false,
         nombre,
         bucket: 'Deseos',
       });
@@ -140,7 +117,6 @@ describe('CrearCategoriaUseCase', () => {
 
       const result = await useCase.execute({
         userId: 'user-1',
-        esDemo: false,
         nombre: 'Mascotas',
         bucket: bucket,
       });
@@ -163,7 +139,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       icono: 'not-a-real-icon',
@@ -182,7 +157,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       icono: 'paw-print',
@@ -204,7 +178,6 @@ describe('CrearCategoriaUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
     });
@@ -222,7 +195,6 @@ describe('CrearCategoriaUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       icono: null,
@@ -241,7 +213,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'mascotas',
       bucket: 'Deseos',
       patrones: [{ patron: 'netflix', matchType: 'CONTAINS' }],
@@ -265,7 +236,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
     });
@@ -280,7 +250,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       patrones: [
@@ -309,7 +278,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       patrones: [
@@ -335,7 +303,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       patrones: [
@@ -363,7 +330,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       patrones: [{ patron: 'netflix', matchType: 'CONTAINS' }],
@@ -386,7 +352,6 @@ describe('CrearCategoriaUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
       patrones: [{ patron: 'netflix', matchType: 'CONTAINS' }],
@@ -421,7 +386,6 @@ describe('CrearCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Mascotas',
       bucket: 'Deseos',
     });

@@ -31,7 +31,7 @@ export interface LoginConGoogleResult extends LoginUseCaseResult {
  * ADR-041 (supersede parcial de ADR-034): ya NO es find-only — una identidad
  * verificada sin match por sub ni email CREA su cuenta (signup-on-first-login,
  * ver `crearCuenta`). El resto del contrato de ADR-034 sigue intacto: gate de
- * `emailVerificado`, link por email, guarda ★ anti-takeover, gates demo.
+ * `emailVerificado`, link por email, guarda ★ anti-takeover.
  * Todas las ramas de fallo colapsan al
  * mismo `LoginConGoogleFallidoError` (AUTH-15 — no enumeración). No recibe
  * `IIniciadorLoginExterno`/`IVerificadorIdentidadExterna` — la ruta HTTP ya
@@ -69,9 +69,6 @@ export class LoginConGoogleUseCase {
     });
 
     if (porGoogleSub !== null) {
-      if (porGoogleSub.esDemo) {
-        return Result.fail(new LoginConGoogleFallidoError('usuario-demo'));
-      }
       return this.emitirSesion(porGoogleSub.userId, false);
     }
 
@@ -102,10 +99,6 @@ export class LoginConGoogleUseCase {
 
     if (porEmail === null) {
       return this.crearCuenta(identidad, emailResult.getValue());
-    }
-
-    if (porEmail.esDemo) {
-      return Result.fail(new LoginConGoogleFallidoError('usuario-demo'));
     }
 
     // ★ No en el spec, agregado por el diseño (§5.3): el step de
@@ -150,7 +143,7 @@ export class LoginConGoogleUseCase {
    * petición ocupó el email o el sub entre el lookup y el write. Se
    * re-resuelve SOLO por `googleSub` — si el ganador es esta misma identidad
    * (doble submit del mismo login), emite sesión sobre esa fila; cualquier
-   * otro resultado (fila demo, o un email tomado por OTRA identidad Google)
+   * otro resultado (p. ej. un email tomado por OTRA identidad Google)
    * colapsa al error genérico (AUTH-15). No se reintenta el link por email:
    * el path de link ya existía ANTES del lookup fallido y volver a entrar
    * por ahí duplicaría sus guardas con estado a medio leer.
@@ -192,7 +185,7 @@ export class LoginConGoogleUseCase {
       found: ganador !== null,
     });
 
-    if (ganador !== null && !ganador.esDemo) {
+    if (ganador !== null) {
       return this.emitirSesion(ganador.userId, true);
     }
 

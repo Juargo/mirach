@@ -8,8 +8,6 @@ import { ILogger } from '../ports/logger.port';
 
 export interface ValidarSesionResult {
   readonly userId: string;
-  /** CAT038-08: si la sesión pertenece a un usuario demo — el catálogo es de solo lectura. */
-  readonly esDemo: boolean;
   /**
    * PERF040-06 (design.md §4.3). El hash SHA-256 del token de la sesión que
    * llamó — el mismo valor que `tokens.hashToken(input.token)` YA computó en
@@ -58,7 +56,6 @@ export class ValidarSesionUseCase {
 
     return Result.ok({
       userId: sesion.userId,
-      esDemo: sesion.esDemo,
       tokenHash,
     });
   }

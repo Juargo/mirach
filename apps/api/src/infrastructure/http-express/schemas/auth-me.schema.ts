@@ -17,7 +17,7 @@ import { z } from 'zod';
  * it) — NEVER log its value (ADR-033, `SENSITIVE_REDACT_PATHS`).
  *
  * LAYER HONESTY: `email` is `string | null` at the transport shape. The
- * domain invariant "a real (non-demo) user MUST have a non-null email" is
+ * domain invariant "a user MUST have a non-null email" is
  * enforced by `buscarIdentidad`/`actualizarPerfil` in application/domain —
  * it is deliberately NOT re-encoded here as a Zod cross-field refinement,
  * which would duplicate a rule that already lives one layer down (ADR-005 +
@@ -27,12 +27,11 @@ export const authMeResponseSchema = z
   .object({
     userId: z.string(),
     nombre: z.string(),
-    esDemo: z.boolean(),
     email: z
       .string()
       .nullable()
       .describe(
-        'null only for esDemo=true (demo) accounts — a domain invariant, not enforced by this schema.',
+        'Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.',
       ),
     googleVinculado: z
       .boolean()

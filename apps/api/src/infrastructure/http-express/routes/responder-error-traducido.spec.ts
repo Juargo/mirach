@@ -1,5 +1,4 @@
-import type { Request, Response } from 'express';
-import { appLogger } from '../../logging/app-logger';
+import type { Response } from 'express';
 import { responderErrorTraducido } from './responder-error-traducido';
 
 function mockRes(): Response {
@@ -11,49 +10,16 @@ function mockRes(): Response {
   return res;
 }
 
-function mockReq(path: string): Request {
-  return { path } as unknown as Request;
-}
-
-describe('responderErrorTraducido — chokepoint único para responder + loguear el gate demo (issue #507)', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('code === DEMO_SOLO_LECTURA: loguea el gate trip con { path } y responde { message, code }', () => {
-    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+describe('responderErrorTraducido — chokepoint único para responder un error traducido (issue #507)', () => {
+  it('cualquier otro code: responde { message, code }', () => {
     const res = mockRes();
-    const req = mockReq('/categorias/cat-1');
 
-    responderErrorTraducido(res, req, {
-      status: 403,
-      code: 'DEMO_SOLO_LECTURA',
-      message: 'Las categorías de la cuenta demo son de solo lectura.',
-    });
-
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
-      path: '/categorias/cat-1',
-    });
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({
-      message: 'Las categorías de la cuenta demo son de solo lectura.',
-      code: 'DEMO_SOLO_LECTURA',
-    });
-  });
-
-  it('cualquier otro code: responde { message, code } SIN loguear', () => {
-    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
-    const res = mockRes();
-    const req = mockReq('/categorias');
-
-    responderErrorTraducido(res, req, {
+    responderErrorTraducido(res, {
       status: 409,
       code: 'NOMBRE_DUPLICADO',
       message: 'Ya existe una categoría con ese nombre.',
     });
 
-    expect(warnSpy).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.json).toHaveBeenCalledWith({
       message: 'Ya existe una categoría con ese nombre.',
@@ -63,9 +29,8 @@ describe('responderErrorTraducido — chokepoint único para responder + loguear
 
   it('con indice (CAT038-11, PatronEnLoteInvalidoError): responde { message, code, indice }', () => {
     const res = mockRes();
-    const req = mockReq('/categorias');
 
-    responderErrorTraducido(res, req, {
+    responderErrorTraducido(res, {
       status: 400,
       code: 'MATCH_TYPE_INVALIDO',
       message:
@@ -84,9 +49,8 @@ describe('responderErrorTraducido — chokepoint único para responder + loguear
 
   it('sin indice: la respuesta NUNCA incluye la propiedad indice', () => {
     const res = mockRes();
-    const req = mockReq('/categorias');
 
-    responderErrorTraducido(res, req, {
+    responderErrorTraducido(res, {
       status: 409,
       code: 'NOMBRE_DUPLICADO',
       message: 'Ya existe una categoría con ese nombre.',
@@ -97,17 +61,14 @@ describe('responderErrorTraducido — chokepoint único para responder + loguear
     expect('indice' in body).toBe(false);
   });
 
-  it('sin code (ingesta: aHttpError puede no traer code): responde solo { message }, sin loguear', () => {
-    const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
+  it('sin code (ingesta: aHttpError puede no traer code): responde solo { message }', () => {
     const res = mockRes();
-    const req = mockReq('/ingestas');
 
-    responderErrorTraducido(res, req, {
+    responderErrorTraducido(res, {
       status: 400,
       message: 'Extensión no permitida.',
     });
 
-    expect(warnSpy).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({
       message: 'Extensión no permitida.',

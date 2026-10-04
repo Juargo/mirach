@@ -5,7 +5,6 @@ import {
 } from '../ports/user-credential-repository.port';
 import { ISessionRepository } from '../ports/session-repository.port';
 import { IPasswordHasher } from '../ports/password-hasher.port';
-import { PerfilDemoSoloLecturaError } from '../../domain/errors/perfil-demo-solo-lectura.error';
 import { PerfilRechazadoError } from '../../domain/errors/perfil-rechazado.error';
 import { PasswordInvalidaError } from '../../domain/errors/password-invalida.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
@@ -50,32 +49,12 @@ function makeHasher(overrides: Partial<IPasswordHasher> = {}): IPasswordHasher {
 
 const INPUT_BASE = {
   userId: 'user-1',
-  esDemo: false,
   tokenHashActual: 'hash-de-la-sesion-A',
   passwordActual: 'clave-actual-valida',
   passwordNueva: 'clave-nueva-valida',
 };
 
 describe('CambiarPasswordUseCase', () => {
-  it('esDemo=true ⇒ PerfilDemoSoloLecturaError, NINGÚN repositorio se llama (D-05)', async () => {
-    const creds = makeCreds();
-    const sessions = makeSessions();
-    const uc = new CambiarPasswordUseCase(
-      creds,
-      sessions,
-      makeHasher(),
-      new NoOpLogger(),
-    );
-
-    const result = await uc.execute({ ...INPUT_BASE, esDemo: true });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(PerfilDemoSoloLecturaError);
-    expect(creds.buscarCredencialPorId).not.toHaveBeenCalled();
-    expect(sessions.revocarOtrasPorUserId).not.toHaveBeenCalled();
-    expect(creds.actualizarPassword).not.toHaveBeenCalled();
-  });
-
   it('buscarCredencialPorId → null ⇒ PerfilRechazadoError (usuario solo-Google, §1/Q3)', async () => {
     const creds = makeCreds({
       buscarCredencialPorId: vi.fn().mockResolvedValue(null),

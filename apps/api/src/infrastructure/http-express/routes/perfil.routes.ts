@@ -6,7 +6,6 @@ import {
   passwordUpdateRequestSchema,
 } from '../schemas/perfil.schema';
 import { aPerfilHttpError } from './perfil-http-error';
-import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
 import { responderErrorTraducido } from './responder-error-traducido';
 
 const BODY_INVALIDO = {
@@ -25,19 +24,13 @@ export interface PerfilGraph {
  *
  * `.safeParse()` a la entrada (D-09 convention, `categorias.routes.ts`
  * precedent) — un fallo NUNCA ecoa el body ni la lista de issues de Zod.
- * `esDemoDeSesion(req)`/`req.userId!` se hilvanan SIEMPRE desde la sesión,
+ * `req.userId!` se hilvana SIEMPRE desde la sesión,
  * nunca desde el body (PERF040-07 — el schema `.strict()` ya rechaza un
  * `userId` ajeno, esto es la segunda barrera: el body ni siquiera se lee para
  * eso). `req.sessionTokenHash!` (PR#2, PERF040-06) — el hash de la sesión que
  * llama, para que `CambiarPasswordUseCase` sepa a cuál NO revocar.
  *
- * `esDemoDeSesion(req)` (issue #507) reemplaza el `req.esDemo!` original:
- * fail-closed (`req.esDemo ?? true`) en vez de una non-null assertion que no
- * protege nada si `sessionMiddleware` alguna vez no corriera. Toda respuesta
- * de error pasa por `responderErrorTraducido` (issue #507, R2-WARNING del
- * fan-out 4R) — chokepoint único que loguea `logDemoGateTrip` (ADR-033)
- * cuando `code === 'DEMO_SOLO_LECTURA'`, así que un endpoint nuevo no puede
- * olvidar el log con solo copiar `aPerfilHttpError(...)`.
+ * Toda respuesta de error pasa por `responderErrorTraducido` (issue #507).
  */
 export function registrarPerfil(router: Router, perfil: PerfilGraph): void {
   router.patch('/perfil', async (req, res, next) => {
@@ -50,14 +43,13 @@ export function registrarPerfil(router: Router, perfil: PerfilGraph): void {
 
       const result = await perfil.actualizarPerfil.execute({
         userId: req.userId!,
-        esDemo: esDemoDeSesion(req),
         nombre: parsed.data.nombre,
         emailRaw: parsed.data.email,
         passwordActual: parsed.data.passwordActual,
       });
 
       if (result.isFail()) {
-        responderErrorTraducido(res, req, aPerfilHttpError(result.getError()));
+        responderErrorTraducido(res, aPerfilHttpError(result.getError()));
         return;
       }
 
@@ -66,7 +58,6 @@ export function registrarPerfil(router: Router, perfil: PerfilGraph): void {
         userId: identidad.userId,
         nombre: identidad.nombre,
         email: identidad.email,
-        esDemo: identidad.esDemo,
         googleVinculado: identidad.googleVinculado,
       });
     } catch (err) {
@@ -84,14 +75,13 @@ export function registrarPerfil(router: Router, perfil: PerfilGraph): void {
 
       const result = await perfil.cambiarPassword.execute({
         userId: req.userId!,
-        esDemo: esDemoDeSesion(req),
         tokenHashActual: req.sessionTokenHash!,
         passwordActual: parsed.data.passwordActual,
         passwordNueva: parsed.data.passwordNueva,
       });
 
       if (result.isFail()) {
-        responderErrorTraducido(res, req, aPerfilHttpError(result.getError()));
+        responderErrorTraducido(res, aPerfilHttpError(result.getError()));
         return;
       }
 

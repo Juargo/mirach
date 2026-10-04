@@ -20,9 +20,7 @@ function fakeContainer(): Container {
     validarSesion: {
       execute: vi
         .fn()
-        .mockResolvedValue(
-          Result.ok({ userId: 'user-de-sesion', esDemo: false }),
-        ),
+        .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: stub,
     calcularResumenAnual: stub,
@@ -44,7 +42,6 @@ function fakeContainer(): Container {
           userId: 'user-de-sesion',
           nombre: 'Jorge',
           email: 'a@b.cl',
-          esDemo: false,
           googleVinculado: false,
         }),
       ),
@@ -144,6 +141,16 @@ describe('/api/auth — session-public vs protegido', () => {
     expect(res.status).toBe(200);
     expect(() => authMeResponseSchema.parse(res.body)).not.toThrow();
   });
+
+  it('GET /api/auth/me: el body 200 ya no incluye esDemo (contrato post-eliminación del modo demo)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/auth/me')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido');
+
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty('esDemo');
+  });
 });
 
 /**
@@ -212,7 +219,6 @@ describe('POST /api/perfil/google/vincular — AUTH-16 parity (US-041)', () => {
     );
     expect(iniciarVinculacion.execute).toHaveBeenCalledWith({
       userId: 'user-de-sesion',
-      esDemo: false,
       passwordActual: 'x',
     });
   });
@@ -240,7 +246,6 @@ describe('POST /api/perfil/google/desvincular — mounted always, no activation 
     expect(res.status).toBe(204);
     expect(c.perfil.desvincularGoogle.execute).toHaveBeenCalledWith({
       userId: 'user-de-sesion',
-      esDemo: false,
       passwordActual: 'x',
     });
   });

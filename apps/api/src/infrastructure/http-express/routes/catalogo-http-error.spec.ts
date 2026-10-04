@@ -1,5 +1,4 @@
 import { aCatalogoHttpError } from './catalogo-http-error';
-import { CatalogoDemoSoloLecturaError } from '../../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaInvalidoError } from '../../../domain/errors/nombre-categoria-invalido.error';
 import { BucketNoAsignableError } from '../../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
@@ -23,7 +22,6 @@ describe('aCatalogoHttpError — one class, exactly one status + code', () => {
     [new MatchTypeInvalidoError('x'), 400, 'MATCH_TYPE_INVALIDO'],
     [new RegexInvalidaError('x'), 400, 'REGEX_INVALIDA'],
     [new PrioridadInvalidaError(1000), 400, 'PRIORIDAD_INVALIDA'],
-    [new CatalogoDemoSoloLecturaError(), 403, 'DEMO_SOLO_LECTURA'],
     // #778 — segundo 403 de la familia, code distinto (sujeto vs objeto).
     [new CategoriaInternaProtegidaError('id'), 403, 'CATEGORIA_INTERNA'],
     [new CategoriaNoEncontradaError('id'), 404, 'CATEGORIA_NO_ENCONTRADA'],
@@ -35,11 +33,6 @@ describe('aCatalogoHttpError — one class, exactly one status + code', () => {
     expect(result.status).toBe(status);
     expect(result.code).toBe(code);
     expect(result.message).toBe(error.message);
-  });
-
-  it("CatalogoDemoSoloLecturaError's message matches the DemoUploadNudge.tsx UX family", () => {
-    const result = aCatalogoHttpError(new CatalogoDemoSoloLecturaError());
-    expect(result.message).toContain('solo lectura');
   });
 
   describe('PatronEnLoteInvalidoError — recurses into causa, spreads indice (CAT038-11, D-03)', () => {

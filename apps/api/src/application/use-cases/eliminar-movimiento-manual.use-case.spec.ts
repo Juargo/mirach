@@ -2,7 +2,6 @@ import { EliminarMovimientoManualUseCase } from './eliminar-movimiento-manual.us
 import { IEliminarMovimientoManualWriter } from '../ports/eliminar-movimiento-manual.port';
 import { Result } from '../../shared/result';
 import { TransaccionNoEncontradaError } from '../../domain/errors/transaccion-no-encontrada.error';
-import { MovimientoDemoSoloLecturaError } from '../../domain/errors/movimiento-demo-solo-lectura.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 function makeWriter(
@@ -14,24 +13,6 @@ function makeWriter(
 }
 
 describe('EliminarMovimientoManualUseCase', () => {
-  it('DEL-03: el demo gate corta ANTES de llamar al writer', async () => {
-    const writer = makeWriter(Result.ok(undefined));
-    const useCase = new EliminarMovimientoManualUseCase(
-      writer,
-      new NoOpLogger(),
-    );
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      transaccionId: 'tx-1',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(MovimientoDemoSoloLecturaError);
-    expect(writer.eliminarManual).not.toHaveBeenCalled();
-  });
-
   it('DEL-01: delega en el writer con userId + transaccionId y propaga Result.ok', async () => {
     const writer = makeWriter(Result.ok(undefined));
     const useCase = new EliminarMovimientoManualUseCase(
@@ -41,7 +22,6 @@ describe('EliminarMovimientoManualUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-a',
-      esDemo: false,
       transaccionId: 'tx-1',
     });
 
@@ -60,7 +40,6 @@ describe('EliminarMovimientoManualUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-a',
-      esDemo: false,
       transaccionId: 'tx-ajena',
     });
 
@@ -76,7 +55,6 @@ describe('EliminarMovimientoManualUseCase', () => {
 
       await useCase.execute({
         userId: 'user-secreto',
-        esDemo: false,
         transaccionId: 'tx-1',
       });
 

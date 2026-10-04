@@ -7,13 +7,11 @@ import {
 } from '../ports/verificador-identidad-externa.port';
 import { IPasswordHasher } from '../ports/password-hasher.port';
 import { ILogger } from '../ports/logger.port';
-import { PerfilDemoSoloLecturaError } from '../../domain/errors/perfil-demo-solo-lectura.error';
 import { PerfilRechazadoError } from '../../domain/errors/perfil-rechazado.error';
 import { GoogleYaVinculadoError } from '../../domain/errors/google-ya-vinculado.error';
 import { VinculacionGoogleNoDisponibleError } from '../../domain/errors/vinculacion-google-no-disponible.error';
 
 export type IniciarVinculacionGoogleError =
-  | PerfilDemoSoloLecturaError
   | PerfilRechazadoError
   | GoogleYaVinculadoError
   | VinculacionGoogleNoDisponibleError;
@@ -23,7 +21,7 @@ export type IniciarVinculacionGoogleError =
  * (US-041, VINC041-01, design.md §4.1/§5.2).
  *
  * Orden de validación, guard clauses (`kiss`, `Result.fail` primero):
- * demo → credencial existente → password correcta → `409` pre-flight
+ * credencial existente → password correcta → `409` pre-flight
  * (¿ya vinculado?) → `iniciador.iniciar()`.
  *
  * **GUARD note (§P1 ordering, non-negotiable)**: el pre-flight `409
@@ -32,10 +30,6 @@ export type IniciarVinculacionGoogleError =
  * vinculado), así que gatear esa revelación detrás de la password es
  * gratis. Este es un control de UX, no de seguridad: el control real que
  * impide re-linkear vive en `VincularGoogleUseCase` (★ regla, CA-02).
- *
- * `esDemo` es un input REQUERIDO (D-05) — hay sesión acá (a diferencia de
- * `VincularGoogleUseCase`, que no la tiene), así que olvidarlo es un error
- * de compilación, no un bug silencioso.
  */
 export class IniciarVinculacionGoogleUseCase {
   constructor(
@@ -48,13 +42,8 @@ export class IniciarVinculacionGoogleUseCase {
 
   async execute(input: {
     userId: string;
-    esDemo: boolean; // REQUERIDO (D-05) — compile error si se olvida.
     passwordActual: string;
   }): Promise<Result<InicioAutorizacion, IniciarVinculacionGoogleError>> {
-    if (input.esDemo) {
-      return Result.fail(new PerfilDemoSoloLecturaError());
-    }
-
     const credencial = await this.creds.buscarCredencialPorId(input.userId);
     this.logger.debug('iniciar-vinculacion-google: lookup de credencial', {
       found: credencial !== null,

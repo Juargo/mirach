@@ -32,7 +32,6 @@ describe('PrismaIdentidadGoogleRepository', () => {
     it('busca por la columna googleSub y mapea a UsuarioVinculable', async () => {
       const findUnique = vi.fn().mockResolvedValue({
         id: 'user-1',
-        esDemo: false,
         googleSub: 'google-sub-1',
       });
       const prisma = { user: { findUnique } } as unknown as PrismaClient;
@@ -46,11 +45,10 @@ describe('PrismaIdentidadGoogleRepository', () => {
 
       expect(findUnique).toHaveBeenCalledWith({
         where: { googleSub: 'google-sub-1' },
-        select: { id: true, esDemo: true, googleSub: true },
+        select: { id: true, googleSub: true },
       });
       expect(resultado).toEqual({
         userId: 'user-1',
-        esDemo: false,
         googleSub: 'google-sub-1',
       });
     });
@@ -73,7 +71,6 @@ describe('PrismaIdentidadGoogleRepository', () => {
       const computeSpy = vi.fn((v: string) => `bi:${v}`);
       const findUnique = vi.fn().mockResolvedValue({
         id: 'user-2',
-        esDemo: false,
         googleSub: null,
       });
       const prisma = { user: { findUnique } } as unknown as PrismaClient;
@@ -89,11 +86,10 @@ describe('PrismaIdentidadGoogleRepository', () => {
       expect(computeSpy).toHaveBeenCalledWith('jorge@example.com');
       expect(findUnique).toHaveBeenCalledWith({
         where: { emailBlindIndex: 'bi:jorge@example.com' },
-        select: { id: true, esDemo: true, googleSub: true },
+        select: { id: true, googleSub: true },
       });
       expect(resultado).toEqual({
         userId: 'user-2',
-        esDemo: false,
         googleSub: null,
       });
     });
@@ -188,7 +184,6 @@ describe('PrismaIdentidadGoogleRepository', () => {
     it('busca por PK (findUnique where id) con el mismo select y mapea a UsuarioVinculable', async () => {
       const findUnique = vi.fn().mockResolvedValue({
         id: 'user-3',
-        esDemo: false,
         googleSub: 'google-sub-3',
       });
       const prisma = { user: { findUnique } } as unknown as PrismaClient;
@@ -202,11 +197,10 @@ describe('PrismaIdentidadGoogleRepository', () => {
 
       expect(findUnique).toHaveBeenCalledWith({
         where: { id: 'user-3' },
-        select: { id: true, esDemo: true, googleSub: true },
+        select: { id: true, googleSub: true },
       });
       expect(resultado).toEqual({
         userId: 'user-3',
-        esDemo: false,
         googleSub: 'google-sub-3',
       });
     });

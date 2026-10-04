@@ -35,9 +35,7 @@ import { EdicionesInvalidasError } from '../../../domain/errors/ediciones-invali
 import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
-import { IngestaDemoSoloLecturaError } from '../../../domain/errors/ingesta-demo-solo-lectura.error';
 import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
-import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
 import { responderErrorTraducido } from './responder-error-traducido';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -111,21 +109,10 @@ export interface IngestaRoutesDeps {
  * Todos los mensajes son seguros (nunca interpolan montos ni datos crudos).
  * El userId viene del session middleware.
  *
- * Demo gate (issue #500): las 3 superficies de escritura (POST one-shot,
- * POST /commit, DELETE) rechazan una sesión demo con 403 DEMO_SOLO_LECTURA
- * ANTES de cualquier side-effect — el gate vive en cada use case
- * (`IngestaDemoSoloLecturaError`, mirrors `*DemoSoloLecturaError` de
- * perfil/catálogo), este handler solo hilvana `esDemoDeSesion(req)` y mapea
- * el error. POST /preview NO gatea — es un dry-run de solo lectura (no
- * persiste nada, ver `PreviewIngestaUseCase`).
- *
- * `esDemoDeSesion(req)` (issue #507) reemplaza el `req.esDemo!` original —
- * fail-closed en vez de non-null assertion. Toda respuesta de error de
- * mutación (POST one-shot, POST /commit, DELETE) pasa por
- * `responderErrorTraducido` (issue #507, R2-WARNING del fan-out 4R) —
- * chokepoint único que loguea `logDemoGateTrip` (ADR-033) cuando
- * `code === 'DEMO_SOLO_LECTURA'`, incluido el branch de DELETE que resuelve
- * el error con `instanceof` en vez de un traductor `aXHttpError` dedicado.
+ * Toda respuesta de error de mutación (POST one-shot, POST /commit, DELETE)
+ * pasa por `responderErrorTraducido` (issue #507), incluido el branch de
+ * DELETE que resuelve el error con `instanceof` en vez de un traductor
+ * `aXHttpError` dedicado.
  */
 export function registrarIngestas(
   router: Router,
@@ -146,11 +133,10 @@ export function registrarIngestas(
       const result = await deps.processIngesta.execute({
         fileReader,
         userId: req.userId!,
-        esDemo: esDemoDeSesion(req),
       });
 
       if (result.isFail()) {
-        responderErrorTraducido(res, req, aHttpError(result.getError()));
+        responderErrorTraducido(res, aHttpError(result.getError()));
         return;
       }
 
@@ -203,7 +189,7 @@ export function registrarIngestas(
       });
 
       if (result.isFail()) {
-        responderErrorTraducido(res, req, aHttpError(result.getError()));
+        responderErrorTraducido(res, aHttpError(result.getError()));
         return;
       }
 
@@ -257,17 +243,12 @@ export function registrarIngestas(
         const result = await deps.commitIngesta.execute({
           fileReader,
           userId: req.userId!,
-          esDemo: esDemoDeSesion(req),
           edits: editsResult.getValue(),
           password,
         });
 
         if (result.isFail()) {
-          responderErrorTraducido(
-            res,
-            req,
-            aCommitHttpError(result.getError()),
-          );
+          responderErrorTraducido(res, aCommitHttpError(result.getError()));
           return;
         }
 
@@ -291,22 +272,13 @@ export function registrarIngestas(
     try {
       const result = await deps.eliminarIngesta.execute({
         userId: req.userId!,
-        esDemo: esDemoDeSesion(req),
         ingestaId: req.params.id,
       });
 
       if (result.isFail()) {
         const error = result.getError();
-        if (error instanceof IngestaDemoSoloLecturaError) {
-          responderErrorTraducido(res, req, {
-            status: 403,
-            code: 'DEMO_SOLO_LECTURA',
-            message: error.message,
-          });
-          return;
-        }
         if (error instanceof IngestaNoEncontradaError) {
-          responderErrorTraducido(res, req, {
+          responderErrorTraducido(res, {
             status: 404,
             message:
               'La cartola no existe o no pertenece al usuario autenticado.',
@@ -315,7 +287,7 @@ export function registrarIngestas(
         }
         const _exhaustive: never = error;
         void _exhaustive;
-        responderErrorTraducido(res, req, {
+        responderErrorTraducido(res, {
           status: 500,
           message: 'Error inesperado',
         });
@@ -416,11 +388,6 @@ function aCommitHttpError(error: CommitIngestaError): {
   message: string;
   code?: string;
 } {
-  // Demo gate (403, issue #500) — mismo código DEMO_SOLO_LECTURA que
-  // perfil/catálogo (aPerfilHttpError/aCatalogoHttpError).
-  if (error instanceof IngestaDemoSoloLecturaError) {
-    return { status: 403, message: error.message, code: 'DEMO_SOLO_LECTURA' };
-  }
   // Infrastructure errors → 500
   if (error instanceof PersistenciaFallidaError) {
     return { status: 500, message: error.message };
@@ -499,12 +466,6 @@ function aHttpError(error: ProcessIngestaError): {
   message: string;
   code?: string;
 } {
-  if (error instanceof IngestaDemoSoloLecturaError) {
-    // Demo gate (403, issue #500) — solo alcanzable desde POST /ingestas
-    // (one-shot); PreviewIngestaError no incluye esta variante (dry-run,
-    // no gatea).
-    return { status: 403, message: error.message, code: 'DEMO_SOLO_LECTURA' };
-  }
   if (error instanceof PersistenciaFallidaError) {
     // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
     return { status: 500, message: error.message };

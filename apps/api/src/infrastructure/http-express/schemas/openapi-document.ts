@@ -237,7 +237,7 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
   description:
     'Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and ' +
     'categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session ' +
-    '(RNF-SEC-006, per-user isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA). ' +
+    '(RNF-SEC-006, per-user isolation). ' +
     'DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step ' +
     'POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by ' +
     'US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.',
@@ -257,9 +257,6 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
       description:
         'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
         'structure/normalization, or an oversized file (>10 MB).',
-    },
-    '403': {
-      description: 'The calling session is a demo session (issue #500).',
     },
     '500': {
       description:
@@ -334,7 +331,6 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     'counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). ' +
     'Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the ' +
     'transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
-    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA). ' +
     'Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 ' +
     'and persist nothing (D-03/D-04/D-10).',
   requestBody: {
@@ -356,10 +352,6 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
         '(EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). ' +
         'Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
     },
-    '403': {
-      description:
-        'The calling session is a demo session (issue #500). Nothing is persisted.',
-    },
     '500': {
       description:
         'Infrastructure fault (DB) — ensure, dedup, or persist failure ' +
@@ -378,18 +370,13 @@ const ingestaDeleteOperation: ZodOpenApiOperationObject = {
   summary: 'Delete an ingesta',
   description:
     'Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
-    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
   requestParams: {
     path: ingestaDeletePathParamsSchema,
   },
   responses: {
     '204': {
       description: 'Ingesta deleted. No response body.',
-    },
-    '403': {
-      description:
-        'The calling session is a demo session (issue #500). Nothing is deleted.',
     },
     '404': {
       description:
@@ -401,7 +388,7 @@ const ingestaDeleteOperation: ZodOpenApiOperationObject = {
 const authMeOperation: ZodOpenApiOperationObject = {
   summary: 'Current session identity',
   description:
-    'Authenticated endpoint returning the identity of the current session (AUTH-09, DEMO-AUTH-05). ' +
+    'Authenticated endpoint returning the identity of the current session (AUTH-09). ' +
     'Requires x-api-key + a valid session.',
   responses: {
     '200': {
@@ -611,7 +598,7 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     'login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session ' +
     'identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never ' +
     'reveals whether the account is pre-existing or just-created. Every failure cause — invalid/' +
-    'expired/wrong-audience token, unverified email, a demo-user match, an email already linked to a ' +
+    'expired/wrong-audience token, unverified email, an email already linked to a ' +
     'different googleSub, a lost account-creation race, or a JWKS/network failure — produces the ' +
     'identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration). No Set-Cookie: ' +
     'mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this ' +
@@ -656,18 +643,12 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
  * (`routes/transacciones.routes.ts`) is left UNCHANGED — no `.safeParse()`
  * boundary validation is wired in, to preserve the exact existing
  * reclassification behavior on this sensitive endpoint.
- *
- * Demo gate (issue #597): this was the only write in the catalog/movements
- * area without it — closed by threading `esDemoDeSesion(req)` into
- * `ReclasificarTransaccionUseCase`, mirroring `DELETE /api/movimientos/:id`
- * / `POST /api/transacciones/reevaluar`.
  */
 const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
   summary: 'Reclassify a transaction',
   description:
     'Authenticated endpoint that manually reassigns a transaction to a category (and its derived ' +
-    'bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
-    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA, issue #597).',
+    'bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
   requestParams: {
     path: transaccionesCategoriaPathParamsSchema,
   },
@@ -688,10 +669,6 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
         "Invalid categoriaId — the given id does not resolve against the caller's own catalog, " +
         'or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed ' +
         'enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name).',
-    },
-    '403': {
-      description:
-        'The calling session is a demo session (issue #597). Nothing is written.',
     },
     '404': {
       description:
@@ -747,18 +724,13 @@ const reevaluarCategoriasOperation: ZodOpenApiOperationObject = {
     'existing categoria/bucket. A row where no pattern matched is left ' +
     'exactly as it is — never cleared. Rows whose determined classification already matches their ' +
     'current value are not re-written (transaccionesActualizadas counts real changes only). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Rejected for demo ' +
-    'sessions (403 DEMO_SOLO_LECTURA).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
   responses: {
     '200': {
       description: 'Reevaluation completed.',
       content: {
         'application/json': { schema: reevaluarCategoriasResponseSchema },
       },
-    },
-    '403': {
-      description:
-        'The calling session is a demo session. Nothing is read or written.',
     },
     '500': {
       description:
@@ -781,8 +753,7 @@ const categoriasListOperation: ZodOpenApiOperationObject = {
     "Authenticated endpoint returning the caller's own categories with their nested classification " +
     'patterns and an all-history `transaccionesCount` per category — the caller-scoped impact ' +
     'preview for a destructive delete (US-038, CAT038-02; US-039, CAT039-01). Requires x-api-key + ' +
-    'a valid session (RNF-SEC-006, per-user isolation). Available to demo sessions (read-only, ' +
-    'CAT038-08).',
+    'a valid session (RNF-SEC-006, per-user isolation).',
   responses: {
     '200': {
       description: "The caller's full catalog.",
@@ -799,7 +770,7 @@ const categoriasCreateOperation: ZodOpenApiOperationObject = {
     'Authenticated endpoint that creates a category owned by the caller (US-038, CAT038-01), ' +
     'optionally with its classification patrones created atomically in the same call (CAT038-10/11) — ' +
     'when `patrones` is omitted or empty, the contract is byte-identical to the pre-existing behavior. ' +
-    'Requires x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+    'Requires x-api-key + a valid session.',
   requestBody: {
     content: {
       'application/json': { schema: categoriaCreateRequestSchema },
@@ -822,12 +793,6 @@ const categoriasCreateOperation: ZodOpenApiOperationObject = {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
     },
-    '403': {
-      description: 'The calling session is a demo session (read-only catalog).',
-      content: {
-        'application/json': { schema: catalogoErrorResponseSchema },
-      },
-    },
     '409': {
       description:
         'A category with that nombre already exists for this user (case-insensitive), or a ' +
@@ -845,8 +810,7 @@ const categoriasUpdateOperation: ZodOpenApiOperationObject = {
   description:
     'Authenticated endpoint that partially updates a category (US-038, CAT038-03). At least one of ' +
     '`nombre`/`bucket` MUST be present. When `bucket` actually changes, every historical Transaccion ' +
-    'pointing at the category is re-stamped atomically. Requires x-api-key + a valid session. ' +
-    'Rejected for demo sessions.',
+    'pointing at the category is re-stamped atomically. Requires x-api-key + a valid session.',
   requestParams: {
     path: categoriaIdPathParamsSchema,
   },
@@ -865,12 +829,6 @@ const categoriasUpdateOperation: ZodOpenApiOperationObject = {
     '400': {
       description:
         'Invalid nombre/bucket, an empty body, or a malformed request body.',
-      content: {
-        'application/json': { schema: catalogoErrorResponseSchema },
-      },
-    },
-    '403': {
-      description: 'The calling session is a demo session (read-only catalog).',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
@@ -899,19 +857,13 @@ const categoriasDeleteOperation: ZodOpenApiOperationObject = {
     'CAT038-04 as modified by US-039). The delete always succeeds for a category owned by the ' +
     'caller, whether it is referenced by transactions or not. Every Transaccion that referenced the ' +
     'deleted category survives with categoriaId: null and its original bucketId unchanged — no ' +
-    'money moves between buckets. Requires x-api-key + a valid session. Rejected for demo sessions.',
+    'money moves between buckets. Requires x-api-key + a valid session.',
   requestParams: {
     path: categoriaIdPathParamsSchema,
   },
   responses: {
     '204': {
       description: 'Category (and its patterns) deleted. No response body.',
-    },
-    '403': {
-      description: 'The calling session is a demo session (read-only catalog).',
-      content: {
-        'application/json': { schema: catalogoErrorResponseSchema },
-      },
     },
     '404': {
       description:
@@ -927,8 +879,7 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
   summary: 'Create a classification pattern',
   description:
     "Authenticated endpoint that creates a classification pattern under one of the caller's own " +
-    'categories (US-038, CAT038-05/06). Requires x-api-key + a valid session. Rejected for demo ' +
-    'sessions.',
+    'categories (US-038, CAT038-05/06). Requires x-api-key + a valid session.',
   requestBody: {
     content: {
       'application/json': { schema: patronCreateRequestSchema },
@@ -945,12 +896,6 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
       description:
         'Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a ' +
         'malformed request body.',
-      content: {
-        'application/json': { schema: catalogoErrorResponseSchema },
-      },
-    },
-    '403': {
-      description: 'The calling session is a demo session (read-only catalog).',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
@@ -977,7 +922,7 @@ const patronesUpdateOperation: ZodOpenApiOperationObject = {
   description:
     'Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is ' +
     'NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid ' +
-    'session. Rejected for demo sessions.',
+    'session.',
   requestParams: {
     path: patronIdPathParamsSchema,
   },
@@ -996,12 +941,6 @@ const patronesUpdateOperation: ZodOpenApiOperationObject = {
     '400': {
       description:
         'Invalid patron/matchType/prioridad, an invalid REGEX, an empty body, or a malformed request body.',
-      content: {
-        'application/json': { schema: catalogoErrorResponseSchema },
-      },
-    },
-    '403': {
-      description: 'The calling session is a demo session (read-only catalog).',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
@@ -1027,19 +966,13 @@ const patronesDeleteOperation: ZodOpenApiOperationObject = {
   summary: 'Delete a classification pattern',
   description:
     'Authenticated endpoint that deletes a pattern (US-038, CAT038-05/07). Requires x-api-key + a ' +
-    'valid session. Rejected for demo sessions.',
+    'valid session.',
   requestParams: {
     path: patronIdPathParamsSchema,
   },
   responses: {
     '204': {
       description: 'Pattern deleted. No response body.',
-    },
-    '403': {
-      description: 'The calling session is a demo session (read-only catalog).',
-      content: {
-        'application/json': { schema: catalogoErrorResponseSchema },
-      },
     },
     '404': {
       description:
@@ -1067,7 +1000,7 @@ const perfilUpdateOperation: ZodOpenApiOperationObject = {
     'keeps working with the NEW address and stops working with the old one. A wrong `passwordActual` ' +
     'and an email already claimed by another account return the SAME generic 403 PERFIL_RECHAZADO ' +
     '(anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. Requires ' +
-    'x-api-key + a valid session. Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+    'x-api-key + a valid session.',
   requestBody: {
     content: { 'application/json': { schema: perfilUpdateRequestSchema } },
   },
@@ -1081,8 +1014,7 @@ const perfilUpdateOperation: ZodOpenApiOperationObject = {
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
     },
     '403': {
-      description:
-        'Demo session, wrong current password, or the email is already in use.',
+      description: 'Wrong current password, or the email is already in use.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
     },
     '401': {
@@ -1108,8 +1040,7 @@ const perfilPasswordUpdateOperation: ZodOpenApiOperationObject = {
     'PERFIL_RECHAZADO used by `PATCH /api/perfil` (anti-enumeration) — 403, never 401: ' +
     '401 is reserved for an invalid session. `passwordNueva` must satisfy the domain ' +
     'password rules (8-128 characters) — an invalid one is rejected with 400 ' +
-    'PASSWORD_INVALIDA before any write. Requires x-api-key + a valid session. ' +
-    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+    'PASSWORD_INVALIDA before any write. Requires x-api-key + a valid session.',
   requestBody: {
     content: { 'application/json': { schema: passwordUpdateRequestSchema } },
   },
@@ -1123,7 +1054,7 @@ const perfilPasswordUpdateOperation: ZodOpenApiOperationObject = {
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
     },
     '403': {
-      description: 'Demo session, or an incorrect current password.',
+      description: 'An incorrect current password.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
     },
     '401': {
@@ -1147,7 +1078,7 @@ const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
     'cookie carrying an HMAC-signed link intent; the client performs a top-level navigation to that ' +
     'URL. Completion happens at GET /api/auth/google/callback, which redirects to ' +
     '`/configuracion?google=vinculado` or `/configuracion?google=error` and issues NO new session. ' +
-    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 ' +
+    'Rejected for a wrong current password (403 ' +
     'PERFIL_RECHAZADO), and when the account already carries a Google identity (409 ' +
     'GOOGLE_YA_VINCULADO — unlink first). 404 when Google login is not active (AUTH-16).',
   requestBody: {
@@ -1166,7 +1097,7 @@ const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
     },
     '403': {
-      description: 'Demo session, or an incorrect current password.',
+      description: 'An incorrect current password.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
     },
     '409': {
@@ -1197,7 +1128,7 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
   description:
     'Authenticated endpoint (US-041, VINC041-05) that re-verifies the current password and clears ' +
     "the CALLER's own googleSub. Idempotent: a second call after success still responds 204. " +
-    'Rejected for demo sessions (403 DEMO_SOLO_LECTURA), for a wrong current password (403 ' +
+    'Rejected for a wrong current password (403 ' +
     'PERFIL_RECHAZADO), and when the account has no passwordHash (403 VINCULO_REQUIERE_PASSWORD — ' +
     'CA-03: an account may never be left without an access method). Mounted unconditionally, ' +
     'independent of whether Google login is currently active.',
@@ -1214,7 +1145,7 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
     },
     '403': {
       description:
-        'Demo session, an incorrect current password, or the account has no passwordHash to fall back on.',
+        'An incorrect current password, or the account has no passwordHash to fall back on.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
     },
     '401': {
@@ -1476,8 +1407,7 @@ const registrarMovimientoManualOperation: ZodOpenApiOperationObject = {
  *
  * Merged 404 (DEL-02, anti-enumeration): absent id, another user's row, and
  * an owned-but-not-manual row all produce the IDENTICAL response — never a
- * distinct "not manual" error, which would leak provenance. Demo sessions
- * are rejected 403 DEMO_SOLO_LECTURA before the writer is touched (DEL-03).
+ * distinct "not manual" error, which would leak provenance.
  */
 const eliminarMovimientoManualOperation: ZodOpenApiOperationObject = {
   summary: 'Delete a manual movement',
@@ -1486,16 +1416,13 @@ const eliminarMovimientoManualOperation: ZodOpenApiOperationObject = {
     "origen='Manual' (correccion-movimientos-manuales, ADR-040). Ingesta-born rows are " +
     'never individually deletable — delete the whole ingesta instead (DELETE ' +
     '/api/ingestas/:id). Requires x-api-key + a valid session (RNF-SEC-006, per-user ' +
-    'isolation). Rejected for demo sessions (403 DEMO_SOLO_LECTURA).',
+    'isolation).',
   requestParams: {
     path: movimientoDeletePathParamsSchema,
   },
   responses: {
     '204': {
       description: 'Movement deleted. No response body.',
-    },
-    '403': {
-      description: 'The calling session is a demo session. Nothing is deleted.',
     },
     '404': {
       description:

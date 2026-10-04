@@ -6,8 +6,8 @@ import type { PrismaClient } from '@prisma/client';
  *
  * Several new integration specs need a REAL, HTTP-presentable session
  * (`Authorization: Bearer <token>`) for a synthetic test user, WITHOUT going
- * through the password login flow (some test users are demo-flagged and
- * have no `passwordHash`). Mirrors `Sha256SessionTokenService`'s exact
+ * through the password login flow (some test users have no
+ * `passwordHash`). Mirrors `Sha256SessionTokenService`'s exact
  * hashing (`sha256` hex digest) so the raw token this fixture returns
  * validates against the same `PrismaSessionRepository` lookup the real app
  * uses (`sessionMiddleware` → `ValidarSesionUseCase`).

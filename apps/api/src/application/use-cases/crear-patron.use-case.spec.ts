@@ -1,7 +1,6 @@
 import { CrearPatronUseCase } from './crear-patron.use-case';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { IPatronRepository } from '../ports/patron-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { PatronInvalidoError } from '../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.error';
@@ -52,24 +51,6 @@ function makePatronRepo(
 }
 
 describe('CrearPatronUseCase', () => {
-  it('el demo gate corta ANTES de cualquier llamada a los repositorios', async () => {
-    const categoriaRepo = makeCategoriaRepo();
-    const patronRepo = makePatronRepo();
-    const useCase = new CrearPatronUseCase(categoriaRepo, patronRepo);
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      categoriaId: 'cat-1',
-      patron: 'netflix',
-      matchType: 'CONTAINS',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CatalogoDemoSoloLecturaError);
-    expect(categoriaRepo.buscarPorId).not.toHaveBeenCalled();
-  });
-
   it('404 cuando la categoría es ajena o no existe', async () => {
     const categoriaRepo = makeCategoriaRepo({
       buscarPorId: vi.fn().mockResolvedValue(null),
@@ -79,7 +60,6 @@ describe('CrearPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       categoriaId: 'cat-ajena',
       patron: 'netflix',
       matchType: 'CONTAINS',
@@ -97,7 +77,6 @@ describe('CrearPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       categoriaId: 'cat-1',
       patron: '  netflix  ',
       matchType: 'CONTAINS',
@@ -121,7 +100,6 @@ describe('CrearPatronUseCase', () => {
 
       const result = await useCase.execute({
         userId: 'user-1',
-        esDemo: false,
         categoriaId: 'cat-1',
         patron,
         matchType: 'CONTAINS',
@@ -139,7 +117,6 @@ describe('CrearPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       categoriaId: 'cat-1',
       patron: 'netflix',
       matchType: 'FUZZY',
@@ -156,7 +133,6 @@ describe('CrearPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       categoriaId: 'cat-1',
       patron: '(',
       matchType: 'REGEX',
@@ -174,7 +150,6 @@ describe('CrearPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       categoriaId: 'cat-1',
       patron: '^net.*',
       matchType: 'REGEX',
@@ -190,7 +165,6 @@ describe('CrearPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       categoriaId: 'cat-1',
       patron: 'netflix',
       matchType: 'CONTAINS',
@@ -210,7 +184,6 @@ describe('CrearPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       categoriaId: 'cat-1',
       patron: 'Netflix',
       matchType: 'CONTAINS',

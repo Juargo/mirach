@@ -3,15 +3,12 @@ import { ReclasificarTransaccionUseCase } from '../../../application/use-cases/r
 import { ReevaluarCategoriasUseCase } from '../../../application/use-cases/reevaluar-categorias.use-case';
 import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
-import { ReclasificarDemoSoloLecturaError } from '../../../domain/errors/reclasificar-demo-solo-lectura.error';
-import { ReevaluarDemoSoloLecturaError } from '../../../domain/errors/reevaluar-demo-solo-lectura.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import {
   aReclasificarCategoriaDto,
   type ReclasificarCategoriaBodyDto,
 } from '../../http/dto/reclasificar-categoria.dto';
 import { aReevaluarCategoriasDto } from '../../http/dto/reevaluar-categorias.dto';
-import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
 import { responderErrorTraducido } from './responder-error-traducido';
 
 /**
@@ -33,11 +30,7 @@ import { responderErrorTraducido } from './responder-error-traducido';
  *   que no le pertenece).
  * TransaccionNoEncontradaError → 404 (funde no-existe y no-es-tuya: anti-enumeración).
  *
- * Demo gate (issue #597): `esDemoDeSesion(req)` (fail-closed) se hilvana en
- * el input del use case, que corta ANTES de tocar el writer — mismo patrón
- * que movimientos/categorías/patrones/ingesta. Toda respuesta de error pasa
- * por `responderErrorTraducido`, el chokepoint que loguea `logDemoGateTrip`
- * cuando `code === 'DEMO_SOLO_LECTURA'`.
+ * Toda respuesta de error pasa por `responderErrorTraducido`.
  */
 export function registrarTransacciones(
   router: Router,
@@ -58,28 +51,19 @@ export function registrarTransacciones(
         userId: req.userId!, // garantizado por el session middleware previo
         transaccionId: req.params.id,
         categoriaId,
-        esDemo: esDemoDeSesion(req),
       });
 
       if (result.isFail()) {
         const error = result.getError();
-        if (error instanceof ReclasificarDemoSoloLecturaError) {
-          responderErrorTraducido(res, req, {
-            status: 403,
-            code: 'DEMO_SOLO_LECTURA',
-            message: error.message,
-          });
-          return;
-        }
         if (error instanceof CategoriaDesconocidaError) {
-          responderErrorTraducido(res, req, {
+          responderErrorTraducido(res, {
             status: 400,
             message: 'La categoría indicada no existe en tu catálogo.',
           });
           return;
         }
         if (error instanceof TransaccionNoEncontradaError) {
-          responderErrorTraducido(res, req, {
+          responderErrorTraducido(res, {
             status: 404,
             message:
               'La transacción no existe o no pertenece al usuario autenticado.',
@@ -88,7 +72,7 @@ export function registrarTransacciones(
         }
         const _exhaustive: never = error;
         void _exhaustive;
-        responderErrorTraducido(res, req, {
+        responderErrorTraducido(res, {
           status: 500,
           message: 'Error inesperado',
         });
@@ -112,11 +96,7 @@ export function registrarTransacciones(
  * o no, sin filtro de período). Sin body ni query params — el `userId` viene
  * del session middleware.
  *
- * Demo gate: mismo patrón que movimientos/categorías/patrones/ingesta
- * (`esDemoDeSesion(req)` fail-closed, issue #507) — una sesión demo rechaza
- * con 403 DEMO_SOLO_LECTURA ANTES de tocar el catálogo o las transacciones.
- * Toda respuesta de error pasa por `responderErrorTraducido` (chokepoint que
- * loguea `logDemoGateTrip` cuando `code === 'DEMO_SOLO_LECTURA'`).
+ * Toda respuesta de error pasa por `responderErrorTraducido`.
  *
  * `CategorizacionFallidaError` (catálogo no disponible, o fallo al escribir
  * el lote de reasignaciones) → 500: a diferencia del pipeline de ingesta, acá
@@ -131,21 +111,12 @@ export function registrarReevaluarCategorias(
     try {
       const result = await reevaluarCategorias.execute({
         userId: req.userId!, // garantizado por el session middleware previo
-        esDemo: esDemoDeSesion(req),
       });
 
       if (result.isFail()) {
         const error = result.getError();
-        if (error instanceof ReevaluarDemoSoloLecturaError) {
-          responderErrorTraducido(res, req, {
-            status: 403,
-            code: 'DEMO_SOLO_LECTURA',
-            message: error.message,
-          });
-          return;
-        }
         if (error instanceof CategorizacionFallidaError) {
-          responderErrorTraducido(res, req, {
+          responderErrorTraducido(res, {
             status: 500,
             message: error.message,
           });
@@ -153,7 +124,7 @@ export function registrarReevaluarCategorias(
         }
         const _exhaustive: never = error;
         void _exhaustive;
-        responderErrorTraducido(res, req, {
+        responderErrorTraducido(res, {
           status: 500,
           message: 'Error inesperado',
         });

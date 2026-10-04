@@ -125,7 +125,6 @@ export function registrarAuthMe(
         userId: identidad.userId,
         nombre: identidad.nombre,
         email: identidad.email,
-        esDemo: identidad.esDemo,
         googleVinculado: identidad.googleVinculado,
       });
     } catch (err) {

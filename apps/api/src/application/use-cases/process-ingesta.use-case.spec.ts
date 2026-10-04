@@ -21,7 +21,6 @@ import { PdfInvalidoError } from '../../domain/errors/pdf-invalido.error';
 import { EstructuraPdfInvalidaError } from '../../domain/errors/estructura-pdf-invalida.error';
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
-import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { BancoConocido } from '../../domain/value-objects/nombre-banco';
 import { TipoCuentaConocido } from '../../domain/value-objects/tipo-cuenta';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -500,21 +499,6 @@ function buildUseCase(opts?: BuildOptions) {
 const USER_ID = 'usuario-fijo-moneydiary';
 
 describe('ProcessIngestaUseCase', () => {
-  it('issue #500: el demo gate corta ANTES del pipeline — sin FALLIDA registrada', async () => {
-    const { useCase, bankDetector, ingestaFallidaWriter } = buildUseCase();
-
-    const result = await useCase.execute({
-      fileReader: new FakeFileReader(),
-      userId: USER_ID,
-      esDemo: true,
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(IngestaDemoSoloLecturaError);
-    expect(bankDetector.called).toBe(false);
-    expect(ingestaFallidaWriter.calls).toHaveLength(0);
-  });
-
   it('happy path: encadena detectar → asegurar cuenta → validar → normalizar → persistir', async () => {
     const {
       useCase,
@@ -529,7 +513,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isOk()).toBe(true);
@@ -574,7 +557,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(Buffer.from('x'), 'cartola.csv'),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -610,7 +592,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -646,7 +627,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -672,7 +652,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -694,7 +673,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -713,7 +691,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -747,7 +724,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -772,7 +748,6 @@ describe('ProcessIngestaUseCase', () => {
     const result = await useCase.execute({
       fileReader: new FakeFileReader(),
       userId: USER_ID,
-      esDemo: false,
     });
 
     expect(result.isFail()).toBe(true);
@@ -802,7 +777,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       // El fallo de registrar() NUNCA cambia el error que ve el caller.
@@ -822,7 +796,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -849,7 +822,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       // Issue #778 tramo 5a: un catálogo caído YA NO degrada (antes dejaba
@@ -878,7 +850,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -904,7 +875,6 @@ describe('ProcessIngestaUseCase', () => {
       await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(bucketWriter.calls.length).toBeGreaterThan(0);
@@ -937,7 +907,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       // Rechaza — ya NO deja la ingesta PROCESADA con bucketId nulo.
@@ -977,7 +946,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1017,7 +985,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1051,7 +1018,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1075,7 +1041,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1092,7 +1057,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1120,7 +1084,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1144,7 +1107,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       // Issue #778 tramo 5a: la ingesta RECHAZA — ya no degrada como antes.
@@ -1172,7 +1134,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1199,7 +1160,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1231,7 +1191,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1257,7 +1216,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1286,7 +1244,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(Buffer.from('%PDF-1.4'), 'cartola.pdf'),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1312,7 +1269,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1337,7 +1293,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(Buffer.from('%PDF-1.4'), 'corrupto.pdf'),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1366,7 +1321,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(Buffer.from('%PDF-1.4'), 'cartola.pdf'),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isFail()).toBe(true);
@@ -1386,7 +1340,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);
@@ -1432,7 +1385,6 @@ describe('ProcessIngestaUseCase', () => {
       const result = await useCase.execute({
         fileReader: new FakeFileReader(),
         userId: USER_ID,
-        esDemo: false,
       });
 
       expect(result.isOk()).toBe(true);

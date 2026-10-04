@@ -45,7 +45,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
    * interactiva (`$transaction` con callback): si la
    * copia del catálogo falla, el rollback incluye al usuario — nunca puede
    * existir un usuario sin catálogo (invariante ADR-036). La Session NO va
-   * en esta transacción, a diferencia del demo: acá un usuario creado sin
+   * en esta transacción, un usuario creado sin
    * sesión es benigno y auto-reparable (el siguiente intento resuelve por
    * `googleSub`), mismo razonamiento que el link+sesión del use case
    * (design §5.1). Tampoco se crea ningún Account: la cuenta centinela
@@ -98,7 +98,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
   ): Promise<UsuarioVinculable | null> {
     const user = await this.prisma.user.findUnique({
       where: { googleSub },
-      select: { id: true, esDemo: true, googleSub: true },
+      select: { id: true, googleSub: true },
     });
 
     return user === null ? null : this.aUsuarioVinculable(user);
@@ -107,7 +107,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
   async buscarPorEmail(email: Email): Promise<UsuarioVinculable | null> {
     const user = await this.prisma.user.findUnique({
       where: { emailBlindIndex: this.blindIndex.compute(email.valor) },
-      select: { id: true, esDemo: true, googleSub: true },
+      select: { id: true, googleSub: true },
     });
 
     return user === null ? null : this.aUsuarioVinculable(user);
@@ -116,7 +116,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
   async buscarPorId(userId: string): Promise<UsuarioVinculable | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, esDemo: true, googleSub: true },
+      select: { id: true, googleSub: true },
     });
 
     return user === null ? null : this.aUsuarioVinculable(user);
@@ -165,10 +165,9 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
 
   private aUsuarioVinculable(user: {
     id: string;
-    esDemo: boolean;
     googleSub: string | null;
   }): UsuarioVinculable {
-    return { userId: user.id, esDemo: user.esDemo, googleSub: user.googleSub };
+    return { userId: user.id, googleSub: user.googleSub };
   }
 }
 

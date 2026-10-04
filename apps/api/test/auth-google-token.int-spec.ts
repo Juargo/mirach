@@ -6,7 +6,7 @@
  * talks to live Google — `verificadorIdToken` is a double of
  * `IVerificadorIdTokenExterno` (never live Google, per ADR-034/ADR-035's
  * consequence). Everything downstream of the verified identity (session
- * issuance, linking, demo/rule-★ gates) is real.
+ * issuance, linking, rule-★ gates) is real.
  *
  * Mirrors `auth-google-callback.int-spec.ts`'s pattern for the web flow —
  * same real collaborators, different route + port double.
@@ -139,7 +139,6 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
   async function crearUsuario(data: {
     emailRaw: string | null;
     googleSub?: string | null;
-    esDemo?: boolean;
   }): Promise<string> {
     const env = loadEnv();
     const emailFields =
@@ -153,7 +152,6 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
         email: emailFields.email,
         emailBlindIndex: emailFields.emailBlindIndex,
         googleSub: data.googleSub ?? null,
-        esDemo: data.esDemo ?? false,
       },
     });
     createdUserIds.push(user.id);
@@ -215,7 +213,6 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
     const nuevo = await prisma.user.findUnique({ where: { id: nuevoUserId } });
     expect(nuevo?.googleSub).toBe(sub);
     expect(nuevo?.passwordHash).toBeNull();
-    expect(nuevo?.esDemo).toBe(false);
     expect(nuevo?.nombre).toBe(`${RUN_ID}-signup`);
     // Email cifrado en reposo + blind index del email normalizado (ADR-013).
     expect(nuevo?.email).not.toBe(email);
@@ -246,44 +243,6 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
 
     const res = await request(
       appConVerificador({ sub, email, emailVerificado: false }),
-    )
-      .post('/api/auth/google/token')
-      .set('x-api-key', API_KEY)
-      .send({ idToken: 'fake-id-token' });
-
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ message: 'Credenciales inválidas.' });
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    expect(user?.googleSub).toBeNull();
-  });
-
-  it('cuenta demo, resuelta por googleSub → 401 genérico', async () => {
-    if (!ALLOW) return;
-
-    const sub = `sub-${RUN_ID}-demo-by-sub`;
-    await crearUsuario({ emailRaw: null, googleSub: sub, esDemo: true });
-
-    const res = await request(
-      appConVerificador({ sub, email: null, emailVerificado: false }),
-    )
-      .post('/api/auth/google/token')
-      .set('x-api-key', API_KEY)
-      .send({ idToken: 'fake-id-token' });
-
-    expect(res.status).toBe(401);
-    expect(res.body).toEqual({ message: 'Credenciales inválidas.' });
-  });
-
-  it('cuenta demo, resuelta por email (sin googleSub previo) → 401 genérico, sin vincular', async () => {
-    if (!ALLOW) return;
-
-    const email = `${RUN_ID}-demo-by-email@example.com`;
-    const sub = `sub-${RUN_ID}-demo-by-email`;
-    const userId = await crearUsuario({ emailRaw: email, esDemo: true });
-
-    const res = await request(
-      appConVerificador({ sub, email, emailVerificado: true }),
     )
       .post('/api/auth/google/token')
       .set('x-api-key', API_KEY)

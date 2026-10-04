@@ -3,7 +3,7 @@
  * (ADR-040), design.md D-05.
  *
  * Integration tests for DELETE /api/movimientos/:id. Fixture strategy
- * mirrors `registro-manual.int-spec.ts` / `ingesta-demo-gate.int-spec.ts`
+ * mirrors `registro-manual.int-spec.ts`
  * (full HTTP stack: createApp + createContainer + supertest + x-api-key +
  * `crearSesionParaUsuario`) — NOT the repository-only shape of
  * `eliminar-ingesta.int-spec.ts`, because DEL-02 asserts response-body
@@ -41,20 +41,16 @@ function currentPeriodo(): string {
 }
 
 // ---------------------------------------------------------------------------
-// DEL-01 / DEL-03 — happy path (204, row gone, resumen reflects) + demo gate
+// DEL-01 — happy path (204, row gone, resumen reflects)
 // ---------------------------------------------------------------------------
 
-describe('DEL-01 / DEL-03 — happy path (204, row gone, resumen reflects) and demo gate (403, untouched)', () => {
+describe('DEL-01 — happy path (204, row gone, resumen reflects)', () => {
   let app: Express;
   let prisma: PrismaClient;
   let auth: string;
-  let authDemo: string;
   let userId: string;
-  let demoUserId: string;
   let sentinelAccountId: string;
-  let sentinelAccountIdDemo: string;
   let manualTxId: string;
-  let demoManualTxId: string;
   const createdUserIds: string[] = [];
 
   beforeAll(async () => {
@@ -66,13 +62,9 @@ describe('DEL-01 / DEL-03 — happy path (204, row gone, resumen reflects) and d
     app = createApp(createContainer(env, prisma), env);
 
     userId = `${RUN_ID}-happy`;
-    demoUserId = `${RUN_ID}-demo`;
-    createdUserIds.push(userId, demoUserId);
+    createdUserIds.push(userId);
 
     await prisma.user.create({ data: { id: userId, nombre: 'Happy Path' } });
-    await prisma.user.create({
-      data: { id: demoUserId, nombre: 'Demo Gate', esDemo: true },
-    });
 
     const sentinelAccount = await prisma.account.create({
       data: {
@@ -83,16 +75,6 @@ describe('DEL-01 / DEL-03 — happy path (204, row gone, resumen reflects) and d
       },
     });
     sentinelAccountId = sentinelAccount.id;
-
-    const sentinelAccountDemo = await prisma.account.create({
-      data: {
-        userId: demoUserId,
-        banco: 'Manual',
-        tipoCuenta: 'Manual',
-        numeroCuenta: `manual-demo-${RUN_ID}`,
-      },
-    });
-    sentinelAccountIdDemo = sentinelAccountDemo.id;
 
     const manualTx = await prisma.transaccion.create({
       data: {
@@ -108,24 +90,8 @@ describe('DEL-01 / DEL-03 — happy path (204, row gone, resumen reflects) and d
     });
     manualTxId = manualTx.id;
 
-    const demoManualTx = await prisma.transaccion.create({
-      data: {
-        accountId: sentinelAccountIdDemo,
-        ingestaId: null,
-        origen: 'Manual',
-        bucketId: BUCKET_IDS[Bucket.Ingreso],
-        cargo: 0n,
-        abono: 15000n,
-        fecha: new Date(),
-        descripcion: 'Reembolso manual — demo',
-      },
-    });
-    demoManualTxId = demoManualTx.id;
-
     const session = await crearSesionParaUsuario(prisma, userId);
     auth = `Bearer ${session.token}`;
-    const sessionDemo = await crearSesionParaUsuario(prisma, demoUserId);
-    authDemo = `Bearer ${sessionDemo.token}`;
   });
 
   afterAll(async () => {
@@ -169,23 +135,6 @@ describe('DEL-01 / DEL-03 — happy path (204, row gone, resumen reflects) and d
     // The deleted row was the ONLY transaction for this fresh user — resumen
     // must show no income, no residual amount from the deleted row.
     expect(res.body.totalIngreso).toBe('0');
-  });
-
-  it('DEL-03: demo session → 403 DEMO_SOLO_LECTURA, row untouched', async () => {
-    if (!ALLOW) return;
-
-    const res = await request(app)
-      .delete(`/api/movimientos/${demoManualTxId}`)
-      .set('x-api-key', API_KEY)
-      .set('Authorization', authDemo);
-
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
-
-    const tx = await prisma.transaccion.findUnique({
-      where: { id: demoManualTxId },
-    });
-    expect(tx).not.toBeNull();
   });
 });
 

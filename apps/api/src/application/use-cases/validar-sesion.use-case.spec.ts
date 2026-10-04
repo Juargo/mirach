@@ -33,11 +33,10 @@ function makeFakeReloj(ahora: Date): IReloj {
 }
 
 describe('ValidarSesionUseCase', () => {
-  it('valid token (not expired) → Result.ok({ userId, esDemo, tokenHash })', async () => {
+  it('valid token (not expired) → Result.ok({ userId, tokenHash })', async () => {
     const sesion: SesionPersistida = {
       userId: 'user-1',
       expiresAt: new Date('2026-07-22T00:00:00.000Z'),
-      esDemo: false,
     };
     const sessions = makeMockSessions(sesion);
     const tokens = makeMockTokens('hashed-token');
@@ -54,7 +53,6 @@ describe('ValidarSesionUseCase', () => {
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual({
       userId: 'user-1',
-      esDemo: false,
       tokenHash: 'hashed-token',
     });
     expect(tokens.hashToken).toHaveBeenCalledWith('raw-token');
@@ -65,7 +63,6 @@ describe('ValidarSesionUseCase', () => {
     const sesion: SesionPersistida = {
       userId: 'user-1',
       expiresAt: new Date('2026-07-22T00:00:00.000Z'),
-      esDemo: false,
     };
     const sessions = makeMockSessions(sesion);
     const tokens = makeMockTokens('el-hash-ya-computado');
@@ -81,32 +78,6 @@ describe('ValidarSesionUseCase', () => {
 
     expect(result.getValue().tokenHash).toBe('el-hash-ya-computado');
     expect(tokens.hashToken).toHaveBeenCalledTimes(1);
-  });
-
-  it('sesión demo (not expired) → Result.ok({ userId, esDemo: true, tokenHash }) (CAT038-08)', async () => {
-    const sesion: SesionPersistida = {
-      userId: 'user-demo',
-      expiresAt: new Date('2026-07-22T00:00:00.000Z'),
-      esDemo: true,
-    };
-    const sessions = makeMockSessions(sesion);
-    const tokens = makeMockTokens('hashed-token');
-    const reloj = makeFakeReloj(new Date('2026-07-15T00:00:00.000Z'));
-    const uc = new ValidarSesionUseCase(
-      sessions,
-      tokens,
-      reloj,
-      new NoOpLogger(),
-    );
-
-    const result = await uc.execute({ token: 'raw-token' });
-
-    expect(result.isOk()).toBe(true);
-    expect(result.getValue()).toEqual({
-      userId: 'user-demo',
-      esDemo: true,
-      tokenHash: 'hashed-token',
-    });
   });
 
   it('unknown tokenHash (no matching session) → Result.fail(SesionInvalidaError)', async () => {
@@ -130,7 +101,6 @@ describe('ValidarSesionUseCase', () => {
     const sesion: SesionPersistida = {
       userId: 'user-1',
       expiresAt: new Date('2026-07-15T00:00:00.000Z'),
-      esDemo: false,
     };
     const sessions = makeMockSessions(sesion);
     const tokens = makeMockTokens('hashed-token');
@@ -154,7 +124,6 @@ describe('ValidarSesionUseCase', () => {
       const sesion: SesionPersistida = {
         userId: 'user-1',
         expiresAt: new Date('2026-07-22T00:00:00.000Z'),
-        esDemo: false,
       };
       const sessions = makeMockSessions(sesion);
       const tokens = makeMockTokens('hashed-token');

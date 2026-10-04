@@ -2,7 +2,6 @@ import { DesvincularGoogleUseCase } from './desvincular-google.use-case';
 import { IUserCredentialRepository } from '../ports/user-credential-repository.port';
 import { IIdentidadGoogleRepository } from '../ports/identidad-google-repository.port';
 import { IPasswordHasher } from '../ports/password-hasher.port';
-import { PerfilDemoSoloLecturaError } from '../../domain/errors/perfil-demo-solo-lectura.error';
 import { VinculoRequierePasswordError } from '../../domain/errors/vinculo-requiere-password.error';
 import { PerfilRechazadoError } from '../../domain/errors/perfil-rechazado.error';
 import { NoOpLogger } from '../../../test/support/logger.double';
@@ -57,23 +56,6 @@ function makeUseCase(deps: {
 }
 
 describe('DesvincularGoogleUseCase (VINC041-05, design §4.3/§5.2)', () => {
-  it('demo ⇒ PerfilDemoSoloLecturaError, sin tocar credenciales ni el write', async () => {
-    const creds = makeCreds();
-    const identidades = makeIdentidades();
-    const useCase = makeUseCase({ creds, identidades });
-
-    const resultado = await useCase.execute({
-      userId: 'user-1',
-      esDemo: true,
-      passwordActual: 'irrelevante',
-    });
-
-    expect(resultado.isFail()).toBe(true);
-    expect(resultado.getError()).toBeInstanceOf(PerfilDemoSoloLecturaError);
-    expect(creds.buscarCredencialPorId).not.toHaveBeenCalled();
-    expect(identidades.desvincularGoogleSub).not.toHaveBeenCalled();
-  });
-
   it('binding proof (b): credencial null (sin passwordHash) ⇒ VinculoRequierePasswordError, el write NUNCA se llama', async () => {
     const creds = makeCreds({
       buscarCredencialPorId: vi.fn().mockResolvedValue(null),
@@ -83,7 +65,6 @@ describe('DesvincularGoogleUseCase (VINC041-05, design §4.3/§5.2)', () => {
 
     const resultado = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'lo-que-sea',
     });
 
@@ -101,7 +82,6 @@ describe('DesvincularGoogleUseCase (VINC041-05, design §4.3/§5.2)', () => {
 
     const resultado = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'incorrecta',
     });
 
@@ -118,7 +98,6 @@ describe('DesvincularGoogleUseCase (VINC041-05, design §4.3/§5.2)', () => {
 
     const resultado = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'correcta',
     });
 
@@ -134,7 +113,6 @@ describe('DesvincularGoogleUseCase (VINC041-05, design §4.3/§5.2)', () => {
 
     const resultado = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'correcta',
     });
 

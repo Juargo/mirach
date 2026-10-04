@@ -271,7 +271,6 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback', () => {
   it.each([
     'creacion-perdio-la-carrera',
     'email-no-verificado',
-    'usuario-demo',
     'ya-vinculado-a-otra-identidad',
     'link-perdio-la-carrera',
     'email-invalido',
@@ -434,7 +433,9 @@ describe('registrarAuthGoogle — GET /api/auth/google/callback — modo LINK (U
         execute: vi
           .fn()
           .mockResolvedValue(
-            Result.fail(new VinculacionGoogleFallidaError('usuario-demo')),
+            Result.fail(
+              new VinculacionGoogleFallidaError('usuario-inexistente'),
+            ),
           ),
       } as never,
     });

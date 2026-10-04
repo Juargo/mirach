@@ -1,12 +1,10 @@
 import { Result } from '../../shared/result';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
 import { seleccionarCategoriaInterna } from '../services/categoria-por-defecto';
 
 export type EliminarCategoriaError =
-  | CatalogoDemoSoloLecturaError
   | CategoriaNoEncontradaError
   | CategoriaInternaProtegidaError;
 
@@ -44,20 +42,15 @@ export type EliminarCategoriaError =
  * usuario y buscamos, con `seleccionarCategoriaInterna`, la `Desconocido`
  * del MISMO bucket que `actual` (nunca `BUCKET_POR_DEFECTO` — ver el
  * docblock de esa función). El orden de gates NO cambia: "esta fila no se
- * muta" (demo → 404 → interna) sigue precediendo a cualquier otra cosa.
+ * muta" (404 → interna) sigue precediendo a cualquier otra cosa.
  */
 export class EliminarCategoriaUseCase {
   constructor(private readonly categoriaRepository: ICategoriaRepository) {}
 
   async execute(input: {
     userId: string;
-    esDemo: boolean;
     id: string;
   }): Promise<Result<void, EliminarCategoriaError>> {
-    if (input.esDemo) {
-      return Result.fail(new CatalogoDemoSoloLecturaError());
-    }
-
     const actual = await this.categoriaRepository.buscarPorId(
       input.userId,
       input.id,

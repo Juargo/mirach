@@ -34,7 +34,6 @@ describe('errorMiddleware — nunca serializa motivo de LoginConGoogleFallidoErr
   const TODOS_LOS_MOTIVOS: MotivoFalloGoogle[] = [
     'creacion-perdio-la-carrera',
     'email-no-verificado',
-    'usuario-demo',
     'ya-vinculado-a-otra-identidad',
     'link-perdio-la-carrera',
     'email-invalido',

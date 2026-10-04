@@ -3,7 +3,6 @@ import { VinculacionGoogleFallidaError } from './vinculacion-google-fallida.erro
 describe('VinculacionGoogleFallidaError', () => {
   it.each([
     'usuario-inexistente',
-    'usuario-demo',
     'identidad-de-otra-cuenta',
     'ya-tiene-otro-sub',
     'link-perdio-la-carrera',

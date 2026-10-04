@@ -291,7 +291,6 @@ describe('Catalog isolation (CAT037-05, CAT037-04) — per-user Categoria/Patron
 
     const result = await actualizarUseCase.execute({
       userId: USER_ID_B,
-      esDemo: false,
       id: transporteIdA,
       icono: 'house',
     });

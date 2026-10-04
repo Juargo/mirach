@@ -1,7 +1,6 @@
 import { Result } from '../../shared/result';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { IPatronRepository, Patron } from '../ports/patron-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { PatronInvalidoError } from '../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.error';
@@ -11,7 +10,6 @@ import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error
 import { validarPatron } from './validar-patron';
 
 export type CrearPatronError =
-  | CatalogoDemoSoloLecturaError
   | CategoriaNoEncontradaError
   | PatronInvalidoError
   | MatchTypeInvalidoError
@@ -24,7 +22,7 @@ export type CrearPatronError =
  * (US-038, CAT038-05/06).
  *
  * Orden de validación (design.md §5.1/§5.2, mirrors CrearPatronError union):
- *   demo gate → ownership de `categoriaId` (404) → forma de `patron` →
+ *   ownership de `categoriaId` (404) → forma de `patron` →
  *   `matchType` ∈ set → si REGEX, compila → `prioridad` (default 100,
  *   rango 1..999) → unicidad case-insensitive de `patron` por usuario →
  *   creación.
@@ -41,16 +39,11 @@ export class CrearPatronUseCase {
 
   async execute(input: {
     userId: string;
-    esDemo: boolean;
     categoriaId: string;
     patron: string;
     matchType: string;
     prioridad?: number;
   }): Promise<Result<Patron, CrearPatronError>> {
-    if (input.esDemo) {
-      return Result.fail(new CatalogoDemoSoloLecturaError());
-    }
-
     const categoria = await this.categoriaRepository.buscarPorId(
       input.userId,
       input.categoriaId,

@@ -217,7 +217,6 @@ describe('crearAuthGoogle (design §4.3)', () => {
     // de prisma, no una propia.
     await graph!.iniciarVinculacion.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'lo-que-sea',
     });
 
@@ -250,7 +249,7 @@ describe('crearAuthGoogle (design §4.3)', () => {
 
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      select: { id: true, esDemo: true, googleSub: true },
+      select: { id: true, googleSub: true },
     });
   });
 });

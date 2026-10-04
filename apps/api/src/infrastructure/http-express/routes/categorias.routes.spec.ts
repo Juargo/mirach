@@ -4,13 +4,11 @@ import { registrarCategorias } from './categorias.routes';
 import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
 import { Bucket } from '../../../domain/value-objects/bucket';
-import { CatalogoDemoSoloLecturaError } from '../../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { MatchTypeInvalidoError } from '../../../domain/errors/match-type-invalido.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
-import { appLogger } from '../../logging/app-logger';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 
 const CATEGORIA_OK = {
@@ -43,20 +41,12 @@ function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
   } as unknown as CatalogoGraph;
 }
 
-/** `esDemo: 'unset'` (issue #507) deja `req.esDemo` SIN asignar — simula una
- * request que llegó al handler sin pasar por `sessionMiddleware`. */
-function probeApp(
-  catalogo: CatalogoGraph,
-  esDemo: boolean | 'unset' = false,
-): Express {
+function probeApp(catalogo: CatalogoGraph): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    if (esDemo !== 'unset') {
-      req.esDemo = esDemo;
-    }
     next();
   });
   registrarCategorias(router, catalogo);
@@ -90,21 +80,9 @@ describe('registrarCategorias', () => {
       expect(res.body.id).toBe('cat-1');
       expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith({
         userId: 'user-x',
-        esDemo: false,
         nombre: 'Mascotas',
         bucket: 'Deseos',
       });
-    });
-
-    it('threads req.esDemo into the use case input', async () => {
-      const catalogo = makeCatalogo();
-      await request(probeApp(catalogo, true))
-        .post('/api/categorias')
-        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
-
-      expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ esDemo: true }),
-      );
     });
 
     it('400 BODY_INVALIDO on a malformed body, WITHOUT calling the use case or echoing the input', async () => {
@@ -120,60 +98,6 @@ describe('registrarCategorias', () => {
       });
       expect(catalogo.crearCategoria.execute).not.toHaveBeenCalled();
       expect(JSON.stringify(res.body)).not.toContain('sneaky-value');
-    });
-
-    it('403 DEMO_SOLO_LECTURA when the use case rejects a demo session', async () => {
-      const catalogo = makeCatalogo({
-        crearCategoria: {
-          execute: vi
-            .fn()
-            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
-        } as unknown as CatalogoGraph['crearCategoria'],
-      });
-      const res = await request(probeApp(catalogo))
-        .post('/api/categorias')
-        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
-
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
-    });
-
-    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
-      const catalogo = makeCatalogo({
-        crearCategoria: {
-          execute: vi
-            .fn()
-            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
-        } as unknown as CatalogoGraph['crearCategoria'],
-      });
-      const res = await request(probeApp(catalogo, 'unset'))
-        .post('/api/categorias')
-        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
-
-      expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ esDemo: true }),
-      );
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
-    });
-
-    it('issue #507 (ADR-033): un 403 DEMO_SOLO_LECTURA loguea el gate trip con { path }', async () => {
-      const warnSpy = vi.spyOn(appLogger, 'warn').mockImplementation(() => {});
-      const catalogo = makeCatalogo({
-        crearCategoria: {
-          execute: vi
-            .fn()
-            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
-        } as unknown as CatalogoGraph['crearCategoria'],
-      });
-      await request(probeApp(catalogo))
-        .post('/api/categorias')
-        .send({ nombre: 'Mascotas', bucket: 'Deseos' });
-
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEMO'), {
-        path: '/categorias',
-      });
-      warnSpy.mockRestore();
     });
 
     it('409 NOMBRE_DUPLICADO on a duplicate name', async () => {
@@ -224,7 +148,6 @@ describe('registrarCategorias', () => {
       expect(res.body.patrones).toHaveLength(1);
       expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith({
         userId: 'user-x',
-        esDemo: false,
         nombre: 'Mascotas',
         bucket: 'Deseos',
         patrones: [{ patron: 'petco', matchType: 'CONTAINS' }],
@@ -271,7 +194,6 @@ describe('registrarCategorias', () => {
       expect(res.status).toBe(201);
       expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith({
         userId: 'user-x',
-        esDemo: false,
         nombre: 'Mascotas',
         bucket: 'Deseos',
         patrones: undefined,
@@ -362,7 +284,6 @@ describe('registrarCategorias', () => {
       expect(res.status).toBe(200);
       expect(catalogo.actualizarCategoria.execute).toHaveBeenCalledWith({
         userId: 'user-x',
-        esDemo: false,
         id: 'cat-1',
         nombre: 'Renombrada',
         bucket: undefined,
@@ -398,25 +319,6 @@ describe('registrarCategorias', () => {
       expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
     });
 
-    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
-      const catalogo = makeCatalogo({
-        actualizarCategoria: {
-          execute: vi
-            .fn()
-            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
-        } as unknown as CatalogoGraph['actualizarCategoria'],
-      });
-      const res = await request(probeApp(catalogo, 'unset'))
-        .patch('/api/categorias/cat-1')
-        .send({ nombre: 'Renombrada' });
-
-      expect(catalogo.actualizarCategoria.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ esDemo: true }),
-      );
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
-    });
-
     it('accepts an icono-only body (tri-state PATCH, CATICO-03)', async () => {
       const catalogo = makeCatalogo();
       const res = await request(probeApp(catalogo))
@@ -448,7 +350,6 @@ describe('registrarCategorias', () => {
 
       expect(catalogo.actualizarCategoria.execute).toHaveBeenCalledWith({
         userId: 'user-x',
-        esDemo: false,
         id: 'cat-1',
         nombre: 'Renombrada',
         bucket: undefined,
@@ -495,7 +396,6 @@ describe('registrarCategorias', () => {
       expect(res.body).toEqual({});
       expect(catalogo.eliminarCategoria.execute).toHaveBeenCalledWith({
         userId: 'user-x',
-        esDemo: false,
         id: 'cat-1',
       });
     });
@@ -516,25 +416,6 @@ describe('registrarCategorias', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
-    });
-
-    it('issue #507: req.esDemo undefined ⇒ fail-closed — el use case recibe esDemo: true, nunca undefined', async () => {
-      const catalogo = makeCatalogo({
-        eliminarCategoria: {
-          execute: vi
-            .fn()
-            .mockResolvedValue(Result.fail(new CatalogoDemoSoloLecturaError())),
-        } as unknown as CatalogoGraph['eliminarCategoria'],
-      });
-      const res = await request(probeApp(catalogo, 'unset')).delete(
-        '/api/categorias/cat-1',
-      );
-
-      expect(catalogo.eliminarCategoria.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ esDemo: true }),
-      );
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
     });
   });
 });

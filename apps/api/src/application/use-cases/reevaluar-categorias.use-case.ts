@@ -1,6 +1,5 @@
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { ReevaluarDemoSoloLecturaError } from '../../domain/errors/reevaluar-demo-solo-lectura.error';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
 import { ICatalogoClasificacion } from '../ports/catalogo-clasificacion.port';
 import { IReevaluarCategoriasReader } from '../ports/reevaluar-categorias-reader.port';
@@ -9,9 +8,7 @@ import { CategorizarTransaccionUseCase } from './categorizar-transaccion.use-cas
 import { ILogger } from '../ports/logger.port';
 
 /** Unión de errores de `ReevaluarCategoriasUseCase`. */
-export type ReevaluarCategoriasError =
-  | ReevaluarDemoSoloLecturaError
-  | CategorizacionFallidaError;
+export type ReevaluarCategoriasError = CategorizacionFallidaError;
 
 /** Salida de la reevaluación: conteos, nunca datos de transacciones. */
 export interface ReevaluarCategoriasResult {
@@ -43,9 +40,6 @@ export interface ReevaluarCategoriasResult {
  * updates no-op y hace que `transaccionesActualizadas` cuente cambios
  * REALES, no filas re-escritas con el mismo valor.
  *
- * Demo gate: una sesión demo corta ANTES de tocar catálogo, reader o writer
- * (mismo patrón que `EliminarMovimientoManualUseCase`/`ProcessIngestaUseCase`).
- *
  * Un fallo al cargar el catálogo aborta la operación completa (mismo
  * criterio de rechazo que `ProcessIngestaUseCase` desde el tramo 5a/5a-bis
  * de issue #778 — ya NO queda ninguna isla degradable en ese pipeline):
@@ -66,13 +60,7 @@ export class ReevaluarCategoriasUseCase {
 
   async execute(input: {
     userId: string;
-    /** Demo gate — una sesión demo no puede escribir. */
-    esDemo: boolean;
   }): Promise<Result<ReevaluarCategoriasResult, ReevaluarCategoriasError>> {
-    if (input.esDemo) {
-      return Result.fail(new ReevaluarDemoSoloLecturaError());
-    }
-
     const catalogResult = await this.catalogoClasificacion.findAll(
       input.userId,
     );

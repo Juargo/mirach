@@ -54,17 +54,4 @@ describe('ListarCatalogoUseCase', () => {
 
     expect(result.getValue()[0]?.patrones).toEqual([]);
   });
-
-  it('el input NO acepta esDemo (chequeo a nivel de tipos, D-04)', () => {
-    const repo = makeRepo(vi.fn().mockResolvedValue([]));
-    const useCase = new ListarCatalogoUseCase(repo);
-
-    const llamadaInvalida = () =>
-      useCase.execute({
-        userId: 'user-1',
-        // @ts-expect-error — ListarCatalogoUseCase no declara esDemo en su input (es de solo lectura)
-        esDemo: false,
-      });
-    void llamadaInvalida;
-  });
 });

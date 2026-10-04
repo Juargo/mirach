@@ -1,12 +1,11 @@
 /**
- * MotivoFalloVinculacionGoogle — las cinco razones internas por las que
+ * MotivoFalloVinculacionGoogle — las cuatro razones internas por las que
  * `VincularGoogleUseCase` puede fallar. Solo para logging server-side —
  * NUNCA cruza el boundary HTTP: toda salida del use case en el callback
  * produce un `302` (mode-appropriate), nunca un body con `motivo`.
  */
 export type MotivoFalloVinculacionGoogle =
   | 'usuario-inexistente'
-  | 'usuario-demo'
   | 'identidad-de-otra-cuenta'
   | 'ya-tiene-otro-sub'
   | 'link-perdio-la-carrera';
@@ -21,7 +20,7 @@ export type MotivoFalloVinculacionGoogle =
  * `'creacion-perdio-la-carrera'` o `'email-no-verificado'`, valores que el
  * camino de link NUNCA puede producir (design §2/D-08).
  *
- * `message` es fijo e idéntico entre los cinco `motivo`s; `motivo` existe
+ * `message` es fijo e idéntico entre los `motivo`s; `motivo` existe
  * solo para el logging server-side y NUNCA se deriva en el mensaje ni llega
  * al cliente — el callback SIEMPRE responde `302 /configuracion?google=error`
  * para cualquier variante de este error, nunca un body HTTP (renombrado

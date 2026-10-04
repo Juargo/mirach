@@ -7,14 +7,9 @@ import { VinculacionGoogleFallidaError } from '../../domain/errors/vinculacion-g
  * VincularGoogleUseCase — el lado `GET /api/auth/google/callback` del link
  * explícito (US-041, VINC041-02/04, CA-05, design.md §4.2/§5.2).
  *
- * **`execute({ userId, sub })` — EXACTAMENTE dos campos, sin `esDemo`
- * input.** No hay sesión en el callback por construcción: `esDemo` se LEE de
- * la fila vía `buscarPorId`, nunca se pasa. Un `esDemo?` opcional (como
- * esbozaba la propuesta) recrearía exactamente el hazard de omisión
- * silenciosa que la regla de input-requerido existe para prevenir — el gate
- * read-derived es MÁS fuerte, no más débil: no puede ser spoofeado por
- * ningún caller y se evalúa contra la base de datos en el momento del write
- * (design §2/D-05).
+ * **`execute({ userId, sub })` — EXACTAMENTE dos campos.** No hay sesión en
+ * el callback por construcción: el estado del usuario se LEE de la fila vía
+ * `buscarPorId`, nunca se pasa (design §2/D-05).
  *
  * CA-05 es estructural: el input tiene dos campos, ninguno de los cuales
  * puede contener un token de Google — no hay dónde uno pudiera persistirse
@@ -39,9 +34,6 @@ export class VincularGoogleUseCase {
       return Result.fail(
         new VinculacionGoogleFallidaError('usuario-inexistente'),
       );
-    }
-    if (fila.esDemo) {
-      return Result.fail(new VinculacionGoogleFallidaError('usuario-demo'));
     }
 
     if (fila.googleSub === input.sub) {

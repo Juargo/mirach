@@ -42,7 +42,6 @@ export class PrismaSessionRepository implements ISessionRepository {
       select: {
         userId: true,
         expiresAt: true,
-        user: { select: { esDemo: true } },
       },
     });
 
@@ -53,7 +52,6 @@ export class PrismaSessionRepository implements ISessionRepository {
     return {
       userId: sesion.userId,
       expiresAt: sesion.expiresAt,
-      esDemo: sesion.user.esDemo,
     };
   }
 

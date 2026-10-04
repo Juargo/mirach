@@ -5,7 +5,6 @@ import {
 } from '../ports/categoria-repository.port';
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
 import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
 
@@ -73,27 +72,6 @@ function makeRepo(
 }
 
 describe('EliminarCategoriaUseCase', () => {
-  it('el demo gate corta ANTES de llamar al repositorio', async () => {
-    const eliminar = vi.fn();
-    const buscarPorId = vi.fn();
-    const listarConPatrones = vi.fn();
-    const repo = makeRepo(eliminar, buscarPorId, listarConPatrones);
-    const useCase = new EliminarCategoriaUseCase(repo);
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      id: 'cat-1',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CatalogoDemoSoloLecturaError);
-    expect(eliminar).not.toHaveBeenCalled();
-    // El demo gate corta antes de TODO, también de la lectura nueva.
-    expect(buscarPorId).not.toHaveBeenCalled();
-    expect(listarConPatrones).not.toHaveBeenCalled();
-  });
-
   it('delega en el repositorio con userId + id + el id de la Desconocido del MISMO bucket, y propaga Result.ok', async () => {
     const eliminar = vi.fn().mockResolvedValue(Result.ok(undefined));
     const repo = makeRepo(eliminar);
@@ -101,7 +79,6 @@ describe('EliminarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
     });
 
@@ -127,7 +104,6 @@ describe('EliminarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
     });
 
@@ -147,7 +123,6 @@ describe('EliminarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
     });
 
@@ -168,7 +143,6 @@ describe('EliminarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
     });
 
@@ -189,7 +163,6 @@ describe('EliminarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
     });
 

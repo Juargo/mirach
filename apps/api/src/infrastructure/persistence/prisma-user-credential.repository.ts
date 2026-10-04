@@ -55,7 +55,6 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
         id: true,
         nombre: true,
         email: true,
-        esDemo: true,
         googleSub: true,
       },
     });
@@ -110,7 +109,6 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
           id: true,
           nombre: true,
           email: true,
-          esDemo: true,
           googleSub: true,
         },
       });
@@ -180,34 +178,27 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
    * aIdentidadUsuario — mapper compartido entre `buscarIdentidad` y
    * `actualizarPerfil` (drift contenido estructuralmente, design.md Q2).
    *
-   * A diferencia de un usuario real (que siempre tiene email), un usuario
-   * demo NUNCA tiene email (`esDemo=true, email=null`) — eso es válido, no
-   * "identidad incompleta" (DEMO-AUTH-05). Pero un usuario REAL
-   * (`esDemo=false`) sin email es un estado inconsistente (todo usuario real
-   * se crea con email) — falla cerrado (`null`) en vez de exponer una
-   * identidad rota.
+   * Todo usuario se crea con email: una fila sin email es un estado
+   * inconsistente — falla cerrado (`null`) en vez de exponer una identidad
+   * rota.
    */
   private aIdentidadUsuario(user: {
     id: string;
     nombre: string;
     email: string | null;
-    esDemo: boolean;
     googleSub: string | null;
   }): IdentidadUsuario | null {
-    if (!user.esDemo && user.email === null) {
+    if (user.email === null) {
       return null;
     }
 
-    // El email persistido es ciphertext v1 (US-035) — nunca `null` en este
-    // punto salvo demo (ya cubierto arriba), así que decrypt() solo se llama
-    // sobre un valor real.
-    const email = user.email === null ? null : this.crypto.decrypt(user.email);
+    // El email persistido es ciphertext v1 (US-035).
+    const email = this.crypto.decrypt(user.email);
 
     return {
       userId: user.id,
       nombre: user.nombre,
       email,
-      esDemo: user.esDemo,
       // VINC041-08. Derivado, nunca el `googleSub` crudo.
       googleVinculado: user.googleSub !== null,
     };

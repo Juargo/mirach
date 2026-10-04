@@ -13,7 +13,6 @@ import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-
 import { BucketCategoriaNoConcuerdaError } from '../../../domain/errors/bucket-categoria-no-concuerda.error';
 import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
-import { MovimientoDemoSoloLecturaError } from '../../../domain/errors/movimiento-demo-solo-lectura.error';
 import { MovimientoManual } from '../../../domain/value-objects/movimiento-manual';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { ObtenerMovimientosMesUseCase } from '../../../application/use-cases/obtener-movimientos-mes.use-case';
@@ -278,12 +277,11 @@ describe('registrarMovimientoManual — POST /api/movimientos', () => {
 
 type EliminarDoble = Pick<EliminarMovimientoManualUseCase, 'execute'>;
 
-function probeDeleteApp(uc: EliminarDoble, esDemo = false): Express {
+function probeDeleteApp(uc: EliminarDoble): Express {
   const app = express();
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    req.esDemo = esDemo;
     next();
   });
   registrarEliminarMovimientoManual(
@@ -296,7 +294,7 @@ function probeDeleteApp(uc: EliminarDoble, esDemo = false): Express {
 }
 
 describe('registrarEliminarMovimientoManual — DELETE /api/movimientos/:id', () => {
-  it('DEL-01: 204 on success, calls the use case with userId + esDemo + transaccionId', async () => {
+  it('DEL-01: 204 on success, calls the use case with userId + transaccionId', async () => {
     const uc: EliminarDoble = {
       execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
     };
@@ -308,23 +306,8 @@ describe('registrarEliminarMovimientoManual — DELETE /api/movimientos/:id', ()
     expect(res.body).toEqual({});
     expect(uc.execute).toHaveBeenCalledWith({
       userId: 'user-x',
-      esDemo: false,
       transaccionId: 'tx-1',
     });
-  });
-
-  it('DEL-03: 403 DEMO_SOLO_LECTURA on MovimientoDemoSoloLecturaError, routed through responderErrorTraducido', async () => {
-    const uc: EliminarDoble = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.fail(new MovimientoDemoSoloLecturaError())),
-    };
-    const res = await request(probeDeleteApp(uc, true)).delete(
-      '/api/movimientos/tx-1',
-    );
-
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
   });
 
   it('DEL-02: 404 merged anti-enumeration shape on TransaccionNoEncontradaError', async () => {
