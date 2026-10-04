@@ -49,6 +49,21 @@ cd apps/ios
 - **Las pantallas no usan los tipos generados:** dependen del protocolo `MirachAPI` (`Mirach/Core/API/MirachAPI.swift`), cuya implementación `OpenAPIMirachAPI` envuelve el cliente generado, traduce sus errores y expone solo lo que las pantallas necesitan. Para sumar un endpoint: agrega el método al protocolo y a la implementación, con su prueba.
 - **Limitaciones conocidas del generador con este contrato:** las propiedades anuladas (`anyOf` con `type: "null"`, OpenAPI 3.1) se omiten del tipo generado, y los cuerpos `multipart/form-data` opcionales (`/api/ingestas*`) no se generan. Hay que resolverlo (en el contrato o a mano) antes de usar esas pantallas.
 
+## Clave de la API y sesión
+
+Toda llamada a `/api` necesita el header `x-api-key` (clave pública del cliente, ADR-047) y, después de iniciar sesión, `Authorization: Bearer <sesión>`. Lo agrega `APIAuthMiddleware` (`Mirach/Core/API/`), que **nunca** toca rutas fuera de `/api` (como `/version`) y no envía un header vacío.
+
+La clave **no está en el repo**. Para configurarla:
+
+```bash
+cd apps/ios
+cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig   # está en .gitignore
+# edita Config/Secrets.xcconfig y pon el valor real en MIRACH_API_KEY
+./scripts/generate.sh
+```
+
+`Config/Base.xcconfig` define `MIRACH_API_KEY` vacía e incluye `Secrets.xcconfig` si existe; `project.yml` la publica en `Info.plist` y `AppConfiguration.apiKey` la lee. Sin el archivo la app compila igual (la clave queda vacía). La sesión (token) llegará con el inicio de sesión con Apple (T4).
+
 ## Pruebas
 
 Desde Xcode: Cmd+U (corre unitarias y de interfaz).
@@ -70,6 +85,7 @@ apps/ios/
   project.yml            fuente de verdad del proyecto (XcodeGen)
   scripts/generate.sh    genera el .xcodeproj
   scripts/generate-api.sh  regenera el cliente de la API desde openapi.json
+  Config/                Base.xcconfig y Secrets.example.xcconfig (Secrets.xcconfig no se commitea)
   Mirach/
     App/                 punto de entrada (@main) y composición de dependencias
     Features/Inicio/     la primera pantalla (una carpeta por pantalla del catálogo)

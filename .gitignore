@@ -80,3 +80,6 @@ openapi.html
 # al 2026-09-04 describía "Serene Finance", la identidad clara que el PR #557
 # reemplazó por "Tecno-Analítico". La fuente de verdad es DESIGN.md.
 .impeccable/design.json
+
+# iOS secrets (public client key); the example next to it is committed
+apps/ios/Config/Secrets.xcconfig

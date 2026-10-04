@@ -39,6 +39,11 @@ targets:
         product: OpenAPIRuntime
       - package: swift-openapi-urlsession
         product: OpenAPIURLSession
+    # Base.xcconfig defines MIRACH_API_KEY (empty) and optionally includes the
+    # git-ignored Secrets.xcconfig with the real value.
+    configFiles:
+      Debug: Config/Base.xcconfig
+      Release: Config/Base.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.mirachbudget.ios
@@ -58,6 +63,7 @@ targets:
         CFBundleDisplayName: Mirach
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        MIRACH_API_KEY: $(MIRACH_API_KEY)   # public client gate (ADR-047), read by AppConfiguration
         UILaunchScreen: {}                  # empty = default launch screen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

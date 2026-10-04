@@ -19,7 +19,9 @@ enum AppEnvironment {
             serverURL: AppConfiguration.apiBaseURL,
             transport: URLSessionTransport(
                 configuration: .init(session: URLSession(configuration: configuration))
-            )
+            ),
+            // No session yet: sign in with Apple (T4) will provide the token.
+            middlewares: [APIAuthMiddleware(apiKey: AppConfiguration.apiKey)]
         )
     }
 }
