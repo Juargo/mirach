@@ -1,3 +1,5 @@
+import { bodyIssues } from '../schemas/body-issues.spec-helper';
+import { credentialsUnauthorizedResponseSchema } from '../schemas/auth-error.schema';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { Writable } from 'node:stream';
@@ -230,6 +232,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual(GENERIC_401_BODY);
+    expect(bodyIssues(credentialsUnauthorizedResponseSchema, res.body)).toEqual(
+      [],
+    );
     expect(d.verificadorIdToken.verificarIdToken).toHaveBeenCalledWith('');
   });
 
@@ -246,6 +251,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual(GENERIC_401_BODY);
+    expect(bodyIssues(credentialsUnauthorizedResponseSchema, res.body)).toEqual(
+      [],
+    );
   });
 
   it('JSON malformado → lo rechaza el parser compartido con el 500 del errorMiddleware, no el 401 genérico', async () => {
@@ -372,6 +380,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
 
       expect(res.status).toBe(401);
       expect(res.body).toEqual(GENERIC_401_BODY);
+      expect(
+        bodyIssues(credentialsUnauthorizedResponseSchema, res.body),
+      ).toEqual([]);
       expect(res.headers['set-cookie']).toBeUndefined();
     },
   );

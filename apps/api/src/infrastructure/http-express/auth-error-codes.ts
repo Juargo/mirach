@@ -12,16 +12,17 @@
  *   reveals which credential failed (anti-enumeration, AUTH-02/AUTH-21).
  *
  * One class ⇒ one code. The set is closed: a new 401 cause needs a new entry
- * here and in `auth-error.schema.ts` (the OpenAPI enum reads this tuple).
+ * here; `auth-error.schema.ts` builds every OpenAPI enum/literal from these
+ * constants, so the spec follows.
  */
+export const API_KEY_INVALIDA = 'API_KEY_INVALIDA';
+export const SESION_INVALIDA = 'SESION_INVALIDA';
+export const CREDENCIALES_INVALIDAS = 'CREDENCIALES_INVALIDAS';
+
 export const CODIGOS_401 = [
-  'API_KEY_INVALIDA',
-  'SESION_INVALIDA',
-  'CREDENCIALES_INVALIDAS',
+  API_KEY_INVALIDA,
+  SESION_INVALIDA,
+  CREDENCIALES_INVALIDAS,
 ] as const;
 
 export type Codigo401 = (typeof CODIGOS_401)[number];
-
-export const API_KEY_INVALIDA: Codigo401 = 'API_KEY_INVALIDA';
-export const SESION_INVALIDA: Codigo401 = 'SESION_INVALIDA';
-export const CREDENCIALES_INVALIDAS: Codigo401 = 'CREDENCIALES_INVALIDAS';

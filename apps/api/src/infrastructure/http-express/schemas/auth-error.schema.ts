@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  API_KEY_INVALIDA,
+  CREDENCIALES_INVALIDAS,
+  SESION_INVALIDA,
+} from '../auth-error-codes';
 
 /**
  * Bodies of the three 401 families the API answers (`auth-error-codes.ts` is the
@@ -19,7 +24,7 @@ export const unauthorizedResponseSchema = z
   .object({
     message,
     code: z
-      .enum(['API_KEY_INVALIDA', 'SESION_INVALIDA'])
+      .enum([API_KEY_INVALIDA, SESION_INVALIDA])
       .describe(
         'API_KEY_INVALIDA: the `x-api-key` header is missing or wrong (an app configuration problem; ' +
           'signing in again does not help). SESION_INVALIDA: the session token is missing, unknown or ' +
@@ -36,7 +41,7 @@ export const apiKeyUnauthorizedResponseSchema = z
   .object({
     message,
     code: z
-      .literal('API_KEY_INVALIDA')
+      .literal(API_KEY_INVALIDA)
       .describe('The `x-api-key` header is missing or wrong.'),
   })
   .meta({
@@ -49,7 +54,7 @@ export const credentialsUnauthorizedResponseSchema = z
   .object({
     message,
     code: z
-      .enum(['API_KEY_INVALIDA', 'CREDENCIALES_INVALIDAS'])
+      .enum([API_KEY_INVALIDA, CREDENCIALES_INVALIDAS])
       .describe(
         'API_KEY_INVALIDA: the `x-api-key` header is missing or wrong. CREDENCIALES_INVALIDAS: the ' +
           'credential check failed — the SAME code for every cause (wrong password, unknown email, ' +

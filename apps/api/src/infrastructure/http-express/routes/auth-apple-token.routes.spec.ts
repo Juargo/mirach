@@ -1,3 +1,5 @@
+import { bodyIssues } from '../schemas/body-issues.spec-helper';
+import { credentialsUnauthorizedResponseSchema } from '../schemas/auth-error.schema';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import {
@@ -159,6 +161,9 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
 
       expect(res.status).toBe(401);
       expect(res.body).toEqual(GENERIC_401_BODY);
+      expect(
+        bodyIssues(credentialsUnauthorizedResponseSchema, res.body),
+      ).toEqual([]);
       expect(d.verificadorIdToken.verificarIdToken).not.toHaveBeenCalled();
     },
   );
@@ -215,6 +220,9 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual(GENERIC_401_BODY);
+    expect(bodyIssues(credentialsUnauthorizedResponseSchema, res.body)).toEqual(
+      [],
+    );
     expect(res.headers['set-cookie']).toBeUndefined();
   });
 

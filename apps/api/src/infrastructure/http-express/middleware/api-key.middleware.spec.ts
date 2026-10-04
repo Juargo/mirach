@@ -1,3 +1,9 @@
+import { bodyIssues } from '../schemas/body-issues.spec-helper';
+import {
+  apiKeyUnauthorizedResponseSchema,
+  credentialsUnauthorizedResponseSchema,
+  unauthorizedResponseSchema,
+} from '../schemas/auth-error.schema';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { createApiKeyMiddleware } from './api-key.middleware';
@@ -32,6 +38,14 @@ describe('createApiKeyMiddleware', () => {
       message: 'API key inválida o ausente.',
       code: 'API_KEY_INVALIDA',
     });
+    // Every family that sits behind the API-key gate declares this body.
+    for (const schema of [
+      unauthorizedResponseSchema,
+      apiKeyUnauthorizedResponseSchema,
+      credentialsUnauthorizedResponseSchema,
+    ]) {
+      expect(bodyIssues(schema, res.body)).toEqual([]);
+    }
   });
 
   it('401 con key incorrecta', async () => {
@@ -43,6 +57,14 @@ describe('createApiKeyMiddleware', () => {
       message: 'API key inválida o ausente.',
       code: 'API_KEY_INVALIDA',
     });
+    // Every family that sits behind the API-key gate declares this body.
+    for (const schema of [
+      unauthorizedResponseSchema,
+      apiKeyUnauthorizedResponseSchema,
+      credentialsUnauthorizedResponseSchema,
+    ]) {
+      expect(bodyIssues(schema, res.body)).toEqual([]);
+    }
   });
 
   it('deja pasar (200) con la key correcta', async () => {

@@ -1,3 +1,8 @@
+import { bodyIssues } from '../schemas/body-issues.spec-helper';
+import {
+  credentialsUnauthorizedResponseSchema,
+  unauthorizedResponseSchema,
+} from '../schemas/auth-error.schema';
 import { SesionInvalidaError } from '../../../domain/errors/sesion-invalida.error';
 import express, { type Express } from 'express';
 import request from 'supertest';
@@ -124,6 +129,9 @@ describe('registrarAuthPublic', () => {
         message: 'Credenciales inválidas',
         code: 'CREDENCIALES_INVALIDAS',
       });
+      expect(
+        bodyIssues(credentialsUnauthorizedResponseSchema, res.body),
+      ).toEqual([]);
     });
   });
 
@@ -163,6 +171,7 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
       message: 'Sesión inválida o expirada.',
       code: 'SESION_INVALIDA',
     });
+    expect(bodyIssues(unauthorizedResponseSchema, res.body)).toEqual([]);
   });
 
   it('200 con la identidad del usuario autenticado, incluyendo nombre (US-040/AUTH-09)', async () => {

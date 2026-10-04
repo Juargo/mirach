@@ -562,7 +562,7 @@ describe('buildOpenApiDocument', () => {
       );
     });
 
-    it('the code enums are exactly the codes the middleware and routes emit', () => {
+    it('the 401 code enums per family are built from CODIGOS_401 and together cover all of them (emitters are proven in their own specs)', () => {
       const schemas = buildOpenApiDocument().components?.schemas as Record<
         string,
         { properties: { code: { enum?: string[]; const?: string } } }
