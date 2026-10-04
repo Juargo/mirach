@@ -2,7 +2,10 @@ import { Result } from '../../shared/result';
 import { Email } from '../../domain/value-objects/email';
 import { calcularExpiracion } from '../../domain/value-objects/duracion-sesion';
 import { LoginConAppleFallidoError } from '../../domain/errors/login-con-apple-fallido.error';
-import { IIdentidadAppleRepository } from '../ports/identidad-apple-repository.port';
+import {
+  IIdentidadAppleRepository,
+  UsuarioApple,
+} from '../ports/identidad-apple-repository.port';
 import { IdentidadApple } from '../ports/verificador-identidad-apple.port';
 import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
@@ -108,6 +111,25 @@ export class LoginConAppleUseCase {
       return this.crearCuenta(identidad, email, nombre);
     }
 
+    return this.resolverFilaPorEmail(identidad, porEmail, false);
+  }
+
+  /**
+   * Una fila existente ocupa el email de la identidad. Tres desenlaces:
+   * (a) la fila ya lleva ESTE `appleSub` — el ganador de una carrera de alta
+   * concurrente commiteó entre nuestro lookup por sub y este por email — es
+   * la misma identidad: sesión; (b) lleva OTRO `appleSub` — sobrescribirlo
+   * sería un takeover, se rechaza; (c) no lleva ninguno — enlace condicional.
+   */
+  private async resolverFilaPorEmail(
+    identidad: IdentidadApple,
+    porEmail: UsuarioApple,
+    esNuevoUsuario: boolean,
+  ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {
+    if (porEmail.appleSub === identidad.sub) {
+      return this.emitirSesion(porEmail.userId, esNuevoUsuario);
+    }
+
     // El lookup por sub ya falló: un `appleSub` no-null acá es de OTRA
     // identidad Apple. Sobrescribirlo sería un takeover — se rechaza.
     if (porEmail.appleSub !== null) {
@@ -128,13 +150,17 @@ export class LoginConAppleUseCase {
       );
     }
 
-    return this.emitirSesion(porEmail.userId, false);
+    return this.emitirSesion(porEmail.userId, esNuevoUsuario);
   }
 
   /**
-   * Alta. Si pierde la carrera (P2002 → `null`) re-resuelve SOLO por
-   * `appleSub`: si el ganador es esta misma identidad (doble submit) emite
-   * sesión; cualquier otro caso colapsa al error genérico. `esNuevoUsuario`
+   * Alta. Si pierde la carrera (P2002 → `null`, sea por `appleSub` o por
+   * `emailBlindIndex`) re-resuelve: primero por `appleSub` (doble submit de
+   * la misma identidad); si no aparece y el email es real, por email con las
+   * mismas reglas de enlace y guarda anti-takeover del flujo normal (una
+   * cuenta creada por otra vía puede haber ocupado el email). Un relay nunca
+   * se busca ni se enlaza por email. Cualquier otro caso colapsa al error
+   * genérico. `esNuevoUsuario`
    * es `true` en toda salida OK, incluida la rama "ganador": esta petición SÍ
    * intentó crear, así que sigue contando contra el rate limiter.
    */
@@ -165,6 +191,17 @@ export class LoginConAppleUseCase {
 
     if (ganador !== null) {
       return this.emitirSesion(ganador.userId, true);
+    }
+
+    if (!identidad.emailPrivado) {
+      const porEmail = await this.identidades.buscarPorEmail(email);
+      this.logger.debug('login-con-apple: signup race email lookup', {
+        found: porEmail !== null,
+      });
+
+      if (porEmail !== null) {
+        return this.resolverFilaPorEmail(identidad, porEmail, true);
+      }
     }
 
     return Result.fail(

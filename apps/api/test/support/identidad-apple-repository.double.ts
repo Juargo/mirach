@@ -13,6 +13,8 @@ export function makeMockIdentidadAppleRepository(overrides?: {
   /** Respuestas sucesivas de `buscarPorAppleSub` (la última se repite). */
   porAppleSubSecuencia?: (UsuarioApple | null)[];
   porEmail?: UsuarioApple | null;
+  /** Respuestas sucesivas de `buscarPorEmail` (la última se repite). */
+  porEmailSecuencia?: (UsuarioApple | null)[];
   vincular?: boolean;
   crear?: string | null;
 }): IIdentidadAppleRepository {
@@ -27,9 +29,20 @@ export function makeMockIdentidadAppleRepository(overrides?: {
     buscarPorAppleSub.mockResolvedValue(overrides?.porAppleSub ?? null);
   }
 
+  const buscarPorEmail = vi.fn();
+  if (overrides?.porEmailSecuencia !== undefined) {
+    const secuencia = overrides.porEmailSecuencia;
+    let i = 0;
+    buscarPorEmail.mockImplementation(
+      async () => secuencia[Math.min(i++, secuencia.length - 1)],
+    );
+  } else {
+    buscarPorEmail.mockResolvedValue(overrides?.porEmail ?? null);
+  }
+
   return {
     buscarPorAppleSub,
-    buscarPorEmail: vi.fn().mockResolvedValue(overrides?.porEmail ?? null),
+    buscarPorEmail,
     vincularAppleSub: vi.fn().mockResolvedValue(overrides?.vincular ?? true),
     crearDesdeApple: vi
       .fn()

@@ -277,6 +277,98 @@ describe('LoginConAppleUseCase', () => {
     });
   });
 
+  describe('carrera de alta concurrente que colisiona en el índice de email', () => {
+    it('el ganador commitea entre el lookup por sub y el de email (misma identidad) → sesión sobre esa fila, sin ya-vinculado', async () => {
+      const identidades = makeMockIdentidades({
+        porEmail: { userId: 'user-ganador', appleSub: 'apple-sub-abc' },
+      });
+      const { uc } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getValue()).toMatchObject({
+        userId: 'user-ganador',
+        esNuevoUsuario: false,
+      });
+      expect(identidades.vincularAppleSub).not.toHaveBeenCalled();
+      expect(identidades.crearDesdeApple).not.toHaveBeenCalled();
+    });
+
+    it('perder el alta (P2002) y el ganador solo aparece por email con el mismo sub → sesión, esNuevoUsuario true', async () => {
+      const identidades = makeMockIdentidades({
+        crear: null,
+        porEmailSecuencia: [
+          null,
+          { userId: 'user-ganador', appleSub: 'apple-sub-abc' },
+        ],
+      });
+      const { uc } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getValue()).toMatchObject({
+        userId: 'user-ganador',
+        esNuevoUsuario: true,
+      });
+    });
+
+    it('perder el alta ante una cuenta sin appleSub que ocupó el email → se enlaza con la guarda normal y emite sesión', async () => {
+      const identidades = makeMockIdentidades({
+        crear: null,
+        porEmailSecuencia: [null, { userId: 'user-previo', appleSub: null }],
+      });
+      const { uc } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getValue()).toMatchObject({
+        userId: 'user-previo',
+        esNuevoUsuario: true,
+      });
+      expect(identidades.vincularAppleSub).toHaveBeenCalledWith(
+        'user-previo',
+        'apple-sub-abc',
+      );
+    });
+
+    it('perder el alta ante una cuenta con OTRO appleSub → falla sin enlazar (anti-takeover)', async () => {
+      const identidades = makeMockIdentidades({
+        crear: null,
+        porEmailSecuencia: [
+          null,
+          { userId: 'user-ajeno', appleSub: 'otro-apple-sub' },
+        ],
+      });
+      const { uc, sessions } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getError().motivo).toBe('ya-vinculado-a-otra-identidad');
+      expect(identidades.vincularAppleSub).not.toHaveBeenCalled();
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+
+    it('perder el alta con relay privado: nunca se busca ni enlaza por email', async () => {
+      const identidades = makeMockIdentidades({
+        crear: null,
+        porEmail: { userId: 'user-ajeno', appleSub: null },
+      });
+      const { uc, sessions } = makeUseCase(identidades);
+
+      const result = await uc.execute({
+        sub: 'apple-sub-relay',
+        email: 'abc123@privaterelay.appleid.com',
+        emailVerificado: true,
+        emailPrivado: true,
+      });
+
+      expect(result.getError().motivo).toBe('creacion-perdio-la-carrera');
+      expect(identidades.buscarPorEmail).not.toHaveBeenCalled();
+      expect(identidades.vincularAppleSub).not.toHaveBeenCalled();
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+  });
+
   it('ningún log contiene el sub, el email, el nombre ni el token (ADR-013)', async () => {
     const logger = new FakeLogger();
     const identidades = makeMockIdentidades();

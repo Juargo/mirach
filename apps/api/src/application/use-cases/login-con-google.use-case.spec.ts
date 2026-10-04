@@ -258,6 +258,23 @@ describe('LoginConGoogleUseCase', () => {
       );
     });
 
+    it('winner commits between the sub lookup and the email lookup (same identity) → session on that row, not ya-vinculado', async () => {
+      const identidades = makeMockIdentidades({
+        porEmail: { userId: 'user-ganador', googleSub: 'google-sub-abc' },
+      });
+      const { uc, sessions } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.isOk()).toBe(true);
+      expect(result.getValue().userId).toBe('user-ganador');
+      expect(result.getValue().esNuevoUsuario).toBe(false);
+      expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
+      expect(sessions.crear).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-ganador' }),
+      );
+    });
+
     it('lost creation race, sub still unresolved → generic error, no session', async () => {
       const identidades = makeMockIdentidades({
         porGoogleSub: null,
