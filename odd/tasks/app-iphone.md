@@ -29,7 +29,7 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 ## Tasks
 
 - [x] **T1 — Tooling and project skeleton.** Xcode installed (user), project created in `apps/ios/` with the chosen tooling, iOS 17, bundle ID, Sign in with Apple capability, a build that runs on the simulator. Route: delegated writer; commit `cbb3f6e` (code) and the README commit.
-- [ ] **T2 — Generated API client** (phase 6 T3): generator wired to `openapi.json`, CI check for stale generation plus `pnpm design:check` (phase 6 T2 review warning).
+- [x] **T2 — Generated API client** (phase 6 T3): generator wired to `openapi.json`, CI check for stale generation plus `pnpm design:check` (phase 6 T2 review warning).
 - [ ] **T3 — Design tokens to Swift:** colors (light/dark), typography rules and labels generated from `design/tokens.json`.
 - [ ] **T4 — Learning slice:** sign in with Apple against `POST /api/auth/apple/token`, session in the Keychain, and the read-only "Resumen del mes" screen, on the product owner's iPhone.
 - [ ] **T5 onward:** the rest of the v1 catalog, one screen per task, in an order to agree after T4.
@@ -39,7 +39,8 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 - ADR-048 written (XcodeGen, iOS 17, `apps/ios/`, `mirachbudget.app`, `app.mirachbudget.ios`).
 - T1 done (2026-10-04): XcodeGen skeleton in `apps/ios/`; observed RED (view model missing) then GREEN; `xcodebuild build` succeeded, `xcodebuild test` passed (6 Swift Testing + 1 XCUITest, stubbed client via `-uiTestStubbedClient`); app ran in the iPhone 18 Pro simulator showing live `/version` 0.10.0, commit `87a1aee`.
 - T1 review fixes (2026-10-04): `URLError(.cancelled)` now maps to cancellation (RED observed, then GREEN); HTTP error statuses get their own server-unavailable message; `CFBundleShortVersionString`/`CFBundleVersion` map to the build settings (built app reports 0.1.0); generated `Info.plist`/`.entitlements` untracked and git-ignored; retry uses `.task(id:)` instead of an unstructured `Task`; ADR-048 status row updated.
+- T2 done (2026-10-04, branch `feat/ios-api-client`, stacked on T1): `swift-openapi-generator` 1.13.1 (pinned in `apps/ios/scripts/openapi-generator/`), runtime 1.12.2 and urlsession transport 1.3.2; client generated ahead of time into `Mirach/Core/API/Generated/` by `scripts/generate-api.sh` (run twice, `git diff --exit-code` clean). Screens use the `MirachAPI` protocol (`OpenAPIMirachAPI` wraps the generated client and unwraps `ClientError`); `APIAuthMiddleware` adds `x-api-key` and Bearer only on `/api` paths, key from `MIRACH_API_KEY` (git-ignored `Config/Secrets.xcconfig`). RED observed (missing types) then GREEN: 17 Swift Testing + 1 XCUITest pass; live `/version` 0.10.0 shown through the generated client. CI job `ios` on `macos-26` (stale-client check, design tokens, build and test); `actionlint` clean, job not yet run on GitHub. Generator limits found: nullable `anyOf` properties (OpenAPI 3.1 `type: "null"`) are dropped from generated types, and optional multipart bodies (`/api/ingestas*`) are skipped; both to resolve before those screens.
 
 ## Next step
 
-T1 PR, then T2 (generated API client) or T4 (learning slice) — to agree.
+T2 PR, then T3 (tokens to Swift) or T4 (learning slice).
