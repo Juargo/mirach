@@ -62,13 +62,15 @@ hasheada, y un token sin claim `nonce` falla.
 1. **Apple Developer.** Registrar el App ID con la capability _Sign in with
    Apple_ habilitada. Anotar el Bundle ID (p. ej. `cl.mirach.app`). Hace falta
    una cuenta del Apple Developer Program.
-2. **Migración (manual, después del deploy).** Render no corre migraciones. Tras
-   desplegar el commit con esta feature, aplicar contra la base de producción
-   `20261004000000_add_apple_sub` (`prisma migrate deploy`), que agrega
-   `User.appleSub` (nullable, única). Es aditiva, pero el cliente de Prisma
-   desplegado ya conoce la columna: aplicarla **enseguida** del deploy, porque
-   hasta entonces cualquier consulta que lea o devuelva la fila completa de
-   `User` (p. ej. el alta de una cuenta) puede fallar.
+2. **Migración (manual, ANTES del deploy).** Render no corre migraciones.
+   Aplicar contra la base de producción `20261004000000_add_apple_sub`
+   (`prisma migrate deploy`), que agrega `User.appleSub` (nullable, única),
+   **antes** de que el código con esta feature llegue a producción, es decir,
+   antes de mergear a `main` (Render despliega `main` solo). Es aditiva: el
+   código anterior ignora la columna nueva, pero el cliente de Prisma nuevo la
+   lee en cada consulta de `User`, así que desplegar sin la columna rompe el
+   login y el alta de cuentas. (Una migración que *elimina* columnas va al
+   revés: primero el deploy, después la migración.)
 3. **Render.** Cargar `APPLE_BUNDLE_ID=<bundle ID>` en el servicio `mirach-api`
    (declarada `sync: false`) y reiniciar. El boot falla con un mensaje claro si
    el valor no parece un bundle ID.
