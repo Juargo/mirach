@@ -29,10 +29,17 @@ export const authCapabilitiesResponseSchema = z
           'Computed independently of googleLoginEnabled — either, both, or ' +
           'neither may be true.',
       ),
+    appleLoginEnabled: z
+      .boolean()
+      .describe(
+        'true when APPLE_BUNDLE_ID is configured (container.appleAuth !== undefined), ' +
+          'false otherwise — POST /api/auth/apple/token is reachable exactly when true. ' +
+          'Independent of the Google flags.',
+      ),
   })
   .meta({
     id: 'AuthCapabilitiesResponse',
     description:
       'GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10). ' +
-      'googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations.',
+      'googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations; appleLoginEnabled gates Sign in with Apple (APPLE_BUNDLE_ID).',
   });

@@ -56,6 +56,7 @@ import {
   authLoginResponseSchema,
 } from './auth-login.schema';
 import { authGoogleTokenRequestSchema } from './auth-google-token.schema';
+import { authAppleTokenRequestSchema } from './auth-apple-token.schema';
 import { authCapabilitiesResponseSchema } from './auth-capabilities.schema';
 import {
   transaccionesCategoriaPathParamsSchema,
@@ -467,15 +468,16 @@ const authLogoutOperation: ZodOpenApiOperationObject = {
  * two independently computed flags.
  */
 const authCapabilitiesOperation: ZodOpenApiOperationObject = {
-  summary: 'Discover whether web and/or mobile Google login are active',
+  summary: 'Discover which login methods (Google web/mobile, Apple) are active',
   description:
     'Public endpoint (requires x-api-key only, session-public — no prior session needed), always ' +
     'mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET (web) or ' +
     'GOOGLE_CLIENT_ID_ANDROID/GOOGLE_CLIENT_ID_IOS (mobile) are configured (AC-10). Each client reads its own field ' +
-    '(googleLoginEnabled or googleLoginMobileEnabled) before rendering its own Google-login affordance.',
+    '(googleLoginEnabled or googleLoginMobileEnabled) before rendering its own Google-login affordance; ' +
+    'appleLoginEnabled reports whether APPLE_BUNDLE_ID is configured (Sign in with Apple).',
   responses: {
     '200': {
-      description: 'Current activation state of Google login.',
+      description: 'Current activation state of Google and Apple login.',
       content: {
         'application/json': { schema: authCapabilitiesResponseSchema },
       },
@@ -632,6 +634,60 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
       description:
         'Rate-limited: too many attempts from this IP (own budget, distinct from /auth/login and ' +
         'GET /api/auth/google, design §6.4).',
+    },
+  },
+};
+
+/**
+ * `POST /api/auth/apple/token` — Sign in with Apple, native identity token.
+ * Session-public, api-key required. Reuses `authLoginResponseSchema` VERBATIM
+ * for the 200 response (Bearer, no cookie). `404` when `APPLE_BUNDLE_ID` is
+ * not configured — independent of the Google gates.
+ */
+const authAppleTokenOperation: ZodOpenApiOperationObject = {
+  summary: 'Authenticate with a native Apple identity token (mobile)',
+  description:
+    'Public endpoint (requires x-api-key only, session-public — no prior session needed) that ' +
+    "verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's " +
+    'bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; ' +
+    "the server hashes the raw value and compares it with the token's nonce claim. The identity is " +
+    "the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a " +
+    'VERIFIED, non-private-relay email may link to an existing account (unless that account already ' +
+    'has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). ' +
+    'Apple delivers the email and the name only on the FIRST authorization and only if the app requested ' +
+    'the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without ' +
+    'an email is rejected. The 200 body is identical for login and signup and never reveals which one ' +
+    'happened. Every failure cause — invalid body, invalid/expired/wrong-audience token, nonce mismatch, ' +
+    'unverified or missing email, an email linked to a different appleSub, a lost creation race, or a ' +
+    'JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). ' +
+    'No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases ' +
+    "this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID " +
+    'is not configured.',
+  requestBody: {
+    content: {
+      'application/json': { schema: authAppleTokenRequestSchema },
+    },
+  },
+  responses: {
+    '200': {
+      description:
+        'Authentication succeeded — identical shape to POST /api/auth/login.',
+      content: {
+        'application/json': { schema: authLoginResponseSchema },
+      },
+    },
+    '401': {
+      description:
+        'Body or token validation or identity resolution failed (scrubbed — never echoes the token, nonce, name or email; ' +
+        'identical body to POST /api/auth/login for every cause).',
+    },
+    '404': {
+      description:
+        'Sign in with Apple is not active — APPLE_BUNDLE_ID is not configured.',
+    },
+    '429': {
+      description:
+        'Rate-limited: too many attempts from this IP (own budget, distinct from the other auth endpoints).',
     },
   },
 };
@@ -1463,6 +1519,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/auth/google': { get: authGoogleInitiateOperation },
   '/api/auth/google/callback': { get: authGoogleCallbackOperation },
   '/api/auth/google/token': { post: authGoogleTokenOperation },
+  '/api/auth/apple/token': { post: authAppleTokenOperation },
   '/api/categorias': {
     get: categoriasListOperation,
     post: categoriasCreateOperation,
