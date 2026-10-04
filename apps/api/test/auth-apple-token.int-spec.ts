@@ -56,17 +56,26 @@ describe('POST /api/auth/apple/token (int) — LoginConAppleUseCase against a re
   afterAll(async () => {
     if (!ALLOW) return;
 
-    if (createdUserIds.length > 0) {
-      await prisma.session.deleteMany({
-        where: { userId: { in: createdUserIds } },
-      });
+    // Cleanup NO depende de que cada test haya llegado a registrar su userId:
+    // un assert que falla antes del `push` (p. ej. la carrera) dejaría un
+    // usuario con su catálogo copiado en la BD compartida y contaminaría los
+    // specs posteriores (seed.int-spec cuenta patrones globales). Se barre
+    // además todo usuario cuyo appleSub lleve el prefijo de ESTA corrida.
+    const porPrefijo = await prisma.user.findMany({
+      where: { appleSub: { startsWith: `sub-${RUN_ID}` } },
+      select: { id: true },
+    });
+    const ids = [
+      ...new Set([...createdUserIds, ...porPrefijo.map((u) => u.id)]),
+    ];
+
+    if (ids.length > 0) {
+      await prisma.session.deleteMany({ where: { userId: { in: ids } } });
       await prisma.patronClasificacion.deleteMany({
-        where: { userId: { in: createdUserIds } },
+        where: { userId: { in: ids } },
       });
-      await prisma.categoria.deleteMany({
-        where: { userId: { in: createdUserIds } },
-      });
-      await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
+      await prisma.categoria.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.user.deleteMany({ where: { id: { in: ids } } });
     }
     await prisma.$disconnect();
   });
