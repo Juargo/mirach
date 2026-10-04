@@ -13,7 +13,7 @@ import { BUCKET_IDS, BUCKET_ID_TO_BUCKET } from './bucket-ids';
  * nuevos, ids generados) y `prisma/seed.ts` (usuario bootstrap, ids fijos —
  * D-07). Deliberadamente vive en `src/` y no en `prisma/seed.ts`: el seed
  * importa Prisma adapters + dotenv + el gate db-safety, y arrastrar ese grafo
- * a código de runtime (el copy hook lo llama desde `PrismaDemoRepository`)
+ * a código de runtime (el copy hook lo llama desde `PrismaIdentidadGoogleRepository`)
  * sería incorrecto (D-01).
  *
  * Tras ADR-037 (retiro del enum `Categoria`), la plantilla es un literal

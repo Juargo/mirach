@@ -49,19 +49,11 @@ function fakeContainer(): Container {
         }),
       ),
     },
-    crearDemo: {
-      execute: vi.fn().mockResolvedValue({ token: 'd', expiresAt: EXPIRA }),
-    },
     loginRateLimiter: {
       isBlocked: vi.fn().mockReturnValue(false),
       recordFailure: vi.fn(),
       reset: vi.fn(),
     },
-    demoRateLimiter: {
-      isBlocked: vi.fn().mockReturnValue(false),
-      recordFailure: vi.fn(),
-    },
-    demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
     perfil: {
       actualizarPerfil: stub,
       cambiarPassword: stub,
@@ -100,6 +92,27 @@ describe('/api/auth — session-public vs protegido', () => {
 
     expect(res.status).toBe(200);
     expect(() => authLoginResponseSchema.parse(res.body)).not.toThrow();
+  });
+
+  it('GET /api/auth/demo: 404 con api-key + sesión, y nunca emite cookie (el modo demo ya no existe)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/auth/demo')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido')
+      .set('Sec-Fetch-Mode', 'navigate')
+      .set('Sec-Fetch-Dest', 'document');
+    expect(res.status).toBe(404);
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('GET /api/auth/demo: sin sesión ya no crea una (cae al gate de sesión, 401 sin cookie)', async () => {
+    const res = await request(createApp(fakeContainer(), testEnv))
+      .get('/api/auth/demo')
+      .set('x-api-key', KEY)
+      .set('Sec-Fetch-Mode', 'navigate')
+      .set('Sec-Fetch-Dest', 'document');
+    expect(res.status).toBe(401);
+    expect(res.headers['set-cookie']).toBeUndefined();
   });
 
   it('GET /api/auth/me: 401 con api-key pero SIN sesión (protegido)', async () => {

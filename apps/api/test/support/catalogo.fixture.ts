@@ -12,7 +12,7 @@ import type { CatalogoTemplateClient } from '../../src/infrastructure/persistenc
  * real catalog first, or the write fails the composite FK.
  *
  * `crearCatalogoParaUsuario` is a thin, intention-revealing wrapper over
- * `copiarCatalogoTemplate` (the same primitive `PrismaDemoRepository.crear`
+ * `copiarCatalogoTemplate` (the same primitive the Google signup
  * uses) — kept separate so int-specs read "give this test user a catalog"
  * instead of reaching for the lower-level template primitive directly.
  */

@@ -6,7 +6,6 @@ import {
   assertGoogleAuthMobileActivationConsistency,
 } from '../../composition/assert-google-auth-activation-consistency';
 import { createApp } from './app';
-import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
 
 /**
  * Bootstrap del server Express (ADR-028/029) — el entrypoint desplegado en Render.
@@ -20,8 +19,6 @@ import { programarLimpiezaDemo } from '../scheduler/demo-cleanup-scheduler';
  *
  * El container es dueño del ciclo de vida de Prisma: se conecta al arrancar y
  * se desconecta en el apagado ordenado (SIGTERM en Render / SIGINT en local).
- * Acá también se agenda la limpieza diaria de demos (node-cron), que reemplaza
- * al `@Cron` de Nest.
  */
 function bootstrap(): void {
   const env = loadEnv();
@@ -36,15 +33,12 @@ function bootstrap(): void {
   const app = createApp(container, env);
   const port = env.PORT;
 
-  const tareaLimpiezaDemo = programarLimpiezaDemo(container.demoCleanup);
-
   const server = app.listen(port, () => {
     container.logger.info('API (Express) escuchando', { port });
   });
 
   const shutdown = async (): Promise<void> => {
     server.close();
-    await tareaLimpiezaDemo.stop();
     await container.shutdown();
     process.exit(0);
   };

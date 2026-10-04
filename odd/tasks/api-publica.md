@@ -57,7 +57,9 @@ Make the API fit for a public native app in the App Store and Google Play: sign-
 ## Progress
 
 - Exploration done (auth map and store research, 2026-10-03).
+- T1 / S1 done on branch `feat/remove-demo-entry` (stacked on `docs/infra-phase-4-done`): removed `GET /api/auth/demo` and its rate limiter, `CrearDemoUseCase` and port, `PrismaDemoRepository`, demo seed data and seeder, `DemoCleanupService` and the node-cron scheduler (dependency dropped), the OpenAPI operation, the demo lifecycle int-spec, the landing "Probar" CTA, `docs/demo-mode-notes.md`; ADR-046 D5 amended. Route: delegated writer. Checks: RED observed first (route answered 401 instead of 404), then tsc, 283 files / 2888 tests, lint (0 errors), api and landing builds, `openapi:check` all green. T1 stays open: S2 (`esDemo` gates and plumbing) and S3 (migration) remain.
+- S1 commits `7992d10`, `f366a4b`, `b17c89d`; size +57 / −2146 (whole-file deletions of one unit; `size:exception`). Review: high, granted, four lenses, approved and acknowledged. Its one warning (existing demo rows are no longer purged before S3) does not apply to Mirach's database, which has 0 users (checked 2026-10-03); S3's migration deletes any demo users anyway.
 
 ## Next step
 
-Chain strategy for T1, then T1.
+S1 PR, then S2.

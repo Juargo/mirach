@@ -288,7 +288,7 @@ describe('crearDesdeGoogle (ADR-041 signup-on-first-login)', () => {
       user: { create: vi.fn().mockResolvedValue({ id: 'user-nuevo-1' }) },
       // Fake mínimo que satisface CatalogoTemplateClient —
       // copiarCatalogoTemplate corre de VERDAD contra este tx (mismo criterio
-      // que prisma-demo.repository.spec.ts): las asserts verifican el wiring
+      // que el resto de specs de repositorios con tx): las asserts verifican el wiring
       // real, no un doble.
       categoria: {
         createMany: vi

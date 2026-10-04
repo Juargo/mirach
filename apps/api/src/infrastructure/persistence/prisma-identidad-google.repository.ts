@@ -42,7 +42,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
 
   /**
    * ADR-041 (signup-on-first-login). User + catálogo en UNA transacción
-   * interactiva (misma mecánica que `PrismaDemoRepository.crear`): si la
+   * interactiva (`$transaction` con callback): si la
    * copia del catálogo falla, el rollback incluye al usuario — nunca puede
    * existir un usuario sin catálogo (invariante ADR-036). La Session NO va
    * en esta transacción, a diferencia del demo: acá un usuario creado sin
