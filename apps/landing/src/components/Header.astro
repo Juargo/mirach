@@ -1,6 +1,5 @@
 ---
-import CtaButton from './CtaButton.astro';
-import { APP, PROBAR, SITE } from '../config';
+import { APP, SITE } from '../config';
 ---
 
 <header
@@ -20,9 +19,6 @@ import { APP, PROBAR, SITE } from '../config';
       </span>
     </a>
     <nav class="flex items-center gap-3 sm:gap-4" aria-label="Acceso">
-      <CtaButton href={PROBAR.url} size="sm" target="_blank" rel="noopener noreferrer">
-        {PROBAR.label}
-      </CtaButton>
       <a
         href={APP.loginHref}
         class="inline-flex min-h-[44px] items-center justify-center rounded px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-5 sm:py-2"

@@ -13,23 +13,13 @@ export const APP = {
   /** Web app URL, resuelto por ambiente en build (Astro estático). Prod/preview:
    * `PUBLIC_APP_URL` (seteada en el proyecto Vercel del landing =
    * `https://app.moneydiary.cl`); dev: fallback al server local (`pnpm web dev`).
-   * De acá derivan "Ingresar" (`APP`) y "Probar" (`PROBAR`), así que en prod
-   * ambos apuntan al web correcto. */
+   * De acá deriva "Ingresar" (`APP`), así que en prod apunta al web correcto. */
   url: APP_URL,
   /** Destino del CTA "Ingresar": la ruta `/login`, no la raíz de la app —
    * apuntar a la raíz permitía que una cookie de sesión demo residual saltara
    * directo al dashboard sin pasar por el formulario de login (bugfix). */
   loginHref: `${APP_URL}/login`,
   label: 'Ingresar',
-} as const;
-
-export const PROBAR = {
-  /** demo-trial-mode (DEMO-UI-01): plain top-level navigation to
-   * `GET /api/auth/demo` — the backend's Sec-Fetch guard requires a
-   * top-level document navigation, so this MUST stay an `<a href>`, never a
-   * button/fetch call. */
-  url: `${APP.url}/api/auth/demo`,
-  label: 'Probar',
 } as const;
 
 export interface FAQItem {
