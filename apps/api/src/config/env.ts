@@ -176,6 +176,12 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Client ID de OAuth 2.0 (tipo iOS) de Google para el login mobile nativo en iPhone (ADR-035, ADR-046 D8): el id_token que emite Google Sign-In en iOS lleva este client ID como audiencia. Opcional: activación por presencia, igual que GOOGLE_CLIENT_ID_ANDROID — el login mobile se prende con al menos uno de los dos, y el verificador acepta la audiencia de cada uno que esté configurado. Gate TOTALMENTE independiente del par GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET.',
     ),
+  APPLE_BUNDLE_ID: z
+    .string()
+    .optional()
+    .describe(
+      'Bundle ID de la app iOS (p. ej. cl.mirach.app): es la audiencia (`aud`) que debe llevar el identity token de Sign in with Apple en el flujo nativo. Opcional: activación por presencia — ausente = login con Apple apagado (POST /api/auth/apple/token responde 404). Gate independiente del de Google. La forma se valida en superRefine (reverse-DNS), sin interpolar el valor.',
+    ),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info')
@@ -243,6 +249,7 @@ function refineByEnvironment(
 
   refineGoogleAuthEnv(env, ctx);
   refineGoogleAuthMobileEnv(env, ctx);
+  refineAppleBundleId(env, ctx);
 }
 
 /**
@@ -392,6 +399,40 @@ function refineGoogleMobileClientId(
       code: 'custom',
       path: [nombre],
       message: `${nombre} es idéntico a GOOGLE_CLIENT_ID (el client web) — probable copy-paste. Esto ensancharía en silencio la audiencia aceptada por el verificador de id_token mobile al client web (design §7 punto 3). Usar el ${plataforma} OAuth client ID real.`,
+    });
+  }
+}
+
+/** Bundle ID: segmentos alfanuméricos/guiones separados por puntos (reverse-DNS), al menos dos. */
+const APPLE_BUNDLE_ID_FORMAT = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
+
+/**
+ * Regla de `APPLE_BUNDLE_ID` (Sign in with Apple). Una sola variable, así que
+ * el equivalente a "fail-fast ante una config a medias" es validar la forma:
+ * si está presente debe parecer un bundle ID, no una URL, un client ID de
+ * Google pegado por error ni un valor vacío/solo-blancos (que produciría una
+ * audiencia inidentificable y haría rechazar todo token). El valor NUNCA se
+ * interpola en el mensaje.
+ */
+function refineAppleBundleId(
+  env: EnvSource,
+  ctx: z.RefinementCtx<EnvSource>,
+): void {
+  const bundleId = env.APPLE_BUNDLE_ID;
+
+  if (bundleId === undefined) {
+    return;
+  }
+
+  if (
+    !APPLE_BUNDLE_ID_FORMAT.test(bundleId) ||
+    bundleId.endsWith(GOOGLE_OAUTH_CLIENT_ID_SUFFIX)
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['APPLE_BUNDLE_ID'],
+      message:
+        'APPLE_BUNDLE_ID no tiene forma de bundle ID de iOS (valor omitido de este mensaje) — se espera notación reverse-DNS, p. ej. "cl.mirach.app" (segmentos alfanuméricos o guiones separados por puntos). Confirmar que no se pegó una URL, un client ID de Google o un valor con espacios.',
     });
   }
 }

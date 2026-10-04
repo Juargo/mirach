@@ -101,6 +101,14 @@ export class LoginConGoogleUseCase {
       return this.crearCuenta(identidad, emailResult.getValue());
     }
 
+    // Misma identidad: el ganador de una carrera de alta concurrente
+    // commiteó entre el lookup por sub y este por email. No es un takeover —
+    // el `googleSub` almacenado ES el de esta identidad —, así que se emite
+    // sesión sobre esa fila en vez de rechazarla como "otra identidad".
+    if (porEmail.googleSub === identidad.sub) {
+      return this.emitirSesion(porEmail.userId, false);
+    }
+
     // ★ No en el spec, agregado por el diseño (§5.3): el step de
     // `buscarPorGoogleSub` ya falló en matchear, así que un `googleSub`
     // no-null acá pertenece a una identidad Google DISTINTA. Sobrescribir

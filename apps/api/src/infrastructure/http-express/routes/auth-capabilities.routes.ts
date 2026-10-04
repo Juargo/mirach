@@ -13,9 +13,9 @@ type AuthCapabilitiesResponse = z.infer<typeof authCapabilitiesResponseSchema>;
  * purpose is to let a client discover that state before rendering any
  * Google-login affordance.
  *
- * Reads `container.googleAuth`/`container.googleAuthMobile` directly — no
+ * Reads `container.googleAuth`/`container.googleAuthMobile`/`container.appleAuth` directly — no
  * separate boolean flag exists anywhere in the codebase (design §4.3's whole
- * point, extended by §8 to the mobile gate). Takes an object of the two
+ * point, extended by §8 to the mobile gate). Takes an object of the
  * graph fields, not the full `Container` and not two positional nullable
  * params (a positional pair would be trivially swappable by mistake) — ISP,
  * same discipline as the rest of `routes/`.
@@ -25,15 +25,18 @@ export function registrarAuthCapabilities(
   {
     googleAuth,
     googleAuthMobile,
+    appleAuth,
   }: {
     googleAuth: Container['googleAuth'];
     googleAuthMobile: Container['googleAuthMobile'];
+    appleAuth: Container['appleAuth'];
   },
 ): void {
   router.get('/auth/capabilities', (_req, res) => {
     const body: AuthCapabilitiesResponse = {
       googleLoginEnabled: googleAuth !== undefined,
       googleLoginMobileEnabled: googleAuthMobile !== undefined,
+      appleLoginEnabled: appleAuth !== undefined,
     };
     res.status(200).json(body);
   });

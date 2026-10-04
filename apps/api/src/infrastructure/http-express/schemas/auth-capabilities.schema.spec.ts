@@ -12,21 +12,32 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
       const parsed = authCapabilitiesResponseSchema.parse({
         googleLoginEnabled,
         googleLoginMobileEnabled,
+        appleLoginEnabled: false,
       });
 
-      expect(parsed).toEqual({ googleLoginEnabled, googleLoginMobileEnabled });
+      expect(parsed).toEqual({
+        googleLoginEnabled,
+        googleLoginMobileEnabled,
+        appleLoginEnabled: false,
+      });
     },
   );
 
   it('rejects a missing googleLoginEnabled', () => {
     expect(() =>
-      authCapabilitiesResponseSchema.parse({ googleLoginMobileEnabled: true }),
+      authCapabilitiesResponseSchema.parse({
+        googleLoginMobileEnabled: true,
+        appleLoginEnabled: true,
+      }),
     ).toThrow();
   });
 
   it('rejects a missing googleLoginMobileEnabled', () => {
     expect(() =>
-      authCapabilitiesResponseSchema.parse({ googleLoginEnabled: true }),
+      authCapabilitiesResponseSchema.parse({
+        googleLoginEnabled: true,
+        appleLoginEnabled: true,
+      }),
     ).toThrow();
   });
 
@@ -35,6 +46,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
       authCapabilitiesResponseSchema.parse({
         googleLoginEnabled: 'true',
         googleLoginMobileEnabled: true,
+        appleLoginEnabled: true,
       }),
     ).toThrow();
   });
@@ -44,6 +56,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
       authCapabilitiesResponseSchema.parse({
         googleLoginEnabled: true,
         googleLoginMobileEnabled: 'true',
+        appleLoginEnabled: true,
       }),
     ).toThrow();
   });
@@ -52,11 +65,35 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
     const parsed = authCapabilitiesResponseSchema.parse({
       googleLoginEnabled: true,
       googleLoginMobileEnabled: false,
+      appleLoginEnabled: true,
       somethingElse: 'ignored-by-zod-default-strip',
     });
 
     expect(Object.keys(parsed).sort()).toEqual(
-      ['googleLoginEnabled', 'googleLoginMobileEnabled'].sort(),
+      [
+        'appleLoginEnabled',
+        'googleLoginEnabled',
+        'googleLoginMobileEnabled',
+      ].sort(),
     );
+  });
+
+  it('rejects a missing appleLoginEnabled', () => {
+    expect(() =>
+      authCapabilitiesResponseSchema.parse({
+        googleLoginEnabled: true,
+        googleLoginMobileEnabled: true,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a non-boolean appleLoginEnabled', () => {
+    expect(() =>
+      authCapabilitiesResponseSchema.parse({
+        googleLoginEnabled: true,
+        googleLoginMobileEnabled: true,
+        appleLoginEnabled: 'true',
+      }),
+    ).toThrow();
   });
 });

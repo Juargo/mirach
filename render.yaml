@@ -14,6 +14,7 @@
 #          GOOGLE_REDIRECT_URI (obligatoria, https, si el par de arriba está)
 #          GOOGLE_CLIENT_ID_ANDROID, GOOGLE_CLIENT_ID_IOS (login mobile; basta uno,
 #          gate independiente del web)
+#          APPLE_BUNDLE_ID (login con Apple nativo; gate independiente de Google)
 #
 # Seguridad: ningún `sync:false` se commitea con valor — se cargan a mano en el
 # dashboard de Render. API_KEY protege todos los endpoints salvo el health check
@@ -162,4 +163,12 @@ services:
       # client ID como audiencia. Basta uno de los dos (Android o iOS) para
       # prender el login mobile; el verificador acepta los que estén cargados.
       - key: GOOGLE_CLIENT_ID_IOS
+        sync: false
+      # Bundle ID de la app iOS (p. ej. cl.mirach.app): audiencia (`aud`) que
+      # debe llevar el identity token de Sign in with Apple. Activación por
+      # presencia — ausente = POST /api/auth/apple/token responde 404 y
+      # `appleLoginEnabled` es false. No es un secreto, pero se carga a mano
+      # como el resto (depende de la cuenta de Apple Developer). Ver
+      # apps/api/docs/apple-sign-in-runbook.md.
+      - key: APPLE_BUNDLE_ID
         sync: false

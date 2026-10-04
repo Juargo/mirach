@@ -62,6 +62,9 @@ importers:
       google-auth-library:
         specifier: ^11.0.0
         version: 11.0.0(supports-color@10.2.2)
+      jose:
+        specifier: 6.2.8
+        version: 6.2.8
       multer:
         specifier: ^2.3.0
         version: 2.3.0

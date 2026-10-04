@@ -32,6 +32,10 @@ import {
   registrarAuthGoogleToken,
   registrarAuthGoogleTokenDeshabilitado,
 } from './routes/auth-google-token.routes';
+import {
+  registrarAuthAppleToken,
+  registrarAuthAppleTokenDeshabilitado,
+} from './routes/auth-apple-token.routes';
 import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
 import { registrarVersion } from './routes/version.routes';
 import { registrarCategorias } from './routes/categorias.routes';
@@ -132,6 +136,7 @@ export function createApp(container: Container, env: Env): Express {
   registrarAuthCapabilities(authPublicApi, {
     googleAuth: container.googleAuth,
     googleAuthMobile: container.googleAuthMobile,
+    appleAuth: container.appleAuth,
   });
   app.use('/api', authPublicApi);
 
@@ -173,6 +178,18 @@ export function createApp(container: Container, env: Env): Express {
     registrarAuthGoogleTokenDeshabilitado(authGoogleTokenApi);
   }
   app.use('/api', authGoogleTokenApi);
+
+  // Login con Apple (identity token nativo): router SEPARADO, gate propio
+  // (`container.appleAuth !== undefined`, APPLE_BUNDLE_ID) independiente de
+  // Google. Siempre se monta algo: sin el stub 404 la ruta caería en
+  // `protectedApi` y respondería 401.
+  const authAppleTokenApi = express.Router();
+  if (container.appleAuth !== undefined) {
+    registrarAuthAppleToken(authAppleTokenApi, container.appleAuth);
+  } else {
+    registrarAuthAppleTokenDeshabilitado(authAppleTokenApi);
+  }
+  app.use('/api', authAppleTokenApi);
 
   // Rutas protegidas: exigen sesión válida (además de la api-key global).
   const protectedApi = express.Router();

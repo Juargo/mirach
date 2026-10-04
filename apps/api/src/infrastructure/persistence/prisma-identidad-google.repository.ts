@@ -9,7 +9,9 @@ import { Email } from '../../domain/value-objects/email';
 import type { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../../application/ports/crypto-service.port';
 import { copiarCatalogoTemplate } from './catalogo-template';
-import { objetivosDeP2002 } from './p2002-objetivos';
+import { esCarreraDeCreacionUser } from './user-creation-race';
+
+const COLUMNAS_CARRERA = ['emailBlindIndex', 'googleSub'] as const;
 
 /**
  * PrismaIdentidadGoogleRepository — implementación de `IIdentidadGoogleRepository`
@@ -85,7 +87,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002' &&
-        esCarreraDeCreacionUser(error)
+        esCarreraDeCreacionUser(error, COLUMNAS_CARRERA)
       ) {
         return null;
       }
@@ -169,38 +171,4 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
   }): UsuarioVinculable {
     return { userId: user.id, googleSub: user.googleSub };
   }
-}
-
-/**
- * esCarreraDeCreacionUser — discrimina, para el P2002 de `crearDesdeGoogle`,
- * entre la carrera de creación esperada (unicidad de `User.emailBlindIndex`
- * o `User.googleSub`) y un P2002 real de otra tabla dentro de la MISMA
- * transacción (p. ej. la unique compuesta `Categoria(userId, bucketId,
- * nombre)`, ADR-042 — un bug de datos, nunca una carrera legítima sobre un
- * `userId` recién creado).
- *
- * El recorrido de `meta` (Prisma 7 + `@prisma/adapter-pg` NO puebla
- * `meta.target`; el error crudo de Postgres llega bajo
- * `meta.driverAdapterError.cause.constraint.fields`/`.originalMessage`) vive
- * en `objetivosDeP2002` — esta función solo aplica su POLÍTICA sobre la
- * lista normalizada.
- *
- * Semántica por-defecto DELIBERADAMENTE INVERSA a `apuntaA`: acá `target`
- * AUSENTE resuelve a `true` (carrera conservadora) en vez de `false`
- * (fail-closed hacia rethrow) — la única fila que compite dentro de esta
- * transacción es la del propio `tx.user.create`, así que un P2002 sin forma
- * reconocible sigue siendo, con altísima probabilidad, esa carrera. Solo un
- * target que SÍ nombra explícitamente una columna ajena a
- * `emailBlindIndex`/`googleSub` es la señal positiva de un bug real.
- */
-function esCarreraDeCreacionUser(
-  error: Prisma.PrismaClientKnownRequestError,
-): boolean {
-  const targets = objetivosDeP2002(error.meta);
-
-  if (targets.length === 0) return true; // target ausente → carrera conservadora
-
-  return targets.some(
-    (t) => t.includes('emailBlindIndex') || t.includes('googleSub'),
-  );
 }

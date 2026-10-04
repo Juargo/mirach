@@ -52,8 +52,10 @@ export interface AuthGoogleTokenDeps {
  *
  * Cuerpo de la request manejado igual que `/auth/login`
  * (`typeof body?.idToken === 'string' ? body.idToken : ''`, design §6.2):
- * NUNCA 400 — toda forma inválida toma el mismo camino 401 genérico
- * (AUTH-21, una salida externamente distinguible menos). El caso `''`
+ * NUNCA 400 — todo JSON bien formado con forma inválida toma el mismo camino
+ * 401 genérico (AUTH-21, una salida externamente distinguible menos). Un JSON
+ * sintácticamente malformado no llega al handler: lo rechaza `express.json()`
+ * y responde el `errorMiddleware` compartido (500 genérico). El caso `''`
  * corta en el adapter sin llamada de red (design §5.2).
  *
  * Sin `Set-Cookie` (mobile es Bearer + SecureStore, MOB-02). Sin guard
