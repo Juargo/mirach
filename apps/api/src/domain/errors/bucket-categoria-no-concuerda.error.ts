@@ -23,7 +23,7 @@ export class BucketCategoriaNoConcuerdaError extends Error {
   ) {
     super(
       'la categoría indicada no pertenece al bucket solicitado; ' +
-        'verifique que el bucket corresponda al de la categoría propia',
+        'verifica que el bucket corresponda al de la categoría propia',
     );
     this.name = 'BucketCategoriaNoConcuerdaError';
   }

@@ -11,7 +11,7 @@
  */
 export class PerfilRechazadoError extends Error {
   constructor() {
-    super('No pudimos actualizar tu perfil. Revisá los datos ingresados.');
+    super('No pudimos actualizar tu perfil. Revisa los datos ingresados.');
     this.name = 'PerfilRechazadoError';
   }
 }

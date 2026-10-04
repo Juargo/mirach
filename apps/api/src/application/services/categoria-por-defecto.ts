@@ -13,9 +13,8 @@ import { Bucket } from '../../domain/value-objects/bucket';
  * antes, así que el usuario la nota y la reclasifica en vez de que quede
  * absuelta en silencio.
  *
- * La UI la muestra como "Gustos" (`ETIQUETA_BUCKET_COPY[Bucket.Deseos]` en
- * `domain/value-objects/semaforo-detalle.ts`, espejado por
- * `ETIQUETA_BUCKET` en `apps/web`) — el dominio siempre la nombra `Deseos`.
+ * El término oficial es "Deseos" (`ETIQUETA_BUCKET_COPY[Bucket.Deseos]` en
+ * `domain/value-objects/semaforo-detalle.ts`), igual que el dominio.
  */
 export const BUCKET_POR_DEFECTO = Bucket.Deseos;
 

@@ -6,7 +6,7 @@ import { ETIQUETA_BUCKET_COPY } from '../value-objects/semaforo-detalle';
  * Se produce cuando el catálogo de categorías del usuario RESPONDIÓ (no es
  * un fallo de infraestructura) pero le falta la categoría `Desconocido` de
  * un bucket asignable — hoy, en la práctica, siempre `BUCKET_POR_DEFECTO`
- * (Deseos/"Gustos"), el único bucket que la ingesta usa como destino por
+ * (Deseos), el único bucket que la ingesta usa como destino por
  * defecto (`application/services/categoria-por-defecto.ts`).
  *
  * Reemplaza al fail-safe silencioso que degradaba a `Bucket.SinCategoria`
@@ -38,8 +38,8 @@ import { ETIQUETA_BUCKET_COPY } from '../value-objects/semaforo-detalle';
  * `ProcessIngestaUseCase.runCategorizacion` / `apps/api/CLAUDE.md`).
  *
  * El mensaje usa la etiqueta de PRODUCTO del bucket (`ETIQUETA_BUCKET_COPY`,
- * "Gustos" para `Bucket.Deseos`), no el nombre de dominio — es lo que el
- * usuario ve en la UI del catálogo, y es la MISMA fuente que ya usa el
+ * "Deseos" para `Bucket.Deseos`), que hoy coincide con el nombre de dominio —
+ * es lo que el usuario ve en la UI del catálogo, y es la MISMA fuente que ya usa el
  * copy generado en backend para el semáforo (DRY — no se inventa un mapa
  * nuevo).
  *

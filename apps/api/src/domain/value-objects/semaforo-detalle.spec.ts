@@ -301,14 +301,14 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
     );
   });
 
-  it('Deseos driving → uses the product label "Gustos", not "Deseos"', () => {
+  it('Deseos driving → uses the product label "Deseos", never "Gustos"', () => {
     const resumen = resumenCon({
       necesidades: 400_000n, // bp 4000 — Verde
       deseos: 450_000n, // bp 4500 — Rojo (Deseos rojo is bp > 4000)
       ahorro: 250_000n, // bp 2500 — Verde
     });
     expect(diagnosticar(resumen)).toBe(
-      'Tu veredicto del mes es En peligro por Gustos.',
+      'Tu veredicto del mes es En peligro por Deseos.',
     );
   });
 
@@ -319,7 +319,7 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       ahorro: 250_000n, // Verde
     });
     expect(diagnosticar(resumen)).toBe(
-      'Tu veredicto del mes es En peligro por Necesidades y Gustos.',
+      'Tu veredicto del mes es En peligro por Necesidades y Deseos.',
     );
   });
 
@@ -330,7 +330,7 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
       ahorro: 600_000n, // bp 6000 — Rojo (Ahorro rojo is bp > 5000)
     });
     expect(diagnosticar(resumen)).toBe(
-      'Tu veredicto del mes es En peligro por Necesidades, Gustos y Ahorro.',
+      'Tu veredicto del mes es En peligro por Necesidades, Deseos y Ahorro.',
     );
   });
 
@@ -368,8 +368,8 @@ describe('diagnosticar (Group D — SEM-01, D-10)', () => {
 });
 
 describe('ETIQUETA_BUCKET_COPY (Group E — cross-workspace copy pin)', () => {
-  it('Deseos maps to "Gustos", matching apps/web/src/lib/bucket-colors.ts ETIQUETA_BUCKET', () => {
-    expect(ETIQUETA_BUCKET_COPY[Bucket.Deseos]).toBe('Gustos');
+  it('Deseos maps to "Deseos" (never "Gustos")', () => {
+    expect(ETIQUETA_BUCKET_COPY[Bucket.Deseos]).toBe('Deseos');
   });
 });
 

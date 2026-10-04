@@ -58,15 +58,15 @@ export function montoMinimoConBpDesde(base: bigint, bpMin: bigint): bigint {
 
 /**
  * ETIQUETA_BUCKET_COPY — product label per bucket, used in backend-generated
- * Spanish copy (diagnosis + advice). MUST say what the card says: the web
- * calls the Deseos bucket "Gustos" (`apps/web/src/lib/bucket-colors.ts`'s
- * `ETIQUETA_BUCKET`), so this backend prose uses the same word. Pinned by an
+ * Spanish copy (diagnosis + advice). MUST say what the card says: the
+ * official term for the 30 % bucket is "Deseos" (never "Gustos",
+ * `docs/catalogo/README.md`), so this backend prose uses that word. Pinned by an
  * exact-value test (design §6 residual risk: no automated cross-workspace
  * gate exists — if you touch either map, touch both).
  */
 export const ETIQUETA_BUCKET_COPY = Object.freeze({
   [Bucket.Necesidades]: 'Necesidades',
-  [Bucket.Deseos]: 'Gustos',
+  [Bucket.Deseos]: 'Deseos',
   [Bucket.Ahorro]: 'Ahorro',
 });
 
