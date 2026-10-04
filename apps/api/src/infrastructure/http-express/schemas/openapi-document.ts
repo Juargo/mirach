@@ -271,6 +271,7 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     'POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by ' +
     'US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.',
   requestBody: {
+    required: true,
     content: {
       'multipart/form-data': { schema: ingestaUploadRequestSchema },
     },
@@ -331,6 +332,7 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     'clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; ' +
     'dedup is scoped to the calling user (RNF-SEC-006).',
   requestBody: {
+    required: true,
     content: {
       'multipart/form-data': { schema: previewIngestaRequestSchema },
     },
@@ -405,6 +407,7 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     'Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 ' +
     'and persist nothing (D-03/D-04/D-10).',
   requestBody: {
+    required: true,
     content: {
       'multipart/form-data': { schema: commitIngestaRequestSchema },
     },
@@ -1705,7 +1708,10 @@ const paths: ZodOpenApiPathsObject = {
 
 export function buildOpenApiDocument() {
   return createDocument({
-    openapi: '3.1.0',
+    // 3.0.x on purpose: Apple's swift-openapi-generator (apps/ios) drops properties
+    // written as 3.1 `anyOf: [T, {type: "null"}]`, while 3.0 renders them as
+    // `nullable: true`, which it supports. See apps/ios/README.md.
+    openapi: '3.0.3',
     info: {
       title: 'MoneyDiary API',
       version: pkg.version,

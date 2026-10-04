@@ -6,8 +6,10 @@
         "description": "401 body of an endpoint that needs only the API key (no session).",
         "properties": {
           "code": {
-            "const": "API_KEY_INVALIDA",
             "description": "The `x-api-key` header is missing or wrong.",
+            "enum": [
+              "API_KEY_INVALIDA"
+            ],
             "type": "string"
           },
           "message": {
@@ -71,15 +73,9 @@
         "description": "GET /api/auth/me and PATCH /api/perfil — the authenticated user identity, including whether Google is linked (AUTH-09, US-040, VINC041-08).",
         "properties": {
           "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema."
+            "description": "Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.",
+            "nullable": true,
+            "type": "string"
           },
           "googleVinculado": {
             "description": "VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.",
@@ -114,15 +110,9 @@
               "additionalProperties": false,
               "properties": {
                 "categoriaId": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "null for the synthetic group."
+                  "description": "null for the synthetic group.",
+                  "nullable": true,
+                  "type": "string"
                 },
                 "conteo": {
                   "maximum": 9007199254740991,
@@ -130,14 +120,8 @@
                   "type": "integer"
                 },
                 "icono": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "nullable": true,
+                  "type": "string"
                 },
                 "nombre": {
                   "type": "string"
@@ -194,34 +178,22 @@
             "type": "array"
           },
           "metaBp": {
-            "anyOf": [
-              {
-                "maximum": 9007199254740991,
-                "minimum": -9007199254740991,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05)."
+            "description": "Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "nullable": true,
+            "type": "integer"
           },
           "periodo": {
             "description": "Resolved period, format YYYY-MM.",
             "type": "string"
           },
           "porcentajeBp": {
-            "anyOf": [
-              {
-                "maximum": 9007199254740991,
-                "minimum": -9007199254740991,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Basis-point percentage, round-half-up. null when the month has no income (D-05)."
+            "description": "Basis-point percentage, round-half-up. null when the month has no income (D-05).",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "nullable": true,
+            "type": "integer"
           },
           "total": {
             "description": "BigInt-safe decimal string amount (never a JSON number).",
@@ -292,7 +264,9 @@
         "description": "403 body: the category is a system category (`esInterna: true`, the per-bucket \"Desconocido\") and cannot be renamed, re-bucketed or deleted.",
         "properties": {
           "code": {
-            "const": "CATEGORIA_INTERNA",
+            "enum": [
+              "CATEGORIA_INTERNA"
+            ],
             "type": "string"
           },
           "message": {
@@ -317,14 +291,8 @@
             "type": "boolean"
           },
           "icono": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "nullable": true,
+            "type": "string"
           },
           "id": {
             "type": "string"
@@ -413,15 +381,9 @@
                   "type": "string"
                 },
                 "categoriaId": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Final category assigned, or null for Ingreso rows and DES-CLASIFICAR entries (D-11)."
+                  "description": "Final category assigned, or null for Ingreso rows and DES-CLASIFICAR entries (D-11).",
+                  "nullable": true,
+                  "type": "string"
                 },
                 "descripcion": {
                   "type": "string"
@@ -519,28 +481,22 @@
                   "type": "string"
                 },
                 "categoria": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "nombre": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "nombre"
-                      ],
-                      "type": "object"
+                  "additionalProperties": false,
+                  "description": "Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).",
+                  "nullable": true,
+                  "properties": {
+                    "id": {
+                      "type": "string"
                     },
-                    {
-                      "type": "null"
+                    "nombre": {
+                      "type": "string"
                     }
+                  },
+                  "required": [
+                    "id",
+                    "nombre"
                   ],
-                  "description": "Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket)."
+                  "type": "object"
                 },
                 "descripcion": {
                   "type": "string"
@@ -587,7 +543,9 @@
         "description": "409 body: the category catalog is available but incomplete (the default \"Desconocido\" category of a bucket is missing). Permanent until the account's catalog is repaired — retrying the same request does not help.",
         "properties": {
           "code": {
-            "const": "CATALOGO_INCOMPLETO",
+            "enum": [
+              "CATALOGO_INCOMPLETO"
+            ],
             "type": "string"
           },
           "message": {
@@ -605,7 +563,9 @@
         "description": "503 body: a transient fault on our side while classifying; nothing was imported. Retrying later may succeed.",
         "properties": {
           "code": {
-            "const": "CATALOGO_NO_DISPONIBLE",
+            "enum": [
+              "CATALOGO_NO_DISPONIBLE"
+            ],
             "type": "string"
           },
           "message": {
@@ -649,15 +609,9 @@
               "additionalProperties": false,
               "properties": {
                 "banco": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "null when an early FALLIDA ingesta never resolved a bank."
+                  "description": "null when an early FALLIDA ingesta never resolved a bank.",
+                  "nullable": true,
+                  "type": "string"
                 },
                 "estado": {
                   "enum": [
@@ -674,14 +628,8 @@
                   "type": "string"
                 },
                 "motivoFallo": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
+                  "nullable": true,
+                  "type": "string"
                 },
                 "nombreArchivo": {
                   "type": "string"
@@ -894,28 +842,22 @@
                   "type": "string"
                 },
                 "categoria": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "nombre": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "nombre"
-                      ],
-                      "type": "object"
+                  "additionalProperties": false,
+                  "description": "Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).",
+                  "nullable": true,
+                  "properties": {
+                    "id": {
+                      "type": "string"
                     },
-                    {
-                      "type": "null"
+                    "nombre": {
+                      "type": "string"
                     }
+                  },
+                  "required": [
+                    "id",
+                    "nombre"
                   ],
-                  "description": "Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket)."
+                  "type": "object"
                 },
                 "descripcion": {
                   "type": "string"
@@ -1073,34 +1015,22 @@
                   "type": "integer"
                 },
                 "sugerido": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "bucket": {
-                          "type": "string"
-                        },
-                        "categoriaId": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        }
-                      },
-                      "required": [
-                        "bucket",
-                        "categoriaId"
-                      ],
-                      "type": "object"
+                  "additionalProperties": false,
+                  "nullable": true,
+                  "properties": {
+                    "bucket": {
+                      "type": "string"
                     },
-                    {
-                      "type": "null"
+                    "categoriaId": {
+                      "nullable": true,
+                      "type": "string"
                     }
-                  ]
+                  },
+                  "required": [
+                    "bucket",
+                    "categoriaId"
+                  ],
+                  "type": "object"
                 }
               },
               "required": [
@@ -1226,15 +1156,9 @@
             "type": "string"
           },
           "categoriaId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "null for Ingreso rows; the caller-supplied categoriaId for Gasto rows."
+            "description": "null for Ingreso rows; the caller-supplied categoriaId for Gasto rows.",
+            "nullable": true,
+            "type": "string"
           },
           "descripcion": {
             "type": "string"
@@ -1247,8 +1171,10 @@
             "type": "string"
           },
           "origen": {
-            "const": "Manual",
             "description": "Provenance marker — always \"Manual\" for this endpoint (C-a, D-13).",
+            "enum": [
+              "Manual"
+            ],
             "type": "string"
           }
         },
@@ -1301,46 +1227,28 @@
                   "type": "string"
                 },
                 "estadoSemaforo": {
-                  "anyOf": [
-                    {
-                      "enum": [
-                        "verde",
-                        "amarillo",
-                        "rojo"
-                      ],
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
+                  "description": "Traffic-light health state, lowercase wire enum (US-016), or null.",
+                  "enum": [
+                    "verde",
+                    "amarillo",
+                    "rojo"
                   ],
-                  "description": "Traffic-light health state, lowercase wire enum (US-016), or null."
+                  "nullable": true,
+                  "type": "string"
                 },
                 "participacionGastoBp": {
-                  "anyOf": [
-                    {
-                      "maximum": 10000,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income."
+                  "description": "This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.",
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "nullable": true,
+                  "type": "integer"
                 },
                 "porcentajeBp": {
-                  "anyOf": [
-                    {
-                      "maximum": 9007199254740991,
-                      "minimum": -9007199254740991,
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Basis-point percentage (0-10000). null when sinIngreso=true."
+                  "description": "Basis-point percentage (0-10000). null when sinIngreso=true.",
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "nullable": true,
+                  "type": "integer"
                 },
                 "total": {
                   "description": "BigInt-safe decimal string amount (never a JSON number).",
@@ -1359,20 +1267,14 @@
             "type": "array"
           },
           "estadoGlobal": {
-            "anyOf": [
-              {
-                "enum": [
-                  "verde",
-                  "amarillo",
-                  "rojo"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "description": "Worst traffic-light state across measured buckets, or null.",
+            "enum": [
+              "verde",
+              "amarillo",
+              "rojo"
             ],
-            "description": "Worst traffic-light state across measured buckets, or null."
+            "nullable": true,
+            "type": "string"
           },
           "periodo": {
             "description": "Resolved period, format YYYY-MM.",
@@ -1436,16 +1338,10 @@
                       "type": "integer"
                     },
                     "amarilloMin": {
-                      "anyOf": [
-                        {
-                          "maximum": 9007199254740991,
-                          "minimum": -9007199254740991,
-                          "type": "integer"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "nullable": true,
+                      "type": "integer"
                     },
                     "verdeMax": {
                       "maximum": 9007199254740991,
@@ -1453,16 +1349,10 @@
                       "type": "integer"
                     },
                     "verdeMin": {
-                      "anyOf": [
-                        {
-                          "maximum": 9007199254740991,
-                          "minimum": -9007199254740991,
-                          "type": "integer"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "nullable": true,
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -1478,54 +1368,42 @@
                   "type": "string"
                 },
                 "consejo": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "direccion": {
-                          "enum": [
-                            "reducir",
-                            "aumentar"
-                          ],
-                          "type": "string"
-                        },
-                        "mensaje": {
-                          "description": "Spanish sentence containing the literal `{monto}` placeholder exactly once (SEM-10).",
-                          "type": "string"
-                        },
-                        "monto": {
-                          "description": "BigInt-safe decimal string amount (never a JSON number).",
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "direccion",
-                        "monto",
-                        "mensaje"
-                      ],
-                      "type": "object"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null."
-                },
-                "estadoSemaforo": {
-                  "anyOf": [
-                    {
+                  "additionalProperties": false,
+                  "description": "CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null.",
+                  "nullable": true,
+                  "properties": {
+                    "direccion": {
                       "enum": [
-                        "verde",
-                        "amarillo",
-                        "rojo"
+                        "reducir",
+                        "aumentar"
                       ],
                       "type": "string"
                     },
-                    {
-                      "type": "null"
+                    "mensaje": {
+                      "description": "Spanish sentence containing the literal `{monto}` placeholder exactly once (SEM-10).",
+                      "type": "string"
+                    },
+                    "monto": {
+                      "description": "BigInt-safe decimal string amount (never a JSON number).",
+                      "type": "string"
                     }
+                  },
+                  "required": [
+                    "direccion",
+                    "monto",
+                    "mensaje"
                   ],
-                  "description": "Traffic-light health state, lowercase wire enum, or null."
+                  "type": "object"
+                },
+                "estadoSemaforo": {
+                  "description": "Traffic-light health state, lowercase wire enum, or null.",
+                  "enum": [
+                    "verde",
+                    "amarillo",
+                    "rojo"
+                  ],
+                  "nullable": true,
+                  "type": "string"
                 },
                 "metaBp": {
                   "description": "Bucket's 50/30/20 target center, in basis points (SEM-02).",
@@ -1534,17 +1412,11 @@
                   "type": "integer"
                 },
                 "porcentajeBp": {
-                  "anyOf": [
-                    {
-                      "maximum": 9007199254740991,
-                      "minimum": -9007199254740991,
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Basis-point percentage (0-10000). null when sinIngreso=true."
+                  "description": "Basis-point percentage (0-10000). null when sinIngreso=true.",
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "nullable": true,
+                  "type": "integer"
                 },
                 "total": {
                   "description": "BigInt-safe decimal string amount (never a JSON number).",
@@ -1576,20 +1448,14 @@
             "type": "string"
           },
           "estadoGlobal": {
-            "anyOf": [
-              {
-                "enum": [
-                  "verde",
-                  "amarillo",
-                  "rojo"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "description": "Worst traffic-light state across the 3 spend buckets, or null.",
+            "enum": [
+              "verde",
+              "amarillo",
+              "rojo"
             ],
-            "description": "Worst traffic-light state across the 3 spend buckets, or null."
+            "nullable": true,
+            "type": "string"
           },
           "periodo": {
             "description": "Resolved period, format YYYY-MM.",
@@ -1733,7 +1599,7 @@
     "title": "MoneyDiary API",
     "version": "0.10.0"
   },
-  "openapi": "3.1.0",
+  "openapi": "3.0.3",
   "paths": {
     "/api/auth/apple/token": {
       "post": {
@@ -1750,16 +1616,10 @@
                     "type": "string"
                   },
                   "nombre": {
-                    "anyOf": [
-                      {
-                        "maxLength": 200,
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ],
-                    "description": "Full name, only available on the FIRST authorization (Apple never puts it in the token). Omit or null afterwards."
+                    "description": "Full name, only available on the FIRST authorization (Apple never puts it in the token). Omit or null afterwards.",
+                    "maxLength": 200,
+                    "nullable": true,
+                    "type": "string"
                   },
                   "nonce": {
                     "description": "Raw nonce generated by the app. The app passes its SHA-256 (hex) to Apple; the server hashes this value and compares it with the token nonce claim.",
@@ -2207,14 +2067,8 @@
                     "type": "string"
                   },
                   "icono": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "nullable": true,
+                    "type": "string"
                   },
                   "nombre": {
                     "type": "string"
@@ -2366,14 +2220,8 @@
                     "type": "string"
                   },
                   "icono": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
+                    "nullable": true,
+                    "type": "string"
                   },
                   "nombre": {
                     "type": "string"
@@ -2544,7 +2392,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -2676,7 +2525,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "201": {
@@ -2768,7 +2618,8 @@
                 "type": "object"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -2941,7 +2792,9 @@
                         "type": "string"
                       },
                       "tipo": {
-                        "const": "Ingreso",
+                        "enum": [
+                          "Ingreso"
+                        ],
                         "type": "string"
                       }
                     },
@@ -2982,7 +2835,9 @@
                         "type": "string"
                       },
                       "tipo": {
-                        "const": "Gasto",
+                        "enum": [
+                          "Gasto"
+                        ],
                         "type": "string"
                       }
                     },
