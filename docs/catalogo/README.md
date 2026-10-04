@@ -144,6 +144,5 @@ Lo que las pantallas necesitan y el contrato (`openapi.json` en `main`) o el ser
 | 7 | **Mensajes de error del servidor con voseo o jerga.** Por ejemplo `CONFIRMACION_INVALIDA` dice «escribí ELIMINAR»; `BUCKET_NO_ASIGNABLE` dice «El bucket debe ser uno de: Necesidades, Deseos, Ahorro». | Perfil, Categorías | La app usa copia propia para los `code` conocidos y no muestra el `message` en esos casos. |
 | 8 | **Los 401 no distinguen causa.** Una `x-api-key` inválida y una sesión vencida devuelven 401 con cuerpo `{message}` sin `code`. | Todas | La app trata todo 401 autenticado como sesión vencida. Una clave de cliente incorrecta se vería como un bucle de inicio de sesión. |
 | 9 | **Orden de las listas sin documentar.** `GET /api/ingestas` entrega primero la más reciente y `GET /api/categorias` ordena por nombre, pero el contrato no lo dice. | [Cartolas subidas](pantallas/cartolas-subidas.md), [Categorías](pantallas/categorias.md) | La app conserva el orden recibido para las cartolas y agrupa el catálogo por bucket. |
-| 10 | **Sin endpoint para consultar qué meses tienen datos.** | [Resumen del mes](pantallas/resumen-del-mes.md) | El selector de mes se apoya en `GET /api/resumen/anual` (`meses[].sinIngreso`). |
 
 **Protección con contraseña en PDF.** No es una brecha: el API la soporta. Detalle en [Subir cartola](pantallas/subir-cartola.md#pdf-protegido).

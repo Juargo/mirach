@@ -26,12 +26,14 @@ La app no calcula porcentajes, estados ni totales propios.
 | Acción | Endpoint | Resultado |
 |---|---|---|
 | Abrir la pantalla | `GET /api/resumen` sin `periodo` | El API resuelve el último mes con movimientos; se muestra el `periodo` devuelto |
-| Cambiar de mes (flechas anterior/siguiente o tocar una celda activa del bloque anual) | `GET /api/resumen?periodo=AAAA-MM` | Reemplaza el contenido; mientras carga no se muestran datos del mes anterior |
+| Cambiar de mes (flechas anterior/siguiente, que recorren `periodos` de `GET /api/periodos`, o tocar una celda activa del bloque anual) | `GET /api/resumen?periodo=AAAA-MM` | Reemplaza el contenido; mientras carga no se muestran datos del mes anterior |
 | Cambiar de año (flechas del bloque anual) | `GET /api/resumen/anual?anio=AAAA` | Reemplaza el bloque anual |
 | Tocar un bucket (porción del gráfico o fila de la leyenda) | Ninguno | Abre [Detalle de bucket](detalle-de-bucket.md) con `bucket` y `periodo` |
 | Tocar el ingreso | Ninguno | Abre [Ingresos del mes](ingresos-del-mes.md) con `periodo` |
 | Tocar «Subir cartola» (estado vacío) | Ninguno | Abre [Subir cartola](subir-cartola.md) |
 | Tirar para refrescar | `GET /api/resumen` y `GET /api/resumen/anual` | Repite las dos consultas con el período en pantalla |
+
+`GET /api/periodos` devuelve los meses (`AAAA-MM`) con al menos un movimiento del usuario, del más reciente al más antiguo; cuenta cualquier movimiento (gasto o solo ingreso), con la misma regla y la misma derivación de mes (UTC) que el período por defecto de `GET /api/resumen`. Los meses fuera de la lista no tienen datos: las flechas del selector los saltan. Lista vacía = el usuario aún no sube nada.
 
 Un `periodo` mal formado o un `anio` fuera de rango responde 400; la app solo envía valores que ella genera, así que un 400 se trata como error genérico.
 
@@ -39,6 +41,7 @@ Un `periodo` mal formado o un `anio` fuera de rango responde 400; la app solo en
 
 | Método | Ruta | Cuándo se llama | Códigos relevantes |
 |---|---|---|---|
+| GET | `/api/periodos` | Al abrir, y tras subir una cartola | 200 `{periodos}`, 401 |
 | GET | `/api/resumen` | Al abrir y al cambiar de mes | 200, 400, 401 |
 | GET | `/api/resumen/anual` | Al abrir (año del período resuelto) y al cambiar de año | 200, 400, 401 |
 

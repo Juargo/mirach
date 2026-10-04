@@ -12,6 +12,7 @@ import { ObtenerSemaforoDetalleUseCase } from '../application/use-cases/obtener-
 import { ObtenerDetalleBucketUseCase } from '../application/use-cases/obtener-detalle-bucket.use-case';
 import { ObtenerDetalleBucketMesUseCase } from '../application/use-cases/obtener-detalle-bucket-mes.use-case';
 import { ObtenerIngresosMesUseCase } from '../application/use-cases/obtener-ingresos-mes.use-case';
+import { ListarPeriodosConDatosUseCase } from '../application/use-cases/listar-periodos-con-datos.use-case';
 import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-movimientos-mes.use-case';
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
 import { ReevaluarCategoriasUseCase } from '../application/use-cases/reevaluar-categorias.use-case';
@@ -41,6 +42,7 @@ import { RegistrarMovimientoManualUseCase } from '../application/use-cases/regis
 import { PrismaResumenMesRepository } from '../infrastructure/persistence/prisma-resumen-mes.repository';
 import { PrismaResumenAnualRepository } from '../infrastructure/persistence/prisma-resumen-anual.repository';
 import { PrismaDetalleBucketRepository } from '../infrastructure/persistence/prisma-detalle-bucket.repository';
+import { PrismaPeriodosConDatosReader } from '../infrastructure/persistence/prisma-periodos-con-datos.repository';
 import { PrismaMovimientosMesRepository } from '../infrastructure/persistence/prisma-movimientos-mes.repository';
 import { PrismaUltimoPeriodoConDatosReader } from '../infrastructure/persistence/prisma-ultimo-periodo-con-datos.repository';
 import { PrismaReclasificarCategoriaRepository } from '../infrastructure/persistence/prisma-reclasificar-categoria.repository';
@@ -88,6 +90,7 @@ export interface Container {
   /** Detalle MES-INGRESOS por origen (US-052) — GET /api/ingresos/mes. */
   readonly obtenerIngresosMes: ObtenerIngresosMesUseCase;
   /** Lista mensual consolidada — GET /api/movimientos. */
+  readonly listarPeriodosConDatos: ListarPeriodosConDatosUseCase;
   readonly obtenerMovimientosMes: ObtenerMovimientosMesUseCase;
   /** Reclasificación manual — PATCH /api/transacciones/:id/categoria. */
   readonly reclasificarTransaccion: ReclasificarTransaccionUseCase;
@@ -278,6 +281,9 @@ export function createContainer(
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
   );
+  const listarPeriodosConDatos = new ListarPeriodosConDatosUseCase(
+    new PrismaPeriodosConDatosReader(prisma),
+  );
   const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
     new PrismaMovimientosMesRepository(prisma, crypto),
     new PrismaUltimoPeriodoConDatosReader(prisma),
@@ -348,6 +354,7 @@ export function createContainer(
     obtenerDetalleBucket,
     obtenerDetalleBucketMes,
     obtenerIngresosMes,
+    listarPeriodosConDatos,
     obtenerMovimientosMes,
     reclasificarTransaccion,
     reevaluarCategorias,
