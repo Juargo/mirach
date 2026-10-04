@@ -1,0 +1,5 @@
+// Build settings shared by every configuration of the Mirach target.
+// MIRACH_API_KEY is empty unless Secrets.xcconfig (git-ignored) defines it.
+// `#include?` is optional: a missing file is not an error.
+MIRACH_API_KEY =
+#include? "Secrets.xcconfig"

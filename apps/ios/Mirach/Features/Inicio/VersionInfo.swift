@@ -1,7 +1,7 @@
 import Foundation
 
-/// Response of the public `GET /version` endpoint. Extra fields are ignored.
-struct VersionInfo: Decodable, Equatable, Sendable {
+/// What the first screen shows from the public `GET /version` endpoint.
+struct VersionInfo: Equatable, Sendable {
     let version: String
     let commit: String
 }

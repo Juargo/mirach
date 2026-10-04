@@ -55,6 +55,7 @@ jobs:
       shared: ${{ steps.f.outputs.shared == 'true' || steps.full.outputs.todo == 'true' }}
       release-please-config: ${{ steps.f.outputs.release-please-config == 'true' || steps.full.outputs.todo == 'true' }}
       openspec: ${{ steps.f.outputs.openspec == 'true' || steps.full.outputs.todo == 'true' }}
+      ios: ${{ steps.f.outputs.ios == 'true' || steps.full.outputs.todo == 'true' }}
     steps:
       - uses: actions/checkout@v7
       # La regla de "en main se corre todo" vive SOLO acá. Si el step no corre,
@@ -77,6 +78,9 @@ jobs:
             shared:  ['pnpm-lock.yaml', 'package.json', 'pnpm-workspace.yaml', '.node-version', '.npmrc', '.lintstagedrc.json', 'commitlint.config.js', 'render.yaml', '.github/workflows/**']
             release-please-config: ['release-please-config.json', '.release-please-manifest.json']
             openspec: ['openspec/changes/**', 'scripts/check-openspec-artifacts.sh']
+            # iPhone app: its sources, the API contract the client is generated
+            # from, the design tokens it will consume, and this workflow.
+            ios: ['apps/ios/**', 'apps/api/openapi.json', 'design/**', 'scripts/check-design-tokens.mjs', '.github/workflows/ci.yml']
 
   # ADR-020: the REAL commit-message enforcement (local husky hooks are
   # --no-verify-skippable, this is not). Runs on every PR/push — NOT
@@ -786,6 +790,64 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # iPhone app (plan phase 7, ADR-048). macOS runners are the only place Xcode
+  # exists, so this is the one non-Linux job. `macos-26` (GA image) ships Xcode
+  # 26.6 (Swift 6.2, iOS 26 SDK, iPhone 17 simulators): enough for the project's
+  # Swift 6 language mode and iOS 17 deployment target. macOS 27/Xcode 27 is
+  # still a public preview image, so it is not used. No signing certificates in
+  # CI, hence CODE_SIGNING_ALLOWED=NO.
+  ios:
+    name: ios
+    needs: changes
+    if: ${{ needs.changes.outputs.ios == 'true' }}
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/ios
+    env:
+      XCODEGEN_VERSION: 2.46.0
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install XcodeGen (pinned release)
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -fsSL -o xcodegen.zip \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          unzip -q xcodegen.zip
+          echo "${RUNNER_TEMP}/xcodegen/bin" >> "$GITHUB_PATH"
+
+      # Fails when openapi.json changed without regenerating the committed client.
+      - name: Check the generated API client is up to date
+        run: |
+          ./scripts/generate-api.sh
+          git diff --exit-code -- Mirach/Core/API/Generated
+          test -z "$(git ls-files --others --exclude-standard -- Mirach/Core/API/Generated)"
+
+      # Run the validator directly: it only needs Node, not `pnpm install`.
+      - name: Check design tokens
+        working-directory: .
+        run: node scripts/check-design-tokens.mjs
+
+      - name: Generate the Xcode project
+        run: |
+          cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
+          ./scripts/generate.sh
+
+      - name: Build and test on a simulator
+        run: |
+          set -o pipefail
+          # Pick the first available iPhone simulator instead of hardcoding a
+          # device name that changes with every image.
+          udid="$(xcrun simctl list devices available iPhone -j \
+            | jq -r '[.devices[][] | select(.isAvailable)][0].udid')"
+          test -n "$udid" && test "$udid" != null
+          xcodebuild test \
+            -project Mirach.xcodeproj -scheme Mirach \
+            -destination "platform=iOS Simulator,id=${udid}" \
+            CODE_SIGNING_ALLOWED=NO
+
   # Single stable required check (Slice C). Path-filtered jobs above can be
   # SKIPPED depending on which workspace changed — a branch-protection rule
   # that requires one of THOSE job names directly would hang forever on a PR
@@ -795,7 +857,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, landing, security]
+    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, landing, security, ios]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed

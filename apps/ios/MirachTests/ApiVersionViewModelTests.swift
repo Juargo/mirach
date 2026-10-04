@@ -2,24 +2,25 @@ import Foundation
 import Testing
 @testable import Mirach
 
-private struct FakeHTTPClient: HTTPClient {
-    let result: Result<Data, any Error>
-    func get(_ url: URL) async throws -> Data { try result.get() }
+private struct FakeMirachAPI: MirachAPI {
+    let result: Result<VersionInfo, any Error>
+    func version() async throws -> VersionInfo { try result.get() }
 }
 
 @MainActor
 struct ApiVersionViewModelTests {
-    private func makeViewModel(_ result: Result<Data, any Error>) -> ApiVersionViewModel {
-        ApiVersionViewModel(client: FakeHTTPClient(result: result))
+    private func makeViewModel(_ result: Result<VersionInfo, any Error>) -> ApiVersionViewModel {
+        ApiVersionViewModel(api: FakeMirachAPI(result: result))
     }
 
+    private let sample = VersionInfo(version: "1.2.3", commit: "abc1234")
+
     @Test func startsIdle() {
-        #expect(makeViewModel(.success(Data())).state == .idle)
+        #expect(makeViewModel(.success(sample)).state == .idle)
     }
 
     @Test func loadsVersionAndCommit() async {
-        let body = Data(#"{"version":"1.2.3","commit":"abc1234","extra":true}"#.utf8)
-        let viewModel = makeViewModel(.success(body))
+        let viewModel = makeViewModel(.success(sample))
 
         await viewModel.load()
 
@@ -51,7 +52,7 @@ struct ApiVersionViewModelTests {
     }
 
     @Test func reportsBadStatus() async {
-        let viewModel = makeViewModel(.failure(HTTPError.badStatus(503)))
+        let viewModel = makeViewModel(.failure(APIError.badStatus(503)))
 
         await viewModel.load()
 
@@ -77,7 +78,7 @@ struct ApiVersionViewModelTests {
     }
 
     @Test func reportsDecodingFailure() async {
-        let viewModel = makeViewModel(.success(Data(#"{"unexpected":1}"#.utf8)))
+        let viewModel = makeViewModel(.failure(DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "test"))))
 
         await viewModel.load()
 
