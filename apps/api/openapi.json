@@ -410,6 +410,23 @@
         ],
         "type": "object"
       },
+      "CuentaErrorResponse": {
+        "additionalProperties": false,
+        "description": "Error body for DELETE /api/cuenta.",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
+        ],
+        "type": "object"
+      },
       "DetalleBucketResponse": {
         "additionalProperties": false,
         "description": "GET /api/buckets/:bucket — bucket drill-down (US-017).",
@@ -2096,6 +2113,46 @@
           }
         },
         "summary": "Rename and/or re-bucket a category"
+      }
+    },
+    "/api/cuenta": {
+      "delete": {
+        "description": "Authenticated endpoint that permanently deletes the CALLER's account in one transaction: every session (all devices), transaction, ingestion, classification pattern, category, bank account and the user itself. Requires x-api-key + a valid session and the explicit body confirmation \"ELIMINAR\" (a valid session alone is not enough). Irreversible. External identity tokens are revoked best-effort first; a revocation failure never blocks the deletion. The session cookie is cleared on success; a repeated call with the now-deleted session answers 401.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "confirmacion": {
+                    "description": "Must be exactly \"ELIMINAR\" to confirm the deletion.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Account and data deleted. No response body."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuentaErrorResponse"
+                }
+              }
+            },
+            "description": "Missing or wrong confirmation (code CONFIRMACION_INVALIDA). Nothing was deleted."
+          },
+          "401": {
+            "description": "No valid session (missing, expired, or invalid token)."
+          }
+        },
+        "summary": "Delete the current account and all its data"
       }
     },
     "/api/ingestas": {
