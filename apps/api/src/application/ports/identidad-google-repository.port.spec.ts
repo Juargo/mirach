@@ -6,7 +6,6 @@ describe('identidad-google-repository.port', () => {
   it('buscarPorGoogleSub resuelve un UsuarioVinculable o null', async () => {
     const usuario: UsuarioVinculable = {
       userId: 'user-1',
-      esDemo: false,
       googleSub: 'sub-abc',
     };
     const repo = makeMockIdentidadGoogleRepository({ porGoogleSub: usuario });
@@ -41,7 +40,6 @@ describe('identidad-google-repository.port', () => {
   it('buscarPorId (VINC041-03/04) resuelve un UsuarioVinculable o null — proyección por PK', async () => {
     const usuario: UsuarioVinculable = {
       userId: 'user-1',
-      esDemo: false,
       googleSub: null,
     };
     const repo = makeMockIdentidadGoogleRepository({ porId: usuario });

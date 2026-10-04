@@ -6,8 +6,7 @@ import {
 /**
  * Double compartido por `login-con-google.use-case.spec.ts` e
  * `identidad-google-repository.port.spec.ts` (dedupe post-review, A7).
- * Pin del shape (design §5.2): un rol (ISP) — sin filtrar
- * demo en el repo (eso es responsabilidad del use case).
+ * Pin del shape (design §5.2): un rol (ISP).
  *
  * `crear` (ADR-041): el userId que retorna `crearDesdeGoogle`, o `null` para
  * simular la carrera de creación perdida (P2002). Default permisivo

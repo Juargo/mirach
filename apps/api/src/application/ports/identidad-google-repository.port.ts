@@ -3,13 +3,9 @@ import { Email } from '../../domain/value-objects/email';
 /**
  * UsuarioVinculable — proyección mínima de un usuario, para la resolución de
  * identidad de `LoginConGoogleUseCase` (design §5.2).
- *
- * `esDemo` se retorna en lugar de filtrarse en SQL: la regla de negocio
- * (excluir demo del link/lookup) vive en el use case, no en el repositorio.
  */
 export interface UsuarioVinculable {
   readonly userId: string;
-  readonly esDemo: boolean;
   readonly googleSub: string | null;
 }
 
@@ -45,8 +41,8 @@ export interface IIdentidadGoogleRepository {
   /**
    * VINC041-03/04. Proyección por PK — el vínculo explícito conoce su propio
    * `userId` (viene firmado, `link-intent.ts`) y no busca por email ni por
-   * sub. `esDemo` viaja en la proyección porque el callback NO tiene sesión:
-   * el gate demo se DERIVA de la fila, no de un input (design §2/D-05).
+   * sub. El callback NO tiene sesión: el estado se DERIVA de la fila, no de
+   * un input (design §2/D-05).
    */
   buscarPorId(userId: string): Promise<UsuarioVinculable | null>;
 

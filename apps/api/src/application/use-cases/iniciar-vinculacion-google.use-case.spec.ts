@@ -23,13 +23,11 @@ const CREDENCIAL_OK: CredencialUsuario = {
 
 const NO_VINCULADO: UsuarioVinculable = {
   userId: 'user-1',
-  esDemo: false,
   googleSub: null,
 };
 
 const YA_VINCULADO: UsuarioVinculable = {
   userId: 'user-1',
-  esDemo: false,
   googleSub: 'sub-existente',
 };
 

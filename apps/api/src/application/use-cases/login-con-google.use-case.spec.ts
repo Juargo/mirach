@@ -73,7 +73,6 @@ describe('LoginConGoogleUseCase', () => {
     it('issues a session and never looks up by email', async () => {
       const usuario: UsuarioVinculable = {
         userId: 'user-1',
-        esDemo: false,
         googleSub: 'google-sub-abc',
       };
       const identidades = makeMockIdentidades({ porGoogleSub: usuario });
@@ -103,7 +102,6 @@ describe('LoginConGoogleUseCase', () => {
     it('links googleSub and issues a session', async () => {
       const usuario: UsuarioVinculable = {
         userId: 'user-2',
-        esDemo: false,
         googleSub: null,
       };
       const identidades = makeMockIdentidades({
@@ -198,7 +196,6 @@ describe('LoginConGoogleUseCase', () => {
     it('does NOT log at info level when the account already existed (link/match paths)', async () => {
       const usuario: UsuarioVinculable = {
         userId: 'user-2',
-        esDemo: false,
         googleSub: null,
       };
       const identidades = makeMockIdentidades({
@@ -235,7 +232,6 @@ describe('LoginConGoogleUseCase', () => {
     it('lost creation race, winner holds OUR sub → logs into the winner', async () => {
       const ganador: UsuarioVinculable = {
         userId: 'user-ganador',
-        esDemo: false,
         googleSub: 'google-sub-abc',
       };
       const identidades = makeMockIdentidades({
@@ -334,7 +330,7 @@ describe('LoginConGoogleUseCase', () => {
     it('an email match (link path) NEVER creates an account', async () => {
       const identidades = makeMockIdentidades({
         porGoogleSub: null,
-        porEmail: { userId: 'user-2', esDemo: false, googleSub: null },
+        porEmail: { userId: 'user-2', googleSub: null },
         vincular: true,
       });
       const { uc } = makeUseCase(identidades);
@@ -349,7 +345,6 @@ describe('LoginConGoogleUseCase', () => {
     it('fails with the generic error, no overwrite, vincularGoogleSub never called', async () => {
       const usuarioYaLinkeado: UsuarioVinculable = {
         userId: 'user-3',
-        esDemo: false,
         googleSub: 'otro-sub-distinto',
       };
       const identidades = makeMockIdentidades({
@@ -371,7 +366,6 @@ describe('LoginConGoogleUseCase', () => {
     it('fails with the generic error', async () => {
       const usuario: UsuarioVinculable = {
         userId: 'user-4',
-        esDemo: false,
         googleSub: null,
       };
       const identidades = makeMockIdentidades({
@@ -452,14 +446,14 @@ describe('LoginConGoogleUseCase', () => {
           identidad: IDENTIDAD_BASE,
           identidades: makeMockIdentidades({
             porGoogleSub: null,
-            porEmail: { userId: 'u', esDemo: false, googleSub: 'otro-sub' },
+            porEmail: { userId: 'u', googleSub: 'otro-sub' },
           }),
         },
         {
           identidad: IDENTIDAD_BASE,
           identidades: makeMockIdentidades({
             porGoogleSub: null,
-            porEmail: { userId: 'u', esDemo: false, googleSub: null },
+            porEmail: { userId: 'u', googleSub: null },
             vincular: false,
           }),
         },
@@ -491,7 +485,6 @@ describe('LoginConGoogleUseCase', () => {
     it('emite eventos debug en cada paso del happy path de link-and-login', async () => {
       const usuario: UsuarioVinculable = {
         userId: 'user-2',
-        esDemo: false,
         googleSub: null,
       };
       const identidades = makeMockIdentidades({
@@ -519,7 +512,6 @@ describe('LoginConGoogleUseCase', () => {
     it('NUNCA incluye el email, el googleSub o un token en los contexts logueados (ADR-013)', async () => {
       const usuario: UsuarioVinculable = {
         userId: 'user-2',
-        esDemo: false,
         googleSub: null,
       };
       const identidades = makeMockIdentidades({

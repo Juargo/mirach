@@ -42,7 +42,6 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
 
   const userIdVinculado = `user-linked-${RUN_ID}`;
   const userIdPorEmail = `user-by-email-${RUN_ID}`;
-  const userIdDemo = `user-demo-${RUN_ID}`;
   const userIdRaceMismaFila = `user-race-same-${RUN_ID}`;
   const userIdRaceFilaA = `user-race-a-${RUN_ID}`;
   const userIdRaceFilaB = `user-race-b-${RUN_ID}`;
@@ -54,7 +53,6 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
   const TODOS_LOS_IDS = [
     userIdVinculado,
     userIdPorEmail,
-    userIdDemo,
     userIdRaceMismaFila,
     userIdRaceFilaA,
     userIdRaceFilaB,
@@ -70,7 +68,6 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
         id: userIdVinculado,
         nombre: 'Ya vinculado',
         googleSub: `sub-linked-${RUN_ID}`,
-        esDemo: false,
       },
     });
 
@@ -86,16 +83,6 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
         // de login por contraseña, design §5.2) también encuentre esta fila
         // y así probar la comparación cruzada de abajo.
         passwordHash: 'irrelevant-hash-for-this-test',
-        esDemo: false,
-      },
-    });
-
-    await prisma.user.create({
-      data: {
-        id: userIdDemo,
-        nombre: 'Demo',
-        googleSub: `sub-demo-${RUN_ID}`,
-        esDemo: true,
       },
     });
 
@@ -103,14 +90,13 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
       data: {
         id: userIdRaceMismaFila,
         nombre: 'Race — misma fila',
-        esDemo: false,
       },
     });
     await prisma.user.create({
-      data: { id: userIdRaceFilaA, nombre: 'Race — fila A', esDemo: false },
+      data: { id: userIdRaceFilaA, nombre: 'Race — fila A' },
     });
     await prisma.user.create({
-      data: { id: userIdRaceFilaB, nombre: 'Race — fila B', esDemo: false },
+      data: { id: userIdRaceFilaB, nombre: 'Race — fila B' },
     });
 
     await prisma.user.create({
@@ -119,7 +105,6 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
         nombre: 'Desvincular — sin password',
         passwordHash: null,
         googleSub: `sub-unlink-no-pw-${RUN_ID}`,
-        esDemo: false,
       },
     });
     await prisma.user.create({
@@ -128,7 +113,6 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
         nombre: 'Desvincular — con password',
         passwordHash: 'irrelevant-hash-for-this-test',
         googleSub: `sub-unlink-with-pw-${RUN_ID}`,
-        esDemo: false,
       },
     });
   });
@@ -143,18 +127,7 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
 
     expect(resultado).toEqual({
       userId: userIdVinculado,
-      esDemo: false,
       googleSub: `sub-linked-${RUN_ID}`,
-    });
-  });
-
-  it('buscarPorGoogleSub — filas demo se exponen con esDemo: true', async () => {
-    const resultado = await repo.buscarPorGoogleSub(`sub-demo-${RUN_ID}`);
-
-    expect(resultado).toEqual({
-      userId: userIdDemo,
-      esDemo: true,
-      googleSub: `sub-demo-${RUN_ID}`,
     });
   });
 
@@ -168,7 +141,6 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
 
     expect(porGoogle).toEqual({
       userId: userIdPorEmail,
-      esDemo: false,
       googleSub: null,
     });
     // Ambos repositorios resuelven a la MISMA fila a través de la MISMA

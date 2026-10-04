@@ -13,11 +13,10 @@ import { authMeResponseSchema } from './auth-me.schema';
  * covers the schema's structural shape in isolation.
  */
 describe('authMeResponseSchema', () => {
-  it('parses a real (non-demo) user shape', () => {
+  it('parses a user shape', () => {
     const parsed = authMeResponseSchema.parse({
       userId: 'u1',
       nombre: 'Jorge',
-      esDemo: false,
       email: 'a@b.cl',
       googleVinculado: false,
     });
@@ -25,29 +24,15 @@ describe('authMeResponseSchema', () => {
     expect(parsed).toEqual({
       userId: 'u1',
       nombre: 'Jorge',
-      esDemo: false,
       email: 'a@b.cl',
       googleVinculado: false,
     });
-  });
-
-  it('parses a demo user shape with email: null', () => {
-    const parsed = authMeResponseSchema.parse({
-      userId: 'demo-1',
-      nombre: 'Demo',
-      esDemo: true,
-      email: null,
-      googleVinculado: false,
-    });
-
-    expect(parsed.email).toBeNull();
   });
 
   it('rejects a body missing nombre (US-040 delta — now required)', () => {
     expect(() =>
       authMeResponseSchema.parse({
         userId: 'u1',
-        esDemo: false,
         email: null,
         googleVinculado: false,
       }),
@@ -59,7 +44,6 @@ describe('authMeResponseSchema', () => {
       authMeResponseSchema.parse({
         userId: 'u1',
         nombre: 'Jorge',
-        esDemo: false,
         email: null,
       }),
     ).toThrow();
@@ -69,7 +53,6 @@ describe('authMeResponseSchema', () => {
     const parsed = authMeResponseSchema.parse({
       userId: 'u1',
       nombre: 'Jorge',
-      esDemo: false,
       email: 'a@b.cl',
       googleVinculado: true,
     });
@@ -82,7 +65,6 @@ describe('authMeResponseSchema', () => {
       authMeResponseSchema.parse({
         userId: 'u1',
         nombre: 'Jorge',
-        esDemo: false,
         email: null,
         googleVinculado: 'false',
       }),
@@ -90,14 +72,13 @@ describe('authMeResponseSchema', () => {
   });
 
   it(
-    'does NOT reject a non-demo user with email: null — transport shape only. ' +
-      'The cross-field invariant (esDemo=false requires a non-null email) is a ' +
+    'does NOT reject a user with email: null — transport shape only. ' +
+      'The invariant (a user requires a non-null email) is a ' +
       'DOMAIN rule (buscarIdentidad), not enforced at this boundary schema.',
     () => {
       const result = authMeResponseSchema.safeParse({
         userId: 'u1',
         nombre: 'Jorge',
-        esDemo: false,
         email: null,
         googleVinculado: false,
       });
@@ -106,29 +87,9 @@ describe('authMeResponseSchema', () => {
     },
   );
 
-  it('rejects a payload missing esDemo', () => {
-    expect(() =>
-      authMeResponseSchema.parse({
-        userId: 'u1',
-        email: 'a@b.cl',
-        googleVinculado: false,
-      }),
-    ).toThrow();
-  });
-
-  it('rejects esDemo as a non-boolean', () => {
-    expect(() =>
-      authMeResponseSchema.parse({
-        userId: 'u1',
-        esDemo: 'false',
-        email: null,
-      }),
-    ).toThrow();
-  });
-
   it('rejects email as a non-string, non-null value', () => {
     expect(() =>
-      authMeResponseSchema.parse({ userId: 'u1', esDemo: false, email: 42 }),
+      authMeResponseSchema.parse({ userId: 'u1', email: 42 }),
     ).toThrow();
   });
 });

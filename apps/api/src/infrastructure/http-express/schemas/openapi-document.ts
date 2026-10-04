@@ -388,7 +388,7 @@ const ingestaDeleteOperation: ZodOpenApiOperationObject = {
 const authMeOperation: ZodOpenApiOperationObject = {
   summary: 'Current session identity',
   description:
-    'Authenticated endpoint returning the identity of the current session (AUTH-09, DEMO-AUTH-05). ' +
+    'Authenticated endpoint returning the identity of the current session (AUTH-09). ' +
     'Requires x-api-key + a valid session.',
   responses: {
     '200': {

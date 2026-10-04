@@ -55,10 +55,7 @@
                 "type": "null"
               }
             ],
-            "description": "null only for esDemo=true (demo) accounts — a domain invariant, not enforced by this schema."
-          },
-          "esDemo": {
-            "type": "boolean"
+            "description": "Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema."
           },
           "googleVinculado": {
             "description": "VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.",
@@ -74,7 +71,6 @@
         "required": [
           "userId",
           "nombre",
-          "esDemo",
           "email",
           "googleVinculado"
         ],
@@ -1707,7 +1703,7 @@
     },
     "/api/auth/me": {
       "get": {
-        "description": "Authenticated endpoint returning the identity of the current session (AUTH-09, DEMO-AUTH-05). Requires x-api-key + a valid session.",
+        "description": "Authenticated endpoint returning the identity of the current session (AUTH-09). Requires x-api-key + a valid session.",
         "responses": {
           "200": {
             "content": {

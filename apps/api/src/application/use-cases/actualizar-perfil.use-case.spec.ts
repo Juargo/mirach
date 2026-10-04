@@ -15,7 +15,6 @@ import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 const IDENTIDAD_OK: IdentidadUsuario = {
   userId: 'user-1',
-  esDemo: false,
   nombre: 'Jorge',
   email: 'jorge@example.com',
   googleVinculado: false,

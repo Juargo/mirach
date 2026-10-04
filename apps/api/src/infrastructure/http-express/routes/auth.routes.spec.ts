@@ -152,7 +152,6 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
           userId: 'user-x',
           nombre: 'Jorge',
           email: 'a@b.cl',
-          esDemo: false,
           googleVinculado: false,
         }),
       ),
@@ -164,7 +163,6 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
       userId: 'user-x',
       nombre: 'Jorge',
       email: 'a@b.cl',
-      esDemo: false,
       googleVinculado: false,
     });
     expect(uc.execute).toHaveBeenCalledWith({ userId: 'user-x' });
@@ -177,7 +175,6 @@ describe('registrarAuthMe — GET /api/auth/me', () => {
           userId: 'user-x',
           nombre: 'Jorge',
           email: 'a@b.cl',
-          esDemo: false,
           googleVinculado: true,
         }),
       ),

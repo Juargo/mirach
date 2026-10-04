@@ -28,7 +28,6 @@ describe('ObtenerIdentidadUseCase', () => {
       userId: 'user-1',
       nombre: 'Jorge',
       email: 'jorge@example.com',
-      esDemo: false,
       googleVinculado: false,
     };
     const creds = makeMockCreds(identidad);
@@ -51,30 +50,12 @@ describe('ObtenerIdentidadUseCase', () => {
     expect(result.getError()).toBeInstanceOf(SesionInvalidaError);
   });
 
-  it('found (usuario demo) → pasa esDemo=true y email=null tal cual del repositorio (DEMO-AUTH-05)', async () => {
-    const identidad: IdentidadUsuario = {
-      userId: 'user-demo-1',
-      nombre: 'Demo',
-      email: null,
-      esDemo: true,
-      googleVinculado: false,
-    };
-    const creds = makeMockCreds(identidad);
-    const uc = new ObtenerIdentidadUseCase(creds, new NoOpLogger());
-
-    const result = await uc.execute({ userId: 'user-demo-1' });
-
-    expect(result.isOk()).toBe(true);
-    expect(result.getValue()).toEqual(identidad);
-  });
-
   describe('debug logging (ADR-033 slice A — redaction contract, ADR-013)', () => {
     it('NUNCA incluye el email en los contexts logueados', async () => {
       const identidad: IdentidadUsuario = {
         userId: 'user-1',
         nombre: 'Jorge',
         email: 'jorge@example.com',
-        esDemo: false,
         googleVinculado: false,
       };
       const creds = makeMockCreds(identidad);

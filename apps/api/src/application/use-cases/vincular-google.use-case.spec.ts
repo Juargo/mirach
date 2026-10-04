@@ -30,7 +30,6 @@ describe('VincularGoogleUseCase', () => {
     const identidades = makeIdentidades({
       buscarPorId: vi.fn().mockResolvedValue({
         userId: 'user-1',
-        esDemo: false,
         googleSub: null,
       } satisfies UsuarioVinculable),
     });
@@ -50,7 +49,6 @@ describe('VincularGoogleUseCase', () => {
     const identidades = makeIdentidades({
       buscarPorId: vi.fn().mockResolvedValue({
         userId: 'user-1',
-        esDemo: false,
         googleSub: 'sub-ya-linkeado',
       } satisfies UsuarioVinculable),
     });
@@ -69,7 +67,6 @@ describe('VincularGoogleUseCase', () => {
     const identidades = makeIdentidades({
       buscarPorId: vi.fn().mockResolvedValue({
         userId: 'user-1',
-        esDemo: false,
         googleSub: 'otro-sub-distinto',
       } satisfies UsuarioVinculable),
     });
@@ -89,11 +86,9 @@ describe('VincularGoogleUseCase', () => {
       buscarPorId: vi.fn().mockResolvedValue({
         userId: 'user-A',
         googleSub: null,
-        esDemo: false,
       } satisfies UsuarioVinculable),
       buscarPorGoogleSub: vi.fn().mockResolvedValue({
         userId: 'user-B',
-        esDemo: false,
         googleSub: 'sub-X',
       } satisfies UsuarioVinculable),
     });
@@ -124,7 +119,6 @@ describe('VincularGoogleUseCase', () => {
     const identidades = makeIdentidades({
       buscarPorId: vi.fn().mockResolvedValue({
         userId: 'user-1',
-        esDemo: false,
         googleSub: null,
       } satisfies UsuarioVinculable),
       vincularGoogleSub: vi.fn().mockResolvedValue(false),
@@ -143,7 +137,6 @@ describe('VincularGoogleUseCase', () => {
     const identidades = makeIdentidades({
       buscarPorId: vi.fn().mockResolvedValue({
         userId: 'user-1',
-        esDemo: false,
         googleSub: null,
       } satisfies UsuarioVinculable),
     });
