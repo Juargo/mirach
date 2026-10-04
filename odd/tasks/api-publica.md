@@ -50,6 +50,7 @@ Make the API fit for a public native app in the App Store and Google Play: sign-
 - Public web page to request deletion (Google Play) → landing, plan phase 9.
 - Apple Developer / Google Cloud console setup (bundle ID, Services ID, client IDs, `.p8`) → user, before T2–T4 can be tried live.
 - Native token routes (Google and Apple) answer infrastructure failures (DB down, JWKS timeout) with the generic 401 and count them against the rate limiter; return 5xx instead and stop counting them (both routes together).
+- Syntactically malformed JSON on ANY route gets 500 from the shared `errorMiddleware` (the `express.json()` parse error is treated as an internal error). It is a client error: map the body-parser `entity.parse.failed` error to 400 in the shared middleware, with a test. Found while closing T3.
 
 ## Delivery
 
