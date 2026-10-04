@@ -275,6 +275,10 @@
           "bucket": {
             "type": "string"
           },
+          "esInterna": {
+            "description": "true for a system category (the per-bucket \"Desconocido\"). Such a category cannot be renamed, re-bucketed or deleted: PATCH/DELETE /api/categorias/{id} answer 403 CATEGORIA_INTERNA.",
+            "type": "boolean"
+          },
           "icono": {
             "anyOf": [
               {
@@ -331,7 +335,8 @@
           "nombre",
           "bucket",
           "patrones",
-          "transaccionesCount"
+          "transaccionesCount",
+          "esInterna"
         ],
         "type": "object"
       },

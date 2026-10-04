@@ -6,6 +6,7 @@ import { Result } from '../../../shared/result';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
+import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { MatchTypeInvalidoError } from '../../../domain/errors/match-type-invalido.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
@@ -18,6 +19,14 @@ const CATEGORIA_OK = {
   patrones: [],
   transaccionesCount: 0,
   icono: null,
+  esInterna: false,
+};
+
+const CATEGORIA_INTERNA_OK = {
+  ...CATEGORIA_OK,
+  id: 'cat-interna',
+  nombre: 'Desconocido',
+  esInterna: true,
 };
 
 function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
@@ -63,6 +72,7 @@ describe('registrarCategorias', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.categorias).toHaveLength(1);
+      expect(res.body.categorias[0].esInterna).toBe(false);
       expect(catalogo.listarCatalogo.execute).toHaveBeenCalledWith({
         userId: 'user-x',
       });
@@ -78,6 +88,7 @@ describe('registrarCategorias', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.id).toBe('cat-1');
+      expect(res.body.esInterna).toBe(false);
       expect(catalogo.crearCategoria.execute).toHaveBeenCalledWith({
         userId: 'user-x',
         nombre: 'Mascotas',
@@ -366,6 +377,39 @@ describe('registrarCategorias', () => {
       expect(res.body).toHaveProperty('icono');
     });
 
+    it('response body carries esInterna, true for a system category', async () => {
+      const catalogo = makeCatalogo({
+        actualizarCategoria: {
+          execute: vi.fn().mockResolvedValue(Result.ok(CATEGORIA_INTERNA_OK)),
+        } as unknown as CatalogoGraph['actualizarCategoria'],
+      });
+      const res = await request(probeApp(catalogo))
+        .patch('/api/categorias/cat-interna')
+        .send({ nombre: 'Renombrada' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.esInterna).toBe(true);
+    });
+
+    it('403 CATEGORIA_INTERNA when the category is a protected system category', async () => {
+      const catalogo = makeCatalogo({
+        actualizarCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new CategoriaInternaProtegidaError('cat-interna')),
+            ),
+        } as unknown as CatalogoGraph['actualizarCategoria'],
+      });
+      const res = await request(probeApp(catalogo))
+        .patch('/api/categorias/cat-interna')
+        .send({ nombre: 'Renombrada' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('CATEGORIA_INTERNA');
+      expect(typeof res.body.message).toBe('string');
+    });
+
     it('400 ICONO_INVALIDO when the use case rejects an out-of-allowlist icono (CATICO-03)', async () => {
       const catalogo = makeCatalogo({
         actualizarCategoria: {
@@ -416,6 +460,25 @@ describe('registrarCategorias', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
+    });
+
+    it('403 CATEGORIA_INTERNA when the category is a protected system category', async () => {
+      const catalogo = makeCatalogo({
+        eliminarCategoria: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new CategoriaInternaProtegidaError('cat-interna')),
+            ),
+        } as unknown as CatalogoGraph['eliminarCategoria'],
+      });
+      const res = await request(probeApp(catalogo)).delete(
+        '/api/categorias/cat-interna',
+      );
+
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('CATEGORIA_INTERNA');
+      expect(typeof res.body.message).toBe('string');
     });
   });
 });

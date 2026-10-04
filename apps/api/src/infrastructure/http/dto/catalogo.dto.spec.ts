@@ -24,6 +24,7 @@ describe('aCatalogoDto', () => {
           patrones: [],
           transaccionesCount: 0,
           icono: null,
+          esInterna: false,
         },
       ],
     });

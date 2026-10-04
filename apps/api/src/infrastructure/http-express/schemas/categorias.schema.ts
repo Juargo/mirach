@@ -109,6 +109,17 @@ export const categoriaResponseSchema = z
      * ~33 pre-existing client fixtures that build this shape via literals.
      */
     icono: z.string().nullable().optional(),
+    /**
+     * #778 — system category flag (`Categoria.esInterna`). Always present on
+     * the wire (the mapper reads a required column), so it is NOT optional:
+     * generated native clients get a non-nullable Bool.
+     */
+    esInterna: z
+      .boolean()
+      .describe(
+        'true for a system category (the per-bucket "Desconocido"). Such a category cannot be ' +
+          'renamed, re-bucketed or deleted: PATCH/DELETE /api/categorias/{id} answer 403 CATEGORIA_INTERNA.',
+      ),
   })
   .meta({
     id: 'CategoriaResponse',
