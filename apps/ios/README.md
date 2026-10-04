@@ -64,7 +64,7 @@ apps/ios/
   MirachUITests/         pruebas de interfaz
 ```
 
-`Info.plist` y `Mirach.entitlements` los escribe XcodeGen desde `project.yml` (incluye la capacidad "Sign in with Apple").
+`Info.plist` y `Mirach.entitlements` también los escribe XcodeGen desde `project.yml` en cada `generate` (incluye la capacidad "Sign in with Apple"), así que están en `.gitignore` y no se commitean: la versión (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`) y los permisos tienen una sola fuente y no pueden divergir. XcodeGen no necesita que existan de antemano; basta con ejecutar `./scripts/generate.sh` tras clonar.
 
 ## Conceptos de SwiftUI de la primera pantalla
 

@@ -9,6 +9,8 @@ final class MirachUITests: XCTestCase {
     func testFirstScreenShowsTitleAndStubbedVersion() {
         let app = XCUIApplication()
         // Makes the app use a canned client instead of the real network.
+        // Must match AppEnvironment.stubbedClientArgument (the UI test bundle
+        // cannot import app code, so the literal is duplicated on purpose).
         app.launchArguments += ["-uiTestStubbedClient"]
         app.launch()
 

@@ -38,6 +38,7 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 
 - ADR-048 written (XcodeGen, iOS 17, `apps/ios/`, `mirachbudget.app`, `app.mirachbudget.ios`).
 - T1 done (2026-10-04): XcodeGen skeleton in `apps/ios/`; observed RED (view model missing) then GREEN; `xcodebuild build` succeeded, `xcodebuild test` passed (6 Swift Testing + 1 XCUITest, stubbed client via `-uiTestStubbedClient`); app ran in the iPhone 18 Pro simulator showing live `/version` 0.10.0, commit `87a1aee`.
+- T1 review fixes (2026-10-04): `URLError(.cancelled)` now maps to cancellation (RED observed, then GREEN); HTTP error statuses get their own server-unavailable message; `CFBundleShortVersionString`/`CFBundleVersion` map to the build settings (built app reports 0.1.0); generated `Info.plist`/`.entitlements` untracked and git-ignored; retry uses `.task(id:)` instead of an unstructured `Task`; ADR-048 status row updated.
 
 ## Next step
 

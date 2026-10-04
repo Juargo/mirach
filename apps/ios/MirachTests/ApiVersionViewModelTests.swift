@@ -35,7 +35,7 @@ struct ApiVersionViewModelTests {
             Issue.record("expected .failed, got \(viewModel.state)")
             return
         }
-        #expect(message.contains("conectar"))
+        #expect(message == "No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.")
     }
 
     @Test func reportsTimeoutWithDedicatedMessage() async {
@@ -55,7 +55,25 @@ struct ApiVersionViewModelTests {
 
         await viewModel.load()
 
-        #expect({ if case .failed = viewModel.state { true } else { false } }())
+        #expect(viewModel.state == .failed(
+            "El servidor no está disponible en este momento. Intenta de nuevo en unos segundos."
+        ))
+    }
+
+    @Test func treatsCancellationErrorAsCancellation() async {
+        let viewModel = makeViewModel(.failure(CancellationError()))
+
+        await viewModel.load()
+
+        #expect(viewModel.state == .idle)
+    }
+
+    @Test func treatsURLErrorCancelledAsCancellation() async {
+        let viewModel = makeViewModel(.failure(URLError(.cancelled)))
+
+        await viewModel.load()
+
+        #expect(viewModel.state == .idle)
     }
 
     @Test func reportsDecodingFailure() async {

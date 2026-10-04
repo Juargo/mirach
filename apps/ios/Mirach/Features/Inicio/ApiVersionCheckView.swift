@@ -3,6 +3,8 @@ import SwiftUI
 /// TEMPORARY screen: shows the API version to prove networking works.
 struct ApiVersionCheckView: View {
     @State private var viewModel: ApiVersionViewModel
+    /// Bumping this restarts the `.task(id:)` below, so retry stays structured.
+    @State private var retryCount = 0
 
     init(viewModel: ApiVersionViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -15,8 +17,9 @@ struct ApiVersionCheckView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationTitle("Conexión con la API")
         }
-        // Runs when the view appears; SwiftUI cancels it when the view goes away.
-        .task { await viewModel.load() }
+        // Runs when the view appears and again whenever `retryCount` changes;
+        // SwiftUI cancels it when the view goes away.
+        .task(id: retryCount) { await viewModel.load() }
     }
 
     @ViewBuilder
@@ -37,7 +40,7 @@ struct ApiVersionCheckView: View {
         case .failed(let message):
             VStack(spacing: 12) {
                 Text(message).multilineTextAlignment(.center)
-                Button("Reintentar") { Task { await viewModel.load() } }
+                Button("Reintentar") { retryCount += 1 }
                     .buttonStyle(.borderedProminent)
             }
         }

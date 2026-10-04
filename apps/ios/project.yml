@@ -30,17 +30,19 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"         # 1 = iPhone only
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-    # XcodeGen writes this entitlements file from `properties` on every generate.
+    # XcodeGen writes this entitlements file from `properties` on every generate (git-ignored).
     entitlements:
       path: Mirach/Mirach.entitlements
       properties:
         com.apple.developer.applesignin: [Default]
-    # XcodeGen also writes Info.plist from `properties`, so there is no
-    # hand-edited plist to drift.
+    # XcodeGen writes Info.plist from `properties` on every generate (git-ignored),
+    # and versions map to the build settings above so they cannot drift.
     info:
       path: Mirach/Info.plist
       properties:
         CFBundleDisplayName: Mirach
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}                  # empty = default launch screen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

@@ -5,3 +5,5 @@ DerivedData/
 xcuserdata/
 build/
 .DS_Store
+Mirach/Info.plist
+Mirach/Mirach.entitlements
