@@ -37,8 +37,10 @@ export interface AuthAppleTokenDeps {
  * pre-existente; un alta nunca resetea, así un IP no crea cuentas sin límite.
  * El body 200 es idéntico para ambos casos (`esNuevoUsuario` no se serializa).
  *
- * Una forma de body inválida NO es 400: toma el 401 genérico, igual que un
- * fallo de verificación. Todo throw inesperado de un colaborador también. El
+ * Un body JSON bien formado pero inválido NO es 400: toma el 401 genérico,
+ * igual que un fallo de verificación. Un JSON sintácticamente malformado no
+ * llega al handler: lo rechaza `express.json()` y responde el
+ * `errorMiddleware` compartido (500 genérico). Todo throw inesperado de un colaborador también. El
  * log distingue la causa (`.warn` + `motivo` para fallos modelados, `.error` +
  * `errorName` para excepciones) pero nunca incluye el token, el nonce, el
  * nombre, el email ni el `sub`.

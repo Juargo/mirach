@@ -245,6 +245,17 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
     expect(res.body).toEqual(GENERIC_401_BODY);
   });
 
+  it('JSON malformado → lo rechaza el parser compartido con el 500 del errorMiddleware, no el 401 genérico', async () => {
+    const res = await request(tokenApp(deps()))
+      .post('/api/auth/google/token')
+      .set('Content-Type', 'application/json')
+      .send('{"idToken": ');
+
+    // `express.json()` falla antes del handler y `errorMiddleware` responde 500.
+    expect(res.status).toBe(500);
+    expect(res.body).not.toEqual(GENERIC_401_BODY);
+  });
+
   it('AUTH-23: un nonce inesperado en el body es ignorado, no rechazado — happy path procede igual', async () => {
     const res = await request(tokenApp(deps()))
       .post('/api/auth/google/token')

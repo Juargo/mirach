@@ -10,6 +10,7 @@ import { Result } from '../../../shared/result';
 import { LoginConAppleFallidoError } from '../../../domain/errors/login-con-apple-fallido.error';
 import { VerificacionIdentidadFallidaError } from '../../../domain/errors/verificacion-identidad-fallida.error';
 import type { LoginConAppleResult } from '../../../application/use-cases/login-con-apple.use-case';
+import { appLogger } from '../../logging/app-logger';
 import { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 
 /** Body 401 byte-idéntico al de `/auth/login` y al de Google (no enumeración). */
@@ -58,6 +59,18 @@ function tokenApp(d: AuthAppleTokenDeps): Express {
   app.use('/api', router);
   app.use(errorMiddleware);
   return app;
+}
+
+function loginFalla(): Partial<AuthAppleTokenDeps> {
+  return {
+    loginConApple: {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new LoginConAppleFallidoError('email-ausente')),
+        ),
+    } as never,
+  };
 }
 
 const BODY = { identityToken: 'a.b.c', nonce: 'nonce-crudo' };
@@ -243,24 +256,62 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
     expect(estados).toEqual([401, 401, 429, 429]);
   });
 
-  it('nunca loguea el identityToken, el nonce ni el nombre en un 401', async () => {
-    // El contrato de redacción se fija en la ruta: el único contexto que se
-    // loguea es `path` y `motivo`. Se verifica leyendo el motivo del use case.
-    const d = deps({
-      loginConApple: {
-        execute: vi
-          .fn()
-          .mockResolvedValue(
-            Result.fail(new LoginConAppleFallidoError('email-ausente')),
-          ),
-      } as never,
-    });
+  it('ningún log de un 401 contiene el identityToken, el nonce ni el nombre', async () => {
+    const spies = (['debug', 'info', 'warn', 'error'] as const).map((nivel) =>
+      vi.spyOn(appLogger, nivel).mockImplementation(() => {}),
+    );
+    const secretos = [
+      'token.secreto.crudo',
+      'nonce-secreto-crudo',
+      'Nombre Secreto',
+    ];
+    const fallos = [
+      loginFalla(),
+      {
+        verificadorIdToken: {
+          verificarIdToken: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new VerificacionIdentidadFallidaError('x')),
+            ),
+        },
+      },
+      {
+        loginConApple: {
+          execute: vi.fn().mockRejectedValue(new Error('boom')),
+        } as never,
+      },
+    ];
 
-    const res = await request(tokenApp(d))
+    for (const over of fallos) {
+      const res = await request(tokenApp(deps(over)))
+        .post('/api/auth/apple/token')
+        .send({
+          identityToken: secretos[0],
+          nonce: secretos[1],
+          nombre: secretos[2],
+        });
+      expect(res.status).toBe(401);
+    }
+
+    const llamadas = spies.flatMap((spy) => spy.mock.calls);
+    expect(llamadas.length).toBeGreaterThanOrEqual(fallos.length);
+    const logueado = JSON.stringify(llamadas);
+    for (const secreto of secretos) {
+      expect(logueado).not.toContain(secreto);
+    }
+    spies.forEach((spy) => spy.mockRestore());
+  });
+
+  it('JSON malformado → lo rechaza el parser compartido con el 500 del errorMiddleware, no el 401 genérico', async () => {
+    const res = await request(tokenApp(deps()))
       .post('/api/auth/apple/token')
-      .send({ ...BODY, nombre: 'Nombre Secreto' });
+      .set('Content-Type', 'application/json')
+      .send('{"identityToken": ');
 
-    expect(JSON.stringify(res.body)).not.toContain('Nombre Secreto');
+    // `express.json()` falla antes del handler y `errorMiddleware` responde 500.
+    expect(res.status).toBe(500);
+    expect(res.body).not.toEqual(GENERIC_401_BODY);
   });
 });
 

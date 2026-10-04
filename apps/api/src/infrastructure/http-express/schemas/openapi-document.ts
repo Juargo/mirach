@@ -602,7 +602,9 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     'reveals whether the account is pre-existing or just-created. Every failure cause — invalid/' +
     'expired/wrong-audience token, unverified email, an email already linked to a ' +
     'different googleSub, a lost account-creation race, or a JWKS/network failure — produces the ' +
-    'identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration). No Set-Cookie: ' +
+    'identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with ' +
+    'an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler ' +
+    '(the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: ' +
     'mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this ' +
     "endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 " +
     'Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when ' +
@@ -657,12 +659,13 @@ const authAppleTokenOperation: ZodOpenApiOperationObject = {
     'Apple delivers the email and the name only on the FIRST authorization and only if the app requested ' +
     'the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without ' +
     'an email is rejected. The 200 body is identical for login and signup and never reveals which one ' +
-    'happened. Every failure cause — invalid body, invalid/expired/wrong-audience token, nonce mismatch, ' +
+    'happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, ' +
     'unverified or missing email, an email linked to a different appleSub, a lost creation race, or a ' +
     'JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). ' +
     'No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases ' +
     "this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID " +
-    'is not configured.',
+    'is not configured. A syntactically malformed JSON body never reaches the handler: the shared body ' +
+    'parser rejects it and the shared error handler answers a generic 500, not this 401.',
   requestBody: {
     content: {
       'application/json': { schema: authAppleTokenRequestSchema },

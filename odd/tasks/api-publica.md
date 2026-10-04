@@ -49,6 +49,7 @@ Make the API fit for a public native app in the App Store and Google Play: sign-
 
 - Public web page to request deletion (Google Play) → landing, plan phase 9.
 - Apple Developer / Google Cloud console setup (bundle ID, Services ID, client IDs, `.p8`) → user, before T2–T4 can be tried live.
+- Native token routes (Google and Apple) answer infrastructure failures (DB down, JWKS timeout) with the generic 401 and count them against the rate limiter; return 5xx instead and stop counting them (both routes together).
 
 ## Delivery
 
