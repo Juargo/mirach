@@ -169,6 +169,13 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Client ID de OAuth 2.0 (tipo Android) de Google para el login mobile nativo (auth-google-login-mobile, ADR-035). Opcional: activación por presencia, gate TOTALMENTE independiente del par GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET (AUTH-22) — ausente = feature mobile apagada (kill switch código-cero, design §7).',
     ),
+  GOOGLE_CLIENT_ID_IOS: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      'Client ID de OAuth 2.0 (tipo iOS) de Google para el login mobile nativo en iPhone (ADR-035, ADR-046 D8): el id_token que emite Google Sign-In en iOS lleva este client ID como audiencia. Opcional: activación por presencia, igual que GOOGLE_CLIENT_ID_ANDROID — el login mobile se prende con al menos uno de los dos, y el verificador acepta la audiencia de cada uno que esté configurado. Gate TOTALMENTE independiente del par GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET.',
+    ),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info')
@@ -321,10 +328,11 @@ function refineGoogleAuthEnv(
 }
 
 /**
- * Suffix esperado de un Android OAuth 2.0 client ID de Google. Formato de
+ * Suffix esperado de cualquier OAuth 2.0 client ID de Google (Android, iOS y
+ * web comparten el mismo formato; no hay un sufijo por plataforma). Formato de
  * negocio, no de plataforma — Zod no tiene un validador para esto.
  */
-const GOOGLE_ANDROID_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
+const GOOGLE_OAUTH_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
 
 /**
  * Reglas de `auth-google-login-mobile` (ADR-035, design §7) — sibling de
@@ -347,33 +355,43 @@ function refineGoogleAuthMobileEnv(
   env: EnvSource,
   ctx: z.RefinementCtx<EnvSource>,
 ): void {
-  const clientIdAndroid = env.GOOGLE_CLIENT_ID_ANDROID;
+  refineGoogleMobileClientId(env, ctx, 'GOOGLE_CLIENT_ID_ANDROID', 'Android');
+  refineGoogleMobileClientId(env, ctx, 'GOOGLE_CLIENT_ID_IOS', 'iOS');
+}
 
-  if (clientIdAndroid === undefined) {
+/** Misma validación de formato para cada client ID mobile (Android, iOS). */
+function refineGoogleMobileClientId(
+  env: EnvSource,
+  ctx: z.RefinementCtx<EnvSource>,
+  nombre: 'GOOGLE_CLIENT_ID_ANDROID' | 'GOOGLE_CLIENT_ID_IOS',
+  plataforma: 'Android' | 'iOS',
+): void {
+  const clientId = env[nombre];
+
+  if (clientId === undefined) {
     return;
   }
 
   if (
-    clientIdAndroid.trim() === '' ||
-    !clientIdAndroid.endsWith(GOOGLE_ANDROID_CLIENT_ID_SUFFIX)
+    clientId.trim() === '' ||
+    !clientId.endsWith(GOOGLE_OAUTH_CLIENT_ID_SUFFIX)
   ) {
     ctx.addIssue({
       code: 'custom',
-      path: ['GOOGLE_CLIENT_ID_ANDROID'],
+      path: [nombre],
       // El valor NUNCA se interpola: si lo pegado es un client secret (el
       // error que este guard existe para atrapar), interpolarlo lo filtraría
       // a los logs de boot y obligaría a rotarlo (4R Risk, slice A2).
-      message: `GOOGLE_CLIENT_ID_ANDROID no tiene forma de Android OAuth client ID de Google (valor omitido de este mensaje por si es un secret) — se espera que termine en "${GOOGLE_ANDROID_CLIENT_ID_SUFFIX}". Confirmar que no se pegó un client secret o un valor truncado por error.`,
+      message: `${nombre} no tiene forma de ${plataforma} OAuth client ID de Google (valor omitido de este mensaje por si es un secret) — se espera que termine en "${GOOGLE_OAUTH_CLIENT_ID_SUFFIX}". Confirmar que no se pegó un client secret o un valor truncado por error.`,
     });
     return;
   }
 
-  if (clientIdAndroid === env.GOOGLE_CLIENT_ID) {
+  if (clientId === env.GOOGLE_CLIENT_ID) {
     ctx.addIssue({
       code: 'custom',
-      path: ['GOOGLE_CLIENT_ID_ANDROID'],
-      message:
-        'GOOGLE_CLIENT_ID_ANDROID es idéntico a GOOGLE_CLIENT_ID (el client web) — probable copy-paste. Esto ensancharía en silencio la audiencia aceptada por el verificador de id_token mobile al client web (design §7 punto 3). Usar el Android OAuth client ID real.',
+      path: [nombre],
+      message: `${nombre} es idéntico a GOOGLE_CLIENT_ID (el client web) — probable copy-paste. Esto ensancharía en silencio la audiencia aceptada por el verificador de id_token mobile al client web (design §7 punto 3). Usar el ${plataforma} OAuth client ID real.`,
     });
   }
 }

@@ -113,3 +113,16 @@ describe('assertGoogleAuthMobileActivationConsistency (design §7)', () => {
     ).toThrow(/GOOGLE_CLIENT_ID_ANDROID.*googleAuthMobile/s);
   });
 });
+
+describe('assertGoogleAuthMobileActivationConsistency — iOS', () => {
+  it('LANZA cuando GOOGLE_CLIENT_ID_IOS está presente pero googleAuthMobile es undefined', () => {
+    const env = buildTestEnv({
+      GOOGLE_CLIENT_ID_ANDROID: undefined,
+      GOOGLE_CLIENT_ID_IOS: '456-def.apps.googleusercontent.com',
+    });
+
+    expect(() =>
+      assertGoogleAuthMobileActivationConsistency(env, undefined),
+    ).toThrow(/GOOGLE_CLIENT_ID_IOS/);
+  });
+});

@@ -91,6 +91,18 @@ describe('createContainer', () => {
       expect(container.googleAuthMobile!.loginConGoogle).toBeDefined();
     });
 
+    it('es un GoogleAuthMobileGraph definido con SOLO GOOGLE_CLIENT_ID_IOS (iOS primero, ADR-046 D8)', () => {
+      const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
+      const env = buildTestEnv({
+        GOOGLE_CLIENT_ID_ANDROID: undefined,
+        GOOGLE_CLIENT_ID_IOS: '456-def.apps.googleusercontent.com',
+      });
+
+      const container = createContainer(env, fakePrisma);
+
+      expect(container.googleAuthMobile).toBeDefined();
+    });
+
     it('es independiente de googleAuth (web) — ambos gates pueden estar en cualquier combinación', () => {
       const fakePrisma = { $disconnect: vi.fn() } as unknown as PrismaClient;
       const env = buildTestEnv({

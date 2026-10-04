@@ -59,7 +59,9 @@ correr el flujo real en un dispositivo Android.
 
 5. **Configurar Render.** Dashboard del servicio `mirach-api` →
    Environment → agregar `GOOGLE_CLIENT_ID_ANDROID=<client id del paso 2>` →
-   guardar → esperar el restart automático.
+   guardar → esperar el restart automático. Para iPhone, agregar igual
+   `GOOGLE_CLIENT_ID_IOS=<client id tipo iOS>`: el verificador acepta la
+   audiencia de cada client ID configurado y basta uno para prender el login.
 
 6. **Configurar EAS.** En `apps/mobile/eas.json`, agregar al bloque `env` del
    build profile de destino (`production` para el rollout real; `preview`
@@ -113,7 +115,7 @@ correr el flujo real en un dispositivo Android.
    Pegar el resultado de este checklist en el PR o en el ticket de rollout
    correspondiente antes de dar la activación por completa.
 
-9. **Kill switch.** Render → quitar `GOOGLE_CLIENT_ID_ANDROID` → restart. El
+9. **Kill switch.** Render → quitar `GOOGLE_CLIENT_ID_ANDROID` (y `GOOGLE_CLIENT_ID_IOS`, si está) → restart. El
    endpoint vuelve a responder 404 y el botón desaparece en el siguiente
    fetch de capacidades de la app — sin necesidad de un nuevo build ni cambio
    de datos. El login por password no se ve afectado.

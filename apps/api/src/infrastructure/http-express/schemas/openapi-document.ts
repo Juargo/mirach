@@ -471,7 +471,7 @@ const authCapabilitiesOperation: ZodOpenApiOperationObject = {
   description:
     'Public endpoint (requires x-api-key only, session-public — no prior session needed), always ' +
     'mounted regardless of whether GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET (web) or ' +
-    'GOOGLE_CLIENT_ID_ANDROID (mobile) are configured (AC-10). Each client reads its own field ' +
+    'GOOGLE_CLIENT_ID_ANDROID/GOOGLE_CLIENT_ID_IOS (mobile) are configured (AC-10). Each client reads its own field ' +
     '(googleLoginEnabled or googleLoginMobileEnabled) before rendering its own Google-login affordance.',
   responses: {
     '200': {
@@ -604,7 +604,7 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     'mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this ' +
     "endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 " +
     'Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when ' +
-    "GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22) — independent of GET /api/auth/google's " +
+    "neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's " +
     'activation gate.',
   requestBody: {
     content: {
@@ -626,7 +626,7 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     },
     '404': {
       description:
-        'Google login mobile is not active — GOOGLE_CLIENT_ID_ANDROID is not configured (AUTH-22).',
+        'Google login mobile is not active — neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22).',
     },
     '429': {
       description:

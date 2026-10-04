@@ -24,7 +24,7 @@ export const authCapabilitiesResponseSchema = z
     googleLoginMobileEnabled: z
       .boolean()
       .describe(
-        'true when GOOGLE_CLIENT_ID_ANDROID is configured ' +
+        'true when GOOGLE_CLIENT_ID_ANDROID and/or GOOGLE_CLIENT_ID_IOS is configured ' +
           '(container.googleAuthMobile !== undefined), false otherwise (AUTH-22). ' +
           'Computed independently of googleLoginEnabled — either, both, or ' +
           'neither may be true.',

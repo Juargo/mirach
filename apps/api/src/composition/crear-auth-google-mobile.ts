@@ -35,10 +35,26 @@ export interface GoogleAuthMobileGraph {
   readonly googleTokenRateLimiter: IpRateLimiter;
 }
 
+type EnvGoogleMobile = Pick<
+  Env,
+  'GOOGLE_CLIENT_ID_ANDROID' | 'GOOGLE_CLIENT_ID_IOS'
+>;
+
+/**
+ * Audiencias del id_token mobile: solo los client IDs configurados (Android
+ * y/o iOS). Nunca incluye un valor vacío — `loadEnv` ya los validó — y la
+ * lista vacía significa feature apagada.
+ */
+export function audienciasGoogleMobile(env: EnvGoogleMobile): string[] {
+  return [env.GOOGLE_CLIENT_ID_ANDROID, env.GOOGLE_CLIENT_ID_IOS].filter(
+    (id): id is string => id !== undefined,
+  );
+}
+
 /**
  * crearAuthGoogleMobile — ensambla el grafo de login con Google mobile, o
  * `undefined` si el feature está apagado (design §7 — activación por
- * presencia de `GOOGLE_CLIENT_ID_ANDROID`, AUTH-22). El *tipo* del retorno
+ * presencia de `GOOGLE_CLIENT_ID_ANDROID` y/o `GOOGLE_CLIENT_ID_IOS`, AUTH-22). El *tipo* del retorno
  * es el seam de activación, igual que `crearAuthGoogle` — sin flag booleano
  * en el resto del código.
  *
@@ -58,12 +74,14 @@ export interface GoogleAuthMobileGraph {
  */
 export function crearAuthGoogleMobile(
   prisma: PrismaClient,
-  env: Pick<Env, 'GOOGLE_CLIENT_ID_ANDROID'>,
+  env: EnvGoogleMobile,
   blindIndex: IBlindIndexService,
   crypto: ICryptoService,
   logger: ILogger,
 ): GoogleAuthMobileGraph | undefined {
-  if (env.GOOGLE_CLIENT_ID_ANDROID === undefined) {
+  const audiencias = audienciasGoogleMobile(env);
+
+  if (audiencias.length === 0) {
     return undefined;
   }
 
@@ -77,9 +95,7 @@ export function crearAuthGoogleMobile(
   );
 
   return {
-    verificadorIdToken: new GoogleIdTokenVerifier([
-      env.GOOGLE_CLIENT_ID_ANDROID,
-    ]),
+    verificadorIdToken: new GoogleIdTokenVerifier(audiencias),
     loginConGoogle: new LoginConGoogleUseCase(
       identidades,
       sessions,
