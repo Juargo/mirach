@@ -31,7 +31,7 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 - [x] **T1 — Tooling and project skeleton.** Xcode installed (user), project created in `apps/ios/` with the chosen tooling, iOS 17, bundle ID, Sign in with Apple capability, a build that runs on the simulator. Route: delegated writer; commit `cbb3f6e` (code) and the README commit.
 - [x] **T2 — Generated API client** (phase 6 T3): generator wired to `openapi.json`, CI check for stale generation plus `pnpm design:check` (phase 6 T2 review warning).
 - [ ] **T3 — Design tokens to Swift:** colors (light/dark), typography rules and labels generated from `design/tokens.json`.
-- [ ] **T4 — Learning slice:** sign in with Apple against `POST /api/auth/apple/token`, session in the Keychain, and the read-only "Resumen del mes" screen, on the product owner's iPhone.
+- [ ] **T4 — Learning slice:** sign in with Apple against `POST /api/auth/apple/token`, session in the Keychain, and the read-only "Resumen del mes" screen, on the product owner's iPhone. Prerequisites found in T2: (a) the API must declare nullable fields in a form `swift-openapi-generator` 1.13 supports — today `anyOf` with `type: "null"` drops `estadoGlobal`, `estadoSemaforo`, `porcentajeBp` and others from the generated types (plus the optional multipart bodies of the upload endpoints, which must be `required: true`); (b) a missing `Secrets.xcconfig` must not fail silently: detect an empty `MIRACH_API_KEY` at startup (assert/log in Debug, fail the build or show a clear error in Release) — T2 review warning.
 - [ ] **T5 onward:** the rest of the v1 catalog, one screen per task, in an order to agree after T4.
 
 ## Progress
