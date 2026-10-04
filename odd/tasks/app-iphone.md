@@ -28,7 +28,7 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 
 ## Tasks
 
-- [ ] **T1 — Tooling and project skeleton.** Xcode installed (user), project created in `apps/ios/` with the chosen tooling, iOS 17, bundle ID, Sign in with Apple capability, a build that runs on the simulator. Route: to plan after the tooling decision.
+- [x] **T1 — Tooling and project skeleton.** Xcode installed (user), project created in `apps/ios/` with the chosen tooling, iOS 17, bundle ID, Sign in with Apple capability, a build that runs on the simulator. Route: delegated writer; commit `cbb3f6e` (code) and the README commit.
 - [ ] **T2 — Generated API client** (phase 6 T3): generator wired to `openapi.json`, CI check for stale generation plus `pnpm design:check` (phase 6 T2 review warning).
 - [ ] **T3 — Design tokens to Swift:** colors (light/dark), typography rules and labels generated from `design/tokens.json`.
 - [ ] **T4 — Learning slice:** sign in with Apple against `POST /api/auth/apple/token`, session in the Keychain, and the read-only "Resumen del mes" screen, on the product owner's iPhone.
@@ -37,7 +37,8 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 ## Progress
 
 - ADR-048 written (XcodeGen, iOS 17, `apps/ios/`, `mirachbudget.app`, `app.mirachbudget.ios`).
+- T1 done (2026-10-04): XcodeGen skeleton in `apps/ios/`; observed RED (view model missing) then GREEN; `xcodebuild build` succeeded, `xcodebuild test` passed (6 Swift Testing + 1 XCUITest, stubbed client via `-uiTestStubbedClient`); app ran in the iPhone 18 Pro simulator showing live `/version` 0.10.0, commit `87a1aee`.
 
 ## Next step
 
-T1 once Xcode is installed (user is installing it from the App Store).
+T1 PR, then T2 (generated API client) or T4 (learning slice) — to agree.
