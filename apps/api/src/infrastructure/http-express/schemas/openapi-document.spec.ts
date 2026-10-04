@@ -1,4 +1,5 @@
 import { buildOpenApiDocument } from './openapi-document';
+import { CODIGOS_401 } from '../auth-error-codes';
 
 /**
  * `buildOpenApiDocument()` must be PURE — no container, no env, no DB — so it
@@ -488,5 +489,100 @@ describe('buildOpenApiDocument', () => {
     const responseSchema = components?.schemas?.['ReevaluarCategoriasResponse'];
     expect(responseSchema?.required).toContain('transaccionesEvaluadas');
     expect(responseSchema?.required).toContain('transaccionesActualizadas');
+  });
+
+  describe('401 responses', () => {
+    const METODOS = ['get', 'post', 'patch', 'delete'] as const;
+    const FAMILIA_SOLO_API_KEY = [
+      'POST /api/auth/logout',
+      'GET /api/auth/capabilities',
+      'GET /api/auth/google',
+      'GET /api/auth/google/callback',
+    ];
+    const FAMILIA_CREDENCIALES = [
+      'POST /api/auth/login',
+      'POST /api/auth/google/token',
+      'POST /api/auth/apple/token',
+    ];
+
+    function refDe401(operation: unknown): string | undefined {
+      const response = (
+        operation as {
+          responses?: Record<
+            string,
+            { content?: Record<string, { schema?: { $ref?: string } }> }
+          >;
+        }
+      ).responses?.['401'];
+      return response?.content?.['application/json']?.schema?.$ref;
+    }
+
+    const operaciones = () => {
+      const { paths } = buildOpenApiDocument();
+      return Object.entries(paths ?? {}).flatMap(([ruta, item]) =>
+        METODOS.filter((m) => item?.[m] !== undefined).map((m) => ({
+          clave: `${m.toUpperCase()} ${ruta}`,
+          ruta,
+          operation: item?.[m],
+        })),
+      );
+    };
+
+    it('every operation except GET /version declares a 401 with a typed body', () => {
+      const sinTipo = operaciones()
+        .filter(({ ruta }) => ruta !== '/version')
+        .filter(({ operation }) => refDe401(operation) === undefined)
+        .map(({ clave }) => clave);
+      expect(sinTipo).toEqual([]);
+    });
+
+    it('GET /version stays public: no 401', () => {
+      const { paths } = buildOpenApiDocument();
+      expect(paths?.['/version']?.get?.responses?.['401']).toBeUndefined();
+    });
+
+    it.each([
+      ['protected operations', 'UnauthorizedResponse'],
+      ['api-key-only operations', 'ApiKeyUnauthorizedResponse'],
+      ['sign-in operations', 'CredentialsUnauthorizedResponse'],
+    ])('%s reference %s', (_nombre, schema) => {
+      const esperadas = (clave: string) =>
+        FAMILIA_SOLO_API_KEY.includes(clave)
+          ? 'ApiKeyUnauthorizedResponse'
+          : FAMILIA_CREDENCIALES.includes(clave)
+            ? 'CredentialsUnauthorizedResponse'
+            : 'UnauthorizedResponse';
+      const refs = operaciones()
+        .filter(({ ruta }) => ruta !== '/version')
+        .filter(({ clave }) => esperadas(clave) === schema)
+        .map(({ operation }) => refDe401(operation));
+      expect(refs.length).toBeGreaterThan(0);
+      expect(new Set(refs)).toEqual(
+        new Set([`#/components/schemas/${schema}`]),
+      );
+    });
+
+    it('the code enums are exactly the codes the middleware and routes emit', () => {
+      const schemas = buildOpenApiDocument().components?.schemas as Record<
+        string,
+        { properties: { code: { enum?: string[]; const?: string } } }
+      >;
+      expect(schemas.UnauthorizedResponse.properties.code.enum).toEqual([
+        'API_KEY_INVALIDA',
+        'SESION_INVALIDA',
+      ]);
+      expect(schemas.ApiKeyUnauthorizedResponse.properties.code.const).toBe(
+        'API_KEY_INVALIDA',
+      );
+      expect(
+        schemas.CredentialsUnauthorizedResponse.properties.code.enum,
+      ).toEqual(['API_KEY_INVALIDA', 'CREDENCIALES_INVALIDAS']);
+      const union = new Set([
+        ...(schemas.UnauthorizedResponse.properties.code.enum ?? []),
+        schemas.ApiKeyUnauthorizedResponse.properties.code.const,
+        ...(schemas.CredentialsUnauthorizedResponse.properties.code.enum ?? []),
+      ]);
+      expect(union).toEqual(new Set(CODIGOS_401));
+    });
   });
 });

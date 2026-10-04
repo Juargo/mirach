@@ -28,6 +28,10 @@ describe('createApiKeyMiddleware', () => {
   it('401 sin header x-api-key', async () => {
     const res = await request(probeApp(KEY_VALIDA)).get('/probe');
     expect(res.status).toBe(401);
+    expect(res.body).toEqual({
+      message: 'API key inválida o ausente.',
+      code: 'API_KEY_INVALIDA',
+    });
   });
 
   it('401 con key incorrecta', async () => {
@@ -35,6 +39,10 @@ describe('createApiKeyMiddleware', () => {
       .get('/probe')
       .set('x-api-key', 'b'.repeat(64));
     expect(res.status).toBe(401);
+    expect(res.body).toEqual({
+      message: 'API key inválida o ausente.',
+      code: 'API_KEY_INVALIDA',
+    });
   });
 
   it('deja pasar (200) con la key correcta', async () => {

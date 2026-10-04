@@ -1,6 +1,25 @@
 {
   "components": {
     "schemas": {
+      "ApiKeyUnauthorizedResponse": {
+        "additionalProperties": false,
+        "description": "401 body of an endpoint that needs only the API key (no session).",
+        "properties": {
+          "code": {
+            "const": "API_KEY_INVALIDA",
+            "description": "The `x-api-key` header is missing or wrong.",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
+        ],
+        "type": "object"
+      },
       "AuthCapabilitiesResponse": {
         "additionalProperties": false,
         "description": "GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10). googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations; appleLoginEnabled gates Sign in with Apple (APPLE_BUNDLE_ID).",
@@ -412,6 +431,28 @@
           "totalTransacciones",
           "duplicadosOmitidos",
           "transacciones"
+        ],
+        "type": "object"
+      },
+      "CredentialsUnauthorizedResponse": {
+        "additionalProperties": false,
+        "description": "401 body of the sign-in endpoints.",
+        "properties": {
+          "code": {
+            "description": "API_KEY_INVALIDA: the `x-api-key` header is missing or wrong. CREDENCIALES_INVALIDAS: the credential check failed — the SAME code for every cause (wrong password, unknown email, invalid or expired id_token, ...), so it never reveals which credential failed.",
+            "enum": [
+              "API_KEY_INVALIDA",
+              "CREDENCIALES_INVALIDAS"
+            ],
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
         ],
         "type": "object"
       },
@@ -1500,6 +1541,28 @@
         ],
         "type": "object"
       },
+      "UnauthorizedResponse": {
+        "additionalProperties": false,
+        "description": "401 body of every authenticated endpoint. Branch on `code`, never on `message`.",
+        "properties": {
+          "code": {
+            "description": "API_KEY_INVALIDA: the `x-api-key` header is missing or wrong (an app configuration problem; signing in again does not help). SESION_INVALIDA: the session token is missing, unknown or expired (send the user back to sign-in).",
+            "enum": [
+              "API_KEY_INVALIDA",
+              "SESION_INVALIDA"
+            ],
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
+        ],
+        "type": "object"
+      },
       "VersionResponse": {
         "additionalProperties": false,
         "description": "Deployed build info for the API — GET /version.",
@@ -1605,7 +1668,14 @@
             "description": "Authentication succeeded — identical shape to POST /api/auth/login."
           },
           "401": {
-            "description": "Body or token validation or identity resolution failed (scrubbed — never echoes the token, nonce, name or email; identical body to POST /api/auth/login for every cause)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialsUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA), or the credential check failed (`code` CREDENCIALES_INVALIDAS — one generic code for every cause, never echoes the credential)."
           },
           "404": {
             "description": "Sign in with Apple is not active — APPLE_BUNDLE_ID is not configured."
@@ -1632,7 +1702,14 @@
             "description": "Current activation state of Google and Apple login."
           },
           "401": {
-            "description": "Missing or invalid x-api-key."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA)."
           }
         },
         "summary": "Discover which login methods (Google web/mobile, Apple) are active"
@@ -1652,6 +1729,16 @@
                 }
               }
             }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA)."
           },
           "403": {
             "description": "Rejected: request is not a top-level navigation (anti-embed Fetch-Metadata guard)."
@@ -1680,6 +1767,16 @@
                 }
               }
             }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA)."
           },
           "403": {
             "description": "Rejected: request is not a top-level navigation (same Fetch-Metadata guard as initiate, design §3)."
@@ -1726,7 +1823,14 @@
             "description": "Authentication succeeded — identical shape to POST /api/auth/login."
           },
           "401": {
-            "description": "Verification or identity resolution failed (scrubbed — never echoes the id_token or email; identical body to POST /api/auth/login for every cause, AUTH-21)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialsUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA), or the credential check failed (`code` CREDENCIALES_INVALIDAS — one generic code for every cause, never echoes the credential)."
           },
           "404": {
             "description": "Google login mobile is not active — neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22)."
@@ -1774,7 +1878,14 @@
             "description": "Authentication succeeded."
           },
           "401": {
-            "description": "Invalid credentials (scrubbed — never echoes email/password)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialsUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA), or the credential check failed (`code` CREDENCIALES_INVALIDAS — one generic code for every cause, never echoes the credential)."
           },
           "429": {
             "description": "Rate-limited: too many failed login attempts from this IP/email combination."
@@ -1789,6 +1900,16 @@
         "responses": {
           "204": {
             "description": "Session ended (or was already absent). No response body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA)."
           }
         },
         "summary": "End the current session"
@@ -1809,7 +1930,14 @@
             "description": "Identity of the authenticated session."
           },
           "401": {
-            "description": "No valid session (missing, expired, or invalid token)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Current session identity"
@@ -1852,6 +1980,16 @@
           },
           "400": {
             "description": "Invalid bucket (unrecognized value) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Bucket drill-down"
@@ -1894,6 +2032,16 @@
           },
           "400": {
             "description": "Invalid bucket (outside the 4-bucket allowlist, e.g. Ingresos) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError), scrubbed messages."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Bucket detail grouped by category for a month"
@@ -1912,6 +2060,16 @@
               }
             },
             "description": "The caller's full catalog."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "List the caller's category catalog"
@@ -1991,6 +2149,16 @@
             },
             "description": "Invalid nombre/bucket, a malformed request body, or a nested patrón that failed validation (CAT038-11) — in the latter case the body carries `indice`, the zero-based position of the offending entry within the submitted `patrones` array."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "409": {
             "content": {
               "application/json": {
@@ -2021,6 +2189,16 @@
         "responses": {
           "204": {
             "description": "Category (and its patterns) deleted. No response body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "404": {
             "content": {
@@ -2096,6 +2274,16 @@
             },
             "description": "Invalid nombre/bucket, an empty body, or a malformed request body."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2154,7 +2342,14 @@
             "description": "Missing or wrong confirmation (code CONFIRMACION_INVALIDA). Nothing was deleted."
           },
           "401": {
-            "description": "No valid session (missing, expired, or invalid token)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Delete the current account and all its data"
@@ -2173,6 +2368,16 @@
               }
             },
             "description": "Ingesta list for the authenticated user."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "List ingestas"
@@ -2214,6 +2419,16 @@
           "400": {
             "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "500": {
             "description": "Persistence failure (infrastructure fault, not the uploaded file)."
           },
@@ -2242,6 +2457,16 @@
         "responses": {
           "204": {
             "description": "Ingesta deleted. No response body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "404": {
             "description": "Anti-enumeration: the ingesta does not exist or does not belong to the authenticated user."
@@ -2295,6 +2520,16 @@
           "400": {
             "description": "Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits (EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). Nothing is persisted. Amounts are scrubbed from every error message (ADR-013)."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "500": {
             "description": "Infrastructure fault (DB) — ensure, dedup, or persist failure (PersistenciaFallidaError). Retryable."
           },
@@ -2346,6 +2581,16 @@
           "400": {
             "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "503": {
             "description": "Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault. Preview rejects rather than showing a degraded suggestion set the commit could never honor."
           }
@@ -2380,6 +2625,16 @@
           },
           "400": {
             "description": "Invalid periodo — malformed YYYY-MM value (domain-level, PeriodoMes VO → PeriodoInvalidoError, MID-04); the scrubbed message never echoes the raw input."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Monthly income list by origin (bank/Manual)"
@@ -2412,6 +2667,16 @@
           },
           "400": {
             "description": "Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Monthly transaction list"
@@ -2513,6 +2778,16 @@
           "400": {
             "description": "Shape mismatch (Zod: stray fields on Ingreso, missing bucket/categoriaId on Gasto, monto as JSON number, wrong fecha format) OR domain validation failure (MovimientoManualInvalidoError: FECHA_FUTURA, DESCRIPCION_VACIA/LARGA, MONTO_INVALIDO/OVERFLOW, SIN_MONTOS, MONTO_NEGATIVO) OR catalog cascade failure (CategoriaFueraDeCatalogoError, BucketCategoriaNoConcuerdaError). Amounts are scrubbed from every error message (ADR-013)."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "500": {
             "description": "Infrastructure fault — sentinel upsert, catalog load, or Transaccion.create failed (PersistenciaFallidaError). Retryable."
           }
@@ -2538,6 +2813,16 @@
         "responses": {
           "204": {
             "description": "Movement deleted. No response body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "404": {
             "description": "Anti-enumeration: the transaction does not exist, does not belong to the authenticated user, or is not origen='Manual' (ingesta-born rows collapse into this same response)."
@@ -2599,6 +2884,16 @@
             },
             "description": "Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a malformed request body."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2639,6 +2934,16 @@
         "responses": {
           "204": {
             "description": "Pattern deleted. No response body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "404": {
             "content": {
@@ -2706,6 +3011,16 @@
               }
             },
             "description": "Invalid patron/matchType/prioridad, an invalid REGEX, an empty body, or a malformed request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "404": {
             "content": {
@@ -2777,7 +3092,14 @@
             "description": "Malformed body, or an invalid nombre/email."
           },
           "401": {
-            "description": "No valid session (missing, expired, or invalid token)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "403": {
             "content": {
@@ -2829,7 +3151,14 @@
             "description": "Malformed body."
           },
           "401": {
-            "description": "No valid session (missing, expired, or invalid token)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "403": {
             "content": {
@@ -2888,7 +3217,14 @@
             "description": "Malformed body."
           },
           "401": {
-            "description": "No valid session (missing, expired, or invalid token)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "403": {
             "content": {
@@ -2967,7 +3303,14 @@
             "description": "Malformed body, or an invalid passwordNueva."
           },
           "401": {
-            "description": "No valid session (missing, expired, or invalid token)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "403": {
             "content": {
@@ -3010,6 +3353,16 @@
           },
           "400": {
             "description": "Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Monthly 50/30/20 breakdown"
@@ -3042,6 +3395,16 @@
           },
           "400": {
             "description": "Invalid anio — either a transport-shape mismatch or a malformed/out-of-range value (domain-level)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Annual 50/30/20 breakdown"
@@ -3074,6 +3437,16 @@
           },
           "400": {
             "description": "Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           }
         },
         "summary": "Semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice"
@@ -3126,6 +3499,16 @@
           "400": {
             "description": "Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name)."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
           "404": {
             "description": "Anti-enumeration: the transaction does not exist or does not belong to the authenticated user."
           }
@@ -3146,6 +3529,16 @@
               }
             },
             "description": "Reevaluation completed."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnauthorizedResponse"
+                }
+              }
+            },
+            "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
           "500": {
             "description": "Infrastructure fault — the caller's pattern catalog could not be loaded, or the batched write of reassignments failed (CategorizacionFallidaError). Retryable."

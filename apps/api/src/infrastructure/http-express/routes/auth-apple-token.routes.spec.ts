@@ -14,7 +14,10 @@ import { appLogger } from '../../logging/app-logger';
 import { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 
 /** Body 401 byte-idéntico al de `/auth/login` y al de Google (no enumeración). */
-const GENERIC_401_BODY = { message: 'Credenciales inválidas.' };
+const GENERIC_401_BODY = {
+  message: 'Credenciales inválidas.',
+  code: 'CREDENCIALES_INVALIDAS',
+};
 
 const IDENTIDAD = {
   sub: 'apple-sub-1',

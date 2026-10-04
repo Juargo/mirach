@@ -71,6 +71,7 @@ describe('/api/auth — session-public vs protegido', () => {
       .post('/api/auth/login')
       .send({ email: 'a@b.cl', password: 'x' });
     expect(res.status).toBe(401);
+    expect(res.body.code).toBe('API_KEY_INVALIDA');
   });
 
   it('POST /api/auth/login: 200 con api-key SIN sesión (session-public)', async () => {
@@ -117,6 +118,7 @@ describe('/api/auth — session-public vs protegido', () => {
       .get('/api/auth/me')
       .set('x-api-key', KEY);
     expect(res.status).toBe(401);
+    expect(res.body.code).toBe('SESION_INVALIDA');
   });
 
   it('GET /api/auth/me: 200 con api-key + sesión; el userId sale de la sesión', async () => {

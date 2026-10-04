@@ -20,7 +20,10 @@ import type { LoginConGoogleResult } from '../../../application/use-cases/login-
  * (`LoginConGoogleFallidoError.message` is a DIFFERENT string, "No pudimos
  * iniciar sesión con Google.", reserved for the web redirect flow's logging).
  */
-const GENERIC_401_BODY = { message: 'Credenciales inválidas.' };
+const GENERIC_401_BODY = {
+  message: 'Credenciales inválidas.',
+  code: 'CREDENCIALES_INVALIDAS',
+};
 
 function deps(over: Partial<AuthGoogleTokenDeps> = {}): AuthGoogleTokenDeps {
   return {

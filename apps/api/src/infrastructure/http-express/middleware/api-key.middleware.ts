@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { RequestHandler } from 'express';
+import { API_KEY_INVALIDA } from '../auth-error-codes';
 
 /**
  * createApiKeyMiddleware — factory, port 1:1 del `ApiKeyGuard` (ADR-028/029).
@@ -34,7 +35,10 @@ export function createApiKeyMiddleware(apiKey: string): RequestHandler {
   return (req, res, next) => {
     const received = req.header(HEADER);
     if (!received || !safeEqual(received, apiKey)) {
-      res.status(401).json({ message: 'API key inválida o ausente.' });
+      res.status(401).json({
+        message: 'API key inválida o ausente.',
+        code: API_KEY_INVALIDA,
+      });
       return;
     }
 

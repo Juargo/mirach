@@ -33,6 +33,10 @@ describe('sessionMiddleware', () => {
     const validar = { execute: vi.fn() };
     const res = await request(probeApp(validar)).get('/probe');
     expect(res.status).toBe(401);
+    expect(res.body).toEqual({
+      message: 'Sesión inválida o expirada.',
+      code: 'SESION_INVALIDA',
+    });
     expect(validar.execute).not.toHaveBeenCalled();
   });
 
@@ -46,6 +50,10 @@ describe('sessionMiddleware', () => {
       .get('/probe')
       .set('Authorization', 'Bearer token-malo');
     expect(res.status).toBe(401);
+    expect(res.body).toEqual({
+      message: 'Sesión inválida o expirada.',
+      code: 'SESION_INVALIDA',
+    });
   });
 
   it('deja pasar (200) y expone req.userId con token válido (Bearer)', async () => {

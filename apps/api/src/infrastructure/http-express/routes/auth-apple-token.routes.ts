@@ -4,6 +4,7 @@ import type { LoginConAppleUseCase } from '../../../application/use-cases/login-
 import type { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 import { getClientIp } from '../../http/auth/client-ip';
 import { appLogger } from '../../logging/app-logger';
+import { CREDENCIALES_INVALIDAS } from '../auth-error-codes';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
 import { authAppleTokenRequestSchema } from '../schemas/auth-apple-token.schema';
 
@@ -12,7 +13,10 @@ import { authAppleTokenRequestSchema } from '../schemas/auth-apple-token.schema'
  * fuente que `/auth/login` y `/auth/google/token`, para que sea byte-idéntico
  * por construcción. El mismo cuerpo para TODA causa de fallo (no enumeración).
  */
-const GENERIC_401_BODY = { message: new CredencialesInvalidasError().message };
+const GENERIC_401_BODY = {
+  message: new CredencialesInvalidasError().message,
+  code: CREDENCIALES_INVALIDAS,
+};
 
 const RATE_LIMITED_BODY = {
   message: 'Demasiadas solicitudes. Intenta más tarde.',

@@ -78,6 +78,11 @@ import {
 } from './patrones.schema';
 import { catalogoErrorResponseSchema } from './catalogo-error.schema';
 import {
+  respuesta401Credenciales,
+  respuesta401Protegida,
+  respuesta401SoloApiKey,
+} from './unauthorized-responses';
+import {
   perfilUpdateRequestSchema,
   perfilErrorResponseSchema,
   passwordUpdateRequestSchema,
@@ -140,6 +145,7 @@ const resumenOperation: ZodOpenApiOperationObject = {
     query: resumenQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Monthly resumen for the resolved period.',
       content: {
@@ -162,6 +168,7 @@ const resumenAnualOperation: ZodOpenApiOperationObject = {
     query: resumenAnualQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Annual resumen for the resolved year.',
       content: {
@@ -184,6 +191,7 @@ const movimientosOperation: ZodOpenApiOperationObject = {
     query: movimientosQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Monthly transaction list for the resolved period.',
       content: {
@@ -207,6 +215,7 @@ const bucketsOperation: ZodOpenApiOperationObject = {
     query: bucketsQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Bucket detail for the resolved period.',
       content: {
@@ -226,6 +235,7 @@ const ingestasOperation: ZodOpenApiOperationObject = {
     'Authenticated endpoint returning the per-user ingesta history (US-004/US-018). ' +
     'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Ingesta list for the authenticated user.',
       content: {
@@ -252,6 +262,7 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Upload processed and persisted.',
       content: {
@@ -294,6 +305,7 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Preview sample computed (not persisted).',
       content: {
@@ -344,6 +356,7 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description:
         'Import committed and persisted. Response carries per-row bucket + categoriaId.',
@@ -380,6 +393,7 @@ const ingestaDeleteOperation: ZodOpenApiOperationObject = {
     path: ingestaDeletePathParamsSchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description: 'Ingesta deleted. No response body.',
     },
@@ -396,14 +410,12 @@ const authMeOperation: ZodOpenApiOperationObject = {
     'Authenticated endpoint returning the identity of the current session (AUTH-09). ' +
     'Requires x-api-key + a valid session.',
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Identity of the authenticated session.',
       content: {
         'application/json': { schema: authMeResponseSchema },
       },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -427,15 +439,12 @@ const authLoginOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Credenciales,
     '200': {
       description: 'Authentication succeeded.',
       content: {
         'application/json': { schema: authLoginResponseSchema },
       },
-    },
-    '401': {
-      description:
-        'Invalid credentials (scrubbed — never echoes email/password).',
     },
     '429': {
       description:
@@ -457,6 +466,7 @@ const authLogoutOperation: ZodOpenApiOperationObject = {
     'session token (if any) and clears the `md_session` cookie. Always succeeds — an already ' +
     'missing or invalid token does not produce an error.',
   responses: {
+    '401': respuesta401SoloApiKey,
     '204': {
       description: 'Session ended (or was already absent). No response body.',
     },
@@ -480,14 +490,12 @@ const authCapabilitiesOperation: ZodOpenApiOperationObject = {
     '(googleLoginEnabled or googleLoginMobileEnabled) before rendering its own Google-login affordance; ' +
     'appleLoginEnabled reports whether APPLE_BUNDLE_ID is configured (Sign in with Apple).',
   responses: {
+    '401': respuesta401SoloApiKey,
     '200': {
       description: 'Current activation state of Google and Apple login.',
       content: {
         'application/json': { schema: authCapabilitiesResponseSchema },
       },
-    },
-    '401': {
-      description: 'Missing or invalid x-api-key.',
     },
   },
 };
@@ -508,6 +516,7 @@ const authGoogleInitiateOperation: ZodOpenApiOperationObject = {
     'navigation — see AUTH-17. Sets the short-lived `md_oauth` cookie (state/nonce/PKCE) and ' +
     'redirects to Google. 404 when Google login is not active (AUTH-16) — see GET /api/auth/capabilities.',
   responses: {
+    '401': respuesta401SoloApiKey,
     '302': {
       description: "Redirects to Google's OAuth 2.0 authorization endpoint.",
       headers: {
@@ -559,6 +568,7 @@ const authGoogleCallbackOperation: ZodOpenApiOperationObject = {
     'check rejects the WHOLE callback to the generic `/login?error=google` — it never falls back to ' +
     'the login/signup path.',
   responses: {
+    '401': respuesta401SoloApiKey,
     '302': {
       description:
         'Success: sets `md_session` and redirects to "/". Failure (any cause): redirects to ' +
@@ -620,17 +630,13 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Credenciales,
     '200': {
       description:
         'Authentication succeeded — identical shape to POST /api/auth/login.',
       content: {
         'application/json': { schema: authLoginResponseSchema },
       },
-    },
-    '401': {
-      description:
-        'Verification or identity resolution failed (scrubbed — never echoes the id_token or email; ' +
-        'identical body to POST /api/auth/login for every cause, AUTH-21).',
     },
     '404': {
       description:
@@ -676,17 +682,13 @@ const authAppleTokenOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Credenciales,
     '200': {
       description:
         'Authentication succeeded — identical shape to POST /api/auth/login.',
       content: {
         'application/json': { schema: authLoginResponseSchema },
       },
-    },
-    '401': {
-      description:
-        'Body or token validation or identity resolution failed (scrubbed — never echoes the token, nonce, name or email; ' +
-        'identical body to POST /api/auth/login for every cause).',
     },
     '404': {
       description:
@@ -721,6 +723,7 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Transaction reclassified.',
       content: {
@@ -789,6 +792,7 @@ const reevaluarCategoriasOperation: ZodOpenApiOperationObject = {
     'current value are not re-written (transaccionesActualizadas counts real changes only). ' +
     'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Reevaluation completed.',
       content: {
@@ -818,6 +822,7 @@ const categoriasListOperation: ZodOpenApiOperationObject = {
     'preview for a destructive delete (US-038, CAT038-02; US-039, CAT039-01). Requires x-api-key + ' +
     'a valid session (RNF-SEC-006, per-user isolation).',
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: "The caller's full catalog.",
       content: {
@@ -840,6 +845,7 @@ const categoriasCreateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description:
         'Category created, with its created patrones (if any) nested.',
@@ -883,6 +889,7 @@ const categoriasUpdateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Category updated.',
       content: {
@@ -925,6 +932,7 @@ const categoriasDeleteOperation: ZodOpenApiOperationObject = {
     path: categoriaIdPathParamsSchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description: 'Category (and its patterns) deleted. No response body.',
     },
@@ -949,6 +957,7 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description: 'Pattern created.',
       content: {
@@ -995,6 +1004,7 @@ const patronesUpdateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Pattern updated.',
       content: {
@@ -1034,6 +1044,7 @@ const patronesDeleteOperation: ZodOpenApiOperationObject = {
     path: patronIdPathParamsSchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description: 'Pattern deleted. No response body.',
     },
@@ -1068,6 +1079,7 @@ const perfilUpdateOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: perfilUpdateRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Profile updated; the full updated identity is returned.',
       content: { 'application/json': { schema: authMeResponseSchema } },
@@ -1079,9 +1091,6 @@ const perfilUpdateOperation: ZodOpenApiOperationObject = {
     '403': {
       description: 'Wrong current password, or the email is already in use.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1108,6 +1117,7 @@ const perfilPasswordUpdateOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: passwordUpdateRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description:
         'Password changed. No response body — every other session was revoked.',
@@ -1119,9 +1129,6 @@ const perfilPasswordUpdateOperation: ZodOpenApiOperationObject = {
     '403': {
       description: 'An incorrect current password.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1148,6 +1155,7 @@ const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: vincularGoogleRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description:
         'The Google OAuth authorization URL to navigate to. Sets Set-Cookie: md_oauth (state, nonce, codeVerifier, signed link).',
@@ -1170,9 +1178,6 @@ const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
     '503': {
       description: 'Google authorization is temporarily unreachable.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
     '404': {
       description:
@@ -1201,6 +1206,7 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': { description: 'The Google identity is no longer linked.' },
     '400': {
       description: 'Malformed body.',
@@ -1210,9 +1216,6 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
       description:
         'An incorrect current password, or the account has no passwordHash to fall back on.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1236,14 +1239,12 @@ const cuentaDeleteOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: cuentaDeleteRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': { description: 'Account and data deleted. No response body.' },
     '400': {
       description:
         'Missing or wrong confirmation (code CONFIRMACION_INVALIDA). Nothing was deleted.',
       content: { 'application/json': { schema: cuentaErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1261,6 +1262,7 @@ const semaforoDetalleOperation: ZodOpenApiOperationObject = {
     query: semaforoDetalleQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Semáforo detail for the resolved period.',
       content: {
@@ -1288,6 +1290,7 @@ const bucketDetalleMesOperation: ZodOpenApiOperationObject = {
     query: bucketDetalleMesQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description:
         'Month×bucket detail grouped by category for the resolved period (MBD-01/02/03/05/08).',
@@ -1315,6 +1318,7 @@ const ingresosMesOperation: ZodOpenApiOperationObject = {
     query: ingresosMesQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description:
         'Monthly income list for the resolved period — exactly {total, conteo, transacciones} ' +
@@ -1470,6 +1474,7 @@ const registrarMovimientoManualOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description:
         'Movement registered. Response carries id, fecha (ISO), descripcion (plaintext), ' +
@@ -1515,6 +1520,7 @@ const eliminarMovimientoManualOperation: ZodOpenApiOperationObject = {
     path: movimientoDeletePathParamsSchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description: 'Movement deleted. No response body.',
     },
