@@ -132,16 +132,10 @@ describe('buildOpenApiDocument', () => {
     expect(authMePath?.get?.responses?.['401']).toBeDefined();
   });
 
-  it('registers GET /api/auth/demo with a redirect response and no JSON response body', () => {
+  it('does not register GET /api/auth/demo (demo mode was removed)', () => {
     const document = buildOpenApiDocument();
 
-    const authDemoPath = document.paths?.['/api/auth/demo'];
-    expect(authDemoPath).toBeDefined();
-    expect(authDemoPath?.get).toBeDefined();
-    expect(authDemoPath?.get?.responses?.['302']).toBeDefined();
-    expect(authDemoPath?.get?.responses?.['302']?.content).toBeUndefined();
-    expect(authDemoPath?.get?.responses?.['403']).toBeDefined();
-    expect(authDemoPath?.get?.responses?.['429']).toBeDefined();
+    expect(document.paths?.['/api/auth/demo']).toBeUndefined();
   });
 
   it('registers POST /api/auth/login with a JSON requestBody and a response schema', () => {

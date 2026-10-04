@@ -11,7 +11,7 @@ import type { ObtenerIdentidadUseCase } from '../../../application/use-cases/obt
 
 /**
  * Port de los endpoints de AuthController. Handlers aislados (sin la cadena de
- * auth real): login/logout/demo con dobles de use cases + rate limiters; `me`
+ * auth real): login/logout con dobles de use cases + rate limiter; `me`
  * con un pre-middleware que simula el `req.userId` del session middleware.
  */
 const EXPIRA = new Date('2026-08-01T00:00:00.000Z');
@@ -26,23 +26,10 @@ function deps(over: Partial<AuthPublicDeps> = {}): AuthPublicDeps {
         ),
     },
     logout: { execute: vi.fn().mockResolvedValue(Result.ok(undefined)) },
-    crearDemo: {
-      execute: vi
-        .fn()
-        .mockResolvedValue({ token: 'demo-tok', expiresAt: EXPIRA }),
-    },
-    demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
-    validarSesion: {
-      execute: vi.fn().mockResolvedValue(Result.fail(new Error('sin sesión'))),
-    },
     loginRateLimiter: {
       isBlocked: vi.fn().mockReturnValue(false),
       recordFailure: vi.fn(),
       reset: vi.fn(),
-    },
-    demoRateLimiter: {
-      isBlocked: vi.fn().mockReturnValue(false),
-      recordFailure: vi.fn(),
     },
     cookieSecure: false,
     ...over,
@@ -140,36 +127,6 @@ describe('registrarAuthPublic', () => {
       const res = await request(publicApp(deps())).post('/api/auth/logout');
       expect(res.status).toBe(204);
       expect(res.headers['set-cookie']).toBeDefined();
-    });
-  });
-
-  describe('GET /api/auth/demo', () => {
-    it('403 si no es navegación top-level (Sec-Fetch-Dest: image)', async () => {
-      const res = await request(publicApp(deps()))
-        .get('/api/auth/demo')
-        .set('Sec-Fetch-Dest', 'image');
-      expect(res.status).toBe(403);
-    });
-
-    it('302 a / y setea cookie en el alta demo exitosa', async () => {
-      const d = deps();
-      const res = await request(publicApp(d)).get('/api/auth/demo');
-
-      expect(res.status).toBe(302);
-      expect(res.headers.location).toBe('/');
-      expect(res.headers['set-cookie']).toBeDefined();
-      expect(d.crearDemo.execute).toHaveBeenCalled();
-    });
-
-    it('429 si el rate limiter de demo bloquea', async () => {
-      const d = deps({
-        demoRateLimiter: {
-          isBlocked: vi.fn().mockReturnValue(true),
-          recordFailure: vi.fn(),
-        } as never,
-      });
-      const res = await request(publicApp(d)).get('/api/auth/demo');
-      expect(res.status).toBe(429);
     });
   });
 });

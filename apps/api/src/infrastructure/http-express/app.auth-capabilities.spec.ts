@@ -37,20 +37,12 @@ function fakeContainer(
     login: { execute: vi.fn() },
     logout: { execute: vi.fn().mockResolvedValue(Result.ok(undefined)) },
     obtenerIdentidad: { execute: vi.fn() },
-    crearDemo: {
-      execute: vi.fn().mockResolvedValue({ token: 'd', expiresAt: new Date() }),
-    },
     googleAuth,
     loginRateLimiter: {
       isBlocked: vi.fn().mockReturnValue(false),
       recordFailure: vi.fn(),
       reset: vi.fn(),
     },
-    demoRateLimiter: {
-      isBlocked: vi.fn().mockReturnValue(false),
-      recordFailure: vi.fn(),
-    },
-    demoCleanup: { borrarExpirados: vi.fn().mockResolvedValue(undefined) },
     shutdown: async () => {},
     logger: { raw: {} },
     googleAuthMobile,

@@ -44,6 +44,8 @@ carry over as code; the web and Expo apps remain in the old repository as produc
    mode and the Google web OAuth flow are kept with their tests because a web manager may exist
    later. Dormant means switched off in production: empty CORS allowlist and no Google web
    variables. Demo mode gets a configuration switch if it cannot already be disabled.
+   **Amended 2026-10-03:** demo mode is removed, not dormant. It existed for the academic
+   delivery and a public store app has no use for it; the remaining web pieces stay dormant.
 6. **Documentation that moves (D6).** `docs/adr` (original numbering kept, because code and
    comments cite ADRs by number) and `openspec/specs`. The OpenSpec change archive, task logs,
    sprints and the academic Scrum process stay behind. ADRs that no longer apply are marked as

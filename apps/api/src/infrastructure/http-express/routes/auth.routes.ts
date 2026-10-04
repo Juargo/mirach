@@ -2,36 +2,27 @@ import type { Router } from 'express';
 import { LoginUseCase } from '../../../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../../../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../../../application/use-cases/obtener-identidad.use-case';
-import { CrearDemoUseCase } from '../../../application/use-cases/crear-demo.use-case';
-import { ValidarSesionUseCase } from '../../../application/use-cases/validar-sesion.use-case';
 import { LoginRateLimiter } from '../../http/auth/login-rate-limiter';
-import { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
-import { DemoCleanupService } from '../../http/auth/demo-cleanup.service';
 import { getClientIp } from '../../http/auth/client-ip';
 import { extractToken } from '../../http/auth/extraer-token';
 import {
   serializeSessionCookie,
   clearSessionCookie,
 } from '../../http/auth/cookie';
-import { esNavegacionDeNivelSuperior } from '../../http/auth/sec-fetch-guard';
 import { appLogger } from '../../logging/app-logger';
 
-/** Dependencias de las rutas session-public (login/logout/demo). */
+/** Dependencias de las rutas session-public (login/logout). */
 export interface AuthPublicDeps {
   readonly login: LoginUseCase;
   readonly logout: LogoutUseCase;
-  readonly crearDemo: CrearDemoUseCase;
-  readonly demoCleanup: DemoCleanupService;
-  readonly validarSesion: ValidarSesionUseCase;
   readonly loginRateLimiter: LoginRateLimiter;
-  readonly demoRateLimiter: IpRateLimiter;
   /** Atributo Secure de la cookie de sesión (ADR-029) — derivado una única vez en app.ts a partir de `env`. */
   readonly cookieSecure: boolean;
 }
 
 /**
  * registrarAuthPublic — port de los endpoints session-public del AuthController
- * (ADR-028): login/logout/demo exigen `x-api-key` (aplicado globalmente en /api)
+ * (ADR-028): login/logout exigen `x-api-key` (aplicado globalmente en /api)
  * pero NO una sesión ya validada. Por eso montan en un router SIN el session
  * middleware — el equivalente Express de `@PublicSession()`.
  */
@@ -39,16 +30,7 @@ export function registrarAuthPublic(
   router: Router,
   deps: AuthPublicDeps,
 ): void {
-  const {
-    login,
-    logout,
-    crearDemo,
-    demoCleanup,
-    validarSesion,
-    loginRateLimiter,
-    demoRateLimiter,
-    cookieSecure,
-  } = deps;
+  const { login, logout, loginRateLimiter, cookieSecure } = deps;
 
   // POST /api/auth/login
   router.post('/auth/login', async (req, res, next) => {
@@ -114,60 +96,6 @@ export function registrarAuthPublic(
 
       res.setHeader('Set-Cookie', clearSessionCookie(cookieSecure));
       res.status(204).end();
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  // GET /api/auth/demo
-  router.get('/auth/demo', async (req, res, next) => {
-    try {
-      if (!esNavegacionDeNivelSuperior(req)) {
-        appLogger.warn('Demo rechazado (no es navegación top-level)', {
-          path: req.path,
-        });
-        res.status(403).json({
-          message: 'Solicitud rechazada: se requiere navegación directa.',
-        });
-        return;
-      }
-
-      const tokenExistente = extractToken(req);
-      if (tokenExistente !== undefined) {
-        const validado = await validarSesion.execute({ token: tokenExistente });
-        if (validado.isOk()) {
-          // Sesión válida existente (real o demo): redirige sin pisar la cookie.
-          res.redirect(302, '/');
-          return;
-        }
-      }
-
-      const ip = getClientIp(req);
-      if (demoRateLimiter.isBlocked(ip)) {
-        appLogger.warn('Demo rechazado (rate-limited)', { path: req.path });
-        res.status(429).json({
-          message: 'Demasiadas solicitudes de demo. Intenta más tarde.',
-        });
-        return;
-      }
-      demoRateLimiter.recordFailure(ip);
-
-      // Isla degradable: un fallo transitorio de la limpieza no bloquea el signup.
-      try {
-        await demoCleanup.borrarExpirados();
-      } catch (err) {
-        appLogger.error(
-          'Error al limpiar cuentas demo expiradas (no bloquea la creación del demo)',
-          { errorName: err instanceof Error ? err.name : 'UnknownError' },
-        );
-      }
-
-      const { token, expiresAt } = await crearDemo.execute();
-      res.setHeader(
-        'Set-Cookie',
-        serializeSessionCookie(token, expiresAt, cookieSecure),
-      );
-      res.redirect(302, '/');
     } catch (err) {
       next(err);
     }

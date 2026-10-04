@@ -6,7 +6,6 @@ import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.us
 import { LoginUseCase } from '../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identidad.use-case';
-import { CrearDemoUseCase } from '../application/use-cases/crear-demo.use-case';
 import { CalcularResumenMesUseCase } from '../application/use-cases/calcular-resumen-mes.use-case';
 import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-resumen-anual.use-case';
 import { ObtenerSemaforoDetalleUseCase } from '../application/use-cases/obtener-semaforo-detalle.use-case';
@@ -22,8 +21,6 @@ import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingest
 import { EliminarMovimientoManualUseCase } from '../application/use-cases/eliminar-movimiento-manual.use-case';
 import { ListarIngestasUseCase } from '../application/use-cases/listar-ingestas.use-case';
 import { LoginRateLimiter } from '../infrastructure/http/auth/login-rate-limiter';
-import { IpRateLimiter } from '../infrastructure/http/auth/ip-rate-limiter';
-import { DemoCleanupService } from '../infrastructure/http/auth/demo-cleanup.service';
 import { crearAuth } from './crear-auth';
 import { crearAuthGoogle, type GoogleAuthGraph } from './crear-auth-google';
 import {
@@ -129,8 +126,6 @@ export interface Container {
   readonly logout: LogoutUseCase;
   /** Identidad del usuario autenticado — GET /api/auth/me. */
   readonly obtenerIdentidad: ObtenerIdentidadUseCase;
-  /** Alta de cuenta demo — GET /api/auth/demo. */
-  readonly crearDemo: CrearDemoUseCase;
   /** Login con Google (AUTH-11..18) — `undefined` cuando el feature está
    * apagado (GOOGLE_CLIENT_ID/SECRET ausentes, design §4.3/§4.4). El TIPO
    * de este campo es el seam de activación: `googleAuth !== undefined` es
@@ -143,10 +138,6 @@ export interface Container {
   readonly googleAuthMobile?: GoogleAuthMobileGraph;
   /** Rate limiter de login (por IP + email). */
   readonly loginRateLimiter: LoginRateLimiter;
-  /** Rate limiter de demo (por IP). */
-  readonly demoRateLimiter: IpRateLimiter;
-  /** Limpieza de demos expirados (lazy, en GET /demo). */
-  readonly demoCleanup: DemoCleanupService;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
   readonly shutdown: () => Promise<void>;
   /** Logger estructurado (ADR-033 slice 2/A) — instancia única del composition
@@ -353,12 +344,9 @@ export function createContainer(
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
-    crearDemo: auth.crearDemo,
     googleAuth,
     googleAuthMobile,
     loginRateLimiter: auth.loginRateLimiter,
-    demoRateLimiter: auth.demoRateLimiter,
-    demoCleanup: auth.demoCleanup,
     shutdown: () => prisma.$disconnect(),
     logger,
   };

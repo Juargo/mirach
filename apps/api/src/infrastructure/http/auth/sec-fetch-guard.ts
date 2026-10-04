@@ -1,15 +1,13 @@
 import type { Request } from 'express';
 
 /**
- * esNavegacionDeNivelSuperior — guard anti-embed/CSRF para `GET /api/auth/demo`
- * (judgment-day FIX crítico).
+ * esNavegacionDeNivelSuperior — guard anti-embed/CSRF para los `GET` de inicio
+ * del login con Google (web). Nació para el extinto `GET /api/auth/demo`
+ * (removido, ver la enmienda de ADR-046).
  *
- * El endpoint DEBE seguir siendo un `GET` alcanzable por navegación top-level
- * (el link del landing lo abre en una pestaña nueva) — la postura elegida es
- * "hardening sin romper el link", NO migrar a POST. Pero un `GET` público es
- * embebible vía `<img src="/api/auth/demo">`, `<iframe>`, etc.: una página
- * maliciosa fuerza a CADA visitante a crear una cuenta demo con la IP del
- * propio visitante, evadiendo el rate limiter por IP (DEMO-AUTH-02).
+ * Un `GET` público es embebible vía `<img>`, `<iframe>`, etc.: una página
+ * maliciosa fuerza a CADA visitante a iniciar el flujo con la IP del propio
+ * visitante, evadiendo el rate limiter por IP.
  *
  * `Sec-Fetch-Dest`/`Sec-Fetch-Mode` (Fetch Metadata, enviados por navegadores
  * modernos) distinguen navegación real de un sub-resource: una navegación
@@ -17,8 +15,7 @@ import type { Request } from 'express';
  * `<img>`/`<iframe>` trae `dest: image|iframe` y/o `mode: no-cors|cors`.
  *
  * Fail-open cuando AMBOS headers están ausentes (clientes legacy que no los
- * envían) — gap residual documentado y aceptado (ver
- * docs/demo-mode-notes.md), no bloqueamos tráfico legítimo de un navegador
+ * envían) — gap residual documentado y aceptado, no bloqueamos tráfico legítimo de un navegador
  * viejo por un header que ni siquiera puede enviar.
  *
  * Prioriza `x-fwd-sec-fetch-*`: cuando el request llega por el proxy

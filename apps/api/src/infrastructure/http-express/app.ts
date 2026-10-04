@@ -58,7 +58,7 @@ import {
  *   1. express.json()
  *   2. health `GET /` público (fuera de /api → sin auth)
  *   3. `createApiKeyMiddleware(env.API_KEY)` para TODO `/api` (fail-closed).
- *   4. router session-public (`/auth/login|logout|demo`): api-key SÍ, sesión NO
+ *   4. router session-public (`/auth/login|logout`): api-key SÍ, sesión NO
  *      — el equivalente Express de `@PublicSession()`. Va ANTES del protegido
  *      para que el session middleware no lo intercepte.
  *   5. router protegido (`sessionMiddleware` → routers de datos + `/auth/me`).
@@ -79,7 +79,7 @@ export function createApp(container: Container, env: Env): Express {
   // proxy delante — ver CLAUDE.md). Sin esto, Express ignora
   // `X-Forwarded-For` y `request.ip` resuelve a la IP del proxy, no del
   // cliente real — rompiendo TODOS los rate limiters por IP (`login:ip:`,
-  // el demo limiter, `google:ip:`), que colapsan hacia un bucket compartido.
+  // `google:ip:`), que colapsan hacia un bucket compartido.
   // Debe ir temprano, antes de cualquier middleware que lea `req.ip`.
   app.set('trust proxy', 1);
 
@@ -123,11 +123,7 @@ export function createApp(container: Container, env: Env): Express {
   registrarAuthPublic(authPublicApi, {
     login: container.login,
     logout: container.logout,
-    crearDemo: container.crearDemo,
-    demoCleanup: container.demoCleanup,
-    validarSesion: container.validarSesion,
     loginRateLimiter: container.loginRateLimiter,
-    demoRateLimiter: container.demoRateLimiter,
     cookieSecure,
   });
   // Capability discovery (AC-10, design §8/D7) — ALWAYS mounted regardless
