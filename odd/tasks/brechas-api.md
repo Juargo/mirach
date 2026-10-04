@@ -28,7 +28,7 @@ Strict. Runner: `pnpm --filter @mirach/api test` (vitest, fake `DATABASE_URL`, n
 ## Tasks
 
 - [x] **P1 — Contract.** Declare in OpenAPI the upload error codes (`PDF_PROTEGIDO`, `PDF_PASSWORD_INCORRECTA`, `SIN_MOVIMIENTOS`, `CATALOGO_INCOMPLETO` 409, `CATALOGO_NO_DISPONIBLE`, and any other the ingestion routes return) and `403 CATEGORIA_INTERNA`; add `esInterna` to `CategoriaResponse`; give 401 responses a stable `code` that tells "session invalid/expired" from "API key invalid/missing"; document (and pin with tests) the ordering of list endpoints. Route: delegated writer.
-- [ ] **P2 — Spend share.** The month summary returns each spending bucket's share of total spend in basis points, summing to exactly 10 000 when there is spend (rounding rule documented and tested), and a defined value when there is none. Route: delegated writer.
+- [x] **P2 — Spend share.** The month summary returns each spending bucket's share of total spend in basis points, summing to exactly 10 000 when there is spend (rounding rule documented and tested), and a defined value when there is none. Route: delegated writer.
 - [ ] **P3 — Server copy.** "Gustos" → "Deseos" in user-facing text; voseo → neutral Spanish with "tú". Route: delegated writer.
 - [ ] **P4 — Months with data.** An endpoint listing the months (`YYYY-MM`) that have movements for the session user, for the month selector; isolation test. Route: delegated writer.
 
@@ -46,6 +46,11 @@ One PR per slice, stacked to `main` in order. Each slice keeps tests and docs wi
   - Review warnings fixed (no emitter was wrong; no spec change): 401 schemas now build their enums/literals from the constants in `auth-error-codes.ts` (RED: renaming a code there did not reach the schema); every 401 emitter (api-key and session middleware, `/auth/login`, `/auth/me`, Google and Apple token) is validated against its 401 schema, and every upload error body (400/409/503 incl. the rollback cause, 500) is validated against the zod schema of the spec with `additionalProperties: false` (`ingesta.error-bodies.spec.ts`, mutation-checked). The misleading `openapi-document.spec.ts` title now says it checks the enums.
   - Known intermittent: `test/auth-isolation.int-spec.ts` "POST /api/ingestas ... NO session" fails with `write EPIPE` (multipart upload rejected by the 401 before the body is consumed).
 
+- **P2 done** (branch `feat/spend-share`). Route: delegated writer.
+  - `participacionGastoBp: number | null` on each bucket of `GET /api/resumen` (and, because `/api/resumen/anual` reuses the same mapper and schema, on each of its 12 months; the catalog's annual block needs it for the reduced chart). Computed by the pure domain function `participacionDelGasto` (`domain/value-objects/participacion-gasto.ts`), called from `ResumenMes.crear`; the HTTP mapper only converts to number.
+  - Rule: share = `total_bucket / sum(total of the 3 spend buckets)` in bp, largest-remainder (Hamilton) on BigInt: floor `total*10000/sum`, then the leftover bps (fewer than the buckets) go one each to the largest remainders `total*10000 mod sum`; ties go to the earlier bucket in `buckets` (Necesidades, Deseos, Ahorro). A zero-total bucket never gets a leftover. Total spend 0 (or any negative total) gives null on every bucket. Independent of income (still computed when `sinIngreso`); `total` and `porcentajeBp` are unchanged.
+  - Tests: exact splits, tie rule, all-in-one-bucket, zero bucket, beyond `Number.MAX_SAFE_INTEGER`, no spend, 2000-case sum-to-10000 property loop, mapper, route (schema sync) and e2e.
+
 ## Next step
 
-P1 PR, then P2.
+P2 PR, then P3.

@@ -244,9 +244,72 @@ describe('aResumenMesDto', () => {
 
       for (const bucket of dto.buckets) {
         expect(Object.keys(bucket).sort()).toEqual(
-          ['bucket', 'estadoSemaforo', 'porcentajeBp', 'total'].sort(),
+          [
+            'bucket',
+            'estadoSemaforo',
+            'participacionGastoBp',
+            'porcentajeBp',
+            'total',
+          ].sort(),
         );
       }
     });
+  });
+});
+
+describe('aResumenMesDto — participacionGastoBp', () => {
+  it('is each spend bucket share of total spend (not of income), summing to 10000', () => {
+    const dto = aResumenMesDto(
+      '2026-07',
+      makeResumen({
+        totalIngreso: 1_000_000n,
+        necesidades: 1n,
+        deseos: 1n,
+        ahorro: 1n,
+      }),
+    );
+    expect(dto.buckets.map((b) => b.bucket)).toEqual([
+      Bucket.Necesidades,
+      Bucket.Deseos,
+      Bucket.Ahorro,
+    ]);
+    expect(dto.buckets.map((b) => b.participacionGastoBp)).toEqual([
+      3334, 3333, 3333,
+    ]);
+    // differs from porcentajeBp, which is relative to income
+    expect(dto.buckets.map((b) => b.porcentajeBp)).toEqual([0, 0, 0]);
+  });
+
+  it('is a JS number (not string/bigint) and exact beyond MAX_SAFE_INTEGER', () => {
+    const big = 9_007_199_254_740_993n;
+    const dto = aResumenMesDto(
+      '2026-07',
+      makeResumen({ totalIngreso: big, necesidades: big, deseos: big }),
+    );
+    expect(dto.buckets.map((b) => b.participacionGastoBp)).toEqual([
+      5000, 5000, 0,
+    ]);
+    expect(typeof dto.buckets[0]?.participacionGastoBp).toBe('number');
+  });
+
+  it('is null for every bucket when there is no spend, even with income', () => {
+    const dto = aResumenMesDto('2026-07', makeResumen({ totalIngreso: 500n }));
+    expect(dto.buckets.map((b) => b.participacionGastoBp)).toEqual([
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  it('is still computed when sinIngreso (spend without income)', () => {
+    const dto = aResumenMesDto(
+      '2026-07',
+      makeResumen({ totalIngreso: 0n, necesidades: 3n, deseos: 1n }),
+    );
+    expect(dto.sinIngreso).toBe(true);
+    expect(dto.buckets.map((b) => b.porcentajeBp)).toEqual([null, null, null]);
+    expect(dto.buckets.map((b) => b.participacionGastoBp)).toEqual([
+      7500, 2500, 0,
+    ]);
   });
 });

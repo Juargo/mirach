@@ -35,6 +35,15 @@ const bucketResumenSchema = z.object({
     .int()
     .nullable()
     .describe('Basis-point percentage (0-10000). null when sinIngreso=true.'),
+  participacionGastoBp: z
+    .number()
+    .int()
+    .min(0)
+    .max(10000)
+    .nullable()
+    .describe(
+      "This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.",
+    ),
   estadoSemaforo: z
     .enum(['verde', 'amarillo', 'rojo'])
     .nullable()

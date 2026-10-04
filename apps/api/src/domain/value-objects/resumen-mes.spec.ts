@@ -238,3 +238,31 @@ describe('ResumenMes VO', () => {
     expect('cantidadSinCategoria' in resumen).toBe(false);
   });
 });
+
+describe('ResumenMes — participacionGastoBp', () => {
+  it('each slice carries its share of total spend, summing to 10000', () => {
+    const r = ResumenMes.crear({
+      totalIngreso: 1_500_000n,
+      necesidades: 750_000n,
+      deseos: 360_000n,
+      ahorro: 300_000n,
+    });
+    const bp = r.buckets.map((b) => b.participacionGastoBp);
+    expect(bp).toEqual([5319n, 2553n, 2128n]);
+    expect(bp.reduce((a, b) => a! + b!, 0n)).toBe(10000n);
+  });
+
+  it('is null on every slice when there is no spend (income does not matter)', () => {
+    const r = ResumenMes.crear({
+      totalIngreso: 100n,
+      necesidades: 0n,
+      deseos: 0n,
+      ahorro: 0n,
+    });
+    expect(r.buckets.map((b) => b.participacionGastoBp)).toEqual([
+      null,
+      null,
+      null,
+    ]);
+  });
+});

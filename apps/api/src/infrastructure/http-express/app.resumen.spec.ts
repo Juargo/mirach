@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { ResumenMes } from '../../domain/value-objects/resumen-mes';
 import { resumenResponseSchema } from './schemas/resumen.schema';
 
 /**
@@ -89,6 +90,35 @@ describe('GET /api/resumen — cadena de auth + aislamiento', () => {
 
     expect(res.status).toBe(200);
     expect(() => resumenResponseSchema.parse(res.body)).not.toThrow();
+  });
+
+  it('el body 200 trae participacionGastoBp por bucket, sumando 10000 y validando el schema', async () => {
+    const c = fakeContainer();
+    (
+      c.calcularResumenMes.execute as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(
+      Result.ok({
+        periodo: '2026-07',
+        resumen: ResumenMes.crear({
+          totalIngreso: 1_000n,
+          necesidades: 1n,
+          deseos: 1n,
+          ahorro: 1n,
+        }),
+      }),
+    );
+    const res = await request(createApp(c, testEnv))
+      .get('/api/resumen')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido');
+
+    expect(res.status).toBe(200);
+    expect(() => resumenResponseSchema.parse(res.body)).not.toThrow();
+    const bp = res.body.buckets.map(
+      (b: { participacionGastoBp: number }) => b.participacionGastoBp,
+    );
+    expect(bp).toEqual([3334, 3333, 3333]);
+    expect(bp.reduce((a: number, b: number) => a + b, 0)).toBe(10000);
   });
 
   it('health GET / sigue público (sin api-key ni sesión)', async () => {
