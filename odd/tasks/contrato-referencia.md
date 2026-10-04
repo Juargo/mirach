@@ -27,7 +27,7 @@ The product reference lives in the old repository, split across a React web app 
 
 - [x] **T1 — Screen catalog.** `docs/catalogo/`: an index plus one document per v1 screen (purpose, data shown, actions, endpoints verified against `openapi.json`, loading/empty/error states, navigation, notes for iPhone), a "later" list and an "out" list, and an API gap list. Route: delegated writer (reads the old web and Expo screens).
 - [x] **T2 — Design tokens.** One source file (format to decide, e.g. JSON) with the web palette for both themes, bucket and traffic-light colors, typography and radius rules from `DESIGN.md`, plus the labels (Deseos). Route: to plan after T1.
-- [ ] **T3 — Generated clients.** Generator choice and configuration for Swift and Kotlin from `openapi.json`, and the CI check that fails when the spec changes without regenerating. Route: to plan; may land with plan phase 7 when `apps/ios` exists.
+- [ ] **T3 — Generated clients.** Generator choice and configuration for Swift and Kotlin from `openapi.json`, and the CI check that fails when the spec changes without regenerating. The same CI step must also run `pnpm design:check` (T2's review warned that the token validator is not gated yet) and, once tokens are generated to Swift/Kotlin, fail when they are stale. Route: to plan; may land with plan phase 7 when `apps/ios` exists.
 
 ## Progress
 
