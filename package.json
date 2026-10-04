@@ -12,7 +12,8 @@
     "landing": "pnpm --filter @mirach/landing",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "design:check": "node scripts/check-design-tokens.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.1",
