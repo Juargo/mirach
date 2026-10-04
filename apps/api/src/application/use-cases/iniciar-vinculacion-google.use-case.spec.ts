@@ -9,7 +9,6 @@ import {
 } from '../ports/identidad-google-repository.port';
 import { IIniciadorLoginExterno } from '../ports/verificador-identidad-externa.port';
 import { IPasswordHasher } from '../ports/password-hasher.port';
-import { PerfilDemoSoloLecturaError } from '../../domain/errors/perfil-demo-solo-lectura.error';
 import { PerfilRechazadoError } from '../../domain/errors/perfil-rechazado.error';
 import { GoogleYaVinculadoError } from '../../domain/errors/google-ya-vinculado.error';
 import { VinculacionGoogleNoDisponibleError } from '../../domain/errors/vinculacion-google-no-disponible.error';
@@ -120,23 +119,6 @@ function makeUseCase(deps: {
 }
 
 describe('IniciarVinculacionGoogleUseCase', () => {
-  it('esDemo=true ⇒ PerfilDemoSoloLecturaError, y NI el repo NI el hasher NI el iniciador se llaman', async () => {
-    const { uc, creds, identidades, iniciador, hasher } = makeUseCase({});
-
-    const result = await uc.execute({
-      userId: 'user-1',
-      esDemo: true,
-      passwordActual: 'x',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(PerfilDemoSoloLecturaError);
-    expect(creds.buscarCredencialPorId).not.toHaveBeenCalled();
-    expect(identidades.buscarPorId).not.toHaveBeenCalled();
-    expect(iniciador.iniciar).not.toHaveBeenCalled();
-    expect(hasher.verificar).not.toHaveBeenCalled();
-  });
-
   it('credencial null ⇒ PerfilRechazadoError, y el iniciador NUNCA se llama', async () => {
     const { uc, iniciador } = makeUseCase({
       creds: makeCreds({
@@ -146,7 +128,6 @@ describe('IniciarVinculacionGoogleUseCase', () => {
 
     const result = await uc.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'x',
     });
 
@@ -162,7 +143,6 @@ describe('IniciarVinculacionGoogleUseCase', () => {
 
     const result = await uc.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'incorrecta',
     });
 
@@ -181,7 +161,6 @@ describe('IniciarVinculacionGoogleUseCase', () => {
 
     const result = await uc.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'correcta',
     });
 
@@ -199,7 +178,6 @@ describe('IniciarVinculacionGoogleUseCase', () => {
 
     const result = await uc.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'correcta',
     });
 
@@ -220,7 +198,6 @@ describe('IniciarVinculacionGoogleUseCase', () => {
 
     const result = await uc.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'correcta',
     });
 
@@ -235,7 +212,6 @@ describe('IniciarVinculacionGoogleUseCase', () => {
 
     const result = await uc.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'correcta',
     });
 
@@ -248,7 +224,6 @@ describe('IniciarVinculacionGoogleUseCase', () => {
 
     await uc.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'super-secreta',
     });
 

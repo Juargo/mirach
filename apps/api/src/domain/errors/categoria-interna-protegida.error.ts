@@ -14,9 +14,7 @@
  * UNA sola clase para los dos verbos (borrar y editar), porque son el mismo
  * hecho de dominio — "esta fila no es tuya para mutar" — y la invariante
  * "un error ⇒ exactamente un status" se cumple igual: ambos responden `403`.
- * Distinta de `CatalogoDemoSoloLecturaError`, que también es `403` pero
- * describe al SUJETO (una sesión demo no escribe nada); esta describe al
- * OBJETO (esta fila no se muta, la sesión sea cual sea).
+ * Describe al OBJETO (esta fila no se muta, la sesión sea cual sea).
  *
  * Distinta de `CategoriaNoEncontradaError`: acá la fila existe y es del
  * caller. No hay riesgo de enumeración que ocultar — el usuario ya sabe que

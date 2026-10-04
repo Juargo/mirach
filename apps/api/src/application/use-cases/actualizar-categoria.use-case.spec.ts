@@ -3,7 +3,6 @@ import {
   CategoriaConPatrones,
   ICategoriaRepository,
 } from '../ports/categoria-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaInvalidoError } from '../../domain/errors/nombre-categoria-invalido.error';
 import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
@@ -46,29 +45,12 @@ function makeRepo(
 }
 
 describe('ActualizarCategoriaUseCase', () => {
-  it('el demo gate corta ANTES de cualquier llamada al repositorio', async () => {
-    const repo = makeRepo();
-    const useCase = new ActualizarCategoriaUseCase(repo);
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      id: 'cat-1',
-      nombre: 'Nuevo nombre',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CatalogoDemoSoloLecturaError);
-    expect(repo.buscarPorId).not.toHaveBeenCalled();
-  });
-
   it('404 cuando la fila no es del caller — antes de validar campos', async () => {
     const repo = makeRepo({ buscarPorId: vi.fn().mockResolvedValue(null) });
     const useCase = new ActualizarCategoriaUseCase(repo);
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-ajena',
       nombre: 'x'.repeat(999), // sería inválido, pero el 404 debe ganar
     });
@@ -88,7 +70,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       // Nombre VÁLIDO a propósito: el rechazo no puede depender de que el
       // patch fuera malo. Esta categoría no se edita ni con un patch perfecto.
@@ -112,7 +93,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: '   ', // inválido: sin el orden correcto esto daría 400
     });
@@ -126,7 +106,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'Delivery renombrado',
     });
@@ -144,7 +123,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       bucket: 'Necesidades',
     });
@@ -162,7 +140,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: '   ',
     });
@@ -178,7 +155,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'Delivery renombrado',
     });
@@ -197,7 +173,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       bucket: 'Necesidades',
     });
@@ -216,7 +191,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'Delivery renombrado',
       bucket: 'Necesidades',
@@ -236,7 +210,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: CATEGORIA_ACTUAL.nombre,
     });
@@ -256,7 +229,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       bucket: 'Necesidades',
     });
@@ -272,7 +244,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'ahorro', // colisionaría, PERO el bucket inválido debe ganar
       bucket: 'Ingreso',
@@ -290,7 +261,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'ahorro',
     });
@@ -306,7 +276,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       bucket: 'Ingreso',
     });
@@ -322,7 +291,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'Delivery renombrado',
       bucket: 'Deseos', // igual al bucket actual de CATEGORIA_ACTUAL
@@ -341,7 +309,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       bucket: 'Necesidades',
     });
@@ -364,7 +331,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       icono: 'house',
     });
@@ -382,7 +348,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       icono: null,
     });
@@ -400,7 +365,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'Delivery renombrado',
     });
@@ -421,7 +385,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       icono: 'not-a-real-icon',
     });
@@ -438,7 +401,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       nombre: 'ahorro', // colisionaría, pero el icono inválido debe ganar
       icono: 'not-a-real-icon',
@@ -463,7 +425,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       bucket: 'Necesidades',
     });
@@ -483,7 +444,6 @@ describe('ActualizarCategoriaUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'cat-1',
       bucket: 'Necesidades',
     });

@@ -99,26 +99,6 @@ describe('LoginConGoogleUseCase', () => {
     });
   });
 
-  describe('existing googleSub match, demo user', () => {
-    it('fails with the generic error, no session', async () => {
-      const usuarioDemo: UsuarioVinculable = {
-        userId: 'user-demo',
-        esDemo: true,
-        googleSub: 'google-sub-abc',
-      };
-      const identidades = makeMockIdentidades({ porGoogleSub: usuarioDemo });
-      const { uc, sessions } = makeUseCase(identidades);
-
-      const result = await uc.execute(IDENTIDAD_BASE);
-
-      expect(result.isFail()).toBe(true);
-      const error = result.getError();
-      expect(error).toBeInstanceOf(LoginConGoogleFallidoError);
-      expect(error.motivo).toBe('usuario-demo');
-      expect(sessions.crear).not.toHaveBeenCalled();
-    });
-  });
-
   describe('first-time link, emailVerificado true, unmatched user found', () => {
     it('links googleSub and issues a session', async () => {
       const usuario: UsuarioVinculable = {
@@ -297,28 +277,6 @@ describe('LoginConGoogleUseCase', () => {
       expect(sessions.crear).not.toHaveBeenCalled();
     });
 
-    it('lost creation race, retry resolves to a DEMO row → generic error', async () => {
-      const identidades = makeMockIdentidades({
-        porGoogleSub: null,
-        porEmail: null,
-        crear: null,
-      });
-      (identidades.buscarPorGoogleSub as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          userId: 'user-demo',
-          esDemo: true,
-          googleSub: 'google-sub-abc',
-        });
-      const { uc, sessions } = makeUseCase(identidades);
-
-      const result = await uc.execute(IDENTIDAD_BASE);
-
-      expect(result.isFail()).toBe(true);
-      expect(result.getError().motivo).toBe('creacion-perdio-la-carrera');
-      expect(sessions.crear).not.toHaveBeenCalled();
-    });
-
     it('lost race to a DIFFERENT identity, then manual retry hits the ★ guard — never a relink (FIX 6)', async () => {
       const identidades = makeMockIdentidades({
         vincular: true,
@@ -346,7 +304,6 @@ describe('LoginConGoogleUseCase', () => {
       porGoogleSub.mockResolvedValueOnce(null);
       porEmail.mockResolvedValueOnce({
         userId: 'user-ganador-otra-identidad',
-        esDemo: false,
         googleSub: 'otro-sub-completamente-distinto',
       });
       const { uc: uc2, sessions: sessions2 } = makeUseCase(identidades);
@@ -385,28 +342,6 @@ describe('LoginConGoogleUseCase', () => {
       await uc.execute(IDENTIDAD_BASE);
 
       expect(identidades.crearDesdeGoogle).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('demo match via email path', () => {
-    it('fails with the generic error, no link', async () => {
-      const usuarioDemo: UsuarioVinculable = {
-        userId: 'user-demo',
-        esDemo: true,
-        googleSub: null,
-      };
-      const identidades = makeMockIdentidades({
-        porGoogleSub: null,
-        porEmail: usuarioDemo,
-      });
-      const { uc, sessions } = makeUseCase(identidades);
-
-      const result = await uc.execute(IDENTIDAD_BASE);
-
-      expect(result.isFail()).toBe(true);
-      expect(result.getError().motivo).toBe('usuario-demo');
-      expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
-      expect(sessions.crear).not.toHaveBeenCalled();
     });
   });
 
@@ -494,21 +429,11 @@ describe('LoginConGoogleUseCase', () => {
   });
 
   describe('AUTH-15 no-enumeration: todas las ramas de fallo son indistinguibles', () => {
-    it('las ocho ramas de fallo retornan el MISMO message', async () => {
+    it('las seis ramas de fallo retornan el MISMO message', async () => {
       const escenarios: Array<{
         identidad: IdentidadExterna;
         identidades: IIdentidadGoogleRepository;
       }> = [
-        {
-          identidad: IDENTIDAD_BASE,
-          identidades: makeMockIdentidades({
-            porGoogleSub: {
-              userId: 'u',
-              esDemo: true,
-              googleSub: 'google-sub-abc',
-            },
-          }),
-        },
         {
           identidad: { ...IDENTIDAD_BASE, emailVerificado: false },
           identidades: makeMockIdentidades({ porGoogleSub: null }),
@@ -521,13 +446,6 @@ describe('LoginConGoogleUseCase', () => {
             porGoogleSub: null,
             porEmail: null,
             crear: null,
-          }),
-        },
-        {
-          identidad: IDENTIDAD_BASE,
-          identidades: makeMockIdentidades({
-            porGoogleSub: null,
-            porEmail: { userId: 'u', esDemo: true, googleSub: null },
           }),
         },
         {

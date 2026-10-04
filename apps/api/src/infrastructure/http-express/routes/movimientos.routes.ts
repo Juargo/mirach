@@ -8,13 +8,11 @@ import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-
 import { BucketCategoriaNoConcuerdaError } from '../../../domain/errors/bucket-categoria-no-concuerda.error';
 import { PersistenciaFallidaError } from '../../../domain/errors/persistencia-fallida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
-import { MovimientoDemoSoloLecturaError } from '../../../domain/errors/movimiento-demo-solo-lectura.error';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import { aMovimientosMesDto } from '../../http/dto/movimiento-mes.dto';
 import { aRegistrarMovimientoManualResponseDto } from '../../http/dto/movimiento-manual.dto';
 import { movimientosQuerySchema } from '../schemas/movimientos.schema';
 import { registrarMovimientoManualSchema } from '../schemas/movimiento-manual.schema';
-import { esDemoDeSesion } from '../../http/auth/es-demo-de-sesion';
 import { responderErrorTraducido } from './responder-error-traducido';
 
 /**
@@ -190,18 +188,14 @@ export function registrarMovimientoManual(
  * Deletes a `Transaccion` owned by the authenticated user with
  * `origen='Manual'`. The scoping (`{id, origen: 'Manual', account:
  * {userId}}`) lives entirely in the persistence layer (the writer) — this
- * handler only hilvana `esDemoDeSesion(req)` and maps the Result to HTTP.
- *
- * Demo gate (DEL-03): a demo session is rejected 403 DEMO_SOLO_LECTURA
- * BEFORE the writer is touched — the use case gates internally.
+ * handler only maps the Result to HTTP.
  *
  * Merged 404 (DEL-02, anti-enumeration): absent id, another user's row, and
  * an ingesta-born row (owned but not manual) all produce the IDENTICAL 404
  * response via `TransaccionNoEncontradaError` — never a distinct "not
  * manual" error, which would leak provenance.
  *
- * Routed through `responderErrorTraducido` (issue #507) — the chokepoint
- * that logs `logDemoGateTrip` when `code === 'DEMO_SOLO_LECTURA'`, mirroring
+ * Routed through `responderErrorTraducido` (issue #507), mirroring
  * `DELETE /api/ingestas/:id`.
  */
 export function registrarEliminarMovimientoManual(
@@ -212,22 +206,13 @@ export function registrarEliminarMovimientoManual(
     try {
       const result = await useCase.execute({
         userId: req.userId!,
-        esDemo: esDemoDeSesion(req),
         transaccionId: req.params.id,
       });
 
       if (result.isFail()) {
         const error = result.getError();
-        if (error instanceof MovimientoDemoSoloLecturaError) {
-          responderErrorTraducido(res, req, {
-            status: 403,
-            code: 'DEMO_SOLO_LECTURA',
-            message: error.message,
-          });
-          return;
-        }
         if (error instanceof TransaccionNoEncontradaError) {
-          responderErrorTraducido(res, req, {
+          responderErrorTraducido(res, {
             status: 404,
             message:
               'La transacción no existe o no pertenece al usuario autenticado.',
@@ -236,7 +221,7 @@ export function registrarEliminarMovimientoManual(
         }
         const _exhaustive: never = error;
         void _exhaustive;
-        responderErrorTraducido(res, req, {
+        responderErrorTraducido(res, {
           status: 500,
           message: 'Error inesperado',
         });

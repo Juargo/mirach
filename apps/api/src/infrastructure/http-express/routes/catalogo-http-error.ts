@@ -1,4 +1,3 @@
-import { CatalogoDemoSoloLecturaError } from '../../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaInvalidoError } from '../../../domain/errors/nombre-categoria-invalido.error';
 import { BucketNoAsignableError } from '../../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../../domain/errors/nombre-categoria-duplicado.error';
@@ -89,14 +88,8 @@ export function aCatalogoHttpError(error: CatalogoError): {
       message: error.message,
     };
   }
-  if (error instanceof CatalogoDemoSoloLecturaError) {
-    return { status: 403, code: 'DEMO_SOLO_LECTURA', message: error.message };
-  }
-  // #778. Segundo `403` de la familia, y el par se sostiene porque describen
-  // cosas distintas: `DEMO_SOLO_LECTURA` es del SUJETO (esta sesión no
-  // escribe nada), `CATEGORIA_INTERNA` es del OBJETO (esta fila no se muta,
-  // la sesión sea cual sea). La invariante "un class ⇒ un status ⇒ un code"
-  // sigue intacta: dos clases, dos codes, mismo status.
+  // #778. `CATEGORIA_INTERNA` es del OBJETO (esta fila no se muta, la sesión
+  // sea cual sea). La invariante "un class ⇒ un status ⇒ un code" se mantiene.
   if (error instanceof CategoriaInternaProtegidaError) {
     return { status: 403, code: 'CATEGORIA_INTERNA', message: error.message };
   }

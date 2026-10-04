@@ -38,7 +38,7 @@ function mensajeLinkIntent(state: string, userId: string): Buffer {
 /**
  * firmarLinkIntent — llamado ÚNICAMENTE desde la ruta de iniciación
  * (`POST /api/perfil/google/vincular`), después de que el use case confirmó
- * sesión + no-demo + password correcta (design §4.1, G1-G4). La aplicación
+ * sesión + password correcta (design §4.1, G1-G4). La aplicación
  * nunca ve esta función: solo la ruta HTTP la importa (D-01, G3).
  */
 export function firmarLinkIntent(

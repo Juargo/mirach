@@ -217,7 +217,6 @@ describe('crearAuthGoogle (design §4.3)', () => {
     // de prisma, no una propia.
     await graph!.iniciarVinculacion.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'lo-que-sea',
     });
 

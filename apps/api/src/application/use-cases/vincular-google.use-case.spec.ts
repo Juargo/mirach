@@ -88,8 +88,8 @@ describe('VincularGoogleUseCase', () => {
     const identidades = makeIdentidades({
       buscarPorId: vi.fn().mockResolvedValue({
         userId: 'user-A',
-        esDemo: false,
         googleSub: null,
+        esDemo: false,
       } satisfies UsuarioVinculable),
       buscarPorGoogleSub: vi.fn().mockResolvedValue({
         userId: 'user-B',
@@ -104,24 +104,6 @@ describe('VincularGoogleUseCase', () => {
     expect(result.isFail()).toBe(true);
     const error = result.getError();
     expect(error.motivo).toBe('identidad-de-otra-cuenta');
-    expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
-  });
-
-  it('fila esDemo ⇒ fail usuario-demo, sin write (gate READ-DERIVED, D-05 — no hay input esDemo)', async () => {
-    const identidades = makeIdentidades({
-      buscarPorId: vi.fn().mockResolvedValue({
-        userId: 'user-1',
-        esDemo: true,
-        googleSub: null,
-      } satisfies UsuarioVinculable),
-    });
-    const uc = new VincularGoogleUseCase(identidades, new NoOpLogger());
-
-    const result = await uc.execute({ userId: 'user-1', sub: 'sub-nuevo' });
-
-    expect(result.isFail()).toBe(true);
-    const error = result.getError();
-    expect(error.motivo).toBe('usuario-demo');
     expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
   });
 

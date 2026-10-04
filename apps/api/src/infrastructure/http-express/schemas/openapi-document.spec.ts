@@ -479,7 +479,7 @@ describe('buildOpenApiDocument', () => {
     expect(reevaluarPath?.post).toBeDefined();
     expect(reevaluarPath?.post?.requestBody).toBeUndefined();
     expect(reevaluarPath?.post?.responses?.['200']).toBeDefined();
-    expect(reevaluarPath?.post?.responses?.['403']).toBeDefined();
+    expect(reevaluarPath?.post?.responses?.['403']).toBeUndefined();
     expect(reevaluarPath?.post?.responses?.['500']).toBeDefined();
 
     const components = document.components as

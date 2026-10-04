@@ -13,7 +13,6 @@ import { RangoFechasInvalidoError } from '../../domain/errors/rango-fechas-inval
 import { SinMovimientosError } from '../../domain/errors/sin-movimientos.error';
 import { CatalogoIncompletoError } from '../../domain/errors/catalogo-incompleto.error';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
-import { IngestaDemoSoloLecturaError } from '../../domain/errors/ingesta-demo-solo-lectura.error';
 import { IFileReader } from '../ports/file-reader.port';
 import { DetectedBank } from '../ports/bank-detector.port';
 import { IAccountRepository } from '../ports/account-repository.port';
@@ -37,8 +36,6 @@ import {
 export interface ProcessIngestaInput {
   fileReader: IFileReader;
   userId: string;
-  /** Demo gate (issue #500) — una sesión demo no puede escribir. */
-  esDemo: boolean;
 }
 
 /**
@@ -82,7 +79,6 @@ export interface ProcessIngestaResult {
  * corrección e intención, no porque `tsc` lo exija.
  */
 export type ProcessIngestaError =
-  | IngestaDemoSoloLecturaError
   | ExtensionNoPermitidaError
   | BancoNoReconocidoError
   | PersistenciaFallidaError
@@ -208,12 +204,6 @@ export class ProcessIngestaUseCase {
   async execute(
     input: ProcessIngestaInput,
   ): Promise<Result<ProcessIngestaResult, ProcessIngestaError>> {
-    // Demo gate (issue #500) — corta ANTES de tocar el pipeline: ni
-    // siquiera se registra un intento FALLIDA para una sesión demo.
-    if (input.esDemo) {
-      return Result.fail(new IngestaDemoSoloLecturaError());
-    }
-
     try {
       const { result, fallidaYaRegistrada } = await this.runPipeline(input);
       if (result.isFail() && !fallidaYaRegistrada) {

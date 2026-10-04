@@ -6,7 +6,6 @@ import {
 } from '../ports/user-credential-repository.port';
 import { IPasswordHasher } from '../ports/password-hasher.port';
 import { Email } from '../../domain/value-objects/email';
-import { PerfilDemoSoloLecturaError } from '../../domain/errors/perfil-demo-solo-lectura.error';
 import { PerfilRechazadoError } from '../../domain/errors/perfil-rechazado.error';
 import { NombrePerfilInvalidoError } from '../../domain/errors/nombre-perfil-invalido.error';
 import { EmailInvalidoError } from '../../domain/errors/email-invalido.error';
@@ -16,9 +15,9 @@ import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 const IDENTIDAD_OK: IdentidadUsuario = {
   userId: 'user-1',
+  esDemo: false,
   nombre: 'Jorge',
   email: 'jorge@example.com',
-  esDemo: false,
   googleVinculado: false,
 };
 
@@ -48,23 +47,6 @@ function makeHasher(verificarResult = true): IPasswordHasher {
 }
 
 describe('ActualizarPerfilUseCase', () => {
-  it('esDemo=true ⇒ PerfilDemoSoloLecturaError, el repositorio NUNCA se llama (D-05)', async () => {
-    const repo = makeRepo();
-    const hasher = makeHasher();
-    const uc = new ActualizarPerfilUseCase(repo, hasher, new NoOpLogger());
-
-    const result = await uc.execute({
-      userId: 'user-1',
-      esDemo: true,
-      nombre: 'Jorge',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(PerfilDemoSoloLecturaError);
-    expect(repo.buscarCredencialPorId).not.toHaveBeenCalled();
-    expect(repo.actualizarPerfil).not.toHaveBeenCalled();
-  });
-
   describe('nombre-only (sin email)', () => {
     it('NO requiere passwordActual, NO llama buscarCredencialPorId/hasher.verificar, y actualizarPerfil recibe email: undefined', async () => {
       const repo = makeRepo();
@@ -73,7 +55,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       const result = await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         nombre: 'Jorge Nuevo',
       });
 
@@ -96,7 +77,6 @@ describe('ActualizarPerfilUseCase', () => {
 
         const result = await uc.execute({
           userId: 'user-1',
-          esDemo: false,
           nombre,
         });
 
@@ -115,7 +95,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       const result = await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         emailRaw: 'no-es-un-email',
         passwordActual: 'lo-que-sea',
       });
@@ -132,7 +111,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       const result = await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         emailRaw: 'nuevo@example.com',
         passwordActual: undefined,
       });
@@ -151,7 +129,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       const result = await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         emailRaw: 'nuevo@example.com',
         passwordActual: 'cualquiera',
       });
@@ -168,7 +145,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       const result = await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         emailRaw: 'nuevo@example.com',
         passwordActual: 'incorrecta',
       });
@@ -185,7 +161,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         emailRaw: '  Jorge@Example.COM  ',
         passwordActual: 'correcta',
       });
@@ -206,7 +181,6 @@ describe('ActualizarPerfilUseCase', () => {
       );
       const resultPassword = await ucPassword.execute({
         userId: 'user-1',
-        esDemo: false,
         emailRaw: 'nuevo@example.com',
         passwordActual: 'incorrecta',
       });
@@ -224,7 +198,6 @@ describe('ActualizarPerfilUseCase', () => {
       );
       const resultEmail = await ucEmail.execute({
         userId: 'user-1',
-        esDemo: false,
         emailRaw: 'taken@example.com',
         passwordActual: 'correcta',
       });
@@ -243,7 +216,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       const result = await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         nombre: 'Jorge',
         emailRaw: 'nuevo@example.com',
         passwordActual: 'correcta',
@@ -263,7 +235,6 @@ describe('ActualizarPerfilUseCase', () => {
 
       await uc.execute({
         userId: 'user-1',
-        esDemo: false,
         nombre: 'Jorge Secreto',
         emailRaw: 'secreto@example.com',
         passwordActual: 'password-secreta',

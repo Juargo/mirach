@@ -9,7 +9,6 @@
  */
 export type MotivoFalloGoogle =
   | 'email-no-verificado'
-  | 'usuario-demo'
   | 'ya-vinculado-a-otra-identidad'
   | 'link-perdio-la-carrera'
   | 'creacion-perdio-la-carrera'

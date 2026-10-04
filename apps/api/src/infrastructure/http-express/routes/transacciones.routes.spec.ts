@@ -8,8 +8,6 @@ import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
 import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
-import { ReclasificarDemoSoloLecturaError } from '../../../domain/errors/reclasificar-demo-solo-lectura.error';
-import { ReevaluarDemoSoloLecturaError } from '../../../domain/errors/reevaluar-demo-solo-lectura.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import type { ReclasificarTransaccionUseCase } from '../../../application/use-cases/reclasificar-transaccion.use-case';
 import type { ReevaluarCategoriasUseCase } from '../../../application/use-cases/reevaluar-categorias.use-case';
@@ -40,17 +38,12 @@ const RECLASIF_OK = {
   bucket: 'Necesidades',
 };
 
-/** `esDemo: 'unset'` (issue #507) deja `req.esDemo` SIN asignar — simula una
- * request que llegó al handler sin pasar por `sessionMiddleware`. */
-function probeApp(uc: Doble, esDemo: boolean | 'unset' = false): Express {
+function probeApp(uc: Doble): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    if (esDemo !== 'unset') {
-      req.esDemo = esDemo;
-    }
     next();
   });
   registrarTransacciones(router, uc as ReclasificarTransaccionUseCase);
@@ -60,7 +53,7 @@ function probeApp(uc: Doble, esDemo: boolean | 'unset' = false): Express {
 }
 
 describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', () => {
-  it('200 con el DTO y llama con userId + transaccionId + categoriaId + esDemo', async () => {
+  it('200 con el DTO y llama con userId + transaccionId + categoriaId', async () => {
     const uc = { execute: vi.fn().mockResolvedValue(Result.ok(RECLASIF_OK)) };
     const res = await request(probeApp(uc))
       .patch('/api/transacciones/tx-1/categoria')
@@ -76,7 +69,6 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
       userId: 'user-x',
       transaccionId: 'tx-1',
       categoriaId: 'cat-supermercado-row-id',
-      esDemo: false,
     });
   });
 
@@ -94,7 +86,6 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
       userId: 'user-x',
       transaccionId: 'tx-1',
       categoriaId: '',
-      esDemo: false,
     });
   });
 
@@ -112,49 +103,7 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
       userId: 'user-x',
       transaccionId: 'tx-1',
       categoriaId: '',
-      esDemo: false,
     });
-  });
-
-  it('threads req.esDemo (fail-closed) into the use case input', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.fail(new ReclasificarDemoSoloLecturaError())),
-    };
-    await request(probeApp(uc, 'unset'))
-      .patch('/api/transacciones/tx-1/categoria')
-      .send({ categoriaId: 'cat-supermercado-row-id' });
-
-    expect(uc.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ esDemo: true }),
-    );
-  });
-
-  it('issue #597: 403 DEMO_SOLO_LECTURA cuando el use case rechaza por sesión demo', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.fail(new ReclasificarDemoSoloLecturaError())),
-    };
-    const res = await request(probeApp(uc, true))
-      .patch('/api/transacciones/tx-1/categoria')
-      .send({ categoriaId: 'cat-supermercado-row-id' });
-
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
-  });
-
-  it('issue #597: non-demo session succeeds unchanged', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(RECLASIF_OK)) };
-    const res = await request(probeApp(uc, false))
-      .patch('/api/transacciones/tx-1/categoria')
-      .send({ categoriaId: 'cat-supermercado-row-id' });
-
-    expect(res.status).toBe(200);
-    expect(uc.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ esDemo: false }),
-    );
   });
 
   it('400 con mensaje genérico si el categoriaId no existe en el catálogo del caller — ya NO enumera los 8 nombres', async () => {
@@ -207,25 +156,17 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
 /**
  * `POST /api/transacciones/reevaluar` — re-corre los patrones de
  * clasificación del usuario sobre TODAS sus transacciones persistidas.
- * Sigue el mismo patrón `esDemoDeSesion(req)` + `responderErrorTraducido`
+ * Sigue el mismo patrón `responderErrorTraducido`
  * que movimientos/categorías/patrones/ingesta (issue #507).
  */
 type ReevaluarDoble = Pick<ReevaluarCategoriasUseCase, 'execute'>;
 
-/** `esDemo: 'unset'` (issue #507) deja `req.esDemo` SIN asignar — simula una
- * request que llegó al handler sin pasar por `sessionMiddleware`. */
-function probeReevaluarApp(
-  uc: ReevaluarDoble,
-  esDemo: boolean | 'unset' = false,
-): Express {
+function probeReevaluarApp(uc: ReevaluarDoble): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
   router.use((req, _res, next) => {
     req.userId = 'user-x';
-    if (esDemo !== 'unset') {
-      req.esDemo = esDemo;
-    }
     next();
   });
   registrarReevaluarCategorias(router, uc as ReevaluarCategoriasUseCase);
@@ -235,7 +176,7 @@ function probeReevaluarApp(
 }
 
 describe('registrarReevaluarCategorias — POST /api/transacciones/reevaluar', () => {
-  it('200 con el DTO de conteos y llama con userId + esDemo', async () => {
+  it('200 con el DTO de conteos y llama con userId', async () => {
     const uc = {
       execute: vi.fn().mockResolvedValue(
         Result.ok({
@@ -255,37 +196,7 @@ describe('registrarReevaluarCategorias — POST /api/transacciones/reevaluar', (
     });
     expect(uc.execute).toHaveBeenCalledWith({
       userId: 'user-x',
-      esDemo: false,
     });
-  });
-
-  it('threads req.esDemo (fail-closed) into the use case input', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.fail(new ReevaluarDemoSoloLecturaError())),
-    };
-    await request(probeReevaluarApp(uc, 'unset')).post(
-      '/api/transacciones/reevaluar',
-    );
-
-    expect(uc.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ esDemo: true }),
-    );
-  });
-
-  it('403 DEMO_SOLO_LECTURA cuando el use case rechaza por sesión demo', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(Result.fail(new ReevaluarDemoSoloLecturaError())),
-    };
-    const res = await request(probeReevaluarApp(uc, true)).post(
-      '/api/transacciones/reevaluar',
-    );
-
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
   });
 
   it('500 cuando el catálogo o el writer fallan (CategorizacionFallidaError)', async () => {

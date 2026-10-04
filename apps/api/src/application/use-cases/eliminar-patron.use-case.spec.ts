@@ -1,6 +1,5 @@
 import { EliminarPatronUseCase } from './eliminar-patron.use-case';
 import { IPatronRepository } from '../ports/patron-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { PatronNoEncontradoError } from '../../domain/errors/patron-no-encontrado.error';
 
 function makeRepo(eliminar: IPatronRepository['eliminar']): IPatronRepository {
@@ -14,22 +13,6 @@ function makeRepo(eliminar: IPatronRepository['eliminar']): IPatronRepository {
 }
 
 describe('EliminarPatronUseCase', () => {
-  it('el demo gate corta ANTES de llamar al repositorio', async () => {
-    const eliminar = vi.fn();
-    const repo = makeRepo(eliminar);
-    const useCase = new EliminarPatronUseCase(repo);
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      id: 'patron-1',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CatalogoDemoSoloLecturaError);
-    expect(eliminar).not.toHaveBeenCalled();
-  });
-
   it('delega en el repositorio y retorna Result.ok cuando elimina', async () => {
     const eliminar = vi.fn().mockResolvedValue(true);
     const repo = makeRepo(eliminar);
@@ -37,7 +20,6 @@ describe('EliminarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
     });
 
@@ -52,7 +34,6 @@ describe('EliminarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-ajeno',
     });
 

@@ -84,9 +84,7 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
   let prisma: PrismaClient;
   let userIdA: string;
   let userIdB: string;
-  let userIdDemo: string;
   let authA: string;
-  let authDemo: string;
   let fakeVerificador: { verificar: ReturnType<typeof vi.fn> };
   let realGoogleAuth: GoogleAuthGraph;
   let previousGoogleEnv: {
@@ -135,18 +133,8 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
     });
     userIdB = userB.id;
 
-    const userDemo = await prisma.user.create({
-      data: {
-        nombre: `Vinculacion Demo ${RUN_ID}`,
-        esDemo: true,
-      },
-    });
-    userIdDemo = userDemo.id;
-
     const sessionA = await crearSesionParaUsuario(prisma, userIdA);
     authA = `Bearer ${sessionA.token}`;
-    const sessionDemo = await crearSesionParaUsuario(prisma, userIdDemo);
-    authDemo = `Bearer ${sessionDemo.token}`;
 
     // La app real: iniciarVinculacion/vincularGoogle/linkIntentKey son las
     // instancias REALES que createContainer construye (real password
@@ -196,10 +184,10 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
     if (!ALLOW) return;
 
     await prisma.session.deleteMany({
-      where: { userId: { in: [userIdA, userIdB, userIdDemo] } },
+      where: { userId: { in: [userIdA, userIdB] } },
     });
     await prisma.user.deleteMany({
-      where: { id: { in: [userIdA, userIdB, userIdDemo] } },
+      where: { id: { in: [userIdA, userIdB] } },
     });
     await prisma.$disconnect();
 
@@ -208,7 +196,7 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
     restoreEnvVar('GOOGLE_REDIRECT_URI', previousGoogleEnv.redirectUri);
   });
 
-  it('VINC041-01: sesión no-demo + password correcta ⇒ 200 { urlAutorizacion } + Set-Cookie md_oauth con Path/HttpOnly/SameSite/Max-Age correctos (design §6.4, guard note #9)', async () => {
+  it('VINC041-01: sesión + password correcta ⇒ 200 { urlAutorizacion } + Set-Cookie md_oauth con Path/HttpOnly/SameSite/Max-Age correctos (design §6.4, guard note #9)', async () => {
     if (!ALLOW) return;
 
     const res = await request(app)
@@ -245,26 +233,6 @@ describe('POST /api/perfil/google/vincular + GET /api/auth/google/callback (link
     expect(res.headers['set-cookie']).toBeUndefined();
 
     expect(await snapshotUser(prisma, userIdA)).toEqual(before);
-  });
-
-  it('VINC041-07: sesión demo ⇒ 403 DEMO_SOLO_LECTURA, nada escrito', async () => {
-    if (!ALLOW) return;
-
-    const before = await snapshotUser(prisma, userIdDemo);
-
-    const res = await request(app)
-      .post('/api/perfil/google/vincular')
-      .set('x-api-key', API_KEY)
-      .set('Authorization', authDemo)
-      .send({ passwordActual: 'lo que sea' });
-
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('DEMO_SOLO_LECTURA');
-
-    const setCookie = [res.headers['set-cookie']].flat();
-    expect(setCookie.some((c) => c?.startsWith('md_oauth='))).toBe(false);
-
-    expect(await snapshotUser(prisma, userIdDemo)).toEqual(before);
   });
 
   describe('★ BINDING PROOF (a) — un link forjado escribe NADA y no loguea a nadie', () => {

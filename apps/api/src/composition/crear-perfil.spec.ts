@@ -64,7 +64,6 @@ describe('crearPerfil', () => {
     // instancia de `prisma`.
     await graph.desvincularGoogle.execute({
       userId: 'user-1',
-      esDemo: false,
       passwordActual: 'lo-que-sea',
     });
 
@@ -94,7 +93,6 @@ describe('crearPerfil', () => {
     // MISMA instancia de `prisma`, no una propia.
     await graph.cambiarPassword.execute({
       userId: 'user-1',
-      esDemo: false,
       tokenHashActual: 'hash-de-la-sesion-actual',
       passwordActual: 'lo-que-sea',
       passwordNueva: 'password-nueva-valida',
@@ -111,8 +109,7 @@ describe('crearPerfil', () => {
     const prisma = fakePrisma({
       id: 'user-1',
       nombre: 'Jorge',
-      email: null,
-      esDemo: true,
+      email: 'jorge@example.com',
     });
     const crypto: ICryptoService = { encrypt: (v) => v, decrypt: (v) => v };
     const blindIndex: IBlindIndexService = { compute: (v) => v };
@@ -120,7 +117,6 @@ describe('crearPerfil', () => {
     const graph = crearPerfil(prisma, crypto, blindIndex, new NoOpLogger());
     await graph.actualizarPerfil.execute({
       userId: 'user-1',
-      esDemo: false,
       nombre: 'Jorge',
     });
 
@@ -147,7 +143,6 @@ describe('crearPerfil', () => {
     // archivo para dónde vive esa prueba real).
     await graph.actualizarPerfil.execute({
       userId: 'user-1',
-      esDemo: false,
       emailRaw: 'jorge@example.com',
       passwordActual: 'lo-que-sea',
     });

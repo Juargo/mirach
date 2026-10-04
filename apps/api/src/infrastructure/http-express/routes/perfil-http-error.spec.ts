@@ -1,7 +1,6 @@
 import { aPerfilHttpError } from './perfil-http-error';
 import { NombrePerfilInvalidoError } from '../../../domain/errors/nombre-perfil-invalido.error';
 import { EmailInvalidoError } from '../../../domain/errors/email-invalido.error';
-import { PerfilDemoSoloLecturaError } from '../../../domain/errors/perfil-demo-solo-lectura.error';
 import { PerfilRechazadoError } from '../../../domain/errors/perfil-rechazado.error';
 import { PasswordInvalidaError } from '../../../domain/errors/password-invalida.error';
 import { GoogleYaVinculadoError } from '../../../domain/errors/google-ya-vinculado.error';
@@ -12,7 +11,6 @@ describe('aPerfilHttpError — one class, exactly one status + code (union ampli
   it.each([
     [new NombrePerfilInvalidoError(), 400, 'NOMBRE_INVALIDO'],
     [new EmailInvalidoError('x'), 400, 'EMAIL_INVALIDO'],
-    [new PerfilDemoSoloLecturaError(), 403, 'DEMO_SOLO_LECTURA'],
     [new PerfilRechazadoError(), 403, 'PERFIL_RECHAZADO'],
     [new PasswordInvalidaError(), 400, 'PASSWORD_INVALIDA'],
     [new GoogleYaVinculadoError(), 409, 'GOOGLE_YA_VINCULADO'],

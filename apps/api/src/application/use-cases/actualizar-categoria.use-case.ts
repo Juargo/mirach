@@ -3,7 +3,6 @@ import {
   CategoriaConPatrones,
   ICategoriaRepository,
 } from '../ports/categoria-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaInvalidoError } from '../../domain/errors/nombre-categoria-invalido.error';
 import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
@@ -19,7 +18,6 @@ const NOMBRE_MAX = 40;
 const BUCKETS_ASIGNABLES = ['Necesidades', 'Deseos', 'Ahorro'] as const;
 
 export type ActualizarCategoriaError =
-  | CatalogoDemoSoloLecturaError
   | CategoriaNoEncontradaError
   | CategoriaInternaProtegidaError
   | NombreCategoriaInvalidoError
@@ -38,8 +36,7 @@ export type ActualizarCategoriaError =
  * Orden de validación, EXACTO por design.md D-03 (REORDENADO por ADR-042 —
  * antes era nombre-forma → nombre-unicidad → bucket-asignabilidad; ahora la
  * unicidad depende del bucket, así que el bucket debe validarse ANTES):
- *   1. demo gate
- *   2. 404 si la fila no es del caller (ANTES de validar cualquier campo)
+ *   1. 404 si la fila no es del caller (ANTES de validar cualquier campo)
  *   2.b `403` si la fila es INTERNA del sistema (#778) — antes de validar
  *      cualquier campo, por la misma razón que el 404: "esta fila no se
  *      muta" precede a "este campo es válido"
@@ -71,7 +68,6 @@ export class ActualizarCategoriaUseCase {
 
   async execute(input: {
     userId: string;
-    esDemo: boolean;
     id: string;
     nombre?: string;
     bucket?: string;
@@ -79,10 +75,6 @@ export class ActualizarCategoriaUseCase {
      *  allowlisted = set. */
     icono?: string | null;
   }): Promise<Result<CategoriaConPatrones, ActualizarCategoriaError>> {
-    if (input.esDemo) {
-      return Result.fail(new CatalogoDemoSoloLecturaError());
-    }
-
     const actual = await this.categoriaRepository.buscarPorId(
       input.userId,
       input.id,

@@ -1,6 +1,5 @@
 import { ActualizarPatronUseCase } from './actualizar-patron.use-case';
 import { IPatronRepository } from '../ports/patron-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { PatronNoEncontradoError } from '../../domain/errors/patron-no-encontrado.error';
 import { PatronInvalidoError } from '../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.error';
@@ -32,29 +31,12 @@ function makeRepo(
 }
 
 describe('ActualizarPatronUseCase', () => {
-  it('el demo gate corta ANTES de cualquier llamada al repositorio', async () => {
-    const repo = makeRepo();
-    const useCase = new ActualizarPatronUseCase(repo);
-
-    const result = await useCase.execute({
-      userId: 'user-demo',
-      esDemo: true,
-      id: 'patron-1',
-      patron: 'x',
-    });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(CatalogoDemoSoloLecturaError);
-    expect(repo.buscarPorId).not.toHaveBeenCalled();
-  });
-
   it('404 cuando el patrón es ajeno o no existe', async () => {
     const repo = makeRepo({ buscarPorId: vi.fn().mockResolvedValue(null) });
     const useCase = new ActualizarPatronUseCase(repo);
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-ajeno',
       patron: 'x',
     });
@@ -69,7 +51,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       patron: 'netflix renombrado',
     });
@@ -86,7 +67,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       prioridad: 50,
     });
@@ -103,7 +83,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       patron: '   ',
     });
@@ -119,7 +98,6 @@ describe('ActualizarPatronUseCase', () => {
 
     await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       patron: 'netflix renombrado',
     });
@@ -139,7 +117,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       patron: 'spotify',
     });
@@ -155,7 +132,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       matchType: 'FUZZY',
     });
@@ -170,7 +146,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       matchType: 'REGEX',
       patron: '(',
@@ -188,7 +163,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       matchType: 'REGEX',
     });
@@ -203,7 +177,6 @@ describe('ActualizarPatronUseCase', () => {
 
     const result = await useCase.execute({
       userId: 'user-1',
-      esDemo: false,
       id: 'patron-1',
       prioridad: 1000,
     });
@@ -219,7 +192,6 @@ describe('ActualizarPatronUseCase', () => {
     const llamadaInvalida = () =>
       useCase.execute({
         userId: 'user-1',
-        esDemo: false,
         id: 'patron-1',
         // @ts-expect-error — ActualizarPatronUseCase no declara categoriaId en su input
         categoriaId: 'otra-cat',

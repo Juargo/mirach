@@ -212,7 +212,6 @@ describe('POST /api/perfil/google/vincular — AUTH-16 parity (US-041)', () => {
     );
     expect(iniciarVinculacion.execute).toHaveBeenCalledWith({
       userId: 'user-de-sesion',
-      esDemo: false,
       passwordActual: 'x',
     });
   });
@@ -240,7 +239,6 @@ describe('POST /api/perfil/google/desvincular — mounted always, no activation 
     expect(res.status).toBe(204);
     expect(c.perfil.desvincularGoogle.execute).toHaveBeenCalledWith({
       userId: 'user-de-sesion',
-      esDemo: false,
       passwordActual: 'x',
     });
   });

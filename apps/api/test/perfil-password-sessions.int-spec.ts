@@ -2,7 +2,7 @@
  * perfil-password-sessions.int-spec.ts — US-040 (Phase 15.1, PERF040-06).
  *
  * THE BINDING SESSION-REVOCATION TEST — the change's headline proof for
- * PR#2 (design.md §6.5). Scaffolded from `catalogo-demo-gate.int-spec.ts`
+ * PR#2 (design.md §6.5). Scaffolded from the catalog integration specs
  * with `crearSesionParaUsuario`.
  *
  * One user, two real sessions A (caller) and B (sibling). A changes the

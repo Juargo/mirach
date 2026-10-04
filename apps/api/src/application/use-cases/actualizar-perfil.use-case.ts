@@ -6,7 +6,6 @@ import {
 } from '../ports/user-credential-repository.port';
 import { IPasswordHasher } from '../ports/password-hasher.port';
 import { ILogger } from '../ports/logger.port';
-import { PerfilDemoSoloLecturaError } from '../../domain/errors/perfil-demo-solo-lectura.error';
 import { NombrePerfilInvalidoError } from '../../domain/errors/nombre-perfil-invalido.error';
 import { EmailInvalidoError } from '../../domain/errors/email-invalido.error';
 import { PerfilRechazadoError } from '../../domain/errors/perfil-rechazado.error';
@@ -15,7 +14,6 @@ const NOMBRE_MIN = 1;
 const NOMBRE_MAX = 80;
 
 export type ActualizarPerfilError =
-  | PerfilDemoSoloLecturaError
   | NombrePerfilInvalidoError
   | EmailInvalidoError
   | PerfilRechazadoError; // EmailNoDisponibleError NO aparece: se colapsa acá (D-04)
@@ -24,7 +22,7 @@ export type ActualizarPerfilError =
  * ActualizarPerfilUseCase — `PATCH /api/perfil` (US-040, PERF040-01/02/03/04/07/08).
  *
  * Orden de validación (design.md §4.1, guard clauses — `Result.fail` primero,
- * KISS): demo → forma de `nombre` → (si hay `email`) formato → `passwordActual`
+ * KISS): forma de `nombre` → (si hay `email`) formato → `passwordActual`
  * presente → credencial existente → password correcta → escritura. Las
  * comprobaciones baratas (2, 3a) corren ANTES del `hasher.verificar` caro
  * (3d) — esa secuencia no filtra nada porque cada fallo previo es sobre el
@@ -39,15 +37,10 @@ export class ActualizarPerfilUseCase {
 
   async execute(input: {
     userId: string;
-    esDemo: boolean; // REQUERIDO (D-05) — compile error si se olvida.
     nombre?: string;
     emailRaw?: string; // raw: el VO se crea ACÁ, no en la ruta (§5.2).
     passwordActual?: string;
   }): Promise<Result<IdentidadUsuario, ActualizarPerfilError>> {
-    if (input.esDemo) {
-      return Result.fail(new PerfilDemoSoloLecturaError());
-    }
-
     let nombre: string | undefined;
     if (input.nombre !== undefined) {
       const trimmed = input.nombre.trim();

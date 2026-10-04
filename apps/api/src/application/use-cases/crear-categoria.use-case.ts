@@ -4,7 +4,6 @@ import {
   ICategoriaRepository,
 } from '../ports/categoria-repository.port';
 import { IPatronRepository } from '../ports/patron-repository.port';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { NombreCategoriaInvalidoError } from '../../domain/errors/nombre-categoria-invalido.error';
 import { BucketNoAsignableError } from '../../domain/errors/bucket-no-asignable.error';
 import { NombreCategoriaDuplicadoError } from '../../domain/errors/nombre-categoria-duplicado.error';
@@ -24,7 +23,6 @@ const NOMBRE_MAX = 40;
 const BUCKETS_ASIGNABLES = ['Necesidades', 'Deseos', 'Ahorro'] as const;
 
 export type CrearCategoriaError =
-  | CatalogoDemoSoloLecturaError
   | NombreCategoriaInvalidoError
   | BucketNoAsignableError
   | IconoCategoriaInvalidoError
@@ -43,7 +41,7 @@ export interface PatronAnidadoInput {
  * CrearCategoriaUseCase — use case de escritura para `POST /api/categorias`
  * (US-038, CAT038-01; US-062/CAT038-10..12, patrones anidados).
  *
- * Orden de validación (design.md D-02, §5.1/§5.2): demo gate → forma de
+ * Orden de validación (design.md D-02, §5.1/§5.2): forma de
  * `nombre` → asignabilidad de `bucket` → unicidad case-insensitive del par
  * `(nombre, bucket)` por usuario (ADR-042: el mismo nombre puede repetirse
  * en dos buckets distintos, nunca dentro del mismo) → ∀patrón (forma → duplicado-contra-catálogo →
@@ -71,7 +69,6 @@ export class CrearCategoriaUseCase {
 
   async execute(input: {
     userId: string;
-    esDemo: boolean;
     nombre: string;
     bucket: string | undefined;
     /** Omitted or `null` ⇒ persist `null`; a string MUST belong to the
@@ -79,10 +76,6 @@ export class CrearCategoriaUseCase {
     icono?: string | null;
     patrones?: ReadonlyArray<PatronAnidadoInput>;
   }): Promise<Result<CategoriaConPatrones, CrearCategoriaError>> {
-    if (input.esDemo) {
-      return Result.fail(new CatalogoDemoSoloLecturaError());
-    }
-
     const nombre = input.nombre.trim();
     if (nombre.length < NOMBRE_MIN || nombre.length > NOMBRE_MAX) {
       return Result.fail(new NombreCategoriaInvalidoError(input.nombre));

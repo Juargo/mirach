@@ -1,7 +1,6 @@
 import { Result } from '../../shared/result';
 import { IPatronRepository, Patron } from '../ports/patron-repository.port';
 import { MatchType } from '../../domain/value-objects/patron-clasificacion';
-import { CatalogoDemoSoloLecturaError } from '../../domain/errors/catalogo-demo-solo-lectura.error';
 import { PatronNoEncontradoError } from '../../domain/errors/patron-no-encontrado.error';
 import { PatronInvalidoError } from '../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.error';
@@ -17,7 +16,6 @@ const PRIORIDAD_MAX = 999;
 const MATCH_TYPES = ['CONTAINS', 'STARTS_WITH', 'REGEX'] as const;
 
 export type ActualizarPatronError =
-  | CatalogoDemoSoloLecturaError
   | PatronNoEncontradoError
   | PatronInvalidoError
   | MatchTypeInvalidoError
@@ -33,7 +31,7 @@ export type ActualizarPatronError =
  * opcionales. `categoriaId` NO se acepta — mover un patrón entre
  * categorías es un non-goal explícito.
  *
- * Orden de validación: demo gate → 404 (fila ajena/inexistente) → `patron`?
+ * Orden de validación: 404 (fila ajena/inexistente) → `patron`?
  * forma + unicidad self-excluded → `matchType`? ∈ set → si el `matchType`
  * EFECTIVO (el enviado, o el actual si no se envía) es REGEX, el `patron`
  * EFECTIVO (el enviado, o el actual) debe compilar → `prioridad`? rango →
@@ -44,16 +42,11 @@ export class ActualizarPatronUseCase {
 
   async execute(input: {
     userId: string;
-    esDemo: boolean;
     id: string;
     patron?: string;
     matchType?: string;
     prioridad?: number;
   }): Promise<Result<Patron, ActualizarPatronError>> {
-    if (input.esDemo) {
-      return Result.fail(new CatalogoDemoSoloLecturaError());
-    }
-
     const actual = await this.patronRepository.buscarPorId(
       input.userId,
       input.id,

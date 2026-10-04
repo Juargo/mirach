@@ -315,19 +315,6 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
         }),
     ],
     [
-      'usuario demo',
-      () =>
-        deps({
-          loginConGoogle: {
-            execute: vi
-              .fn()
-              .mockResolvedValue(
-                Result.fail(new LoginConGoogleFallidoError('usuario-demo')),
-              ),
-          } as never,
-        }),
-    ],
-    [
       'ya vinculado a otro googleSub (regla ★)',
       () =>
         deps({

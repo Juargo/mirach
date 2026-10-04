@@ -10,7 +10,6 @@ import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
 import { CategorizacionFallidaError } from '../../domain/errors/categorizacion-fallida.error';
-import { ReevaluarDemoSoloLecturaError } from '../../domain/errors/reevaluar-demo-solo-lectura.error';
 import { NoOpLogger } from '../../../test/support/logger.double';
 
 const CATEGORIA_SUPERMERCADO = {
@@ -70,27 +69,6 @@ function tx(
 }
 
 describe('ReevaluarCategoriasUseCase', () => {
-  it('demo gate: corta ANTES de tocar catálogo, reader o writer', async () => {
-    const catalogo = makeCatalogo();
-    const reader = makeReader([]);
-    const writer = makeWriter();
-    const useCase = new ReevaluarCategoriasUseCase(
-      catalogo,
-      reader,
-      writer,
-      new CategorizarTransaccionUseCase(new NoOpLogger()),
-      new NoOpLogger(),
-    );
-
-    const result = await useCase.execute({ userId: 'user-demo', esDemo: true });
-
-    expect(result.isFail()).toBe(true);
-    expect(result.getError()).toBeInstanceOf(ReevaluarDemoSoloLecturaError);
-    expect(catalogo.findAll).not.toHaveBeenCalled();
-    expect(reader.findTodasDelUsuario).not.toHaveBeenCalled();
-    expect(writer.escribir).not.toHaveBeenCalled();
-  });
-
   it('propaga el error si el catálogo falla al cargar', async () => {
     const catalogoError = new CategorizacionFallidaError('boom');
     const catalogo: ICatalogoClasificacion = {
@@ -107,7 +85,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+    const result = await useCase.execute({ userId: 'user-a' });
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(catalogoError);
@@ -137,7 +115,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+    const result = await useCase.execute({ userId: 'user-a' });
 
     expect(result.isOk()).toBe(true);
     expect(writer.escribir).toHaveBeenCalledWith('user-a', [
@@ -175,7 +153,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    await useCase.execute({ userId: 'user-a', esDemo: false });
+    await useCase.execute({ userId: 'user-a' });
 
     expect(writer.escribir).toHaveBeenCalledWith('user-a', [
       {
@@ -208,7 +186,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+    const result = await useCase.execute({ userId: 'user-a' });
 
     expect(writer.escribir).toHaveBeenCalledWith('user-a', []);
     expect(result.getValue()).toEqual({
@@ -245,7 +223,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+    const result = await useCase.execute({ userId: 'user-a' });
 
     // El writer NUNCA ve esta fila: la clasificación manual (Necesidades/Salud)
     // sobrevive exactamente como estaba.
@@ -278,7 +256,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+    const result = await useCase.execute({ userId: 'user-a' });
 
     expect(writer.escribir).toHaveBeenCalledWith('user-a', []);
     expect(result.getValue()).toEqual({
@@ -299,7 +277,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+    const result = await useCase.execute({ userId: 'user-a' });
 
     expect(result.isOk()).toBe(true);
     expect(result.getValue()).toEqual({
@@ -333,7 +311,7 @@ describe('ReevaluarCategoriasUseCase', () => {
       new NoOpLogger(),
     );
 
-    const result = await useCase.execute({ userId: 'user-a', esDemo: false });
+    const result = await useCase.execute({ userId: 'user-a' });
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBe(writerError);
