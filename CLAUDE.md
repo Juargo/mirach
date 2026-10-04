@@ -6,7 +6,7 @@ Mirach es una app de finanzas personales que importa cartolas de bancos chilenos
 
 **Repositorio:** `Juargo/mirach`
 **Stack:** Express + TypeScript strict en `apps/api` (ADR-028) · Prisma + PostgreSQL · Astro en `apps/landing`. Las versiones exactas están en cada `package.json`.
-**Infraestructura:** aún no está aprovisionada (Supabase, Render y Vercel nuevos, con `API_KEY` y `ENCRYPTION_KEY` propias; ADR-046, D2). El dominio y el bundle identifier están por definir. Las URLs y dominios que aparecen en el código (`moneydiary.cl`) son residuos del despliegue anterior y no corresponden a infraestructura de Mirach.
+**Infraestructura:** propia de Mirach (ADR-046, D2): base Supabase `mirach` en `us-east-1` y servicio Render `mirach-api` en Virginia (`https://mirach-api.onrender.com`), con `API_KEY` y `ENCRYPTION_KEY` propias. Render despliega `main` solo y **no corre migraciones**: una migración que agrega columnas se aplica antes de mergear; una que las elimina, después del deploy. El landing todavía no está desplegado. El dominio y el bundle identifier están por definir. Las URLs y dominios que aparecen en el código (`moneydiary.cl`) son residuos del despliegue anterior y no corresponden a infraestructura de Mirach.
 
 ---
 
@@ -124,7 +124,7 @@ El riesgo se concentra en el dinero y en el control de acceso, no en una cobertu
 - `.npmrc` tiene `minimum-release-age=10080`, `audit-level=high` y `block-exotic-subdeps=true`. Un paquete recién publicado puede ser rechazado al instalar.
 - SheetJS está descartado (CVEs sin parche en npm); se usa ExcelJS (ADR-007).
 - `pnpm approve-builds` es necesario para `@prisma/engines`, `@swc/core`, `prisma` y `unrs-resolver` en una instalación limpia (declarado en `pnpm-workspace.yaml > allowBuilds`).
-- **Secretos fuera del repo:** `API_KEY`, `DATABASE_URL`, `DIRECT_URL` y `ENCRYPTION_KEY` viven en el panel de cada servicio. Nunca copiar `.env` ni claves del repositorio anterior. Las apps nativas no llevan secretos embebidos en el binario.
+- **Secretos fuera del repo:** `API_KEY`, `DATABASE_URL`, `DIRECT_URL` y `ENCRYPTION_KEY` viven en el panel de cada servicio. Nunca copiar `.env` ni claves del repositorio anterior. Las apps nativas solo embeben la `x-api-key`, que se trata como pública: es un portero, no autenticación (ADR-047). Ningún otro secreto va en el binario y ningún endpoint usa la key para identificar a un usuario.
 - `@types/node` en `apps/api` está fijado en `^22`; no subir a v24 (incompatibilidad de tipos con ExcelJS).
 - pnpm usa resolución **aislada**: cada `apps/*` declara sus dependencias directas. Si aparece "Cannot find module X" pero X funciona en tests, probablemente es transitivo y hay que declararlo.
 - Las migraciones de Prisma en producción se aplican de forma manual; setear solo `DATABASE_URL` puede migrar `localhost` en silencio.
