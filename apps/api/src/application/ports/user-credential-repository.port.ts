@@ -13,7 +13,7 @@ export interface CredencialUsuario {
 
 /**
  * IdentidadUsuario — identidad mínima para `GET /api/auth/me` (AUTH-09) y
- * `PATCH /api/perfil` (US-040, Q2). Sin hash, sin token. `email` es nullable.
+ * `PATCH /api/perfil` (US-040, Q2). Sin hash, sin token. `email` es siempre presente.
  * `nombre` es REQUERIDO (US-040 delta): un campo opcional dejaría
  * que un productor lo olvide en silencio. Es PII en claro (ADR-013 no lo
  * cifra) — NUNCA loguear su valor (ADR-033, design.md D-07).
@@ -21,7 +21,7 @@ export interface CredencialUsuario {
 export interface IdentidadUsuario {
   readonly userId: string;
   readonly nombre: string;
-  readonly email: string | null;
+  readonly email: string;
   /** VINC041-08. Derivado de `googleSub !== null`. El `googleSub` CRUDO nunca
    *  cruza este puerto: es un identificador estable de una identidad externa
    *  y no tiene ninguna razón para estar en un tipo que se serializa al wire. */
