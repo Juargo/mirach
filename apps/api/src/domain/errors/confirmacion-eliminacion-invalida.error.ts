@@ -7,7 +7,7 @@
  */
 export class ConfirmacionEliminacionInvalidaError extends Error {
   constructor() {
-    super('Para eliminar tu cuenta escribí ELIMINAR como confirmación.');
+    super('Para eliminar tu cuenta escribe ELIMINAR como confirmación.');
     this.name = 'ConfirmacionEliminacionInvalidaError';
   }
 }

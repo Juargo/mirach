@@ -11,7 +11,7 @@ describe('VinculoRequierePasswordError', () => {
     const b = new VinculoRequierePasswordError();
     expect(a.message).toBe(b.message);
     expect(a.message).toBe(
-      'configurá una contraseña antes de desvincular Google',
+      'configura una contraseña antes de desvincular Google',
     );
   });
 });

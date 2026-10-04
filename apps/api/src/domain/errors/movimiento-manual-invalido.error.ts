@@ -28,7 +28,7 @@ export class MovimientoManualInvalidoError extends Error {
   readonly code: MotivoMovimientoManualInvalido;
 
   constructor(code: MotivoMovimientoManualInvalido) {
-    super('El movimiento manual no es válido; verifique los datos ingresados.');
+    super('El movimiento manual no es válido; verifica los datos ingresados.');
     this.name = 'MovimientoManualInvalidoError';
     this.code = code;
   }

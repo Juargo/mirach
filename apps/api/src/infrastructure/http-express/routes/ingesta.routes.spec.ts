@@ -218,7 +218,7 @@ describe('registrarIngestas — POST /api/ingestas', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('CATALOGO_INCOMPLETO');
-    expect(res.body.message).toContain('Gustos');
+    expect(res.body.message).toContain('Deseos');
   });
 
   // issue #778 tramo 5a — catálogo CAÍDO (infra transitoria): 503, no 500 ni

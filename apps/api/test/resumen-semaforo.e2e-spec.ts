@@ -383,7 +383,7 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
     // Driven ONLY by Deseos (A's Necesidades/Ahorro are Verde) — never
     // mentions Necesidades, which is the alien's driving bucket.
     expect(res.body.diagnostico).toBe(
-      'Tu veredicto del mes es En peligro por Gustos.',
+      'Tu veredicto del mes es En peligro por Deseos.',
     );
     expect(res.body.bucketsCriticos).toEqual([Bucket.Deseos]);
 
@@ -410,7 +410,7 @@ describe('ResumenSemaforo (e2e) — GET /api/resumen/semaforo', () => {
       direccion: 'reducir',
       monto: '209951',
       mensaje:
-        'Para volver a Muy Saludable, reduce {monto} en Gustos este mes.',
+        'Para volver a Muy Saludable, reduce {monto} en Deseos este mes.',
     });
 
     const ahorro = res.body.buckets.find(

@@ -9,7 +9,7 @@ describe('PerfilRechazadoError', () => {
   it('es un mensaje fijo, sin ningún input interpolado (D-04, anti-enumeración)', () => {
     const error = new PerfilRechazadoError();
     expect(error.message).toBe(
-      'No pudimos actualizar tu perfil. Revisá los datos ingresados.',
+      'No pudimos actualizar tu perfil. Revisa los datos ingresados.',
     );
   });
 

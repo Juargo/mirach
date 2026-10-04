@@ -20,7 +20,7 @@ export class CategoriaFueraDeCatalogoError extends Error {
   constructor(public readonly categoriaId: string) {
     super(
       'una edición referencia una categoría que no pertenece al catálogo del ' +
-        'usuario; verifique que el categoriaId corresponda a una categoría propia',
+        'usuario; verifica que el categoriaId corresponda a una categoría propia',
     );
     this.name = 'CategoriaFueraDeCatalogoError';
   }

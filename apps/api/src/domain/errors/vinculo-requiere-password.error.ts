@@ -12,7 +12,7 @@
  */
 export class VinculoRequierePasswordError extends Error {
   constructor() {
-    super('configurá una contraseña antes de desvincular Google');
+    super('configura una contraseña antes de desvincular Google');
     this.name = 'VinculoRequierePasswordError';
   }
 }
