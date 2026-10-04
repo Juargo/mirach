@@ -287,6 +287,24 @@
         ],
         "type": "object"
       },
+      "CategoriaInternaErrorResponse": {
+        "additionalProperties": false,
+        "description": "403 body: the category is a system category (`esInterna: true`, the per-bucket \"Desconocido\") and cannot be renamed, re-bucketed or deleted.",
+        "properties": {
+          "code": {
+            "const": "CATEGORIA_INTERNA",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
+        ],
+        "type": "object"
+      },
       "CategoriaResponse": {
         "additionalProperties": false,
         "description": "A category with its nested classification patterns and the all-history count of the caller's own referencing transactions (US-038, US-039 CAT039-01).",
@@ -561,6 +579,64 @@
           "periodo",
           "bucket",
           "transacciones"
+        ],
+        "type": "object"
+      },
+      "IngestaCatalogoIncompletoResponse": {
+        "additionalProperties": false,
+        "description": "409 body: the category catalog is available but incomplete (the default \"Desconocido\" category of a bucket is missing). Permanent until the account's catalog is repaired — retrying the same request does not help.",
+        "properties": {
+          "code": {
+            "const": "CATALOGO_INCOMPLETO",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
+        ],
+        "type": "object"
+      },
+      "IngestaCatalogoNoDisponibleResponse": {
+        "additionalProperties": false,
+        "description": "503 body: a transient fault on our side while classifying; nothing was imported. Retrying later may succeed.",
+        "properties": {
+          "code": {
+            "const": "CATALOGO_NO_DISPONIBLE",
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "code"
+        ],
+        "type": "object"
+      },
+      "IngestaErrorResponse": {
+        "additionalProperties": false,
+        "description": "400 body of the upload endpoints. `code` is present only for PDF_PROTEGIDO, PDF_PASSWORD_INCORRECTA and SIN_MOVIMIENTOS.",
+        "properties": {
+          "code": {
+            "description": "PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent — ask the user for it. PDF_PASSWORD_INCORRECTA: the `password` sent does not unlock the PDF — ask again. SIN_MOVIMIENTOS: the file is valid but holds zero movements. Absent for every other 400 cause.",
+            "enum": [
+              "PDF_PROTEGIDO",
+              "PDF_PASSWORD_INCORRECTA",
+              "SIN_MOVIMIENTOS"
+            ],
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
         ],
         "type": "object"
       },
@@ -1506,6 +1582,19 @@
         ],
         "type": "object"
       },
+      "ServerErrorResponse": {
+        "additionalProperties": false,
+        "description": "500 body: `{ message }` only, no `code`.",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
       "TransaccionesCategoriaResponse": {
         "additionalProperties": false,
         "description": "PATCH /api/transacciones/:id/categoria — manual reclassification result (US-013 S4).",
@@ -2200,6 +2289,16 @@
             },
             "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriaInternaErrorResponse"
+                }
+              }
+            },
+            "description": "The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2283,6 +2382,16 @@
               }
             },
             "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriaInternaErrorResponse"
+                }
+              }
+            },
+            "description": "The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA."
           },
           "404": {
             "content": {
@@ -2417,7 +2526,14 @@
             "description": "Upload processed and persisted."
           },
           "400": {
-            "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`."
           },
           "401": {
             "content": {
@@ -2429,11 +2545,35 @@
             },
             "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaCatalogoIncompletoResponse"
+                }
+              }
+            },
+            "description": "The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help."
+          },
           "500": {
-            "description": "Persistence failure (infrastructure fault, not the uploaded file)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerErrorResponse"
+                }
+              }
+            },
+            "description": "Persistence failure (PersistenciaFallidaError) — infrastructure fault, not the uploaded file. Body is `{ message }` without `code`."
           },
           "503": {
-            "description": "Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (issue #778 slice 5a-bis) — transient infrastructure fault, distinct from the permanent 409 below. Nothing is persisted (in the 5a-bis case, anything written during this request was deleted); retrying later may succeed."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaCatalogoNoDisponibleResponse"
+                }
+              }
+            },
+            "description": "Classification is unavailable (`code` CATALOGO_NO_DISPONIBLE): the classification catalog is unreachable (issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (slice 5a-bis). Transient and distinct from the permanent 409. Nothing remains persisted; retrying later may succeed."
           }
         },
         "summary": "Upload a bank statement (deprecated — use POST /api/ingestas/commit)"
@@ -2518,7 +2658,14 @@
             "description": "Import committed and persisted. Response carries per-row bucket + categoriaId."
           },
           "400": {
-            "description": "Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits (EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). Nothing is persisted. Amounts are scrubbed from every error message (ADR-013)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013)."
           },
           "401": {
             "content": {
@@ -2530,11 +2677,35 @@
             },
             "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaCatalogoIncompletoResponse"
+                }
+              }
+            },
+            "description": "The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help."
+          },
           "500": {
-            "description": "Infrastructure fault (DB) — ensure, dedup, or persist failure (PersistenciaFallidaError). Retryable."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerErrorResponse"
+                }
+              }
+            },
+            "description": "Infrastructure fault (DB) — ensure, dedup or persist failure (PersistenciaFallidaError). Body is `{ message }` without `code`. Retryable."
           },
           "503": {
-            "description": "Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault, distinct from the permanent 409 above. Fail-closed: nothing is persisted (D-10); retrying later may succeed."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaCatalogoNoDisponibleResponse"
+                }
+              }
+            },
+            "description": "The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient, distinct from the permanent 409. Fail-closed: nothing is persisted (D-10); retrying later may succeed."
           }
         },
         "summary": "Commit a bank statement import with optional edits overlay (US-057)"
@@ -2579,7 +2750,14 @@
             "description": "Preview sample computed (not persisted)."
           },
           "400": {
-            "description": "Invalid file — missing file field, disallowed extension, unrecognized bank, invalid structure/normalization, or an oversized file (>10 MB)."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only)."
           },
           "401": {
             "content": {
@@ -2591,8 +2769,35 @@
             },
             "description": "No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA)."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaCatalogoIncompletoResponse"
+                }
+              }
+            },
+            "description": "The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerErrorResponse"
+                }
+              }
+            },
+            "description": "Defensive: PersistenciaFallidaError while reading the history for dedup — infrastructure fault. Body is `{ message }` without `code`."
+          },
           "503": {
-            "description": "Classification catalog is unreachable (CategorizacionFallidaError, issue #778 slice 5a) — transient infrastructure fault. Preview rejects rather than showing a degraded suggestion set the commit could never honor."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestaCatalogoNoDisponibleResponse"
+                }
+              }
+            },
+            "description": "The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient. Preview rejects rather than showing a degraded suggestion set the commit could never honor."
           }
         },
         "summary": "Preview a bank statement (dry run, US-057)"

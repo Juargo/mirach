@@ -26,3 +26,20 @@ export const catalogoErrorResponseSchema = z
       'Error body for the 4 new catalog endpoints (US-038). Not retrofitted onto pre-existing operations. ' +
       '`indice` is present only for a nested-patrón validation failure on POST /api/categorias (CAT038-11).',
   });
+
+/**
+ * 403 body of `PATCH`/`DELETE /api/categorias/{id}` on a system category
+ * (`Categoria.esInterna`, #778). One class ⇒ one status ⇒ one code, so `code`
+ * is a literal here instead of the open string of `CatalogoErrorResponse`.
+ */
+export const categoriaInternaErrorResponseSchema = z
+  .object({
+    message: z.string(),
+    code: z.literal('CATEGORIA_INTERNA'),
+  })
+  .meta({
+    id: 'CategoriaInternaErrorResponse',
+    description:
+      '403 body: the category is a system category (`esInterna: true`, the per-bucket ' +
+      '"Desconocido") and cannot be renamed, re-bucketed or deleted.',
+  });

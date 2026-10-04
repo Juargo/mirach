@@ -76,7 +76,16 @@ import {
   patronIdPathParamsSchema,
   patronResponseSchema,
 } from './patrones.schema';
-import { catalogoErrorResponseSchema } from './catalogo-error.schema';
+import {
+  catalogoErrorResponseSchema,
+  categoriaInternaErrorResponseSchema,
+} from './catalogo-error.schema';
+import {
+  ingestaCatalogoIncompletoResponseSchema,
+  ingestaCatalogoNoDisponibleResponseSchema,
+  ingestaErrorResponseSchema,
+  serverErrorResponseSchema,
+} from './ingesta-error.schema';
 import {
   respuesta401Credenciales,
   respuesta401Protegida,
@@ -271,20 +280,37 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
-        'structure/normalization, or an oversized file (>10 MB).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`.',
+      content: {
+        'application/json': { schema: ingestaErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
+        '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
+        'file is fine, the account state is not; retrying the same request does not help.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoIncompletoResponseSchema,
+        },
+      },
     },
     '500': {
       description:
-        'Persistence failure (infrastructure fault, not the uploaded file).',
+        'Persistence failure (PersistenciaFallidaError) — infrastructure fault, not the uploaded file. Body is `{ message }` without `code`.',
+      content: {
+        'application/json': { schema: serverErrorResponseSchema },
+      },
     },
     '503': {
       description:
-        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
-        'slice 5a), OR the post-persist bucket-classification write failed and the import ' +
-        'was rolled back (issue #778 slice 5a-bis) — transient infrastructure fault, distinct ' +
-        'from the permanent 409 below. Nothing is persisted (in the 5a-bis case, anything ' +
-        'written during this request was deleted); retrying later may succeed.',
+        'Classification is unavailable (`code` CATALOGO_NO_DISPONIBLE): the classification catalog is unreachable (issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (slice 5a-bis). Transient and distinct from the permanent 409. Nothing remains persisted; retrying later may succeed.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoNoDisponibleResponseSchema,
+        },
+      },
     },
   },
 };
@@ -314,14 +340,37 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
-        'structure/normalization, or an oversized file (>10 MB).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only).',
+      content: {
+        'application/json': { schema: ingestaErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
+        '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
+        'file is fine, the account state is not; retrying the same request does not help.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoIncompletoResponseSchema,
+        },
+      },
+    },
+    '500': {
+      description:
+        'Defensive: PersistenciaFallidaError while reading the history for dedup — infrastructure fault. Body is `{ message }` without `code`.',
+      content: {
+        'application/json': { schema: serverErrorResponseSchema },
+      },
     },
     '503': {
       description:
-        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
-        'slice 5a) — transient infrastructure fault. Preview rejects rather than showing a ' +
-        'degraded suggestion set the commit could never honor.',
+        'The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient. Preview rejects rather than showing a degraded suggestion set the commit could never honor.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoNoDisponibleResponseSchema,
+        },
+      },
     },
   },
 };
@@ -366,20 +415,37 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits ' +
-        '(EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). ' +
-        'Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
+      content: {
+        'application/json': { schema: ingestaErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
+        '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
+        'file is fine, the account state is not; retrying the same request does not help.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoIncompletoResponseSchema,
+        },
+      },
     },
     '500': {
       description:
-        'Infrastructure fault (DB) — ensure, dedup, or persist failure ' +
-        '(PersistenciaFallidaError). Retryable.',
+        'Infrastructure fault (DB) — ensure, dedup or persist failure (PersistenciaFallidaError). Body is `{ message }` without `code`. Retryable.',
+      content: {
+        'application/json': { schema: serverErrorResponseSchema },
+      },
     },
     '503': {
       description:
-        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
-        'slice 5a) — transient infrastructure fault, distinct from the permanent 409 above. ' +
-        'Fail-closed: nothing is persisted (D-10); retrying later may succeed.',
+        'The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient, distinct from the permanent 409. Fail-closed: nothing is persisted (D-10); retrying later may succeed.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoNoDisponibleResponseSchema,
+        },
+      },
     },
   },
 };
@@ -889,6 +955,14 @@ const categoriasUpdateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '403': {
+      description:
+        'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): ' +
+        'it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
     '401': respuesta401Protegida,
     '200': {
       description: 'Category updated.',
@@ -932,6 +1006,14 @@ const categoriasDeleteOperation: ZodOpenApiOperationObject = {
     path: categoriaIdPathParamsSchema,
   },
   responses: {
+    '403': {
+      description:
+        'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): ' +
+        'it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
     '401': respuesta401Protegida,
     '204': {
       description: 'Category (and its patterns) deleted. No response body.',

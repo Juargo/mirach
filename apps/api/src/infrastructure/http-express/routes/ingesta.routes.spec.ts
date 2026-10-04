@@ -165,6 +165,42 @@ describe('registrarIngestas — POST /api/ingestas', () => {
     expect(res.body.code).toBe('SIN_MOVIMIENTOS');
   });
 
+  it('400 + code PDF_PROTEGIDO en el one-shot cuando el PDF requiere password', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(
+            new PdfProtegidoError('cartola.pdf', 'requiere-password'),
+          ),
+        ),
+    };
+    const res = await request(probeApp({ processIngesta: uc }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PDF_PROTEGIDO');
+  });
+
+  it('400 + code PDF_PASSWORD_INCORRECTA en el one-shot cuando la password es incorrecta', async () => {
+    const uc = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(
+            new PdfProtegidoError('cartola.pdf', 'password-incorrecta'),
+          ),
+        ),
+    };
+    const res = await request(probeApp({ processIngesta: uc }))
+      .post('/api/ingestas')
+      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('PDF_PASSWORD_INCORRECTA');
+  });
+
   // #778 tramo 3/5 — 409 (no 400): el archivo está bien, el ESTADO de la
   // cuenta (catálogo incompleto) es lo que bloquea, y reintentar el mismo
   // request no sirve hasta que el usuario arregle su catálogo.

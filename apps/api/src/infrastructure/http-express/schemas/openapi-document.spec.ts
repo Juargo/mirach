@@ -585,4 +585,91 @@ describe('buildOpenApiDocument', () => {
       expect(union).toEqual(new Set(CODIGOS_401));
     });
   });
+
+  describe('error codes', () => {
+    type Json = Record<string, unknown>;
+    const document = () => buildOpenApiDocument();
+
+    function schemaRef(operation: unknown, status: string): string | undefined {
+      const responses = (operation as { responses?: Record<string, Json> })
+        .responses;
+      const content = responses?.[status]?.content as
+        | Record<string, { schema?: { $ref?: string } }>
+        | undefined;
+      return content?.['application/json']?.schema?.$ref;
+    }
+
+    function componente(ref: string | undefined) {
+      const nombre = ref?.split('/').pop() ?? '';
+      return (
+        document().components?.schemas as Record<
+          string,
+          {
+            properties: { code?: { enum?: string[]; const?: string } };
+            required?: string[];
+          }
+        >
+      )[nombre];
+    }
+
+    const UPLOADS = [
+      ['POST', '/api/ingestas', 'post'],
+      ['POST', '/api/ingestas/preview', 'post'],
+      ['POST', '/api/ingestas/commit', 'post'],
+    ] as const;
+
+    it.each(UPLOADS)(
+      '%s %s declares a typed 400 whose optional code enum is PDF_PROTEGIDO | PDF_PASSWORD_INCORRECTA | SIN_MOVIMIENTOS',
+      (_m, ruta, metodo) => {
+        const op = document().paths?.[ruta]?.[metodo];
+        const schema = componente(schemaRef(op, '400'));
+        expect(schema.properties.code?.enum).toEqual([
+          'PDF_PROTEGIDO',
+          'PDF_PASSWORD_INCORRECTA',
+          'SIN_MOVIMIENTOS',
+        ]);
+        expect(schema.required).not.toContain('code');
+      },
+    );
+
+    it.each(UPLOADS)(
+      '%s %s declares 409 CATALOGO_INCOMPLETO, 503 CATALOGO_NO_DISPONIBLE and a typed 500',
+      (_m, ruta, metodo) => {
+        const op = document().paths?.[ruta]?.[metodo];
+        const c409 = componente(schemaRef(op, '409'));
+        const c503 = componente(schemaRef(op, '503'));
+        expect(c409.properties.code?.const).toBe('CATALOGO_INCOMPLETO');
+        expect(c409.required).toContain('code');
+        expect(c503.properties.code?.const).toBe('CATALOGO_NO_DISPONIBLE');
+        expect(c503.required).toContain('code');
+        expect(schemaRef(op, '500')).toBeDefined();
+      },
+    );
+
+    it.each([
+      ['patch', '/api/categorias/{id}'],
+      ['delete', '/api/categorias/{id}'],
+    ] as const)('%s %s declares 403 CATEGORIA_INTERNA', (metodo, ruta) => {
+      const op = document().paths?.[ruta]?.[metodo];
+      const schema = componente(schemaRef(op, '403'));
+      expect(schema.properties.code?.const).toBe('CATEGORIA_INTERNA');
+      expect(schema.required).toContain('code');
+    });
+
+    it('no other categorias or patrones operation declares 403 (only system categories are protected)', () => {
+      const { paths } = document();
+      const con403 = [
+        ['post', '/api/categorias'],
+        ['get', '/api/categorias'],
+        ['post', '/api/patrones'],
+        ['patch', '/api/patrones/{id}'],
+        ['delete', '/api/patrones/{id}'],
+      ].filter(
+        ([m, r]) =>
+          (paths?.[r] as Record<string, { responses?: Json }>)?.[m]
+            ?.responses?.['403'] !== undefined,
+      );
+      expect(con403).toEqual([]);
+    });
+  });
 });
