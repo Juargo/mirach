@@ -300,4 +300,70 @@ describe('PrismaDetalleBucketRepository (integration — real dev DB)', () => {
       icono: 'tv',
     });
   });
+
+  // Contract (documented in the OpenAPI operations that read this reader:
+  // GET /api/buckets/{bucket}, /{bucket}/detalle and /api/ingresos/mes). The
+  // order is decided by the SQL ORDER BY, so it is pinned against a real
+  // Postgres: amount (cargo) descending, then fecha ascending, then id.
+  it('orders a spend bucket by cargo desc, then fecha asc, then id asc', async () => {
+    const periodoMarzo = PeriodoMes.crear('2026-03').getValue();
+    const insertar = (id: string, dia: string, cargo: bigint) =>
+      prisma.transaccion.create({
+        data: {
+          id: `${id}-${RUN_ID}`,
+          accountId: accountIdA,
+          ingestaId: ingestaIdA,
+          fecha: new Date(`2026-03-${dia}T00:00:00.000Z`),
+          bucketId: BUCKET_IDS[Bucket.Necesidades],
+          cargo,
+          abono: 0n,
+          descripcion: crypto.encrypt('orden'),
+        },
+      });
+    // Inserted deliberately out of the expected order.
+    await insertar('ord-b', '10', 5000n);
+    await insertar('ord-z', '20', 9000n);
+    await insertar('ord-c', '05', 5000n);
+    await insertar('ord-a', '10', 5000n);
+
+    const rows = await repo.findByPeriodoYBucket(
+      TEST_USER_ID_A,
+      periodoMarzo,
+      Bucket.Necesidades,
+    );
+
+    expect(rows.map((r) => r.id)).toEqual(
+      ['ord-z', 'ord-c', 'ord-a', 'ord-b'].map((id) => `${id}-${RUN_ID}`),
+    );
+  });
+
+  it('orders the Ingreso bucket (GET /api/ingresos/mes) by fecha asc, then id asc', async () => {
+    const periodoAbril = PeriodoMes.crear('2026-04').getValue();
+    const insertar = (id: string, dia: string) =>
+      prisma.transaccion.create({
+        data: {
+          id: `${id}-${RUN_ID}`,
+          accountId: accountIdA,
+          ingestaId: ingestaIdA,
+          fecha: new Date(`2026-04-${dia}T00:00:00.000Z`),
+          bucketId: BUCKET_IDS[Bucket.Ingreso],
+          cargo: 0n,
+          abono: 1000n,
+          descripcion: crypto.encrypt('sueldo'),
+        },
+      });
+    await insertar('ing-b', '20');
+    await insertar('ing-z', '05');
+    await insertar('ing-a', '20');
+
+    const rows = await repo.findByPeriodoYBucket(
+      TEST_USER_ID_A,
+      periodoAbril,
+      Bucket.Ingreso,
+    );
+
+    expect(rows.map((r) => r.id)).toEqual(
+      ['ing-z', 'ing-a', 'ing-b'].map((id) => `${id}-${RUN_ID}`),
+    );
+  });
 });

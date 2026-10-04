@@ -283,6 +283,34 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
     expect(categoriaResponseSchema.parse(dto).icono).toBe('paw-print');
   });
 
+  it.each([true, false])(
+    'carries esInterna=%s from aCategoriaDto() output through the schema',
+    (esInterna) => {
+      const dto = aCategoriaDto({
+        id: 'cat-1',
+        nombre: 'Desconocido',
+        bucket: Bucket.Deseos,
+        patrones: [],
+        transaccionesCount: 0,
+        icono: null,
+        esInterna,
+      });
+      expect(categoriaResponseSchema.parse(dto).esInterna).toBe(esInterna);
+    },
+  );
+
+  it('esInterna is REQUIRED on the response: a payload omitting it does not parse', () => {
+    const result = categoriaResponseSchema.safeParse({
+      id: 'cat-1',
+      nombre: 'Mascotas',
+      bucket: 'Deseos',
+      patrones: [],
+      transaccionesCount: 0,
+      icono: null,
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('parses icono: null from aCategoriaDto() output', () => {
     const dto = aCategoriaDto({
       id: 'cat-1',
@@ -303,6 +331,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
       bucket: 'Deseos',
       patrones: [],
       transaccionesCount: 0,
+      esInterna: false,
     });
     expect(result.success).toBe(true);
   });
@@ -316,6 +345,7 @@ describe('categoriaResponseSchema / catalogoResponseSchema (sync guarantee)', ()
           bucket: 'Deseos',
           patrones: [],
           transaccionesCount: 0,
+          esInterna: false,
           monto: 1000, // must never appear
         },
       ],

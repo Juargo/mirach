@@ -20,6 +20,7 @@ describe('aCategoriaDto', () => {
       patrones: [],
       transaccionesCount: 0,
       icono: null,
+      esInterna: false,
     });
   });
 
@@ -94,5 +95,19 @@ describe('aCategoriaDto', () => {
 
     expect(dto).toHaveProperty('icono');
     expect(dto.icono).toBeNull();
+  });
+
+  it('threads esInterna through unchanged, true for a system category', () => {
+    const dto = aCategoriaDto({
+      id: 'cat-1',
+      nombre: 'Desconocido',
+      bucket: Bucket.Deseos,
+      patrones: [],
+      transaccionesCount: 0,
+      icono: null,
+      esInterna: true,
+    });
+
+    expect(dto.esInterna).toBe(true);
   });
 });

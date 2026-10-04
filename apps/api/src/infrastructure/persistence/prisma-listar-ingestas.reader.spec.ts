@@ -22,7 +22,7 @@ describe('PrismaListarIngestasReader.listarPorUsuario (US-004)', () => {
     return { prisma, findMany };
   }
 
-  it('WHERE userId-scoped (NO account join) + estado in [PROCESADA, FALLIDA], orderBy creadoEn desc', async () => {
+  it('WHERE userId-scoped (NO account join) + estado in [PROCESADA, FALLIDA], orderBy creadoEn desc then id desc', async () => {
     const { prisma, findMany } = makePrisma([]);
     const reader = new PrismaListarIngestasReader(prisma);
 
@@ -30,7 +30,7 @@ describe('PrismaListarIngestasReader.listarPorUsuario (US-004)', () => {
 
     expect(findMany).toHaveBeenCalledWith({
       where: { userId: 'user-a', estado: { in: ['PROCESADA', 'FALLIDA'] } },
-      orderBy: { creadoEn: 'desc' },
+      orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
         banco: true,

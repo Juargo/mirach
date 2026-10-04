@@ -4,6 +4,7 @@ import type { LoginConGoogleUseCase } from '../../../application/use-cases/login
 import type { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 import { getClientIp } from '../../http/auth/client-ip';
 import { appLogger } from '../../logging/app-logger';
+import { CREDENCIALES_INVALIDAS } from '../auth-error-codes';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
 
 /**
@@ -18,7 +19,10 @@ import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-
  * `/auth/login` es el requisito (AUTH-21/AUTH-02, no enumeración) — el mismo
  * cuerpo para TODA causa de fallo, incluido un throw inesperado.
  */
-const GENERIC_401_BODY = { message: new CredencialesInvalidasError().message };
+const GENERIC_401_BODY = {
+  message: new CredencialesInvalidasError().message,
+  code: CREDENCIALES_INVALIDAS,
+};
 
 const RATE_LIMITED_BODY = {
   message: 'Demasiadas solicitudes. Intenta más tarde.',

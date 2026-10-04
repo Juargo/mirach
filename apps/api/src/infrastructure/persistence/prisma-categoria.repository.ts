@@ -58,6 +58,27 @@ function ordenarPatrones(patrones: PatronRow[]): PatronRow[] {
   });
 }
 
+/**
+ * Catalog order: `nombre` in es-CL, then `id`.
+ *
+ * Done in memory, not with SQL `ORDER BY nombre`, because the database
+ * collation decides that order (it differs between the CI Postgres and
+ * Supabase) and a catalog is a handful of rows. The locale is explicit for
+ * the same reason `agruparDetallePorCategoria` pins it: names are
+ * user-written and carry accents and ñ, and the runtime's default locale is
+ * not part of the contract. `id` breaks the tie between same-named categories
+ * of different buckets (the unique key is `(userId, bucketId, nombre)`), so
+ * the list never reshuffles between requests.
+ */
+function compararCategorias(
+  a: CategoriaConPatrones,
+  b: CategoriaConPatrones,
+): number {
+  const porNombre = a.nombre.localeCompare(b.nombre, 'es-CL');
+  if (porNombre !== 0) return porNombre;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 function aPatron(row: PatronRow): Patron {
   return {
     id: row.id,
@@ -95,9 +116,10 @@ export class PrismaCategoriaRepository implements ICategoriaRepository {
     const rows = await this.prisma.categoria.findMany({
       where: { userId },
       include: categoriaInclude(userId),
-      orderBy: { nombre: 'asc' },
     });
-    return (rows as unknown as CategoriaRow[]).map(aCategoriaConPatrones);
+    return (rows as unknown as CategoriaRow[])
+      .map(aCategoriaConPatrones)
+      .sort(compararCategorias);
   }
 
   async buscarPorId(

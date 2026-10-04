@@ -214,4 +214,38 @@ describe('PrismaListarIngestasReader (integration — real dev DB)', () => {
 
     expect(newerIdx).toBeLessThan(olderIdx);
   });
+
+  it('breaks a creadoEn tie by id desc, so the order never depends on physical row order', async () => {
+    const creadoEn = new Date('2026-01-15T12:00:00.000Z');
+    const crear = (id: string, creado: Date) =>
+      prisma.ingesta.create({
+        data: {
+          id,
+          userId: TEST_USER_ID_A,
+          accountId: accountIdA,
+          banco: 'BCI',
+          nombreArchivo: `${id}.xlsx`,
+          estado: 'PROCESADA',
+          totalTransacciones: 1,
+          creadoEn: creado,
+        },
+      });
+    const ids = ['a', 'c', 'b'].map((x) => `tie-${x}-${RUN_ID}`);
+    // Inserted out of id order on purpose.
+    for (const id of ids) await crear(id, creadoEn);
+    const nuevo = `tie-z-newer-${RUN_ID}`;
+    await crear(nuevo, new Date('2026-01-16T12:00:00.000Z'));
+
+    const resultA = await reader.listarPorUsuario(TEST_USER_ID_A);
+    const orden = resultA
+      .map((r) => r.id)
+      .filter((id) => id === nuevo || ids.includes(id));
+
+    expect(orden).toEqual([
+      nuevo,
+      `tie-c-${RUN_ID}`,
+      `tie-b-${RUN_ID}`,
+      `tie-a-${RUN_ID}`,
+    ]);
+  });
 });

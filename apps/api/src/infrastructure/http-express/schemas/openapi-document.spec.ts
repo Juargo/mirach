@@ -1,4 +1,5 @@
 import { buildOpenApiDocument } from './openapi-document';
+import { CODIGOS_401 } from '../auth-error-codes';
 
 /**
  * `buildOpenApiDocument()` must be PURE — no container, no env, no DB — so it
@@ -488,5 +489,241 @@ describe('buildOpenApiDocument', () => {
     const responseSchema = components?.schemas?.['ReevaluarCategoriasResponse'];
     expect(responseSchema?.required).toContain('transaccionesEvaluadas');
     expect(responseSchema?.required).toContain('transaccionesActualizadas');
+  });
+
+  describe('401 responses', () => {
+    const METODOS = ['get', 'post', 'patch', 'delete'] as const;
+    const FAMILIA_SOLO_API_KEY = [
+      'POST /api/auth/logout',
+      'GET /api/auth/capabilities',
+      'GET /api/auth/google',
+      'GET /api/auth/google/callback',
+    ];
+    const FAMILIA_CREDENCIALES = [
+      'POST /api/auth/login',
+      'POST /api/auth/google/token',
+      'POST /api/auth/apple/token',
+    ];
+
+    function refDe401(operation: unknown): string | undefined {
+      const response = (
+        operation as {
+          responses?: Record<
+            string,
+            { content?: Record<string, { schema?: { $ref?: string } }> }
+          >;
+        }
+      ).responses?.['401'];
+      return response?.content?.['application/json']?.schema?.$ref;
+    }
+
+    const operaciones = () => {
+      const { paths } = buildOpenApiDocument();
+      return Object.entries(paths ?? {}).flatMap(([ruta, item]) =>
+        METODOS.filter((m) => item?.[m] !== undefined).map((m) => ({
+          clave: `${m.toUpperCase()} ${ruta}`,
+          ruta,
+          operation: item?.[m],
+        })),
+      );
+    };
+
+    it('every operation except GET /version declares a 401 with a typed body', () => {
+      const sinTipo = operaciones()
+        .filter(({ ruta }) => ruta !== '/version')
+        .filter(({ operation }) => refDe401(operation) === undefined)
+        .map(({ clave }) => clave);
+      expect(sinTipo).toEqual([]);
+    });
+
+    it('GET /version stays public: no 401', () => {
+      const { paths } = buildOpenApiDocument();
+      expect(paths?.['/version']?.get?.responses?.['401']).toBeUndefined();
+    });
+
+    it.each([
+      ['protected operations', 'UnauthorizedResponse'],
+      ['api-key-only operations', 'ApiKeyUnauthorizedResponse'],
+      ['sign-in operations', 'CredentialsUnauthorizedResponse'],
+    ])('%s reference %s', (_nombre, schema) => {
+      const esperadas = (clave: string) =>
+        FAMILIA_SOLO_API_KEY.includes(clave)
+          ? 'ApiKeyUnauthorizedResponse'
+          : FAMILIA_CREDENCIALES.includes(clave)
+            ? 'CredentialsUnauthorizedResponse'
+            : 'UnauthorizedResponse';
+      const refs = operaciones()
+        .filter(({ ruta }) => ruta !== '/version')
+        .filter(({ clave }) => esperadas(clave) === schema)
+        .map(({ operation }) => refDe401(operation));
+      expect(refs.length).toBeGreaterThan(0);
+      expect(new Set(refs)).toEqual(
+        new Set([`#/components/schemas/${schema}`]),
+      );
+    });
+
+    it('the 401 code enums per family are built from CODIGOS_401 and together cover all of them (emitters are proven in their own specs)', () => {
+      const schemas = buildOpenApiDocument().components?.schemas as Record<
+        string,
+        { properties: { code: { enum?: string[]; const?: string } } }
+      >;
+      expect(schemas.UnauthorizedResponse.properties.code.enum).toEqual([
+        'API_KEY_INVALIDA',
+        'SESION_INVALIDA',
+      ]);
+      expect(schemas.ApiKeyUnauthorizedResponse.properties.code.const).toBe(
+        'API_KEY_INVALIDA',
+      );
+      expect(
+        schemas.CredentialsUnauthorizedResponse.properties.code.enum,
+      ).toEqual(['API_KEY_INVALIDA', 'CREDENCIALES_INVALIDAS']);
+      const union = new Set([
+        ...(schemas.UnauthorizedResponse.properties.code.enum ?? []),
+        schemas.ApiKeyUnauthorizedResponse.properties.code.const,
+        ...(schemas.CredentialsUnauthorizedResponse.properties.code.enum ?? []),
+      ]);
+      expect(union).toEqual(new Set(CODIGOS_401));
+    });
+  });
+
+  describe('error codes', () => {
+    type Json = Record<string, unknown>;
+    const document = () => buildOpenApiDocument();
+
+    function schemaRef(operation: unknown, status: string): string | undefined {
+      const responses = (operation as { responses?: Record<string, Json> })
+        .responses;
+      const content = responses?.[status]?.content as
+        | Record<string, { schema?: { $ref?: string } }>
+        | undefined;
+      return content?.['application/json']?.schema?.$ref;
+    }
+
+    function componente(ref: string | undefined) {
+      const nombre = ref?.split('/').pop() ?? '';
+      return (
+        document().components?.schemas as Record<
+          string,
+          {
+            properties: { code?: { enum?: string[]; const?: string } };
+            required?: string[];
+          }
+        >
+      )[nombre];
+    }
+
+    const UPLOADS = [
+      ['POST', '/api/ingestas', 'post'],
+      ['POST', '/api/ingestas/preview', 'post'],
+      ['POST', '/api/ingestas/commit', 'post'],
+    ] as const;
+
+    it.each(UPLOADS)(
+      '%s %s declares a typed 400 whose optional code enum is PDF_PROTEGIDO | PDF_PASSWORD_INCORRECTA | SIN_MOVIMIENTOS',
+      (_m, ruta, metodo) => {
+        const op = document().paths?.[ruta]?.[metodo];
+        const schema = componente(schemaRef(op, '400'));
+        expect(schema.properties.code?.enum).toEqual([
+          'PDF_PROTEGIDO',
+          'PDF_PASSWORD_INCORRECTA',
+          'SIN_MOVIMIENTOS',
+        ]);
+        expect(schema.required).not.toContain('code');
+      },
+    );
+
+    it.each(UPLOADS)(
+      '%s %s declares 409 CATALOGO_INCOMPLETO, 503 CATALOGO_NO_DISPONIBLE and a typed 500',
+      (_m, ruta, metodo) => {
+        const op = document().paths?.[ruta]?.[metodo];
+        const c409 = componente(schemaRef(op, '409'));
+        const c503 = componente(schemaRef(op, '503'));
+        expect(c409.properties.code?.const).toBe('CATALOGO_INCOMPLETO');
+        expect(c409.required).toContain('code');
+        expect(c503.properties.code?.const).toBe('CATALOGO_NO_DISPONIBLE');
+        expect(c503.required).toContain('code');
+        expect(schemaRef(op, '500')).toBeDefined();
+      },
+    );
+
+    it.each([
+      ['patch', '/api/categorias/{id}'],
+      ['delete', '/api/categorias/{id}'],
+    ] as const)('%s %s declares 403 CATEGORIA_INTERNA', (metodo, ruta) => {
+      const op = document().paths?.[ruta]?.[metodo];
+      const schema = componente(schemaRef(op, '403'));
+      expect(schema.properties.code?.const).toBe('CATEGORIA_INTERNA');
+      expect(schema.required).toContain('code');
+    });
+
+    it('no other categorias or patrones operation declares 403 (only system categories are protected)', () => {
+      const { paths } = document();
+      const con403 = [
+        ['post', '/api/categorias'],
+        ['get', '/api/categorias'],
+        ['post', '/api/patrones'],
+        ['patch', '/api/patrones/{id}'],
+        ['delete', '/api/patrones/{id}'],
+      ].filter(
+        ([m, r]) =>
+          (paths?.[r] as Record<string, { responses?: Json }>)?.[m]
+            ?.responses?.['403'] !== undefined,
+      );
+      expect(con403).toEqual([]);
+    });
+  });
+
+  describe('list ordering is documented', () => {
+    const casos: Array<[string, string, string, RegExp]> = [
+      [
+        'get',
+        '/api/categorias',
+        'GET /api/categorias',
+        /Ordering:.*`nombre` ascending.*es-CL.*`id`.*`prioridad`/s,
+      ],
+      [
+        'get',
+        '/api/ingestas',
+        'GET /api/ingestas',
+        /Ordering:.*newest first.*`id` descending/s,
+      ],
+      [
+        'get',
+        '/api/buckets/{bucket}',
+        'GET /api/buckets/{bucket}',
+        /Ordering:.*amount descending.*`fecha` ascending.*`id`/s,
+      ],
+      [
+        'get',
+        '/api/buckets/{bucket}/detalle',
+        'GET /api/buckets/{bucket}/detalle',
+        /Ordering:.*`grupos`.*`subtotal` descending.*Sin categoría.*last.*`transacciones`.*`fecha` ascending/s,
+      ],
+      [
+        'get',
+        '/api/ingresos/mes',
+        'GET /api/ingresos/mes',
+        /Ordering:.*`fecha` ascending.*`id`/s,
+      ],
+      [
+        'get',
+        '/api/resumen/anual',
+        'GET /api/resumen/anual',
+        /Ordering:.*12.*January.*December/s,
+      ],
+      [
+        'get',
+        '/api/movimientos',
+        'GET /api/movimientos',
+        /Ordering:.*`fecha` ascending.*`id`/s,
+      ],
+    ];
+
+    it.each(casos)('%s %s', (metodo, ruta, _nombre, patron) => {
+      const op = buildOpenApiDocument().paths?.[ruta]?.[metodo as 'get'] as {
+        description?: string;
+      };
+      expect(op.description).toMatch(patron);
+    });
   });
 });

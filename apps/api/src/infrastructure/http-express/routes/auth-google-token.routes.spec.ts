@@ -1,3 +1,5 @@
+import { bodyIssues } from '../schemas/body-issues.spec-helper';
+import { credentialsUnauthorizedResponseSchema } from '../schemas/auth-error.schema';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { Writable } from 'node:stream';
@@ -20,7 +22,10 @@ import type { LoginConGoogleResult } from '../../../application/use-cases/login-
  * (`LoginConGoogleFallidoError.message` is a DIFFERENT string, "No pudimos
  * iniciar sesión con Google.", reserved for the web redirect flow's logging).
  */
-const GENERIC_401_BODY = { message: 'Credenciales inválidas.' };
+const GENERIC_401_BODY = {
+  message: 'Credenciales inválidas.',
+  code: 'CREDENCIALES_INVALIDAS',
+};
 
 function deps(over: Partial<AuthGoogleTokenDeps> = {}): AuthGoogleTokenDeps {
   return {
@@ -227,6 +232,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual(GENERIC_401_BODY);
+    expect(bodyIssues(credentialsUnauthorizedResponseSchema, res.body)).toEqual(
+      [],
+    );
     expect(d.verificadorIdToken.verificarIdToken).toHaveBeenCalledWith('');
   });
 
@@ -243,6 +251,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual(GENERIC_401_BODY);
+    expect(bodyIssues(credentialsUnauthorizedResponseSchema, res.body)).toEqual(
+      [],
+    );
   });
 
   it('JSON malformado → lo rechaza el parser compartido con el 500 del errorMiddleware, no el 401 genérico', async () => {
@@ -369,6 +380,9 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
 
       expect(res.status).toBe(401);
       expect(res.body).toEqual(GENERIC_401_BODY);
+      expect(
+        bodyIssues(credentialsUnauthorizedResponseSchema, res.body),
+      ).toEqual([]);
       expect(res.headers['set-cookie']).toBeUndefined();
     },
   );

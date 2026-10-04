@@ -76,7 +76,21 @@ import {
   patronIdPathParamsSchema,
   patronResponseSchema,
 } from './patrones.schema';
-import { catalogoErrorResponseSchema } from './catalogo-error.schema';
+import {
+  catalogoErrorResponseSchema,
+  categoriaInternaErrorResponseSchema,
+} from './catalogo-error.schema';
+import {
+  ingestaCatalogoIncompletoResponseSchema,
+  ingestaCatalogoNoDisponibleResponseSchema,
+  ingestaErrorResponseSchema,
+  serverErrorResponseSchema,
+} from './ingesta-error.schema';
+import {
+  respuesta401Credenciales,
+  respuesta401Protegida,
+  respuesta401SoloApiKey,
+} from './unauthorized-responses';
 import {
   perfilUpdateRequestSchema,
   perfilErrorResponseSchema,
@@ -140,6 +154,7 @@ const resumenOperation: ZodOpenApiOperationObject = {
     query: resumenQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Monthly resumen for the resolved period.',
       content: {
@@ -157,11 +172,13 @@ const resumenAnualOperation: ZodOpenApiOperationObject = {
   summary: 'Annual 50/30/20 breakdown',
   description:
     'Authenticated endpoint returning the 50/30/20 budget breakdown for all 12 months of a year (US-030). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: `meses` always holds exactly 12 entries, January to December (ascending `periodo`).',
   requestParams: {
     query: resumenAnualQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Annual resumen for the resolved year.',
       content: {
@@ -179,11 +196,13 @@ const movimientosOperation: ZodOpenApiOperationObject = {
   summary: 'Monthly transaction list',
   description:
     'Authenticated endpoint returning the consolidated monthly transaction list (US-014). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: transactions by `fecha` ascending, ties by `id` ascending.',
   requestParams: {
     query: movimientosQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Monthly transaction list for the resolved period.',
       content: {
@@ -201,12 +220,14 @@ const bucketsOperation: ZodOpenApiOperationObject = {
   summary: 'Bucket drill-down',
   description:
     'Authenticated endpoint returning the transaction detail for a single spend bucket (US-017). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: transactions by amount descending, then `fecha` ascending, then `id` ascending.',
   requestParams: {
     path: bucketsPathParamsSchema,
     query: bucketsQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Bucket detail for the resolved period.',
       content: {
@@ -224,8 +245,10 @@ const ingestasOperation: ZodOpenApiOperationObject = {
   summary: 'List ingestas',
   description:
     'Authenticated endpoint returning the per-user ingesta history (US-004/US-018). ' +
-    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).' +
+    ' Ordering: newest first — `fecha` (when the ingesta was created) descending, ties by `id` descending.',
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Ingesta list for the authenticated user.',
       content: {
@@ -252,6 +275,7 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Upload processed and persisted.',
       content: {
@@ -260,20 +284,37 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
-        'structure/normalization, or an oversized file (>10 MB).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`.',
+      content: {
+        'application/json': { schema: ingestaErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
+        '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
+        'file is fine, the account state is not; retrying the same request does not help.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoIncompletoResponseSchema,
+        },
+      },
     },
     '500': {
       description:
-        'Persistence failure (infrastructure fault, not the uploaded file).',
+        'Persistence failure (PersistenciaFallidaError) — infrastructure fault, not the uploaded file. Body is `{ message }` without `code`.',
+      content: {
+        'application/json': { schema: serverErrorResponseSchema },
+      },
     },
     '503': {
       description:
-        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
-        'slice 5a), OR the post-persist bucket-classification write failed and the import ' +
-        'was rolled back (issue #778 slice 5a-bis) — transient infrastructure fault, distinct ' +
-        'from the permanent 409 below. Nothing is persisted (in the 5a-bis case, anything ' +
-        'written during this request was deleted); retrying later may succeed.',
+        'Classification is unavailable (`code` CATALOGO_NO_DISPONIBLE): the classification catalog is unreachable (issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (slice 5a-bis). Transient and distinct from the permanent 409. Nothing remains persisted; retrying later may succeed.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoNoDisponibleResponseSchema,
+        },
+      },
     },
   },
 };
@@ -294,6 +335,7 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Preview sample computed (not persisted).',
       content: {
@@ -302,14 +344,37 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid file — missing file field, disallowed extension, unrecognized bank, invalid ' +
-        'structure/normalization, or an oversized file (>10 MB).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only).',
+      content: {
+        'application/json': { schema: ingestaErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
+        '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
+        'file is fine, the account state is not; retrying the same request does not help.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoIncompletoResponseSchema,
+        },
+      },
+    },
+    '500': {
+      description:
+        'Defensive: PersistenciaFallidaError while reading the history for dedup — infrastructure fault. Body is `{ message }` without `code`.',
+      content: {
+        'application/json': { schema: serverErrorResponseSchema },
+      },
     },
     '503': {
       description:
-        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
-        'slice 5a) — transient infrastructure fault. Preview rejects rather than showing a ' +
-        'degraded suggestion set the commit could never honor.',
+        'The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient. Preview rejects rather than showing a degraded suggestion set the commit could never honor.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoNoDisponibleResponseSchema,
+        },
+      },
     },
   },
 };
@@ -344,6 +409,7 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description:
         'Import committed and persisted. Response carries per-row bucket + categoriaId.',
@@ -353,20 +419,37 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid file (extension, bank, structure, normalization) OR malformed/invalid edits ' +
-        '(EdicionesInvalidasError, RowIndexFueraDeRangoError, CategoriaFueraDeCatalogoError). ' +
-        'Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
+      content: {
+        'application/json': { schema: ingestaErrorResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
+        '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
+        'file is fine, the account state is not; retrying the same request does not help.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoIncompletoResponseSchema,
+        },
+      },
     },
     '500': {
       description:
-        'Infrastructure fault (DB) — ensure, dedup, or persist failure ' +
-        '(PersistenciaFallidaError). Retryable.',
+        'Infrastructure fault (DB) — ensure, dedup or persist failure (PersistenciaFallidaError). Body is `{ message }` without `code`. Retryable.',
+      content: {
+        'application/json': { schema: serverErrorResponseSchema },
+      },
     },
     '503': {
       description:
-        'Classification catalog is unreachable (CategorizacionFallidaError, issue #778 ' +
-        'slice 5a) — transient infrastructure fault, distinct from the permanent 409 above. ' +
-        'Fail-closed: nothing is persisted (D-10); retrying later may succeed.',
+        'The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient, distinct from the permanent 409. Fail-closed: nothing is persisted (D-10); retrying later may succeed.',
+      content: {
+        'application/json': {
+          schema: ingestaCatalogoNoDisponibleResponseSchema,
+        },
+      },
     },
   },
 };
@@ -380,6 +463,7 @@ const ingestaDeleteOperation: ZodOpenApiOperationObject = {
     path: ingestaDeletePathParamsSchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description: 'Ingesta deleted. No response body.',
     },
@@ -396,14 +480,12 @@ const authMeOperation: ZodOpenApiOperationObject = {
     'Authenticated endpoint returning the identity of the current session (AUTH-09). ' +
     'Requires x-api-key + a valid session.',
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Identity of the authenticated session.',
       content: {
         'application/json': { schema: authMeResponseSchema },
       },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -427,15 +509,12 @@ const authLoginOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Credenciales,
     '200': {
       description: 'Authentication succeeded.',
       content: {
         'application/json': { schema: authLoginResponseSchema },
       },
-    },
-    '401': {
-      description:
-        'Invalid credentials (scrubbed — never echoes email/password).',
     },
     '429': {
       description:
@@ -457,6 +536,7 @@ const authLogoutOperation: ZodOpenApiOperationObject = {
     'session token (if any) and clears the `md_session` cookie. Always succeeds — an already ' +
     'missing or invalid token does not produce an error.',
   responses: {
+    '401': respuesta401SoloApiKey,
     '204': {
       description: 'Session ended (or was already absent). No response body.',
     },
@@ -480,14 +560,12 @@ const authCapabilitiesOperation: ZodOpenApiOperationObject = {
     '(googleLoginEnabled or googleLoginMobileEnabled) before rendering its own Google-login affordance; ' +
     'appleLoginEnabled reports whether APPLE_BUNDLE_ID is configured (Sign in with Apple).',
   responses: {
+    '401': respuesta401SoloApiKey,
     '200': {
       description: 'Current activation state of Google and Apple login.',
       content: {
         'application/json': { schema: authCapabilitiesResponseSchema },
       },
-    },
-    '401': {
-      description: 'Missing or invalid x-api-key.',
     },
   },
 };
@@ -508,6 +586,7 @@ const authGoogleInitiateOperation: ZodOpenApiOperationObject = {
     'navigation — see AUTH-17. Sets the short-lived `md_oauth` cookie (state/nonce/PKCE) and ' +
     'redirects to Google. 404 when Google login is not active (AUTH-16) — see GET /api/auth/capabilities.',
   responses: {
+    '401': respuesta401SoloApiKey,
     '302': {
       description: "Redirects to Google's OAuth 2.0 authorization endpoint.",
       headers: {
@@ -559,6 +638,7 @@ const authGoogleCallbackOperation: ZodOpenApiOperationObject = {
     'check rejects the WHOLE callback to the generic `/login?error=google` — it never falls back to ' +
     'the login/signup path.',
   responses: {
+    '401': respuesta401SoloApiKey,
     '302': {
       description:
         'Success: sets `md_session` and redirects to "/". Failure (any cause): redirects to ' +
@@ -620,17 +700,13 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Credenciales,
     '200': {
       description:
         'Authentication succeeded — identical shape to POST /api/auth/login.',
       content: {
         'application/json': { schema: authLoginResponseSchema },
       },
-    },
-    '401': {
-      description:
-        'Verification or identity resolution failed (scrubbed — never echoes the id_token or email; ' +
-        'identical body to POST /api/auth/login for every cause, AUTH-21).',
     },
     '404': {
       description:
@@ -676,17 +752,13 @@ const authAppleTokenOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Credenciales,
     '200': {
       description:
         'Authentication succeeded — identical shape to POST /api/auth/login.',
       content: {
         'application/json': { schema: authLoginResponseSchema },
       },
-    },
-    '401': {
-      description:
-        'Body or token validation or identity resolution failed (scrubbed — never echoes the token, nonce, name or email; ' +
-        'identical body to POST /api/auth/login for every cause).',
     },
     '404': {
       description:
@@ -721,6 +793,7 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Transaction reclassified.',
       content: {
@@ -789,6 +862,7 @@ const reevaluarCategoriasOperation: ZodOpenApiOperationObject = {
     'current value are not re-written (transaccionesActualizadas counts real changes only). ' +
     'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Reevaluation completed.',
       content: {
@@ -816,8 +890,10 @@ const categoriasListOperation: ZodOpenApiOperationObject = {
     "Authenticated endpoint returning the caller's own categories with their nested classification " +
     'patterns and an all-history `transaccionesCount` per category — the caller-scoped impact ' +
     'preview for a destructive delete (US-038, CAT038-02; US-039, CAT039-01). Requires x-api-key + ' +
-    'a valid session (RNF-SEC-006, per-user isolation).',
+    'a valid session (RNF-SEC-006, per-user isolation).' +
+    " Ordering: categories by `nombre` ascending (es-CL collation, independent of the database), ties by `id` ascending; each category's nested `patrones` by `prioridad` ascending, then `patron`, then `id`.",
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: "The caller's full catalog.",
       content: {
@@ -840,6 +916,7 @@ const categoriasCreateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description:
         'Category created, with its created patrones (if any) nested.',
@@ -883,6 +960,15 @@ const categoriasUpdateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '403': {
+      description:
+        'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): ' +
+        'it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
+    '401': respuesta401Protegida,
     '200': {
       description: 'Category updated.',
       content: {
@@ -925,6 +1011,15 @@ const categoriasDeleteOperation: ZodOpenApiOperationObject = {
     path: categoriaIdPathParamsSchema,
   },
   responses: {
+    '403': {
+      description:
+        'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): ' +
+        'it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
+    '401': respuesta401Protegida,
     '204': {
       description: 'Category (and its patterns) deleted. No response body.',
     },
@@ -949,6 +1044,7 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description: 'Pattern created.',
       content: {
@@ -995,6 +1091,7 @@ const patronesUpdateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Pattern updated.',
       content: {
@@ -1034,6 +1131,7 @@ const patronesDeleteOperation: ZodOpenApiOperationObject = {
     path: patronIdPathParamsSchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description: 'Pattern deleted. No response body.',
     },
@@ -1068,6 +1166,7 @@ const perfilUpdateOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: perfilUpdateRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Profile updated; the full updated identity is returned.',
       content: { 'application/json': { schema: authMeResponseSchema } },
@@ -1079,9 +1178,6 @@ const perfilUpdateOperation: ZodOpenApiOperationObject = {
     '403': {
       description: 'Wrong current password, or the email is already in use.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1108,6 +1204,7 @@ const perfilPasswordUpdateOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: passwordUpdateRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description:
         'Password changed. No response body — every other session was revoked.',
@@ -1119,9 +1216,6 @@ const perfilPasswordUpdateOperation: ZodOpenApiOperationObject = {
     '403': {
       description: 'An incorrect current password.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1148,6 +1242,7 @@ const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: vincularGoogleRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description:
         'The Google OAuth authorization URL to navigate to. Sets Set-Cookie: md_oauth (state, nonce, codeVerifier, signed link).',
@@ -1170,9 +1265,6 @@ const perfilGoogleVincularOperation: ZodOpenApiOperationObject = {
     '503': {
       description: 'Google authorization is temporarily unreachable.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
     '404': {
       description:
@@ -1201,6 +1293,7 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': { description: 'The Google identity is no longer linked.' },
     '400': {
       description: 'Malformed body.',
@@ -1210,9 +1303,6 @@ const perfilGoogleDesvincularOperation: ZodOpenApiOperationObject = {
       description:
         'An incorrect current password, or the account has no passwordHash to fall back on.',
       content: { 'application/json': { schema: perfilErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1236,14 +1326,12 @@ const cuentaDeleteOperation: ZodOpenApiOperationObject = {
     content: { 'application/json': { schema: cuentaDeleteRequestSchema } },
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': { description: 'Account and data deleted. No response body.' },
     '400': {
       description:
         'Missing or wrong confirmation (code CONFIRMACION_INVALIDA). Nothing was deleted.',
       content: { 'application/json': { schema: cuentaErrorResponseSchema } },
-    },
-    '401': {
-      description: 'No valid session (missing, expired, or invalid token).',
     },
   },
 };
@@ -1261,6 +1349,7 @@ const semaforoDetalleOperation: ZodOpenApiOperationObject = {
     query: semaforoDetalleQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description: 'Semáforo detail for the resolved period.',
       content: {
@@ -1282,12 +1371,14 @@ const bucketDetalleMesOperation: ZodOpenApiOperationObject = {
     'groups carrying ALL their transactions (BigInt-safe strings, no account PII per MBD-08). ' +
     'Accepts only the three spend buckets (Necesidades, Deseos, Ahorro); Ingreso ' +
     'is out of scope (US-052) and rejected with a scrubbed 400. Requires x-api-key + a valid ' +
-    'session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
+    'session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).' +
+    ' Ordering: `grupos` by `subtotal` descending, ties by category name (es-CL), with the synthetic "Sin categoría" group always last; within a group, `transacciones` by amount (`monto`) descending, then `fecha` ascending, then `id` ascending.',
   requestParams: {
     path: bucketsPathParamsSchema,
     query: bucketDetalleMesQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description:
         'Month×bucket detail grouped by category for the resolved period (MBD-01/02/03/05/08).',
@@ -1310,11 +1401,13 @@ const ingresosMesOperation: ZodOpenApiOperationObject = {
     'ALL transactions with their origin = bank NAME verbatim (CA-02, MID-02) or "Manual", never ' +
     'account PII (tipoCuenta/numeroCuenta, MID-06). Top-level path, NOT a buckets sub-resource: ' +
     'GET /api/buckets/Ingresos/detalle keeps rejecting Ingresos with its own scrubbed 400 (MBD-07, ' +
-    'US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).',
+    'US-051). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation, ISO-01/ISO-02).' +
+    ' Ordering: `transacciones` by `fecha` ascending, ties by `id` ascending.',
   requestParams: {
     query: ingresosMesQuerySchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '200': {
       description:
         'Monthly income list for the resolved period — exactly {total, conteo, transacciones} ' +
@@ -1470,6 +1563,7 @@ const registrarMovimientoManualOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '401': respuesta401Protegida,
     '201': {
       description:
         'Movement registered. Response carries id, fecha (ISO), descripcion (plaintext), ' +
@@ -1515,6 +1609,7 @@ const eliminarMovimientoManualOperation: ZodOpenApiOperationObject = {
     path: movimientoDeletePathParamsSchema,
   },
   responses: {
+    '401': respuesta401Protegida,
     '204': {
       description: 'Movement deleted. No response body.',
     },

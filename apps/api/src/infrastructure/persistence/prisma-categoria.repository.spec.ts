@@ -70,8 +70,35 @@ describe('PrismaCategoriaRepository', () => {
       expect(prisma.categoria.findMany).toHaveBeenCalledWith({
         where: { userId: USER_ID },
         include: CATEGORIA_INCLUDE_WITH_COUNT,
-        orderBy: { nombre: 'asc' },
       });
+    });
+
+    it('orders by nombre in es-CL (accents folded next to their letter), then id — independent of the database collation', async () => {
+      const prisma = makePrismaMock();
+      // Deliberately shuffled, with two categories sharing a nombre in
+      // different buckets (the unique key is (userId, bucketId, nombre)).
+      (prisma.categoria.findMany as Mock).mockResolvedValue([
+        categoriaRow({ id: 'c-7', nombre: 'zapatos' }),
+        categoriaRow({ id: 'c-2', nombre: 'Ñoquis' }),
+        categoriaRow({ id: 'c-9', nombre: 'Salud' }),
+        categoriaRow({ id: 'c-5', nombre: 'Salud' }),
+        categoriaRow({ id: 'c-1', nombre: 'Álbumes' }),
+        categoriaRow({ id: 'c-3', nombre: 'Banco' }),
+        categoriaRow({ id: 'c-4', nombre: 'Desconocido' }),
+      ]);
+      const repo = new PrismaCategoriaRepository(prisma);
+
+      const categorias = await repo.listarConPatrones(USER_ID);
+
+      expect(categorias.map((c) => `${c.nombre}#${c.id}`)).toEqual([
+        'Álbumes#c-1',
+        'Banco#c-3',
+        'Desconocido#c-4',
+        'Ñoquis#c-2',
+        'Salud#c-5',
+        'Salud#c-9',
+        'zapatos#c-7',
+      ]);
     });
 
     it('maps _count.transacciones → transaccionesCount (12 → 12, 0 → 0, never undefined)', async () => {

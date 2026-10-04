@@ -249,7 +249,10 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
       .send({ idToken: 'fake-id-token' });
 
     expect(res.status).toBe(401);
-    expect(res.body).toEqual({ message: 'Credenciales inválidas.' });
+    expect(res.body).toEqual({
+      message: 'Credenciales inválidas.',
+      code: 'CREDENCIALES_INVALIDAS',
+    });
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     expect(user?.googleSub).toBeNull();
@@ -274,7 +277,10 @@ describe('POST /api/auth/google/token (int) — LoginConGoogleUseCase against a 
       .send({ idToken: 'fake-id-token' });
 
     expect(res.status).toBe(401);
-    expect(res.body).toEqual({ message: 'Credenciales inválidas.' });
+    expect(res.body).toEqual({
+      message: 'Credenciales inválidas.',
+      code: 'CREDENCIALES_INVALIDAS',
+    });
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     expect(user?.googleSub).toBe(existingSub);

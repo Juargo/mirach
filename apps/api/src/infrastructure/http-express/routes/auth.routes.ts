@@ -10,6 +10,7 @@ import {
   clearSessionCookie,
 } from '../../http/auth/cookie';
 import { appLogger } from '../../logging/app-logger';
+import { CREDENCIALES_INVALIDAS, SESION_INVALIDA } from '../auth-error-codes';
 
 /** Dependencias de las rutas session-public (login/logout). */
 export interface AuthPublicDeps {
@@ -62,7 +63,10 @@ export function registrarAuthPublic(
         appLogger.warn('Login rechazado (credenciales inválidas)', {
           path: req.path,
         });
-        res.status(401).json({ message: result.getError().message });
+        res.status(401).json({
+          message: result.getError().message,
+          code: CREDENCIALES_INVALIDAS,
+        });
         return;
       }
 
@@ -116,7 +120,10 @@ export function registrarAuthMe(
       const result = await obtenerIdentidad.execute({ userId: req.userId! });
 
       if (result.isFail()) {
-        res.status(401).json({ message: result.getError().message });
+        res.status(401).json({
+          message: result.getError().message,
+          code: SESION_INVALIDA,
+        });
         return;
       }
 

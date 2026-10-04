@@ -20,6 +20,12 @@ export interface CategoriaDto {
    * even though the wire schema types it as optional.
    */
   readonly icono: string | null;
+  /**
+   * `true` for a system category (today the three `Desconocido`): it cannot
+   * be edited or deleted — PATCH/DELETE answer `403 CATEGORIA_INTERNA`.
+   * Clients use it to hide those actions instead of learning it from the 403.
+   */
+  readonly esInterna: boolean;
 }
 
 export function aCategoriaDto(categoria: CategoriaConPatrones): CategoriaDto {
@@ -30,5 +36,6 @@ export function aCategoriaDto(categoria: CategoriaConPatrones): CategoriaDto {
     patrones: categoria.patrones.map(aPatronDto),
     transaccionesCount: categoria.transaccionesCount,
     icono: categoria.icono,
+    esInterna: categoria.esInterna,
   };
 }
