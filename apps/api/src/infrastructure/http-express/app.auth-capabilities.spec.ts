@@ -17,6 +17,7 @@ import { authCapabilitiesResponseSchema } from './schemas/auth-capabilities.sche
 function fakeContainer(
   googleAuth: Container['googleAuth'],
   googleAuthMobile: Container['googleAuthMobile'] = undefined,
+  appleAuth: Container['appleAuth'] = undefined,
 ): Container {
   const stub = { execute: vi.fn() };
   return {
@@ -46,6 +47,7 @@ function fakeContainer(
     shutdown: async () => {},
     logger: { raw: {} },
     googleAuthMobile,
+    appleAuth,
   } as unknown as Container;
 }
 
@@ -107,6 +109,28 @@ describe('GET /api/auth/capabilities (AC-10)', () => {
       expect(res.body).toEqual({
         googleLoginEnabled: expectedWeb,
         googleLoginMobileEnabled: expectedMobile,
+        appleLoginEnabled: false,
+      });
+    },
+  );
+
+  it.each([
+    [{ loginConApple: {} } as unknown as Container['appleAuth'], true],
+    [undefined, false],
+  ])(
+    'appleLoginEnabled sigue a container.appleAuth, independiente de Google (apple=%s)',
+    async (appleAuth, expected) => {
+      const res = await request(
+        createApp(fakeContainer(undefined, undefined, appleAuth), testEnv),
+      )
+        .get('/api/auth/capabilities')
+        .set('x-api-key', KEY);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        googleLoginEnabled: false,
+        googleLoginMobileEnabled: false,
+        appleLoginEnabled: expected,
       });
     },
   );

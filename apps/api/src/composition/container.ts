@@ -27,6 +27,7 @@ import {
   crearAuthGoogleMobile,
   type GoogleAuthMobileGraph,
 } from './crear-auth-google-mobile';
+import { crearAuthApple, type AppleAuthGraph } from './crear-auth-apple';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { crearCommitIngesta } from './crear-commit-ingesta';
@@ -136,6 +137,9 @@ export interface Container {
    * §7). Gate de activación TOTALMENTE independiente de `googleAuth` (web,
    * AUTH-22) — ambos pueden estar en cualquier combinación on/off. */
   readonly googleAuthMobile?: GoogleAuthMobileGraph;
+  /** Login con Apple (identity token nativo) — `undefined` cuando
+   * APPLE_BUNDLE_ID está ausente. Gate independiente de los de Google. */
+  readonly appleAuth?: AppleAuthGraph;
   /** Rate limiter de login (por IP + email). */
   readonly loginRateLimiter: LoginRateLimiter;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
@@ -212,6 +216,10 @@ export function createContainer(
     crypto,
     logger,
   );
+
+  // Login con Apple: gate independiente (APPLE_BUNDLE_ID), mismas instancias
+  // de `blindIndex`/`crypto` (el alta cifra el email), nunca re-derivaciones.
+  const appleAuth = crearAuthApple(prisma, env, blindIndex, crypto, logger);
 
   // issue #747: período ausente ya no resuelve al mes en curso sino al
   // último mes del usuario con datos (resolverPeriodo). Cada use case de
@@ -346,6 +354,7 @@ export function createContainer(
     obtenerIdentidad: auth.obtenerIdentidad,
     googleAuth,
     googleAuthMobile,
+    appleAuth,
     loginRateLimiter: auth.loginRateLimiter,
     shutdown: () => prisma.$disconnect(),
     logger,

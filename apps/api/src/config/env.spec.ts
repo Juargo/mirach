@@ -702,3 +702,48 @@ describe('loadEnv — GOOGLE_CLIENT_ID_IOS (login mobile iOS, ADR-035)', () => {
     ).toThrow(/GOOGLE_CLIENT_ID_IOS/);
   });
 });
+
+describe('loadEnv — APPLE_BUNDLE_ID (Sign in with Apple, plan phase 5 T3)', () => {
+  it('ausente → el schema acepta (feature apagada), en cualquier ambiente', () => {
+    expect(loadEnv(baseDevSource).APPLE_BUNDLE_ID).toBeUndefined();
+    expect(loadEnv(baseProdSource).APPLE_BUNDLE_ID).toBeUndefined();
+  });
+
+  it.each(['cl.mirach.app', 'com.example.My-App', 'cl.mirach.app.beta'])(
+    'bundle ID %j → acepta',
+    (valor) => {
+      expect(
+        loadEnv({ ...baseProdSource, APPLE_BUNDLE_ID: valor }).APPLE_BUNDLE_ID,
+      ).toBe(valor);
+    },
+  );
+
+  it.each([
+    '',
+    '   ',
+    'sin-puntos',
+    'cl.mirach app',
+    'cl..mirach',
+    '.cl.mirach',
+    'cl.mirach.',
+    '123-abc.apps.googleusercontent.com',
+    'https://appleid.apple.com',
+  ])('valor inválido %j → boot falla nombrando la variable', (valor) => {
+    expect(() => loadEnv({ ...baseDevSource, APPLE_BUNDLE_ID: valor })).toThrow(
+      /APPLE_BUNDLE_ID/,
+    );
+  });
+
+  it('un valor inválido no se interpola en el mensaje de error', () => {
+    let error: Error | undefined;
+
+    try {
+      loadEnv({ ...baseDevSource, APPLE_BUNDLE_ID: 'secreto-pegado XYZ789' });
+    } catch (e) {
+      error = e as Error;
+    }
+
+    expect(error).toBeDefined();
+    expect(error!.message).not.toContain('secreto-pegado XYZ789');
+  });
+});
