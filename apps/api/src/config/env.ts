@@ -328,10 +328,11 @@ function refineGoogleAuthEnv(
 }
 
 /**
- * Suffix esperado de un Android OAuth 2.0 client ID de Google. Formato de
+ * Suffix esperado de cualquier OAuth 2.0 client ID de Google (Android, iOS y
+ * web comparten el mismo formato; no hay un sufijo por plataforma). Formato de
  * negocio, no de plataforma — Zod no tiene un validador para esto.
  */
-const GOOGLE_ANDROID_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
+const GOOGLE_OAUTH_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
 
 /**
  * Reglas de `auth-google-login-mobile` (ADR-035, design §7) — sibling de
@@ -373,7 +374,7 @@ function refineGoogleMobileClientId(
 
   if (
     clientId.trim() === '' ||
-    !clientId.endsWith(GOOGLE_ANDROID_CLIENT_ID_SUFFIX)
+    !clientId.endsWith(GOOGLE_OAUTH_CLIENT_ID_SUFFIX)
   ) {
     ctx.addIssue({
       code: 'custom',
@@ -381,7 +382,7 @@ function refineGoogleMobileClientId(
       // El valor NUNCA se interpola: si lo pegado es un client secret (el
       // error que este guard existe para atrapar), interpolarlo lo filtraría
       // a los logs de boot y obligaría a rotarlo (4R Risk, slice A2).
-      message: `${nombre} no tiene forma de ${plataforma} OAuth client ID de Google (valor omitido de este mensaje por si es un secret) — se espera que termine en "${GOOGLE_ANDROID_CLIENT_ID_SUFFIX}". Confirmar que no se pegó un client secret o un valor truncado por error.`,
+      message: `${nombre} no tiene forma de ${plataforma} OAuth client ID de Google (valor omitido de este mensaje por si es un secret) — se espera que termine en "${GOOGLE_OAUTH_CLIENT_ID_SUFFIX}". Confirmar que no se pegó un client secret o un valor truncado por error.`,
     });
     return;
   }
