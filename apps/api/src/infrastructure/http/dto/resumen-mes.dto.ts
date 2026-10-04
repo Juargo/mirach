@@ -11,6 +11,8 @@ import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
  *   - Safe as number: bp values ≤ 10000, far below 2^53.
  *   - null when sinIngreso=true (no income → no percentage makes sense).
  *   - USER-LOCKED DECISION: integer number, NOT a string.
+ * participacionGastoBp: share of the month's total spend in basis points
+ *   (sums to 10000 across buckets; null when there is no spend).
  * estadoSemaforo: lowercase wire representation of EstadoSemaforo (US-016).
  *   - 'verde' | 'amarillo' | 'rojo' | null
  *   - null for the sinIngreso path.
@@ -19,6 +21,7 @@ export interface BucketResumenDto {
   readonly bucket: string;
   readonly total: string;
   readonly porcentajeBp: number | null;
+  readonly participacionGastoBp: number | null;
   readonly estadoSemaforo: string | null;
 }
 
@@ -90,6 +93,10 @@ export function aResumenMesDto(
       total: String(slice.total),
       porcentajeBp:
         slice.porcentajeBp === null ? null : Number(slice.porcentajeBp),
+      participacionGastoBp:
+        slice.participacionGastoBp === null
+          ? null
+          : Number(slice.participacionGastoBp),
       estadoSemaforo: aWire(slice.estadoSemaforo),
     })),
     targets: {

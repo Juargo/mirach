@@ -1,4 +1,5 @@
 import { Bucket } from './bucket';
+import { participacionDelGasto } from './participacion-gasto';
 import {
   EstadoSemaforo,
   calcularEstadoBucket,
@@ -58,6 +59,12 @@ export interface BucketSlice {
   readonly bucket: Bucket;
   readonly total: bigint;
   readonly porcentajeBp: bigint | null;
+  /**
+   * Share of this bucket in the month's total spend (the 3 spend slices), in
+   * basis points; sums to exactly 10000 across slices. null when no spend.
+   * Unlike porcentajeBp (share of income), this is independent of sinIngreso.
+   */
+  readonly participacionGastoBp: bigint | null;
   /** Traffic-light health estado for this bucket (US-016). null for sinIngreso. */
   readonly estadoSemaforo: EstadoSemaforo | null;
 }
@@ -112,13 +119,18 @@ export class ResumenMes {
       [Bucket.Ahorro]: input.ahorro,
     };
 
-    const buckets: BucketSlice[] = SPEND_BUCKETS.map((bucket) => {
+    const participaciones = participacionDelGasto(
+      SPEND_BUCKETS.map((bucket) => totals[bucket]),
+    );
+
+    const buckets: BucketSlice[] = SPEND_BUCKETS.map((bucket, indice) => {
       const total = totals[bucket];
       const porcentajeBp = porcentajeBasisPoints(total, input.totalIngreso);
       return {
         bucket,
         total,
         porcentajeBp,
+        participacionGastoBp: participaciones[indice] ?? null,
         estadoSemaforo: calcularEstadoBucket(bucket, porcentajeBp),
       };
     });

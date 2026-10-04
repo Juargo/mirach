@@ -275,6 +275,18 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
         expect(['verde', 'amarillo', 'rojo']).toContain(bucket.estadoSemaforo);
       }
     }
+    // P2: spend share is an integer 0-10000 per bucket (null with no spend);
+    // with spend, the three sum to exactly 10000.
+    const participaciones: Array<number | null> = res.body.buckets.map(
+      (b: { participacionGastoBp: number | null }) => b.participacionGastoBp,
+    );
+    if (participaciones.some((p) => p !== null)) {
+      expect(participaciones.reduce<number>((a, p) => a + (p ?? 0), 0)).toBe(
+        10000,
+      );
+    } else {
+      expect(participaciones).toEqual([null, null, null]);
+    }
     // US-016 SC-01: top-level estadoGlobal key ∈ {'verde','amarillo','rojo'} | null
     expect('estadoGlobal' in res.body).toBe(true);
     if (res.body.estadoGlobal !== null) {
@@ -299,6 +311,8 @@ describe('ResumenController (e2e) — GET /api/resumen', () => {
     expect(res.body.buckets).toHaveLength(3);
     for (const bucket of res.body.buckets) {
       expect(bucket.porcentajeBp).toBeNull();
+      // no spend → no share either
+      expect(bucket.participacionGastoBp).toBeNull();
       expect(bucket.total).toBe('0');
       // US-016 SC-SI-01: all estadoSemaforo null when sinIngreso=true
       expect(bucket.estadoSemaforo).toBeNull();
