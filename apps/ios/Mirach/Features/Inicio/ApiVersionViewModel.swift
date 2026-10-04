@@ -14,25 +14,22 @@ final class ApiVersionViewModel {
 
     private(set) var state: State = .idle
 
-    private let client: any HTTPClient
-    private let versionURL: URL
+    private let api: any MirachAPI
 
-    init(client: any HTTPClient, baseURL: URL = AppConfiguration.apiBaseURL) {
-        self.client = client
-        self.versionURL = baseURL.appending(path: "version")
+    init(api: any MirachAPI) {
+        self.api = api
     }
 
     func load() async {
         state = .loading
         do {
-            let data = try await client.get(versionURL)
-            state = .loaded(try JSONDecoder().decode(VersionInfo.self, from: data))
+            state = .loaded(try await api.version())
         } catch is CancellationError {
             state = .idle
         } catch let error as URLError where error.code == .cancelled {
             // URLSession reports a cancelled task as URLError(.cancelled), not CancellationError.
             state = .idle
-        } catch is HTTPError {
+        } catch is APIError {
             state = .failed("El servidor no está disponible en este momento. Intenta de nuevo en unos segundos.")
         } catch is DecodingError {
             state = .failed("La respuesta del servidor no tiene el formato esperado.")

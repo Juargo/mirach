@@ -1,0 +1,5 @@
+# Configuration for swift-openapi-generator, consumed by generate-api.sh.
+generate:
+  - types
+  - client
+accessModifier: internal
