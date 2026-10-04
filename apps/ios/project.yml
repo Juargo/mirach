@@ -1,0 +1,87 @@
+# XcodeGen spec: the single source of truth for the Xcode project (ADR-048).
+# `Mirach.xcodeproj` is generated from this file and is git-ignored.
+# Regenerate with: ./scripts/generate.sh
+name: Mirach
+
+options:
+  bundleIdPrefix: app.mirachbudget
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "17.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"                    # Swift 6 language mode
+    SWIFT_STRICT_CONCURRENCY: complete      # data-race checks as errors
+    DEVELOPMENT_TEAM: SUX4J95Z5F
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Mirach:
+    type: application
+    platform: iOS
+    sources:
+      - Mirach
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mirachbudget.ios
+        TARGETED_DEVICE_FAMILY: "1"         # 1 = iPhone only
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    # XcodeGen writes this entitlements file from `properties` on every generate (git-ignored).
+    entitlements:
+      path: Mirach/Mirach.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
+    # XcodeGen writes Info.plist from `properties` on every generate (git-ignored),
+    # and versions map to the build settings above so they cannot drift.
+    info:
+      path: Mirach/Info.plist
+      properties:
+        CFBundleDisplayName: Mirach
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}                  # empty = default launch screen
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+
+  MirachTests:
+    type: bundle.unit-test                  # Swift Testing runs inside this bundle
+    platform: iOS
+    sources:
+      - MirachTests
+    dependencies:
+      - target: Mirach                      # also makes Mirach the test host
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mirachbudget.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  MirachUITests:
+    type: bundle.ui-testing                 # XCUITest drives the app from outside
+    platform: iOS
+    sources:
+      - MirachUITests
+    dependencies:
+      - target: Mirach
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mirachbudget.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+
+# Shared scheme (committed-equivalent: generated into xcshareddata) that builds
+# the app and runs both test targets.
+schemes:
+  Mirach:
+    build:
+      targets:
+        Mirach: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MirachTests
+        - MirachUITests
