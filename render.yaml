@@ -12,7 +12,8 @@
 #        Opcionales — su ausencia APAGA la feature en silencio, sin error:
 #          GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET (login web, all-or-nothing)
 #          GOOGLE_REDIRECT_URI (obligatoria, https, si el par de arriba está)
-#          GOOGLE_CLIENT_ID_ANDROID (login mobile, gate independiente)
+#          GOOGLE_CLIENT_ID_ANDROID, GOOGLE_CLIENT_ID_IOS (login mobile; basta uno,
+#          gate independiente del web)
 #
 # Seguridad: ningún `sync:false` se commitea con valor — se cargan a mano en el
 # dashboard de Render. API_KEY protege todos los endpoints salvo el health check
@@ -128,7 +129,7 @@ services:
       # con coma solo si vuelve un cliente de navegador.
       - key: CORS_ALLOWED_ORIGINS
         value: ""
-      # Login con Google (ADR-034 web, ADR-035 mobile). Las cuatro son
+      # Login con Google (ADR-034 web, ADR-035 mobile). Las cinco son
       # OPCIONALES para Zod, y ahí está el riesgo: si faltan, la API arranca
       # perfecto y la feature queda apagada SIN ningún error. Un servicio
       # recreado desde este blueprint se quedaría sin login con Google y nadie
@@ -139,9 +140,9 @@ services:
       # un cliente OAuth a medio configurar nunca sea un apagado silencioso.
       #
       # Mirach: el par web y GOOGLE_REDIRECT_URI quedan SIN cargar a propósito
-      # (flujo web dormido, ADR-046 D5). GOOGLE_CLIENT_ID_ANDROID se carga
-      # recién cuando exista la app Android; el login con Google de iOS
-      # necesita su propio client ID (fase 5 del plan).
+      # (flujo web dormido, ADR-046 D5). GOOGLE_CLIENT_ID_IOS se carga cuando
+      # exista el client ID de iOS (la app de iPhone va primero);
+      # GOOGLE_CLIENT_ID_ANDROID, cuando exista la app Android.
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
@@ -156,4 +157,9 @@ services:
       # es TOTALMENTE independiente del par web de arriba (AUTH-22): ausente =
       # login con Google apagado solo en mobile. Ver #586.
       - key: GOOGLE_CLIENT_ID_ANDROID
+        sync: false
+      # Client ID tipo iOS: Google Sign-In en iPhone emite id_tokens con este
+      # client ID como audiencia. Basta uno de los dos (Android o iOS) para
+      # prender el login mobile; el verificador acepta los que estén cargados.
+      - key: GOOGLE_CLIENT_ID_IOS
         sync: false

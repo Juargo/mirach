@@ -637,3 +637,68 @@ describe('loadEnv — coerción de rate-limit falla cerrado (ENV-01)', () => {
     expect(env.LOGIN_RATELIMIT_WINDOW_MS).toBe(600000);
   });
 });
+
+describe('loadEnv — GOOGLE_CLIENT_ID_IOS (login mobile iOS, ADR-035)', () => {
+  const VALID_IOS_CLIENT_ID = '456-def.apps.googleusercontent.com';
+  const VALID_ANDROID_CLIENT_ID = '123-abc.apps.googleusercontent.com';
+
+  it('ausente → el schema acepta, sin error en ningún ambiente', () => {
+    expect(loadEnv(baseDevSource).GOOGLE_CLIENT_ID_IOS).toBeUndefined();
+    expect(loadEnv(baseProdSource).GOOGLE_CLIENT_ID_IOS).toBeUndefined();
+  });
+
+  it('presente y con el sufijo de Google → el schema acepta, sin depender de Android ni del par web', () => {
+    const env = loadEnv({
+      ...baseProdSource,
+      GOOGLE_CLIENT_ID_IOS: VALID_IOS_CLIENT_ID,
+    });
+
+    expect(env.GOOGLE_CLIENT_ID_IOS).toBe(VALID_IOS_CLIENT_ID);
+    expect(env.GOOGLE_CLIENT_ID_ANDROID).toBeUndefined();
+  });
+
+  it('Android e iOS pueden estar presentes a la vez', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+      GOOGLE_CLIENT_ID_IOS: VALID_IOS_CLIENT_ID,
+    });
+
+    expect(env.GOOGLE_CLIENT_ID_ANDROID).toBe(VALID_ANDROID_CLIENT_ID);
+    expect(env.GOOGLE_CLIENT_ID_IOS).toBe(VALID_IOS_CLIENT_ID);
+  });
+
+  it.each(['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error', '', '   '])(
+    'valor inválido %j → boot falla nombrando la variable',
+    (valor) => {
+      expect(() =>
+        loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID_IOS: valor }),
+      ).toThrow(/GOOGLE_CLIENT_ID_IOS/);
+    },
+  );
+
+  it('sufijo incorrecto → el mensaje de error NUNCA incluye el valor pegado', () => {
+    const secretPegado = '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error';
+    let error: Error | undefined;
+
+    try {
+      loadEnv({ ...baseDevSource, GOOGLE_CLIENT_ID_IOS: secretPegado });
+    } catch (e) {
+      error = e as Error;
+    }
+
+    expect(error).toBeDefined();
+    expect(error!.message).not.toContain(secretPegado);
+  });
+
+  it('igual a GOOGLE_CLIENT_ID (copy-paste del client web) → boot falla', () => {
+    expect(() =>
+      loadEnv({
+        ...baseDevSource,
+        GOOGLE_CLIENT_ID: VALID_IOS_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET: 'client-secret-abc',
+        GOOGLE_CLIENT_ID_IOS: VALID_IOS_CLIENT_ID,
+      }),
+    ).toThrow(/GOOGLE_CLIENT_ID_IOS/);
+  });
+});

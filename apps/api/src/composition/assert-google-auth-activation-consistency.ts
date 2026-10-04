@@ -63,15 +63,17 @@ export function assertGoogleAuthActivationConsistency(
  * tráfico. Llamada desde `server.ts`, junto a la assertion web.
  */
 export function assertGoogleAuthMobileActivationConsistency(
-  env: Pick<Env, 'GOOGLE_CLIENT_ID_ANDROID'>,
+  env: Pick<Env, 'GOOGLE_CLIENT_ID_ANDROID' | 'GOOGLE_CLIENT_ID_IOS'>,
   googleAuthMobile: GoogleAuthMobileGraph | undefined,
 ): void {
-  const clientIdAndroidPresente = env.GOOGLE_CLIENT_ID_ANDROID !== undefined;
+  const clientIdMobilePresente =
+    env.GOOGLE_CLIENT_ID_ANDROID !== undefined ||
+    env.GOOGLE_CLIENT_ID_IOS !== undefined;
 
-  if (clientIdAndroidPresente && googleAuthMobile === undefined) {
+  if (clientIdMobilePresente && googleAuthMobile === undefined) {
     throw new Error(
       'Drift de activación de Google login mobile: GOOGLE_CLIENT_ID_ANDROID ' +
-        'está configurado pero container.googleAuthMobile es undefined. ' +
+        'o GOOGLE_CLIENT_ID_IOS está configurado pero container.googleAuthMobile es undefined. ' +
         'GET /api/auth/capabilities reportaría googleLoginMobileEnabled: true ' +
         'mientras POST /api/auth/google/token seguiría 404-ando (AUTH-22 roto). ' +
         'Esto es un bug de composición (crearAuthGoogleMobile), no de ' +

@@ -1,5 +1,8 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { crearAuthGoogleMobile } from './crear-auth-google-mobile';
+import {
+  audienciasGoogleMobile,
+  crearAuthGoogleMobile,
+} from './crear-auth-google-mobile';
 import { crearAuthGoogle } from './crear-auth-google';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
@@ -130,5 +133,81 @@ describe('crearAuthGoogleMobile (design §7)', () => {
     );
 
     expect(mobileGraph!.loginConGoogle).not.toBe(webGraph!.loginConGoogle);
+  });
+});
+
+describe('audienciasGoogleMobile — audiencias aceptadas por el verificador mobile', () => {
+  const IOS = '456-def.apps.googleusercontent.com';
+
+  it('solo Android → [android]', () => {
+    expect(
+      audienciasGoogleMobile({
+        GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+        GOOGLE_CLIENT_ID_IOS: undefined,
+      }),
+    ).toEqual([VALID_ANDROID_CLIENT_ID]);
+  });
+
+  it('solo iOS → [ios]', () => {
+    expect(
+      audienciasGoogleMobile({
+        GOOGLE_CLIENT_ID_ANDROID: undefined,
+        GOOGLE_CLIENT_ID_IOS: IOS,
+      }),
+    ).toEqual([IOS]);
+  });
+
+  it('ambos → los dos, y ninguno vacío', () => {
+    expect(
+      audienciasGoogleMobile({
+        GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+        GOOGLE_CLIENT_ID_IOS: IOS,
+      }),
+    ).toEqual([VALID_ANDROID_CLIENT_ID, IOS]);
+  });
+
+  it('ninguno → lista vacía (la feature queda apagada)', () => {
+    expect(
+      audienciasGoogleMobile({
+        GOOGLE_CLIENT_ID_ANDROID: undefined,
+        GOOGLE_CLIENT_ID_IOS: undefined,
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('crearAuthGoogleMobile — solo iOS configurado', () => {
+  it('retorna el grafo (feature prendida) con solo GOOGLE_CLIENT_ID_IOS', () => {
+    const env = buildTestEnv({
+      GOOGLE_CLIENT_ID_ANDROID: undefined,
+      GOOGLE_CLIENT_ID_IOS: '456-def.apps.googleusercontent.com',
+    });
+
+    const graph = crearAuthGoogleMobile(
+      fakePrisma(),
+      env,
+      { compute: vi.fn() },
+      makeCryptoDouble(),
+      new NoOpLogger(),
+    );
+
+    expect(graph).toBeDefined();
+  });
+
+  it('retorna undefined sin ningún client ID mobile', () => {
+    const env = buildTestEnv({
+      GOOGLE_CLIENT_ID_ANDROID: undefined,
+      GOOGLE_CLIENT_ID_IOS: undefined,
+    });
+
+    expect(
+      crearAuthGoogleMobile(
+        fakePrisma(),
+        env,
+        { compute: vi.fn() },
+        makeCryptoDouble(),
+        new NoOpLogger(),
+      ),
+    ).toBeUndefined();
   });
 });
