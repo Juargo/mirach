@@ -33,4 +33,17 @@ struct StubMirachAPI: MirachAPI {
     func version() async throws -> VersionInfo {
         VersionInfo(version: "0.0.0-stub", commit: "stub123")
     }
+
+    func authCapabilities() async throws -> AuthCapabilities {
+        AuthCapabilities(appleLoginEnabled: true)
+    }
+
+    func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session {
+        // Sign in with Apple cannot be automated, so UI tests never reach this.
+        throw APIError.invalidCredentials
+    }
+
+    func currentUser() async throws -> CurrentUser {
+        CurrentUser(userId: "stub-user", nombre: "Persona de prueba")
+    }
 }

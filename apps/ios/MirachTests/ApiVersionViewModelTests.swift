@@ -2,15 +2,10 @@ import Foundation
 import Testing
 @testable import Mirach
 
-private struct FakeMirachAPI: MirachAPI {
-    let result: Result<VersionInfo, any Error>
-    func version() async throws -> VersionInfo { try result.get() }
-}
-
 @MainActor
 struct ApiVersionViewModelTests {
     private func makeViewModel(_ result: Result<VersionInfo, any Error>) -> ApiVersionViewModel {
-        ApiVersionViewModel(api: FakeMirachAPI(result: result))
+        ApiVersionViewModel(api: FakeMirachAPI(versionResult: result))
     }
 
     private let sample = VersionInfo(version: "1.2.3", commit: "abc1234")

@@ -7,6 +7,7 @@ import OpenAPIRuntime
 final class FakeTransport: ClientTransport, @unchecked Sendable {
     private let lock = NSLock()
     private var _requests: [HTTPRequest] = []
+    private var _bodies: [String] = []
     private let respond: @Sendable (HTTPRequest) throws -> (HTTPResponse, String?)
 
     init(respond: @escaping @Sendable (HTTPRequest) throws -> (HTTPResponse, String?)) {
@@ -26,6 +27,8 @@ final class FakeTransport: ClientTransport, @unchecked Sendable {
     }
 
     var requests: [HTTPRequest] { lock.withLock { _requests } }
+    /// The request bodies as text, in the same order as `requests` ("" when there was none).
+    var bodies: [String] { lock.withLock { _bodies } }
 
     func send(
         _ request: HTTPRequest,
@@ -33,7 +36,12 @@ final class FakeTransport: ClientTransport, @unchecked Sendable {
         baseURL: URL,
         operationID: String
     ) async throws -> (HTTPResponse, HTTPBody?) {
-        lock.withLock { _requests.append(request) }
+        var sent = ""
+        if let body { sent = try await String(collecting: body, upTo: 1_048_576) }
+        lock.withLock {
+            _requests.append(request)
+            _bodies.append(sent)
+        }
         let (response, text) = try respond(request)
         return (response, text.map { HTTPBody($0) })
     }
