@@ -174,6 +174,10 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/AuthMeResponse`.
         internal struct AuthMeResponse: Codable, Hashable, Sendable {
+            /// Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.
+            ///
+            /// - Remark: Generated from `#/components/schemas/AuthMeResponse/email`.
+            internal var email: Swift.String?
             /// VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.
             ///
             /// - Remark: Generated from `#/components/schemas/AuthMeResponse/googleVinculado`.
@@ -185,25 +189,33 @@ extension Components {
             /// Creates a new `AuthMeResponse`.
             ///
             /// - Parameters:
+            ///   - email: Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.
             ///   - googleVinculado: VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.
             ///   - nombre:
             ///   - userId:
             internal init(
+                email: Swift.String? = nil,
                 googleVinculado: Swift.Bool,
                 nombre: Swift.String,
                 userId: Swift.String
             ) {
+                self.email = email
                 self.googleVinculado = googleVinculado
                 self.nombre = nombre
                 self.userId = userId
             }
             internal enum CodingKeys: String, CodingKey {
+                case email
                 case googleVinculado
                 case nombre
                 case userId
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.email = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .email
+                )
                 self.googleVinculado = try container.decode(
                     Swift.Bool.self,
                     forKey: .googleVinculado
@@ -217,6 +229,7 @@ extension Components {
                     forKey: .userId
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "email",
                     "googleVinculado",
                     "nombre",
                     "userId"
@@ -233,8 +246,14 @@ extension Components {
             internal var bucket: Swift.String
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/gruposPayload`.
             internal struct gruposPayloadPayload: Codable, Hashable, Sendable {
+                /// null for the synthetic group.
+                ///
+                /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/gruposPayload/categoriaId`.
+                internal var categoriaId: Swift.String?
                 /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/gruposPayload/conteo`.
                 internal var conteo: Swift.Int
+                /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/gruposPayload/icono`.
+                internal var icono: Swift.String?
                 /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/gruposPayload/nombre`.
                 internal var nombre: Swift.String
                 /// BigInt-safe decimal string amount (never a JSON number).
@@ -329,32 +348,48 @@ extension Components {
                 /// Creates a new `gruposPayloadPayload`.
                 ///
                 /// - Parameters:
+                ///   - categoriaId: null for the synthetic group.
                 ///   - conteo:
+                ///   - icono:
                 ///   - nombre:
                 ///   - subtotal: BigInt-safe decimal string amount (never a JSON number).
                 ///   - transacciones: Complete list — never truncated or paged (MBD-02).
                 internal init(
+                    categoriaId: Swift.String? = nil,
                     conteo: Swift.Int,
+                    icono: Swift.String? = nil,
                     nombre: Swift.String,
                     subtotal: Swift.String,
                     transacciones: Components.Schemas.BucketDetalleMesResponse.gruposPayloadPayload.transaccionesPayload
                 ) {
+                    self.categoriaId = categoriaId
                     self.conteo = conteo
+                    self.icono = icono
                     self.nombre = nombre
                     self.subtotal = subtotal
                     self.transacciones = transacciones
                 }
                 internal enum CodingKeys: String, CodingKey {
+                    case categoriaId
                     case conteo
+                    case icono
                     case nombre
                     case subtotal
                     case transacciones
                 }
                 internal init(from decoder: any Swift.Decoder) throws {
                     let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.categoriaId = try container.decodeIfPresent(
+                        Swift.String.self,
+                        forKey: .categoriaId
+                    )
                     self.conteo = try container.decode(
                         Swift.Int.self,
                         forKey: .conteo
+                    )
+                    self.icono = try container.decodeIfPresent(
+                        Swift.String.self,
+                        forKey: .icono
                     )
                     self.nombre = try container.decode(
                         Swift.String.self,
@@ -369,7 +404,9 @@ extension Components {
                         forKey: .transacciones
                     )
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "categoriaId",
                         "conteo",
+                        "icono",
                         "nombre",
                         "subtotal",
                         "transacciones"
@@ -384,10 +421,18 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/grupos`.
             internal var grupos: Components.Schemas.BucketDetalleMesResponse.gruposPayload
+            /// Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).
+            ///
+            /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/metaBp`.
+            internal var metaBp: Swift.Int?
             /// Resolved period, format YYYY-MM.
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/periodo`.
             internal var periodo: Swift.String
+            /// Basis-point percentage, round-half-up. null when the month has no income (D-05).
+            ///
+            /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/porcentajeBp`.
+            internal var porcentajeBp: Swift.Int?
             /// BigInt-safe decimal string amount (never a JSON number).
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/total`.
@@ -403,21 +448,27 @@ extension Components {
             /// - Parameters:
             ///   - bucket: Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).
             ///   - grupos: One entry per present category, es-CL alphabetical, "Sin categoría" last. [] for an empty bucket month (MBD-01).
+            ///   - metaBp: Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).
             ///   - periodo: Resolved period, format YYYY-MM.
+            ///   - porcentajeBp: Basis-point percentage, round-half-up. null when the month has no income (D-05).
             ///   - total: BigInt-safe decimal string amount (never a JSON number).
             ///   - totalCategorias: Includes the synthetic Sin categoría group when present (D-09).
             ///   - totalTransacciones:
             internal init(
                 bucket: Swift.String,
                 grupos: Components.Schemas.BucketDetalleMesResponse.gruposPayload,
+                metaBp: Swift.Int? = nil,
                 periodo: Swift.String,
+                porcentajeBp: Swift.Int? = nil,
                 total: Swift.String,
                 totalCategorias: Swift.Int,
                 totalTransacciones: Swift.Int
             ) {
                 self.bucket = bucket
                 self.grupos = grupos
+                self.metaBp = metaBp
                 self.periodo = periodo
+                self.porcentajeBp = porcentajeBp
                 self.total = total
                 self.totalCategorias = totalCategorias
                 self.totalTransacciones = totalTransacciones
@@ -425,7 +476,9 @@ extension Components {
             internal enum CodingKeys: String, CodingKey {
                 case bucket
                 case grupos
+                case metaBp
                 case periodo
+                case porcentajeBp
                 case total
                 case totalCategorias
                 case totalTransacciones
@@ -440,9 +493,17 @@ extension Components {
                     Components.Schemas.BucketDetalleMesResponse.gruposPayload.self,
                     forKey: .grupos
                 )
+                self.metaBp = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .metaBp
+                )
                 self.periodo = try container.decode(
                     Swift.String.self,
                     forKey: .periodo
+                )
+                self.porcentajeBp = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .porcentajeBp
                 )
                 self.total = try container.decode(
                     Swift.String.self,
@@ -459,7 +520,9 @@ extension Components {
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "bucket",
                     "grupos",
+                    "metaBp",
                     "periodo",
+                    "porcentajeBp",
                     "total",
                     "totalCategorias",
                     "totalTransacciones"
@@ -598,6 +661,8 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/CategoriaResponse/esInterna`.
             internal var esInterna: Swift.Bool
+            /// - Remark: Generated from `#/components/schemas/CategoriaResponse/icono`.
+            internal var icono: Swift.String?
             /// - Remark: Generated from `#/components/schemas/CategoriaResponse/id`.
             internal var id: Swift.String
             /// - Remark: Generated from `#/components/schemas/CategoriaResponse/nombre`.
@@ -684,6 +749,7 @@ extension Components {
             /// - Parameters:
             ///   - bucket:
             ///   - esInterna: true for a system category (the per-bucket "Desconocido"). Such a category cannot be renamed, re-bucketed or deleted: PATCH/DELETE /api/categorias/{id} answer 403 CATEGORIA_INTERNA.
+            ///   - icono:
             ///   - id:
             ///   - nombre:
             ///   - patrones:
@@ -691,6 +757,7 @@ extension Components {
             internal init(
                 bucket: Swift.String,
                 esInterna: Swift.Bool,
+                icono: Swift.String? = nil,
                 id: Swift.String,
                 nombre: Swift.String,
                 patrones: Components.Schemas.CategoriaResponse.patronesPayload,
@@ -698,6 +765,7 @@ extension Components {
             ) {
                 self.bucket = bucket
                 self.esInterna = esInterna
+                self.icono = icono
                 self.id = id
                 self.nombre = nombre
                 self.patrones = patrones
@@ -706,6 +774,7 @@ extension Components {
             internal enum CodingKeys: String, CodingKey {
                 case bucket
                 case esInterna
+                case icono
                 case id
                 case nombre
                 case patrones
@@ -720,6 +789,10 @@ extension Components {
                 self.esInterna = try container.decode(
                     Swift.Bool.self,
                     forKey: .esInterna
+                )
+                self.icono = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .icono
                 )
                 self.id = try container.decode(
                     Swift.String.self,
@@ -740,6 +813,7 @@ extension Components {
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "bucket",
                     "esInterna",
+                    "icono",
                     "id",
                     "nombre",
                     "patrones",
@@ -775,6 +849,10 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/CommitIngestaResponse/transaccionesPayload/cargo`.
                 internal var cargo: Swift.String
+                /// Final category assigned, or null for Ingreso rows and DES-CLASIFICAR entries (D-11).
+                ///
+                /// - Remark: Generated from `#/components/schemas/CommitIngestaResponse/transaccionesPayload/categoriaId`.
+                internal var categoriaId: Swift.String?
                 /// - Remark: Generated from `#/components/schemas/CommitIngestaResponse/transaccionesPayload/descripcion`.
                 internal var descripcion: Swift.String
                 /// ISO-8601 UTC timestamp.
@@ -787,18 +865,21 @@ extension Components {
                 ///   - abono: BigInt-safe decimal string amount (never a JSON number).
                 ///   - bucket: Serialized Bucket enum value (Necesidades|Deseos|Ahorro|Ingreso). Always present for commit rows — classification is resolved pre-persist (D-11).
                 ///   - cargo: BigInt-safe decimal string amount (never a JSON number).
+                ///   - categoriaId: Final category assigned, or null for Ingreso rows and DES-CLASIFICAR entries (D-11).
                 ///   - descripcion:
                 ///   - fecha: ISO-8601 UTC timestamp.
                 internal init(
                     abono: Swift.String,
                     bucket: Swift.String,
                     cargo: Swift.String,
+                    categoriaId: Swift.String? = nil,
                     descripcion: Swift.String,
                     fecha: Swift.String
                 ) {
                     self.abono = abono
                     self.bucket = bucket
                     self.cargo = cargo
+                    self.categoriaId = categoriaId
                     self.descripcion = descripcion
                     self.fecha = fecha
                 }
@@ -806,6 +887,7 @@ extension Components {
                     case abono
                     case bucket
                     case cargo
+                    case categoriaId
                     case descripcion
                     case fecha
                 }
@@ -823,6 +905,10 @@ extension Components {
                         Swift.String.self,
                         forKey: .cargo
                     )
+                    self.categoriaId = try container.decodeIfPresent(
+                        Swift.String.self,
+                        forKey: .categoriaId
+                    )
                     self.descripcion = try container.decode(
                         Swift.String.self,
                         forKey: .descripcion
@@ -835,6 +921,7 @@ extension Components {
                         "abono",
                         "bucket",
                         "cargo",
+                        "categoriaId",
                         "descripcion",
                         "fecha"
                     ])
@@ -1007,6 +1094,50 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/DetalleBucketResponse/transaccionesPayload/cargo`.
                 internal var cargo: Swift.String
+                /// Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).
+                ///
+                /// - Remark: Generated from `#/components/schemas/DetalleBucketResponse/transaccionesPayload/categoria`.
+                internal struct categoriaPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/components/schemas/DetalleBucketResponse/transaccionesPayload/categoria/id`.
+                    internal var id: Swift.String
+                    /// - Remark: Generated from `#/components/schemas/DetalleBucketResponse/transaccionesPayload/categoria/nombre`.
+                    internal var nombre: Swift.String
+                    /// Creates a new `categoriaPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - id:
+                    ///   - nombre:
+                    internal init(
+                        id: Swift.String,
+                        nombre: Swift.String
+                    ) {
+                        self.id = id
+                        self.nombre = nombre
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case id
+                        case nombre
+                    }
+                    internal init(from decoder: any Swift.Decoder) throws {
+                        let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.id = try container.decode(
+                            Swift.String.self,
+                            forKey: .id
+                        )
+                        self.nombre = try container.decode(
+                            Swift.String.self,
+                            forKey: .nombre
+                        )
+                        try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "id",
+                            "nombre"
+                        ])
+                    }
+                }
+                /// Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).
+                ///
+                /// - Remark: Generated from `#/components/schemas/DetalleBucketResponse/transaccionesPayload/categoria`.
+                internal var categoria: Components.Schemas.DetalleBucketResponse.transaccionesPayloadPayload.categoriaPayload?
                 /// - Remark: Generated from `#/components/schemas/DetalleBucketResponse/transaccionesPayload/descripcion`.
                 internal var descripcion: Swift.String
                 /// ISO-8601 UTC timestamp.
@@ -1025,6 +1156,7 @@ extension Components {
                 ///   - abono: BigInt-safe decimal string amount (never a JSON number).
                 ///   - banco:
                 ///   - cargo: BigInt-safe decimal string amount (never a JSON number).
+                ///   - categoria: Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).
                 ///   - descripcion:
                 ///   - fecha: ISO-8601 UTC timestamp.
                 ///   - id:
@@ -1034,6 +1166,7 @@ extension Components {
                     abono: Swift.String,
                     banco: Swift.String,
                     cargo: Swift.String,
+                    categoria: Components.Schemas.DetalleBucketResponse.transaccionesPayloadPayload.categoriaPayload? = nil,
                     descripcion: Swift.String,
                     fecha: Swift.String,
                     id: Swift.String,
@@ -1043,6 +1176,7 @@ extension Components {
                     self.abono = abono
                     self.banco = banco
                     self.cargo = cargo
+                    self.categoria = categoria
                     self.descripcion = descripcion
                     self.fecha = fecha
                     self.id = id
@@ -1053,6 +1187,7 @@ extension Components {
                     case abono
                     case banco
                     case cargo
+                    case categoria
                     case descripcion
                     case fecha
                     case id
@@ -1072,6 +1207,10 @@ extension Components {
                     self.cargo = try container.decode(
                         Swift.String.self,
                         forKey: .cargo
+                    )
+                    self.categoria = try container.decodeIfPresent(
+                        Components.Schemas.DetalleBucketResponse.transaccionesPayloadPayload.categoriaPayload.self,
+                        forKey: .categoria
                     )
                     self.descripcion = try container.decode(
                         Swift.String.self,
@@ -1097,6 +1236,7 @@ extension Components {
                         "abono",
                         "banco",
                         "cargo",
+                        "categoria",
                         "descripcion",
                         "fecha",
                         "id",
@@ -1294,6 +1434,10 @@ extension Components {
         internal struct IngestasListResponse: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/IngestasListResponse/ingestasPayload`.
             internal struct ingestasPayloadPayload: Codable, Hashable, Sendable {
+                /// null when an early FALLIDA ingesta never resolved a bank.
+                ///
+                /// - Remark: Generated from `#/components/schemas/IngestasListResponse/ingestasPayload/banco`.
+                internal var banco: Swift.String?
                 /// - Remark: Generated from `#/components/schemas/IngestasListResponse/ingestasPayload/estado`.
                 internal enum estadoPayload: String, Codable, Hashable, Sendable, CaseIterable {
                     case PROCESADA = "PROCESADA"
@@ -1307,6 +1451,8 @@ extension Components {
                 internal var fecha: Swift.String
                 /// - Remark: Generated from `#/components/schemas/IngestasListResponse/ingestasPayload/id`.
                 internal var id: Swift.String
+                /// - Remark: Generated from `#/components/schemas/IngestasListResponse/ingestasPayload/motivoFallo`.
+                internal var motivoFallo: Swift.String?
                 /// - Remark: Generated from `#/components/schemas/IngestasListResponse/ingestasPayload/nombreArchivo`.
                 internal var nombreArchivo: Swift.String
                 /// Row count, not money — plain JSON number.
@@ -1316,33 +1462,45 @@ extension Components {
                 /// Creates a new `ingestasPayloadPayload`.
                 ///
                 /// - Parameters:
+                ///   - banco: null when an early FALLIDA ingesta never resolved a bank.
                 ///   - estado:
                 ///   - fecha: ISO-8601 UTC timestamp.
                 ///   - id:
+                ///   - motivoFallo:
                 ///   - nombreArchivo:
                 ///   - totalTransacciones: Row count, not money — plain JSON number.
                 internal init(
+                    banco: Swift.String? = nil,
                     estado: Components.Schemas.IngestasListResponse.ingestasPayloadPayload.estadoPayload,
                     fecha: Swift.String,
                     id: Swift.String,
+                    motivoFallo: Swift.String? = nil,
                     nombreArchivo: Swift.String,
                     totalTransacciones: Swift.Int
                 ) {
+                    self.banco = banco
                     self.estado = estado
                     self.fecha = fecha
                     self.id = id
+                    self.motivoFallo = motivoFallo
                     self.nombreArchivo = nombreArchivo
                     self.totalTransacciones = totalTransacciones
                 }
                 internal enum CodingKeys: String, CodingKey {
+                    case banco
                     case estado
                     case fecha
                     case id
+                    case motivoFallo
                     case nombreArchivo
                     case totalTransacciones
                 }
                 internal init(from decoder: any Swift.Decoder) throws {
                     let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.banco = try container.decodeIfPresent(
+                        Swift.String.self,
+                        forKey: .banco
+                    )
                     self.estado = try container.decode(
                         Components.Schemas.IngestasListResponse.ingestasPayloadPayload.estadoPayload.self,
                         forKey: .estado
@@ -1355,6 +1513,10 @@ extension Components {
                         Swift.String.self,
                         forKey: .id
                     )
+                    self.motivoFallo = try container.decodeIfPresent(
+                        Swift.String.self,
+                        forKey: .motivoFallo
+                    )
                     self.nombreArchivo = try container.decode(
                         Swift.String.self,
                         forKey: .nombreArchivo
@@ -1364,9 +1526,11 @@ extension Components {
                         forKey: .totalTransacciones
                     )
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "banco",
                         "estado",
                         "fecha",
                         "id",
+                        "motivoFallo",
                         "nombreArchivo",
                         "totalTransacciones"
                     ])
@@ -1786,6 +1950,50 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/MovimientosMesResponse/transaccionesPayload/cargo`.
                 internal var cargo: Swift.String
+                /// Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).
+                ///
+                /// - Remark: Generated from `#/components/schemas/MovimientosMesResponse/transaccionesPayload/categoria`.
+                internal struct categoriaPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/components/schemas/MovimientosMesResponse/transaccionesPayload/categoria/id`.
+                    internal var id: Swift.String
+                    /// - Remark: Generated from `#/components/schemas/MovimientosMesResponse/transaccionesPayload/categoria/nombre`.
+                    internal var nombre: Swift.String
+                    /// Creates a new `categoriaPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - id:
+                    ///   - nombre:
+                    internal init(
+                        id: Swift.String,
+                        nombre: Swift.String
+                    ) {
+                        self.id = id
+                        self.nombre = nombre
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case id
+                        case nombre
+                    }
+                    internal init(from decoder: any Swift.Decoder) throws {
+                        let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.id = try container.decode(
+                            Swift.String.self,
+                            forKey: .id
+                        )
+                        self.nombre = try container.decode(
+                            Swift.String.self,
+                            forKey: .nombre
+                        )
+                        try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "id",
+                            "nombre"
+                        ])
+                    }
+                }
+                /// Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).
+                ///
+                /// - Remark: Generated from `#/components/schemas/MovimientosMesResponse/transaccionesPayload/categoria`.
+                internal var categoria: Components.Schemas.MovimientosMesResponse.transaccionesPayloadPayload.categoriaPayload?
                 /// - Remark: Generated from `#/components/schemas/MovimientosMesResponse/transaccionesPayload/descripcion`.
                 internal var descripcion: Swift.String
                 /// ISO-8601 UTC timestamp.
@@ -1805,6 +2013,7 @@ extension Components {
                 ///   - banco:
                 ///   - bucket: Bucket name (Bucket domain enum value).
                 ///   - cargo: BigInt-safe decimal string amount (never a JSON number).
+                ///   - categoria: Folded category, or null for Ingreso rows or a row with no categoria assigned (issue #778 tramo 5b: SinCategoria no longer exists as a bucket).
                 ///   - descripcion:
                 ///   - fecha: ISO-8601 UTC timestamp.
                 ///   - id:
@@ -1815,6 +2024,7 @@ extension Components {
                     banco: Swift.String,
                     bucket: Swift.String,
                     cargo: Swift.String,
+                    categoria: Components.Schemas.MovimientosMesResponse.transaccionesPayloadPayload.categoriaPayload? = nil,
                     descripcion: Swift.String,
                     fecha: Swift.String,
                     id: Swift.String,
@@ -1825,6 +2035,7 @@ extension Components {
                     self.banco = banco
                     self.bucket = bucket
                     self.cargo = cargo
+                    self.categoria = categoria
                     self.descripcion = descripcion
                     self.fecha = fecha
                     self.id = id
@@ -1836,6 +2047,7 @@ extension Components {
                     case banco
                     case bucket
                     case cargo
+                    case categoria
                     case descripcion
                     case fecha
                     case id
@@ -1859,6 +2071,10 @@ extension Components {
                     self.cargo = try container.decode(
                         Swift.String.self,
                         forKey: .cargo
+                    )
+                    self.categoria = try container.decodeIfPresent(
+                        Components.Schemas.MovimientosMesResponse.transaccionesPayloadPayload.categoriaPayload.self,
+                        forKey: .categoria
                     )
                     self.descripcion = try container.decode(
                         Swift.String.self,
@@ -1885,6 +2101,7 @@ extension Components {
                         "banco",
                         "bucket",
                         "cargo",
+                        "categoria",
                         "descripcion",
                         "fecha",
                         "id",
@@ -2139,6 +2356,46 @@ extension Components {
                 internal var fecha: Swift.String
                 /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/filasPayload/rowIndex`.
                 internal var rowIndex: Swift.Int
+                /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/filasPayload/sugerido`.
+                internal struct sugeridoPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/filasPayload/sugerido/bucket`.
+                    internal var bucket: Swift.String
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/filasPayload/sugerido/categoriaId`.
+                    internal var categoriaId: Swift.String?
+                    /// Creates a new `sugeridoPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - bucket:
+                    ///   - categoriaId:
+                    internal init(
+                        bucket: Swift.String,
+                        categoriaId: Swift.String? = nil
+                    ) {
+                        self.bucket = bucket
+                        self.categoriaId = categoriaId
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case bucket
+                        case categoriaId
+                    }
+                    internal init(from decoder: any Swift.Decoder) throws {
+                        let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.bucket = try container.decode(
+                            Swift.String.self,
+                            forKey: .bucket
+                        )
+                        self.categoriaId = try container.decodeIfPresent(
+                            Swift.String.self,
+                            forKey: .categoriaId
+                        )
+                        try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "bucket",
+                            "categoriaId"
+                        ])
+                    }
+                }
+                /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/filasPayload/sugerido`.
+                internal var sugerido: Components.Schemas.PreviewIngestaResponse.filasPayloadPayload.sugeridoPayload?
                 /// Creates a new `filasPayloadPayload`.
                 ///
                 /// - Parameters:
@@ -2148,13 +2405,15 @@ extension Components {
                 ///   - esDuplicado:
                 ///   - fecha: ISO-8601 UTC timestamp.
                 ///   - rowIndex:
+                ///   - sugerido:
                 internal init(
                     abono: Swift.String,
                     cargo: Swift.String,
                     descripcion: Swift.String,
                     esDuplicado: Swift.Bool,
                     fecha: Swift.String,
-                    rowIndex: Swift.Int
+                    rowIndex: Swift.Int,
+                    sugerido: Components.Schemas.PreviewIngestaResponse.filasPayloadPayload.sugeridoPayload? = nil
                 ) {
                     self.abono = abono
                     self.cargo = cargo
@@ -2162,6 +2421,7 @@ extension Components {
                     self.esDuplicado = esDuplicado
                     self.fecha = fecha
                     self.rowIndex = rowIndex
+                    self.sugerido = sugerido
                 }
                 internal enum CodingKeys: String, CodingKey {
                     case abono
@@ -2170,6 +2430,7 @@ extension Components {
                     case esDuplicado
                     case fecha
                     case rowIndex
+                    case sugerido
                 }
                 internal init(from decoder: any Swift.Decoder) throws {
                     let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -2197,13 +2458,18 @@ extension Components {
                         Swift.Int.self,
                         forKey: .rowIndex
                     )
+                    self.sugerido = try container.decodeIfPresent(
+                        Components.Schemas.PreviewIngestaResponse.filasPayloadPayload.sugeridoPayload.self,
+                        forKey: .sugerido
+                    )
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
                         "abono",
                         "cargo",
                         "descripcion",
                         "esDuplicado",
                         "fecha",
-                        "rowIndex"
+                        "rowIndex",
+                        "sugerido"
                     ])
                 }
             }
@@ -2479,6 +2745,10 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/RegistrarMovimientoManualResponse/cargo`.
             internal var cargo: Swift.String
+            /// null for Ingreso rows; the caller-supplied categoriaId for Gasto rows.
+            ///
+            /// - Remark: Generated from `#/components/schemas/RegistrarMovimientoManualResponse/categoriaId`.
+            internal var categoriaId: Swift.String?
             /// - Remark: Generated from `#/components/schemas/RegistrarMovimientoManualResponse/descripcion`.
             internal var descripcion: Swift.String
             /// ISO-8601 UTC timestamp.
@@ -2503,6 +2773,7 @@ extension Components {
             ///   - abono: BigInt-safe decimal string; "0" for Gasto rows.
             ///   - bucket: Bucket enum value (Ingreso | Necesidades | Deseos | Ahorro). Ingreso rows always carry "Ingreso"; Gasto rows carry the caller-supplied bucket.
             ///   - cargo: BigInt-safe decimal string; "0" for Ingreso rows.
+            ///   - categoriaId: null for Ingreso rows; the caller-supplied categoriaId for Gasto rows.
             ///   - descripcion:
             ///   - fecha: ISO-8601 UTC timestamp.
             ///   - id:
@@ -2511,6 +2782,7 @@ extension Components {
                 abono: Swift.String,
                 bucket: Swift.String,
                 cargo: Swift.String,
+                categoriaId: Swift.String? = nil,
                 descripcion: Swift.String,
                 fecha: Swift.String,
                 id: Swift.String,
@@ -2519,6 +2791,7 @@ extension Components {
                 self.abono = abono
                 self.bucket = bucket
                 self.cargo = cargo
+                self.categoriaId = categoriaId
                 self.descripcion = descripcion
                 self.fecha = fecha
                 self.id = id
@@ -2528,6 +2801,7 @@ extension Components {
                 case abono
                 case bucket
                 case cargo
+                case categoriaId
                 case descripcion
                 case fecha
                 case id
@@ -2546,6 +2820,10 @@ extension Components {
                 self.cargo = try container.decode(
                     Swift.String.self,
                     forKey: .cargo
+                )
+                self.categoriaId = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .categoriaId
                 )
                 self.descripcion = try container.decode(
                     Swift.String.self,
@@ -2567,6 +2845,7 @@ extension Components {
                     "abono",
                     "bucket",
                     "cargo",
+                    "categoriaId",
                     "descripcion",
                     "fecha",
                     "id",
@@ -2626,6 +2905,27 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/bucket`.
                 internal var bucket: Swift.String
+                /// Traffic-light health state, lowercase wire enum (US-016), or null.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estadoSemaforo`.
+                internal enum estadoSemaforoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                    case verde = "verde"
+                    case amarillo = "amarillo"
+                    case rojo = "rojo"
+                    case _empty = ""
+                }
+                /// Traffic-light health state, lowercase wire enum (US-016), or null.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estadoSemaforo`.
+                internal var estadoSemaforo: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload?
+                /// This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/participacionGastoBp`.
+                internal var participacionGastoBp: Swift.Int?
+                /// Basis-point percentage (0-10000). null when sinIngreso=true.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/porcentajeBp`.
+                internal var porcentajeBp: Swift.Int?
                 /// BigInt-safe decimal string amount (never a JSON number).
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/total`.
@@ -2634,16 +2934,28 @@ extension Components {
                 ///
                 /// - Parameters:
                 ///   - bucket: Bucket name (Bucket domain enum value).
+                ///   - estadoSemaforo: Traffic-light health state, lowercase wire enum (US-016), or null.
+                ///   - participacionGastoBp: This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.
+                ///   - porcentajeBp: Basis-point percentage (0-10000). null when sinIngreso=true.
                 ///   - total: BigInt-safe decimal string amount (never a JSON number).
                 internal init(
                     bucket: Swift.String,
+                    estadoSemaforo: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload? = nil,
+                    participacionGastoBp: Swift.Int? = nil,
+                    porcentajeBp: Swift.Int? = nil,
                     total: Swift.String
                 ) {
                     self.bucket = bucket
+                    self.estadoSemaforo = estadoSemaforo
+                    self.participacionGastoBp = participacionGastoBp
+                    self.porcentajeBp = porcentajeBp
                     self.total = total
                 }
                 internal enum CodingKeys: String, CodingKey {
                     case bucket
+                    case estadoSemaforo
+                    case participacionGastoBp
+                    case porcentajeBp
                     case total
                 }
                 internal init(from decoder: any Swift.Decoder) throws {
@@ -2652,12 +2964,27 @@ extension Components {
                         Swift.String.self,
                         forKey: .bucket
                     )
+                    self.estadoSemaforo = try container.decodeIfPresent(
+                        Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload.self,
+                        forKey: .estadoSemaforo
+                    )
+                    self.participacionGastoBp = try container.decodeIfPresent(
+                        Swift.Int.self,
+                        forKey: .participacionGastoBp
+                    )
+                    self.porcentajeBp = try container.decodeIfPresent(
+                        Swift.Int.self,
+                        forKey: .porcentajeBp
+                    )
                     self.total = try container.decode(
                         Swift.String.self,
                         forKey: .total
                     )
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
                         "bucket",
+                        "estadoSemaforo",
+                        "participacionGastoBp",
+                        "porcentajeBp",
                         "total"
                     ])
                 }
@@ -2670,6 +2997,19 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/buckets`.
             internal var buckets: Components.Schemas.ResumenMesResponse.bucketsPayload
+            /// Worst traffic-light state across measured buckets, or null.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/estadoGlobal`.
+            internal enum estadoGlobalPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case verde = "verde"
+                case amarillo = "amarillo"
+                case rojo = "rojo"
+                case _empty = ""
+            }
+            /// Worst traffic-light state across measured buckets, or null.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/estadoGlobal`.
+            internal var estadoGlobal: Components.Schemas.ResumenMesResponse.estadoGlobalPayload?
             /// Resolved period, format YYYY-MM.
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/periodo`.
@@ -2739,18 +3079,21 @@ extension Components {
             ///
             /// - Parameters:
             ///   - buckets: Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape.
+            ///   - estadoGlobal: Worst traffic-light state across measured buckets, or null.
             ///   - periodo: Resolved period, format YYYY-MM.
             ///   - sinIngreso:
             ///   - targets: Hardcoded 50/30/20 reference targets.
             ///   - totalIngreso: BigInt-safe decimal string amount (never a JSON number).
             internal init(
                 buckets: Components.Schemas.ResumenMesResponse.bucketsPayload,
+                estadoGlobal: Components.Schemas.ResumenMesResponse.estadoGlobalPayload? = nil,
                 periodo: Swift.String,
                 sinIngreso: Swift.Bool,
                 targets: Components.Schemas.ResumenMesResponse.targetsPayload,
                 totalIngreso: Swift.String
             ) {
                 self.buckets = buckets
+                self.estadoGlobal = estadoGlobal
                 self.periodo = periodo
                 self.sinIngreso = sinIngreso
                 self.targets = targets
@@ -2758,6 +3101,7 @@ extension Components {
             }
             internal enum CodingKeys: String, CodingKey {
                 case buckets
+                case estadoGlobal
                 case periodo
                 case sinIngreso
                 case targets
@@ -2768,6 +3112,10 @@ extension Components {
                 self.buckets = try container.decode(
                     Components.Schemas.ResumenMesResponse.bucketsPayload.self,
                     forKey: .buckets
+                )
+                self.estadoGlobal = try container.decodeIfPresent(
+                    Components.Schemas.ResumenMesResponse.estadoGlobalPayload.self,
+                    forKey: .estadoGlobal
                 )
                 self.periodo = try container.decode(
                     Swift.String.self,
@@ -2787,6 +3135,7 @@ extension Components {
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "buckets",
+                    "estadoGlobal",
                     "periodo",
                     "sinIngreso",
                     "targets",
@@ -2806,23 +3155,35 @@ extension Components {
                 internal struct bandasPayload: Codable, Hashable, Sendable {
                     /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/bandas/amarilloMax`.
                     internal var amarilloMax: Swift.Int
+                    /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/bandas/amarilloMin`.
+                    internal var amarilloMin: Swift.Int?
                     /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/bandas/verdeMax`.
                     internal var verdeMax: Swift.Int
+                    /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/bandas/verdeMin`.
+                    internal var verdeMin: Swift.Int?
                     /// Creates a new `bandasPayload`.
                     ///
                     /// - Parameters:
                     ///   - amarilloMax:
+                    ///   - amarilloMin:
                     ///   - verdeMax:
+                    ///   - verdeMin:
                     internal init(
                         amarilloMax: Swift.Int,
-                        verdeMax: Swift.Int
+                        amarilloMin: Swift.Int? = nil,
+                        verdeMax: Swift.Int,
+                        verdeMin: Swift.Int? = nil
                     ) {
                         self.amarilloMax = amarilloMax
+                        self.amarilloMin = amarilloMin
                         self.verdeMax = verdeMax
+                        self.verdeMin = verdeMin
                     }
                     internal enum CodingKeys: String, CodingKey {
                         case amarilloMax
+                        case amarilloMin
                         case verdeMax
+                        case verdeMin
                     }
                     internal init(from decoder: any Swift.Decoder) throws {
                         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -2830,13 +3191,23 @@ extension Components {
                             Swift.Int.self,
                             forKey: .amarilloMax
                         )
+                        self.amarilloMin = try container.decodeIfPresent(
+                            Swift.Int.self,
+                            forKey: .amarilloMin
+                        )
                         self.verdeMax = try container.decode(
                             Swift.Int.self,
                             forKey: .verdeMax
                         )
+                        self.verdeMin = try container.decodeIfPresent(
+                            Swift.Int.self,
+                            forKey: .verdeMin
+                        )
                         try decoder.ensureNoAdditionalProperties(knownKeys: [
                             "amarilloMax",
-                            "verdeMax"
+                            "amarilloMin",
+                            "verdeMax",
+                            "verdeMin"
                         ])
                     }
                 }
@@ -2848,10 +3219,91 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/bucket`.
                 internal var bucket: Swift.String
+                /// CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null.
+                ///
+                /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/consejo`.
+                internal struct consejoPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/consejo/direccion`.
+                    internal enum direccionPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                        case reducir = "reducir"
+                        case aumentar = "aumentar"
+                    }
+                    /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/consejo/direccion`.
+                    internal var direccion: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.consejoPayload.direccionPayload
+                    /// Spanish sentence containing the literal `{monto}` placeholder exactly once (SEM-10).
+                    ///
+                    /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/consejo/mensaje`.
+                    internal var mensaje: Swift.String
+                    /// BigInt-safe decimal string amount (never a JSON number).
+                    ///
+                    /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/consejo/monto`.
+                    internal var monto: Swift.String
+                    /// Creates a new `consejoPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - direccion:
+                    ///   - mensaje: Spanish sentence containing the literal `{monto}` placeholder exactly once (SEM-10).
+                    ///   - monto: BigInt-safe decimal string amount (never a JSON number).
+                    internal init(
+                        direccion: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.consejoPayload.direccionPayload,
+                        mensaje: Swift.String,
+                        monto: Swift.String
+                    ) {
+                        self.direccion = direccion
+                        self.mensaje = mensaje
+                        self.monto = monto
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case direccion
+                        case mensaje
+                        case monto
+                    }
+                    internal init(from decoder: any Swift.Decoder) throws {
+                        let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.direccion = try container.decode(
+                            Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.consejoPayload.direccionPayload.self,
+                            forKey: .direccion
+                        )
+                        self.mensaje = try container.decode(
+                            Swift.String.self,
+                            forKey: .mensaje
+                        )
+                        self.monto = try container.decode(
+                            Swift.String.self,
+                            forKey: .monto
+                        )
+                        try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "direccion",
+                            "mensaje",
+                            "monto"
+                        ])
+                    }
+                }
+                /// CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null.
+                ///
+                /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/consejo`.
+                internal var consejo: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.consejoPayload?
+                /// Traffic-light health state, lowercase wire enum, or null.
+                ///
+                /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/estadoSemaforo`.
+                internal enum estadoSemaforoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                    case verde = "verde"
+                    case amarillo = "amarillo"
+                    case rojo = "rojo"
+                    case _empty = ""
+                }
+                /// Traffic-light health state, lowercase wire enum, or null.
+                ///
+                /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/estadoSemaforo`.
+                internal var estadoSemaforo: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.estadoSemaforoPayload?
                 /// Bucket's 50/30/20 target center, in basis points (SEM-02).
                 ///
                 /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/metaBp`.
                 internal var metaBp: Swift.Int
+                /// Basis-point percentage (0-10000). null when sinIngreso=true.
+                ///
+                /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/porcentajeBp`.
+                internal var porcentajeBp: Swift.Int?
                 /// BigInt-safe decimal string amount (never a JSON number).
                 ///
                 /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/total`.
@@ -2861,23 +3313,35 @@ extension Components {
                 /// - Parameters:
                 ///   - bandas: Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).
                 ///   - bucket: Bucket name (Bucket domain enum value).
+                ///   - consejo: CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null.
+                ///   - estadoSemaforo: Traffic-light health state, lowercase wire enum, or null.
                 ///   - metaBp: Bucket's 50/30/20 target center, in basis points (SEM-02).
+                ///   - porcentajeBp: Basis-point percentage (0-10000). null when sinIngreso=true.
                 ///   - total: BigInt-safe decimal string amount (never a JSON number).
                 internal init(
                     bandas: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.bandasPayload,
                     bucket: Swift.String,
+                    consejo: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.consejoPayload? = nil,
+                    estadoSemaforo: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.estadoSemaforoPayload? = nil,
                     metaBp: Swift.Int,
+                    porcentajeBp: Swift.Int? = nil,
                     total: Swift.String
                 ) {
                     self.bandas = bandas
                     self.bucket = bucket
+                    self.consejo = consejo
+                    self.estadoSemaforo = estadoSemaforo
                     self.metaBp = metaBp
+                    self.porcentajeBp = porcentajeBp
                     self.total = total
                 }
                 internal enum CodingKeys: String, CodingKey {
                     case bandas
                     case bucket
+                    case consejo
+                    case estadoSemaforo
                     case metaBp
+                    case porcentajeBp
                     case total
                 }
                 internal init(from decoder: any Swift.Decoder) throws {
@@ -2890,9 +3354,21 @@ extension Components {
                         Swift.String.self,
                         forKey: .bucket
                     )
+                    self.consejo = try container.decodeIfPresent(
+                        Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.consejoPayload.self,
+                        forKey: .consejo
+                    )
+                    self.estadoSemaforo = try container.decodeIfPresent(
+                        Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.estadoSemaforoPayload.self,
+                        forKey: .estadoSemaforo
+                    )
                     self.metaBp = try container.decode(
                         Swift.Int.self,
                         forKey: .metaBp
+                    )
+                    self.porcentajeBp = try container.decodeIfPresent(
+                        Swift.Int.self,
+                        forKey: .porcentajeBp
                     )
                     self.total = try container.decode(
                         Swift.String.self,
@@ -2901,7 +3377,10 @@ extension Components {
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
                         "bandas",
                         "bucket",
+                        "consejo",
+                        "estadoSemaforo",
                         "metaBp",
+                        "porcentajeBp",
                         "total"
                     ])
                 }
@@ -2922,6 +3401,19 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/diagnostico`.
             internal var diagnostico: Swift.String
+            /// Worst traffic-light state across the 3 spend buckets, or null.
+            ///
+            /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/estadoGlobal`.
+            internal enum estadoGlobalPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case verde = "verde"
+                case amarillo = "amarillo"
+                case rojo = "rojo"
+                case _empty = ""
+            }
+            /// Worst traffic-light state across the 3 spend buckets, or null.
+            ///
+            /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/estadoGlobal`.
+            internal var estadoGlobal: Components.Schemas.SemaforoDetalleResponse.estadoGlobalPayload?
             /// Resolved period, format YYYY-MM.
             ///
             /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/periodo`.
@@ -2938,6 +3430,7 @@ extension Components {
             ///   - buckets: Always exactly 3 entries: Necesidades, Deseos, Ahorro (D-03).
             ///   - bucketsCriticos: Bucket names sharing estadoGlobal severity. [] when Verde or sinIngreso.
             ///   - diagnostico: Backend-generated Spanish sentence naming the driving bucket(s) (SEM-01). Never contains {monto}.
+            ///   - estadoGlobal: Worst traffic-light state across the 3 spend buckets, or null.
             ///   - periodo: Resolved period, format YYYY-MM.
             ///   - sinIngreso:
             ///   - totalIngreso: BigInt-safe decimal string amount (never a JSON number).
@@ -2945,6 +3438,7 @@ extension Components {
                 buckets: Components.Schemas.SemaforoDetalleResponse.bucketsPayload,
                 bucketsCriticos: [Swift.String],
                 diagnostico: Swift.String,
+                estadoGlobal: Components.Schemas.SemaforoDetalleResponse.estadoGlobalPayload? = nil,
                 periodo: Swift.String,
                 sinIngreso: Swift.Bool,
                 totalIngreso: Swift.String
@@ -2952,6 +3446,7 @@ extension Components {
                 self.buckets = buckets
                 self.bucketsCriticos = bucketsCriticos
                 self.diagnostico = diagnostico
+                self.estadoGlobal = estadoGlobal
                 self.periodo = periodo
                 self.sinIngreso = sinIngreso
                 self.totalIngreso = totalIngreso
@@ -2960,6 +3455,7 @@ extension Components {
                 case buckets
                 case bucketsCriticos
                 case diagnostico
+                case estadoGlobal
                 case periodo
                 case sinIngreso
                 case totalIngreso
@@ -2978,6 +3474,10 @@ extension Components {
                     Swift.String.self,
                     forKey: .diagnostico
                 )
+                self.estadoGlobal = try container.decodeIfPresent(
+                    Components.Schemas.SemaforoDetalleResponse.estadoGlobalPayload.self,
+                    forKey: .estadoGlobal
+                )
                 self.periodo = try container.decode(
                     Swift.String.self,
                     forKey: .periodo
@@ -2994,6 +3494,7 @@ extension Components {
                     "buckets",
                     "bucketsCriticos",
                     "diagnostico",
+                    "estadoGlobal",
                     "periodo",
                     "sinIngreso",
                     "totalIngreso"

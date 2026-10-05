@@ -10,7 +10,7 @@ describe('renderOpenApiJson — deterministic serialized OpenAPI document', () =
     const output = renderOpenApiJson();
     const parsed = JSON.parse(output) as { openapi: string };
 
-    expect(parsed.openapi).toBe('3.1.0');
+    expect(parsed.openapi).toBe('3.0.3');
   });
 
   it('sorts top-level keys alphabetically (deterministic serialization)', () => {

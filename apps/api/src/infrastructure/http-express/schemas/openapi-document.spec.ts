@@ -1,4 +1,7 @@
-import { buildOpenApiDocument } from './openapi-document';
+import {
+  buildOpenApiDocument,
+  listNullInNullableEnums,
+} from './openapi-document';
 import { CODIGOS_401 } from '../auth-error-codes';
 
 /**
@@ -7,10 +10,10 @@ import { CODIGOS_401 } from '../auth-error-codes';
  * and in this unit test. See openapi-contract-express design.
  */
 describe('buildOpenApiDocument', () => {
-  it('emits OpenAPI version 3.1.0', () => {
+  it('emits OpenAPI version 3.0.3 (the Swift client generator needs `nullable: true`)', () => {
     const document = buildOpenApiDocument();
 
-    expect(document.openapi).toBe('3.1.0');
+    expect(document.openapi).toBe('3.0.3');
   });
 
   it('registers GET /version with no auth requirement', () => {
@@ -416,9 +419,9 @@ describe('buildOpenApiDocument', () => {
     const ingresoVariant = (
       schema?.anyOf as Array<{
         additionalProperties?: boolean;
-        properties?: { tipo?: { const?: string } };
+        properties?: { tipo?: { enum?: string[] } };
       }>
-    )?.find((v) => v.properties?.tipo?.const === 'Ingreso');
+    )?.find((v) => v.properties?.tipo?.enum?.[0] === 'Ingreso');
     expect(ingresoVariant).toBeDefined();
     // The Ingreso variant must carry additionalProperties:false —
     // proving .strict() is in effect and the document matches the runtime rejection.
@@ -441,9 +444,9 @@ describe('buildOpenApiDocument', () => {
     const gastoVariant = (
       schema?.anyOf as Array<{
         required?: string[];
-        properties?: { tipo?: { const?: string } };
+        properties?: { tipo?: { enum?: string[] } };
       }>
-    )?.find((v) => v.properties?.tipo?.const === 'Gasto');
+    )?.find((v) => v.properties?.tipo?.enum?.[0] === 'Gasto');
     expect(gastoVariant).toBeDefined();
     expect(gastoVariant?.required).toContain('bucket');
     expect(gastoVariant?.required).toContain('categoriaId');
@@ -565,21 +568,21 @@ describe('buildOpenApiDocument', () => {
     it('the 401 code enums per family are built from CODIGOS_401 and together cover all of them (emitters are proven in their own specs)', () => {
       const schemas = buildOpenApiDocument().components?.schemas as Record<
         string,
-        { properties: { code: { enum?: string[]; const?: string } } }
+        { properties: { code: { enum?: string[] } } }
       >;
       expect(schemas.UnauthorizedResponse.properties.code.enum).toEqual([
         'API_KEY_INVALIDA',
         'SESION_INVALIDA',
       ]);
-      expect(schemas.ApiKeyUnauthorizedResponse.properties.code.const).toBe(
+      expect(schemas.ApiKeyUnauthorizedResponse.properties.code.enum).toEqual([
         'API_KEY_INVALIDA',
-      );
+      ]);
       expect(
         schemas.CredentialsUnauthorizedResponse.properties.code.enum,
       ).toEqual(['API_KEY_INVALIDA', 'CREDENCIALES_INVALIDAS']);
       const union = new Set([
         ...(schemas.UnauthorizedResponse.properties.code.enum ?? []),
-        schemas.ApiKeyUnauthorizedResponse.properties.code.const,
+        ...(schemas.ApiKeyUnauthorizedResponse.properties.code.enum ?? []),
         ...(schemas.CredentialsUnauthorizedResponse.properties.code.enum ?? []),
       ]);
       expect(union).toEqual(new Set(CODIGOS_401));
@@ -605,7 +608,7 @@ describe('buildOpenApiDocument', () => {
         document().components?.schemas as Record<
           string,
           {
-            properties: { code?: { enum?: string[]; const?: string } };
+            properties: { code?: { enum?: string[] } };
             required?: string[];
           }
         >
@@ -638,9 +641,9 @@ describe('buildOpenApiDocument', () => {
         const op = document().paths?.[ruta]?.[metodo];
         const c409 = componente(schemaRef(op, '409'));
         const c503 = componente(schemaRef(op, '503'));
-        expect(c409.properties.code?.const).toBe('CATALOGO_INCOMPLETO');
+        expect(c409.properties.code?.enum).toEqual(['CATALOGO_INCOMPLETO']);
         expect(c409.required).toContain('code');
-        expect(c503.properties.code?.const).toBe('CATALOGO_NO_DISPONIBLE');
+        expect(c503.properties.code?.enum).toEqual(['CATALOGO_NO_DISPONIBLE']);
         expect(c503.required).toContain('code');
         expect(schemaRef(op, '500')).toBeDefined();
       },
@@ -652,7 +655,7 @@ describe('buildOpenApiDocument', () => {
     ] as const)('%s %s declares 403 CATEGORIA_INTERNA', (metodo, ruta) => {
       const op = document().paths?.[ruta]?.[metodo];
       const schema = componente(schemaRef(op, '403'));
-      expect(schema.properties.code?.const).toBe('CATEGORIA_INTERNA');
+      expect(schema.properties.code?.enum).toEqual(['CATEGORIA_INTERNA']);
       expect(schema.required).toContain('code');
     });
 
@@ -724,6 +727,48 @@ describe('buildOpenApiDocument', () => {
         description?: string;
       };
       expect(op.description).toMatch(patron);
+    });
+  });
+
+  describe('nullable enums (OpenAPI 3.0.3: `nullable` does not extend `enum`)', () => {
+    // No strict OpenAPI 3.0 validator (ajv with the 3.0 meta-schema) is a direct
+    // dependency of apps/api, and the repo's supply-chain policy forbids adding
+    // one for this, so we assert the structural rule the validators enforce.
+    const collect = (node: unknown, out: Record<string, unknown>[] = []) => {
+      if (Array.isArray(node)) node.forEach((n) => collect(n, out));
+      else if (node && typeof node === 'object') {
+        const o = node as Record<string, unknown>;
+        if (o.nullable === true && Array.isArray(o.enum)) out.push(o);
+        Object.values(o).forEach((v) => collect(v, out));
+      }
+      return out;
+    };
+
+    it('lists null (and keeps nullable: true) in every nullable enum, incl. estadoSemaforo/estadoGlobal', () => {
+      const found = collect(buildOpenApiDocument());
+
+      expect(found.length).toBeGreaterThanOrEqual(4);
+      for (const schema of found) {
+        expect(schema.enum).toEqual(['verde', 'amarillo', 'rojo', null]);
+        expect(schema.nullable).toBe(true);
+      }
+    });
+
+    it('listNullInNullableEnums only touches nullable enums and is idempotent', () => {
+      const doc = {
+        a: { nullable: true, enum: ['x'] },
+        b: { enum: ['y'] },
+        c: { nullable: true, enum: ['z', null] },
+      };
+
+      listNullInNullableEnums(doc);
+      listNullInNullableEnums(doc);
+
+      expect(doc).toEqual({
+        a: { nullable: true, enum: ['x', null] },
+        b: { enum: ['y'] },
+        c: { nullable: true, enum: ['z', null] },
+      });
     });
   });
 });

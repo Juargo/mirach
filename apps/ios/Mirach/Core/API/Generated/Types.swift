@@ -493,8 +493,14 @@ extension APIProtocol {
     /// - Remark: HTTP `POST /api/ingestas`.
     /// - Remark: Generated from `#/paths//api/ingestas/post`.
     @available(*, deprecated)
-    internal func post_sol_api_sol_ingestas(headers: Operations.post_sol_api_sol_ingestas.Input.Headers = .init()) async throws -> Operations.post_sol_api_sol_ingestas.Output {
-        try await post_sol_api_sol_ingestas(Operations.post_sol_api_sol_ingestas.Input(headers: headers))
+    internal func post_sol_api_sol_ingestas(
+        headers: Operations.post_sol_api_sol_ingestas.Input.Headers = .init(),
+        body: Operations.post_sol_api_sol_ingestas.Input.Body
+    ) async throws -> Operations.post_sol_api_sol_ingestas.Output {
+        try await post_sol_api_sol_ingestas(Operations.post_sol_api_sol_ingestas.Input(
+            headers: headers,
+            body: body
+        ))
     }
     /// Delete an ingesta
     ///
@@ -517,8 +523,14 @@ extension APIProtocol {
     ///
     /// - Remark: HTTP `POST /api/ingestas/commit`.
     /// - Remark: Generated from `#/paths//api/ingestas/commit/post`.
-    internal func post_sol_api_sol_ingestas_sol_commit(headers: Operations.post_sol_api_sol_ingestas_sol_commit.Input.Headers = .init()) async throws -> Operations.post_sol_api_sol_ingestas_sol_commit.Output {
-        try await post_sol_api_sol_ingestas_sol_commit(Operations.post_sol_api_sol_ingestas_sol_commit.Input(headers: headers))
+    internal func post_sol_api_sol_ingestas_sol_commit(
+        headers: Operations.post_sol_api_sol_ingestas_sol_commit.Input.Headers = .init(),
+        body: Operations.post_sol_api_sol_ingestas_sol_commit.Input.Body
+    ) async throws -> Operations.post_sol_api_sol_ingestas_sol_commit.Output {
+        try await post_sol_api_sol_ingestas_sol_commit(Operations.post_sol_api_sol_ingestas_sol_commit.Input(
+            headers: headers,
+            body: body
+        ))
     }
     /// Preview a bank statement (dry run, US-057)
     ///
@@ -526,8 +538,14 @@ extension APIProtocol {
     ///
     /// - Remark: HTTP `POST /api/ingestas/preview`.
     /// - Remark: Generated from `#/paths//api/ingestas/preview/post`.
-    internal func post_sol_api_sol_ingestas_sol_preview(headers: Operations.post_sol_api_sol_ingestas_sol_preview.Input.Headers = .init()) async throws -> Operations.post_sol_api_sol_ingestas_sol_preview.Output {
-        try await post_sol_api_sol_ingestas_sol_preview(Operations.post_sol_api_sol_ingestas_sol_preview.Input(headers: headers))
+    internal func post_sol_api_sol_ingestas_sol_preview(
+        headers: Operations.post_sol_api_sol_ingestas_sol_preview.Input.Headers = .init(),
+        body: Operations.post_sol_api_sol_ingestas_sol_preview.Input.Body
+    ) async throws -> Operations.post_sol_api_sol_ingestas_sol_preview.Output {
+        try await post_sol_api_sol_ingestas_sol_preview(Operations.post_sol_api_sol_ingestas_sol_preview.Input(
+            headers: headers,
+            body: body
+        ))
     }
     /// Monthly income list by origin (bank/Manual)
     ///

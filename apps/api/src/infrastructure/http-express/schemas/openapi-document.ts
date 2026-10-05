@@ -271,6 +271,7 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     'POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by ' +
     'US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.',
   requestBody: {
+    required: true,
     content: {
       'multipart/form-data': { schema: ingestaUploadRequestSchema },
     },
@@ -331,6 +332,7 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     'clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; ' +
     'dedup is scoped to the calling user (RNF-SEC-006).',
   requestBody: {
+    required: true,
     content: {
       'multipart/form-data': { schema: previewIngestaRequestSchema },
     },
@@ -405,6 +407,7 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     'Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 ' +
     'and persist nothing (D-03/D-04/D-10).',
   requestBody: {
+    required: true,
     content: {
       'multipart/form-data': { schema: commitIngestaRequestSchema },
     },
@@ -1703,15 +1706,43 @@ const paths: ZodOpenApiPathsObject = {
   '/api/transacciones/reevaluar': { post: reevaluarCategoriasOperation },
 };
 
+/**
+ * OpenAPI 3.0.3 says `nullable: true` does NOT extend an `enum`: a nullable
+ * enum must also list `null` among its values, or strict validators reject
+ * the `null` the API really returns. zod-openapi emits the enum without it,
+ * so we append `null` to every `nullable` + `enum` schema.
+ */
+export function listNullInNullableEnums<T>(node: T): T {
+  if (Array.isArray(node)) {
+    node.forEach(listNullInNullableEnums);
+  } else if (node !== null && typeof node === 'object') {
+    const obj = node as Record<string, unknown>;
+    if (
+      obj.nullable === true &&
+      Array.isArray(obj.enum) &&
+      !obj.enum.includes(null)
+    ) {
+      obj.enum.push(null);
+    }
+    Object.values(obj).forEach(listNullInNullableEnums);
+  }
+  return node;
+}
+
 export function buildOpenApiDocument() {
-  return createDocument({
-    openapi: '3.1.0',
-    info: {
-      title: 'MoneyDiary API',
-      version: pkg.version,
-      description:
-        'HTTP contract for the MoneyDiary Express API, sourced from Zod schemas (ADR-011 amend).',
-    },
-    paths,
-  });
+  return listNullInNullableEnums(
+    createDocument({
+      // 3.0.x on purpose: Apple's swift-openapi-generator (apps/ios) drops properties
+      // written as 3.1 `anyOf: [T, {type: "null"}]`, while 3.0 renders them as
+      // `nullable: true`, which it supports. See apps/ios/README.md.
+      openapi: '3.0.3',
+      info: {
+        title: 'MoneyDiary API',
+        version: pkg.version,
+        description:
+          'HTTP contract for the MoneyDiary Express API, sourced from Zod schemas (ADR-011 amend).',
+      },
+      paths,
+    }),
+  );
 }
