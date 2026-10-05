@@ -61,6 +61,8 @@ targets:
       path: Mirach/Info.plist
       properties:
         CFBundleDisplayName: Mirach
+        CFBundleDevelopmentRegion: es         # the app is Spanish only: makes system UI
+        CFBundleLocalizations: [es]           # (Sign in with Apple button) render in Spanish
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         MIRACH_API_KEY: $(MIRACH_API_KEY)   # public client gate (ADR-047), read by AppConfiguration
