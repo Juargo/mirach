@@ -16,7 +16,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private let versionResult: Result<VersionInfo, any Error>
     private let capabilitiesResult: Result<AuthCapabilities, any Error>
     private let signInResult: Result<Session, any Error>
-    private let currentUserResult: Result<CurrentUser, any Error>
+    private var currentUserResult: Result<CurrentUser, any Error>
 
     init(
         versionResult: Result<VersionInfo, any Error> = .success(VersionInfo(version: "0", commit: "0")),
@@ -35,6 +35,11 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     var signInCalls: [SignInCall] { lock.withLock { _signInCalls } }
     var currentUserCalls: Int { lock.withLock { _currentUserCalls } }
 
+    /// Lets a test change what the next `currentUser()` returns (e.g. retry after a network failure).
+    func setCurrentUserResult(_ result: Result<CurrentUser, any Error>) {
+        lock.withLock { currentUserResult = result }
+    }
+
     func version() async throws -> VersionInfo { try versionResult.get() }
     func authCapabilities() async throws -> AuthCapabilities { try capabilitiesResult.get() }
 
@@ -44,7 +49,10 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     }
 
     func currentUser() async throws -> CurrentUser {
-        lock.withLock { _currentUserCalls += 1 }
-        return try currentUserResult.get()
+        let result = lock.withLock {
+            _currentUserCalls += 1
+            return currentUserResult
+        }
+        return try result.get()
     }
 }
