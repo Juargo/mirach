@@ -1,6 +1,6 @@
 # Mirach para iPhone
 
-App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y un área con sesión provisional (el Resumen del mes llega en la siguiente tarea).
+App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y y el Resumen del mes (solo lectura): mes, estado global, ingreso, gráfico de distribución del gasto y una fila por bucket, con selector de mes.
 
 ## Qué es XcodeGen y por qué lo usamos
 
@@ -118,7 +118,7 @@ xcodebuild -project Mirach.xcodeproj -scheme Mirach \
 ```
 
 - `MirachTests`: pruebas unitarias con Swift Testing (`@Test`, `#expect`) de los view models y del `SessionController` (con un `MirachAPI` y un `SessionStore` falsos), del adaptador (con un transporte falso que alimenta el cliente generado real) y de una ida y vuelta real contra el Keychain del simulador.
-- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con `-uiTestStubbedClient` (API con respuesta fija, sin red) y cubren: sin sesión aparece el botón de Apple, con sesión guardada aparece el área provisional y «Cerrar sesión» vuelve al inicio, y la clave vacía muestra el error de configuración. Sign in with Apple en sí no se puede automatizar.
+- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con `-uiTestStubbedClient` (API con respuesta fija, sin red) y cubren: sin sesión aparece el botón de Apple, con sesión guardada aparece el Resumen con los tres buckets y «Cerrar sesión» (menú de la barra) vuelve al inicio, retroceder dos meses llega al mes vacío, y la clave vacía muestra el error de configuración. Sign in with Apple en sí no se puede automatizar.
 
 ## Integración continua
 
@@ -143,7 +143,9 @@ apps/ios/
   Mirach/
     App/                 punto de entrada (@main) y composición de dependencias
     Features/InicioDeSesion/  pantalla de inicio de sesión con Apple (una carpeta por pantalla del catálogo)
-    Features/Sesion/     RootView (elige pantalla según la sesión), área provisional y error de configuración
+    Features/Sesion/     RootView (elige pantalla según la sesión) y error de configuración
+    Features/Resumen/    Resumen del mes: vista, view model, gráfico y filas de bucket
+    Core/Formatting/     formatos del catálogo (dinero, puntos base, meses), sin depender del idioma del dispositivo
     Features/Inicio/     línea discreta con la versión del API (`GET /version`)
     Core/Session/        Session, SessionStore (Keychain), SessionController
     Core/API/            protocolo MirachAPI, adaptador y cliente generado (Generated/)

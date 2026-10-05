@@ -27,8 +27,9 @@ struct RootView: View {
             case .signedOut:
                 SignInView(viewModel: SignInViewModel(api: environment.api, session: environment.session))
             case .signedIn:
-                SignedInPlaceholderView(
+                ResumenView(
                     session: environment.session,
+                    api: environment.api,
                     versionViewModel: ApiVersionViewModel(api: environment.api)
                 )
             case .connectionFailed:

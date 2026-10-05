@@ -114,4 +114,34 @@ struct StubMirachAPI: MirachAPI {
     func currentUser() async throws -> CurrentUser {
         CurrentUser(userId: "stub-user", nombre: "Persona de prueba")
     }
+
+    /// Three months: a normal one (a bucket without state), a quieter one, and one with no income.
+    func periodos() async throws -> [Periodo] {
+        ["2026-09", "2026-08", "2026-07"].compactMap(Periodo.init)
+    }
+
+    func resumen(periodo: Periodo?) async throws -> ResumenMes {
+        let periodo = periodo ?? Periodo("2026-09")!
+        switch periodo.apiValue {
+        case "2026-07":
+            return ResumenMes(
+                periodo: periodo, sinIngreso: true, totalIngreso: 0, estadoGlobal: nil,
+                buckets: [
+                    BucketResumen(bucket: .necesidades, total: 0, porcentajeBp: nil, metaBp: 5000, estado: nil),
+                    BucketResumen(bucket: .deseos, total: 0, porcentajeBp: nil, metaBp: 3000, estado: nil),
+                    BucketResumen(bucket: .ahorro, total: 0, porcentajeBp: nil, metaBp: 2000, estado: nil),
+                ]
+            )
+        default:
+            return ResumenMes(
+                periodo: periodo, sinIngreso: false, totalIngreso: 1_850_000, estadoGlobal: .amarillo,
+                buckets: [
+                    BucketResumen(bucket: .necesidades, total: 912_500, porcentajeBp: 4932, metaBp: 5000, estado: .verde),
+                    BucketResumen(bucket: .deseos, total: 610_400, porcentajeBp: 3300, metaBp: 3000, estado: .amarillo),
+                    // No state yet: exercises the "label without state color" path.
+                    BucketResumen(bucket: .ahorro, total: 120_000, porcentajeBp: 649, metaBp: 2000, estado: nil),
+                ]
+            )
+        }
+    }
 }

@@ -14,6 +14,10 @@ protocol MirachAPI: Sendable {
     func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session
     /// `GET /api/auth/me`: validates the saved session.
     func currentUser() async throws -> CurrentUser
+    /// `GET /api/resumen`. `nil` lets the API resolve the latest month with movements.
+    func resumen(periodo: Periodo?) async throws -> ResumenMes
+    /// `GET /api/periodos`: months with movements, most recent first.
+    func periodos() async throws -> [Periodo]
 }
 
 enum APIError: Error, Equatable {
@@ -123,6 +127,44 @@ struct OpenAPIMirachAPI: MirachAPI {
             case .ok(let ok):
                 let me = try ok.body.json
                 return CurrentUser(userId: me.userId, nombre: me.nombre)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func resumen(periodo: Periodo?) async throws -> ResumenMes {
+        let sentToken = currentToken()
+        do {
+            switch try await client.get_sol_api_sol_resumen(query: .init(periodo: periodo?.apiValue)) {
+            case .ok(let ok):
+                return try ResumenMapper.map(try ok.body.json)
+            case .badRequest:
+                // The app only sends periods it built itself: a 400 is a bug, not a user error.
+                throw APIError.badStatus(400)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func periodos() async throws -> [Periodo] {
+        let sentToken = currentToken()
+        do {
+            switch try await client.get_sol_api_sol_periodos() {
+            case .ok(let ok):
+                return try ok.body.json.periodos.map { text in
+                    guard let periodo = Periodo(text) else { throw ResumenMapper.malformed("periodo \(text)") }
+                    return periodo
+                }
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
             case .undocumented(let statusCode, _):
