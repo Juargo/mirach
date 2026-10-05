@@ -1,4 +1,7 @@
-import { buildOpenApiDocument } from './openapi-document';
+import {
+  buildOpenApiDocument,
+  listNullInNullableEnums,
+} from './openapi-document';
 import { CODIGOS_401 } from '../auth-error-codes';
 
 /**
@@ -724,6 +727,48 @@ describe('buildOpenApiDocument', () => {
         description?: string;
       };
       expect(op.description).toMatch(patron);
+    });
+  });
+
+  describe('nullable enums (OpenAPI 3.0.3: `nullable` does not extend `enum`)', () => {
+    // No strict OpenAPI 3.0 validator (ajv with the 3.0 meta-schema) is a direct
+    // dependency of apps/api, and the repo's supply-chain policy forbids adding
+    // one for this, so we assert the structural rule the validators enforce.
+    const collect = (node: unknown, out: Record<string, unknown>[] = []) => {
+      if (Array.isArray(node)) node.forEach((n) => collect(n, out));
+      else if (node && typeof node === 'object') {
+        const o = node as Record<string, unknown>;
+        if (o.nullable === true && Array.isArray(o.enum)) out.push(o);
+        Object.values(o).forEach((v) => collect(v, out));
+      }
+      return out;
+    };
+
+    it('lists null (and keeps nullable: true) in every nullable enum, incl. estadoSemaforo/estadoGlobal', () => {
+      const found = collect(buildOpenApiDocument());
+
+      expect(found.length).toBeGreaterThanOrEqual(4);
+      for (const schema of found) {
+        expect(schema.enum).toEqual(['verde', 'amarillo', 'rojo', null]);
+        expect(schema.nullable).toBe(true);
+      }
+    });
+
+    it('listNullInNullableEnums only touches nullable enums and is idempotent', () => {
+      const doc = {
+        a: { nullable: true, enum: ['x'] },
+        b: { enum: ['y'] },
+        c: { nullable: true, enum: ['z', null] },
+      };
+
+      listNullInNullableEnums(doc);
+      listNullInNullableEnums(doc);
+
+      expect(doc).toEqual({
+        a: { nullable: true, enum: ['x', null] },
+        b: { enum: ['y'] },
+        c: { nullable: true, enum: ['z', null] },
+      });
     });
   });
 });
