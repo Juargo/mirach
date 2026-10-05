@@ -6,13 +6,6 @@ private let saved = Session(
     token: "tok-123", userId: "u-1", expiresAt: Date(timeIntervalSince1970: 1_800_000_000)
 )
 
-/// A store whose Keychain write fails, to prove sign-in does not pretend to succeed.
-private struct FailingStore: SessionStore {
-    func load() -> Session? { nil }
-    func save(_ session: Session) throws { throw KeychainSessionStore.KeychainError(status: -25299) }
-    func clear() {}
-}
-
 @MainActor
 struct SessionControllerTests {
     private func makeController(
@@ -121,7 +114,7 @@ struct SessionControllerTests {
     }
 
     @Test func signInThatCannotBeSavedThrowsAndStaysSignedOut() async {
-        let controller = makeController(store: FailingStore())
+        let controller = makeController(store: FailingSessionStore())
         await controller.start()
 
         #expect(throws: KeychainSessionStore.KeychainError.self) {

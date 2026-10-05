@@ -12,9 +12,10 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private let lock = NSLock()
     private var _signInCalls: [SignInCall] = []
     private var _currentUserCalls = 0
+    private var _capabilitiesCalls = 0
 
     private let versionResult: Result<VersionInfo, any Error>
-    private let capabilitiesResult: Result<AuthCapabilities, any Error>
+    private var capabilitiesResult: Result<AuthCapabilities, any Error>
     private let signInResult: Result<Session, any Error>
     private var currentUserResult: Result<CurrentUser, any Error>
 
@@ -34,6 +35,11 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
 
     var signInCalls: [SignInCall] { lock.withLock { _signInCalls } }
     var currentUserCalls: Int { lock.withLock { _currentUserCalls } }
+    var capabilitiesCalls: Int { lock.withLock { _capabilitiesCalls } }
+
+    func setCapabilitiesResult(_ result: Result<AuthCapabilities, any Error>) {
+        lock.withLock { capabilitiesResult = result }
+    }
 
     /// Lets a test change what the next `currentUser()` returns (e.g. retry after a network failure).
     func setCurrentUserResult(_ result: Result<CurrentUser, any Error>) {
@@ -41,7 +47,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     }
 
     func version() async throws -> VersionInfo { try versionResult.get() }
-    func authCapabilities() async throws -> AuthCapabilities { try capabilitiesResult.get() }
+    func authCapabilities() async throws -> AuthCapabilities {
+        let result = lock.withLock {
+            _capabilitiesCalls += 1
+            return capabilitiesResult
+        }
+        return try result.get()
+    }
 
     func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session {
         lock.withLock { _signInCalls.append(SignInCall(identityToken: identityToken, nonce: nonce, nombre: nombre)) }
