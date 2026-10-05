@@ -20,6 +20,14 @@ enum Format {
         signed(amount, positiveSign: "-", negativeSign: "+")
     }
 
+    /// Spend as VoiceOver should say it, with the same sign logic as `expense(_:)`:
+    /// a negative total (refunds exceed spend) is money coming in, not spend.
+    static func spokenExpense(_ amount: Int) -> String {
+        if amount == 0 { return "Sin gasto" }
+        let text = "$" + grouped(amount.magnitude)
+        return amount > 0 ? "Gasto de \(text)" : "Reembolso neto de \(text)"
+    }
+
     /// Basis points as a percentage with a decimal comma: `3050` is `30,5%`, `5000` is `50%`.
     static func percent(bp: Int) -> String {
         let magnitude = bp.magnitude

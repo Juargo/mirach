@@ -60,9 +60,12 @@ struct BucketRow: View {
         }
     }
 
-    private var accessibilityText: String {
+    private var accessibilityText: String { Self.accessibilityLabel(for: item) }
+
+    /// What VoiceOver reads, with the same sign logic as the visible figure.
+    nonisolated static func accessibilityLabel(for item: BucketResumen) -> String {
         let share = item.porcentajeBp.map { "\(Format.percent(bp: $0)) del ingreso" } ?? "sin porcentaje del ingreso"
-        return "\(item.bucket.label). Gasto \(Format.money(abs(item.total))), \(share). "
+        return "\(item.bucket.label). \(Format.spokenExpense(item.total)), \(share). "
             + "Meta \(Format.percent(bp: item.metaBp))"
     }
 }
