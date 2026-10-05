@@ -80,7 +80,7 @@ jobs:
             openspec: ['openspec/changes/**', 'scripts/check-openspec-artifacts.sh']
             # iPhone app: its sources, the API contract the client is generated
             # from, the design tokens it will consume, and this workflow.
-            ios: ['apps/ios/**', 'apps/api/openapi.json', 'design/**', 'scripts/check-design-tokens.mjs', '.github/workflows/ci.yml']
+            ios: ['apps/ios/**', 'apps/api/openapi.json', 'design/**', 'scripts/check-design-tokens.mjs', 'scripts/generate-ios-tokens*.mjs', '.github/workflows/ci.yml']
 
   # ADR-020: the REAL commit-message enforcement (local husky hooks are
   # --no-verify-skippable, this is not). Runs on every PR/push — NOT
@@ -829,6 +829,16 @@ jobs:
       - name: Check design tokens
         working-directory: .
         run: node scripts/check-design-tokens.mjs
+
+      # Fails when design/tokens.json changed without regenerating the committed
+      # Swift tokens. The generator is plain Node, tested with node --test.
+      - name: Check the generated design tokens are up to date
+        run: |
+          node --test ../../scripts/generate-ios-tokens.test.mjs
+          ./scripts/generate-tokens.sh
+          paths=(Mirach/Resources/Tokens.xcassets Mirach/Core/Design)
+          git diff --exit-code -- "${paths[@]}"
+          test -z "$(git ls-files --others --exclude-standard -- "${paths[@]}")"
 
       - name: Generate the Xcode project
         run: |
