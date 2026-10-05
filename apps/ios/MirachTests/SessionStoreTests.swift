@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import Testing
 @testable import Mirach
 
@@ -19,9 +20,9 @@ private func exercise(_ store: any SessionStore) throws {
     try store.save(newer)
     #expect(store.load() == newer, "saving again replaces the previous session")
 
-    store.clear()
+    try store.clear()
     #expect(store.load() == nil)
-    store.clear() // clearing an empty store is not an error
+    try store.clear() // clearing an empty store is not an error
 }
 
 struct SessionStoreTests {
@@ -33,7 +34,7 @@ struct SessionStoreTests {
     /// to this test so it never touches the app's real session.
     @Test func keychainStoreRoundTrips() throws {
         let store = KeychainSessionStore(service: "app.mirachbudget.ios.tests.\(UUID().uuidString)")
-        defer { store.clear() }
+        defer { try? store.clear() }
 
         try exercise(store)
     }
@@ -41,11 +42,19 @@ struct SessionStoreTests {
     @Test func keychainStoreIgnoresCorruptData() throws {
         let service = "app.mirachbudget.ios.tests.\(UUID().uuidString)"
         let store = KeychainSessionStore(service: service)
-        defer { store.clear() }
+        defer { try? store.clear() }
 
         try store.saveRaw(Data("not json".utf8))
 
         #expect(store.load() == nil)
+    }
+
+    @Test func deleteStatusSuccessAndNotFoundAreOkAndAnythingElseIsReported() throws {
+        try KeychainSessionStore.check(deleteStatus: errSecSuccess)
+        try KeychainSessionStore.check(deleteStatus: errSecItemNotFound)
+        #expect(throws: KeychainSessionStore.KeychainError(status: errSecInteractionNotAllowed)) {
+            try KeychainSessionStore.check(deleteStatus: errSecInteractionNotAllowed)
+        }
     }
 
     @Test func sessionServiceNameIsTheDocumentedOne() {

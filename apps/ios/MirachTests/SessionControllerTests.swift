@@ -140,9 +140,42 @@ struct SessionControllerTests {
         let controller = makeController(store: store)
         try controller.signIn(saved)
 
-        controller.sessionExpired()
+        controller.sessionExpired(token: saved.token)
 
         #expect(store.load() == nil)
+        #expect(controller.phase == .signedOut)
+    }
+
+    @Test func aStaleExpiryForAnOldTokenDoesNotSignOutTheNewSession() throws {
+        let store = InMemorySessionStore()
+        let controller = makeController(store: store)
+        try controller.signIn(saved)
+        let newer = Session(token: "tok-NEW", userId: "u-1", expiresAt: saved.expiresAt)
+        try controller.signIn(newer)
+
+        controller.sessionExpired(token: saved.token) // a late 401 for the old token
+
+        #expect(store.load() == newer)
+        #expect(controller.phase == .signedIn(userId: "u-1"))
+    }
+
+    @Test func startupRejectionClearsTheSessionExactlyOnceEvenIfTheRelayDeliversToo() async {
+        let store = CountingSessionStore(session: saved)
+        let api = FakeMirachAPI(currentUserResult: .failure(APIError.sessionExpired))
+        let controller = makeController(store: store, api: api)
+
+        await controller.start()
+        controller.sessionExpired(token: saved.token) // the relay's later delivery
+
+        #expect(store.clears == 1)
+        #expect(controller.phase == .signedOut)
+    }
+
+    @Test func signOutStillShowsSignedOutWhenTheKeychainDeleteFails() {
+        let controller = makeController(store: UndeletableSessionStore(session: saved))
+
+        controller.signOut()
+
         #expect(controller.phase == .signedOut)
     }
 
@@ -151,9 +184,9 @@ struct SessionControllerTests {
         let controller = makeController(store: store)
         try controller.signIn(saved)
         let relay = SessionExpiryRelay()
-        relay.connect { await controller.sessionExpired() }
+        relay.connect { token in await controller.sessionExpired(token: token) }
 
-        relay.fire() // what the API adapter calls, from any thread
+        relay.fire(token: saved.token) // what the API adapter calls, from any thread
         await relay.waitForDelivery()
 
         #expect(controller.phase == .signedOut)
@@ -161,6 +194,6 @@ struct SessionControllerTests {
     }
 
     @Test func relayWithoutAReceiverIsHarmless() {
-        SessionExpiryRelay().fire()
+        SessionExpiryRelay().fire(token: "x")
     }
 }

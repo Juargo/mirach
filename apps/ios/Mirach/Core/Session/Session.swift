@@ -13,7 +13,8 @@ protocol SessionStore: Sendable {
     /// `nil` when there is no session (or what was stored cannot be read).
     func load() -> Session?
     func save(_ session: Session) throws
-    func clear()
+    /// Throws if the stored session could not be deleted (it would come back next launch).
+    func clear() throws
 }
 
 /// Test and UI-test double. A class with a lock because `SessionStore` is `Sendable`

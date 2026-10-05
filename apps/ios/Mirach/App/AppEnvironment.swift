@@ -60,11 +60,12 @@ enum AppEnvironment {
             // Reads the token from the store on every request, so sign-in and sign-out
             // take effect immediately without rebuilding the client.
             middlewares: [APIAuthMiddleware(apiKey: apiKey, sessionToken: { store.load()?.token })],
-            // A 401 on an authenticated call lands here, in one place.
-            onSessionExpired: { relay.fire() }
+            currentToken: { store.load()?.token },
+            // A 401 on an authenticated call lands here, in one place, naming the rejected token.
+            onSessionExpired: { relay.fire(token: $0) }
         )
         let session = SessionController(api: api, store: store)
-        relay.connect { await session.sessionExpired() }
+        relay.connect { token in await session.sessionExpired(token: token) }
         return Dependencies(
             api: api, store: store, session: session, expiryRelay: relay, configurationProblem: problem
         )

@@ -6,9 +6,10 @@ import Testing
 /// Callback counter for "the session expired" notifications.
 private final class ExpiryCounter: @unchecked Sendable {
     private let lock = NSLock()
-    private var _count = 0
-    func fire() { lock.withLock { _count += 1 } }
-    var count: Int { lock.withLock { _count } }
+    private var _tokens: [String] = []
+    func fire(_ token: String) { lock.withLock { _tokens.append(token) } }
+    var count: Int { lock.withLock { _tokens.count } }
+    var tokens: [String] { lock.withLock { _tokens } }
 }
 
 struct AuthAPITests {
@@ -18,8 +19,15 @@ struct AuthAPITests {
         #"{"message":"x","code":"\#(code)"}"#
     }
 
-    private func makeAPI(_ transport: FakeTransport, expiry: ExpiryCounter = ExpiryCounter()) -> OpenAPIMirachAPI {
-        OpenAPIMirachAPI(serverURL: serverURL, transport: transport, onSessionExpired: { expiry.fire() })
+    private func makeAPI(
+        _ transport: FakeTransport,
+        expiry: ExpiryCounter = ExpiryCounter(),
+        token: String? = "tok-sent"
+    ) -> OpenAPIMirachAPI {
+        OpenAPIMirachAPI(
+            serverURL: serverURL, transport: transport,
+            currentToken: { token }, onSessionExpired: { expiry.fire($0) }
+        )
     }
 
     /// The JSON body of the first request, parsed (the encoder's spacing is not our contract).
@@ -97,7 +105,18 @@ struct AuthAPITests {
             _ = try await makeAPI(transport, expiry: counter).currentUser()
         }
 
-        #expect(counter.count == 1)
+        #expect(counter.tokens == ["tok-sent"], "the notification names the session that was rejected")
+    }
+
+    @Test func rejectionWithoutAnyTokenHasNoSessionToExpire() async {
+        let counter = ExpiryCounter()
+        let transport = FakeTransport.json(unauthorized("SESION_INVALIDA"), status: .unauthorized)
+
+        await #expect(throws: APIError.sessionExpired) {
+            _ = try await makeAPI(transport, expiry: counter, token: nil).currentUser()
+        }
+
+        #expect(counter.count == 0)
     }
 
     @Test func rejectedApiKeyIsNotASessionExpiry() async {

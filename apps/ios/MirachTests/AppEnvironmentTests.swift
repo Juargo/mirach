@@ -73,6 +73,26 @@ struct AppEnvironmentTests {
         #expect(transport.requests.count == 1)
     }
 
+    @Test func aLate401ForAnOldTokenDoesNotSignOutANewerSession() async throws {
+        let store = InMemorySessionStore()
+        let newer = Session(token: "tok-NEW", userId: "u-1", expiresAt: saved.expiresAt)
+        // While the request is in flight the person signs in again; then the old 401 arrives.
+        let transport = FakeTransport { _ in
+            try? store.save(newer)
+            var response = HTTPResponse(status: .unauthorized)
+            response.headerFields[.contentType] = "application/json"
+            return (response, #"{"message":"x","code":"SESION_INVALIDA"}"#)
+        }
+        let environment = AppEnvironment.make(arguments: [], apiKey: "key", store: store, transport: transport)
+        try environment.session.signIn(saved)
+
+        _ = try? await environment.api.currentUser()
+        await environment.expiryRelay.waitForDelivery()
+
+        #expect(store.load() == newer)
+        #expect(environment.session.phase == .signedIn(userId: "u-1"))
+    }
+
     @Test func aRejectedApiKeyDoesNotDiscardTheSession() async throws {
         let store = InMemorySessionStore()
         let transport = FakeTransport.json(

@@ -35,18 +35,22 @@ enum APIError: Error, Equatable {
 /// `MirachAPI` backed by the generated OpenAPI client.
 struct OpenAPIMirachAPI: MirachAPI {
     private let client: Client
-    private let onSessionExpired: @Sendable () -> Void
+    private let currentToken: @Sendable () -> String?
+    private let onSessionExpired: @Sendable (String) -> Void
 
-    /// `onSessionExpired` is called whenever an authenticated call is rejected with
-    /// `SESION_INVALIDA`: the single place that notices an expired session, so no
-    /// screen has to remember to handle it (catalog: "sesión vencida").
+    /// `onSessionExpired` is called with the token that was rejected whenever an authenticated
+    /// call gets `SESION_INVALIDA`: the single place that notices an expired session, so no
+    /// screen has to remember to handle it (catalog: "sesión vencida"). `currentToken` is read
+    /// when the call starts, so a late answer is attributed to the session it was sent with.
     init(
         serverURL: URL,
         transport: any ClientTransport,
         middlewares: [any ClientMiddleware] = [],
-        onSessionExpired: @escaping @Sendable () -> Void = {}
+        currentToken: @escaping @Sendable () -> String? = { nil },
+        onSessionExpired: @escaping @Sendable (String) -> Void = { _ in }
     ) {
         client = Client(serverURL: serverURL, transport: transport, middlewares: middlewares)
+        self.currentToken = currentToken
         self.onSessionExpired = onSessionExpired
     }
 
@@ -113,13 +117,14 @@ struct OpenAPIMirachAPI: MirachAPI {
     }
 
     func currentUser() async throws -> CurrentUser {
+        let sentToken = currentToken()
         do {
             switch try await client.get_sol_api_sol_auth_sol_me() {
             case .ok(let ok):
                 let me = try ok.body.json
                 return CurrentUser(userId: me.userId, nombre: me.nombre)
             case .unauthorized(let unauthorized):
-                throw rejection(code: try unauthorized.body.json.code)
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
             case .undocumented(let statusCode, _):
                 throw APIError.badStatus(statusCode)
             }
@@ -130,10 +135,13 @@ struct OpenAPIMirachAPI: MirachAPI {
 
     /// Every authenticated endpoint funnels its 401 through here, so the expired-session
     /// notification lives in exactly one place.
-    private func rejection(code: Components.Schemas.UnauthorizedResponse.codePayload) -> APIError {
+    private func rejection(
+        code: Components.Schemas.UnauthorizedResponse.codePayload,
+        sentToken: String?
+    ) -> APIError {
         switch code {
         case .SESION_INVALIDA:
-            onSessionExpired()
+            if let sentToken { onSessionExpired(sentToken) }
             return .sessionExpired
         case .API_KEY_INVALIDA:
             return .apiKeyRejected

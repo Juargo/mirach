@@ -53,8 +53,15 @@ struct KeychainSessionStore: SessionStore {
         guard status == errSecSuccess else { throw KeychainError(status: status) }
     }
 
-    func clear() {
-        SecItemDelete(baseQuery as CFDictionary)
+    func clear() throws {
+        try Self.check(deleteStatus: SecItemDelete(baseQuery as CFDictionary))
+    }
+
+    /// Nothing to delete is fine; any other failure means the token is still stored.
+    static func check(deleteStatus status: OSStatus) throws {
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainError(status: status)
+        }
     }
 
     private var baseQuery: [String: Any] {

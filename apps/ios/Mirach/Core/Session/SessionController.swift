@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Owns "who is signed in" for the whole app. The root view only draws `phase`.
 ///
@@ -20,6 +21,7 @@ final class SessionController {
 
     private(set) var phase: Phase = .validating
 
+    private let logger = Logger(subsystem: "app.mirachbudget.ios", category: "session")
     private let api: any MirachAPI
     private let store: any SessionStore
 
@@ -35,11 +37,14 @@ final class SessionController {
             return
         }
         phase = .validating
+        let validatedToken = store.load()?.token
         do {
             let user = try await api.currentUser()
             phase = .signedIn(userId: user.userId)
         } catch APIError.sessionExpired {
-            sessionExpired()
+            // The API adapter also notifies the relay; whichever arrives second finds the
+            // session already gone (or replaced) and does nothing.
+            if let validatedToken { sessionExpired(token: validatedToken) }
         } catch APIError.apiKeyRejected {
             // The session is probably fine; the app's key is not. Keep the session.
             phase = .misconfigured
@@ -62,13 +67,22 @@ final class SessionController {
     }
 
     func signOut() {
-        store.clear()
+        do {
+            try store.clear()
+        } catch {
+            // Still show signed-out; but the token is still stored and would be picked up
+            // at the next launch. Log it (never the token itself).
+            logger.error("Could not delete the saved session from the Keychain: \(String(describing: error), privacy: .public)")
+        }
         phase = .signedOut
     }
 
-    /// The server rejected the session (any authenticated call, or startup validation).
-    /// Discards it and returns to sign-in, without retrying.
-    func sessionExpired() {
+    /// The server rejected the session identified by `token` (any authenticated call, or
+    /// startup validation). Notifications arrive asynchronously, so one can be late: it only
+    /// applies if that token is STILL the current session, otherwise a stale 401 would sign
+    /// the person out of a newer sign-in. No retry.
+    func sessionExpired(token: String) {
+        guard store.load()?.token == token else { return }
         signOut()
     }
 }
@@ -77,18 +91,19 @@ final class SessionController {
 /// (built second, on the main actor) that a 401 arrived, without either holding the other.
 final class SessionExpiryRelay: @unchecked Sendable {
     private let lock = NSLock()
-    private var receiver: (@Sendable () async -> Void)?
+    private var receiver: (@Sendable (String) async -> Void)?
     private var pending: Task<Void, Never>?
 
-    func connect(_ receiver: @escaping @Sendable () async -> Void) {
+    func connect(_ receiver: @escaping @Sendable (String) async -> Void) {
         lock.withLock { self.receiver = receiver }
     }
 
     /// Called from the network layer; hops to wherever the receiver wants to run.
-    func fire() {
+    /// `token` identifies the session that was rejected.
+    func fire(token: String) {
         lock.withLock {
             guard let receiver else { return }
-            pending = Task { await receiver() }
+            pending = Task { await receiver(token) }
         }
     }
 
