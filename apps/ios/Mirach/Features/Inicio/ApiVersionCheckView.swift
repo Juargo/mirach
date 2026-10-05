@@ -34,8 +34,12 @@ struct ApiVersionCheckView: View {
             }
         case .loaded(let info):
             VStack(spacing: 8) {
-                Text("Versión \(info.version)").font(.title2.bold())
-                Text("Commit \(info.commit)").foregroundStyle(.secondary)
+                // Design tokens: color adapts to light/dark, figures use tabular digits.
+                Text("Versión \(info.version)")
+                    .font(.title2.bold())
+                    .mirachFigures()
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                Text("Commit \(info.commit)").foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
         case .failed(let message):
             VStack(spacing: 12) {

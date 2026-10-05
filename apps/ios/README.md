@@ -49,6 +49,28 @@ cd apps/ios
 - **Las pantallas no usan los tipos generados:** dependen del protocolo `MirachAPI` (`Mirach/Core/API/MirachAPI.swift`), cuya implementación `OpenAPIMirachAPI` envuelve el cliente generado, traduce sus errores y expone solo lo que las pantallas necesitan. Para sumar un endpoint: agrega el método al protocolo y a la implementación, con su prueba.
 - **Forma de OpenAPI que necesita el generador:** `apps/api/openapi.json` se emite como OpenAPI **3.0.3**, no 3.1. El generador (1.13.1) no soporta las propiedades anulables escritas en 3.1 como `anyOf: [T, {type: "null"}]`: avisa `Schema "null" is not supported` y las omite del tipo generado (27 propiedades, p. ej. `estadoGlobal`, `estadoSemaforo`, `porcentajeBp`). En 3.0 zod-openapi las escribe como `nullable: true`, que sí soporta. Además exige `required: true` en los cuerpos `multipart/form-data` (`/api/ingestas*`); el contrato ya lo declara. Si la API vuelve a 3.1, `GeneratedNullableFieldsTests` falla al compilar o decodificar. Un aviso nuevo del generador (`warning:` en la salida de `generate-api.sh`) significa que se está omitiendo algo del contrato: no lo ignores.
 
+## Tokens de diseño
+
+Colores, textos de bucket y semáforo, familias tipográficas y radios salen de `design/tokens.json` (fuente única, ver `design/README.md`). El script `scripts/generate-ios-tokens.mjs` (Node, sin dependencias) los convierte, de forma determinista, en dos cosas que **se commitean**:
+
+- `Mirach/Resources/Tokens.xcassets`: un color set por token, en una carpeta por grupo (`Base`, `Bucket`, `Pie`, `Ingreso`, `Semaforo`, `Feedback`) con espacio de nombres (`Bucket/deseos`). El valor claro es la apariencia "Any" y el oscuro la apariencia `luminosity: dark`, en sRGB.
+- `Mirach/Core/Design/GeneratedTokens.swift`: accesores tipados. `Color.Mirach.<Grupo>.<token>` (por ejemplo `Color.Mirach.Bucket.deseos`), `MirachCopy.Bucket.deseos` (textos), `MirachFont` (familias), `MirachRadius` (radios) y el modificador `.mirachFigures()` (cifras con dígitos tabulares).
+
+```bash
+cd apps/ios
+./scripts/generate-tokens.sh
+```
+
+- **Cuándo regenerar:** cada vez que cambie `design/tokens.json`. El CI falla si lo commiteado quedó desactualizado. Nunca edites los archivos generados a mano.
+- **Claro y oscuro:** los colores se adaptan solos a la apariencia del sistema; ninguna vista decide un color según el tema.
+- **Reglas que los tokens no expresan:** el color nunca va solo (siempre con etiqueta o glifo) y los rellenos de bucket no se usan como color de texto.
+
+```swift
+Text(MirachCopy.Bucket.deseos)
+    .foregroundStyle(Color.Mirach.Base.foreground)
+Text(total).mirachFigures()
+```
+
 ## Clave de la API y sesión
 
 Toda llamada a `/api` necesita el header `x-api-key` (clave pública del cliente, ADR-047) y, después de iniciar sesión, `Authorization: Bearer <sesión>`. Lo agrega `APIAuthMiddleware` (`Mirach/Core/API/`), que **nunca** toca rutas fuera de `/api` (como `/version`) y no envía un header vacío.
@@ -80,13 +102,14 @@ xcodebuild -project Mirach.xcodeproj -scheme Mirach \
 
 ## Integración continua
 
-El job `ios` de `.github/workflows/ci.yml` corre en `macos-26` (imagen estable con Xcode 26.6, Swift 6.2 y simuladores iPhone 17; Xcode 27 aún es preview en los runners). Solo se ejecuta si cambia `apps/ios/**`, `apps/api/openapi.json`, `design/**`, el validador de tokens o el propio workflow (en `main` corre siempre), y un job omitido cuenta como éxito en `CI success`. Pasos:
+El job `ios` de `.github/workflows/ci.yml` corre en `macos-26` (imagen estable con Xcode 26.6, Swift 6.2 y simuladores iPhone 17; Xcode 27 aún es preview en los runners). Solo se ejecuta si cambia `apps/ios/**`, `apps/api/openapi.json`, `design/**`, el validador y el generador de tokens o el propio workflow (en `main` corre siempre), y un job omitido cuenta como éxito en `CI success`. Pasos:
 
 1. Instala XcodeGen 2.46.0 (binario del release, versión fija).
 2. Regenera el cliente (`./scripts/generate-api.sh`) y falla si difiere de lo commiteado: avisa que cambió `openapi.json` sin regenerar.
 3. `node scripts/check-design-tokens.mjs` (equivale a `pnpm design:check`, sin instalar dependencias).
-4. Crea un `Secrets.xcconfig` de relleno desde el ejemplo y genera el proyecto.
-5. `xcodebuild test` en el primer simulador iPhone disponible, con `CODE_SIGNING_ALLOWED=NO` (el CI no tiene certificados). Límite: 30 minutos.
+4. `node --test scripts/generate-ios-tokens.test.mjs`, regenera los tokens (`./scripts/generate-tokens.sh`) y falla si difieren de lo commiteado.
+5. Crea un `Secrets.xcconfig` de relleno desde el ejemplo y genera el proyecto.
+6. `xcodebuild test` en el primer simulador iPhone disponible, con `CODE_SIGNING_ALLOWED=NO` (el CI no tiene certificados). Límite: 30 minutos.
 
 ## Estructura
 
@@ -95,13 +118,15 @@ apps/ios/
   project.yml            fuente de verdad del proyecto (XcodeGen)
   scripts/generate.sh    genera el .xcodeproj
   scripts/generate-api.sh  regenera el cliente de la API desde openapi.json
+  scripts/generate-tokens.sh  regenera los tokens de diseño desde design/tokens.json
   Config/                Base.xcconfig y Secrets.example.xcconfig (Secrets.xcconfig no se commitea)
   Mirach/
     App/                 punto de entrada (@main) y composición de dependencias
     Features/Inicio/     la primera pantalla (una carpeta por pantalla del catálogo)
     Core/API/            protocolo MirachAPI, adaptador y cliente generado (Generated/)
     Core/Networking/     configuración: URL base y timeout
-    Resources/           assets (icono y color de acento)
+    Core/Design/         tokens de diseño generados (GeneratedTokens.swift)
+    Resources/           assets (icono, color de acento y Tokens.xcassets generado)
   MirachTests/           pruebas unitarias
   MirachUITests/         pruebas de interfaz
 ```
