@@ -1,6 +1,6 @@
 # Mirach para iPhone
 
-App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual es un esqueleto: una pantalla temporal que consulta `GET /version` a través del cliente generado y muestra versión y commit, para comprobar que todo el circuito funciona.
+App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y un área con sesión provisional (el Resumen del mes llega en la siguiente tarea).
 
 ## Qué es XcodeGen y por qué lo usamos
 
@@ -84,7 +84,27 @@ cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig   # está en .gitigno
 ./scripts/generate.sh
 ```
 
-`Config/Base.xcconfig` define `MIRACH_API_KEY` vacía e incluye `Secrets.xcconfig` si existe; `project.yml` la publica en `Info.plist` y `AppConfiguration.apiKey` la lee. Sin el archivo la app compila igual (la clave queda vacía). La sesión (token) llegará con el inicio de sesión con Apple (T4).
+`Config/Base.xcconfig` define `MIRACH_API_KEY` vacía e incluye `Secrets.xcconfig` si existe; `project.yml` la publica en `Info.plist` y `AppConfiguration.apiKey` la lee. Sin el archivo la app compila igual (la clave queda vacía), pero **no arranca normal**: al iniciar, `ConfigurationCheck` detecta la clave vacía y
+
+- en Debug registra el error y lanza `assertionFailure` (la app se detiene en el simulador para que no pase inadvertido; las pruebas unitarias lo omiten);
+- en Release muestra la pantalla «La app no está configurada correctamente» en lugar de un bucle de inicio de sesión.
+
+Si el servidor rechaza la clave (401 `API_KEY_INVALIDA`) se muestra la misma pantalla y la sesión guardada se conserva.
+
+## Inicio de sesión y sesión
+
+- **Qué espera el servidor** (`POST /api/auth/apple/token`): `identityToken` (el JWT de Apple, con audiencia `app.mirachbudget.ios`), `nonce` y, solo la primera vez que ese Apple ID autoriza la app, `nombre`. El `nonce` es obligatorio: la app genera un valor aleatorio crudo por intento, le da a Apple su SHA-256 en hexadecimal (`request.nonce`) y envía al API el valor crudo; el servidor lo vuelve a hashear y lo compara con el claim del token (`AppleNonce`, `SignInViewModel`).
+- **Sesión:** la respuesta (`token`, `userId`, `expiresAt`) se guarda en el Keychain (`KeychainSessionStore`: servicio `app.mirachbudget.ios.session`, accesible tras el primer desbloqueo y solo en este dispositivo) detrás del protocolo `SessionStore`; las pruebas usan `InMemorySessionStore`. `SessionController` (`@Observable`) guarda la fase (`validating`, `signedOut`, `signedIn`, `connectionFailed`, `misconfigured`) y `RootView` solo dibuja esa fase.
+- **Arranque:** sin token va al inicio de sesión; con token valida con `GET /api/auth/me`: 200 entra, 401 descarta la sesión y va al inicio de sesión, y un fallo de red muestra «Reintentar» **sin borrar la sesión**.
+- **401 en cualquier llamada autenticada:** `OpenAPIMirachAPI` lo detecta en un solo lugar; si el código es `SESION_INVALIDA` avisa al `SessionController` (por `SessionExpiryRelay`), que borra la sesión y vuelve al inicio de sesión, sin reintento. Un `API_KEY_INVALIDA` no cuenta como sesión vencida.
+- **Cerrar sesión** borra el token local. Llamar a `POST /api/auth/logout` llegará con la pantalla de Perfil.
+- La app es solo en español (`CFBundleLocalizations: es`), así el botón de Apple dice «Continuar con Apple». El botón del sistema cambia de estilo (negro/blanco) al lanzar la app, no en vivo si cambias la apariencia con la app abierta.
+
+### Probar el inicio de sesión
+
+- **Simulador:** Sign in with Apple necesita un Apple ID con sesión iniciada en el simulador (Ajustes > Iniciar sesión en el iPhone). Hace falta además `Secrets.xcconfig` con la clave real. Cancelar la hoja no muestra error.
+- **iPhone físico:** firma automática con el equipo `SUX4J95Z5F`; funciona con tu Apple ID del dispositivo. Para repetir la primera autorización (con nombre) revoca la app en Ajustes > tu nombre > Contraseña y seguridad > Inicia sesión con Apple.
+- **Sin red ni Apple ID:** las pruebas de interfaz usan los argumentos `-uiTestStubbedClient`, `-uiTestSavedSession` (arranca con sesión guardada) y `-uiTestMissingAPIKey` (simula la clave vacía).
 
 ## Pruebas
 
@@ -97,8 +117,8 @@ xcodebuild -project Mirach.xcodeproj -scheme Mirach \
   -destination 'platform=iOS Simulator,name=iPhone 18 Pro' test
 ```
 
-- `MirachTests`: pruebas unitarias con Swift Testing (`@Test`, `#expect`) del view model (con un `MirachAPI` falso) y del adaptador (con un transporte falso que alimenta el cliente generado real).
-- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con el argumento `-uiTestStubbedClient`, que hace que use una API con respuesta fija; así no dependen de la red.
+- `MirachTests`: pruebas unitarias con Swift Testing (`@Test`, `#expect`) de los view models y del `SessionController` (con un `MirachAPI` y un `SessionStore` falsos), del adaptador (con un transporte falso que alimenta el cliente generado real) y de una ida y vuelta real contra el Keychain del simulador.
+- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con `-uiTestStubbedClient` (API con respuesta fija, sin red) y cubren: sin sesión aparece el botón de Apple, con sesión guardada aparece el área provisional y «Cerrar sesión» vuelve al inicio, y la clave vacía muestra el error de configuración. Sign in with Apple en sí no se puede automatizar.
 
 ## Integración continua
 
@@ -122,7 +142,10 @@ apps/ios/
   Config/                Base.xcconfig y Secrets.example.xcconfig (Secrets.xcconfig no se commitea)
   Mirach/
     App/                 punto de entrada (@main) y composición de dependencias
-    Features/Inicio/     la primera pantalla (una carpeta por pantalla del catálogo)
+    Features/InicioDeSesion/  pantalla de inicio de sesión con Apple (una carpeta por pantalla del catálogo)
+    Features/Sesion/     RootView (elige pantalla según la sesión), área provisional y error de configuración
+    Features/Inicio/     línea discreta con la versión del API (`GET /version`)
+    Core/Session/        Session, SessionStore (Keychain), SessionController
     Core/API/            protocolo MirachAPI, adaptador y cliente generado (Generated/)
     Core/Networking/     configuración: URL base y timeout
     Core/Design/         tokens de diseño generados (GeneratedTokens.swift)
@@ -133,7 +156,7 @@ apps/ios/
 
 `Info.plist` y `Mirach.entitlements` también los escribe XcodeGen desde `project.yml` en cada `generate` (incluye la capacidad "Sign in with Apple"), así que están en `.gitignore` y no se commitean: la versión (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`) y los permisos tienen una sola fuente y no pueden divergir. XcodeGen no necesita que existan de antemano; basta con ejecutar `./scripts/generate.sh` tras clonar.
 
-## Conceptos de SwiftUI de la primera pantalla
+## Conceptos de SwiftUI de la primera pantalla (versión del API)
 
 - **`@main`**: marca el punto de entrada. `MirachApp` describe la app y su `WindowGroup`, que muestra la primera vista.
 - **`View`**: una vista es un `struct` con una propiedad `body` que *describe* la interfaz. SwiftUI la vuelve a calcular cuando cambia el estado.
@@ -142,4 +165,4 @@ apps/ios/
 - **`async/await`**: permite esperar una respuesta de red sin bloquear la app; `await` marca el punto de espera.
 - **`.task`**: modificador que lanza una tarea `async` cuando la vista aparece y la cancela cuando desaparece.
 
-El view model tiene un estado (`idle`, `loading`, `loaded`, `failed`) y la vista simplemente dibuja según ese estado.
+El view model tiene un estado (`idle`, `loading`, `loaded`, `failed`) y la vista simplemente dibuja según ese estado. El inicio de sesión sigue el mismo patrón (`SignInViewModel.State`) y `RootView` lo aplica a toda la app con `SessionController.phase`.
