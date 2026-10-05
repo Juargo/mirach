@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One legend row: swatch, name, target, state, spend and share of the income. Always shown,
+/// One legend row: swatch, name, target, spend and share of the income. Always shown,
 /// so the chart is never the only way to reach a bucket.
 struct BucketRow: View {
     let item: BucketResumen
@@ -13,14 +13,10 @@ struct BucketRow: View {
                 VStack(alignment: .leading, spacing: 8) {
                     name
                     figures(alignment: .leading)
-                    EstadoBadge(estado: item.estado)
                 }
             } else {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        name
-                        EstadoBadge(estado: item.estado)
-                    }
+                HStack(alignment: .center, spacing: 12) {
+                    name
                     Spacer(minLength: 8)
                     figures(alignment: .trailing)
                 }
@@ -67,6 +63,6 @@ struct BucketRow: View {
     private var accessibilityText: String {
         let share = item.porcentajeBp.map { "\(Format.percent(bp: $0)) del ingreso" } ?? "sin porcentaje del ingreso"
         return "\(item.bucket.label). Gasto \(Format.money(abs(item.total))), \(share). "
-            + "Meta \(Format.percent(bp: item.metaBp)). \(EstadoStyle(item.estado).label)"
+            + "Meta \(Format.percent(bp: item.metaBp))"
     }
 }

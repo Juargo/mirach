@@ -45,6 +45,11 @@ final class MirachUITests: XCTestCase {
             XCTAssertTrue(row.exists, "missing bucket row \(name)")
             XCTAssertTrue(row.label.hasPrefix(name), "row label: \(row.label)")
         }
+        // The traffic light is hidden by product decision: no state label anywhere.
+        for text in ["Estado del mes", "Muy Saludable", "Saludable", "En peligro", "Sin datos"] {
+            let anywhere = NSPredicate(format: "label CONTAINS %@", text)
+            XCTAssertEqual(app.descendants(matching: .any).matching(anywhere).count, 0, "found \(text)")
+        }
         // The discreet API version line kept from the first screen (stubbed value).
         XCTAssertTrue(app.staticTexts["signedin.apiVersion"].waitForExistence(timeout: 10))
 
