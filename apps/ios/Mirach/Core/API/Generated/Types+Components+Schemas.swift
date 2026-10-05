@@ -2912,6 +2912,7 @@ extension Components {
                     case verde = "verde"
                     case amarillo = "amarillo"
                     case rojo = "rojo"
+                    case _empty = ""
                 }
                 /// Traffic-light health state, lowercase wire enum (US-016), or null.
                 ///
@@ -3003,6 +3004,7 @@ extension Components {
                 case verde = "verde"
                 case amarillo = "amarillo"
                 case rojo = "rojo"
+                case _empty = ""
             }
             /// Worst traffic-light state across measured buckets, or null.
             ///
@@ -3288,6 +3290,7 @@ extension Components {
                     case verde = "verde"
                     case amarillo = "amarillo"
                     case rojo = "rojo"
+                    case _empty = ""
                 }
                 /// Traffic-light health state, lowercase wire enum, or null.
                 ///
@@ -3405,6 +3408,7 @@ extension Components {
                 case verde = "verde"
                 case amarillo = "amarillo"
                 case rojo = "rojo"
+                case _empty = ""
             }
             /// Worst traffic-light state across the 3 spend buckets, or null.
             ///
