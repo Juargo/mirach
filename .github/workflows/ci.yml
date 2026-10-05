@@ -795,7 +795,9 @@ jobs:
   # 26.6 (Swift 6.2, iOS 26 SDK, iPhone 17 simulators): enough for the project's
   # Swift 6 language mode and iOS 17 deployment target. macOS 27/Xcode 27 is
   # still a public preview image, so it is not used. No signing certificates in
-  # CI, hence CODE_SIGNING_ALLOWED=NO.
+  # CI, so the app is ad-hoc signed for the simulator (CODE_SIGN_IDENTITY=-):
+  # an unsigned build has no entitlements and the Keychain rejects it with
+  # errSecMissingEntitlement (-34018), which breaks the real Keychain tests.
   ios:
     name: ios
     needs: changes
@@ -856,7 +858,8 @@ jobs:
           xcodebuild test \
             -project Mirach.xcodeproj -scheme Mirach \
             -destination "platform=iOS Simulator,id=${udid}" \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
 
   # Single stable required check (Slice C). Path-filtered jobs above can be
   # SKIPPED depending on which workspace changed — a branch-protection rule
