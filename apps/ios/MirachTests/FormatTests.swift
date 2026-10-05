@@ -39,6 +39,7 @@ struct FormatTests {
     @Test func monthsAreSpanishAndPeriodsRoundTrip() throws {
         #expect(Format.month(try #require(Periodo("2026-09"))) == "septiembre de 2026")
         #expect(Format.month(try #require(Periodo("2025-01"))) == "enero de 2025")
+        #expect(Format.monthTitle(try #require(Periodo("2026-09"))) == "Septiembre de 2026")
         #expect(Periodo("2026-09")?.apiValue == "2026-09")
         #expect(Periodo("2026-1") == nil)
         #expect(Periodo("2026-00") == nil)

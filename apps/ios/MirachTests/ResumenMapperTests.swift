@@ -103,7 +103,7 @@ struct ResumenMapperTests {
         let broken = [
             body(periodo: "2026-13"),
             body(ingreso: "12,5"),
-            body(buckets: [("Gustos", "1", "1", "null"), ("Deseos", "1", "1", "null"), ("Ahorro", "1", "1", "null")]),
+            body(buckets: [("Otros", "1", "1", "null"), ("Deseos", "1", "1", "null"), ("Ahorro", "1", "1", "null")]),
             body(buckets: [("Necesidades", "1", "1", "null")]),
         ]
         for text in broken {

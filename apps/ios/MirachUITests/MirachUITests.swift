@@ -29,18 +29,45 @@ final class MirachUITests: XCTestCase {
         XCTAssertFalse(app.buttons["signedin.signOut"].exists)
     }
 
+    private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any)[identifier].firstMatch
+    }
+
     @MainActor
-    func testLaunchWithSavedSessionShowsThePlaceholderAndSignOutReturnsToSignIn() {
+    func testLaunchWithSavedSessionShowsTheResumenAndSignOutReturnsToSignIn() {
         let app = launch([savedSession])
 
-        XCTAssertTrue(app.staticTexts["Sesión iniciada"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["resumen.month"].label, "Septiembre de 2026")
+        // The three buckets, by their official names (the third has no traffic-light state).
+        for name in ["Necesidades", "Deseos", "Ahorro"] {
+            let row = element(app, "resumen.bucket.\(name)")
+            XCTAssertTrue(row.exists, "missing bucket row \(name)")
+            XCTAssertTrue(row.label.hasPrefix(name), "row label: \(row.label)")
+        }
         // The discreet API version line kept from the first screen (stubbed value).
         XCTAssertTrue(app.staticTexts["signedin.apiVersion"].waitForExistence(timeout: 10))
 
+        app.buttons["resumen.menu"].tap()
         app.buttons["signedin.signOut"].tap()
 
         XCTAssertTrue(app.buttons["signin.apple"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.staticTexts["Sesión iniciada"].exists)
+        XCTAssertFalse(app.staticTexts["resumen.month"].exists)
+    }
+
+    @MainActor
+    func testGoingBackTwoMonthsReachesTheEmptyMonthAndTheSelectorStaysUsable() {
+        let app = launch([savedSession])
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+
+        app.buttons["Mes anterior"].tap()
+        XCTAssertTrue(app.staticTexts["Agosto de 2026"].waitForExistence(timeout: 10))
+        app.buttons["Mes anterior"].tap()
+
+        XCTAssertTrue(app.staticTexts["Julio de 2026"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Todavía no hay datos este mes"].exists)
+        XCTAssertFalse(app.buttons["Mes anterior"].isEnabled)
+        XCTAssertTrue(app.buttons["Mes siguiente"].isEnabled)
     }
 
     @MainActor

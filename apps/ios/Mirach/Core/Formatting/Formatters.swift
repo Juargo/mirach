@@ -48,6 +48,12 @@ enum Format {
         "\(monthNames[periodo.month - 1]) de \(periodo.year)"
     }
 
+    /// `Septiembre de 2026`, for a title.
+    static func monthTitle(_ periodo: Periodo) -> String {
+        let text = month(periodo)
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
     private static func signed(_ amount: Int, positiveSign: String, negativeSign: String) -> String {
         if amount == 0 { return "$0" }
         return (amount > 0 ? positiveSign : negativeSign) + "$" + grouped(amount.magnitude)
