@@ -4,6 +4,8 @@
 
 Pantalla de inicio: muestra cómo se repartió el mes entre Necesidades, Deseos y Ahorro frente a la regla 50/30/20, el estado global del semáforo, el ingreso del mes y una vista del año completo para cambiar de mes.
 
+> **Semáforo oculto en iPhone v1 (decisión de producto, 2026-10-05).** La app de iPhone no muestra el estado global ni el estado por bucket, aunque `estadoGlobal` y `estadoSemaforo` siguen llegando del API y la app los conserva en su modelo, de modo que volver a mostrarlos es solo un cambio de vista. Decisión abierta antes de mostrarlo de nuevo: la redacción de las etiquetas (este catálogo dice «Verde», «Amarillo», «Rojo»; el API y los tokens de diseño dicen «Muy Saludable», «Saludable», «En peligro»). Las filas y reglas del semáforo de abajo se conservan como definición original y están marcadas como *(oculto)*.
+
 ## Datos que muestra
 
 Todo viene de `GET /api/resumen` (`ResumenMesResponse`) salvo el bloque anual.
@@ -11,9 +13,9 @@ Todo viene de `GET /api/resumen` (`ResumenMesResponse`) salvo el bloque anual.
 | Dato | Origen | Formato |
 |---|---|---|
 | Mes mostrado | `periodo` | Nombre del mes y año; siempre el valor devuelto |
-| Estado global del semáforo | `estadoGlobal` (`verde`, `amarillo`, `rojo` o `null`) | Etiqueta de texto («Verde», «Amarillo», «Rojo») más color; `null` se muestra como «Sin datos» |
+| *(oculto en iPhone v1)* Estado global del semáforo | `estadoGlobal` (`verde`, `amarillo`, `rojo` o `null`) | Etiqueta de texto («Verde», «Amarillo», «Rojo») más color; `null` se muestra como «Sin datos» |
 | Ingreso del mes | `totalIngreso` | Dinero, con signo `+` |
-| Por bucket (Necesidades, Deseos, Ahorro; siempre tres, en ese orden) | `buckets[].bucket`, `total`, `porcentajeBp`, `estadoSemaforo` | Nombre («Deseos»), dinero con signo `-`, porcentaje del ingreso (o «—»), estado con etiqueta y color |
+| Por bucket (Necesidades, Deseos, Ahorro; siempre tres, en ese orden) | `buckets[].bucket`, `total`, `porcentajeBp`, `estadoSemaforo` | Nombre («Deseos»), dinero con signo `-`, porcentaje del ingreso (o «—»); *(oculto en iPhone v1)* estado con etiqueta y color |
 | Meta de referencia por bucket | `targets.Necesidades`, `targets.Deseos`, `targets.Ahorro` | «Meta: 50%», «Meta: 30%», «Meta: 20%» |
 | Gráfico de distribución del gasto | `buckets[].total` | Proporciones de los tres totales; cada porción rotulada con el nombre del bucket y su `total` (ver brecha 4) |
 | Vista anual | `GET /api/resumen/anual` → `meses[]` (doce `ResumenMesResponse`, enero a diciembre) | Una celda por mes con su gráfico reducido y estado; los meses con `sinIngreso: true` aparecen inactivos |
@@ -54,7 +56,7 @@ El detalle del semáforo (`GET /api/resumen/semaforo`) queda para «Después»: 
 - **Vacío anual** (los doce meses con `sinIngreso: true`): «Todavía no hay datos este año» con «Subir cartola».
 - **Error con reintento**: mensaje y «Reintentar» para la consulta que falló; un error del bloque anual no oculta el resumen del mes, ni al revés.
 - **Éxito**: el contenido completo.
-- **Estado global `null`** con datos: se muestra «Sin datos» en lugar de color; los buckets con `estadoSemaforo` `null` muestran su etiqueta sin color de estado.
+- *(Oculto en iPhone v1)* **Estado global `null`** con datos: se muestra «Sin datos» en lugar de color; los buckets con `estadoSemaforo` `null` muestran su etiqueta sin color de estado.
 
 ## Navegación
 
@@ -65,7 +67,7 @@ El detalle del semáforo (`GET /api/resumen/semaforo`) queda para «Después»: 
 
 - Tirar para refrescar es el gesto natural de recarga.
 - El gráfico no puede ser la única vía a los buckets: la leyenda en filas es el camino accesible para VoiceOver y se mantiene siempre.
-- El estado se transmite con texto y color a la vez, también en modo oscuro.
+- *(Oculto en iPhone v1)* El estado se transmite con texto y color a la vez, también en modo oscuro.
 - El selector de mes se opera con flechas de al menos 44 pt; el bloque anual funciona como selector alternativo.
 - Con Dynamic Type grande, las cifras no se truncan: la leyenda pasa a una columna.
 
