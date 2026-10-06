@@ -52,6 +52,8 @@ import { PrismaReevaluarCategoriasReader } from '../infrastructure/persistence/p
 import { PrismaReevaluarCategoriasWriter } from '../infrastructure/persistence/prisma-reevaluar-categorias.writer';
 import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
 import { PrismaCuentaRepository } from '../infrastructure/persistence/prisma-cuenta.repository';
+import { AppleRevocadorIdentidadExterna } from '../infrastructure/identity/apple-revocador-identidad-externa';
+import { PrismaRefreshTokenAppleRepository } from '../infrastructure/persistence/prisma-refresh-token-apple.repository';
 import { NoopRevocadorIdentidadExterna } from '../infrastructure/identity/noop-revocador-identidad-externa';
 import { PrismaEliminarMovimientoManualRepository } from '../infrastructure/persistence/prisma-eliminar-movimiento-manual.repository';
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
@@ -346,10 +348,17 @@ export function createContainer(
     new PrismaListarIngestasReader(prisma),
     logger,
   );
-  // La revocación externa es un no-op hasta T4 (Sign in with Apple).
+  // Revocación de Sign in with Apple al eliminar la cuenta (T4); no-op cuando
+  // el cliente de Apple REST no está configurado.
   const eliminarCuenta = new EliminarCuentaUseCase(
     new PrismaCuentaRepository(prisma),
-    new NoopRevocadorIdentidadExterna(),
+    clienteApple
+      ? new AppleRevocadorIdentidadExterna(
+          new PrismaRefreshTokenAppleRepository(prisma, crypto),
+          clienteApple,
+          logger,
+        )
+      : new NoopRevocadorIdentidadExterna(),
     logger,
   );
   const catalogo = crearCatalogo(prisma);
