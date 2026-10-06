@@ -8,6 +8,12 @@ extension SubirCartolaViewModel {
     nonisolated static let accountProblemMessage =
         "No pudimos importar tu cartola por un problema de tu cuenta. El archivo está bien y no se importó nada."
 
+    nonisolated static let tooManyEditsMessage =
+        "No caben más cambios en una sola importación. Confirma los que ya hiciste o deshaz alguno."
+    /// 400 on a commit that carried edits: the catalog drifted since the review started.
+    nonisolated static let badEditsMessage =
+        "No pudimos aplicar tus cambios. Revisa la clasificación e inténtalo de nuevo."
+
     nonisolated static let unreadableCopyMessage = "No pudimos leer el archivo. Elígelo de nuevo."
 
     nonisolated static func message(for problem: CartolaFileProblem) -> String {

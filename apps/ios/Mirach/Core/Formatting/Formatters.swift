@@ -62,6 +62,19 @@ enum Format {
         return text.prefix(1).uppercased() + text.dropFirst()
     }
 
+    /// `3 oct`, read in UTC: the API sends the statement's day as midnight UTC, and a local
+    /// calendar would move it to the previous evening west of Greenwich.
+    static func shortDate(_ date: Date) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let parts = calendar.dateComponents([.day, .month], from: date)
+        return "\(parts.day!) \(shortMonthNames[parts.month! - 1])"
+    }
+
+    private static let shortMonthNames = [
+        "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic",
+    ]
+
     private static func signed(_ amount: Int, positiveSign: String, negativeSign: String) -> String {
         if amount == 0 { return "$0" }
         return (amount > 0 ? positiveSign : negativeSign) + "$" + grouped(amount.magnitude)

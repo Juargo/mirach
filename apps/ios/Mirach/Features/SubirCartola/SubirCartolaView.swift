@@ -79,6 +79,8 @@ struct SubirCartolaView: View {
                 .accessibilityIdentifier("subir.chooseOther")
         case .decidiendo(let preview):
             deciding(preview)
+        case .revisando:
+            EmptyView()
         case .subiendo:
             Progress(text: "Subiendo transacciones…", identifier: "subir.uploading")
         case .errorImportacion(let failure):
@@ -86,7 +88,7 @@ struct SubirCartolaView: View {
                 .accessibilityFocused($messageFocused)
                 .accessibilityIdentifier("subir.error")
             if failure.isRetryable {
-                Button("Reintentar") { Task { await viewModel.uploadAsIs() } }
+                Button("Reintentar") { Task { await viewModel.retryImport() } }
                     .buttonStyle(.borderedProminent).controlSize(.large)
                     .accessibilityIdentifier("subir.retry")
             }
