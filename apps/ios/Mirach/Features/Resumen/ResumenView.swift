@@ -5,11 +5,20 @@ import SwiftUI
 struct ResumenView: View {
     let session: SessionController
     let versionViewModel: ApiVersionViewModel
+    /// Changing it reloads the month (a statement was just imported).
+    let reloadToken: Int
+    /// "Subir cartola" in the empty state: the shell opens the Subir tab.
+    let onUploadStatement: () -> Void
     @State private var viewModel: ResumenViewModel
 
-    init(session: SessionController, api: any MirachAPI, versionViewModel: ApiVersionViewModel) {
+    init(
+        session: SessionController, api: any MirachAPI, versionViewModel: ApiVersionViewModel,
+        reloadToken: Int = 0, onUploadStatement: @escaping () -> Void = {}
+    ) {
         self.session = session
         self.versionViewModel = versionViewModel
+        self.reloadToken = reloadToken
+        self.onUploadStatement = onUploadStatement
         _viewModel = State(initialValue: ResumenViewModel(api: api))
     }
 
@@ -42,8 +51,9 @@ struct ResumenView: View {
                     .accessibilityIdentifier("resumen.menu")
                 }
             }
-            // Runs when the screen appears and is cancelled when it goes away.
-            .task { await viewModel.load() }
+            // Runs when the screen appears (and again when `reloadToken` changes) and is
+            // cancelled when it goes away.
+            .task(id: reloadToken) { await viewModel.load() }
         }
     }
 
@@ -70,7 +80,7 @@ struct ResumenView: View {
                 select: { periodo in Task { await viewModel.select(periodo) } }
             )
             if mes.sinIngreso {
-                EmptyMonth()
+                EmptyMonth(onUpload: onUploadStatement)
             } else {
                 ResumenContent(mes: mes)
             }
@@ -130,6 +140,8 @@ private struct MonthSelector: View {
 }
 
 private struct EmptyMonth: View {
+    let onUpload: () -> Void
+
     var body: some View {
         VStack(spacing: 8) {
             Text("Todavía no hay datos este mes")
@@ -138,11 +150,14 @@ private struct EmptyMonth: View {
             Text("Cuando subas una cartola, aquí verás cómo se repartió tu mes.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            Button("Subir cartola", action: onUpload)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .padding(.top, 8)
+                .accessibilityIdentifier("resumen.upload")
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 32)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("resumen.empty")
     }
 }
 

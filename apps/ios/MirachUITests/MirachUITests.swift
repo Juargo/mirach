@@ -29,6 +29,18 @@ final class MirachUITests: XCTestCase {
         XCTAssertFalse(app.buttons["signedin.signOut"].exists)
     }
 
+    /// A fixture file from this test bundle, handed to the app through a Debug-only launch
+    /// argument (the system document picker cannot be driven reliably by XCUITest).
+    private func launchWithFixture(_ name: String, _ ext: String) throws -> XCUIApplication {
+        let url = try XCTUnwrap(Bundle(for: MirachUITests.self).url(forResource: name, withExtension: ext))
+        return launch([savedSession, "-uiTestFixturePath", url.path])
+    }
+
+    private func openSubirTab(_ app: XCUIApplication) {
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Subir"].tap()
+    }
+
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
     }
@@ -81,5 +93,89 @@ final class MirachUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["La app no está configurada correctamente"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["signin.apple"].exists)
+    }
+
+    // MARK: Subir cartola
+
+    @MainActor
+    func testSubirTabShowsTheInstructionsAndTheChooseFileButton() {
+        let app = launch([savedSession])
+        openSubirTab(app)
+
+        XCTAssertTrue(app.buttons["subir.chooseFile"].waitForExistence(timeout: 10))
+        let instructions = element(app, "subir.instructions")
+        XCTAssertTrue(instructions.exists)
+        XCTAssertTrue(instructions.label.contains(".xlsx"))
+        XCTAssertTrue(instructions.label.contains("10 MB"))
+    }
+
+    @MainActor
+    func testEmptyMonthUploadButtonOpensTheSubirTab() {
+        let app = launch([savedSession])
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        app.buttons["Mes anterior"].tap()
+        XCTAssertTrue(app.staticTexts["Agosto de 2026"].waitForExistence(timeout: 10))
+        app.buttons["Mes anterior"].tap()
+        XCTAssertTrue(app.staticTexts["Julio de 2026"].waitForExistence(timeout: 10))
+
+        app.buttons["resumen.upload"].tap()
+
+        XCTAssertTrue(app.buttons["subir.chooseFile"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testUploadingAFileAsIsShowsTheSuccessAndOffersTheSummary() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+
+        app.buttons["subir.fixture"].tap()
+        XCTAssertTrue(app.buttons["subir.uploadAsIs"].waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "subir.summary").label.contains("Banco de Chile"))
+        XCTAssertTrue(app.staticTexts["Nada se ha guardado aún."].exists)
+
+        app.buttons["subir.uploadAsIs"].tap()
+        XCTAssertTrue(element(app, "subir.success").waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["37 movimientos importados de Banco de Chile"].exists)
+        XCTAssertTrue(app.staticTexts["5 duplicados omitidos"].exists)
+
+        app.buttons["subir.viewSummary"].tap()
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testDiscardAsksForConfirmationAndGoesBackToTheStart() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        XCTAssertTrue(app.buttons["subir.discard"].waitForExistence(timeout: 10))
+
+        app.buttons["subir.discard"].tap()
+        XCTAssertTrue(app.alerts.buttons["Seguir con la cartola"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Seguir con la cartola"].tap()
+        XCTAssertTrue(app.buttons["subir.uploadAsIs"].exists, "cancelling the dialog keeps the decision")
+
+        app.buttons["subir.discard"].tap()
+        app.alerts.buttons["Descartar"].tap()
+        XCTAssertTrue(app.buttons["subir.chooseFile"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testAProtectedPdfAsksForThePasswordAndAcceptsTheRightOne() throws {
+        let app = try launchWithFixture("cartola-protegida", "pdf")
+        openSubirTab(app)
+
+        app.buttons["subir.fixture"].tap()
+        let field = app.secureTextFields["subir.password"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Este archivo está protegido. Ingresa su contraseña para continuar."].exists)
+
+        field.typeText("mala")
+        app.buttons["subir.retry"].tap()
+        XCTAssertTrue(app.staticTexts["La contraseña es incorrecta. Inténtalo de nuevo."].waitForExistence(timeout: 10))
+
+        field.tap()
+        field.typeText("correcta")
+        app.buttons["subir.retry"].tap()
+        XCTAssertTrue(app.buttons["subir.uploadAsIs"].waitForExistence(timeout: 10))
     }
 }
