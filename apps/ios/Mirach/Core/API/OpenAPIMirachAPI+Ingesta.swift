@@ -20,7 +20,7 @@ extension OpenAPIMirachAPI {
         do {
             switch try await client.post_sol_api_sol_ingestas_sol_preview(body: .multipartForm(.init(parts))) {
             case .ok(let ok):
-                return try Self.map(try ok.body.json)
+                return try IngestaMapper.preview(try ok.body.json)
             case .badRequest(let bad):
                 throw Self.rejection(of: bad.body)
             case .unauthorized(let unauthorized):
@@ -39,12 +39,28 @@ extension OpenAPIMirachAPI {
         }
     }
 
+    func categorias() async throws -> CatalogoCategorias {
+        let sentToken = currentToken()
+        do {
+            switch try await client.get_sol_api_sol_categorias() {
+            case .ok(let ok):
+                return IngestaMapper.catalog(try ok.body.json)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw await unwrap(error, sentToken: sentToken)
+        }
+    }
+
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
         let sentToken = currentToken()
         let data = try Self.read(file)
         var parts: [CommitParts] = [
             .file(.init(payload: .init(body: HTTPBody(data)), filename: file.filename)),
-            .edits(.init(payload: .init(body: HTTPBody(try Self.editsJSON(edits))))),
+            .edits(.init(payload: .init(body: HTTPBody(CartolaEdit.json(edits))))),
         ]
         if let password, !password.isEmpty {
             parts.append(.password(.init(payload: .init(body: HTTPBody(password)))))
@@ -140,30 +156,5 @@ extension OpenAPIMirachAPI {
         case "SIN_MOVIMIENTOS": .noMovements
         default: .rejected(message: message.isEmpty ? genericRejection : message)
         }
-    }
-
-    private static func map(_ wire: Components.Schemas.PreviewIngestaResponse) throws -> CartolaPreview {
-        // `resumen` is optional in the contract, but without it there is nothing to decide on.
-        guard let resumen = wire.resumen else {
-            throw DecodingError.keyNotFound(
-                CodingKeys.resumen, .init(codingPath: [], debugDescription: "preview without resumen")
-            )
-        }
-        return CartolaPreview(
-            banco: wire.banco, tipoCuenta: wire.tipoCuenta, numeroCuenta: wire.numeroCuenta,
-            totalFilas: resumen.totalFilas, duplicados: resumen.duplicadosDetectados, nuevas: resumen.nuevas
-        )
-    }
-
-    private enum CodingKeys: String, CodingKey { case resumen }
-
-    /// `[{"rowIndex":3,"categoriaId":"..."}]`, only the rows the person touched.
-    private static func editsJSON(_ edits: [CartolaEdit]) throws -> String {
-        struct Wire: Encodable {
-            let rowIndex: Int
-            let categoriaId: String
-        }
-        let data = try JSONEncoder().encode(edits.map { Wire(rowIndex: $0.rowIndex, categoriaId: $0.categoriaId) })
-        return String(decoding: data, as: UTF8.self)
     }
 }

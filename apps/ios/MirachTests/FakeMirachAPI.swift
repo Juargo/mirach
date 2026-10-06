@@ -30,6 +30,8 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _resumenCalls: [Periodo?] = []
     private var previewResults: [Result<CartolaPreview, any Error>] = [.success(SampleData.preview)]
     private var commitResults: [Result<CartolaCommitResult, any Error>] = [.success(SampleData.commit)]
+    private var categoriasResults: [Result<CatalogoCategorias, any Error>] = [.success(SampleData.catalog)]
+    private var _categoriasCalls = 0
     private var _previewGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
@@ -84,6 +86,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         lock.withLock { previewResults = results }
     }
 
+    /// Answers for the next `categorias()` calls, in order; the last one repeats.
+    func setCategoriasResults(_ results: [Result<CatalogoCategorias, any Error>]) {
+        lock.withLock { categoriasResults = results }
+    }
+
+    var categoriasCalls: Int { lock.withLock { _categoriasCalls } }
+
     func setCommitResults(_ results: [Result<CartolaCommitResult, any Error>]) {
         lock.withLock { commitResults = results }
     }
@@ -99,6 +108,14 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let result = lock.withLock {
             _previewCalls.append(UploadCall(file: file, password: password, edits: nil))
             return previewResults.count > 1 ? previewResults.removeFirst() : previewResults[0]
+        }
+        return try result.get()
+    }
+
+    func categorias() async throws -> CatalogoCategorias {
+        let result = lock.withLock {
+            _categoriasCalls += 1
+            return categoriasResults.count > 1 ? categoriasResults.removeFirst() : categoriasResults[0]
         }
         return try result.get()
     }

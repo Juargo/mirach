@@ -21,6 +21,9 @@ protocol MirachAPI: Sendable {
     /// `POST /api/ingestas/preview`: reads the statement and saves nothing. `password` only
     /// for a protected PDF. Throws `IngestaError` for the answers the catalog names.
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview
+    /// `GET /api/categorias`: the user's categories, for naming a row's classification and for
+    /// choosing another one in the review.
+    func categorias() async throws -> CatalogoCategorias
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult
