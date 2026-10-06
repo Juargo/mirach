@@ -2,11 +2,6 @@ import { Result } from '../../shared/result';
 import { AppleAuthFallidoError } from '../../domain/errors/apple-auth-fallido.error';
 
 /**
- * IClienteAppleAuth — puerto hacia la API REST de Sign in with Apple
- * ("Generate and validate tokens" / "Revoke tokens"). Nunca lanza: todo fallo
- * es `Result.fail`, y ningún valor del error contiene credenciales.
- */
-/**
  * CanjeApple — lo que devuelve `/auth/token`: el refresh token y el `id_token`
  * de la misma autorización (permite comprobar a qué identidad pertenece el
  * code antes de guardar nada).
@@ -16,6 +11,11 @@ export interface CanjeApple {
   readonly idToken: string;
 }
 
+/**
+ * IClienteAppleAuth — puerto hacia la API REST de Sign in with Apple
+ * ("Generate and validate tokens" / "Revoke tokens"). Nunca lanza: todo fallo
+ * es `Result.fail`, y ningún valor del error contiene credenciales.
+ */
 export interface IClienteAppleAuth {
   /**
    * Canjea el `authorizationCode` de la autorización nativa (un solo uso,
