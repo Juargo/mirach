@@ -69,8 +69,11 @@ describe('crearAuthApple', () => {
       'code-1',
     );
 
+    // El canje corre en segundo plano: se espera a que termine.
+    await vi.waitFor(() =>
+      expect(revocarRefreshToken).toHaveBeenCalledWith('rt-1'),
+    );
     expect(intercambiarCodigo).toHaveBeenCalledWith('code-1');
     expect(updateMany).not.toHaveBeenCalled();
-    expect(revocarRefreshToken).toHaveBeenCalledWith('rt-1');
   });
 });

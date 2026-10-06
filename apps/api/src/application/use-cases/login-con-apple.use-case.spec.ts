@@ -13,6 +13,7 @@ import { AppleAuthFallidoError } from '../../domain/errors/apple-auth-fallido.er
 import { VerificacionIdentidadFallidaError } from '../../domain/errors/verificacion-identidad-fallida.error';
 import { IVerificadorSubCanjeApple } from '../ports/verificador-identidad-apple.port';
 import { Result } from '../../shared/result';
+import { TareasSincronas } from '../../../test/support/tareas-en-segundo-plano.double';
 import { makeMockIdentidadAppleRepository as makeMockIdentidades } from '../../../test/support/identidad-apple-repository.double';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
@@ -453,7 +454,8 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
       generar: vi.fn().mockReturnValue({ token: 't', tokenHash: 'h' }),
       hashToken: vi.fn(),
     };
-    const uc = new LoginConAppleUseCase(
+    const tareas = new TareasSincronas();
+    const crudo = new LoginConAppleUseCase(
       identidades,
       sessions,
       tokens,
@@ -462,8 +464,26 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
       opts?.sinCliente ? undefined : cliente,
       opts?.sinCliente ? undefined : refreshTokens,
       opts?.sinCliente ? undefined : verificador,
+      tareas,
     );
-    return { uc, cliente, refreshTokens, logger, sessions, verificador };
+    // `uc.execute` espera además la tarea en segundo plano (para asertar su efecto).
+    const uc = {
+      execute: async (...args: Parameters<typeof crudo.execute>) => {
+        const result = await crudo.execute(...args);
+        await tareas.esperar();
+        return result;
+      },
+    };
+    return {
+      uc,
+      crudo,
+      tareas,
+      cliente,
+      refreshTokens,
+      logger,
+      sessions,
+      verificador,
+    };
   }
 
   it('con code: canjea tras verificar la identidad y guarda el refresh token del usuario', async () => {
@@ -527,6 +547,54 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     expect(
       logger.calls.filter((c) => c.level === 'warn').length,
     ).toBeGreaterThan(0);
+  });
+
+  it('el login NO espera al canje: responde con la sesión aunque Apple no conteste, y la tarea guarda el token al completarse', async () => {
+    const { crudo, tareas, cliente, refreshTokens } = makeConCanje();
+    let completar!: (r: Result<CanjeApple, AppleAuthFallidoError>) => void;
+    vi.mocked(cliente.intercambiarCodigo).mockReturnValue(
+      new Promise((resolve) => {
+        completar = resolve;
+      }),
+    );
+
+    const result = await crudo.execute(IDENTIDAD_BASE, null, CODE);
+
+    expect(result.isOk()).toBe(true);
+    expect(refreshTokens.guardar).not.toHaveBeenCalled();
+
+    completar(Result.ok({ refreshToken: REFRESH, idToken: 'idt' }));
+    await tareas.esperar();
+
+    expect(refreshTokens.guardar).toHaveBeenCalledWith('user-1', REFRESH);
+  });
+
+  it('sin tareas en segundo plano inyectadas no canjea (nunca bloquea el login)', async () => {
+    const { crudo, cliente } = makeConCanje();
+    const sinTareas = new LoginConAppleUseCase(
+      makeMockIdentidades({
+        porAppleSub: { userId: 'user-1', appleSub: 'apple-sub-abc' },
+      }),
+      {
+        crear: vi.fn().mockResolvedValue(undefined),
+        buscarPorTokenHash: vi.fn(),
+        revocarPorTokenHash: vi.fn(),
+        revocarOtrasPorUserId: vi.fn(),
+      },
+      {
+        generar: vi.fn().mockReturnValue({ token: 't', tokenHash: 'h' }),
+        hashToken: vi.fn(),
+      },
+      { ahora: () => AHORA },
+      new NoOpLogger(),
+      cliente,
+    );
+
+    expect((await sinTareas.execute(IDENTIDAD_BASE, null, CODE)).isOk()).toBe(
+      true,
+    );
+    expect(cliente.intercambiarCodigo).not.toHaveBeenCalled();
+    expect(crudo).toBeDefined();
   });
 
   it('con code en un alta: guarda para el userId recién creado', async () => {

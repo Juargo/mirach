@@ -33,6 +33,7 @@ import { Sha256SessionTokenService } from '../src/infrastructure/http/auth/sha25
 import { SystemReloj } from '../src/infrastructure/http/auth/system-reloj';
 import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
 import { NoOpLogger } from './support/logger.double';
+import { TareasSincronas } from './support/tareas-en-segundo-plano.double';
 
 const ALLOW = process.env.ALLOW_DESTRUCTIVE_DB === '1';
 const RUN_ID = `apple-revocacion-int-${Date.now()}`;
@@ -53,6 +54,7 @@ describe('Apple refresh token (integration — real DB)', () => {
   let login: LoginConAppleUseCase;
   let eliminar: (cliente: IClienteAppleAuth) => EliminarCuentaUseCase;
   let subEnCurso = SUB;
+  let tareas: TareasSincronas;
   let canje: Mock<IClienteAppleAuth['intercambiarCodigo']>;
 
   beforeAll(async () => {
@@ -63,6 +65,7 @@ describe('Apple refresh token (integration — real DB)', () => {
     await prisma.$connect();
     const clave = Buffer.from(env.ENCRYPTION_KEY, 'base64');
     crypto = new AesGcmCryptoService(clave);
+    tareas = new TareasSincronas();
     canje = vi.fn<IClienteAppleAuth['intercambiarCodigo']>();
     const cliente: IClienteAppleAuth = {
       intercambiarCodigo: (code) => canje(code),
@@ -83,6 +86,7 @@ describe('Apple refresh token (integration — real DB)', () => {
       // El id_token del canje se verifica con RSA/JWKS (cubierto en unit); acá
       // el doble devuelve el sub del login para ejercitar la persistencia real.
       { verificarSubDelCanje: async () => Result.ok(subEnCurso) },
+      tareas,
     );
     eliminar = (clienteRevocacion) =>
       new EliminarCuentaUseCase(
@@ -122,6 +126,7 @@ describe('Apple refresh token (integration — real DB)', () => {
 
     canje.mockResolvedValueOnce(Result.ok(canjeDe('rt-uno-SECRETO')));
     const alta = await login.execute(IDENTIDAD, 'Int Spec', 'code-1');
+    await tareas.esperar();
     const userId = alta.getValue().userId;
 
     const cifrado = await guardado(userId);
@@ -131,6 +136,7 @@ describe('Apple refresh token (integration — real DB)', () => {
 
     canje.mockResolvedValueOnce(Result.ok(canjeDe('rt-dos-SECRETO')));
     await login.execute(IDENTIDAD, null, 'code-2');
+    await tareas.esperar();
     expect(crypto.decrypt((await guardado(userId)) as string)).toBe(
       'rt-dos-SECRETO',
     );
@@ -139,12 +145,14 @@ describe('Apple refresh token (integration — real DB)', () => {
       Result.fail(new AppleAuthFallidoError('invalid_grant')),
     );
     const sinCanje = await login.execute(IDENTIDAD, null, 'code-3');
+    await tareas.esperar();
     expect(sinCanje.isOk()).toBe(true);
     expect(crypto.decrypt((await guardado(userId)) as string)).toBe(
       'rt-dos-SECRETO',
     );
 
     await login.execute(IDENTIDAD, null);
+    await tareas.esperar();
     expect(canje).toHaveBeenCalledTimes(3);
   });
 
@@ -187,6 +195,7 @@ describe('Apple refresh token (integration — real DB)', () => {
       'Int Spec B',
       'code-b',
     );
+    await tareas.esperar();
     const userId = alta.getValue().userId;
     const clienteCaido: IClienteAppleAuth = {
       intercambiarCodigo: vi.fn(),

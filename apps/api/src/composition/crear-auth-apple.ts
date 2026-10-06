@@ -11,6 +11,7 @@ import { LoginConAppleUseCase } from '../application/use-cases/login-con-apple.u
 
 import { AppleIdTokenVerifier } from '../infrastructure/oidc/apple-id-token.adapter';
 import { PrismaIdentidadAppleRepository } from '../infrastructure/persistence/prisma-identidad-apple.repository';
+import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
 import { PrismaRefreshTokenAppleRepository } from '../infrastructure/persistence/prisma-refresh-token-apple.repository';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
 import { Sha256SessionTokenService } from '../infrastructure/http/auth/sha256-session-token.service';
@@ -66,6 +67,7 @@ export function crearAuthApple(
       clienteApple,
       clienteApple && new PrismaRefreshTokenAppleRepository(prisma, crypto),
       verificador,
+      new TareasEnSegundoPlano(logger),
     ),
     appleTokenRateLimiter: new IpRateLimiter(
       APPLE_TOKEN_RATE_LIMIT_KEY_PREFIX,
