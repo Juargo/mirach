@@ -231,4 +231,7 @@ private final class SlowAPI: MirachAPI, @unchecked Sendable {
         throw APIError.invalidCredentials
     }
     func currentUser() async throws -> CurrentUser { CurrentUser(userId: "u", nombre: "n") }
+    func updateNombre(_ nombre: String) async throws -> CurrentUser { CurrentUser(userId: "u", nombre: nombre) }
+    func logout() async throws {}
+    func deleteAccount(confirmation: String) async throws {}
 }

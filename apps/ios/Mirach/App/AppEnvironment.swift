@@ -140,7 +140,20 @@ struct StubMirachAPI: MirachAPI {
     }
 
     func currentUser() async throws -> CurrentUser {
-        CurrentUser(userId: "stub-user", nombre: "Persona de prueba")
+        CurrentUser(userId: "stub-user", nombre: "Persona de prueba", email: "persona@example.com")
+    }
+
+    func updateNombre(_ nombre: String) async throws -> CurrentUser {
+        let name = nombre.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, name.count <= 80 else { throw PerfilError.invalidName }
+        return CurrentUser(userId: "stub-user", nombre: name, email: "persona@example.com")
+    }
+
+    func logout() async throws {}
+
+    /// Like the server: only the exact word deletes.
+    func deleteAccount(confirmation: String) async throws {
+        guard confirmation == "ELIMINAR" else { throw CuentaError.confirmationRejected }
     }
 
     /// Three months: a normal one (a bucket without state), a quieter one, and one with no income.
