@@ -38,23 +38,32 @@ export class TareasEnSegundoPlano implements ITareasEnSegundoPlano {
   }
 
   /**
-   * Espera a las tareas en curso hasta `plazoMs`. Nunca rechaza. Si al
-   * vencer el plazo quedan tareas, avisa con la cantidad abandonada.
+   * Espera a las tareas en curso hasta `plazoMs`, incluidas las que se
+   * programen DURANTE el drenado (un login servido en pleno apagado): no es un
+   * snapshot, se repite mientras haya tareas y el plazo no venza. Nunca
+   * rechaza. Solo avisa si el plazo realmente venció, con la cantidad que
+   * quedaba en curso.
    */
   async drenar(plazoMs: number): Promise<void> {
     if (this.enCurso.size === 0) {
       return;
     }
 
+    let vencido = false;
     let temporizador: NodeJS.Timeout | undefined;
     const plazo = new Promise<void>((resolve) => {
-      temporizador = setTimeout(resolve, plazoMs);
+      temporizador = setTimeout(() => {
+        vencido = true;
+        resolve();
+      }, plazoMs);
     });
 
-    await Promise.race([Promise.all([...this.enCurso]).then(() => {}), plazo]);
+    while (this.enCurso.size > 0 && !vencido) {
+      await Promise.race([Promise.all([...this.enCurso]), plazo]);
+    }
     clearTimeout(temporizador);
 
-    if (this.enCurso.size > 0) {
+    if (vencido && this.enCurso.size > 0) {
       this.logger.warn(
         'apagado: tareas en segundo plano abandonadas al vencer el plazo',
         { abandonadas: this.enCurso.size },

@@ -119,4 +119,55 @@ describe('TareasEnSegundoPlano.drenar (apagado ordenado)', () => {
 
     expect(logger.calls.some((c) => c.level === 'warn')).toBe(false);
   });
+
+  it('una tarea programada DURANTE el drenado también se espera', async () => {
+    const logger = new FakeLogger();
+    const tareas = new TareasEnSegundoPlano(logger);
+    let terminarB!: () => void;
+    let bTerminada = false;
+    tareas.programar(async () => {
+      // La primera tarea, al correr, programa otra (un login servido en pleno apagado).
+      tareas.programar(
+        () =>
+          new Promise<void>((resolve) => {
+            terminarB = () => {
+              bTerminada = true;
+              resolve();
+            };
+          }),
+      );
+    });
+
+    let drenado = false;
+    const drenar = tareas.drenar(5000).then(() => {
+      drenado = true;
+    });
+    for (let i = 0; i < 5; i++) await siguienteTurno();
+    expect(drenado).toBe(false);
+
+    terminarB();
+    await drenar;
+
+    expect(bTerminada).toBe(true);
+    expect(logger.calls.some((c) => c.level === 'warn')).toBe(false);
+  });
+
+  it('con una tarea que nunca termina avisa UNA vez, con la cuenta real al vencer', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const logger = new FakeLogger();
+    const tareas = new TareasEnSegundoPlano(logger);
+    tareas.programar(() => new Promise<void>(() => {}));
+    tareas.programar(async () => {});
+    await siguienteTurno();
+    await siguienteTurno();
+
+    const drenar = tareas.drenar(8000);
+    await vi.advanceTimersByTimeAsync(8000);
+    await drenar;
+
+    expect(logger.calls.filter((c) => c.level === 'warn')).toHaveLength(1);
+    expect(logger.calls.find((c) => c.level === 'warn')?.context).toEqual({
+      abandonadas: 1,
+    });
+  });
 });
