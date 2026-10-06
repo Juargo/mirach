@@ -19,3 +19,11 @@ enum SampleData {
 
     static let septiembre = mes("2026-09")
 }
+
+extension SampleData {
+    static let preview = CartolaPreview(
+        banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
+        totalFilas: 42, duplicados: 5, nuevas: 37
+    )
+    static let commit = CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5)
+}

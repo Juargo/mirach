@@ -12,6 +12,9 @@ enum AppEnvironment {
     static let savedSessionArgument = "-uiTestSavedSession"
     /// With the stub: pretend `MIRACH_API_KEY` is empty, to see the configuration error screen.
     static let missingAPIKeyArgument = "-uiTestMissingAPIKey"
+    /// Debug builds only: `-uiTestFixturePath <file>` makes the Subir screen offer a button that
+    /// picks that file, because XCUITest cannot drive the system document picker.
+    static let fixturePathArgument = "-uiTestFixturePath"
 
     private static let logger = Logger(subsystem: "app.mirachbudget.ios", category: "configuration")
 
@@ -21,6 +24,8 @@ enum AppEnvironment {
         let store: any SessionStore
         let session: SessionController
         let expiryRelay: SessionExpiryRelay
+        /// Private copies of the statement being uploaded.
+        let staging: any CartolaStaging
         /// Non-nil when the build cannot work; the root view then shows an error screen.
         let configurationProblem: ConfigurationCheck.Problem?
     }
@@ -46,6 +51,7 @@ enum AppEnvironment {
                 store: stubStore,
                 session: SessionController(api: api, store: stubStore),
                 expiryRelay: relay,
+                staging: TemporaryCartolaStaging(),
                 configurationProblem: arguments.contains(missingAPIKeyArgument) ? .missingAPIKey : nil
             )
         }
@@ -67,8 +73,21 @@ enum AppEnvironment {
         let session = SessionController(api: api, store: store)
         relay.connect { token in await session.sessionExpired(token: token) }
         return Dependencies(
-            api: api, store: store, session: session, expiryRelay: relay, configurationProblem: problem
+            api: api, store: store, session: session, expiryRelay: relay,
+            staging: TemporaryCartolaStaging(), configurationProblem: problem
         )
+    }
+
+    /// The file named by `-uiTestFixturePath`, in Debug builds only (never in a release).
+    static func uiTestFixtureURL(arguments: [String] = ProcessInfo.processInfo.arguments) -> URL? {
+        #if DEBUG
+        guard let index = arguments.firstIndex(of: fixturePathArgument), arguments.indices.contains(index + 1) else {
+            return nil
+        }
+        return URL(fileURLWithPath: arguments[index + 1])
+        #else
+        return nil
+        #endif
     }
 
     private static func defaultTransport() -> any ClientTransport {
@@ -118,6 +137,29 @@ struct StubMirachAPI: MirachAPI {
     /// Three months: a normal one (a bucket without state), a quieter one, and one with no income.
     func periodos() async throws -> [Periodo] {
         ["2026-09", "2026-08", "2026-07"].compactMap(Periodo.init)
+    }
+
+    /// A file whose name contains "protegida" behaves like a protected PDF whose password is
+    /// `StubMirachAPI.pdfPassword`; any other file previews fine.
+    static let pdfPassword = "correcta"
+
+    func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview {
+        try checkPassword(file: file, password: password)
+        return CartolaPreview(
+            banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
+            totalFilas: 42, duplicados: 5, nuevas: 37
+        )
+    }
+
+    func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
+        try checkPassword(file: file, password: password)
+        return CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5)
+    }
+
+    private func checkPassword(file: CartolaFile, password: String?) throws {
+        guard file.filename.contains("protegida") else { return }
+        guard let password, !password.isEmpty else { throw IngestaError.passwordRequired }
+        guard password == Self.pdfPassword else { throw IngestaError.passwordIncorrect }
     }
 
     func resumen(periodo: Periodo?) async throws -> ResumenMes {

@@ -18,6 +18,12 @@ protocol MirachAPI: Sendable {
     func resumen(periodo: Periodo?) async throws -> ResumenMes
     /// `GET /api/periodos`: months with movements, most recent first.
     func periodos() async throws -> [Periodo]
+    /// `POST /api/ingestas/preview`: reads the statement and saves nothing. `password` only
+    /// for a protected PDF. Throws `IngestaError` for the answers the catalog names.
+    func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview
+    /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
+    /// same file and password go with it. `edits` holds only the rows the person reclassified.
+    func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult
 }
 
 enum APIError: Error, Equatable {
@@ -38,8 +44,8 @@ enum APIError: Error, Equatable {
 
 /// `MirachAPI` backed by the generated OpenAPI client.
 struct OpenAPIMirachAPI: MirachAPI {
-    private let client: Client
-    private let currentToken: @Sendable () -> String?
+    let client: Client
+    let currentToken: @Sendable () -> String?
     private let onSessionExpired: @Sendable (String) -> Void
 
     /// `onSessionExpired` is called with the token that was rejected whenever an authenticated
@@ -177,7 +183,7 @@ struct OpenAPIMirachAPI: MirachAPI {
 
     /// Every authenticated endpoint funnels its 401 through here, so the expired-session
     /// notification lives in exactly one place.
-    private func rejection(
+    func rejection(
         code: Components.Schemas.UnauthorizedResponse.codePayload,
         sentToken: String?
     ) -> APIError {
