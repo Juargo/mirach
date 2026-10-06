@@ -32,10 +32,41 @@ ninguna relación de `User` hace cascade):
 ## Revocación de identidad externa
 
 Antes de borrar se llama al port `IRevocadorIdentidadExterna.revocar(userId)`: va
-antes porque lo que necesita (p. ej. el refresh token de Apple) vive en las filas que el
-borrado destruye. Es best-effort: si falla se loguea un `warn` (solo el nombre del error,
-nunca tokens) y el borrado continúa. La implementación por defecto es un no-op; la de
-Sign in with Apple llega con T4 (`apps/api/src/infrastructure/identity/`).
+antes porque lo que necesita (el refresh token de Apple, `User.appleRefreshToken`, cifrado)
+vive en las filas que el borrado destruye. Es best-effort: si falla se loguea un `warn`
+atribuible (`userId` + motivo, nunca tokens) y el borrado continúa. ADR-049.
+
+- **Con credenciales de Apple** (`AppleRevocadorIdentidadExterna`): descifra el token y llama a
+  `POST https://appleid.apple.com/auth/revoke` con timeout de 5 s. Sin token guardado: `info` y sigue.
+- **Sin credenciales**: no-op (`NoopRevocadorIdentidadExterna`).
+- **Si el borrado falla después de revocar**: la petición da 500 y el usuario conserva la cuenta,
+  pero su autorización de Apple ya está revocada. Al volver a entrar Apple le pide consentir de
+  nuevo y el nuevo `authorizationCode` reemplaza el token guardado. Se acepta a propósito (ADR-049).
+
+### Configuración en Render (T4)
+
+Todas opcionales; sin ellas el login con Apple sigue funcionando y la revocación queda apagada.
+
+| Variable | Valor |
+| --- | --- |
+| `APPLE_BUNDLE_ID` | ya existe (`app.mirachbudget.ios`), es el `client_id` |
+| `APPLE_TEAM_ID` | Team ID de la cuenta Apple Developer |
+| `APPLE_KEY_ID` | Key ID de la clave `.p8` de Sign in with Apple |
+| `APPLE_PRIVATE_KEY` | contenido PEM de la `.p8` (secreto, `sync: false`; admite `\n` literales) |
+
+Orden de despliegue: (1) aplicar la migración `20261006000000_add_apple_refresh_token` a
+producción (aditiva; Render no corre `migrate deploy`), (2) mergear, (3) cargar las variables y
+redeployar, (4) publicar la versión de la app que envía `authorizationCode`.
+
+### Cómo verificar en vivo
+
+1. Al arrancar, buscar en los logs de Render `apple-rest: canje del authorizationCode y
+   revocación habilitados` (si dice `deshabilitados` o `incompleta`, falta alguna variable).
+2. Iniciar sesión con Apple desde la app con el build nuevo. No debe haber un `warn`
+   `canje del authorizationCode fallido`; `invalid_grant` significa que el code venció (5 min)
+   o ya se usó, `invalid_client` que Team ID, Key ID o la `.p8` no coinciden.
+3. Eliminar la cuenta de prueba: debe aparecer `revocador-apple: token de Apple revocado`.
+   En el dispositivo, Ajustes > Apple Account > Iniciar sesión con Apple ya no lista la app.
 
 ## Auditoría
 
