@@ -182,6 +182,24 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Bundle ID de la app iOS (p. ej. cl.mirach.app): es la audiencia (`aud`) que debe llevar el identity token de Sign in with Apple en el flujo nativo. Opcional: activación por presencia — ausente = login con Apple apagado (POST /api/auth/apple/token responde 404). Gate independiente del de Google. La forma se valida en superRefine (reverse-DNS), sin interpolar el valor.',
     ),
+  APPLE_TEAM_ID: z
+    .string()
+    .optional()
+    .describe(
+      'Team ID de la cuenta Apple Developer (claim `iss` del client secret de la API REST de Sign in with Apple). Opcional, junto con APPLE_KEY_ID y APPLE_PRIVATE_KEY: con las tres (y APPLE_BUNDLE_ID) el API intercambia el authorizationCode y revoca el token al eliminar la cuenta; si falta alguna, ambas funciones quedan apagadas y el login con Apple sigue funcionando.',
+    ),
+  APPLE_KEY_ID: z
+    .string()
+    .optional()
+    .describe(
+      'Key ID de la clave `.p8` de Sign in with Apple (header `kid` del client secret). Opcional; ver APPLE_TEAM_ID.',
+    ),
+  APPLE_PRIVATE_KEY: z
+    .string()
+    .optional()
+    .describe(
+      'Contenido PEM de la clave `.p8` (secreto; admite `\\n` literales en una sola línea). Opcional; ver APPLE_TEAM_ID. Nunca se loguea.',
+    ),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info')
