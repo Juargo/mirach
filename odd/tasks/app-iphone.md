@@ -36,7 +36,8 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
   - [x] **T5a — Subir tal cual** (tab bar Resumen + Subir; choose file, preview, protected PDF, commit with no edits, discard with confirmation, error mappings): done when the checks pass (see Progress).
   - [x] **T5b — Revisar y editar:** `GET /api/categorias`, per-row reclassification sheet, commit with `edits`: done when the checks pass (see Progress).
   - [x] **T5c — Crear categoría desde una fila:** `POST /api/categorias`, repeat the preview keeping manual edits: done when the checks pass (see Progress).
-- [ ] **T6 onward:** the rest of the v1 catalog, one screen per task, in an order to agree.
+- [x] **T6 — Perfil** (catalog `perfil.md`; route: one delegated writer; TDD strict, runner `xcodebuild test`): profile from `GET /api/auth/me`, name edit (`PATCH /api/perfil`), logout via `POST /api/auth/logout` (local sign-out even if it fails), delete account (`DELETE /api/cuenta`, typed `ELIMINAR`), Perfil tab, temporary Resumen menu removed. Done when the checks pass (see Progress).
+- [ ] **T7 onward:** the rest of the v1 catalog, one screen per task, in an order to agree.
 
 ## Progress
 
@@ -57,6 +58,8 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 
 - T5c (2026-10-06, branch `feat/ios-categoria-desde-fila`, on T5b): `MirachAPI.crearCategoria` (`CategoriaError` per code, nested `indice`), form inside the category sheet (name, group as three labeled rows, optional one-pattern CONTAINS prefilled from the row description), the row takes the new category as an edit, catalog refreshed, preview repeated with the same file and password, notice «X» se aplicó a N filas más (N: suggestion became the new category, excluding the origin row, hand-edited rows and duplicates), failed repeat keeps rows and edits with "Reintentar". Deferred: icon picker (the 25 allowed values are not in the contract and need an SF Symbols mapping) and other match types. Contract unchanged. Subir cartola (T5a to T5c) is complete.
 
+- T6 (2026-10-06, branch `feat/ios-perfil`, on `624af03`): `MirachAPI` gained `updateNombre`, `logout` and `deleteAccount` (`PerfilError.invalidName`, `CuentaError.confirmationRejected`) and `CurrentUser.email`; the contract already types all three (no `apps/api` change). `PerfilViewModel` (load with retry, name edit trimmed with `NOMBRE_INVALIDO`/connection/server messages and typed text kept, logout, typed-word deletion with a double-submit guard), `PerfilView` plus a sheet for the irreversible step, Perfil tab, temporary Resumen menu removed. Logout calls `POST /api/auth/logout` first and then clears local state; it is best effort (any failure or no answer in 5 s still signs out, no error shown). Deletion: only an exact `ELIMINAR` leaves the app; 204 clears the Keychain session and, through `SessionController.onSessionEnded`, the staged statement and password, then sign-in shows «Tu cuenta y tus datos se eliminaron»; 400/network/5xx keep the account and offer retry; 401 goes through the relay. RED observed (missing symbols, then a neutered wiring), then GREEN; mutation check (deletion guard weakened to the in-flight check) caught by `deletionIsImpossibleUntilTheExactWordIsTyped`. Deferred: none of the spec; Google linking, email and password stay out of v1. **Required before App Store submission:** Sign in with Apple token revocation on account deletion is still a server-side no-op (plan phase 5 T4, catalog gap 6).
+
 ## Next step
 
-Product owner tries Subir cartola (T5a to T5c) on the iPhone with a real cartola (xlsx and a protected PDF); then T6: Perfil (order to agree).
+Product owner tries Subir cartola (T5a to T5c) on the iPhone with a real cartola (xlsx and a protected PDF); then T7: Detalle de bucket (order to agree). Before any App Store submission: real Sign in with Apple token revocation on account deletion (plan phase 5 T4).

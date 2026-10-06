@@ -1,6 +1,6 @@
 # Mirach para iPhone
 
-App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y y el Resumen del mes (solo lectura): mes, estado global, ingreso, gráfico de distribución del gasto y una fila por bucket, con selector de mes, y una barra de pestañas (Resumen y Subir) con «Subir cartola» (T5a: elegir archivo, vista previa, contraseña de PDF y «Subir tal cual»; T5b: «Revisar y editar» con el catálogo de categorías y la reclasificación por fila).
+App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y y el Resumen del mes (solo lectura): mes, estado global, ingreso, gráfico de distribución del gasto y una fila por bucket, con selector de mes, y una barra de pestañas (Resumen, Subir y Perfil) con «Subir cartola» (T5a: elegir archivo, vista previa, contraseña de PDF y «Subir tal cual»; T5b: «Revisar y editar» con el catálogo de categorías y la reclasificación por fila).
 
 ## Qué es XcodeGen y por qué lo usamos
 
@@ -97,7 +97,9 @@ Si el servidor rechaza la clave (401 `API_KEY_INVALIDA`) se muestra la misma pan
 - **Sesión:** la respuesta (`token`, `userId`, `expiresAt`) se guarda en el Keychain (`KeychainSessionStore`: servicio `app.mirachbudget.ios.session`, accesible tras el primer desbloqueo y solo en este dispositivo) detrás del protocolo `SessionStore`; las pruebas usan `InMemorySessionStore`. `SessionController` (`@Observable`) guarda la fase (`validating`, `signedOut`, `signedIn`, `connectionFailed`, `misconfigured`) y `RootView` solo dibuja esa fase.
 - **Arranque:** sin token va al inicio de sesión; con token valida con `GET /api/auth/me`: 200 entra, 401 descarta la sesión y va al inicio de sesión, y un fallo de red muestra «Reintentar» **sin borrar la sesión**.
 - **401 en cualquier llamada autenticada:** `OpenAPIMirachAPI` lo detecta en un solo lugar; si el código es `SESION_INVALIDA` avisa al `SessionController` (por `SessionExpiryRelay`), que borra la sesión y vuelve al inicio de sesión, sin reintento. Un `API_KEY_INVALIDA` no cuenta como sesión vencida.
-- **Cerrar sesión** borra el token local. Llamar a `POST /api/auth/logout` llegará con la pantalla de Perfil.
+- **Cerrar sesión** (pestaña Perfil, `SessionController.signOutRemotely`): primero llama a `POST /api/auth/logout` (el token todavía viaja en esa petición) y después borra el token local. La llamada es de mejor esfuerzo: si falla (sin red, 5xx) o no responde en 5 s (el servidor gratuito tarda hasta ~50 s en despertar), la persona queda igualmente sin sesión y no ve ningún error; el token podría seguir vigente en el servidor hasta que venza.
+- **Eliminar cuenta** (Perfil, pantalla propia con campo de texto): el botón «Eliminar definitivamente» solo se habilita con el texto exacto `ELIMINAR` y esa misma cadena viaja en `DELETE /api/cuenta` (`{"confirmacion":"ELIMINAR"}`). En 204 se borra la sesión del Keychain y, por el gancho `SessionController.onSessionEnded`, la copia de la cartola en preparación y su contraseña; se vuelve al inicio de sesión con el aviso «Tu cuenta y tus datos se eliminaron». Un 400 `CONFIRMACION_INVALIDA` o un fallo de red/5xx dejan la cuenta y la sesión intactas y ofrecen reintentar; un 401 pasa por el relé único y no afirma que se borrara nada.
+- **Pendiente antes de publicar en la App Store:** la revocación de los tokens de Sign in with Apple al eliminar la cuenta sigue siendo un no-op en el servidor (`NoopRevocadorIdentidadExterna`; fase 5 T4 del plan, brecha 6 del catálogo). Apple la exige junto con la eliminación en la app (guía 5.1.1(v)), así que sin ella la función no debe enviarse a revisión.
 - La app es solo en español (`CFBundleLocalizations: es`), así el botón de Apple dice «Continuar con Apple». El botón del sistema cambia de estilo (negro/blanco) al lanzar la app, no en vivo si cambias la apariencia con la app abierta.
 
 ### Probar el inicio de sesión
@@ -142,7 +144,7 @@ xcodebuild -project Mirach.xcodeproj -scheme Mirach \
 ```
 
 - `MirachTests`: pruebas unitarias con Swift Testing (`@Test`, `#expect`) de los view models y del `SessionController` (con un `MirachAPI` y un `SessionStore` falsos), del adaptador (con un transporte falso que alimenta el cliente generado real) y de una ida y vuelta real contra el Keychain del simulador.
-- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con `-uiTestStubbedClient` (API con respuesta fija, sin red) y cubren: sin sesión aparece el botón de Apple, con sesión guardada aparece el Resumen con los tres buckets y «Cerrar sesión» (menú de la barra) vuelve al inicio, retroceder dos meses llega al mes vacío, la clave vacía muestra el error de configuración, y el flujo de Subir cartola (pestaña, instrucciones, vista previa, «Subir tal cual», descartar con confirmación y PDF protegido) con el archivo inyectado. Sign in with Apple en sí no se puede automatizar.
+- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con `-uiTestStubbedClient` (API con respuesta fija, sin red) y cubren: sin sesión aparece el botón de Apple, con sesión guardada aparece el Resumen con los tres buckets (sin el menú temporal de la barra), Perfil muestra nombre y correo y «Cerrar sesión» vuelve al inicio, editar el nombre habilita y confirma «Guardar», eliminar la cuenta exige escribir `ELIMINAR` y vuelve al inicio con el aviso (y cancelar no cierra la sesión), retroceder dos meses llega al mes vacío, la clave vacía muestra el error de configuración, y el flujo de Subir cartola (pestaña, instrucciones, vista previa, «Subir tal cual», descartar con confirmación y PDF protegido) con el archivo inyectado. Sign in with Apple en sí no se puede automatizar.
 
 ## Integración continua
 
@@ -169,6 +171,7 @@ apps/ios/
     Features/InicioDeSesion/  pantalla de inicio de sesión con Apple (una carpeta por pantalla del catálogo)
     Features/Sesion/     RootView (elige pantalla según la sesión) y error de configuración
     Features/Resumen/    Resumen del mes: vista, view model, gráfico y filas de bucket
+    Features/Perfil/        Perfil: vista (con la pantalla de eliminar cuenta), view model y textos
     Features/SubirCartola/  Subir cartola: vista, view model (máquina de estados) y textos
     Core/Staging/        copia temporal del archivo elegido y reglas de validación
     Core/Formatting/     formatos del catálogo (dinero, puntos base, meses), sin depender del idioma del dispositivo
