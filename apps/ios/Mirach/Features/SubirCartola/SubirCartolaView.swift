@@ -25,7 +25,9 @@ struct SubirCartolaView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
             }
-            .background(Color.Mirach.Base.background)
+            // The colour must reach every edge, including the area the keyboard covers
+            // (the password step), so it ignores all safe areas instead of hugging the content.
+            .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
             .navigationTitle("Subir cartola")
             .navigationBarTitleDisplayMode(.inline)
             // The system document picker, limited to the two formats the API reads. The URL it
