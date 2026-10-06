@@ -127,6 +127,8 @@ export class LoginConAppleUseCase {
       return;
     }
 
+    let refreshToken: string;
+
     try {
       const canje = await this.clienteApple.intercambiarCodigo(code);
 
@@ -134,18 +136,14 @@ export class LoginConAppleUseCase {
         const { motivo, detalle } = canje.getError();
         this.logger.warn(
           'login-con-apple: canje del authorizationCode fallido',
-          {
-            userId,
-            motivo,
-            ...(detalle !== undefined && { detalle }),
-          },
+          { userId, motivo, ...(detalle !== undefined && { detalle }) },
         );
         return;
       }
 
-      const { refreshToken, idToken } = canje.getValue();
-      const verificado =
-        await this.verificadorCanje.verificarSubDelCanje(idToken);
+      const verificado = await this.verificadorCanje.verificarSubDelCanje(
+        canje.getValue().idToken,
+      );
       const motivo = verificado.isFail()
         ? 'id-token-invalido'
         : verificado.getValue() !== sub
@@ -155,22 +153,30 @@ export class LoginConAppleUseCase {
       if (motivo !== null) {
         this.logger.warn(
           'login-con-apple: canje del authorizationCode descartado',
-          {
-            userId,
-            motivo,
-          },
+          { userId, motivo },
         );
-        await this.revocarDescartado(userId, refreshToken);
+        await this.revocarDescartado(userId, canje.getValue().refreshToken);
         return;
       }
 
-      await this.refreshTokens.guardar(userId, refreshToken);
-      this.logger.debug('login-con-apple: refresh token guardado', { userId });
+      refreshToken = canje.getValue().refreshToken;
     } catch (err) {
       this.logger.warn('login-con-apple: canje del authorizationCode fallido', {
         userId,
-        errorName: err instanceof Error ? err.name : 'UnknownError',
+        errorName: nombreDe(err),
       });
+      return;
+    }
+
+    // Fallo de persistencia/cifrado: no es culpa de Apple, se distingue en el log.
+    try {
+      await this.refreshTokens.guardar(userId, refreshToken);
+      this.logger.debug('login-con-apple: refresh token guardado', { userId });
+    } catch (err) {
+      this.logger.warn(
+        'login-con-apple: no se pudo almacenar el refresh token de Apple',
+        { userId, errorName: nombreDe(err) },
+      );
     }
   }
 
@@ -362,6 +368,10 @@ export class LoginConAppleUseCase {
 
     return Result.ok({ token, userId, expiresAt, esNuevoUsuario });
   }
+}
+
+function nombreDe(err: unknown): string {
+  return err instanceof Error ? err.name : 'UnknownError';
 }
 
 function resolverNombre(

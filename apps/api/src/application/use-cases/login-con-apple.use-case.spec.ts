@@ -671,10 +671,10 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     const result = await uc.execute(IDENTIDAD_BASE, null, CODE);
 
     expect(result.isOk()).toBe(true);
-    expect(logger.calls.find((c) => c.level === 'warn')?.context).toEqual({
-      userId: 'user-1',
-      errorName: 'TypeError',
-    });
+    const warn = logger.calls.find((c) => c.level === 'warn');
+    expect(warn?.message).toContain('canje del authorizationCode');
+    expect(warn?.message).not.toContain('almacenar');
+    expect(warn?.context).toEqual({ userId: 'user-1', errorName: 'TypeError' });
   });
 
   it('guardado que lanza: el login SIGUE OK y se avisa', async () => {
@@ -683,7 +683,10 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     const result = await uc.execute(IDENTIDAD_BASE, null, CODE);
 
     expect(result.isOk()).toBe(true);
-    expect(logger.calls.find((c) => c.level === 'warn')?.context).toEqual({
+    const warn = logger.calls.find((c) => c.level === 'warn');
+    expect(warn?.message).toContain('almacenar el refresh token');
+    expect(warn?.message).not.toContain('canje');
+    expect(warn?.context).toEqual({
       userId: 'user-1',
       errorName: 'RangeError',
     });

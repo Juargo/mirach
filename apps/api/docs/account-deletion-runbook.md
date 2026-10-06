@@ -62,9 +62,16 @@ redeployar, (4) publicar la versión de la app que envía `authorizationCode`.
 
 1. Al arrancar, buscar en los logs de Render `apple-rest: canje del authorizationCode y
    revocación habilitados` (si dice `deshabilitados` o `incompleta`, falta alguna variable).
-2. Iniciar sesión con Apple desde la app con el build nuevo. No debe haber un `warn`
-   `canje del authorizationCode fallido`; `invalid_grant` significa que el code venció (5 min)
-   o ya se usó, `invalid_client` que Team ID, Key ID o la `.p8` no coinciden.
+2. Iniciar sesión con Apple desde la app con el build nuevo. El canje corre en segundo plano
+   justo después de responder el login; ningún fallo afecta al login. Buscar en los logs:
+   - `canje del authorizationCode fallido` (Apple-side, con `motivo`): `invalid_grant` = el code
+     venció (5 min) o ya se usó; `invalid_client` = Team ID, Key ID o `.p8` no coinciden;
+     `timeout`/`red` = Apple no respondió.
+   - `canje del authorizationCode descartado` con `motivo` `sub-no-coincide` o
+     `id-token-invalido`: el code no pertenece a la identidad que inició sesión (o su
+     `id_token` no verifica); no se guardó nada y el token emitido se revocó.
+   - `no se pudo almacenar el refresh token de Apple` (con `errorName`): el canje salió bien
+     pero falló el cifrado o la BD (revisar `ENCRYPTION_KEY` y la migración).
 3. Eliminar la cuenta de prueba: debe aparecer `revocador-apple: token de Apple revocado`.
    En el dispositivo, Ajustes > Apple Account > Iniciar sesión con Apple ya no lista la app.
 
