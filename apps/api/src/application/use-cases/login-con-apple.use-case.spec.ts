@@ -409,6 +409,7 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     canjeLanza?: boolean;
     guardarLanza?: boolean;
     sinCliente?: boolean;
+    sinTareas?: boolean;
     porAppleSub?: { userId: string; appleSub: string } | null;
   }) {
     const cliente: IClienteAppleAuth = {
@@ -464,7 +465,7 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
       opts?.sinCliente ? undefined : cliente,
       opts?.sinCliente ? undefined : refreshTokens,
       opts?.sinCliente ? undefined : verificador,
-      tareas,
+      opts?.sinTareas ? undefined : tareas,
     );
     // `uc.execute` espera además la tarea en segundo plano (para asertar su efecto).
     const uc = {
@@ -537,7 +538,10 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     });
   });
 
-  it('si la revocación del token descartado también falla, el login sigue OK (warn)', async () => {
+  const MSG_REVOCACION =
+    'login-con-apple: no se pudo revocar el token descartado';
+
+  it('si la revocación del token descartado lanza, el login sigue OK y el warn lleva userId y errorName', async () => {
     const { uc, cliente, logger } = makeConCanje({ subDelCanje: 'otro' });
     vi.mocked(cliente.revocarRefreshToken).mockRejectedValue(new Error('x'));
 
@@ -545,8 +549,22 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
 
     expect(result.isOk()).toBe(true);
     expect(
-      logger.calls.filter((c) => c.level === 'warn').length,
-    ).toBeGreaterThan(0);
+      logger.calls.find((c) => c.message === MSG_REVOCACION)?.context,
+    ).toEqual({ userId: 'user-1', errorName: 'Error' });
+  });
+
+  it('si la revocación del token descartado devuelve fail, el login sigue OK y el warn lleva userId y motivo', async () => {
+    const { uc, cliente, logger } = makeConCanje({ subDelCanje: 'otro' });
+    vi.mocked(cliente.revocarRefreshToken).mockResolvedValue(
+      Result.fail(new AppleAuthFallidoError('timeout')),
+    );
+
+    const result = await uc.execute(IDENTIDAD_BASE, null, CODE);
+
+    expect(result.isOk()).toBe(true);
+    const warn = logger.calls.find((c) => c.message === MSG_REVOCACION);
+    expect(warn?.level).toBe('warn');
+    expect(warn?.context).toEqual({ userId: 'user-1', motivo: 'timeout' });
   });
 
   it('el login NO espera al canje: responde con la sesión aunque Apple no conteste, y la tarea guarda el token al completarse', async () => {
@@ -569,32 +587,17 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     expect(refreshTokens.guardar).toHaveBeenCalledWith('user-1', REFRESH);
   });
 
-  it('sin tareas en segundo plano inyectadas no canjea (nunca bloquea el login)', async () => {
-    const { crudo, cliente } = makeConCanje();
-    const sinTareas = new LoginConAppleUseCase(
-      makeMockIdentidades({
-        porAppleSub: { userId: 'user-1', appleSub: 'apple-sub-abc' },
-      }),
-      {
-        crear: vi.fn().mockResolvedValue(undefined),
-        buscarPorTokenHash: vi.fn(),
-        revocarPorTokenHash: vi.fn(),
-        revocarOtrasPorUserId: vi.fn(),
-      },
-      {
-        generar: vi.fn().mockReturnValue({ token: 't', tokenHash: 'h' }),
-        hashToken: vi.fn(),
-      },
-      { ahora: () => AHORA },
-      new NoOpLogger(),
-      cliente,
-    );
+  it('sin ITareasEnSegundoPlano (todo lo demás inyectado) no canjea ni guarda y el login sigue OK', async () => {
+    const { crudo, cliente, refreshTokens, verificador } = makeConCanje({
+      sinTareas: true,
+    });
 
-    expect((await sinTareas.execute(IDENTIDAD_BASE, null, CODE)).isOk()).toBe(
-      true,
-    );
+    const result = await crudo.execute(IDENTIDAD_BASE, null, CODE);
+
+    expect(result.isOk()).toBe(true);
     expect(cliente.intercambiarCodigo).not.toHaveBeenCalled();
-    expect(crudo).toBeDefined();
+    expect(verificador.verificarSubDelCanje).not.toHaveBeenCalled();
+    expect(refreshTokens.guardar).not.toHaveBeenCalled();
   });
 
   it('con code en un alta: guarda para el userId recién creado', async () => {
