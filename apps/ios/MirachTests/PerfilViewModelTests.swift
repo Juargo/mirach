@@ -58,6 +58,63 @@ struct PerfilViewModelTests {
         #expect(rig.viewModel.loadState == .loaded)
     }
 
+    // MARK: reloading when the tab comes back
+
+    @Test func reloadingKeepsAnUnsavedDraftButTakesTheServerValues() async {
+        let rig = await makeRig()
+        await rig.viewModel.load()
+        rig.viewModel.nombre = "Borrador"
+        rig.api.setCurrentUserResult(.success(CurrentUser(userId: "u-1", nombre: "Ana B", email: "nuevo@example.com")))
+
+        await rig.viewModel.load()
+
+        #expect(rig.viewModel.nombre == "Borrador", "the unsaved edit survives")
+        #expect(rig.viewModel.loadState == .loaded, "no flash of the loading state")
+        #expect(rig.viewModel.email == "nuevo@example.com")
+        #expect(rig.viewModel.canSave, "the draft still differs from the new server name")
+    }
+
+    @Test func reloadingACleanFormRefreshesTheName() async {
+        let rig = await makeRig()
+        await rig.viewModel.load()
+        rig.api.setCurrentUserResult(.success(CurrentUser(userId: "u-1", nombre: "Ana B", email: "ana@example.com")))
+
+        await rig.viewModel.load()
+
+        #expect(rig.viewModel.nombre == "Ana B")
+        #expect(!rig.viewModel.canSave)
+    }
+
+    @Test func reloadingWhileASaveIsInFlightDoesNothing() async {
+        let rig = await makeRig()
+        let gate = Gate()
+        rig.api.updateGate = gate
+        await rig.viewModel.load()
+        rig.viewModel.nombre = "Otro"
+        let callsBefore = rig.api.currentUserCalls
+
+        let save = Task { await rig.viewModel.save() }
+        await gate.waitUntilWaiting()
+        await rig.viewModel.load()
+        #expect(rig.api.currentUserCalls == callsBefore, "no request raced the save")
+        #expect(rig.viewModel.nombre == "Otro")
+        await gate.open()
+        await save.value
+
+        #expect(rig.viewModel.saveState == .saved)
+    }
+
+    @Test func aFailedRefreshKeepsWhatIsOnScreen() async {
+        let rig = await makeRig()
+        await rig.viewModel.load()
+        rig.api.setCurrentUserResult(.failure(URLError(.notConnectedToInternet)))
+
+        await rig.viewModel.load()
+
+        #expect(rig.viewModel.loadState == .loaded)
+        #expect(rig.viewModel.nombre == "Ana")
+    }
+
     // MARK: editing the name
 
     @Test func saveIsDisabledUntilTheNameChangesAndIgnoresSurroundingSpaces() async {

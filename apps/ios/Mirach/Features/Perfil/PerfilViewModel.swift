@@ -81,14 +81,26 @@ final class PerfilViewModel {
 
     // MARK: load
 
-    /// Opening the screen, and "Reintentar".
+    /// Opening the screen, "Reintentar", and every time the tab comes back. Once loaded it
+    /// refreshes quietly: no loading flash, a failure keeps what is on screen, an unsaved draft
+    /// is never overwritten, and nothing runs while a save is in flight.
     func load() async {
-        loadState = .loading
+        guard saveState != .saving else { return }
+        let isRefresh = loadState == .loaded
+        if !isRefresh { loadState = .loading }
         do {
-            apply(try await api.currentUser())
+            let user = try await api.currentUser()
+            // A save may have started while this request was out: its answer wins.
+            guard saveState != .saving else { return }
+            if isRefresh, hasNameChanges {
+                savedNombre = user.nombre
+                email = user.email
+            } else {
+                apply(user)
+            }
             loadState = .loaded
         } catch {
-            if let failure = Self.failure(for: error) { loadState = .failed(failure) }
+            if !isRefresh, let failure = Self.failure(for: error) { loadState = .failed(failure) }
         }
     }
 
