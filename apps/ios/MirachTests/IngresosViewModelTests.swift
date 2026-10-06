@@ -205,4 +205,35 @@ struct IngresosViewModelTests {
         #expect(viewModel.state == .loaded(SampleData.ingresosVacio))
         #expect(api.ingresosCalls == [sept, sept])
     }
+
+    @Test func anInitialLoadSupersededByARefreshStillMarksTheMonthLoaded() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        let gate = Gate()
+        api.ingresosGate = gate
+
+        let initial = Task { await viewModel.loadIfNeeded() }
+        await gate.waitUntilWaiting()
+        api.ingresosGate = nil
+        await viewModel.refresh()
+        await gate.open()
+        await initial.value
+        await viewModel.loadIfNeeded()
+
+        #expect(viewModel.state == .loaded(SampleData.ingresosSeptiembre))
+        #expect(api.ingresosCalls.count == 2, "appearing again must not reload and blank the list")
+    }
+
+    @Test func retryFetchesTheMonthsAgainWhenTheirFirstLoadFailed() async {
+        let api = FakeMirachAPI(periodosResult: .failure(URLError(.timedOut)))
+        let viewModel = make(api)
+        await viewModel.load()
+        #expect(viewModel.anterior == nil)
+
+        api.setPeriodosResult(.success(periodos("2026-09", "2026-08")))
+        await viewModel.retry()
+
+        #expect(viewModel.anterior == Periodo("2026-08"))
+    }
+
 }

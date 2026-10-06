@@ -159,6 +159,36 @@ struct DetalleBucketViewModelTests {
         #expect(api.detalleCalls.count == 2)
     }
 
+    @Test func anInitialLoadSupersededByARefreshStillMarksTheMonthLoaded() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        let gate = Gate()
+        api.detalleGate = gate
+
+        let initial = Task { await viewModel.loadIfNeeded() }
+        await gate.waitUntilWaiting()
+        api.detalleGate = nil
+        await viewModel.refresh()
+        await gate.open()
+        await initial.value
+        await viewModel.loadIfNeeded()
+
+        #expect(viewModel.state == .loaded(SampleData.deseosDetalle))
+        #expect(api.detalleCalls.count == 2, "appearing again must not reload and blank the list")
+    }
+
+    @Test func retryFetchesTheMonthsAgainWhenTheirFirstLoadFailed() async {
+        let api = FakeMirachAPI(periodosResult: .failure(URLError(.timedOut)))
+        let viewModel = make(api)
+        await viewModel.load()
+        #expect(viewModel.anterior == nil)
+
+        api.setPeriodosResult(.success(periodos("2026-09", "2026-08")))
+        await viewModel.retry()
+
+        #expect(viewModel.anterior == Periodo("2026-08"))
+    }
+
     @Test func aFailedRefreshKeepsTheMovementsOnScreen() async {
         let api = FakeMirachAPI()
         let viewModel = make(api)

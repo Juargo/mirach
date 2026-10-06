@@ -50,8 +50,7 @@ final class IngresosViewModel {
     func load() async {
         state = .loading
         async let months = fetchPeriodos()
-        // Answered (even with a failure the screen shows): done. Cancelled: still to do.
-        if await fetch(periodo: periodo) != nil { needsLoad = false }
+        await fetch(periodo: periodo)
         if let months = await months { periodos = months }
     }
 
@@ -79,6 +78,8 @@ final class IngresosViewModel {
         return periodos.indices.contains(target) ? periodos[target] : nil
     }
 
+    /// Any answer that is still current (also from `retry`, `refresh` or `select`) marks the screen
+    /// as loaded; a cancelled call does not, so the next appearance runs again.
     /// `true`: the list on screen is now fresh. `false`: the request failed. `nil`: a newer
     /// request took over (or the call was cancelled), so there is nothing to report.
     @discardableResult
@@ -89,10 +90,12 @@ final class IngresosViewModel {
         do {
             let ingresos = try await api.ingresosMes(periodo: periodo)
             guard mine == generation else { return nil }
+            needsLoad = false
             state = .loaded(ingresos)
             return true
         } catch {
             guard mine == generation, let failure = Self.failure(for: error) else { return nil }
+            needsLoad = false
             if !keepingContentOnFailure { state = .failed(failure) }
             return false
         }
