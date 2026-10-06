@@ -30,6 +30,7 @@ import {
   type GoogleAuthMobileGraph,
 } from './crear-auth-google-mobile';
 import { crearAuthApple, type AppleAuthGraph } from './crear-auth-apple';
+import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
 import { crearClienteAppleAuth } from './crear-cliente-apple-auth';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
@@ -64,6 +65,14 @@ import {
   deriveLinkIntentKey,
 } from './derive-blind-index-key';
 import { createPinoLogger } from '../infrastructure/logging/pino-logger';
+
+/**
+ * Plazo máximo del apagado ordenado para terminar las tareas en segundo
+ * plano (canje de Apple, hasta 5 s por llamada). Debe quedar por debajo del
+ * período de gracia entre SIGTERM y SIGKILL de Render (30 s por defecto,
+ * según la documentación de Render; no se pudo verificar sin red).
+ */
+export const PLAZO_DRENADO_APAGADO_MS = 8_000;
 
 /**
  * Composition Root — ensamblado del grafo de dependencias (ADR-028/029).
@@ -233,6 +242,8 @@ export function createContainer(
   // T4: el cliente de la API REST de Apple (canje del code + revocación) se
   // arma una vez y se comparte con la eliminación de cuenta.
   const clienteApple = crearClienteAppleAuth(env, logger);
+  // Compartido: el apagado ordenado las drena antes de cerrar Prisma.
+  const tareasEnSegundoPlano = new TareasEnSegundoPlano(logger);
   const appleAuth = crearAuthApple(
     prisma,
     env,
@@ -240,6 +251,7 @@ export function createContainer(
     crypto,
     logger,
     clienteApple,
+    tareasEnSegundoPlano,
   );
 
   // issue #747: período ausente ya no resuelve al mes en curso sino al
@@ -395,7 +407,10 @@ export function createContainer(
     googleAuthMobile,
     appleAuth,
     loginRateLimiter: auth.loginRateLimiter,
-    shutdown: () => prisma.$disconnect(),
+    shutdown: async () => {
+      await tareasEnSegundoPlano.drenar(PLAZO_DRENADO_APAGADO_MS);
+      await prisma.$disconnect();
+    },
     logger,
   };
 }

@@ -4,6 +4,7 @@ import type { Env } from '../config/env';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { ILogger } from '../application/ports/logger.port';
+import type { ITareasEnSegundoPlano } from '../application/ports/tareas-en-segundo-plano.port';
 import type { IClienteAppleAuth } from '../application/ports/cliente-apple-auth.port';
 import type { IVerificadorIdTokenApple } from '../application/ports/verificador-identidad-apple.port';
 
@@ -49,6 +50,7 @@ export function crearAuthApple(
   crypto: ICryptoService,
   logger: ILogger,
   clienteApple?: IClienteAppleAuth,
+  tareas: ITareasEnSegundoPlano = new TareasEnSegundoPlano(logger),
 ): AppleAuthGraph | undefined {
   if (env.APPLE_BUNDLE_ID === undefined) {
     return undefined;
@@ -67,7 +69,7 @@ export function crearAuthApple(
       clienteApple,
       clienteApple && new PrismaRefreshTokenAppleRepository(prisma, crypto),
       verificador,
-      new TareasEnSegundoPlano(logger),
+      tareas,
     ),
     appleTokenRateLimiter: new IpRateLimiter(
       APPLE_TOKEN_RATE_LIMIT_KEY_PREFIX,

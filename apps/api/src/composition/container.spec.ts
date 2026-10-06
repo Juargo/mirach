@@ -203,4 +203,45 @@ describe('createContainer — revocación de Sign in with Apple al eliminar la c
     expect(fetchFn).not.toHaveBeenCalled();
     expect(prisma.$transaction).toHaveBeenCalledOnce();
   });
+
+  it('shutdown() espera al canje de Apple en curso antes de desconectar Prisma', async () => {
+    let liberar!: (r: Response) => void;
+    const fetchFn = vi.fn().mockReturnValue(
+      new Promise<Response>((resolve) => {
+        liberar = resolve;
+      }),
+    );
+    vi.stubGlobal('fetch', fetchFn);
+    const { prisma } = prismaConToken();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: 'u1',
+      appleSub: 's',
+    } as never);
+    (prisma as unknown as { session: { create: unknown } }).session.create = vi
+      .fn()
+      .mockResolvedValue({});
+    const env = buildTestEnv({
+      APPLE_BUNDLE_ID: 'app.mirachbudget.ios',
+      APPLE_TEAM_ID: 'TEAM123456',
+      APPLE_KEY_ID: 'KEY1234567',
+      APPLE_PRIVATE_KEY: pem,
+    });
+    const container = createContainer(env, prisma);
+
+    await container.appleAuth?.loginConApple.execute(
+      { sub: 's', email: null, emailVerificado: false, emailPrivado: false },
+      null,
+      'code-1',
+    );
+    await vi.waitFor(() => expect(fetchFn).toHaveBeenCalledOnce());
+
+    const apagado = container.shutdown();
+    await new Promise((r) => setImmediate(r));
+    expect(prisma.$disconnect).not.toHaveBeenCalled();
+
+    liberar(new Response('{"error":"invalid_grant"}', { status: 400 }));
+    await apagado;
+
+    expect(prisma.$disconnect).toHaveBeenCalledOnce();
+  });
 });
