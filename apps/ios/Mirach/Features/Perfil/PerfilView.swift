@@ -54,7 +54,7 @@ struct PerfilView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.load() } }
-                    .buttonStyle(.borderedProminent)
+                    .prominentButton()
                     .accessibilityIdentifier("perfil.retry")
             }
             .frame(maxWidth: .infinity)
@@ -72,7 +72,8 @@ struct PerfilView: View {
     private var nameSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Nombre").font(.footnote).foregroundStyle(Color.Mirach.Base.mutedForeground)
-            TextField("Nombre", text: $viewModel.nombre)
+            TextField("Nombre", text: $viewModel.nombre, axis: .vertical)
+                .lineLimit(1...4)
                 .textContentType(.name)
                 .submitLabel(.done)
                 .onSubmit { Task { await viewModel.save() } }
@@ -84,13 +85,13 @@ struct PerfilView: View {
             Button {
                 Task { await viewModel.save() }
             } label: {
-                if viewModel.saveState == .saving {
-                    ProgressView()
-                } else {
-                    Text("Guardar")
+                Group {
+                    if viewModel.saveState == .saving { ProgressView() } else { Text("Guardar") }
                 }
+                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large)
+            .prominentButton().controlSize(.large)
+            .modifier(GrowingButton())
             .disabled(!viewModel.canSave)
             .accessibilityLabel(viewModel.saveState == .saving ? "Guardando" : "Guardar")
             .accessibilityIdentifier("perfil.save")
@@ -113,6 +114,9 @@ struct PerfilView: View {
             Text(email)
                 .foregroundStyle(Color.Mirach.Base.foreground)
                 .textSelection(.enabled)
+                // A long address wraps instead of being cut; a little scaling keeps most on one line.
+                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("perfil.email")
@@ -124,20 +128,27 @@ struct PerfilView: View {
             Button {
                 Task { await viewModel.signOut() }
             } label: {
-                if viewModel.isSigningOut {
-                    Label("Cerrando sesión…", systemImage: "hourglass")
-                } else {
-                    Text("Cerrar sesión")
+                Group {
+                    if viewModel.isSigningOut {
+                        Label("Cerrando sesión…", systemImage: "hourglass")
+                    } else {
+                        Text("Cerrar sesión")
+                    }
                 }
+                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered).controlSize(.large)
+            .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
             .disabled(viewModel.isBusyWithSession)
             .accessibilityIdentifier("perfil.signOut")
 
             // Easy to find, as the App Store requires, and clearly separate from signing out.
-            Button("Eliminar cuenta", role: .destructive) { confirmingDeletion = true }
-                .buttonStyle(.bordered).controlSize(.large)
-                .disabled(viewModel.isBusyWithSession)
+            Button(role: .destructive) {
+                confirmingDeletion = true
+            } label: {
+                Text("Eliminar cuenta").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Feedback.errorText))
+            .disabled(viewModel.isBusyWithSession)
                 .accessibilityIdentifier("perfil.delete")
         }
     }
@@ -169,6 +180,8 @@ private struct DeleteAccountSheet: View {
                         .autocorrectionDisabled()
                         .textContentType(.none)
                         .focused($fieldFocused)
+                        .submitLabel(.done)
+                        .onSubmit { fieldFocused = false }
                         .padding(12)
                         .overlay(Rectangle().stroke(Color.Mirach.Base.input))
                         .foregroundStyle(Color.Mirach.Base.foreground)
@@ -184,13 +197,17 @@ private struct DeleteAccountSheet: View {
                     Button(role: .destructive) {
                         Task { await viewModel.deleteAccount() }
                     } label: {
-                        if viewModel.deleteState == .deleting {
-                            Label("Eliminando cuenta…", systemImage: "hourglass")
-                        } else {
-                            Text("Eliminar definitivamente")
+                        Group {
+                            if viewModel.deleteState == .deleting {
+                                Label("Eliminando cuenta…", systemImage: "hourglass")
+                            } else {
+                                Text("Eliminar definitivamente")
+                            }
                         }
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent).controlSize(.large)
+                    .modifier(GrowingButton())
                     .tint(Color.Mirach.Base.destructive)
                     .disabled(!viewModel.canDelete)
                     .accessibilityIdentifier("perfil.delete.confirm")
@@ -210,7 +227,20 @@ private struct DeleteAccountSheet: View {
             }
             // Once the request is out there is no going back.
             .interactiveDismissDisabled(viewModel.deleteState == .deleting)
+            // With the keyboard up the content scrolls (and its inset follows the keyboard), so
+            // the confirm button stays reachable at any text size.
+            .scrollDismissesKeyboard(.interactively)
             .onAppear { fieldFocused = true }
         }
+    }
+}
+
+/// A rounded rectangle instead of a capsule (labels span the full width) whose height follows the label: at
+/// the largest text sizes a wrapped label stays inside its button.
+private struct GrowingButton: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .buttonBorderShape(.roundedRectangle(radius: 12))
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

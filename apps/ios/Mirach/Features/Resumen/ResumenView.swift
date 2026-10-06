@@ -141,7 +141,7 @@ private struct EmptyMonth: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("resumen.empty")
             Button("Subir cartola", action: onUpload)
-                .buttonStyle(.borderedProminent)
+                .prominentButton()
                 .controlSize(.large)
                 .padding(.top, 8)
                 .accessibilityIdentifier("resumen.upload")
@@ -161,7 +161,7 @@ private struct ErrorBlock: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
             Button("Reintentar", action: retry)
-                .buttonStyle(.borderedProminent)
+                .prominentButton()
                 .accessibilityIdentifier("resumen.retry")
         }
         .frame(maxWidth: .infinity)

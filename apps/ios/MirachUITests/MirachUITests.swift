@@ -132,6 +132,19 @@ final class MirachUITests: XCTestCase {
     }
 
     @MainActor
+    func testDeleteAccountIsReachableAtTheLargestTextSize() {
+        let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        openPerfilTab(app)
+        let delete = app.buttons["perfil.delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 10))
+
+        // It may start under the tab bar; scrolling must bring it clear of it.
+        for _ in 0..<5 where !delete.isHittable { app.swipeUp() }
+
+        XCTAssertTrue(delete.isHittable)
+    }
+
+    @MainActor
     func testCancellingTheDeletionKeepsThePersonSignedIn() {
         let app = launch([savedSession])
         openPerfilTab(app)

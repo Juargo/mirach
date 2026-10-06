@@ -90,7 +90,7 @@ struct SignInView: View {
         VStack(spacing: 12) {
             Text(message).multilineTextAlignment(.center)
             Button("Reintentar") { retryCount += 1 }
-                .buttonStyle(.borderedProminent)
+                .prominentButton()
         }
     }
 

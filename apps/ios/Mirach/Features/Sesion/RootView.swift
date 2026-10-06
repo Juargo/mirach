@@ -36,7 +36,7 @@ struct RootView: View {
                     Text("Problema de conexión. Revisa tu conexión e inténtalo de nuevo.")
                         .multilineTextAlignment(.center)
                     Button("Reintentar") { retryCount += 1 }
-                        .buttonStyle(.borderedProminent)
+                        .prominentButton()
                 }
                 .padding()
             case .misconfigured:
