@@ -31,9 +31,9 @@ final class MirachUITests: XCTestCase {
 
     /// A fixture file from this test bundle, handed to the app through a Debug-only launch
     /// argument (the system document picker cannot be driven reliably by XCUITest).
-    private func launchWithFixture(_ name: String, _ ext: String) throws -> XCUIApplication {
+    private func launchWithFixture(_ name: String, _ ext: String, _ extra: [String] = []) throws -> XCUIApplication {
         let url = try XCTUnwrap(Bundle(for: MirachUITests.self).url(forResource: name, withExtension: ext))
-        return launch([savedSession, "-uiTestFixturePath", url.path])
+        return launch([savedSession, "-uiTestFixturePath", url.path] + extra)
     }
 
     private func openSubirTab(_ app: XCUIApplication) {
@@ -244,5 +244,35 @@ final class MirachUITests: XCTestCase {
         app.alerts.buttons["Descartar"].tap()
 
         XCTAssertTrue(app.buttons["subir.chooseFile"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testAtTheLargestTextSizeAReviewRowIsReachableWithOneSwipe() throws {
+        let app = try launchWithFixture(
+            "cartola-ejemplo", "xlsx",
+            ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        )
+        openSubirTab(app)
+        // Large text can push the tab bar items around; the fixture button is in the content.
+        let fixture = app.buttons["subir.fixture"]
+        XCTAssertTrue(fixture.waitForExistence(timeout: 10))
+        if !fixture.isHittable { app.swipeUp() }
+        fixture.tap()
+        let review = app.buttons["subir.review"]
+        XCTAssertTrue(review.waitForExistence(timeout: 10))
+        if !review.isHittable { app.swipeUp() }
+        expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: review)
+        waitForExpectations(timeout: 10)
+        review.tap()
+
+        // The header scrolls with the rows, so one swipe must bring a row into reach.
+        let row = element(app, "review.row.0")
+        XCTAssertTrue(app.buttons["review.confirm"].waitForExistence(timeout: 10))
+        var swipes = 0
+        while !row.isHittable && swipes < 1 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(row.isHittable, "no review row reachable within one swipe at the largest text size")
     }
 }

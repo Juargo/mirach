@@ -9,6 +9,7 @@ struct ReviewView: View {
 
     @State private var editingRow: CartolaRow?
     @AccessibilityFocusState private var noticeFocused: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let catalog = viewModel.loadedCatalog
@@ -74,6 +75,9 @@ struct ReviewView: View {
                 .font(.subheadline)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
+        // At accessibility sizes the rows are the content: keep the header from filling the
+        // first screen (still large, and it scrolls away with the list).
+        .dynamicTypeSize(...(typeSize.isAccessibilitySize ? .accessibility1 : .accessibility5))
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("review.header")
     }
@@ -118,6 +122,8 @@ struct ReviewView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity)
+        // The pinned bar must not eat the screen at accessibility sizes.
+        .dynamicTypeSize(...(typeSize.isAccessibilitySize ? .accessibility1 : .accessibility5))
         // Opaque, so the rows scroll under it without showing through.
         .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
         .overlay(alignment: .top) { Divider().overlay(Color.Mirach.Base.border) }
@@ -135,6 +141,7 @@ struct ReviewView: View {
 /// «Necesidades · Supermercado» with the bucket swatch; pinned while its rows scroll.
 private struct SectionHeader: View {
     let section: ReviewPresentation.Section
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         HStack(spacing: 8) {
@@ -153,6 +160,8 @@ private struct SectionHeader: View {
         }
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Pinned while scrolling: capped at accessibility sizes so it does not eat the list.
+        .dynamicTypeSize(...(typeSize.isAccessibilitySize ? .accessibility1 : .accessibility5))
         .background(Color.Mirach.Base.background)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
