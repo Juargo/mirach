@@ -45,15 +45,20 @@ function formDe(llamada: unknown[]): URLSearchParams {
 
 describe('AppleAuthHttpClient.intercambiarCodigo', () => {
   it('POST /auth/token con el form exacto y retorna el refresh token', async () => {
-    const fetchFn = vi
-      .fn()
-      .mockResolvedValue(
-        respuesta(200, { refresh_token: 'rt-1', access_token: 'at-1' }),
-      );
+    const fetchFn = vi.fn().mockResolvedValue(
+      respuesta(200, {
+        refresh_token: 'rt-1',
+        access_token: 'at-1',
+        id_token: 'idt-1',
+      }),
+    );
 
     const result = await makeClient(fetchFn).intercambiarCodigo('code-abc');
 
-    expect(result.getValue()).toBe('rt-1');
+    expect(result.getValue()).toEqual({
+      refreshToken: 'rt-1',
+      idToken: 'idt-1',
+    });
     const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://appleid.apple.com/auth/token');
     expect(init.method).toBe('POST');
@@ -111,6 +116,16 @@ describe('AppleAuthHttpClient.intercambiarCodigo', () => {
     const fetchFn = vi
       .fn()
       .mockResolvedValue(respuesta(200, { access_token: 'x' }));
+
+    expect(
+      (await makeClient(fetchFn).intercambiarCodigo('c')).getError().motivo,
+    ).toBe('respuesta-invalida');
+  });
+
+  it('200 sin id_token → respuesta-invalida (no se puede comprobar la identidad)', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(respuesta(200, { refresh_token: 'rt-1' }));
 
     expect(
       (await makeClient(fetchFn).intercambiarCodigo('c')).getError().motivo,

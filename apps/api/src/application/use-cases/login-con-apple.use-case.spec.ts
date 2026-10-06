@@ -4,9 +4,14 @@ import { IdentidadApple } from '../ports/verificador-identidad-apple.port';
 import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { ILogger } from '../ports/logger.port';
-import { IClienteAppleAuth } from '../ports/cliente-apple-auth.port';
+import {
+  CanjeApple,
+  IClienteAppleAuth,
+} from '../ports/cliente-apple-auth.port';
 import { IRefreshTokenAppleRepository } from '../ports/refresh-token-apple-repository.port';
 import { AppleAuthFallidoError } from '../../domain/errors/apple-auth-fallido.error';
+import { VerificacionIdentidadFallidaError } from '../../domain/errors/verificacion-identidad-fallida.error';
+import { IVerificadorSubCanjeApple } from '../ports/verificador-identidad-apple.port';
 import { Result } from '../../shared/result';
 import { makeMockIdentidadAppleRepository as makeMockIdentidades } from '../../../test/support/identidad-apple-repository.double';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
@@ -397,7 +402,9 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
   const REFRESH = 'rt-apple-SECRETO';
 
   function makeConCanje(opts?: {
-    canje?: Result<string, AppleAuthFallidoError>;
+    canje?: Result<CanjeApple, AppleAuthFallidoError>;
+    subDelCanje?: string;
+    idTokenInvalido?: boolean;
     canjeLanza?: boolean;
     guardarLanza?: boolean;
     sinCliente?: boolean;
@@ -406,14 +413,28 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     const cliente: IClienteAppleAuth = {
       intercambiarCodigo: opts?.canjeLanza
         ? vi.fn().mockRejectedValue(new TypeError('boom'))
-        : vi.fn().mockResolvedValue(opts?.canje ?? Result.ok(REFRESH)),
-      revocarRefreshToken: vi.fn(),
+        : vi
+            .fn()
+            .mockResolvedValue(
+              opts?.canje ??
+                Result.ok({ refreshToken: REFRESH, idToken: 'idt' }),
+            ),
+      revocarRefreshToken: vi.fn().mockResolvedValue(Result.ok(undefined)),
     };
     const refreshTokens: IRefreshTokenAppleRepository = {
       guardar: opts?.guardarLanza
         ? vi.fn().mockRejectedValue(new RangeError('db caída'))
         : vi.fn().mockResolvedValue(undefined),
       obtener: vi.fn(),
+    };
+    const verificador: IVerificadorSubCanjeApple = {
+      verificarSubDelCanje: vi
+        .fn()
+        .mockResolvedValue(
+          opts?.idTokenInvalido
+            ? Result.fail(new VerificacionIdentidadFallidaError('jwt-x'))
+            : Result.ok(opts?.subDelCanje ?? 'apple-sub-abc'),
+        ),
     };
     const identidades = makeMockIdentidades({
       porAppleSub:
@@ -440,8 +461,9 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
       logger,
       opts?.sinCliente ? undefined : cliente,
       opts?.sinCliente ? undefined : refreshTokens,
+      opts?.sinCliente ? undefined : verificador,
     );
-    return { uc, cliente, refreshTokens, logger, sessions };
+    return { uc, cliente, refreshTokens, logger, sessions, verificador };
   }
 
   it('con code: canjea tras verificar la identidad y guarda el refresh token del usuario', async () => {
@@ -452,6 +474,59 @@ describe('LoginConAppleUseCase — authorizationCode (refresh token de Apple, T4
     expect(result.isOk()).toBe(true);
     expect(cliente.intercambiarCodigo).toHaveBeenCalledWith(CODE);
     expect(refreshTokens.guardar).toHaveBeenCalledWith('user-1', REFRESH);
+  });
+
+  it('verifica el id_token del canje y exige que su sub sea el de la identidad del login', async () => {
+    const { uc, verificador } = makeConCanje();
+
+    await uc.execute(IDENTIDAD_BASE, null, CODE);
+
+    expect(verificador.verificarSubDelCanje).toHaveBeenCalledWith('idt');
+  });
+
+  it('sub del canje distinto al del login: NO guarda, revoca el token recién emitido y avisa (sub-no-coincide)', async () => {
+    const { uc, refreshTokens, cliente, logger } = makeConCanje({
+      subDelCanje: 'apple-sub-OTRO',
+    });
+
+    const result = await uc.execute(IDENTIDAD_BASE, null, CODE);
+
+    expect(result.isOk()).toBe(true);
+    expect(refreshTokens.guardar).not.toHaveBeenCalled();
+    expect(cliente.revocarRefreshToken).toHaveBeenCalledWith(REFRESH);
+    expect(logger.calls.find((c) => c.level === 'warn')?.context).toEqual({
+      userId: 'user-1',
+      motivo: 'sub-no-coincide',
+    });
+    expect(JSON.stringify(logger.calls)).not.toContain('apple-sub-OTRO');
+  });
+
+  it('id_token inválido: NO guarda, revoca el token y avisa (id-token-invalido)', async () => {
+    const { uc, refreshTokens, cliente, logger } = makeConCanje({
+      idTokenInvalido: true,
+    });
+
+    const result = await uc.execute(IDENTIDAD_BASE, null, CODE);
+
+    expect(result.isOk()).toBe(true);
+    expect(refreshTokens.guardar).not.toHaveBeenCalled();
+    expect(cliente.revocarRefreshToken).toHaveBeenCalledWith(REFRESH);
+    expect(logger.calls.find((c) => c.level === 'warn')?.context).toEqual({
+      userId: 'user-1',
+      motivo: 'id-token-invalido',
+    });
+  });
+
+  it('si la revocación del token descartado también falla, el login sigue OK (warn)', async () => {
+    const { uc, cliente, logger } = makeConCanje({ subDelCanje: 'otro' });
+    vi.mocked(cliente.revocarRefreshToken).mockRejectedValue(new Error('x'));
+
+    const result = await uc.execute(IDENTIDAD_BASE, null, CODE);
+
+    expect(result.isOk()).toBe(true);
+    expect(
+      logger.calls.filter((c) => c.level === 'warn').length,
+    ).toBeGreaterThan(0);
   });
 
   it('con code en un alta: guarda para el userId recién creado', async () => {

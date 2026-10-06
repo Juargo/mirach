@@ -3,7 +3,10 @@ import {
   AppleAuthFallidoError,
   type MotivoAppleAuthFallido,
 } from '../../domain/errors/apple-auth-fallido.error';
-import { IClienteAppleAuth } from '../../application/ports/cliente-apple-auth.port';
+import {
+  CanjeApple,
+  IClienteAppleAuth,
+} from '../../application/ports/cliente-apple-auth.port';
 import type { IProveedorClientSecretApple } from './apple-client-secret.signer';
 
 export const APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token';
@@ -32,7 +35,7 @@ export class AppleAuthHttpClient implements IClienteAppleAuth {
 
   async intercambiarCodigo(
     codigo: string,
-  ): Promise<Result<string, AppleAuthFallidoError>> {
+  ): Promise<Result<CanjeApple, AppleAuthFallidoError>> {
     const respuesta = await this.post(APPLE_TOKEN_URL, (clientSecret) => ({
       grant_type: 'authorization_code',
       code: codigo,
@@ -44,10 +47,10 @@ export class AppleAuthHttpClient implements IClienteAppleAuth {
       return Result.fail(respuesta.getError());
     }
 
-    const refreshToken = parsearRefreshToken(respuesta.getValue());
-    return refreshToken === null
+    const canje = parsearCanje(respuesta.getValue());
+    return canje === null
       ? Result.fail(new AppleAuthFallidoError('respuesta-invalida'))
-      : Result.ok(refreshToken);
+      : Result.ok(canje);
   }
 
   async revocarRefreshToken(
@@ -133,11 +136,21 @@ function parsearCodigoError(texto: string): string | null {
   }
 }
 
-function parsearRefreshToken(texto: string): string | null {
+function parsearCanje(texto: string): CanjeApple | null {
   try {
-    const cuerpo: unknown = JSON.parse(texto);
-    const token = (cuerpo as { refresh_token?: unknown } | null)?.refresh_token;
-    return typeof token === 'string' && token !== '' ? token : null;
+    const cuerpo = JSON.parse(texto) as {
+      refresh_token?: unknown;
+      id_token?: unknown;
+    } | null;
+    const refreshToken = cuerpo?.refresh_token;
+    const idToken = cuerpo?.id_token;
+
+    return typeof refreshToken === 'string' &&
+      refreshToken !== '' &&
+      typeof idToken === 'string' &&
+      idToken !== ''
+      ? { refreshToken, idToken }
+      : null;
   } catch {
     return null;
   }

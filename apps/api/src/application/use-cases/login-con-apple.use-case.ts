@@ -12,6 +12,7 @@ import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { ILogger } from '../ports/logger.port';
 import { IClienteAppleAuth } from '../ports/cliente-apple-auth.port';
+import { IVerificadorSubCanjeApple } from '../ports/verificador-identidad-apple.port';
 import { IRefreshTokenAppleRepository } from '../ports/refresh-token-apple-repository.port';
 import { LoginUseCaseResult } from './login.use-case';
 
@@ -76,6 +77,7 @@ export class LoginConAppleUseCase {
     private readonly logger: ILogger,
     private readonly clienteApple?: IClienteAppleAuth,
     private readonly refreshTokens?: IRefreshTokenAppleRepository,
+    private readonly verificadorCanje?: IVerificadorSubCanjeApple,
   ) {}
 
   async execute(
@@ -88,6 +90,7 @@ export class LoginConAppleUseCase {
     if (resultado.isOk()) {
       await this.guardarRefreshToken(
         resultado.getValue().userId,
+        identidad.sub,
         authorizationCode,
       );
     }
@@ -95,14 +98,26 @@ export class LoginConAppleUseCase {
     return resultado;
   }
 
-  /** Canje del code + guardado cifrado del refresh token; nunca lanza ni cambia el login. */
+  /**
+   * Canje del code + guardado cifrado del refresh token; nunca lanza ni cambia
+   * el login. Antes de guardar se verifica el `id_token` del canje y su `sub`
+   * debe ser el de la identidad que inició sesión: un code ajeno (de otra
+   * cuenta Apple) NO se asocia a este usuario; el token recién emitido se
+   * revoca (best-effort) para no dejarlo colgando.
+   */
   private async guardarRefreshToken(
     userId: string,
+    sub: string,
     authorizationCode: string | null | undefined,
   ): Promise<void> {
     const code = authorizationCode?.trim() ?? '';
 
-    if (code === '' || !this.clienteApple || !this.refreshTokens) {
+    if (
+      code === '' ||
+      !this.clienteApple ||
+      !this.refreshTokens ||
+      !this.verificadorCanje
+    ) {
       return;
     }
 
@@ -122,13 +137,63 @@ export class LoginConAppleUseCase {
         return;
       }
 
-      await this.refreshTokens.guardar(userId, canje.getValue());
+      const { refreshToken, idToken } = canje.getValue();
+      const verificado =
+        await this.verificadorCanje.verificarSubDelCanje(idToken);
+      const motivo = verificado.isFail()
+        ? 'id-token-invalido'
+        : verificado.getValue() !== sub
+          ? 'sub-no-coincide'
+          : null;
+
+      if (motivo !== null) {
+        this.logger.warn(
+          'login-con-apple: canje del authorizationCode descartado',
+          {
+            userId,
+            motivo,
+          },
+        );
+        await this.revocarDescartado(userId, refreshToken);
+        return;
+      }
+
+      await this.refreshTokens.guardar(userId, refreshToken);
       this.logger.debug('login-con-apple: refresh token guardado', { userId });
     } catch (err) {
       this.logger.warn('login-con-apple: canje del authorizationCode fallido', {
         userId,
         errorName: err instanceof Error ? err.name : 'UnknownError',
       });
+    }
+  }
+
+  /** Revoca un refresh token que no se guardó; best-effort, nunca lanza. */
+  private async revocarDescartado(
+    userId: string,
+    refreshToken: string,
+  ): Promise<void> {
+    try {
+      const revocacion =
+        await this.clienteApple?.revocarRefreshToken(refreshToken);
+
+      if (revocacion?.isFail()) {
+        this.logger.warn(
+          'login-con-apple: no se pudo revocar el token descartado',
+          {
+            userId,
+            motivo: revocacion.getError().motivo,
+          },
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        'login-con-apple: no se pudo revocar el token descartado',
+        {
+          userId,
+          errorName: err instanceof Error ? err.name : 'UnknownError',
+        },
+      );
     }
   }
 

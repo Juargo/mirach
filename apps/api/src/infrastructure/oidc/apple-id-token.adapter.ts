@@ -10,6 +10,7 @@ import { Result } from '../../shared/result';
 import { VerificacionIdentidadFallidaError } from '../../domain/errors/verificacion-identidad-fallida.error';
 import {
   IVerificadorIdTokenApple,
+  IVerificadorSubCanjeApple,
   IdentidadApple,
 } from '../../application/ports/verificador-identidad-apple.port';
 
@@ -44,7 +45,9 @@ const DOMINIO_RELAY_PRIVADO = '@privaterelay.appleid.com';
  * toda falla es `Result.fail`, indistinguible hacia afuera; el `motivo` lleva
  * solo el código de error de jose, nunca el token ni valores de claims.
  */
-export class AppleIdTokenVerifier implements IVerificadorIdTokenApple {
+export class AppleIdTokenVerifier
+  implements IVerificadorIdTokenApple, IVerificadorSubCanjeApple
+{
   constructor(
     private readonly bundleId: string,
     private readonly claves: JWTVerifyGetKey = createRemoteJWKSet(
@@ -90,6 +93,36 @@ export class AppleIdTokenVerifier implements IVerificadorIdTokenApple {
           esVerdadero(payload.is_private_email) ||
           (email?.toLowerCase().endsWith(DOMINIO_RELAY_PRIVADO) ?? false),
       });
+    } catch (error) {
+      return fallo(
+        error instanceof errors.JOSEError
+          ? `jwt-${error.code}`
+          : 'verificacion-id-token-fallo',
+      );
+    }
+  }
+  /**
+   * `id_token` del canje de `/auth/token`: misma verificación criptográfica
+   * (RS256 fijo, JWKS, `iss`, `aud`, `exp`) pero sin nonce. Retorna el `sub`.
+   */
+  async verificarSubDelCanje(
+    idToken: string,
+  ): Promise<Result<string, VerificacionIdentidadFallidaError>> {
+    if (idToken.trim() === '') {
+      return fallo('id-token-vacio');
+    }
+
+    try {
+      const { payload } = await jwtVerify(idToken, this.claves, {
+        issuer: APPLE_ISSUER,
+        audience: this.bundleId,
+        algorithms: ['RS256'],
+        currentDate: this.ahora(),
+      });
+
+      return typeof payload.sub === 'string' && payload.sub !== ''
+        ? Result.ok(payload.sub)
+        : fallo('payload-invalido');
     } catch (error) {
       return fallo(
         error instanceof errors.JOSEError

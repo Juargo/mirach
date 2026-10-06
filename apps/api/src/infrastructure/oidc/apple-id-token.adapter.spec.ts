@@ -228,3 +228,46 @@ describe('AppleIdTokenVerifier', () => {
     });
   });
 });
+
+describe('AppleIdTokenVerifier.verificarSubDelCanje (id_token de /auth/token, sin nonce)', () => {
+  let par: Par;
+  beforeAll(async () => {
+    par = await crearPar('kid-canje');
+  });
+
+  it('token válido sin claim nonce → el sub', async () => {
+    const token = await firmar(par, { claims: { nonce: undefined } });
+
+    const r = await verificador(par).verificarSubDelCanje(token);
+
+    expect(r.getValue()).toBe('apple-sub-1');
+  });
+
+  it.each([
+    ['audience ajena', { audience: 'otra.app' }],
+    ['issuer ajeno', { issuer: 'https://evil.example' }],
+    ['expirado', { exp: Math.floor(AHORA.getTime() / 1000) - 10 }],
+  ])('%s → fail', async (_n, opts) => {
+    const r = await verificador(par).verificarSubDelCanje(
+      await firmar(par, opts),
+    );
+
+    expect(r.isFail()).toBe(true);
+  });
+
+  it('firmado con otra clave → fail', async () => {
+    const otra = await crearPar('kid-canje');
+    const r = await verificador(par).verificarSubDelCanje(
+      await firmar(par, { firmarCon: otra.privateKey }),
+    );
+
+    expect(r.isFail()).toBe(true);
+  });
+
+  it('basura o vacío → fail, sin lanzar', async () => {
+    const v = verificador(par);
+
+    expect((await v.verificarSubDelCanje('')).isFail()).toBe(true);
+    expect((await v.verificarSubDelCanje('no.es.jwt')).isFail()).toBe(true);
+  });
+});

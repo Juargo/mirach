@@ -38,9 +38,14 @@ describe('crearAuthApple', () => {
     expect(graph?.appleTokenRateLimiter).toBeInstanceOf(IpRateLimiter);
   });
 
-  it('con cliente de Apple REST lo inyecta al use case: un code se canjea y se guarda (T4)', async () => {
+  it('con cliente de Apple REST: un id_token del canje que no verifica NO se guarda y el token se revoca (T4)', async () => {
     const env = buildTestEnv({ APPLE_BUNDLE_ID: 'cl.mirach.app' });
-    const intercambiarCodigo = vi.fn().mockResolvedValue(Result.ok('rt-1'));
+    const intercambiarCodigo = vi
+      .fn()
+      .mockResolvedValue(
+        Result.ok({ refreshToken: 'rt-1', idToken: 'no.es.jwt' }),
+      );
+    const revocarRefreshToken = vi.fn().mockResolvedValue(Result.ok(undefined));
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const prismaFake = {
       user: {
@@ -56,7 +61,7 @@ describe('crearAuthApple', () => {
       blindIndex,
       crypto,
       new NoOpLogger(),
-      { intercambiarCodigo, revocarRefreshToken: vi.fn() },
+      { intercambiarCodigo, revocarRefreshToken },
     );
     await graph?.loginConApple.execute(
       { sub: 's', email: null, emailVerificado: false, emailPrivado: false },
@@ -65,9 +70,7 @@ describe('crearAuthApple', () => {
     );
 
     expect(intercambiarCodigo).toHaveBeenCalledWith('code-1');
-    expect(updateMany).toHaveBeenCalledWith({
-      where: { id: 'u1' },
-      data: { appleRefreshToken: 'rt-1' },
-    });
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(revocarRefreshToken).toHaveBeenCalledWith('rt-1');
   });
 });

@@ -53,8 +53,10 @@ export function crearAuthApple(
     return undefined;
   }
 
+  const verificador = new AppleIdTokenVerifier(env.APPLE_BUNDLE_ID);
+
   return {
-    verificadorIdToken: new AppleIdTokenVerifier(env.APPLE_BUNDLE_ID),
+    verificadorIdToken: verificador,
     loginConApple: new LoginConAppleUseCase(
       new PrismaIdentidadAppleRepository(prisma, blindIndex, crypto),
       new PrismaSessionRepository(prisma),
@@ -63,6 +65,7 @@ export function crearAuthApple(
       logger,
       clienteApple,
       clienteApple && new PrismaRefreshTokenAppleRepository(prisma, crypto),
+      verificador,
     ),
     appleTokenRateLimiter: new IpRateLimiter(
       APPLE_TOKEN_RATE_LIMIT_KEY_PREFIX,

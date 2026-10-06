@@ -45,11 +45,14 @@ const IDENTIDAD = {
   emailPrivado: false,
 };
 
+const canjeDe = (refreshToken: string) => ({ refreshToken, idToken: 'idt' });
+
 describe('Apple refresh token (integration — real DB)', () => {
   let prisma: PrismaClient;
   let crypto: AesGcmCryptoService;
   let login: LoginConAppleUseCase;
   let eliminar: (cliente: IClienteAppleAuth) => EliminarCuentaUseCase;
+  let subEnCurso = SUB;
   let canje: Mock<IClienteAppleAuth['intercambiarCodigo']>;
 
   beforeAll(async () => {
@@ -77,6 +80,9 @@ describe('Apple refresh token (integration — real DB)', () => {
       new NoOpLogger(),
       cliente,
       new PrismaRefreshTokenAppleRepository(prisma, crypto),
+      // El id_token del canje se verifica con RSA/JWKS (cubierto en unit); acá
+      // el doble devuelve el sub del login para ejercitar la persistencia real.
+      { verificarSubDelCanje: async () => Result.ok(subEnCurso) },
     );
     eliminar = (clienteRevocacion) =>
       new EliminarCuentaUseCase(
@@ -114,7 +120,7 @@ describe('Apple refresh token (integration — real DB)', () => {
   it('login con code: guarda el refresh token CIFRADO; el siguiente login lo sobrescribe; un canje fallido no lo toca', async () => {
     if (!ALLOW) return;
 
-    canje.mockResolvedValueOnce(Result.ok('rt-uno-SECRETO'));
+    canje.mockResolvedValueOnce(Result.ok(canjeDe('rt-uno-SECRETO')));
     const alta = await login.execute(IDENTIDAD, 'Int Spec', 'code-1');
     const userId = alta.getValue().userId;
 
@@ -123,7 +129,7 @@ describe('Apple refresh token (integration — real DB)', () => {
     expect(cifrado).not.toContain('rt-uno');
     expect(crypto.decrypt(cifrado as string)).toBe('rt-uno-SECRETO');
 
-    canje.mockResolvedValueOnce(Result.ok('rt-dos-SECRETO'));
+    canje.mockResolvedValueOnce(Result.ok(canjeDe('rt-dos-SECRETO')));
     await login.execute(IDENTIDAD, null, 'code-2');
     expect(crypto.decrypt((await guardado(userId)) as string)).toBe(
       'rt-dos-SECRETO',
@@ -174,7 +180,8 @@ describe('Apple refresh token (integration — real DB)', () => {
   it('si Apple falla al revocar, la cuenta se elimina igual', async () => {
     if (!ALLOW) return;
 
-    canje.mockResolvedValueOnce(Result.ok('rt-tres-SECRETO'));
+    canje.mockResolvedValueOnce(Result.ok(canjeDe('rt-tres-SECRETO')));
+    subEnCurso = `${SUB}-b`;
     const alta = await login.execute(
       { ...IDENTIDAD, sub: `${SUB}-b`, email: `b-${EMAIL}` },
       'Int Spec B',

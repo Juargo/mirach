@@ -28,3 +28,16 @@ export interface IVerificadorIdTokenApple {
     nonce: string,
   ): Promise<Result<IdentidadApple, VerificacionIdentidadFallidaError>>;
 }
+
+/**
+ * IVerificadorSubCanjeApple — verifica el `id_token` que Apple devuelve al
+ * canjear un `authorizationCode` (mismas reglas de firma, issuer, audience y
+ * expiración que el identity token nativo; SIN nonce, porque ese token no
+ * lo lleva) y retorna su `sub`. Sirve para comprobar que el code canjeado
+ * pertenece a la misma identidad que inició sesión.
+ */
+export interface IVerificadorSubCanjeApple {
+  verificarSubDelCanje(
+    idToken: string,
+  ): Promise<Result<string, VerificacionIdentidadFallidaError>>;
+}
