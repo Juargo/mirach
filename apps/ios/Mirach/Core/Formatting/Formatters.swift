@@ -14,6 +14,14 @@ enum Format {
         signed(amount, positiveSign: "+", negativeSign: "-")
     }
 
+    /// Income as VoiceOver should say it, with the same sign logic as `income(_:)`: a negative
+    /// amount is money going out, never "income".
+    static func spokenIncome(_ amount: Int) -> String {
+        if amount == 0 { return "Sin ingreso" }
+        let text = "$" + grouped(amount.magnitude)
+        return amount > 0 ? "Ingreso de \(text)" : "Ajuste negativo de \(text)"
+    }
+
     /// A bucket's spend with its sign: `-$1.000` (the API sends spend as a positive number);
     /// a negative total (refunds exceed spend) reads as money coming in.
     static func expense(_ amount: Int) -> String {
