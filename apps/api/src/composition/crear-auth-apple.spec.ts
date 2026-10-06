@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { crearAuthApple } from './crear-auth-apple';
+import { TareasSincronas } from '../../test/support/tareas-en-segundo-plano.double';
+import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
 import { Result } from '../shared/result';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
@@ -18,7 +20,15 @@ describe('crearAuthApple', () => {
     const env = buildTestEnv({ APPLE_BUNDLE_ID: undefined });
 
     expect(
-      crearAuthApple(prisma, env, blindIndex, crypto, new NoOpLogger()),
+      crearAuthApple(
+        prisma,
+        env,
+        blindIndex,
+        crypto,
+        new NoOpLogger(),
+        undefined,
+        new TareasSincronas(),
+      ),
     ).toBeUndefined();
   });
 
@@ -31,6 +41,8 @@ describe('crearAuthApple', () => {
       blindIndex,
       crypto,
       new NoOpLogger(),
+      undefined,
+      new TareasSincronas(),
     );
 
     expect(graph?.verificadorIdToken).toBeInstanceOf(AppleIdTokenVerifier);
@@ -62,6 +74,7 @@ describe('crearAuthApple', () => {
       crypto,
       new NoOpLogger(),
       { intercambiarCodigo, revocarRefreshToken },
+      new TareasEnSegundoPlano(new NoOpLogger()),
     );
     await graph?.loginConApple.execute(
       { sub: 's', email: null, emailVerificado: false, emailPrivado: false },

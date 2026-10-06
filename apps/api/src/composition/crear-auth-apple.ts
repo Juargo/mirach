@@ -12,7 +12,6 @@ import { LoginConAppleUseCase } from '../application/use-cases/login-con-apple.u
 
 import { AppleIdTokenVerifier } from '../infrastructure/oidc/apple-id-token.adapter';
 import { PrismaIdentidadAppleRepository } from '../infrastructure/persistence/prisma-identidad-apple.repository';
-import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
 import { PrismaRefreshTokenAppleRepository } from '../infrastructure/persistence/prisma-refresh-token-apple.repository';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
 import { Sha256SessionTokenService } from '../infrastructure/http/auth/sha256-session-token.service';
@@ -49,8 +48,8 @@ export function crearAuthApple(
   blindIndex: IBlindIndexService,
   crypto: ICryptoService,
   logger: ILogger,
-  clienteApple?: IClienteAppleAuth,
-  tareas: ITareasEnSegundoPlano = new TareasEnSegundoPlano(logger),
+  clienteApple: IClienteAppleAuth | undefined,
+  tareas: ITareasEnSegundoPlano,
 ): AppleAuthGraph | undefined {
   if (env.APPLE_BUNDLE_ID === undefined) {
     return undefined;
