@@ -77,6 +77,16 @@ extension SampleData {
 
 extension SampleData {
     /// Deseos of September 2026: two categories and «Sin categoría» last, as the API sends them.
+    static let ingresosSeptiembre = IngresosMes(
+        periodo: Periodo("2026-09")!, total: 1_720_000, conteo: 2,
+        transacciones: [
+            Ingreso(id: "i-1", fecha: date(day: 0), descripcion: "SUELDO EMPRESA", origen: "Banco de Chile", monto: 1_650_000),
+            Ingreso(id: "i-2", fecha: date(day: 4), descripcion: "DEVOLUCION SII", origen: "Manual", monto: 70_000),
+        ]
+    )
+
+    static let ingresosVacio = IngresosMes(periodo: Periodo("2026-09")!, total: 0, conteo: 0, transacciones: [])
+
     static let deseosDetalle = BucketDetalle(
         bucket: .deseos, periodo: Periodo("2026-09")!, total: 610_400, porcentajeBp: 3300, metaBp: 3000,
         totalTransacciones: 4, totalCategorias: 3,

@@ -94,3 +94,42 @@ extension StubMirachAPI {
         return Reclasificacion(categoriaId: category.id, categoriaNombre: category.nombre, bucket: category.bucket)
     }
 }
+
+/// The stub's incomes: September and August have some (they add up to the Resumen's income),
+/// July none. Oldest first, like the API.
+extension StubLedger {
+    private static let incomes: [String: [(id: String, day: Int, descripcion: String, origen: String, monto: Int)]] = [
+        "2026-09": [
+            ("i-s1", 1, "ABONO SUELDO EMPRESA SERVICIOS TECNOLOGICOS Y CONSULTORIA LIMITADA", "Banco de Chile", 1_650_000),
+            ("i-s2", 5, "TRANSFERENCIA DE MARIA GONZALEZ", "Banco de Chile", 100_000),
+            ("i-s3", 8, "DEVOLUCION IMPUESTOS SII", "Manual", 60_000),
+            ("i-s4", 12, "VENTA MARKETPLACE", "BancoEstado", 40_000),
+        ],
+        "2026-08": [
+            ("i-a1", 2, "ABONO SUELDO", "Banco de Chile", 1_700_000),
+            ("i-a2", 20, "REEMBOLSO GASTOS COMUNES", "Manual", 150_000),
+        ],
+    ]
+
+    func ingresos(periodo: Periodo) -> IngresosMes {
+        let items = (Self.incomes[periodo.apiValue] ?? []).map {
+            Ingreso(
+                id: $0.id, fecha: Self.monthStart(of: periodo).addingTimeInterval(Double($0.day - 1) * 86_400),
+                descripcion: $0.descripcion, origen: $0.origen, monto: $0.monto
+            )
+        }
+        return IngresosMes(
+            periodo: periodo, total: items.reduce(0) { $0 + $1.monto }, conteo: items.count, transacciones: items
+        )
+    }
+
+    private static func monthStart(of periodo: Periodo) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar.date(from: DateComponents(year: periodo.year, month: periodo.month, day: 1))!
+    }
+}
+
+extension StubMirachAPI {
+    func ingresosMes(periodo: Periodo) async throws -> IngresosMes { ledger.ingresos(periodo: periodo) }
+}

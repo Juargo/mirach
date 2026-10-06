@@ -43,6 +43,9 @@ protocol MirachAPI: Sendable {
     /// identified by its id, never by name (ADR-042). Throws `ReclasificarError` for the 400 and
     /// 404 the catalog names.
     func reclasificar(transaccionId: String, categoriaId: String) async throws -> Reclasificacion
+    /// `GET /api/ingresos/mes`: every income of the month, with its total and count. The
+    /// response carries no month, so the model gets the `periodo` that was asked for.
+    func ingresosMes(periodo: Periodo) async throws -> IngresosMes
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult
