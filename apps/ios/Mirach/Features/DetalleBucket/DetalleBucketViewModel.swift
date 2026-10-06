@@ -104,11 +104,16 @@ final class DetalleBucketViewModel {
     /// Pull to refresh: repeats the query without blanking the list, and keeps it if it fails.
     func refresh() async {
         guard case .loaded = state else { return await retry() }
-        await fetch(periodo: periodo, keepingContentOnFailure: true)
+        switch await fetch(periodo: periodo, keepingContentOnFailure: true) {
+        case true?: notice = nil
+        case false?: notice = "No se pudo actualizar la lista."
+        case nil: break
+        }
     }
 
     func select(_ periodo: Periodo) async {
         state = .loading
+        notice = nil
         await fetch(periodo: periodo)
     }
 

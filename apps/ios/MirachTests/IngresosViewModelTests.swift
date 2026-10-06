@@ -236,4 +236,33 @@ struct IngresosViewModelTests {
         #expect(viewModel.anterior == Periodo("2026-08"))
     }
 
+    @Test func aFailedRefreshSaysSoAndTheNextSuccessClearsIt() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        #expect(viewModel.refreshNotice == nil)
+        api.setIngresosResults([.failure(URLError(.timedOut))])
+
+        await viewModel.refresh()
+
+        #expect(viewModel.state == .loaded(SampleData.ingresosSeptiembre))
+        #expect(viewModel.refreshNotice == "No se pudo actualizar la lista.")
+
+        api.setIngresosResults([.success(SampleData.ingresosSeptiembre)])
+        await viewModel.refresh()
+        #expect(viewModel.refreshNotice == nil)
+    }
+
+    @Test func aFailedRefreshNoticeDoesNotSurviveChangingMonth() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        api.setIngresosResults([.failure(URLError(.timedOut))])
+        await viewModel.refresh()
+
+        api.setIngresosResults([.success(SampleData.ingresosVacio)])
+        await viewModel.select(Periodo("2026-08")!)
+
+        #expect(viewModel.refreshNotice == nil)
+    }
 }

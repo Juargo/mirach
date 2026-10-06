@@ -66,6 +66,13 @@ struct IngresosView: View {
                 select: { periodo in Task { await viewModel.select(periodo) } },
                 idPrefix: "ingresos"
             )
+            if let text = viewModel.refreshNotice {
+                Label(text, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(Color.Mirach.Feedback.errorText)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(text)
+                    .accessibilityIdentifier("ingresos.notice")
+            }
             if ingresos.transacciones.isEmpty {
                 VStack(spacing: 8) {
                     Text("Sin ingresos en \(Format.month(ingresos.periodo))")

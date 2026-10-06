@@ -177,6 +177,22 @@ struct DetalleBucketViewModelTests {
         #expect(api.detalleCalls.count == 2, "appearing again must not reload and blank the list")
     }
 
+    @Test func aFailedRefreshSaysSoAndTheNextSuccessClearsIt() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        api.setDetalleResults([.failure(URLError(.timedOut))])
+
+        await viewModel.refresh()
+
+        #expect(viewModel.state == .loaded(SampleData.deseosDetalle))
+        #expect(viewModel.notice == "No se pudo actualizar la lista.")
+
+        api.setDetalleResults([.success(SampleData.deseosDetalle)])
+        await viewModel.refresh()
+        #expect(viewModel.notice == nil)
+    }
+
     @Test func retryFetchesTheMonthsAgainWhenTheirFirstLoadFailed() async {
         let api = FakeMirachAPI(periodosResult: .failure(URLError(.timedOut)))
         let viewModel = make(api)

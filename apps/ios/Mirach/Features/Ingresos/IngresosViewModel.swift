@@ -25,6 +25,9 @@ final class IngresosViewModel {
     /// the list does not depend on it.
     private(set) var periodos: [Periodo] = []
 
+    /// Set when a pull to refresh failed and the list on screen is the previous answer.
+    private(set) var refreshNotice: String?
+
     private let api: any MirachAPI
     /// Bumped on every request so a late answer for an older choice is dropped.
     private var generation = 0
@@ -49,6 +52,7 @@ final class IngresosViewModel {
 
     func load() async {
         state = .loading
+        refreshNotice = nil
         async let months = fetchPeriodos()
         await fetch(periodo: periodo)
         if let months = await months { periodos = months }
@@ -57,6 +61,7 @@ final class IngresosViewModel {
     /// "Reintentar": the same query that failed, again.
     func retry() async {
         state = .loading
+        refreshNotice = nil
         await fetch(periodo: periodo)
         if periodos.isEmpty, let months = await fetchPeriodos() { periodos = months }
     }
@@ -69,6 +74,7 @@ final class IngresosViewModel {
 
     func select(_ periodo: Periodo) async {
         state = .loading
+        refreshNotice = nil
         await fetch(periodo: periodo)
     }
 
@@ -92,11 +98,16 @@ final class IngresosViewModel {
             guard mine == generation else { return nil }
             needsLoad = false
             state = .loaded(ingresos)
+            refreshNotice = nil
             return true
         } catch {
             guard mine == generation, let failure = Self.failure(for: error) else { return nil }
             needsLoad = false
-            if !keepingContentOnFailure { state = .failed(failure) }
+            if keepingContentOnFailure {
+                refreshNotice = "No se pudo actualizar la lista."
+            } else {
+                state = .failed(failure)
+            }
             return false
         }
     }
