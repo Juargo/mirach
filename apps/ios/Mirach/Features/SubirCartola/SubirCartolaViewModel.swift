@@ -84,6 +84,9 @@ final class SubirCartolaViewModel {
     /// Set when a commit bounced because of the edits: the next catalog that loads drops the
     /// edits whose category it no longer has.
     private var pruneEditsPending = false
+    /// A commit already bounced back to the review because of the edits: a second rejection
+    /// is not about the edits.
+    private var editsBounced = false
     private var lastCommit: (edits: [CartolaEdit], fromReview: Bool)?
     /// Bumped whenever the flow is reset so an answer to an old request is dropped.
     private var generation = 0
@@ -247,25 +250,31 @@ final class SubirCartolaViewModel {
         }
     }
 
-    private func loadCatalog(generation mine: Int) async {
+    /// Loads the catalog. Returns how many edits the pending prune dropped, or `nil` when the
+    /// load failed or the flow moved on.
+    @discardableResult
+    private func loadCatalog(generation mine: Int) async -> Int? {
         catalog = .loading
         do {
             let result = try await api.categorias()
-            guard mine == generation else { return }
+            guard mine == generation else { return nil }
             catalog = .loaded(result)
             // An edit naming a category that no longer exists would be refused again. The prune
             // waits for a catalog that loads, whichever call (reload or "Reintentar") gets it.
-            if pruneEditsPending {
-                edits = edits.filter { result.categoria(id: $0.value) != nil }
-                pruneEditsPending = false
-            }
+            guard pruneEditsPending else { return 0 }
+            let kept = edits.filter { result.categoria(id: $0.value) != nil }
+            let removed = edits.count - kept.count
+            edits = kept
+            pruneEditsPending = false
+            return removed
         } catch {
-            guard mine == generation else { return }
+            guard mine == generation else { return nil }
             if case APIError.sessionExpired = error {
                 discard()
             } else {
                 catalog = .failed
             }
+            return nil
         }
     }
 
@@ -301,19 +310,25 @@ final class SubirCartolaViewModel {
         switch error {
         case APIError.sessionExpired:
             discard()
-        case IngestaError.rejected where sentEdits:
-            // The contract gives a 400 about `edits` the same shape as one about the file, but
-            // this file just previewed fine: the edits are the likely cause (the catalog
-            // drifted). Back to the review, with the catalog reloaded.
+        case IngestaError.rejected(let message) where sentEdits && !editsBounced:
+            // The contract gives a 400 about `edits` the same shape as one about the file. This
+            // file just previewed fine, so the edits are the likely cause (the catalog drifted):
+            // reload the catalog and drop the edits it explains. If that explains nothing, the
+            // 400 is about the file after all.
             guard let preview else { return }
-            reviewNotice = Self.badEditsMessage
+            let mine = generation
             pruneEditsPending = true
+            let removed = await loadCatalog(generation: mine)
+            guard mine == generation else { return }
+            if removed == 0 {
+                rejectCommit(message)
+                return
+            }
+            editsBounced = true
+            reviewNotice = Self.badEditsMessage
             state = .revisando(preview)
-            await loadCatalog(generation: generation)
         case IngestaError.rejected(let message):
-            // Same family as the preview's 400 (file, bank, structure): back to the start.
-            clear()
-            state = .inicial(message: message)
+            rejectCommit(message)
         case IngestaError.noMovements:
             clear()
             state = .inicial(message: Self.noMovementsMessage)
@@ -329,6 +344,13 @@ final class SubirCartolaViewModel {
         }
     }
 
+    /// Same family as the preview's 400 (file, bank, structure): the server's message, back to
+    /// the start.
+    private func rejectCommit(_ message: String) {
+        clear()
+        state = .inicial(message: message)
+    }
+
     /// Forgets the file, its copy on disk, the password and any pending answer.
     private func clear() {
         generation += 1
@@ -338,6 +360,7 @@ final class SubirCartolaViewModel {
         preview = nil
         lastCommit = nil
         pruneEditsPending = false
+        editsBounced = false
         catalog = .loading
         edits = [:]
         reviewNotice = nil

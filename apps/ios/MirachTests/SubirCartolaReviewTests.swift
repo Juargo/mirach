@@ -272,6 +272,47 @@ struct SubirCartolaReviewTests {
         #expect(viewModel.edits == [3: SampleData.Cat.restaurantes])
     }
 
+    @Test func aRejectionThatPruningCannotExplainShowsTheServerMessageAndGoesBackToTheStart() async {
+        // The edits' categories all still exist: the 400 is about something else (the file).
+        let api = FakeMirachAPI()
+        api.setPreviewResults([.failure(IngestaError.passwordRequired), .success(SampleData.preview)])
+        api.setCommitResults([.failure(IngestaError.rejected(message: "Archivo inválido"))])
+        let staging = FakeCartolaStaging()
+        let (viewModel, _, _) = make(api, staging)
+        await viewModel.chooseFile(pdf)
+        await viewModel.submitPassword("buena")
+        viewModel.startReview()
+        viewModel.choose(SampleData.Cat.fondo, forRow: 2)
+
+        await viewModel.confirm()
+
+        #expect(viewModel.state == .inicial(message: "Archivo inválido"))
+        #expect(viewModel.edits.isEmpty)
+        #expect(viewModel.stagedFile == nil)
+        #expect(staging.discarded.count == 1)
+        await viewModel.chooseFile(pdf)
+        #expect(api.previewCalls.last?.password == nil)
+    }
+
+    @Test func aSecondRejectionAfterAPruneShowsTheServerMessageAndGoesBackToTheStart() async {
+        let api = FakeMirachAPI()
+        api.setCommitResults([.failure(IngestaError.rejected(message: "Ediciones inválidas"))])
+        let (viewModel, _, staging) = await reviewing(api)
+        viewModel.choose(SampleData.Cat.fondo, forRow: 2)
+        viewModel.choose(SampleData.Cat.restaurantes, forRow: 3)
+        api.setCategoriasResults([.success(
+            CatalogoCategorias(categorias: SampleData.catalog.categorias.filter { $0.id != SampleData.Cat.fondo })
+        )])
+        await viewModel.confirm()
+        #expect(viewModel.state == .revisando(SampleData.preview))
+        #expect(viewModel.edits == [3: SampleData.Cat.restaurantes])
+
+        await viewModel.confirm()
+
+        #expect(viewModel.state == .inicial(message: "Ediciones inválidas"))
+        #expect(staging.discarded.count == 1)
+    }
+
     @Test func aRejectedCommitWithoutEditsStillGoesBackToTheStart() async {
         let api = FakeMirachAPI()
         api.setCommitResults([.failure(IngestaError.rejected(message: "Archivo inválido"))])
