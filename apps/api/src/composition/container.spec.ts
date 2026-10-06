@@ -1,6 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 import { createContainer } from './container';
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
+import { generateKeyPairSync } from 'node:crypto';
+import { AesGcmCryptoService } from '../infrastructure/persistence/aes-gcm-crypto.service';
 import { buildTestEnv } from '../../test/support/env.fixture';
 
 /**
@@ -117,5 +119,88 @@ describe('createContainer', () => {
       expect(container.googleAuth).toBeUndefined();
       expect(container.googleAuthMobile).toBeDefined();
     });
+  });
+});
+
+describe('createContainer — revocación de Sign in with Apple al eliminar la cuenta (T4)', () => {
+  const pem = generateKeyPairSync('ec', {
+    namedCurve: 'P-256',
+  }).privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
+  // Misma clave que `buildTestEnv` (32 bytes de 7): el token guardado se cifra con ella.
+  const cifrado = new AesGcmCryptoService(Buffer.alloc(32, 7)).encrypt(
+    'rt-guardado',
+  );
+
+  function prismaConToken() {
+    const findUnique = vi
+      .fn()
+      .mockResolvedValue({ appleRefreshToken: cifrado });
+    const modelo = { deleteMany: vi.fn() };
+    const prisma = {
+      $disconnect: vi.fn(),
+      $transaction: vi.fn().mockResolvedValue([]),
+      user: { findUnique, deleteMany: vi.fn() },
+      session: modelo,
+      transaccion: modelo,
+      ingesta: modelo,
+      patronClasificacion: modelo,
+      categoria: modelo,
+      account: modelo,
+    } as unknown as PrismaClient;
+    return { prisma, findUnique };
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('con las cuatro variables de Apple: eliminar la cuenta revoca el token guardado en Apple', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(new Response('', { status: 200 }));
+    vi.stubGlobal('fetch', fetchFn);
+    const { prisma } = prismaConToken();
+    const env = buildTestEnv({
+      APPLE_BUNDLE_ID: 'app.mirachbudget.ios',
+      APPLE_TEAM_ID: 'TEAM123456',
+      APPLE_KEY_ID: 'KEY1234567',
+      APPLE_PRIVATE_KEY: pem,
+    });
+
+    const result = await createContainer(env, prisma).eliminarCuenta.execute({
+      userId: 'u1',
+      confirmacion: 'ELIMINAR',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(fetchFn).toHaveBeenCalledOnce();
+    const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://appleid.apple.com/auth/revoke');
+    const form = new URLSearchParams(init.body as string);
+    expect(form.get('token')).toBe('rt-guardado');
+    expect(form.get('token_type_hint')).toBe('refresh_token');
+    expect(form.get('client_id')).toBe('app.mirachbudget.ios');
+  });
+
+  it('sin credenciales de Apple: no-op — ni lee el token ni llama a Apple, y la cuenta se elimina', async () => {
+    const fetchFn = vi.fn();
+    vi.stubGlobal('fetch', fetchFn);
+    const { prisma, findUnique } = prismaConToken();
+    const env = buildTestEnv({
+      APPLE_BUNDLE_ID: 'app.mirachbudget.ios',
+      APPLE_TEAM_ID: undefined,
+      APPLE_KEY_ID: undefined,
+      APPLE_PRIVATE_KEY: undefined,
+    });
+
+    const result = await createContainer(env, prisma).eliminarCuenta.execute({
+      userId: 'u1',
+      confirmacion: 'ELIMINAR',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
   });
 });
