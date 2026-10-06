@@ -245,7 +245,9 @@ private final class SlowAPI: MirachAPI, @unchecked Sendable {
     }
     func version() async throws -> VersionInfo { VersionInfo(version: "0", commit: "0") }
     func authCapabilities() async throws -> AuthCapabilities { AuthCapabilities(appleLoginEnabled: true) }
-    func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session {
+    func signInWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session {
         throw APIError.invalidCredentials
     }
     func currentUser() async throws -> CurrentUser { CurrentUser(userId: "u", nombre: "n") }

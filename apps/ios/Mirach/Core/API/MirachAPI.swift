@@ -10,8 +10,12 @@ protocol MirachAPI: Sendable {
     /// `GET /api/auth/capabilities`: which providers can be offered. Needs only the API key.
     func authCapabilities() async throws -> AuthCapabilities
     /// `POST /api/auth/apple/token`. `nonce` is the RAW value; Apple was given its SHA-256.
-    /// `nombre` only exists on the first authorization of the Apple ID.
-    func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session
+    /// `nombre` only exists on the first authorization of the Apple ID. `authorizationCode` is the
+    /// one-time code (5 minutes) the server trades for a revocable refresh token; optional, and
+    /// sign-in works without it. Never log it.
+    func signInWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session
     /// `GET /api/auth/me`: validates the saved session.
     func currentUser() async throws -> CurrentUser
     /// `PATCH /api/perfil` with only the name; answers the updated identity.
@@ -137,10 +141,12 @@ struct OpenAPIMirachAPI: MirachAPI {
         }
     }
 
-    func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session {
+    func signInWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session {
         do {
             let body = Operations.post_sol_api_sol_auth_sol_apple_sol_token.Input.Body.jsonPayload(
-                identityToken: identityToken, nombre: nombre, nonce: nonce
+                authorizationCode: authorizationCode, identityToken: identityToken, nombre: nombre, nonce: nonce
             )
             switch try await client.post_sol_api_sol_auth_sol_apple_sol_token(body: .json(body)) {
             case .ok(let ok):
