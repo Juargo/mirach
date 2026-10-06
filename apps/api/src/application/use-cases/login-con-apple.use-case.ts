@@ -11,6 +11,8 @@ import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { ILogger } from '../ports/logger.port';
+import { IClienteAppleAuth } from '../ports/cliente-apple-auth.port';
+import { IRefreshTokenAppleRepository } from '../ports/refresh-token-apple-repository.port';
 import { LoginUseCaseResult } from './login.use-case';
 
 /**
@@ -56,6 +58,14 @@ const NOMBRE_POR_DEFECTO = 'Usuario';
  *
  * Todas las ramas de fallo colapsan al mismo `LoginConAppleFallidoError`.
  * Redacción (ADR-013): nunca se loguea sub, email, nombre ni tokens.
+ *
+ * `authorizationCode` (opcional, T4): tras una resolución EXITOSA se canjea en
+ * Apple y el refresh token se guarda cifrado, para poder revocarlo al eliminar
+ * la cuenta. Es best-effort: cualquier fallo (Apple caído, código vencido o
+ * ya usado, BD) solo emite un `warn` con el motivo y el userId; el login ya
+ * tuvo éxito y no se ve afectado. Sin code, o con el intercambio apagado
+ * (sin credenciales de Apple), no se hace nada. Nunca se loguea el code ni el
+ * refresh token.
  */
 export class LoginConAppleUseCase {
   constructor(
@@ -64,9 +74,65 @@ export class LoginConAppleUseCase {
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
     private readonly logger: ILogger,
+    private readonly clienteApple?: IClienteAppleAuth,
+    private readonly refreshTokens?: IRefreshTokenAppleRepository,
   ) {}
 
   async execute(
+    identidad: IdentidadApple,
+    nombre?: string | null,
+    authorizationCode?: string | null,
+  ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {
+    const resultado = await this.resolverIdentidad(identidad, nombre);
+
+    if (resultado.isOk()) {
+      await this.guardarRefreshToken(
+        resultado.getValue().userId,
+        authorizationCode,
+      );
+    }
+
+    return resultado;
+  }
+
+  /** Canje del code + guardado cifrado del refresh token; nunca lanza ni cambia el login. */
+  private async guardarRefreshToken(
+    userId: string,
+    authorizationCode: string | null | undefined,
+  ): Promise<void> {
+    const code = authorizationCode?.trim() ?? '';
+
+    if (code === '' || !this.clienteApple || !this.refreshTokens) {
+      return;
+    }
+
+    try {
+      const canje = await this.clienteApple.intercambiarCodigo(code);
+
+      if (canje.isFail()) {
+        const { motivo, detalle } = canje.getError();
+        this.logger.warn(
+          'login-con-apple: canje del authorizationCode fallido',
+          {
+            userId,
+            motivo,
+            ...(detalle !== undefined && { detalle }),
+          },
+        );
+        return;
+      }
+
+      await this.refreshTokens.guardar(userId, canje.getValue());
+      this.logger.debug('login-con-apple: refresh token guardado', { userId });
+    } catch (err) {
+      this.logger.warn('login-con-apple: canje del authorizationCode fallido', {
+        userId,
+        errorName: err instanceof Error ? err.name : 'UnknownError',
+      });
+    }
+  }
+
+  private async resolverIdentidad(
     identidad: IdentidadApple,
     nombre?: string | null,
   ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {

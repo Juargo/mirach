@@ -30,6 +30,7 @@ import {
   type GoogleAuthMobileGraph,
 } from './crear-auth-google-mobile';
 import { crearAuthApple, type AppleAuthGraph } from './crear-auth-apple';
+import { crearClienteAppleAuth } from './crear-cliente-apple-auth';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { crearCommitIngesta } from './crear-commit-ingesta';
@@ -227,7 +228,17 @@ export function createContainer(
 
   // Login con Apple: gate independiente (APPLE_BUNDLE_ID), mismas instancias
   // de `blindIndex`/`crypto` (el alta cifra el email), nunca re-derivaciones.
-  const appleAuth = crearAuthApple(prisma, env, blindIndex, crypto, logger);
+  // T4: el cliente de la API REST de Apple (canje del code + revocación) se
+  // arma una vez y se comparte con la eliminación de cuenta.
+  const clienteApple = crearClienteAppleAuth(env, logger);
+  const appleAuth = crearAuthApple(
+    prisma,
+    env,
+    blindIndex,
+    crypto,
+    logger,
+    clienteApple,
+  );
 
   // issue #747: período ausente ya no resuelve al mes en curso sino al
   // último mes del usuario con datos (resolverPeriodo). Cada use case de

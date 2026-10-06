@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { crearAuthApple } from './crear-auth-apple';
+import { Result } from '../shared/result';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
@@ -35,5 +36,38 @@ describe('crearAuthApple', () => {
     expect(graph?.verificadorIdToken).toBeInstanceOf(AppleIdTokenVerifier);
     expect(graph?.loginConApple).toBeInstanceOf(LoginConAppleUseCase);
     expect(graph?.appleTokenRateLimiter).toBeInstanceOf(IpRateLimiter);
+  });
+
+  it('con cliente de Apple REST lo inyecta al use case: un code se canjea y se guarda (T4)', async () => {
+    const env = buildTestEnv({ APPLE_BUNDLE_ID: 'cl.mirach.app' });
+    const intercambiarCodigo = vi.fn().mockResolvedValue(Result.ok('rt-1'));
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const prismaFake = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u1', appleSub: 's' }),
+        updateMany,
+      },
+      session: { create: vi.fn().mockResolvedValue({}) },
+    } as unknown as PrismaClient;
+
+    const graph = crearAuthApple(
+      prismaFake,
+      env,
+      blindIndex,
+      crypto,
+      new NoOpLogger(),
+      { intercambiarCodigo, revocarRefreshToken: vi.fn() },
+    );
+    await graph?.loginConApple.execute(
+      { sub: 's', email: null, emailVerificado: false, emailPrivado: false },
+      null,
+      'code-1',
+    );
+
+    expect(intercambiarCodigo).toHaveBeenCalledWith('code-1');
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'u1' },
+      data: { appleRefreshToken: 'rt-1' },
+    });
   });
 });

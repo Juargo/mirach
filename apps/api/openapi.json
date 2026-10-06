@@ -1613,6 +1613,12 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "authorizationCode": {
+                    "description": "Optional one-time authorization code from the same native authorization (expires in 5 minutes). When present the server exchanges it with Apple and stores the refresh token encrypted so it can be revoked on account deletion. Sign-in succeeds even if the exchange fails; omit or null if unavailable.",
+                    "maxLength": 2048,
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "identityToken": {
                     "description": "Apple identity token (JWT) from the native authorization.",
                     "maxLength": 8192,

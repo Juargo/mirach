@@ -4,12 +4,14 @@ import type { Env } from '../config/env';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { ILogger } from '../application/ports/logger.port';
+import type { IClienteAppleAuth } from '../application/ports/cliente-apple-auth.port';
 import type { IVerificadorIdTokenApple } from '../application/ports/verificador-identidad-apple.port';
 
 import { LoginConAppleUseCase } from '../application/use-cases/login-con-apple.use-case';
 
 import { AppleIdTokenVerifier } from '../infrastructure/oidc/apple-id-token.adapter';
 import { PrismaIdentidadAppleRepository } from '../infrastructure/persistence/prisma-identidad-apple.repository';
+import { PrismaRefreshTokenAppleRepository } from '../infrastructure/persistence/prisma-refresh-token-apple.repository';
 import { PrismaSessionRepository } from '../infrastructure/persistence/prisma-session.repository';
 import { Sha256SessionTokenService } from '../infrastructure/http/auth/sha256-session-token.service';
 import { SystemReloj } from '../infrastructure/http/auth/system-reloj';
@@ -35,7 +37,9 @@ export interface AppleAuthGraph {
  * ausente (activación por presencia; el *tipo* del retorno es el seam, sin
  * flag booleano). `blindIndex` y `crypto` son las MISMAS instancias del
  * composition root (el alta cifra el email, ADR-013/ADR-041); el resto de los
- * colaboradores son stateless y se construyen acá.
+ * colaboradores son stateless y se construyen acá. `clienteApple` (opcional,
+ * T4) habilita el canje del authorizationCode y el guardado cifrado del
+ * refresh token; sin él, el login ignora el code.
  */
 export function crearAuthApple(
   prisma: PrismaClient,
@@ -43,6 +47,7 @@ export function crearAuthApple(
   blindIndex: IBlindIndexService,
   crypto: ICryptoService,
   logger: ILogger,
+  clienteApple?: IClienteAppleAuth,
 ): AppleAuthGraph | undefined {
   if (env.APPLE_BUNDLE_ID === undefined) {
     return undefined;
@@ -56,6 +61,8 @@ export function crearAuthApple(
       new Sha256SessionTokenService(),
       new SystemReloj(),
       logger,
+      clienteApple,
+      clienteApple && new PrismaRefreshTokenAppleRepository(prisma, crypto),
     ),
     appleTokenRateLimiter: new IpRateLimiter(
       APPLE_TOKEN_RATE_LIMIT_KEY_PREFIX,

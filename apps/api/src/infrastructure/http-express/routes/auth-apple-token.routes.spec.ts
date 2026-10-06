@@ -111,7 +111,31 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
     expect(d.loginConApple.execute).toHaveBeenCalledWith(
       IDENTIDAD,
       'Jorge Retamal',
+      undefined,
     );
+  });
+
+  it('pasa el authorizationCode opcional al use case (T4)', async () => {
+    const d = deps();
+
+    const res = await request(tokenApp(d))
+      .post('/api/auth/apple/token')
+      .send({ ...BODY, authorizationCode: 'c-apple-1' });
+
+    expect(res.status).toBe(200);
+    expect(d.loginConApple.execute).toHaveBeenCalledWith(
+      IDENTIDAD,
+      undefined,
+      'c-apple-1',
+    );
+  });
+
+  it('el authorizationCode nunca aparece en el body 200', async () => {
+    const res = await request(tokenApp(deps()))
+      .post('/api/auth/apple/token')
+      .send({ ...BODY, authorizationCode: 'c-apple-SECRETO' });
+
+    expect(JSON.stringify(res.body)).not.toContain('SECRETO');
   });
 
   it('el body 200 es idéntico para alta y login; esNuevoUsuario nunca se serializa', async () => {
