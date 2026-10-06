@@ -83,6 +83,8 @@ final class MirachUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Julio de 2026"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Todavía no hay datos este mes"].exists)
+        XCTAssertTrue(element(app, "resumen.empty").exists, "the empty state is one VoiceOver element")
+        XCTAssertTrue(app.buttons["resumen.upload"].exists, "the button stays a separate element")
         XCTAssertFalse(app.buttons["Mes anterior"].isEnabled)
         XCTAssertTrue(app.buttons["Mes siguiente"].isEnabled)
     }

@@ -144,12 +144,18 @@ private struct EmptyMonth: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text("Todavía no hay datos este mes")
-                .font(.headline)
-                .foregroundStyle(Color.Mirach.Base.foreground)
-            Text("Cuando subas una cartola, aquí verás cómo se repartió tu mes.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            // The two texts read as one element for VoiceOver; the button stays its own
+            // element so it remains reachable.
+            VStack(spacing: 8) {
+                Text("Todavía no hay datos este mes")
+                    .font(.headline)
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                Text("Cuando subas una cartola, aquí verás cómo se repartió tu mes.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("resumen.empty")
             Button("Subir cartola", action: onUpload)
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
