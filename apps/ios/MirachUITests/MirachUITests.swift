@@ -180,4 +180,69 @@ final class MirachUITests: XCTestCase {
         app.buttons["subir.retry"].tap()
         XCTAssertTrue(app.buttons["subir.uploadAsIs"].waitForExistence(timeout: 10))
     }
+
+    // MARK: Revisar y editar
+
+    @MainActor
+    func testReviewingOneChangedCategoryIsConfirmedAsExactlyOneEdit() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        XCTAssertTrue(app.buttons["subir.review"].waitForExistence(timeout: 10))
+        // The catalog loads after the decision shows; the button enables when it is there.
+        let reviewEnabled = NSPredicate(format: "isEnabled == true")
+        expectation(for: reviewEnabled, evaluatedWith: app.buttons["subir.review"])
+        waitForExpectations(timeout: 10)
+
+        app.buttons["subir.review"].tap()
+        let row = element(app, "review.row.1")
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.label.contains("Sin categoría") == false)
+        XCTAssertTrue(row.label.contains("Deseos · Desconocido"), "no suggestion: \(row.label)")
+
+        // A duplicate shows its mark and opens nothing.
+        let duplicate = element(app, "review.row.5")
+        XCTAssertTrue(duplicate.label.contains("Ya cargado"), duplicate.label)
+        duplicate.tap()
+        XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1))
+
+        row.tap()
+        XCTAssertTrue(element(app, "review.sheet").waitForExistence(timeout: 5))
+        // The sheet opens half height and its list is lazy: scroll to the Ahorro group.
+        let fund = app.buttons["review.category.stub-aho-fondo"]
+        var swipes = 0
+        while !fund.isHittable && swipes < 5 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(fund.isHittable, "the category never became tappable")
+        fund.tap()
+
+        XCTAssertTrue(element(app, "review.sheet").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(row.label.contains("Ahorro · Fondo de emergencia"), row.label)
+        XCTAssertTrue(row.label.contains("editada"), row.label)
+        XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar (1 cambio)")
+
+        app.buttons["review.confirm"].tap()
+        XCTAssertTrue(element(app, "subir.success").waitForExistence(timeout: 10))
+        // The stub answers with the number of edits it received.
+        XCTAssertTrue(app.staticTexts["1 movimiento importado de Banco de Chile"].exists)
+    }
+
+    @MainActor
+    func testDiscardingFromTheReviewAsksForConfirmation() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
+        waitForExpectations(timeout: 10)
+        app.buttons["subir.review"].tap()
+        XCTAssertTrue(app.buttons["review.discard"].waitForExistence(timeout: 10))
+
+        app.buttons["review.discard"].tap()
+        XCTAssertTrue(app.alerts.buttons["Seguir con la cartola"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Descartar"].tap()
+
+        XCTAssertTrue(app.buttons["subir.chooseFile"].waitForExistence(timeout: 10))
+    }
 }

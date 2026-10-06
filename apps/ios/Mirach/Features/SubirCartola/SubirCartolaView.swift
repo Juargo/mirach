@@ -18,16 +18,23 @@ struct SubirCartolaView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    content
+            Group {
+                if case .revisando(let preview) = viewModel.state {
+                    // Its own scrolling container: the rows must be lazy.
+                    ReviewView(viewModel: viewModel, preview: preview, onDiscard: { confirmingDiscard = true })
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            content
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                    }
+                    // The colour must reach every edge, including the area the keyboard covers
+                    // (the password step), so it ignores all safe areas instead of hugging the content.
+                    .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
             }
-            // The colour must reach every edge, including the area the keyboard covers
-            // (the password step), so it ignores all safe areas instead of hugging the content.
-            .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
             .navigationTitle("Subir cartola")
             .navigationBarTitleDisplayMode(.inline)
             // The system document picker, limited to the two formats the API reads. The URL it
@@ -80,6 +87,7 @@ struct SubirCartolaView: View {
         case .decidiendo(let preview):
             deciding(preview)
         case .revisando:
+            // Drawn by `ReviewView`, outside this scroll view.
             EmptyView()
         case .subiendo:
             Progress(text: "Subiendo transacciones…", identifier: "subir.uploading")
@@ -91,6 +99,11 @@ struct SubirCartolaView: View {
                 Button("Reintentar") { Task { await viewModel.retryImport() } }
                     .buttonStyle(.borderedProminent).controlSize(.large)
                     .accessibilityIdentifier("subir.retry")
+            }
+            if viewModel.canReturnToReview {
+                Button("Volver a revisar") { viewModel.backToReview() }
+                    .buttonStyle(.bordered).controlSize(.large)
+                    .accessibilityIdentifier("subir.backToReview")
             }
             Button("Empezar de nuevo") { viewModel.discard() }
                 .buttonStyle(.bordered).controlSize(.large)
@@ -169,9 +182,38 @@ struct SubirCartolaView: View {
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
             .accessibilityIdentifier("subir.uploadAsIs")
+            reviewEntry
             Button("Descartar", role: .destructive) { confirmingDiscard = true }
                 .buttonStyle(.bordered).controlSize(.large)
                 .accessibilityIdentifier("subir.discard")
+        }
+    }
+
+    /// «Revisar y editar» needs the catalog; if it could not load, the rest of the flow still
+    /// works and this says why the button is off.
+    @ViewBuilder
+    private var reviewEntry: some View {
+        Button { viewModel.startReview() } label: {
+            Text("Revisar y editar").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered).controlSize(.large)
+        .disabled(viewModel.loadedCatalog == nil)
+        .accessibilityIdentifier("subir.review")
+        switch viewModel.catalog {
+        case .loaded: EmptyView()
+        case .loading:
+            Label("Cargando categorías…", systemImage: "arrow.triangle.2.circlepath")
+                .font(.footnote)
+                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                .accessibilityIdentifier("subir.catalogLoading")
+        case .failed:
+            Text("No pudimos cargar tus categorías, así que no se puede revisar. Puedes subir tal cual.")
+                .font(.footnote)
+                .foregroundStyle(Color.Mirach.Feedback.errorText)
+                .accessibilityIdentifier("subir.catalogError")
+            Button("Reintentar") { Task { await viewModel.retryCatalog() } }
+                .buttonStyle(.bordered).controlSize(.regular)
+                .accessibilityIdentifier("subir.catalogRetry")
         }
     }
 

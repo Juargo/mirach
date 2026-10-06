@@ -67,6 +67,11 @@ final class SubirCartolaViewModel {
     /// A message above the review (a refused edit, a commit that bounced back), or `nil`.
     private(set) var reviewNotice: String?
 
+    /// The catalog once it is loaded, `nil` while loading or after a failure.
+    var loadedCatalog: CatalogoCategorias? {
+        if case .loaded(let catalog) = catalog { catalog } else { nil }
+    }
+
     /// The staged file, for the "Archivo elegido" line. `nil` when nothing is staged.
     var stagedFile: CartolaFile? { file }
 
