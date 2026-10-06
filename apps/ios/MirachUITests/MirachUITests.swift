@@ -345,6 +345,70 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
     }
 
+    // MARK: Ingresos del mes
+
+    @MainActor
+    func testTappingTheIncomeCardOpensThatMonthsIncomes() {
+        let app = launch([savedSession])
+        let card = element(app, "resumen.ingreso")
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+
+        XCTAssertTrue(element(app, "ingresos.header").waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Ingresos"].exists)
+        XCTAssertEqual(app.staticTexts["ingresos.month"].label, "Septiembre de 2026")
+        // Total and count of the month, then every income with its origin; VoiceOver reads the sign.
+        XCTAssertEqual(element(app, "ingresos.header").label, "Ingreso. Ingreso de $1.850.000. 4 movimientos")
+        let salary = element(app, "ingresos.row.i-s1")
+        XCTAssertTrue(salary.exists)
+        XCTAssertTrue(salary.label.contains("Ingreso de $1.650.000"), salary.label)
+        XCTAssertTrue(salary.label.hasSuffix("Banco de Chile"), salary.label)
+        XCTAssertTrue(element(app, "ingresos.row.i-s3").label.hasSuffix("Manual"))
+        // Read-only: no traffic light and no spend wording here either.
+        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Gasto")).count, 0)
+
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testTheIncomesOpenForTheMonthTheSummaryWasOnAndTheSelectorReachesAnEmptyMonth() {
+        let app = launch([savedSession])
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        app.buttons["Mes anterior"].tap()
+        XCTAssertTrue(app.staticTexts["Agosto de 2026"].waitForExistence(timeout: 10))
+
+        element(app, "resumen.ingreso").tap()
+        XCTAssertTrue(element(app, "ingresos.header").waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["ingresos.month"].label, "Agosto de 2026")
+        XCTAssertTrue(element(app, "ingresos.row.i-a1").exists)
+        XCTAssertFalse(element(app, "ingresos.row.i-s1").exists, "September's income showed up in August")
+
+        app.buttons["Mes anterior"].tap()
+        let empty = element(app, "ingresos.empty")
+        XCTAssertTrue(empty.waitForExistence(timeout: 10))
+        XCTAssertTrue(empty.label.contains("Sin ingresos en julio de 2026"), empty.label)
+        XCTAssertTrue(app.buttons["Mes siguiente"].isEnabled)
+    }
+
+    @MainActor
+    func testAtTheLargestTextSizeTheFirstIncomeIsReachable() {
+        let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        let card = element(app, "resumen.ingreso")
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        for _ in 0..<6 where !card.isHittable { app.swipeUp() }
+        card.tap()
+        XCTAssertTrue(element(app, "ingresos.header").waitForExistence(timeout: 10))
+
+        let first = element(app, "ingresos.row.i-s1")
+        var swipes = 0
+        while !first.isHittable && swipes < 3 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(first.isHittable, "first income not reachable within 3 swipes at the largest text size")
+    }
+
     @MainActor
     func testMissingAPIKeyShowsTheConfigurationErrorInsteadOfSignIn() {
         let app = launch([missingAPIKey])

@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// "Resumen del mes": the signed-in home. Read-only in this version; the entry points to
-/// bucket detail, income and upload arrive with those screens.
+/// "Resumen del mes": the signed-in home. Opens the bucket detail and the month's incomes.
 struct ResumenView: View {
     let versionViewModel: ApiVersionViewModel
     /// Changing it reloads the month (a statement was just imported).
@@ -53,6 +52,9 @@ struct ResumenView: View {
                     // A move changes this month's figures too: repeat the query for the month on screen.
                     onReclassified: { Task { await viewModel.refresh() } }
                 )
+            }
+            .navigationDestination(for: IngresosRoute.self) { route in
+                IngresosView(api: api, periodo: route.periodo)
             }
         }
     }
