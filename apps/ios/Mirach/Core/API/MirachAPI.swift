@@ -24,6 +24,9 @@ protocol MirachAPI: Sendable {
     /// `GET /api/categorias`: the user's categories, for naming a row's classification and for
     /// choosing another one in the review.
     func categorias() async throws -> CatalogoCategorias
+    /// `POST /api/categorias`: creates a category (with at most one pattern) from the review.
+    /// Throws `CategoriaError` for the 400 and 409 the catalog names.
+    func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult

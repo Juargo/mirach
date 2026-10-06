@@ -197,6 +197,10 @@ struct StubMirachAPI: MirachAPI {
 
     func categorias() async throws -> CatalogoCategorias { Self.catalog }
 
+    func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo {
+        throw APIError.badStatus(0)
+    }
+
     /// With edits, the answer reports how many the stub received as `totalTransacciones`, so a
     /// UI test can assert the exact count; an edit that names a duplicate row or a category
     /// outside the catalog is refused like the real server does (400, nothing saved).
