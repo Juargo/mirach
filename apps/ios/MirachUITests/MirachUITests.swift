@@ -140,6 +140,7 @@ final class MirachUITests: XCTestCase {
 
         let field = app.textFields["perfil.delete.field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
         let confirm = app.buttons["perfil.delete.confirm"]
         XCTAssertFalse(confirm.isEnabled)
         field.typeText("ELIMINA")
