@@ -4,7 +4,6 @@ import SwiftUI
 /// movement opens a sheet to move it to another category.
 struct DetalleBucketView: View {
     @State private var viewModel: DetalleBucketViewModel
-    @State private var started = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     init(api: any MirachAPI, bucket: Bucket, periodo: Periodo, onReclassified: @escaping @MainActor () -> Void) {
@@ -26,12 +25,9 @@ struct DetalleBucketView: View {
         .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
         .navigationTitle(viewModel.bucket.label)
         .navigationBarTitleDisplayMode(.inline)
-        // Once: the task restarts whenever the view reappears, and that must not drop the month.
-        .task {
-            guard !started else { return }
-            started = true
-            await viewModel.load()
-        }
+        // The task restarts whenever the view reappears: that must neither drop the month nor
+        // leave a load that was cancelled midway as an endless spinner.
+        .task { await viewModel.loadIfNeeded() }
         .sheet(isPresented: Binding(
             get: { viewModel.sheetMovement != nil },
             set: { if !$0 { viewModel.dismissSheet() } }

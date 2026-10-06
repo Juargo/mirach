@@ -64,6 +64,7 @@ final class DetalleBucketViewModel {
     private let onReclassified: @MainActor () -> Void
     /// Bumped on every detail request so a late answer for an older choice is dropped.
     private var generation = 0
+    private var needsLoad = true
 
     init(api: any MirachAPI, bucket: Bucket, periodo: Periodo, onReclassified: @escaping @MainActor () -> Void = {}) {
         self.api = api
@@ -79,10 +80,18 @@ final class DetalleBucketViewModel {
 
     // MARK: detail
 
+    /// Runs `load()` unless the screen already finished one: its task restarts on every
+    /// appearance, and one cancelled midway (the screen went away) must run again.
+    func loadIfNeeded() async {
+        guard needsLoad else { return }
+        await load()
+    }
+
     func load() async {
         state = .loading
         async let months = fetchPeriodos()
-        await fetch(periodo: periodo)
+        // Answered (even with a failure the screen shows): done. Cancelled: still to do.
+        if await fetch(periodo: periodo) != nil { needsLoad = false }
         if let months = await months { periodos = months }
     }
 
