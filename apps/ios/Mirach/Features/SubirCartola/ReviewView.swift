@@ -230,21 +230,42 @@ private struct ReviewRow: View {
             .foregroundStyle(row.cargo != 0 ? Color.Mirach.Feedback.expenseText : Color.Mirach.Base.foreground)
     }
 
+    /// Date, classification and marks. One line normally; stacked at accessibility sizes so
+    /// nothing is squeezed into a narrow column and hyphenated mid-word.
+    @ViewBuilder
     private var subtitle: some View {
-        HStack(spacing: 6) {
-            Text(Format.shortDate(row.fecha))
-            Text("·")
-            if row.esDuplicado {
-                Label("Ya cargado", systemImage: "checkmark.circle")
-            } else {
-                Text(classification.text)
-                if isEdited { Label("Editada", systemImage: "pencil").labelStyle(.titleAndIcon) }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.footnote).accessibilityHidden(true)
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Format.shortDate(row.fecha))
+                subtitleDetail
             }
+            // Wrap at word boundaries instead of truncating.
+            .fixedSize(horizontal: false, vertical: true)
+            .font(.footnote)
+            .foregroundStyle(Color.Mirach.Base.mutedForeground)
+        } else {
+            HStack(spacing: 6) {
+                Text(Format.shortDate(row.fecha))
+                Text("·")
+                subtitleDetail
+                if !row.esDuplicado {
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.footnote).accessibilityHidden(true)
+                }
+            }
+            .font(.footnote)
+            .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
-        .font(.footnote)
-        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+    }
+
+    @ViewBuilder
+    private var subtitleDetail: some View {
+        if row.esDuplicado {
+            Label("Ya cargado", systemImage: "checkmark.circle")
+        } else {
+            Text(classification.text)
+            if isEdited { Label("Editada", systemImage: "pencil").labelStyle(.titleAndIcon) }
+        }
     }
 
     private var detail: String {
