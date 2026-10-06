@@ -163,6 +163,36 @@ struct SubirCartolaCategoriaTests {
         #expect(viewModel.edits == [0: SampleData.Cat.fondo, 2: "cat-new"])
     }
 
+    @Test func retryingAFailedRefreshWhileAnotherCreationIsInFlightIsIgnored() async {
+        let api = FakeMirachAPI()
+        let second = CategoriaCatalogo(id: "cat-second", nombre: "Otra", bucket: .ahorro)
+        api.setPreviewResults([
+            .success(SampleData.preview), .failure(URLError(.notConnectedToInternet)),
+            .success(preview(movingToNew: [1, 2])),
+        ])
+        api.setCrearCategoriaResults([.success(created), .success(second)])
+        let (viewModel, _, _) = await reviewing(api)
+        await viewModel.createCategory(new, forRow: 2)
+        #expect(viewModel.previewRefresh == .failed(categoryName: "Amigos"))
+        let gate = Gate()
+        api.crearGate = gate
+
+        let creating = Task { await viewModel.createCategory(NuevaCategoria(nombre: "Otra", bucket: .ahorro, patron: nil), forRow: 3) }
+        await gate.waitUntilWaiting()
+        #expect(viewModel.isCreatingCategory)
+        await viewModel.retryPreviewRefresh()
+        #expect(api.previewCalls.count == 2, "the retry must not start a preview while a creation is in flight")
+        await gate.open()
+        await creating.value
+
+        // One refresh for the second category only; its count is the one shown.
+        #expect(api.previewCalls.count == 3)
+        #expect(viewModel.previewRefresh == .idle)
+        #expect(viewModel.state == .revisando(preview(movingToNew: [1, 2])))
+        #expect(viewModel.edits[3] == "cat-second")
+        #expect(viewModel.reviewInfo == "Categoría «Otra» creada.")
+    }
+
     @Test func aFailedCatalogRefreshKeepsTheCategoryTheServerJustCreated() async {
         let api = FakeMirachAPI()
         api.setPreviewResults([.success(SampleData.preview), .success(preview(movingToNew: [2]))])

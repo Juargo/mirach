@@ -38,6 +38,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _crearCalls: [NuevaCategoria] = []
     private var _previewGate: Gate?
     private var _categoriasGate: Gate?
+    private var _crearGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -138,7 +139,14 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         return try result.get()
     }
 
+    /// When set, `crearCategoria` waits at the gate before answering.
+    var crearGate: Gate? {
+        get { lock.withLock { _crearGate } }
+        set { lock.withLock { _crearGate = newValue } }
+    }
+
     func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo {
+        await crearGate?.wait()
         let result = lock.withLock {
             _crearCalls.append(new)
             return crearResults.count > 1 ? crearResults.removeFirst() : crearResults[0]

@@ -144,7 +144,10 @@ final class SubirCartolaViewModel {
 
     /// "Reintentar" after the repeated preview failed.
     func retryPreviewRefresh() async {
-        guard case .failed = previewRefresh, let pendingRefresh, case .revisando = state else { return }
+        // Not while a creation is in flight: its own refresh would overlap this one.
+        guard case .failed = previewRefresh, !isCreatingCategory, let pendingRefresh, case .revisando = state else {
+            return
+        }
         await refreshPreview(category: pendingRefresh.category, fromRow: pendingRefresh.row, generation: generation)
     }
 
@@ -153,18 +156,20 @@ final class SubirCartolaViewModel {
         let (name, id) = (category.nombre, category.id)
         pendingRefresh = (category, fromRow)
         previewRefresh = .updating
+        refreshSerial += 1
+        let serial = refreshSerial
         // The names of the categories first, so rows resolve against the server's catalog; if it
         // cannot be read the local one (with the new category) stays.
-        if let fresh = try? await api.categorias(), mine == generation {
+        if let fresh = try? await api.categorias(), mine == generation, serial == refreshSerial {
             // A catalog read a moment after the creation should list it; if it does not (a stale
             // read), the category the server just confirmed is still offered.
             let listed = fresh.categoria(id: id) != nil
             catalog = .loaded(listed ? fresh : CatalogoCategorias(categorias: fresh.categorias + [category]))
         }
-        guard mine == generation else { return }
+        guard mine == generation, serial == refreshSerial else { return }
         do {
             let result = try await api.previewIngesta(file: file, password: password)
-            guard mine == generation, case .revisando(let before) = state else { return }
+            guard mine == generation, serial == refreshSerial, case .revisando(let before) = state else { return }
             let count = Self.newMatches(
                 before: before.filas, after: result.filas, categoryID: id, fromRow: fromRow, edits: edits
             )
@@ -177,7 +182,7 @@ final class SubirCartolaViewModel {
             previewRefresh = .idle
             reviewInfo = Self.appliedMessage(name: name, count: count)
         } catch {
-            guard mine == generation else { return }
+            guard mine == generation, serial == refreshSerial else { return }
             if case APIError.sessionExpired = error {
                 discard()
             } else {
@@ -202,6 +207,8 @@ final class SubirCartolaViewModel {
     /// The last commit attempt, to retry it as it was.
     /// Set when a commit bounced because of the edits: the next catalog that loads drops the
     /// edits whose category it no longer has.
+    /// Tags each repeated preview so a stale answer cannot overwrite a newer one.
+    private var refreshSerial = 0
     private var pendingRefresh: (category: CategoriaCatalogo, row: Int)?
     private var pruneEditsPending = false
     /// A commit already bounced back to the review because of the edits: a second rejection
