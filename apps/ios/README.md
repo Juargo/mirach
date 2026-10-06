@@ -132,6 +132,16 @@ Si el servidor rechaza la clave (401 `API_KEY_INVALIDA`) se muestra la misma pan
 - **Errores:** cada `code` (`NOMBRE_INVALIDO`, `BUCKET_NO_ASIGNABLE`, `ICONO_INVALIDO`, `PATRON_INVALIDO`, `MATCH_TYPE_INVALIDO`, `REGEX_INVALIDA`, `NOMBRE_DUPLICADO`, `PATRON_DUPLICADO`; `indice` en los anidados) aparece junto a su campo; un código desconocido muestra el `message` del servidor; 401 va por el relé único.
 - **Aplazado:** selector de ícono (la lista de 25 valores no está en el contrato y habría que asociar cada uno a un símbolo) y tipos de coincidencia distintos de «contiene» (empieza con, expresión regular).
 
+### Detalle de bucket (T7)
+
+- **Entrada:** cada fila de bucket del Resumen es un `NavigationLink` (`BucketRoute`: bucket y mes que se ven). Volver conserva el mes del Resumen; la tarea de carga del Resumen ya no se repite al volver (solo con un token nuevo, p. ej. tras importar).
+- **Datos:** `GET /api/buckets/{bucket}/detalle?periodo=AAAA-MM` (`BucketDetalleMapper`; dinero por `Money.pesos`, nunca `Double`; una fila mal formada falla en vez de mostrar una cifra). Cabecera (total, % del ingreso o «—», «Meta: N%» solo si existe, cantidades), un grupo por categoría con ícono, subtotal y conteo, y sus movimientos (descripción, fecha corta en UTC, banco o «Manual», monto). El orden es el que manda el API (subtotal descendente y «Sin categoría» al final; el catálogo dice «alfabético», ver Aplazado).
+- **Íconos:** `CategoryIcon` asocia los 25 valores de la lista permitida (ADR-045) a SF Symbols; `null` o un valor desconocido usa la etiqueta genérica, sin error. Una prueba verifica que cada símbolo existe en el sistema.
+- **Reclasificar:** tocar un movimiento abre la hoja de categorías (`CategorySheet`, la misma de «Revisar y editar») con el catálogo de `GET /api/categorias` (se carga la primera vez; con «Reintentar» si falla). Elegir una categoría envía `PATCH /api/transacciones/{id}/categoria` con `{"categoriaId": ...}`, siempre el id y nunca el nombre (ADR-042). Si la categoría es de otro bucket, antes se pide confirmación («Este movimiento pasará de Deseos a Necesidades y cambiará el cálculo del mes.»; Cancelar revierte la elección). Elegir la categoría que ya tiene solo cierra la hoja.
+- **Después:** se cierra la hoja, se muestra y se anuncia a VoiceOver «Movida a {bucket} · {categoría}» con lo que respondió el servidor, se repite el detalle y el Resumen repite su consulta para el mes que muestra. Errores: 400 deja el movimiento, avisa en la hoja y recarga el catálogo; 404 cierra la hoja, avisa y recarga el detalle; sin red avisa en la hoja; 401 va por el relé único sin mensaje.
+- **Crear categoría:** «Crear categoría» en la hoja abre el mismo formulario de T5c sin el campo de patrón (los patrones se agregan después desde la categoría); la categoría creada queda elegida y sigue el camino normal (con confirmación si es de otro bucket).
+- **Aplazado:** «Detalle de categoría» (siguiente pantalla; el encabezado de grupo no navega todavía), tocar la porción del gráfico del Resumen, el selector de ícono al crear y el atajo de deslizar sobre una fila (la acción existe como botón accesible). El semáforo no se muestra (decisión de producto, 2026-10-05).
+
 ## Pruebas
 
 Desde Xcode: Cmd+U (corre unitarias y de interfaz).
@@ -171,6 +181,7 @@ apps/ios/
     Features/InicioDeSesion/  pantalla de inicio de sesión con Apple (una carpeta por pantalla del catálogo)
     Features/Sesion/     RootView (elige pantalla según la sesión) y error de configuración
     Features/Resumen/    Resumen del mes: vista, view model, gráfico y filas de bucket
+    Features/DetalleBucket/ Detalle de bucket: vista, view model, hoja de reclasificación e íconos
     Features/Perfil/        Perfil: vista (con la pantalla de eliminar cuenta), view model y textos
     Features/SubirCartola/  Subir cartola: vista, view model (máquina de estados) y textos
     Core/Staging/        copia temporal del archivo elegido y reglas de validación
