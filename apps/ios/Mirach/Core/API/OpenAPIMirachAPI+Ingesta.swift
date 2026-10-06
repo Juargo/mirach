@@ -9,8 +9,9 @@ extension OpenAPIMirachAPI {
 
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview {
         let sentToken = currentToken()
+        let data = try Self.read(file)
         var parts: [PreviewParts] = [
-            .file(.init(payload: .init(body: HTTPBody(try Data(contentsOf: file.url))), filename: file.filename))
+            .file(.init(payload: .init(body: HTTPBody(data)), filename: file.filename))
         ]
         // Absent or empty means "no protection": only send it when there is one.
         if let password, !password.isEmpty {
@@ -34,14 +35,15 @@ extension OpenAPIMirachAPI {
                 throw APIError.badStatus(statusCode)
             }
         } catch let error as ClientError {
-            throw await Self.unwrap(error)
+            throw await unwrap(error, sentToken: sentToken)
         }
     }
 
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
         let sentToken = currentToken()
+        let data = try Self.read(file)
         var parts: [CommitParts] = [
-            .file(.init(payload: .init(body: HTTPBody(try Data(contentsOf: file.url))), filename: file.filename)),
+            .file(.init(payload: .init(body: HTTPBody(data)), filename: file.filename)),
             .edits(.init(payload: .init(body: HTTPBody(try Self.editsJSON(edits))))),
         ]
         if let password, !password.isEmpty {
@@ -68,7 +70,7 @@ extension OpenAPIMirachAPI {
                 throw APIError.badStatus(statusCode)
             }
         } catch let error as ClientError {
-            throw await Self.unwrap(error)
+            throw await unwrap(error, sentToken: sentToken)
         }
     }
 
@@ -77,19 +79,38 @@ extension OpenAPIMirachAPI {
     /// The generated client fails with `ClientError` when it cannot decode an answer (for
     /// instance a 400 whose `code` the app has never seen). The status and the raw body are
     /// still there, so the answer keeps its meaning instead of becoming a generic failure.
-    private static func unwrap(_ error: ClientError) async -> any Error {
+    private func unwrap(_ error: ClientError, sentToken: String?) async -> any Error {
+        let json = await Self.rawJSON(of: error)
         switch error.response?.status.code {
         case 400:
-            var message: String?
-            if let body = error.responseBody, let data = try? await Data(collecting: body, upTo: 65_536),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                message = json["message"] as? String
-            }
-            return map400(code: nil, message: message ?? "")
+            return Self.map400(code: nil, message: (json?["message"] as? String) ?? "")
+        case 401:
+            // Any 401 goes through the single session-expiry relay, readable or not; only a
+            // body that says the client key is wrong is not a session problem.
+            if (json?["code"] as? String) == "API_KEY_INVALIDA" { return APIError.apiKeyRejected }
+            if let sentToken { onSessionExpired(sentToken) }
+            return APIError.sessionExpired
         case 409: return IngestaError.catalogIncomplete
         case 500: return IngestaError.serverFailure
         case 503: return IngestaError.catalogUnavailable
         default: return error.underlyingError
+        }
+    }
+
+    private static func rawJSON(of error: ClientError) async -> [String: Any]? {
+        guard let body = error.responseBody, let data = try? await Data(collecting: body, upTo: 65_536) else {
+            return nil
+        }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    /// The staged copy is ours alone: if it cannot be read it is gone, and only choosing the
+    /// file again helps (so this must not look like a retryable server error).
+    private static func read(_ file: CartolaFile) throws -> Data {
+        do {
+            return try Data(contentsOf: file.url)
+        } catch {
+            throw IngestaError.fileUnreadable
         }
     }
 

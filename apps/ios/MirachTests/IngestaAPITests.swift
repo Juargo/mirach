@@ -158,7 +158,60 @@ struct IngestaAPITests {
         }
     }
 
+    @Test func previewReportsAMissingStagedCopyAsUnreadable() async {
+        let gone = CartolaFile(url: URL(fileURLWithPath: "/nonexistent/cartola.xlsx"), filename: "cartola.xlsx", byteCount: 1)
+
+        await #expect(throws: IngestaError.fileUnreadable) {
+            _ = try await makeAPI(FakeTransport.json(Self.previewBody)).previewIngesta(file: gone, password: nil)
+        }
+    }
+
+    @Test func previewSendsAnUndecodable401ThroughTheSingleRelay() async throws {
+        let transport = FakeTransport.json(#"{"message":"x","code":"CODIGO_NUEVO"}"#, status: .unauthorized)
+        let expired = LockedBox<[String]>([])
+        let file = try stagedFile()
+
+        await #expect(throws: APIError.sessionExpired) {
+            _ = try await makeAPI(transport, expired: { token in expired.mutate { $0.append(token) } })
+                .previewIngesta(file: file, password: nil)
+        }
+        #expect(expired.value == ["tok"])
+    }
+
+    @Test func commitSendsAnUndecodable401ThroughTheSingleRelay() async throws {
+        let transport = FakeTransport.json("not json", status: .unauthorized)
+        let expired = LockedBox<[String]>([])
+        let file = try stagedFile()
+
+        await #expect(throws: APIError.sessionExpired) {
+            _ = try await makeAPI(transport, expired: { token in expired.mutate { $0.append(token) } })
+                .commitIngesta(file: file, password: nil, edits: [])
+        }
+        #expect(expired.value == ["tok"])
+    }
+
+    @Test func anUndecodable401NamingTheApiKeyIsNotASessionExpiry() async throws {
+        let transport = FakeTransport.json(#"{"message":"x","code":"API_KEY_INVALIDA","extra":1}"#, status: .unauthorized)
+        let expired = LockedBox<[String]>([])
+        let file = try stagedFile()
+
+        await #expect(throws: APIError.apiKeyRejected) {
+            _ = try await makeAPI(transport, expired: { token in expired.mutate { $0.append(token) } })
+                .previewIngesta(file: file, password: nil)
+        }
+        #expect(expired.value.isEmpty)
+    }
+
     // MARK: commit
+
+    @Test func commitReportsAMissingStagedCopyAsUnreadable() async {
+        let gone = CartolaFile(url: URL(fileURLWithPath: "/nonexistent/cartola.xlsx"), filename: "cartola.xlsx", byteCount: 1)
+
+        await #expect(throws: IngestaError.fileUnreadable) {
+            _ = try await makeAPI(FakeTransport.json(Self.commitBody, status: .created))
+                .commitIngesta(file: gone, password: nil, edits: [])
+        }
+    }
 
     @Test func commitSendsTheFileAnEmptyEditsListAndThePassword() async throws {
         let transport = FakeTransport.json(Self.commitBody, status: .created)
