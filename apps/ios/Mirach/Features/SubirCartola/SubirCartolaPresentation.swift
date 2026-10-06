@@ -8,6 +8,8 @@ extension SubirCartolaViewModel {
     nonisolated static let accountProblemMessage =
         "No pudimos importar tu cartola por un problema de tu cuenta. El archivo está bien y no se importó nada."
 
+    nonisolated static let unreadableCopyMessage = "No pudimos leer el archivo. Elígelo de nuevo."
+
     nonisolated static func message(for problem: CartolaFileProblem) -> String {
         switch problem {
         case .unsupportedExtension: "Elige un archivo .xlsx o .pdf."

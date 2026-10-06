@@ -51,6 +51,9 @@ enum IngestaError: Error, Equatable {
     case catalogIncomplete
     /// 503 `CATALOGO_NO_DISPONIBLE`: transient, nothing was saved.
     case catalogUnavailable
+    /// The staged copy cannot be read any more (deleted or unreadable): trying again cannot help,
+    /// the person has to choose the file again.
+    case fileUnreadable
     /// 500: unexpected, nothing was saved; trying again is safe.
     case serverFailure
 }

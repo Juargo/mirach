@@ -66,8 +66,8 @@ final class SubirCartolaViewModel {
     init(api: any MirachAPI, staging: any CartolaStaging) {
         self.api = api
         self.staging = staging
-        // A previous run may have been killed mid-flow, leaving a copy behind.
-        staging.purgeAll()
+        // No purge here: SwiftUI may build a throwaway view model while a live flow holds a
+        // staged copy. Leftovers of a killed run are purged once at launch (`AppEnvironment`).
     }
 
     // MARK: actions
@@ -169,6 +169,10 @@ final class SubirCartolaViewModel {
         case IngestaError.passwordIncorrect:
             password = nil
             state = .protegido(filename: filename, incorrect: true)
+        case IngestaError.fileUnreadable:
+            // Not retryable: drop the broken copy and the password, ask for the file again.
+            discard()
+            state = .inicial(message: Self.unreadableCopyMessage)
         case IngestaError.noMovements: state = .errorPrevia(.noMovements)
         case IngestaError.rejected(let message): state = .errorPrevia(.rejected(message: message))
         case IngestaError.catalogUnavailable: state = .errorPrevia(.temporarilyUnavailable)
@@ -189,6 +193,9 @@ final class SubirCartolaViewModel {
         case IngestaError.noMovements:
             clear()
             state = .inicial(message: Self.noMovementsMessage)
+        case IngestaError.fileUnreadable:
+            clear()
+            state = .inicial(message: Self.unreadableCopyMessage)
         case IngestaError.catalogIncomplete: state = .errorImportacion(.accountProblem)
         case IngestaError.catalogUnavailable: state = .errorImportacion(.temporarilyUnavailable)
         // A cancelled request (the app went to the background) is safe to retry: a failed

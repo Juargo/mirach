@@ -46,7 +46,7 @@ enum APIError: Error, Equatable {
 struct OpenAPIMirachAPI: MirachAPI {
     let client: Client
     let currentToken: @Sendable () -> String?
-    private let onSessionExpired: @Sendable (String) -> Void
+    let onSessionExpired: @Sendable (String) -> Void
 
     /// `onSessionExpired` is called with the token that was rejected whenever an authenticated
     /// call gets `SESION_INVALIDA`: the single place that notices an expired session, so no

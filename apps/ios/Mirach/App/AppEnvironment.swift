@@ -26,6 +26,9 @@ enum AppEnvironment {
         let expiryRelay: SessionExpiryRelay
         /// Private copies of the statement being uploaded.
         let staging: any CartolaStaging
+        /// The upload flow, built once here so SwiftUI re-creating views never rebuilds it
+        /// (a rebuilt one would lose the file and password of a flow in progress).
+        let subir: SubirCartolaViewModel
         /// Non-nil when the build cannot work; the root view then shows an error screen.
         let configurationProblem: ConfigurationCheck.Problem?
     }
@@ -37,9 +40,13 @@ enum AppEnvironment {
         arguments: [String] = ProcessInfo.processInfo.arguments,
         apiKey: String = AppConfiguration.apiKey,
         store: (any SessionStore)? = nil,
-        transport: (any ClientTransport)? = nil
+        transport: (any ClientTransport)? = nil,
+        staging: (any CartolaStaging)? = nil
     ) -> Dependencies {
         let relay = SessionExpiryRelay()
+        let staging = staging ?? TemporaryCartolaStaging()
+        // Once per launch, before any flow exists: copies left by a run that was killed midway.
+        staging.purgeAll()
 
         if arguments.contains(stubbedClientArgument) {
             let stubStore = InMemorySessionStore(
@@ -51,7 +58,8 @@ enum AppEnvironment {
                 store: stubStore,
                 session: SessionController(api: api, store: stubStore),
                 expiryRelay: relay,
-                staging: TemporaryCartolaStaging(),
+                staging: staging,
+                subir: SubirCartolaViewModel(api: api, staging: staging),
                 configurationProblem: arguments.contains(missingAPIKeyArgument) ? .missingAPIKey : nil
             )
         }
@@ -74,7 +82,8 @@ enum AppEnvironment {
         relay.connect { token in await session.sessionExpired(token: token) }
         return Dependencies(
             api: api, store: store, session: session, expiryRelay: relay,
-            staging: TemporaryCartolaStaging(), configurationProblem: problem
+            staging: staging, subir: SubirCartolaViewModel(api: api, staging: staging),
+            configurationProblem: problem
         )
     }
 

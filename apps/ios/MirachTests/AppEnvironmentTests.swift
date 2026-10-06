@@ -106,4 +106,23 @@ struct AppEnvironmentTests {
 
         #expect(store.load() == saved)
     }
+
+    // MARK: staged statements
+
+    @Test func launchPurgesStatementsLeftByAPreviousRunExactlyOnce() {
+        let staging = FakeCartolaStaging()
+
+        _ = AppEnvironment.make(arguments: [AppEnvironment.stubbedClientArgument], staging: staging)
+
+        #expect(staging.purges == 1)
+    }
+
+    @Test func liveLaunchAlsoPurgesAndSharesTheStagingWithTheFlow() {
+        let staging = FakeCartolaStaging()
+
+        let live = AppEnvironment.make(arguments: [], apiKey: "k", store: InMemorySessionStore(), staging: staging)
+
+        #expect(staging.purges == 1)
+        #expect(live.staging as AnyObject === staging)
+    }
 }

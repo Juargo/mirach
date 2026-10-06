@@ -15,11 +15,53 @@ struct SubirCartolaViewModelTests {
 
     // MARK: choosing a file
 
-    @Test func startsEmptyAndPurgesLeftoversOfAPreviousRun() {
-        let (viewModel, _, staging) = make()
+    @Test func startsEmpty() {
+        let (viewModel, _, _) = make()
 
         #expect(viewModel.state == .inicial(message: nil))
-        #expect(staging.purges == 1)
+    }
+
+    @Test func creatingAnotherViewModelNeverTouchesTheStagedCopyOfALiveFlow() async {
+        // SwiftUI can build a throwaway view model while the live one is mid-flow.
+        let (live, api, staging) = make()
+        await live.chooseFile(xlsx)
+
+        _ = SubirCartolaViewModel(api: api, staging: staging)
+
+        #expect(staging.purges == 0)
+        #expect(staging.discarded.isEmpty)
+        #expect(live.stagedFile != nil)
+    }
+
+    @Test func anUnreadableStagedCopyOnPreviewAsksForTheFileAgain() async {
+        let api = FakeMirachAPI()
+        api.setPreviewResults([.failure(IngestaError.fileUnreadable)])
+        let (viewModel, _, staging) = make(api)
+
+        await viewModel.chooseFile(xlsx)
+
+        #expect(viewModel.state == .inicial(message: SubirCartolaViewModel.unreadableCopyMessage))
+        #expect(SubirCartolaViewModel.unreadableCopyMessage == "No pudimos leer el archivo. Elígelo de nuevo.")
+        #expect(staging.discarded.count == 1)
+        #expect(viewModel.stagedFile == nil)
+    }
+
+    @Test func anUnreadableStagedCopyOnCommitAsksForTheFileAgainAndDropsThePassword() async {
+        let api = FakeMirachAPI()
+        api.setPreviewResults([
+            .failure(IngestaError.passwordRequired), .success(SampleData.preview), .success(SampleData.preview),
+        ])
+        api.setCommitResults([.failure(IngestaError.fileUnreadable)])
+        let (viewModel, _, staging) = make(api)
+        await viewModel.chooseFile(pdf)
+        await viewModel.submitPassword("buena")
+
+        await viewModel.uploadAsIs()
+
+        #expect(viewModel.state == .inicial(message: SubirCartolaViewModel.unreadableCopyMessage))
+        #expect(staging.discarded.count == 1)
+        await viewModel.chooseFile(pdf)
+        #expect(api.previewCalls.last?.password == nil)
     }
 
     @Test func aValidFileGoesToPreviewAndThenToDeciding() async {

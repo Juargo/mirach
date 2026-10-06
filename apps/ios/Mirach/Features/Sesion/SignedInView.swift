@@ -7,14 +7,12 @@ struct SignedInView: View {
 
     let environment: AppEnvironment.Dependencies
     @State private var selection = Tab.resumen
-    @State private var subir: SubirCartolaViewModel
     @State private var versionViewModel: ApiVersionViewModel
     /// Bumped after each import so the Resumen reloads the new data.
     @State private var resumenReload = 0
 
     init(environment: AppEnvironment.Dependencies) {
         self.environment = environment
-        _subir = State(initialValue: SubirCartolaViewModel(api: environment.api, staging: environment.staging))
         _versionViewModel = State(initialValue: ApiVersionViewModel(api: environment.api))
     }
 
@@ -31,16 +29,16 @@ struct SignedInView: View {
             .tag(Tab.resumen)
 
             SubirCartolaView(
-                viewModel: subir,
+                viewModel: environment.subir,
                 onShowSummary: { selection = .resumen },
                 testFixtureURL: AppEnvironment.uiTestFixtureURL()
             )
             .tabItem { Label("Subir", systemImage: "square.and.arrow.up") }
             .tag(Tab.subir)
         }
-        .onChange(of: subir.importsCompleted) { resumenReload += 1 }
+        .onChange(of: environment.subir.importsCompleted) { resumenReload += 1 }
         // The whole area leaves the screen on sign-out (also after a 401): drop the file copy
         // and any password. Switching tabs does not trigger this.
-        .onDisappear { subir.discard() }
+        .onDisappear { environment.subir.discard() }
     }
 }
