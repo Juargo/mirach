@@ -30,7 +30,7 @@ struct ReviewView: View {
                                 ),
                                 isEdited: viewModel.edits[row.rowIndex] != nil,
                                 // No catalog (reloading or failed): nothing to choose from yet.
-                                onEdit: row.esDuplicado || catalog == nil ? nil : { editingRow = row }
+                                onEdit: row.esDuplicado || catalog == nil || viewModel.previewRefresh == .updating ? nil : { editingRow = row }
                             )
                             Divider().overlay(Color.Mirach.Base.border)
                         }
@@ -50,12 +50,15 @@ struct ReviewView: View {
                 row: row,
                 catalog: catalog ?? CatalogoCategorias(categorias: []),
                 selectedID: viewModel.edits[row.rowIndex] ?? row.sugerido?.categoriaId,
+                viewModel: viewModel,
                 onSelect: { id in
                     viewModel.choose(id, forRow: row.rowIndex)
                     editingRow = nil
                 }
             )
         }
+        // A category was created from the sheet: it is no longer needed.
+        .onChange(of: viewModel.createdCategoryCount) { editingRow = nil }
         // In the bar, not under "Confirmar": it frees room for rows and is hard to hit by accident.
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -64,6 +67,7 @@ struct ReviewView: View {
             }
         }
         .onChange(of: viewModel.reviewNotice) { noticeFocused = viewModel.reviewNotice != nil }
+        .onChange(of: viewModel.reviewInfo) { noticeFocused = viewModel.reviewInfo != nil }
     }
 
     private var header: some View {
@@ -92,6 +96,7 @@ struct ReviewView: View {
                 .accessibilityFocused($noticeFocused)
                 .accessibilityIdentifier("review.notice")
         }
+        previewRefreshNotice
         switch viewModel.catalog {
         case .loaded: EmptyView()
         case .loading:
@@ -111,13 +116,45 @@ struct ReviewView: View {
         }
     }
 
+    /// After creating a category: the repeated preview in progress, its result or its failure.
+    @ViewBuilder
+    private var previewRefreshNotice: some View {
+        switch viewModel.previewRefresh {
+        case .updating:
+            Label(SubirCartolaViewModel.updatingPreviewMessage, systemImage: "arrow.triangle.2.circlepath")
+                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                .padding(.bottom, 12)
+                .accessibilityFocused($noticeFocused)
+                .accessibilityIdentifier("review.updating")
+        case .failed(let name):
+            VStack(alignment: .leading, spacing: 8) {
+                Text(SubirCartolaViewModel.refreshFailedMessage(name: name))
+                    .foregroundStyle(Color.Mirach.Feedback.errorText)
+                Button("Reintentar") { Task { await viewModel.retryPreviewRefresh() } }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("review.refreshRetry")
+            }
+            .padding(.bottom, 12)
+            .accessibilityIdentifier("review.refreshFailed")
+        case .idle:
+            if let info = viewModel.reviewInfo {
+                Text(info)
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 12)
+                    .accessibilityFocused($noticeFocused)
+                    .accessibilityIdentifier("review.info")
+            }
+        }
+    }
+
     private var actions: some View {
         VStack(spacing: 8) {
             Button { Task { await viewModel.confirm() } } label: {
                 Text(confirmTitle).frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent).controlSize(.large)
-            .disabled(viewModel.loadedCatalog == nil)
+            .disabled(viewModel.loadedCatalog == nil || viewModel.previewRefresh == .updating)
             .accessibilityIdentifier("review.confirm")
         }
         .padding(16)
@@ -293,12 +330,23 @@ struct CategorySheet: View {
     let row: CartolaRow
     let catalog: CatalogoCategorias
     let selectedID: String?
+    let viewModel: SubirCartolaViewModel
     let onSelect: (String) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        NewCategoryForm(row: row, viewModel: viewModel)
+                    } label: {
+                        Label("Crear categoría", systemImage: "plus")
+                            .foregroundStyle(Color.Mirach.Base.foreground)
+                            .frame(minHeight: 44)
+                    }
+                    .accessibilityIdentifier("review.create")
+                }
                 ForEach(catalog.groups, id: \.bucket) { group in
                     Section {
                         if group.categorias.isEmpty {
@@ -344,7 +392,8 @@ struct CategorySheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        // Full height: the "Crear categoría" form lives inside this sheet and needs the room.
+        .presentationDetents([.large])
         .accessibilityIdentifier("review.sheet")
     }
 
