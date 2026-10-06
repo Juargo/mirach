@@ -50,6 +50,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var deleteResult: Result<Void, any Error> = .success(())
     private var _deleteCalls: [String] = []
     private var _deleteGate: Gate?
+    private var _updateGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -181,7 +182,14 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
 
     var updateNombreCalls: [String] { lock.withLock { _updateNombreCalls } }
 
+    /// When set, `updateNombre` waits at the gate before answering.
+    var updateGate: Gate? {
+        get { lock.withLock { _updateGate } }
+        set { lock.withLock { _updateGate = newValue } }
+    }
+
     func updateNombre(_ nombre: String) async throws -> CurrentUser {
+        await updateGate?.wait()
         let result = lock.withLock {
             _updateNombreCalls.append(nombre)
             return updateNombreResults.count > 1 ? updateNombreResults.removeFirst() : updateNombreResults[0]
