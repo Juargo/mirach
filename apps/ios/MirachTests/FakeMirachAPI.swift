@@ -200,11 +200,12 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     }
 
     func bucketDetalle(bucket: Bucket, periodo: Periodo) async throws -> BucketDetalle {
-        await detalleGate?.wait()
-        let result = lock.withLock {
+        // The answer is fixed when the request arrives; the gate only delays delivering it.
+        let (result, gate) = lock.withLock {
             _detalleCalls.append(DetalleCall(bucket: bucket, periodo: periodo))
-            return detalleResults.count > 1 ? detalleResults.removeFirst() : detalleResults[0]
+            return (detalleResults.count > 1 ? detalleResults.removeFirst() : detalleResults[0], _detalleGate)
         }
+        await gate?.wait()
         return try result.get()
     }
 

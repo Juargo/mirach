@@ -124,7 +124,12 @@ struct DetalleBucketViewModelTests {
         await viewModel.load()
         let gate = Gate()
         api.detalleGate = gate
-        api.setDetalleResults([.success(SampleData.deseosVacio)])
+        // The July request gets its own recognisable answer, fixed when it is made but delivered late.
+        let july = BucketDetalle(
+            bucket: .deseos, periodo: Periodo("2026-07")!, total: 1, porcentajeBp: nil, metaBp: nil,
+            totalTransacciones: 0, totalCategorias: 0, grupos: []
+        )
+        api.setDetalleResults([.success(july)])
 
         let first = Task { await viewModel.select(Periodo("2026-07")!) }
         await gate.waitUntilWaiting()
@@ -135,7 +140,23 @@ struct DetalleBucketViewModelTests {
         await first.value
 
         #expect(viewModel.state == .loaded(SampleData.deseosDetalle))
+        #expect(viewModel.state != .loaded(july))
         #expect(viewModel.periodo == Periodo("2026-08"))
+    }
+
+    @Test func aLoadCancelledBeforeItFinishedRunsAgainOnTheNextAppearance() async {
+        let api = FakeMirachAPI()
+        api.setDetalleResults([.failure(CancellationError()), .success(SampleData.deseosDetalle)])
+        let viewModel = make(api)
+
+        await viewModel.loadIfNeeded()
+        #expect(viewModel.state == .loading)
+
+        await viewModel.loadIfNeeded()
+        #expect(viewModel.state == .loaded(SampleData.deseosDetalle))
+        // Once loaded, appearing again does not drop the month.
+        await viewModel.loadIfNeeded()
+        #expect(api.detalleCalls.count == 2)
     }
 
     @Test func aFailedRefreshKeepsTheMovementsOnScreen() async {
