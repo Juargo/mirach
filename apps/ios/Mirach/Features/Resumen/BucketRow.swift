@@ -11,7 +11,11 @@ struct BucketRow: View {
             if typeSize.isAccessibilitySize {
                 // Large text: one column, so no figure is squeezed or truncated.
                 VStack(alignment: .leading, spacing: 8) {
-                    name
+                    HStack {
+                        name
+                        Spacer(minLength: 8)
+                        chevron
+                    }
                     figures(alignment: .leading)
                 }
             } else {
@@ -19,6 +23,7 @@ struct BucketRow: View {
                     name
                     Spacer(minLength: 8)
                     figures(alignment: .trailing)
+                    chevron
                 }
             }
         }
@@ -28,7 +33,16 @@ struct BucketRow: View {
         .overlay(Rectangle().stroke(Color.Mirach.Base.border))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
+        .accessibilityHint("Ver los movimientos")
         .accessibilityIdentifier("resumen.bucket.\(item.bucket.label)")
+    }
+
+    /// Says the row opens something; VoiceOver gets the hint instead.
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.bold())
+            .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            .accessibilityHidden(true)
     }
 
     private var name: some View {

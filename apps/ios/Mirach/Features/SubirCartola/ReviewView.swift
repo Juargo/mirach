@@ -47,13 +47,26 @@ struct ReviewView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { actions }
         .sheet(item: $editingRow) { row in
             CategorySheet(
-                row: row,
+                summaryTitle: row.descripcion,
+                summaryDetail: "\(Format.shortDate(row.fecha)) · \(row.amountText)",
                 catalog: catalog ?? CatalogoCategorias(categorias: []),
                 selectedID: viewModel.edits[row.rowIndex] ?? row.sugerido?.categoriaId,
-                viewModel: viewModel,
+                idPrefix: "review",
+                notice: nil,
+                isBusy: false,
+                createdCount: viewModel.createdCategoryCount,
                 onSelect: { id in
                     viewModel.choose(id, forRow: row.rowIndex)
                     editingRow = nil
+                },
+                createForm: {
+                    NewCategoryForm(
+                        initialPattern: row.descripcion,
+                        errors: viewModel.categoryFormErrors,
+                        isCreating: viewModel.isCreatingCategory,
+                        onAppear: { viewModel.resetCategoryForm() },
+                        onCreate: { new in Task { await viewModel.createCategory(new, forRow: row.rowIndex) } }
+                    )
                 }
             )
         }
@@ -325,27 +338,46 @@ private struct RowAccessibility: ViewModifier {
     }
 }
 
-/// The modal sheet: every category of the catalog, grouped by bucket.
-struct CategorySheet: View {
-    let row: CartolaRow
+/// The modal sheet: every category of the catalog, grouped by bucket. Shared by the review of a
+/// statement and the bucket detail; `idPrefix` keeps their accessibility identifiers apart.
+struct CategorySheet<CreateForm: View>: View {
+    /// What is being classified, so the sheet makes sense without the list behind it.
+    let summaryTitle: String
+    let summaryDetail: String
     let catalog: CatalogoCategorias
     let selectedID: String?
-    let viewModel: SubirCartolaViewModel
+    let idPrefix: String
+    /// A failed attempt, shown above the list.
+    let notice: String?
+    /// A move is being sent: nothing can be chosen meanwhile.
+    let isBusy: Bool
+    /// Grows with every category created: the form closes when it changes.
+    let createdCount: Int
     let onSelect: (String) -> Void
+    @ViewBuilder let createForm: () -> CreateForm
     @Environment(\.dismiss) private var dismiss
+    @State private var showingForm = false
 
     var body: some View {
         NavigationStack {
             List {
+                if let notice {
+                    Text(notice)
+                        .foregroundStyle(Color.Mirach.Feedback.errorText)
+                        .accessibilityIdentifier("\(idPrefix).sheet.notice")
+                }
                 Section {
-                    NavigationLink {
-                        NewCategoryForm(row: row, viewModel: viewModel)
-                    } label: {
-                        Label("Crear categoría", systemImage: "plus")
-                            .foregroundStyle(Color.Mirach.Base.foreground)
-                            .frame(minHeight: 44)
+                    Button { showingForm = true } label: {
+                        HStack {
+                            Label("Crear categoría", systemImage: "plus")
+                                .foregroundStyle(Color.Mirach.Base.foreground)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.footnote).accessibilityHidden(true)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                     }
-                    .accessibilityIdentifier("review.create")
+                    .accessibilityIdentifier("\(idPrefix).create")
                 }
                 ForEach(catalog.groups, id: \.bucket) { group in
                     Section {
@@ -365,7 +397,7 @@ struct CategorySheet: View {
                                 .contentShape(Rectangle())
                             }
                             .accessibilityAddTraits(category.id == selectedID ? .isSelected : [])
-                            .accessibilityIdentifier("review.category.\(category.id)")
+                            .accessibilityIdentifier("\(idPrefix).category.\(category.id)")
                         }
                     } header: {
                         HStack(spacing: 8) {
@@ -383,25 +415,30 @@ struct CategorySheet: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
+            .disabled(isBusy)
+            .overlay { if isBusy { ProgressView().controlSize(.large).accessibilityLabel("Moviendo el movimiento") } }
             .safeAreaInset(edge: .top, spacing: 0) { rowSummary }
             .navigationTitle("Categoría")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showingForm) { createForm() }
+            .onChange(of: createdCount) { showingForm = false }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.accessibilityIdentifier("review.sheet.cancel")
+                    Button("Cancelar") { dismiss() }
+                        .disabled(isBusy)
+                        .accessibilityIdentifier("\(idPrefix).sheet.cancel")
                 }
             }
         }
         // Full height: the "Crear categoría" form lives inside this sheet and needs the room.
         .presentationDetents([.large])
-        .accessibilityIdentifier("review.sheet")
+        .accessibilityIdentifier("\(idPrefix).sheet")
     }
 
-    /// What is being classified, so the sheet makes sense without the list behind it.
     private var rowSummary: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(row.descripcion).font(.headline).lineLimit(2)
-            Text("\(Format.shortDate(row.fecha)) · \(row.amountText)")
+            Text(summaryTitle).font(.headline).lineLimit(2)
+            Text(summaryDetail)
                 .font(.footnote)
                 .mirachFigures()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)

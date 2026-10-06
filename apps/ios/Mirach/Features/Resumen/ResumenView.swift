@@ -9,11 +9,14 @@ struct ResumenView: View {
     /// "Subir cartola" in the empty state: the shell opens the Subir tab.
     let onUploadStatement: () -> Void
     @State private var viewModel: ResumenViewModel
+    @State private var loadedToken: Int?
+    private let api: any MirachAPI
 
     init(
         api: any MirachAPI, versionViewModel: ApiVersionViewModel,
         reloadToken: Int = 0, onUploadStatement: @escaping () -> Void = {}
     ) {
+        self.api = api
         self.versionViewModel = versionViewModel
         self.reloadToken = reloadToken
         self.onUploadStatement = onUploadStatement
@@ -37,7 +40,20 @@ struct ResumenView: View {
             .navigationBarTitleDisplayMode(.inline)
             // Runs when the screen appears (and again when `reloadToken` changes) and is
             // cancelled when it goes away.
-            .task(id: reloadToken) { await viewModel.load() }
+            .task(id: reloadToken) {
+                // Coming back from a bucket's detail restarts this task: the month the person
+                // chose must survive that, so only a new token (or the first time) reloads.
+                guard loadedToken != reloadToken else { return }
+                await viewModel.load()
+                if !Task.isCancelled { loadedToken = reloadToken }
+            }
+            .navigationDestination(for: BucketRoute.self) { route in
+                DetalleBucketView(
+                    api: api, bucket: route.bucket, periodo: route.periodo,
+                    // A move changes this month's figures too: repeat the query for the month on screen.
+                    onReclassified: { Task { await viewModel.refresh() } }
+                )
+            }
         }
     }
 
@@ -69,57 +85,6 @@ struct ResumenView: View {
                 ResumenContent(mes: mes)
             }
         }
-    }
-}
-
-private struct MonthSelector: View {
-    let periodo: Periodo
-    let anterior: Periodo?
-    let siguiente: Periodo?
-    let select: (Periodo) -> Void
-
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        if typeSize.isAccessibilitySize {
-            // Large text: the title gets the full width, the arrows sit under it.
-            VStack(spacing: 4) {
-                title
-                HStack {
-                    arrow("chevron.left", label: "Mes anterior", target: anterior)
-                    Spacer()
-                    arrow("chevron.right", label: "Mes siguiente", target: siguiente)
-                }
-            }
-        } else {
-            HStack {
-                arrow("chevron.left", label: "Mes anterior", target: anterior)
-                Spacer()
-                title
-                Spacer()
-                arrow("chevron.right", label: "Mes siguiente", target: siguiente)
-            }
-        }
-    }
-
-    private var title: some View {
-        Text(Format.monthTitle(periodo))
-            .font(.title3.bold())
-            .foregroundStyle(Color.Mirach.Base.foreground)
-            .multilineTextAlignment(.center)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityIdentifier("resumen.month")
-    }
-
-    private func arrow(_ symbol: String, label: String, target: Periodo?) -> some View {
-        Button {
-            if let target { select(target) }
-        } label: {
-            Image(systemName: symbol).frame(minWidth: 44, minHeight: 44)
-        }
-        .disabled(target == nil)
-        .accessibilityLabel(label)
-        .accessibilityValue(target.map(Format.month) ?? "")
     }
 }
 

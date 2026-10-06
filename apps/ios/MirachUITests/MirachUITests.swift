@@ -196,6 +196,148 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Mes siguiente"].isEnabled)
     }
 
+    // MARK: Detalle de bucket
+
+    private func openDeseos(_ app: XCUIApplication) {
+        let row = element(app, "resumen.bucket.Deseos")
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(element(app, "detalle.header").waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testTappingABucketOpensItsMovementsGroupedByCategory() {
+        let app = launch([savedSession])
+        openDeseos(app)
+
+        // The groups of Deseos, biggest first and «Sin categoría» last, and the month it came from.
+        XCTAssertTrue(app.navigationBars["Deseos"].exists)
+        XCTAssertEqual(app.staticTexts["detalle.month"].label, "Septiembre de 2026")
+        let rest = element(app, "detalle.group.stub-des-rest")
+        let susc = element(app, "detalle.group.stub-des-susc")
+        let none = element(app, "detalle.group.sin-categoria")
+        XCTAssertTrue(rest.exists && susc.exists)
+        XCTAssertTrue(rest.label.hasPrefix("Restaurantes. 2 movimientos"), rest.label)
+        XCTAssertLessThan(rest.frame.minY, susc.frame.minY)
+        for _ in 0..<4 where !none.exists { app.swipeUp() }
+        XCTAssertTrue(none.exists, "«Sin categoría» group missing")
+        XCTAssertTrue(element(app, "detalle.row.t-d5").exists)
+        // The traffic light is hidden in v1: no state label here either.
+        for text in ["Muy Saludable", "Saludable", "En peligro", "Estado del mes"] {
+            XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).count, 0)
+        }
+    }
+
+    @MainActor
+    func testGoingBackFromTheDetailKeepsTheMonthTheSummaryWasOn() {
+        let app = launch([savedSession])
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        app.buttons["Mes anterior"].tap()
+        XCTAssertTrue(app.staticTexts["Agosto de 2026"].waitForExistence(timeout: 10))
+
+        element(app, "resumen.bucket.Deseos").tap()
+        XCTAssertTrue(element(app, "detalle.month").waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["detalle.month"].label, "Agosto de 2026")
+        XCTAssertTrue(element(app, "detalle.empty").waitForExistence(timeout: 10))
+        // The selector stays available in the empty month.
+        XCTAssertTrue(app.buttons["Mes siguiente"].isEnabled)
+        app.navigationBars.buttons.firstMatch.tap()
+
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["resumen.month"].label, "Agosto de 2026")
+    }
+
+    @MainActor
+    func testMovingAMovementToAnotherCategoryOfTheSameBucketUpdatesTheGroups() {
+        let app = launch([savedSession])
+        openDeseos(app)
+
+        // Netflix is in Suscripciones; Restaurantes is in the same bucket: no confirmation.
+        element(app, "detalle.row.t-d3").tap()
+        XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
+        element(app, "detalle.category.stub-des-rest").tap()
+
+        let announcement = element(app, "detalle.announcement")
+        XCTAssertTrue(announcement.waitForExistence(timeout: 10))
+        XCTAssertEqual(announcement.label, "Movida a Deseos · Restaurantes")
+        XCTAssertFalse(element(app, "detalle.sheet").exists)
+        XCTAssertTrue(element(app, "detalle.group.stub-des-rest").label.hasPrefix("Restaurantes. 3 movimientos"))
+    }
+
+    @MainActor
+    func testMovingToAnotherBucketAsksFirstAndTheSummaryFollows() {
+        let app = launch([savedSession])
+        openDeseos(app)
+
+        element(app, "detalle.row.t-d5").tap()
+        XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
+        element(app, "detalle.category.stub-nec-super").tap()
+        // Another bucket: nothing is sent until the person confirms.
+        XCTAssertTrue(app.alerts["Cambiar de grupo"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.alerts.staticTexts["Este movimiento pasará de Deseos a Necesidades y cambiará el cálculo del mes."].exists)
+        app.alerts.buttons["Cancelar"].tap()
+        XCTAssertTrue(element(app, "detalle.sheet").exists, "cancelling keeps the sheet and the movement")
+
+        element(app, "detalle.category.stub-nec-super").tap()
+        XCTAssertTrue(app.alerts["Cambiar de grupo"].waitForExistence(timeout: 10))
+        app.alerts.buttons["Confirmar"].tap()
+
+        let announcement = element(app, "detalle.announcement")
+        XCTAssertTrue(announcement.waitForExistence(timeout: 10))
+        XCTAssertEqual(announcement.label, "Movida a Necesidades · Supermercado")
+        XCTAssertFalse(element(app, "detalle.row.t-d5").exists, "the movement left Deseos")
+        app.navigationBars.buttons.firstMatch.tap()
+
+        // Deseos was $610.400 and the moved movement was $384.020.
+        let deseos = element(app, "resumen.bucket.Deseos")
+        expectation(for: NSPredicate(format: "label CONTAINS %@", "$226.380"), evaluatedWith: deseos)
+        waitForExpectations(timeout: 10)
+    }
+
+    @MainActor
+    func testCreatingACategoryFromTheSheetMovesTheMovementIntoIt() {
+        let app = launch([savedSession])
+        openDeseos(app)
+        element(app, "detalle.row.t-d5").tap()
+        XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
+
+        element(app, "detalle.create").tap()
+        let name = element(app, "category.name")
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        // No pattern field here: patterns are added later from the category.
+        XCTAssertFalse(element(app, "category.pattern").exists)
+        name.tap()
+        name.typeText("Ropa")
+        element(app, "category.bucket.Deseos").tap()
+        app.buttons["category.save"].tap()
+
+        let announcement = element(app, "detalle.announcement")
+        XCTAssertTrue(announcement.waitForExistence(timeout: 10))
+        XCTAssertEqual(announcement.label, "Movida a Deseos · Ropa")
+        XCTAssertTrue(element(app, "detalle.group.stub-new-1").exists)
+    }
+
+    @MainActor
+    func testAtTheLargestTextSizeTheFirstMovementIsReachable() {
+        let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        let row = element(app, "resumen.bucket.Deseos")
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        row.tap()
+        XCTAssertTrue(element(app, "detalle.header").waitForExistence(timeout: 10))
+
+        // The first movement of the first group (Restaurantes, biggest amount first).
+        let first = element(app, "detalle.row.t-d1")
+        var swipes = 0
+        while !first.isHittable && swipes < 3 {
+            app.swipeUp()
+            swipes += 1
+        }
+        XCTAssertTrue(first.isHittable, "first movement not reachable within 3 swipes at the largest text size")
+        first.tap()
+        XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
+    }
+
     @MainActor
     func testMissingAPIKeyShowsTheConfigurationErrorInsteadOfSignIn() {
         let app = launch([missingAPIKey])

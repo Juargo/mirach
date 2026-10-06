@@ -1,5 +1,11 @@
 import SwiftUI
 
+/// Where a bucket row leads: that bucket's detail for the month on screen.
+struct BucketRoute: Hashable {
+    let bucket: Bucket
+    let periodo: Periodo
+}
+
 /// The month with data: income, the distribution chart and one row per bucket.
 struct ResumenContent: View {
     let mes: ResumenMes
@@ -15,7 +21,12 @@ struct ResumenContent: View {
                     .frame(maxWidth: .infinity)
             }
             VStack(spacing: 8) {
-                ForEach(mes.buckets, id: \.bucket) { BucketRow(item: $0) }
+                ForEach(mes.buckets, id: \.bucket) { item in
+                    NavigationLink(value: BucketRoute(bucket: item.bucket, periodo: mes.periodo)) {
+                        BucketRow(item: item)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }
