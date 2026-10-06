@@ -334,6 +334,39 @@ struct PerfilViewModelTests {
         #expect(rig.session.signedOutNotice == nil, "401 does not confirm that anything was deleted")
     }
 
+    @Test func aRetryThatFindsTheSessionGoneConfirmsTheDeletion() async {
+        // The first attempt timed out after the server had already deleted everything: the
+        // retry gets 401 because the session no longer exists, which proves the deletion.
+        for firstFailure: any Error in [URLError(.timedOut), APIError.badStatus(503)] {
+            let rig = await makeRig()
+            rig.api.setDeleteResult(.failure(firstFailure))
+            await rig.viewModel.load()
+            rig.viewModel.deleteConfirmation = "ELIMINAR"
+            await rig.viewModel.deleteAccount()
+            #expect(rig.viewModel.deleteState == .failed(.retry))
+
+            rig.api.setDeleteResult(.failure(APIError.sessionExpired))
+            await rig.viewModel.deleteAccount()
+
+            #expect(rig.session.phase == .signedOut)
+            #expect(rig.session.signedOutNotice == .accountDeleted, "\(firstFailure)")
+            #expect(rig.store.load() == nil)
+        }
+    }
+
+    @Test func aRefusedConfirmationDoesNotMakeALater401MeanDeleted() async {
+        let rig = await makeRig()
+        rig.api.setDeleteResult(.failure(CuentaError.confirmationRejected))
+        await rig.viewModel.load()
+        rig.viewModel.deleteConfirmation = "ELIMINAR"
+        await rig.viewModel.deleteAccount()
+
+        rig.api.setDeleteResult(.failure(APIError.sessionExpired))
+        await rig.viewModel.deleteAccount()
+
+        #expect(rig.session.signedOutNotice == nil, "the server said nothing was deleted")
+    }
+
     @Test func cancellingTheConfirmationClearsTheWordAndTheError() async {
         let rig = await makeRig()
         rig.api.setDeleteResult(.failure(APIError.badStatus(500)))

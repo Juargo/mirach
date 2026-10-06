@@ -58,6 +58,9 @@ final class PerfilViewModel {
 
     /// The name as the server has it, to know whether there is anything to save.
     private var savedNombre = ""
+    /// An attempt ended without an answer (timeout, 5xx): the server may have deleted everything
+    /// anyway. Kept until a deletion succeeds, even if the sheet is closed and reopened.
+    private var deletionMayHaveHappened = false
     private let api: any MirachAPI
     private let session: SessionController
 
@@ -153,9 +156,16 @@ final class PerfilViewModel {
             deleteState = .failed(.confirmationRejected)
         } catch {
             switch Self.failure(for: error) {
-            // 401 is left to the single relay and says nothing about the account.
+            case nil where Self.isExpiredSession(error) && deletionMayHaveHappened:
+                // After a successful deletion the session no longer exists, so this 401 is the
+                // proof that the lost attempt did go through. Say so instead of signing out silently.
+                session.accountDeleted()
+            // Any other 401 is left to the single relay and claims nothing about the account;
+            // a cancellation just ends the attempt.
             case nil: deleteState = .idle
-            case .connection?, .server?: deleteState = .failed(.retry)
+            case .connection?, .server?:
+                deletionMayHaveHappened = true
+                deleteState = .failed(.retry)
             }
         }
     }
@@ -173,6 +183,10 @@ final class PerfilViewModel {
         nombre = user.nombre
         savedNombre = user.nombre
         email = user.email
+    }
+
+    private static func isExpiredSession(_ error: any Error) -> Bool {
+        (error as? APIError) == .sessionExpired
     }
 
     /// `nil` for what needs no message here: an expired session (the relay already signs out)
