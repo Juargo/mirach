@@ -27,8 +27,8 @@ enum IngestaMapper {
             rowIndex: wire.rowIndex,
             fecha: try date(wire.fecha),
             descripcion: wire.descripcion,
-            cargo: try pesos(wire.cargo),
-            abono: try pesos(wire.abono),
+            cargo: try Money.pesos(wire.cargo),
+            abono: try Money.pesos(wire.abono),
             esDuplicado: wire.esDuplicado,
             // A bucket the app does not know cannot be shown: same as no suggestion.
             sugerido: wire.sugerido.flatMap { suggestion in
@@ -37,15 +37,6 @@ enum IngestaMapper {
                 }
             }
         )
-    }
-
-    /// Amounts travel as decimal strings ("25990", maybe "25990.00"), never JSON numbers.
-    private static func pesos(_ text: String) throws -> Int {
-        if let whole = Int(text) { return whole }
-        guard let decimal = Decimal(string: text, locale: Locale(identifier: "en_US_POSIX")) else {
-            throw malformed("amount")
-        }
-        return NSDecimalNumber(decimal: decimal).rounding(accordingToBehavior: nil).intValue
     }
 
     /// ISO 8601 UTC, with or without fractional seconds.
