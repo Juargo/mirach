@@ -82,8 +82,10 @@ final class MirachUITests: XCTestCase {
         let app = launch([savedSession])
         openPerfilTab(app)
 
-        let name = app.textFields["perfil.nombre"]
+        // The name field grows with the text, so it may be a text view: look it up by identifier.
+        let name = element(app, "perfil.nombre")
         XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.isHittable)
         XCTAssertEqual(name.value as? String, "Persona de prueba")
         XCTAssertTrue(element(app, "perfil.email").label.contains("persona@example.com"))
         XCTAssertFalse(app.buttons["perfil.save"].isEnabled, "no changes yet")
@@ -98,8 +100,9 @@ final class MirachUITests: XCTestCase {
     func testEditingTheNameEnablesSaveAndConfirmsIt() {
         let app = launch([savedSession])
         openPerfilTab(app)
-        let name = app.textFields["perfil.nombre"]
+        let name = element(app, "perfil.nombre")
         XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.isHittable)
 
         name.tap()
         name.typeText(" Dos")
@@ -108,6 +111,24 @@ final class MirachUITests: XCTestCase {
 
         XCTAssertTrue(element(app, "perfil.saved").waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["perfil.save"].isEnabled)
+    }
+
+    @MainActor
+    func testReturnInTheNameSavesItWithoutAddingALine() {
+        let app = launch([savedSession])
+        openPerfilTab(app)
+        let name = element(app, "perfil.nombre")
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.isHittable)
+
+        name.tap()
+        name.typeText(" Dos\n")
+
+        XCTAssertTrue(element(app, "perfil.saved").waitForExistence(timeout: 10))
+        // Where the caret lands is up to the system; what matters is that no line was added.
+        let value = name.value as? String ?? ""
+        XCTAssertTrue(value.contains("Dos"))
+        XCTAssertFalse(value.contains("\n"), "no newline in the field")
     }
 
     @MainActor

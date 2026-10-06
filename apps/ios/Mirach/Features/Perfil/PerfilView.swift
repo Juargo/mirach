@@ -77,6 +77,13 @@ struct PerfilView: View {
                 .textContentType(.name)
                 .submitLabel(.done)
                 .onSubmit { Task { await viewModel.save() } }
+                // A growing field is a text view, where Return would add a line: treat it as
+                // "done" instead and keep newlines out of the name.
+                .onChange(of: viewModel.nombre) {
+                    guard viewModel.nombre.contains(where: \.isNewline) else { return }
+                    viewModel.nombre = viewModel.nombre.filter { !$0.isNewline }
+                    Task { await viewModel.save() }
+                }
                 .padding(12)
                 .overlay(Rectangle().stroke(Color.Mirach.Base.input))
                 .foregroundStyle(Color.Mirach.Base.foreground)

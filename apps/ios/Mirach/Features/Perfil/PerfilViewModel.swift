@@ -66,7 +66,13 @@ final class PerfilViewModel {
         self.session = session
     }
 
-    var hasNameChanges: Bool { nombre.trimmingCharacters(in: .whitespacesAndNewlines) != savedNombre }
+    var hasNameChanges: Bool { Self.normalized(nombre) != Self.normalized(savedNombre) }
+
+    /// One line: surrounding whitespace dropped, any run of spaces or newlines inside it
+    /// collapsed to one space. What the person typed and what is sent differ only by this.
+    static func normalized(_ name: String) -> String {
+        name.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
 
     var canSave: Bool {
         loadState == .loaded && hasNameChanges && saveState != .saving && !isBusyWithSession
@@ -111,7 +117,7 @@ final class PerfilViewModel {
         saveState = .saving
         do {
             // The answer replaces the local copy, including the name as the server normalised it.
-            apply(try await api.updateNombre(nombre.trimmingCharacters(in: .whitespacesAndNewlines)))
+            apply(try await api.updateNombre(Self.normalized(nombre)))
             saveState = .saved
         } catch {
             // What was typed stays in the field for another try.

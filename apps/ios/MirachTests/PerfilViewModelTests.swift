@@ -143,6 +143,25 @@ struct PerfilViewModelTests {
         #expect(!rig.viewModel.canSave, "nothing left to save")
     }
 
+    @Test func aNameWithNewlinesOrRepeatedSpacesIsSentAsOneCleanLine() async {
+        let rig = await makeRig()
+        await rig.viewModel.load()
+        rig.viewModel.nombre = "  Ana\n María \r\n  Pérez \n"
+
+        await rig.viewModel.save()
+
+        #expect(rig.api.updateNombreCalls == ["Ana María Pérez"])
+    }
+
+    @Test func differencesOnlyInWhitespaceAreNotChanges() async {
+        let rig = await makeRig()
+        await rig.viewModel.load()
+        rig.viewModel.nombre = "Ana\n"
+        #expect(!rig.viewModel.canSave)
+        rig.viewModel.nombre = "A  na"
+        #expect(rig.viewModel.canSave, "interior letters still count")
+    }
+
     @Test func whileSavingTheButtonIsDisabledAndAnotherSaveIsIgnored() async {
         let rig = await makeRig()
         let gate = Gate()
