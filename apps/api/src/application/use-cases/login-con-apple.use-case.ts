@@ -203,7 +203,7 @@ export class LoginConAppleUseCase {
         'login-con-apple: no se pudo revocar el token descartado',
         {
           userId,
-          errorName: err instanceof Error ? err.name : 'UnknownError',
+          errorName: nombreDe(err),
         },
       );
     }
