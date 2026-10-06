@@ -96,6 +96,14 @@ overrides:
   # por la misma razón que el resto.
   devalue: '>=5.9.3 <6.0.0'
 
+  # --- Burn-down 2026-10-06 ---
+  # GHSA-jqcg-44mw-7w3h — proxy-addr <2.0.8: suplantación de IP vía subred de
+  # confianza con direcciones IPv6 que mapean IPv4 (critical). Runtime: express
+  # lo usa para `req.ip`. El API configura `trust proxy` por cantidad de saltos
+  # (1), no por subred, así que la exposición práctica es baja, pero `req.ip`
+  # alimenta el rate limiting. 2.0.8 se publicó 2026-09-15 (>7 días).
+  proxy-addr: '>=2.0.8 <3.0.0'
+
 # ADR-006 — defensas de instalación. Viven ACÁ, no en `.npmrc`: pnpm 11 lee sus
 # settings de este archivo. Declararlos en `.npmrc` los deja INERTES sin ningún
 # error (verificado el 2026-09-04 — ver el encabezado de `.npmrc`).
