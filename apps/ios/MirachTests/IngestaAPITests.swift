@@ -379,7 +379,8 @@ struct IngestaAPITests {
     @Test func aServerFailureWhileCreatingIsNotACatalogError() async {
         let transport = FakeTransport.json(#"{"message":"boom"}"#, status: .internalServerError)
 
-        await #expect(throws: (any Error).self) {
+        // A status the contract does not document is a plain API error, never a form error.
+        await #expect(throws: APIError.badStatus(500)) {
             _ = try await makeAPI(transport).crearCategoria(NuevaCategoria(nombre: "X", bucket: .deseos, patron: nil))
         }
     }
