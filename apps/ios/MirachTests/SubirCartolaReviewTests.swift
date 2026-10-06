@@ -253,6 +253,25 @@ struct SubirCartolaReviewTests {
         #expect(api.commitCalls.last?.edits == [CartolaEdit(rowIndex: 3, categoriaId: SampleData.Cat.restaurantes)])
     }
 
+    @Test func aFailedCatalogReloadAfterABadEditsAnswerPrunesOnTheRetryThatSucceeds() async {
+        let api = FakeMirachAPI()
+        api.setCommitResults([.failure(IngestaError.rejected(message: "categoriaId fuera del catálogo"))])
+        let (viewModel, _, _) = await reviewing(api)
+        viewModel.choose(SampleData.Cat.fondo, forRow: 2)
+        viewModel.choose(SampleData.Cat.restaurantes, forRow: 3)
+        let newCatalog = CatalogoCategorias(categorias: SampleData.catalog.categorias.filter { $0.id != SampleData.Cat.fondo })
+        api.setCategoriasResults([.failure(URLError(.notConnectedToInternet)), .success(newCatalog)])
+
+        await viewModel.confirm()
+        #expect(viewModel.state == .revisando(SampleData.preview))
+        #expect(viewModel.catalog == .failed)
+
+        await viewModel.retryCatalog()
+
+        #expect(viewModel.catalog == .loaded(newCatalog))
+        #expect(viewModel.edits == [3: SampleData.Cat.restaurantes])
+    }
+
     @Test func aRejectedCommitWithoutEditsStillGoesBackToTheStart() async {
         let api = FakeMirachAPI()
         api.setCommitResults([.failure(IngestaError.rejected(message: "Archivo inválido"))])

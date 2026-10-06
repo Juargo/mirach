@@ -81,6 +81,9 @@ final class SubirCartolaViewModel {
     private var password: String?
     private var preview: CartolaPreview?
     /// The last commit attempt, to retry it as it was.
+    /// Set when a commit bounced because of the edits: the next catalog that loads drops the
+    /// edits whose category it no longer has.
+    private var pruneEditsPending = false
     private var lastCommit: (edits: [CartolaEdit], fromReview: Bool)?
     /// Bumped whenever the flow is reset so an answer to an old request is dropped.
     private var generation = 0
@@ -244,14 +247,18 @@ final class SubirCartolaViewModel {
         }
     }
 
-    private func loadCatalog(generation mine: Int, pruneEdits: Bool = false) async {
+    private func loadCatalog(generation mine: Int) async {
         catalog = .loading
         do {
             let result = try await api.categorias()
             guard mine == generation else { return }
             catalog = .loaded(result)
-            // An edit naming a category that no longer exists would be refused again.
-            if pruneEdits { edits = edits.filter { result.categoria(id: $0.value) != nil } }
+            // An edit naming a category that no longer exists would be refused again. The prune
+            // waits for a catalog that loads, whichever call (reload or "Reintentar") gets it.
+            if pruneEditsPending {
+                edits = edits.filter { result.categoria(id: $0.value) != nil }
+                pruneEditsPending = false
+            }
         } catch {
             guard mine == generation else { return }
             if case APIError.sessionExpired = error {
@@ -300,8 +307,9 @@ final class SubirCartolaViewModel {
             // drifted). Back to the review, with the catalog reloaded.
             guard let preview else { return }
             reviewNotice = Self.badEditsMessage
+            pruneEditsPending = true
             state = .revisando(preview)
-            await loadCatalog(generation: generation, pruneEdits: true)
+            await loadCatalog(generation: generation)
         case IngestaError.rejected(let message):
             // Same family as the preview's 400 (file, bank, structure): back to the start.
             clear()
@@ -329,6 +337,7 @@ final class SubirCartolaViewModel {
         password = nil
         preview = nil
         lastCommit = nil
+        pruneEditsPending = false
         catalog = .loading
         edits = [:]
         reviewNotice = nil
