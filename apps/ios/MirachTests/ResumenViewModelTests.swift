@@ -222,6 +222,8 @@ private final class SlowAPI: MirachAPI, @unchecked Sendable {
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview { SampleData.preview }
     func bucketDetalle(bucket: Bucket, periodo: Periodo) async throws -> BucketDetalle { throw APIError.badStatus(0) }
     func ingresosMes(periodo: Periodo) async throws -> IngresosMes { throw APIError.badStatus(0) }
+    func cartolasSubidas() async throws -> [CartolaSubida] { throw APIError.badStatus(0) }
+    func eliminarCartola(id: String) async throws { throw APIError.badStatus(0) }
     func reclasificar(transaccionId: String, categoriaId: String) async throws -> Reclasificacion {
         throw APIError.badStatus(0)
     }

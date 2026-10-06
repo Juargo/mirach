@@ -117,4 +117,23 @@ extension SampleData {
         bucket: .deseos, periodo: Periodo("2026-08")!, total: 0, porcentajeBp: nil, metaBp: 3000,
         totalTransacciones: 0, totalCategorias: 0, grupos: []
     )
+
+    // MARK: cartolas subidas
+
+    /// A processed import, a failed one whose bank was never resolved, and an older processed one.
+    static let cartolas: [CartolaSubida] = [
+        CartolaSubida(
+            id: "g-3", banco: "Banco de Chile", nombreArchivo: "cartola-septiembre.xlsx", estado: .procesada,
+            motivoFallo: nil, fecha: Date(timeIntervalSince1970: 1_790_985_600), totalTransacciones: 37
+        ),
+        CartolaSubida(
+            id: "g-2", banco: nil, nombreArchivo: "estado-de-cuenta.pdf", estado: .fallida,
+            motivoFallo: "No se reconoció el formato del archivo", fecha: Date(timeIntervalSince1970: 1_790_899_200),
+            totalTransacciones: 0
+        ),
+        CartolaSubida(
+            id: "g-1", banco: "BancoEstado", nombreArchivo: "cuenta-rut.xlsx", estado: .procesada,
+            motivoFallo: nil, fecha: Date(timeIntervalSince1970: 1_788_307_200), totalTransacciones: 1
+        ),
+    ]
 }

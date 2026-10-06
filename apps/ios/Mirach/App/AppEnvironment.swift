@@ -214,6 +214,8 @@ struct StubMirachAPI: MirachAPI {
     private let created = StubCreatedCategories()
     /// The month's movements; the Resumen and the bucket detail both read them.
     let ledger = StubLedger()
+    /// The imports "Cartolas subidas" lists.
+    let cartolas = StubCartolas()
 
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview {
         try checkPassword(file: file, password: password)
