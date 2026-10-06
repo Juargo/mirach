@@ -74,3 +74,37 @@ extension SampleData {
     )
     static let commit = CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5)
 }
+
+extension SampleData {
+    /// Deseos of September 2026: two categories and «Sin categoría» last, as the API sends them.
+    static let deseosDetalle = BucketDetalle(
+        bucket: .deseos, periodo: Periodo("2026-09")!, total: 610_400, porcentajeBp: 3300, metaBp: 3000,
+        totalTransacciones: 4, totalCategorias: 3,
+        grupos: [
+            GrupoCategoria(
+                categoriaId: Cat.restaurantes, nombre: "Restaurantes", icono: "utensils", subtotal: 210_900, conteo: 2,
+                transacciones: [
+                    MovimientoBucket(id: "t-1", fecha: date(day: 0), descripcion: "RESTAURANT LA PUNTA", origen: "Banco de Chile", monto: 118_500),
+                    MovimientoBucket(id: "t-2", fecha: date(day: 1), descripcion: "PIZZERIA BELLA NAPOLI", origen: "Manual", monto: 92_400),
+                ]
+            ),
+            GrupoCategoria(
+                categoriaId: "cat-susc", nombre: "Suscripciones", icono: nil, subtotal: 15_480, conteo: 1,
+                transacciones: [
+                    MovimientoBucket(id: "t-3", fecha: date(day: 2), descripcion: "NETFLIX.COM", origen: "Banco de Chile", monto: 15_480)
+                ]
+            ),
+            GrupoCategoria(
+                categoriaId: nil, nombre: "Sin categoría", icono: nil, subtotal: 384_020, conteo: 1,
+                transacciones: [
+                    MovimientoBucket(id: "t-4", fecha: date(day: 3), descripcion: "MERCADO LIBRE", origen: "Banco de Chile", monto: 384_020)
+                ]
+            ),
+        ]
+    )
+
+    static let deseosVacio = BucketDetalle(
+        bucket: .deseos, periodo: Periodo("2026-08")!, total: 0, porcentajeBp: nil, metaBp: 3000,
+        totalTransacciones: 0, totalCategorias: 0, grupos: []
+    )
+}

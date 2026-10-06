@@ -36,6 +36,13 @@ protocol MirachAPI: Sendable {
     /// `POST /api/categorias`: creates a category (with at most one pattern) from the review.
     /// Throws `CategoriaError` for the 400 and 409 the catalog names.
     func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo
+    /// `GET /api/buckets/{bucket}/detalle`: the bucket's movements for a month, grouped by category.
+    /// `periodo` is always one the app built or got from the API.
+    func bucketDetalle(bucket: Bucket, periodo: Periodo) async throws -> BucketDetalle
+    /// `PATCH /api/transacciones/{id}/categoria` with `{"categoriaId": ...}`: the category is
+    /// identified by its id, never by name (ADR-042). Throws `ReclasificarError` for the 400 and
+    /// 404 the catalog names.
+    func reclasificar(transaccionId: String, categoriaId: String) async throws -> Reclasificacion
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult

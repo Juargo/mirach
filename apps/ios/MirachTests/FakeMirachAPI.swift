@@ -16,6 +16,16 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let edits: [CartolaEdit]?
     }
 
+    struct DetalleCall: Equatable {
+        let bucket: Bucket
+        let periodo: Periodo
+    }
+
+    struct ReclasificarCall: Equatable {
+        let transaccionId: String
+        let categoriaId: String
+    }
+
     private let lock = NSLock()
     private var _signInCalls: [SignInCall] = []
     private var _currentUserCalls = 0
@@ -51,6 +61,14 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _deleteCalls: [String] = []
     private var _deleteGate: Gate?
     private var _updateGate: Gate?
+    private var detalleResults: [Result<BucketDetalle, any Error>] = [.success(SampleData.deseosDetalle)]
+    private var _detalleCalls: [DetalleCall] = []
+    private var _detalleGate: Gate?
+    private var reclasificarResults: [Result<Reclasificacion, any Error>] = [
+        .success(Reclasificacion(categoriaId: "cat-rest", categoriaNombre: "Restaurantes", bucket: .deseos))
+    ]
+    private var _reclasificarCalls: [ReclasificarCall] = []
+    private var _reclasificarGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -162,6 +180,51 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let result = lock.withLock {
             _crearCalls.append(new)
             return crearResults.count > 1 ? crearResults.removeFirst() : crearResults[0]
+        }
+        return try result.get()
+    }
+
+    // MARK: detalle de bucket
+
+    /// Answers for the next `bucketDetalle` calls, in order; the last one repeats.
+    func setDetalleResults(_ results: [Result<BucketDetalle, any Error>]) {
+        lock.withLock { detalleResults = results }
+    }
+
+    var detalleCalls: [DetalleCall] { lock.withLock { _detalleCalls } }
+
+    /// When set, `bucketDetalle` waits at the gate before answering.
+    var detalleGate: Gate? {
+        get { lock.withLock { _detalleGate } }
+        set { lock.withLock { _detalleGate = newValue } }
+    }
+
+    func bucketDetalle(bucket: Bucket, periodo: Periodo) async throws -> BucketDetalle {
+        await detalleGate?.wait()
+        let result = lock.withLock {
+            _detalleCalls.append(DetalleCall(bucket: bucket, periodo: periodo))
+            return detalleResults.count > 1 ? detalleResults.removeFirst() : detalleResults[0]
+        }
+        return try result.get()
+    }
+
+    func setReclasificarResults(_ results: [Result<Reclasificacion, any Error>]) {
+        lock.withLock { reclasificarResults = results }
+    }
+
+    var reclasificarCalls: [ReclasificarCall] { lock.withLock { _reclasificarCalls } }
+
+    /// When set, `reclasificar` waits at the gate before answering.
+    var reclasificarGate: Gate? {
+        get { lock.withLock { _reclasificarGate } }
+        set { lock.withLock { _reclasificarGate = newValue } }
+    }
+
+    func reclasificar(transaccionId: String, categoriaId: String) async throws -> Reclasificacion {
+        await reclasificarGate?.wait()
+        let result = lock.withLock {
+            _reclasificarCalls.append(ReclasificarCall(transaccionId: transaccionId, categoriaId: categoriaId))
+            return reclasificarResults.count > 1 ? reclasificarResults.removeFirst() : reclasificarResults[0]
         }
         return try result.get()
     }
