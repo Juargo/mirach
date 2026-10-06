@@ -1,6 +1,6 @@
 # Mirach para iPhone
 
-App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y y el Resumen del mes (solo lectura): mes, estado global, ingreso, gráfico de distribución del gasto y una fila por bucket, con selector de mes.
+App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y y el Resumen del mes (solo lectura): mes, estado global, ingreso, gráfico de distribución del gasto y una fila por bucket, con selector de mes, y una barra de pestañas (Resumen y Subir) con «Subir cartola» (T5a: elegir archivo, vista previa, contraseña de PDF y «Subir tal cual»; la revisión por fila llega en T5b).
 
 ## Qué es XcodeGen y por qué lo usamos
 
@@ -106,6 +106,13 @@ Si el servidor rechaza la clave (401 `API_KEY_INVALIDA`) se muestra la misma pan
 - **iPhone físico:** firma automática con el equipo `SUX4J95Z5F`; funciona con tu Apple ID del dispositivo. Para repetir la primera autorización (con nombre) revoca la app en Ajustes > tu nombre > Contraseña y seguridad > Inicia sesión con Apple.
 - **Sin red ni Apple ID:** las pruebas de interfaz usan los argumentos `-uiTestStubbedClient`, `-uiTestSavedSession` (arranca con sesión guardada) y `-uiTestMissingAPIKey` (simula la clave vacía).
 
+### Subir cartola (T5a)
+
+- **Archivo:** el selector del sistema (`.fileImporter`) limitado a `.xlsx` y `.pdf`. Antes de llamar al API se valida la extensión y los 10 MB; si pasa, se copia a una carpeta temporal propia (`tmp/cartolas/<uuid>/`) con acceso *security-scoped*, porque `commit` necesita el archivo otra vez. La copia se borra al terminar la importación, al descartar, al cambiar de archivo, al cerrar sesión y al arrancar la app (restos de una ejecución interrumpida).
+- **Contraseña de PDF:** solo en memoria (propiedad privada del view model, fuera de `state`), nunca en disco ni en registros; se reenvía en la vista previa y en `commit` y se descarta al descartar, cambiar de archivo, terminar o cerrar sesión.
+- **Errores:** el adaptador traduce los códigos del contrato (`PDF_PROTEGIDO`, `PDF_PASSWORD_INCORRECTA`, `SIN_MOVIMIENTOS`, 409 `CATALOGO_INCOMPLETO`, 503 `CATALOGO_NO_DISPONIBLE`, 500, 400 genérico con su `message`) a `IngestaError`. Un 400 cuyo cuerpo el cliente generado no puede decodificar (un `code` desconocido) conserva su `message`.
+- **Pruebas de interfaz:** XCUITest no maneja el selector del sistema. Solo en Debug, `-uiTestFixturePath <archivo>` muestra un botón «Usar archivo de prueba» que elige ese archivo; los fixtures están en `MirachUITests/Fixtures/` (copias de `apps/api/test/fixtures/`). Con el cliente de prueba, un archivo cuyo nombre contiene «protegida» pide la contraseña `correcta`.
+
 ## Pruebas
 
 Desde Xcode: Cmd+U (corre unitarias y de interfaz).
@@ -118,7 +125,7 @@ xcodebuild -project Mirach.xcodeproj -scheme Mirach \
 ```
 
 - `MirachTests`: pruebas unitarias con Swift Testing (`@Test`, `#expect`) de los view models y del `SessionController` (con un `MirachAPI` y un `SessionStore` falsos), del adaptador (con un transporte falso que alimenta el cliente generado real) y de una ida y vuelta real contra el Keychain del simulador.
-- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con `-uiTestStubbedClient` (API con respuesta fija, sin red) y cubren: sin sesión aparece el botón de Apple, con sesión guardada aparece el Resumen con los tres buckets y «Cerrar sesión» (menú de la barra) vuelve al inicio, retroceder dos meses llega al mes vacío, y la clave vacía muestra el error de configuración. Sign in with Apple en sí no se puede automatizar.
+- `MirachUITests`: pruebas de interfaz con XCUITest. Lanzan la app con `-uiTestStubbedClient` (API con respuesta fija, sin red) y cubren: sin sesión aparece el botón de Apple, con sesión guardada aparece el Resumen con los tres buckets y «Cerrar sesión» (menú de la barra) vuelve al inicio, retroceder dos meses llega al mes vacío, la clave vacía muestra el error de configuración, y el flujo de Subir cartola (pestaña, instrucciones, vista previa, «Subir tal cual», descartar con confirmación y PDF protegido) con el archivo inyectado. Sign in with Apple en sí no se puede automatizar.
 
 ## Integración continua
 
@@ -145,6 +152,8 @@ apps/ios/
     Features/InicioDeSesion/  pantalla de inicio de sesión con Apple (una carpeta por pantalla del catálogo)
     Features/Sesion/     RootView (elige pantalla según la sesión) y error de configuración
     Features/Resumen/    Resumen del mes: vista, view model, gráfico y filas de bucket
+    Features/SubirCartola/  Subir cartola: vista, view model (máquina de estados) y textos
+    Core/Staging/        copia temporal del archivo elegido y reglas de validación
     Core/Formatting/     formatos del catálogo (dinero, puntos base, meses), sin depender del idioma del dispositivo
     Features/Inicio/     línea discreta con la versión del API (`GET /version`)
     Core/Session/        Session, SessionStore (Keychain), SessionController
