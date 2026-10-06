@@ -3,11 +3,14 @@ import SwiftUI
 
 struct SignInView: View {
     @State private var viewModel: SignInViewModel
+    /// Why the person is here when it was not their doing (their account was deleted).
+    private let notice: SessionController.SignedOutNotice?
     /// Bumping this restarts the `.task(id:)` below, so "Reintentar" stays structured.
     @State private var retryCount = 0
     @Environment(\.colorScheme) private var colorScheme
 
-    init(viewModel: SignInViewModel) {
+    init(viewModel: SignInViewModel, notice: SessionController.SignedOutNotice? = nil) {
+        self.notice = notice
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -21,6 +24,12 @@ struct SignInView: View {
                         .foregroundStyle(Color.Mirach.Base.foreground)
                     Text("Inicia sesión para ver tus finanzas.")
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                }
+                if let notice {
+                    Label(notice.message, systemImage: "checkmark.circle")
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Color.Mirach.Feedback.successText)
+                        .accessibilityIdentifier("signin.notice")
                 }
                 content
                 Spacer()

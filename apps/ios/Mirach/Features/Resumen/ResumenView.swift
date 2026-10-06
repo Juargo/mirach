@@ -3,7 +3,6 @@ import SwiftUI
 /// "Resumen del mes": the signed-in home. Read-only in this version; the entry points to
 /// bucket detail, income and upload arrive with those screens.
 struct ResumenView: View {
-    let session: SessionController
     let versionViewModel: ApiVersionViewModel
     /// Changing it reloads the month (a statement was just imported).
     let reloadToken: Int
@@ -12,10 +11,9 @@ struct ResumenView: View {
     @State private var viewModel: ResumenViewModel
 
     init(
-        session: SessionController, api: any MirachAPI, versionViewModel: ApiVersionViewModel,
+        api: any MirachAPI, versionViewModel: ApiVersionViewModel,
         reloadToken: Int = 0, onUploadStatement: @escaping () -> Void = {}
     ) {
-        self.session = session
         self.versionViewModel = versionViewModel
         self.reloadToken = reloadToken
         self.onUploadStatement = onUploadStatement
@@ -37,20 +35,6 @@ struct ResumenView: View {
             .background(Color.Mirach.Base.background)
             .navigationTitle("Resumen")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    // Temporary home of "Cerrar sesión" until Perfil exists.
-                    Menu {
-                        Button("Cerrar sesión", role: .destructive) { session.signOut() }
-                            .accessibilityIdentifier("signedin.signOut")
-                    } label: {
-                        Image(systemName: "person.crop.circle")
-                            .frame(minWidth: 44, minHeight: 44)
-                    }
-                    .accessibilityLabel("Cuenta")
-                    .accessibilityIdentifier("resumen.menu")
-                }
-            }
             // Runs when the screen appears (and again when `reloadToken` changes) and is
             // cancelled when it goes away.
             .task(id: reloadToken) { await viewModel.load() }

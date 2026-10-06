@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// The signed-in area: the tab bar. Only the tabs whose screens exist (the catalog's
-/// Categorías and Perfil arrive with their screens).
+/// Categorías arrives with its screen).
 struct SignedInView: View {
-    enum Tab: Hashable { case resumen, subir }
+    enum Tab: Hashable { case resumen, subir, perfil }
 
     let environment: AppEnvironment.Dependencies
     @State private var selection = Tab.resumen
@@ -19,7 +19,6 @@ struct SignedInView: View {
     var body: some View {
         TabView(selection: $selection) {
             ResumenView(
-                session: environment.session,
                 api: environment.api,
                 versionViewModel: versionViewModel,
                 reloadToken: resumenReload,
@@ -35,6 +34,10 @@ struct SignedInView: View {
             )
             .tabItem { Label("Subir", systemImage: "square.and.arrow.up") }
             .tag(Tab.subir)
+
+            PerfilView(viewModel: PerfilViewModel(api: environment.api, session: environment.session))
+                .tabItem { Label("Perfil", systemImage: "person.crop.circle") }
+                .tag(Tab.perfil)
         }
         .onChange(of: environment.subir.importsCompleted) { resumenReload += 1 }
         // The whole area leaves the screen on sign-out (also after a 401): drop the file copy
