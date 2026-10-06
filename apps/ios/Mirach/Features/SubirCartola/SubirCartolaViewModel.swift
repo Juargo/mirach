@@ -67,6 +67,125 @@ final class SubirCartolaViewModel {
     /// A message above the review (a refused edit, a commit that bounced back), or `nil`.
     private(set) var reviewNotice: String?
 
+    // MARK: create a category from a row
+
+    /// Field-level messages of the "Crear categoría" form.
+    struct CategoryFormErrors: Equatable {
+        var name: String?
+        var bucket: String?
+        var pattern: String?
+        /// A problem that belongs to no field (unknown code, connection).
+        var general: String?
+        var isEmpty: Bool { self == CategoryFormErrors() }
+    }
+
+    /// The repeated preview after creating a category.
+    enum PreviewRefresh: Equatable {
+        case idle
+        case updating
+        /// The category exists but the new preview could not load; "Reintentar" is offered.
+        case failed(categoryName: String)
+    }
+
+    private(set) var isCreatingCategory = false
+    private(set) var categoryFormErrors = CategoryFormErrors()
+    /// Grows by one with every category created: the form closes when it changes.
+    private(set) var createdCategoryCount = 0
+    private(set) var previewRefresh: PreviewRefresh = .idle
+    /// A neutral message above the review («X» applied to N more rows).
+    private(set) var reviewInfo: String?
+
+    /// Called when the form opens: clears the errors of a previous attempt.
+    func resetCategoryForm() {
+        categoryFormErrors = CategoryFormErrors()
+    }
+
+    /// "Crear" in the category form, for the row whose sheet it was opened from. On success the
+    /// row takes the new category (an edit), the form closes (`createdCategoryCount` changes)
+    /// and the preview is repeated with the same file and password so the new pattern can
+    /// reclassify other rows. Manual edits are never touched by the repeat.
+    func createCategory(_ new: NuevaCategoria, forRow rowIndex: Int) async {
+        guard case .revisando(let current) = state, case .loaded(let categories) = catalog,
+              previewRefresh != .updating, !isCreatingCategory,
+              let row = current.filas.first(where: { $0.rowIndex == rowIndex }), !row.esDuplicado
+        else { return }
+        isCreatingCategory = true
+        categoryFormErrors = CategoryFormErrors()
+        let mine = generation
+        let category: CategoriaCatalogo
+        do {
+            category = try await api.crearCategoria(new)
+        } catch {
+            guard mine == generation else { return }
+            isCreatingCategory = false
+            if case APIError.sessionExpired = error {
+                discard()
+            } else {
+                categoryFormErrors = Self.formErrors(for: error)
+            }
+            return
+        }
+        guard mine == generation else { return }
+        isCreatingCategory = false
+        // The category exists on the server now: usable at once, even if the refresh below fails.
+        catalog = .loaded(CatalogoCategorias(categorias: categories.categorias + [category]))
+        var next = edits
+        next[rowIndex] = category.id
+        if CartolaEdit.json(Self.sorted(next)).utf8.count <= CartolaEdit.maxJSONBytes {
+            edits = next
+            reviewNotice = nil
+        } else {
+            reviewNotice = Self.tooManyEditsMessage
+        }
+        reviewInfo = nil
+        createdCategoryCount += 1
+        await refreshPreview(category: category, fromRow: rowIndex, generation: mine)
+    }
+
+    /// "Reintentar" after the repeated preview failed.
+    func retryPreviewRefresh() async {
+        guard case .failed = previewRefresh, let pendingRefresh, case .revisando = state else { return }
+        await refreshPreview(category: pendingRefresh.category, fromRow: pendingRefresh.row, generation: generation)
+    }
+
+    private func refreshPreview(category: CategoriaCatalogo, fromRow: Int, generation mine: Int) async {
+        guard let file else { return }
+        let (name, id) = (category.nombre, category.id)
+        pendingRefresh = (category, fromRow)
+        previewRefresh = .updating
+        // The names of the categories first, so rows resolve against the server's catalog; if it
+        // cannot be read the local one (with the new category) stays.
+        if let fresh = try? await api.categorias(), mine == generation {
+            // A catalog read a moment after the creation should list it; if it does not (a stale
+            // read), the category the server just confirmed is still offered.
+            let listed = fresh.categoria(id: id) != nil
+            catalog = .loaded(listed ? fresh : CatalogoCategorias(categorias: fresh.categorias + [category]))
+        }
+        guard mine == generation else { return }
+        do {
+            let result = try await api.previewIngesta(file: file, password: password)
+            guard mine == generation, case .revisando(let before) = state else { return }
+            let count = Self.newMatches(
+                before: before.filas, after: result.filas, categoryID: id, fromRow: fromRow, edits: edits
+            )
+            preview = result
+            state = .revisando(result)
+            // Same file, same rows: an edit names a row that still exists (anything else drops).
+            let editable = Set(result.filas.filter { !$0.esDuplicado }.map(\.rowIndex))
+            edits = edits.filter { editable.contains($0.key) }
+            pendingRefresh = nil
+            previewRefresh = .idle
+            reviewInfo = Self.appliedMessage(name: name, count: count)
+        } catch {
+            guard mine == generation else { return }
+            if case APIError.sessionExpired = error {
+                discard()
+            } else {
+                previewRefresh = .failed(categoryName: name)
+            }
+        }
+    }
+
     /// The catalog once it is loaded, `nil` while loading or after a failure.
     var loadedCatalog: CatalogoCategorias? {
         if case .loaded(let catalog) = catalog { catalog } else { nil }
@@ -83,6 +202,7 @@ final class SubirCartolaViewModel {
     /// The last commit attempt, to retry it as it was.
     /// Set when a commit bounced because of the edits: the next catalog that loads drops the
     /// edits whose category it no longer has.
+    private var pendingRefresh: (category: CategoriaCatalogo, row: Int)?
     private var pruneEditsPending = false
     /// A commit already bounced back to the review because of the edits: a second rejection
     /// is not about the edits.
@@ -157,6 +277,7 @@ final class SubirCartolaViewModel {
     /// being classified by the server, and the list of touched rows stays minimal.
     func choose(_ categoriaId: String, forRow rowIndex: Int) {
         guard case .revisando(let preview) = state, case .loaded(let categories) = catalog,
+              previewRefresh != .updating,
               let row = preview.filas.first(where: { $0.rowIndex == rowIndex }), !row.esDuplicado,
               categories.categoria(id: categoriaId) != nil
         else { return }
@@ -172,7 +293,7 @@ final class SubirCartolaViewModel {
 
     /// "Confirmar": commits with only the rows the person touched.
     func confirm() async {
-        guard case .revisando = state, case .loaded = catalog else { return }
+        guard case .revisando = state, case .loaded = catalog, previewRefresh != .updating else { return }
         await commit(edits: Self.sorted(edits), fromReview: true)
     }
 
@@ -361,6 +482,11 @@ final class SubirCartolaViewModel {
         lastCommit = nil
         pruneEditsPending = false
         editsBounced = false
+        pendingRefresh = nil
+        previewRefresh = .idle
+        reviewInfo = nil
+        isCreatingCategory = false
+        categoryFormErrors = CategoryFormErrors()
         catalog = .loading
         edits = [:]
         reviewNotice = nil
