@@ -36,10 +36,20 @@ los 5 minutos, así que debe canjearse en el mismo login. Ambas llamadas se aute
    Cada canje exitoso sobrescribe el valor anterior.
 2. **`authorizationCode` opcional y degradación elegante.** `POST /api/auth/apple/token` lo acepta
    como campo opcional (string o null); los builds de la app que no lo envían siguen funcionando.
-   Solo se canjea después de verificar el identity token y resolver al usuario. Si el canje falla
-   (Apple caído, código vencido o usado, error al guardar) el login tiene éxito igual y se emite un
-   `warn` con `userId` y un motivo no secreto; nunca se loguea el code, el refresh token ni el
-   secret. Hasta un login posterior con code, ese usuario no tendrá token revocable.
+   Solo se canjea después de verificar el identity token y resolver al usuario, y **en segundo
+   plano** (`ITareasEnSegundoPlano`, `setImmediate` con captura total): la sesión se devuelve sin
+   esperar a Apple, así que un Apple lento (hasta 5 s) no demora el login ni un rechazo puede
+   volverse un unhandled rejection. Si el proceso muere antes de terminar, el efecto es el de un
+   canje fallido. Si el canje falla (Apple caído, código vencido o usado) o falla el
+   almacenamiento, el login ya tuvo éxito y se emite un `warn` con `userId` y un motivo no
+   secreto, con mensajes distintos para fallos de Apple y de almacenamiento; nunca se loguea el
+   code, el refresh token ni el secret. Hasta un login posterior con code, ese usuario no tendrá
+   token revocable.
+   **El code debe pertenecer a la misma identidad:** la respuesta de `/auth/token` trae un
+   `id_token`; se verifica con las mismas reglas del identity token (RS256, JWKS, `iss`, `aud`,
+   `exp`, sin nonce) y su `sub` debe ser el del login. Si no coincide o no verifica
+   (`sub-no-coincide` / `id-token-invalido`) no se guarda nada y el refresh token recién emitido se
+   revoca en Apple (best-effort), para que un code ajeno no quede asociado a otro usuario.
 3. **Revocación best-effort antes del borrado.** `AppleRevocadorIdentidadExterna` reemplaza al
    no-op: lee y descifra el token, llama a `/auth/revoke` con `token_type_hint=refresh_token` y un
    timeout de 5 s. Sin token guardado, registra un `info` y sigue. Un fallo registra un `warn`
