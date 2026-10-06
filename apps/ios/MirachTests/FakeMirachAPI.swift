@@ -46,6 +46,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var logoutResult: Result<Void, any Error> = .success(())
     private var _logoutCalls = 0
     private var _logoutDelay: Duration?
+    private var _onLogout: (@Sendable () -> Void)?
     private var deleteResult: Result<Void, any Error> = .success(())
     private var _deleteCalls: [String] = []
     private var _deleteGate: Gate?
@@ -193,13 +194,17 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     /// Makes `logout()` take this long (cancellable), to test that sign-out does not wait forever.
     func setLogoutDelay(_ delay: Duration?) { lock.withLock { _logoutDelay = delay } }
 
+    /// Runs when `logout()` is called, before it answers (to observe what the app had by then).
+    func setOnLogout(_ observer: @escaping @Sendable () -> Void) { lock.withLock { _onLogout = observer } }
+
     var logoutCalls: Int { lock.withLock { _logoutCalls } }
 
     func logout() async throws {
-        let (result, delay) = lock.withLock {
+        let (result, delay, observer) = lock.withLock {
             _logoutCalls += 1
-            return (logoutResult, _logoutDelay)
+            return (logoutResult, _logoutDelay, _onLogout)
         }
+        observer?()
         if let delay { try await Task.sleep(for: delay) }
         try result.get()
     }

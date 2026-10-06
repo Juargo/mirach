@@ -19,7 +19,17 @@ final class SessionController {
         case misconfigured
     }
 
+    /// Why the person is on the sign-in screen when it is not their own doing.
+    enum SignedOutNotice: Equatable {
+        case accountDeleted
+    }
+
     private(set) var phase: Phase = .validating
+    /// Shown once on the sign-in screen; the next sign-in clears it.
+    private(set) var signedOutNotice: SignedOutNotice?
+    /// Runs every time the session ends (sign-out, expiry, deletion): the app drops what is
+    /// tied to the person, such as the staged statement and its password.
+    var onSessionEnded: @MainActor () -> Void = {}
 
     private let logger = Logger(subsystem: "app.mirachbudget.ios", category: "session")
     private let api: any MirachAPI
@@ -63,6 +73,7 @@ final class SessionController {
     /// vanishes on the next launch.
     func signIn(_ session: Session) throws {
         try store.save(session)
+        signedOutNotice = nil
         phase = .signedIn(userId: session.userId)
     }
 
@@ -75,6 +86,29 @@ final class SessionController {
             logger.error("Could not delete the saved session from the Keychain: \(String(describing: error), privacy: .public)")
         }
         phase = .signedOut
+        onSessionEnded()
+    }
+
+    /// "Cerrar sesión": revokes the session on the server, then signs out locally. The server
+    /// call is best effort: whatever happens to it (offline, 5xx, no answer within `timeout`),
+    /// the person ends up signed out and never sees an error.
+    func signOutRemotely(timeout: Duration = .seconds(5)) async {
+        let api = api
+        // The request must go out while the token is still stored. Racing it against a timer
+        // keeps a cold server (about 50 s on the free tier) from holding the person on screen.
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { try? await api.logout() }
+            group.addTask { try? await Task.sleep(for: timeout) }
+            await group.next()
+            group.cancelAll()
+        }
+        signOut()
+    }
+
+    /// The server deleted the account: no token to revoke, only local state to drop.
+    func accountDeleted() {
+        signOut()
+        signedOutNotice = .accountDeleted
     }
 
     /// The server rejected the session identified by `token` (any authenticated call, or

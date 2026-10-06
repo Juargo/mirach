@@ -53,13 +53,16 @@ enum AppEnvironment {
                 session: arguments.contains(savedSessionArgument) ? StubMirachAPI.savedSession : nil
             )
             let api = StubMirachAPI()
+            let subir = SubirCartolaViewModel(api: api, staging: staging)
+            let session = SessionController(api: api, store: stubStore)
+            session.onSessionEnded = { subir.discard() }
             return Dependencies(
                 api: api,
                 store: stubStore,
-                session: SessionController(api: api, store: stubStore),
+                session: session,
                 expiryRelay: relay,
                 staging: staging,
-                subir: SubirCartolaViewModel(api: api, staging: staging),
+                subir: subir,
                 configurationProblem: arguments.contains(missingAPIKeyArgument) ? .missingAPIKey : nil
             )
         }
@@ -80,9 +83,13 @@ enum AppEnvironment {
         )
         let session = SessionController(api: api, store: store)
         relay.connect { token in await session.sessionExpired(token: token) }
+        let subir = SubirCartolaViewModel(api: api, staging: staging)
+        // The file copy and the PDF password belong to the person: they go with the session
+        // (sign-out, 401, account deletion), not only when a view happens to disappear.
+        session.onSessionEnded = { subir.discard() }
         return Dependencies(
             api: api, store: store, session: session, expiryRelay: relay,
-            staging: staging, subir: SubirCartolaViewModel(api: api, staging: staging),
+            staging: staging, subir: subir,
             configurationProblem: problem
         )
     }
