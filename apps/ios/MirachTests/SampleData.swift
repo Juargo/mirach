@@ -59,18 +59,23 @@ extension SampleData {
             esDuplicado: false, sugerido: nil
         ),
         CartolaRow(
-            rowIndex: 3, fecha: date(day: 3), descripcion: "ABONO SUELDO", cargo: 0, abono: 1_200_000,
+            rowIndex: 3, fecha: date(day: 3), descripcion: "TRANSF A MARIA SOTO", cargo: 12_000, abono: 0,
             esDuplicado: false, sugerido: nil
         ),
         CartolaRow(
             rowIndex: 4, fecha: date(day: 4), descripcion: "COPEC", cargo: 30_000, abono: 0,
             esDuplicado: true, sugerido: .init(bucket: .necesidades, categoriaId: Cat.transporte)
         ),
+        // An income: the server imports it as «Ingreso» and ignores any edit.
+        CartolaRow(
+            rowIndex: 5, fecha: date(day: 5), descripcion: "ABONO SUELDO", cargo: 0, abono: 1_200_000,
+            esDuplicado: false, sugerido: nil
+        ),
     ]
 
     static let preview = CartolaPreview(
         banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
-        totalFilas: 5, duplicados: 1, nuevas: 4, filas: rows
+        totalFilas: 6, duplicados: 1, nuevas: 5, filas: rows
     )
     static let commit = CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5)
 }

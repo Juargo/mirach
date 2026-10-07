@@ -107,7 +107,7 @@ final class SubirCartolaViewModel {
     func createCategory(_ new: NuevaCategoria, forRow rowIndex: Int) async {
         guard case .revisando(let current) = state, case .loaded(let categories) = catalog,
               previewRefresh != .updating, !isCreatingCategory,
-              let row = current.filas.first(where: { $0.rowIndex == rowIndex }), !row.esDuplicado
+              let row = current.filas.first(where: { $0.rowIndex == rowIndex }), row.isEditable
         else { return }
         isCreatingCategory = true
         categoryFormErrors = CategoryFormErrors()
@@ -176,7 +176,7 @@ final class SubirCartolaViewModel {
             preview = result
             state = .revisando(result)
             // Same file, same rows: an edit names a row that still exists (anything else drops).
-            let editable = Set(result.filas.filter { !$0.esDuplicado }.map(\.rowIndex))
+            let editable = Set(result.filas.filter(\.isEditable).map(\.rowIndex))
             edits = edits.filter { editable.contains($0.key) }
             pendingRefresh = nil
             previewRefresh = .idle
@@ -285,7 +285,7 @@ final class SubirCartolaViewModel {
     func choose(_ categoriaId: String, forRow rowIndex: Int) {
         guard case .revisando(let preview) = state, case .loaded(let categories) = catalog,
               previewRefresh != .updating,
-              let row = preview.filas.first(where: { $0.rowIndex == rowIndex }), !row.esDuplicado,
+              let row = preview.filas.first(where: { $0.rowIndex == rowIndex }), row.isEditable,
               categories.categoria(id: categoriaId) != nil
         else { return }
         var next = edits

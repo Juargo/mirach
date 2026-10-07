@@ -526,6 +526,9 @@ final class MirachUITests: XCTestCase {
         duplicate.tap()
         XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1))
 
+        // Under the pinned section header the tap would land on the next row: bring it fully in view.
+        var back = 0
+        while !row.isHittable && back < 3 { app.swipeDown(); back += 1 }
         row.tap()
         XCTAssertTrue(element(app, "review.sheet").waitForExistence(timeout: 5))
         // The sheet opens half height and its list is lazy: scroll to the Ahorro group.
@@ -539,14 +542,37 @@ final class MirachUITests: XCTestCase {
         fund.tap()
 
         XCTAssertTrue(element(app, "review.sheet").waitForNonExistence(timeout: 5))
-        XCTAssertTrue(row.label.contains("Ahorro · Fondo de emergencia"), row.label)
-        XCTAssertTrue(row.label.contains("editada"), row.label)
+        // The row changes section (the list is lazy): look for it by its new label.
+        let moved = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS 'Ahorro · Fondo de emergencia, editada'")
+        ).firstMatch
+        var looks = 0
+        while !moved.exists && looks < 6 { app.swipeUp(); looks += 1 }
+        XCTAssertTrue(moved.label.hasPrefix("TRANSF A JUAN PEREZ."), moved.label)
         XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar (1 cambio)")
 
         app.buttons["review.confirm"].tap()
         XCTAssertTrue(element(app, "subir.success").waitForExistence(timeout: 10))
         // The stub answers with the number of edits it received.
         XCTAssertTrue(app.staticTexts["1 movimiento importado de Banco de Chile"].exists)
+    }
+
+    @MainActor
+    func testAnIncomeRowInTheReviewIsShownAsIngresoAndHasNoEditAffordance() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
+        waitForExpectations(timeout: 10)
+        app.buttons["subir.review"].tap()
+
+        let income = element(app, "review.row.3")
+        XCTAssertTrue(income.waitForExistence(timeout: 10))
+        XCTAssertTrue(income.label.contains("Ingreso, no se puede editar"), income.label)
+        XCTAssertFalse(income.label.contains("Deseos · Desconocido"), income.label)
+        income.tap()
+        XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1), "an income must open no sheet")
+        XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar")
     }
 
     @MainActor

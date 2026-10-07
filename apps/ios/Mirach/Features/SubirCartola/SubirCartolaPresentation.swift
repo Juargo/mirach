@@ -111,13 +111,13 @@ extension SubirCartolaViewModel {
     /// Rows the new category now matches that it did not before: those whose suggestion became
     /// the new category. Not counted: the row it was created from (it got the category as an
     /// edit), rows the person classified by hand (the server's suggestion does not show there) and
-    /// duplicates (not imported). A row absent from `before` counts like a changed one.
+    /// duplicates (not imported) and incomes (always «Ingreso»). A row absent from `before` counts like a changed one.
     nonisolated static func newMatches(
         before: [CartolaRow], after: [CartolaRow], categoryID: String, fromRow: Int, edits: [Int: String]
     ) -> Int {
         let previous = Dictionary(before.map { ($0.rowIndex, $0.sugerido?.categoriaId) }, uniquingKeysWith: { first, _ in first })
         return after.filter { row in
-            !row.esDuplicado && row.rowIndex != fromRow && edits[row.rowIndex] == nil
+            row.isEditable && row.rowIndex != fromRow && edits[row.rowIndex] == nil
                 && row.sugerido?.categoriaId == categoryID && previous[row.rowIndex].flatMap { $0 } != categoryID
         }.count
     }
