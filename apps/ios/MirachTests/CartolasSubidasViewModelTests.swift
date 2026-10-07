@@ -248,7 +248,8 @@ struct CartolasSubidasViewModelTests {
         api.setEliminarResults([.failure(EliminarCartolaError.notFound)])
         let rest = Array(SampleData.cartolas.dropFirst())
         api.setIngestasResults([.success(SampleData.cartolas), .success(rest)])
-        let viewModel = make(api)
+        var changes = 0
+        let viewModel = make(api, onChange: { changes += 1 })
         await viewModel.load()
 
         viewModel.requestDeletion(processed)
@@ -256,6 +257,9 @@ struct CartolasSubidasViewModelTests {
 
         #expect(viewModel.message == .alreadyGone)
         #expect(viewModel.state == .loaded(rest))
+        // ADR-050 rule 3: the Resumen reloads and the list is fetched again, as after a 204.
+        #expect(changes == 1)
+        #expect(api.ingestasCalls == 2)
     }
 
     @Test func aFailedDeletionKeepsTheRowAvailableAndExplains() async {

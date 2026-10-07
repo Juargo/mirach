@@ -526,10 +526,19 @@ final class MirachUITests: XCTestCase {
         duplicate.tap()
         XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1))
 
-        // After the scroll XCUITest does to reach a row, its frame can sit under the navigation bar and
-        // the pinned header, and the tap lands on a neighbour (row 7 instead of row 1): go back to the top.
-        var back = 0
-        while row.frame.minY < 200 && back < 3 { app.swipeDown(); back += 1 }
+        // XCUITest's own scroll can leave the row under the navigation bar and the pinned section
+        // header, where a tap lands on a neighbour. Scroll until it is hittable and inside the free
+        // area: below the bar and the header, above the action bar.
+        let header = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'review.section.'")).firstMatch
+        let topEdge = app.navigationBars.firstMatch.frame.maxY + (header.exists ? header.frame.height : 0)
+        let bottomEdge = app.buttons["review.confirm"].frame.minY
+        var moves = 0
+        while !(row.isHittable && row.frame.minY >= topEdge && row.frame.maxY <= bottomEdge) && moves < 6 {
+            if row.frame.minY < topEdge { app.swipeDown() } else { app.swipeUp() }
+            moves += 1
+        }
+        XCTAssertTrue(row.frame.minY >= topEdge && row.frame.maxY <= bottomEdge, "row never reached the free area")
         row.tap()
         XCTAssertTrue(element(app, "review.sheet").waitForExistence(timeout: 5))
         // The sheet is for row 1 (4 oct, -$40.000), not for one of the other transfers to the same person.
