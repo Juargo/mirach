@@ -304,13 +304,37 @@ struct CategoriasViewModelTests {
         #expect(api.crearCategoriaCalls.isEmpty)
     }
 
-    @Test func theAnnouncementIsDroppedAfterTheNextRefreshSoItIsNotStale() async {
+    @Test func aPullToRefreshDropsTheAnnouncementSoItIsNotStale() async {
         let api = FakeMirachAPI()
         api.setCrearCategoriaResults([.success(created)])
         let viewModel = make(api)
         await viewModel.load()
         await viewModel.create(NuevaCategoria(nombre: "Mascotas", bucket: .deseos, patron: nil))
         #expect(viewModel.announcement != nil)
+
+        await viewModel.refresh()
+
+        #expect(viewModel.announcement == nil)
+    }
+
+    @Test func theRereadAfterTheWriteItselfKeepsTheAnnouncement() async {
+        let api = FakeMirachAPI()
+        api.setCrearCategoriaResults([.success(created)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.create(NuevaCategoria(nombre: "Mascotas", bucket: .deseos, patron: nil))
+
+        await viewModel.catalogDidChange()
+
+        #expect(viewModel.announcement == "Categoría «Mascotas» creada")
+    }
+
+    @Test func dismissingTheAnnouncementClearsIt() async {
+        let api = FakeMirachAPI()
+        api.setCrearCategoriaResults([.success(created)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.create(NuevaCategoria(nombre: "Mascotas", bucket: .deseos, patron: nil))
 
         viewModel.dismissAnnouncement()
 

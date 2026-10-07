@@ -51,6 +51,7 @@ final class CategoriasViewModel {
     func load() async {
         state = .loading
         refreshNotice = nil
+        announcement = nil
         await fetch()
     }
 
@@ -60,6 +61,9 @@ final class CategoriasViewModel {
     /// Pull to refresh: repeats the query without blanking the list, and keeps it if it fails.
     func refresh() async {
         guard case .loaded = state else { return await retry() }
+        // The person asked for the list again: what was announced about an earlier write is stale.
+        // (The re-read a write triggers itself, `catalogDidChange`, keeps its announcement.)
+        announcement = nil
         await fetch(keepingContentOnFailure: true, failureNotice: "No se pudo actualizar la lista.")
     }
 
