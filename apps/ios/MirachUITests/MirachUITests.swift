@@ -526,11 +526,14 @@ final class MirachUITests: XCTestCase {
         duplicate.tap()
         XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1))
 
-        // Under the pinned section header the tap would land on the next row: bring it fully in view.
+        // After the scroll XCUITest does to reach a row, its frame can sit under the navigation bar and
+        // the pinned header, and the tap lands on a neighbour (row 7 instead of row 1): go back to the top.
         var back = 0
-        while !row.isHittable && back < 3 { app.swipeDown(); back += 1 }
+        while row.frame.minY < 200 && back < 3 { app.swipeDown(); back += 1 }
         row.tap()
         XCTAssertTrue(element(app, "review.sheet").waitForExistence(timeout: 5))
+        // The sheet is for row 1 (4 oct, -$40.000), not for one of the other transfers to the same person.
+        XCTAssertTrue(app.staticTexts["4 oct · -$40.000"].exists, "the sheet opened for another row")
         // The sheet opens half height and its list is lazy: scroll to the Ahorro group.
         let fund = app.buttons["review.category.stub-aho-fondo"]
         var swipes = 0
@@ -548,7 +551,8 @@ final class MirachUITests: XCTestCase {
         ).firstMatch
         var looks = 0
         while !moved.exists && looks < 6 { app.swipeUp(); looks += 1 }
-        XCTAssertTrue(moved.label.hasPrefix("TRANSF A JUAN PEREZ."), moved.label)
+        // Row 1 is the only one dated 4 oct with this amount: the edit went to that row.
+        XCTAssertTrue(moved.label.hasPrefix("TRANSF A JUAN PEREZ. Gasto de $40.000. 4 oct."), moved.label)
         XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar (1 cambio)")
 
         app.buttons["review.confirm"].tap()
