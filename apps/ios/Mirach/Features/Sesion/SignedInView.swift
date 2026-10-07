@@ -29,6 +29,8 @@ struct SignedInView: View {
 
             SubirCartolaView(
                 viewModel: environment.subir,
+                api: environment.api,
+                onCartolaDeleted: { resumenReload += 1 },
                 onShowSummary: { selection = .resumen },
                 testFixtureURL: AppEnvironment.uiTestFixtureURL()
             )
