@@ -46,7 +46,7 @@ final class MirachUITests: XCTestCase {
     }
 
     @MainActor
-    func testLaunchWithSavedSessionShowsTheResumenAndSignOutReturnsToSignIn() {
+    func testLaunchWithSavedSessionShowsTheResumen() {
         let app = launch([savedSession])
 
         XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
@@ -65,11 +65,118 @@ final class MirachUITests: XCTestCase {
         // The discreet API version line kept from the first screen (stubbed value).
         XCTAssertTrue(app.staticTexts["signedin.apiVersion"].waitForExistence(timeout: 10))
 
-        app.buttons["resumen.menu"].tap()
-        app.buttons["signedin.signOut"].tap()
+        // "Cerrar sesión" lives in Perfil now: the temporary menu is gone.
+        XCTAssertFalse(app.buttons["resumen.menu"].exists)
+        XCTAssertFalse(app.buttons["signedin.signOut"].exists)
+    }
+
+    // MARK: Perfil
+
+    private func openPerfilTab(_ app: XCUIApplication) {
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Perfil"].tap()
+    }
+
+    @MainActor
+    func testPerfilShowsTheProfileAndSignOutReturnsToSignIn() {
+        let app = launch([savedSession])
+        openPerfilTab(app)
+
+        // The name field grows with the text, so it may be a text view: look it up by identifier.
+        let name = element(app, "perfil.nombre")
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.isHittable)
+        XCTAssertEqual(name.value as? String, "Persona de prueba")
+        XCTAssertTrue(element(app, "perfil.email").label.contains("persona@example.com"))
+        XCTAssertFalse(app.buttons["perfil.save"].isEnabled, "no changes yet")
+
+        app.buttons["perfil.signOut"].tap()
 
         XCTAssertTrue(app.buttons["signin.apple"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.staticTexts["resumen.month"].exists)
+        XCTAssertFalse(element(app, "signin.notice").exists, "a plain sign-out leaves no notice")
+    }
+
+    @MainActor
+    func testEditingTheNameEnablesSaveAndConfirmsIt() {
+        let app = launch([savedSession])
+        openPerfilTab(app)
+        let name = element(app, "perfil.nombre")
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.isHittable)
+
+        name.tap()
+        name.typeText(" Dos")
+        XCTAssertTrue(app.buttons["perfil.save"].isEnabled)
+        app.buttons["perfil.save"].tap()
+
+        XCTAssertTrue(element(app, "perfil.saved").waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["perfil.save"].isEnabled)
+    }
+
+    @MainActor
+    func testReturnInTheNameSavesItWithoutAddingALine() {
+        let app = launch([savedSession])
+        openPerfilTab(app)
+        let name = element(app, "perfil.nombre")
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.isHittable)
+
+        name.tap()
+        name.typeText(" Dos\n")
+
+        XCTAssertTrue(element(app, "perfil.saved").waitForExistence(timeout: 10))
+        // Where the caret lands is up to the system; what matters is that no line was added.
+        let value = name.value as? String ?? ""
+        XCTAssertTrue(value.contains("Dos"))
+        XCTAssertFalse(value.contains("\n"), "no newline in the field")
+    }
+
+    @MainActor
+    func testDeletingTheAccountNeedsTheTypedWordAndReturnsToSignInWithANotice() {
+        let app = launch([savedSession])
+        openPerfilTab(app)
+        XCTAssertTrue(app.buttons["perfil.delete"].waitForExistence(timeout: 10))
+        app.buttons["perfil.delete"].tap()
+
+        let field = app.textFields["perfil.delete.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        let confirm = app.buttons["perfil.delete.confirm"]
+        XCTAssertFalse(confirm.isEnabled)
+        field.typeText("ELIMINA")
+        XCTAssertFalse(confirm.isEnabled, "a partial word does not count")
+        field.typeText("R")
+        XCTAssertTrue(confirm.isEnabled)
+        confirm.tap()
+
+        XCTAssertTrue(app.buttons["signin.apple"].waitForExistence(timeout: 10))
+        XCTAssertEqual(element(app, "signin.notice").label, "Tu cuenta y tus datos se eliminaron")
+    }
+
+    @MainActor
+    func testDeleteAccountIsReachableAtTheLargestTextSize() {
+        let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        openPerfilTab(app)
+        let delete = app.buttons["perfil.delete"]
+        XCTAssertTrue(delete.waitForExistence(timeout: 10))
+
+        // It may start under the tab bar; scrolling must bring it clear of it.
+        for _ in 0..<5 where !delete.isHittable { app.swipeUp() }
+
+        XCTAssertTrue(delete.isHittable)
+    }
+
+    @MainActor
+    func testCancellingTheDeletionKeepsThePersonSignedIn() {
+        let app = launch([savedSession])
+        openPerfilTab(app)
+        app.buttons["perfil.delete"].tap()
+        XCTAssertTrue(app.buttons["perfil.delete.cancel"].waitForExistence(timeout: 10))
+
+        app.buttons["perfil.delete.cancel"].tap()
+
+        XCTAssertTrue(app.buttons["perfil.signOut"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["signin.apple"].exists)
     }
 
     @MainActor

@@ -14,6 +14,15 @@ protocol MirachAPI: Sendable {
     func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session
     /// `GET /api/auth/me`: validates the saved session.
     func currentUser() async throws -> CurrentUser
+    /// `PATCH /api/perfil` with only the name; answers the updated identity.
+    /// Throws `PerfilError.invalidName` for `NOMBRE_INVALIDO`.
+    func updateNombre(_ nombre: String) async throws -> CurrentUser
+    /// `POST /api/auth/logout`: revokes the session on the server. Throws on any failure; the
+    /// caller signs out locally either way.
+    func logout() async throws
+    /// `DELETE /api/cuenta` with `{"confirmacion": confirmation}`. Throws `CuentaError` for the
+    /// 400 the catalog names.
+    func deleteAccount(confirmation: String) async throws
     /// `GET /api/resumen`. `nil` lets the API resolve the latest month with movements.
     func resumen(periodo: Periodo?) async throws -> ResumenMes
     /// `GET /api/periodos`: months with movements, most recent first.
@@ -138,7 +147,66 @@ struct OpenAPIMirachAPI: MirachAPI {
             switch try await client.get_sol_api_sol_auth_sol_me() {
             case .ok(let ok):
                 let me = try ok.body.json
-                return CurrentUser(userId: me.userId, nombre: me.nombre)
+                return CurrentUser(userId: me.userId, nombre: me.nombre, email: me.email)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func updateNombre(_ nombre: String) async throws -> CurrentUser {
+        let sentToken = currentToken()
+        do {
+            // Only the name: `email` needs the current password and the app never changes it.
+            switch try await client.patch_sol_api_sol_perfil(body: .json(.init(nombre: nombre))) {
+            case .ok(let ok):
+                let me = try ok.body.json
+                return CurrentUser(userId: me.userId, nombre: me.nombre, email: me.email)
+            case .badRequest(let bad):
+                if try bad.body.json.code == "NOMBRE_INVALIDO" { throw PerfilError.invalidName }
+                throw APIError.badStatus(400)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .forbidden:
+                // Only an email change is refused with 403, and the app never sends one.
+                throw APIError.badStatus(403)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func logout() async throws {
+        do {
+            switch try await client.post_sol_api_sol_auth_sol_logout() {
+            case .noContent:
+                return
+            case .unauthorized:
+                // Public endpoint: its only 401 is the client key.
+                throw APIError.apiKeyRejected
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func deleteAccount(confirmation: String) async throws {
+        let sentToken = currentToken()
+        do {
+            switch try await client.delete_sol_api_sol_cuenta(body: .json(.init(confirmacion: confirmation))) {
+            case .noContent:
+                return
+            case .badRequest(let bad):
+                if try bad.body.json.code == "CONFIRMACION_INVALIDA" { throw CuentaError.confirmationRejected }
+                throw APIError.badStatus(400)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
             case .undocumented(let statusCode, _):

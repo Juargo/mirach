@@ -8,6 +8,8 @@ struct MirachApp: App {
     var body: some Scene {
         WindowGroup {
             RootView(environment: environment)
+                // The system blue fails contrast on the dark surfaces; the token has a variant per theme.
+                .tint(Color.Mirach.Base.primary)
         }
     }
 }

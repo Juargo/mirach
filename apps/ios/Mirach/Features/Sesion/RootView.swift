@@ -25,7 +25,10 @@ struct RootView: View {
             case .validating:
                 StatusView(message: "Verificando tu sesión… la primera vez puede tardar hasta un minuto.")
             case .signedOut:
-                SignInView(viewModel: SignInViewModel(api: environment.api, session: environment.session))
+                SignInView(
+                    viewModel: SignInViewModel(api: environment.api, session: environment.session),
+                    notice: environment.session.signedOutNotice
+                )
             case .signedIn:
                 SignedInView(environment: environment)
             case .connectionFailed:
@@ -33,7 +36,7 @@ struct RootView: View {
                     Text("Problema de conexión. Revisa tu conexión e inténtalo de nuevo.")
                         .multilineTextAlignment(.center)
                     Button("Reintentar") { retryCount += 1 }
-                        .buttonStyle(.borderedProminent)
+                        .prominentButton()
                 }
                 .padding()
             case .misconfigured:

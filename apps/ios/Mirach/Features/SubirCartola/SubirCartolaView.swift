@@ -79,7 +79,7 @@ struct SubirCartolaView: View {
                 .accessibilityFocused($messageFocused)
                 .accessibilityIdentifier("subir.error")
             Button("Reintentar") { Task { await viewModel.retryPreview() } }
-                .buttonStyle(.borderedProminent).controlSize(.large)
+                .prominentButton().controlSize(.large)
                 .accessibilityIdentifier("subir.retry")
             Button("Elegir otro archivo") { isPickingFile = true }
                 .buttonStyle(.bordered).controlSize(.large)
@@ -97,7 +97,7 @@ struct SubirCartolaView: View {
                 .accessibilityIdentifier("subir.error")
             if failure.isRetryable {
                 Button("Reintentar") { Task { await viewModel.retryImport() } }
-                    .buttonStyle(.borderedProminent).controlSize(.large)
+                    .prominentButton().controlSize(.large)
                     .accessibilityIdentifier("subir.retry")
             }
             if viewModel.canReturnToReview {
@@ -138,7 +138,7 @@ struct SubirCartolaView: View {
             Button { isPickingFile = true } label: {
                 Label("Elegir archivo", systemImage: "doc.badge.plus").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large)
+            .prominentButton().controlSize(.large)
             .accessibilityIdentifier("subir.chooseFile")
 
             if let testFixtureURL {
@@ -180,7 +180,7 @@ struct SubirCartolaView: View {
             Button { Task { await viewModel.uploadAsIs() } } label: {
                 Text("Subir tal cual").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large)
+            .prominentButton().controlSize(.large)
             .accessibilityIdentifier("subir.uploadAsIs")
             reviewEntry
             Button("Descartar", role: .destructive) { confirmingDiscard = true }
@@ -257,7 +257,7 @@ struct SubirCartolaView: View {
             Button { onShowSummary() } label: {
                 Text("Ver resumen del mes").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large)
+            .prominentButton().controlSize(.large)
             .accessibilityIdentifier("subir.viewSummary")
             Button("Subir otra cartola") { viewModel.discard() }
                 .buttonStyle(.bordered).controlSize(.large)
@@ -327,7 +327,7 @@ private struct PasswordPrompt: View {
                 .accessibilityIdentifier("subir.password")
 
             Button("Reintentar", action: send)
-                .buttonStyle(.borderedProminent).controlSize(.large)
+                .prominentButton().controlSize(.large)
                 .disabled(password.isEmpty)
                 .accessibilityIdentifier("subir.retry")
             Button("Elegir otro archivo", action: chooseOther)

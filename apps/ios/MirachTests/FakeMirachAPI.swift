@@ -39,6 +39,18 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _previewGate: Gate?
     private var _categoriasGate: Gate?
     private var _crearGate: Gate?
+    private var updateNombreResults: [Result<CurrentUser, any Error>] = [
+        .success(CurrentUser(userId: "u-1", nombre: "Nuevo", email: "ana@example.com"))
+    ]
+    private var _updateNombreCalls: [String] = []
+    private var logoutResult: Result<Void, any Error> = .success(())
+    private var _logoutCalls = 0
+    private var _logoutDelay: Duration?
+    private var _onLogout: (@Sendable () -> Void)?
+    private var deleteResult: Result<Void, any Error> = .success(())
+    private var _deleteCalls: [String] = []
+    private var _deleteGate: Gate?
+    private var _updateGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -160,6 +172,69 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
             return commitResults.count > 1 ? commitResults.removeFirst() : commitResults[0]
         }
         return try result.get()
+    }
+
+    // MARK: perfil
+
+    func setUpdateNombreResults(_ results: [Result<CurrentUser, any Error>]) {
+        lock.withLock { updateNombreResults = results }
+    }
+
+    var updateNombreCalls: [String] { lock.withLock { _updateNombreCalls } }
+
+    /// When set, `updateNombre` waits at the gate before answering.
+    var updateGate: Gate? {
+        get { lock.withLock { _updateGate } }
+        set { lock.withLock { _updateGate = newValue } }
+    }
+
+    func updateNombre(_ nombre: String) async throws -> CurrentUser {
+        await updateGate?.wait()
+        let result = lock.withLock {
+            _updateNombreCalls.append(nombre)
+            return updateNombreResults.count > 1 ? updateNombreResults.removeFirst() : updateNombreResults[0]
+        }
+        return try result.get()
+    }
+
+    func setLogoutResult(_ result: Result<Void, any Error>) { lock.withLock { logoutResult = result } }
+
+    /// Makes `logout()` take this long (cancellable), to test that sign-out does not wait forever.
+    func setLogoutDelay(_ delay: Duration?) { lock.withLock { _logoutDelay = delay } }
+
+    /// Runs when `logout()` is called, before it answers (to observe what the app had by then).
+    func setOnLogout(_ observer: @escaping @Sendable () -> Void) { lock.withLock { _onLogout = observer } }
+
+    var logoutCalls: Int { lock.withLock { _logoutCalls } }
+
+    func logout() async throws {
+        let (result, delay, observer) = lock.withLock {
+            _logoutCalls += 1
+            return (logoutResult, _logoutDelay, _onLogout)
+        }
+        observer?()
+        if let delay { try await Task.sleep(for: delay) }
+        try result.get()
+    }
+
+    func setDeleteResult(_ result: Result<Void, any Error>) { lock.withLock { deleteResult = result } }
+
+    /// The confirmation text each `deleteAccount` call received.
+    var deleteCalls: [String] { lock.withLock { _deleteCalls } }
+
+    /// When set, `deleteAccount` waits at the gate before answering.
+    var deleteGate: Gate? {
+        get { lock.withLock { _deleteGate } }
+        set { lock.withLock { _deleteGate = newValue } }
+    }
+
+    func deleteAccount(confirmation: String) async throws {
+        await deleteGate?.wait()
+        let result = lock.withLock {
+            _deleteCalls.append(confirmation)
+            return deleteResult
+        }
+        try result.get()
     }
 
     func resumen(periodo: Periodo?) async throws -> ResumenMes {

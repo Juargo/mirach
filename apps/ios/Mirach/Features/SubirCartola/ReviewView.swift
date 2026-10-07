@@ -153,7 +153,7 @@ struct ReviewView: View {
             Button { Task { await viewModel.confirm() } } label: {
                 Text(confirmTitle).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent).controlSize(.large)
+            .prominentButton().controlSize(.large)
             .disabled(viewModel.loadedCatalog == nil || viewModel.previewRefresh == .updating)
             .accessibilityIdentifier("review.confirm")
         }

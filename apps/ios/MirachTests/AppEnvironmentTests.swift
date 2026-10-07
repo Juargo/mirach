@@ -52,6 +52,27 @@ struct AppEnvironmentTests {
         #expect(some.store.load() != nil)
     }
 
+    // MARK: ending the session drops the staged statement
+
+    @Test func endingTheSessionDiscardsTheStagedStatementAndItsPassword() async {
+        for ending in [
+            { (live: AppEnvironment.Dependencies) in live.session.signOut() },
+            { (live: AppEnvironment.Dependencies) in live.session.accountDeleted() },
+        ] {
+            let staging = FakeCartolaStaging()
+            let live = AppEnvironment.make(
+                arguments: [AppEnvironment.stubbedClientArgument, AppEnvironment.savedSessionArgument],
+                staging: staging
+            )
+            await live.subir.chooseFile(URL(fileURLWithPath: "/tmp/cartola.xlsx"))
+            #expect(staging.discarded.isEmpty)
+
+            ending(live)
+
+            #expect(staging.discarded.map(\.filename) == ["cartola.xlsx"])
+        }
+    }
+
     // MARK: 401 handling, wired end to end
 
     @Test func a401OnAnAuthenticatedCallDiscardsTheSessionAndReturnsToSignIn() async throws {

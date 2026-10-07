@@ -53,13 +53,16 @@ enum AppEnvironment {
                 session: arguments.contains(savedSessionArgument) ? StubMirachAPI.savedSession : nil
             )
             let api = StubMirachAPI()
+            let subir = SubirCartolaViewModel(api: api, staging: staging)
+            let session = SessionController(api: api, store: stubStore)
+            session.onSessionEnded = { subir.discard() }
             return Dependencies(
                 api: api,
                 store: stubStore,
-                session: SessionController(api: api, store: stubStore),
+                session: session,
                 expiryRelay: relay,
                 staging: staging,
-                subir: SubirCartolaViewModel(api: api, staging: staging),
+                subir: subir,
                 configurationProblem: arguments.contains(missingAPIKeyArgument) ? .missingAPIKey : nil
             )
         }
@@ -80,9 +83,13 @@ enum AppEnvironment {
         )
         let session = SessionController(api: api, store: store)
         relay.connect { token in await session.sessionExpired(token: token) }
+        let subir = SubirCartolaViewModel(api: api, staging: staging)
+        // The file copy and the PDF password belong to the person: they go with the session
+        // (sign-out, 401, account deletion), not only when a view happens to disappear.
+        session.onSessionEnded = { subir.discard() }
         return Dependencies(
             api: api, store: store, session: session, expiryRelay: relay,
-            staging: staging, subir: SubirCartolaViewModel(api: api, staging: staging),
+            staging: staging, subir: subir,
             configurationProblem: problem
         )
     }
@@ -140,7 +147,20 @@ struct StubMirachAPI: MirachAPI {
     }
 
     func currentUser() async throws -> CurrentUser {
-        CurrentUser(userId: "stub-user", nombre: "Persona de prueba")
+        CurrentUser(userId: "stub-user", nombre: "Persona de prueba", email: "persona@example.com")
+    }
+
+    func updateNombre(_ nombre: String) async throws -> CurrentUser {
+        let name = nombre.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, name.count <= 80 else { throw PerfilError.invalidName }
+        return CurrentUser(userId: "stub-user", nombre: name, email: "persona@example.com")
+    }
+
+    func logout() async throws {}
+
+    /// Like the server: only the exact word deletes.
+    func deleteAccount(confirmation: String) async throws {
+        guard confirmation == "ELIMINAR" else { throw CuentaError.confirmationRejected }
     }
 
     /// Three months: a normal one (a bucket without state), a quieter one, and one with no income.
