@@ -1,6 +1,6 @@
 # Mirach para iPhone
 
-App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y y el Resumen del mes (solo lectura): mes, estado global, ingreso, gráfico de distribución del gasto y una fila por bucket, con selector de mes, y una barra de pestañas (Resumen y Subir) con «Subir cartola» (T5a: elegir archivo, vista previa, contraseña de PDF y «Subir tal cual»; la revisión por fila llega en T5b).
+App nativa (Swift + SwiftUI, iOS 17+) de Mirach. Es un cliente delgado de la API (ADR-046 D9). El estado actual: inicio de sesión con Apple, sesión guardada en el Keychain y y el Resumen del mes (solo lectura): mes, estado global, ingreso, gráfico de distribución del gasto y una fila por bucket, con selector de mes, y una barra de pestañas (Resumen y Subir) con «Subir cartola» (T5a: elegir archivo, vista previa, contraseña de PDF y «Subir tal cual»; T5b: «Revisar y editar» con el catálogo de categorías y la reclasificación por fila).
 
 ## Qué es XcodeGen y por qué lo usamos
 
@@ -112,6 +112,15 @@ Si el servidor rechaza la clave (401 `API_KEY_INVALIDA`) se muestra la misma pan
 - **Contraseña de PDF:** solo en memoria (propiedad privada del view model, fuera de `state`), nunca en disco ni en registros; se reenvía en la vista previa y en `commit` y se descarta al descartar, cambiar de archivo, terminar o cerrar sesión.
 - **Errores:** el adaptador traduce los códigos del contrato (`PDF_PROTEGIDO`, `PDF_PASSWORD_INCORRECTA`, `SIN_MOVIMIENTOS`, 409 `CATALOGO_INCOMPLETO`, 503 `CATALOGO_NO_DISPONIBLE`, 500, 400 genérico con su `message`) a `IngestaError`. Un 400 cuyo cuerpo el cliente generado no puede decodificar (un `code` desconocido) conserva su `message`.
 - **Pruebas de interfaz:** XCUITest no maneja el selector del sistema. Solo en Debug, `-uiTestFixturePath <archivo>` muestra un botón «Usar archivo de prueba» que elige ese archivo; los fixtures están en `MirachUITests/Fixtures/` (copias de `apps/api/test/fixtures/`). Con el cliente de prueba, un archivo cuyo nombre contiene «protegida» pide la contraseña `correcta`.
+
+### Revisar y editar (T5b)
+
+- **Catálogo:** `GET /api/categorias` se carga al llegar a la decisión. Si falla, «Subir tal cual» sigue disponible y «Revisar y editar» queda deshabilitada con «Reintentar».
+- **Lista:** todas las filas, agrupadas por bucket y categoría (Necesidades, Deseos, Ahorro), con las ya cargadas aparte al final («Ya cargados», no editables). Cada fila muestra su clasificación «Bucket · Categoría» (la sugerida; sin sugerencia, «Deseos · Desconocido»). La lista es perezosa (`LazyVStack` con cabeceras fijas), pensada para cientos de filas.
+- **Edición:** tocar una fila abre una hoja modal con las categorías agrupadas por bucket. La elección se guarda en memoria como `{rowIndex, categoriaId}`; solo viajan las filas tocadas y nunca un `categoriaId` nulo. Elegir de nuevo la categoría que el servidor ya sugería deshace la edición (la fila vuelve a clasificarla el servidor). El texto de `edits` se limita a 256 KB: una edición que lo superaría se rechaza con un aviso.
+- **Errores:** un 400 en un `commit` con ediciones vuelve a la revisión con un mensaje genérico, recarga el catálogo y descarta las ediciones cuyas categorías ya no existen (el contrato no distingue un 400 por `edits` de uno por archivo; el archivo ya había pasado la vista previa). Otros errores conservan las ediciones y «Reintentar» las reenvía; «Volver a revisar» regresa a la lista.
+- **Salir de la pantalla:** cambiar de pestaña conserva la revisión en memoria (el view model vive en `AppEnvironment`), así que no se pierde nada y no se pide confirmación; solo «Descartar» (con confirmación) y cerrar sesión la borran.
+- **Cliente de prueba:** con `-uiTestStubbedClient`, el commit con ediciones responde `totalTransacciones` = número de ediciones recibidas y rechaza (400) una fila duplicada o una categoría fuera del catálogo, para que XCUITest verifique lo que llegó.
 
 ## Pruebas
 

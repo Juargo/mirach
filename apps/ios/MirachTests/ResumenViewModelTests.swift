@@ -220,6 +220,7 @@ private final class SlowAPI: MirachAPI, @unchecked Sendable {
 
     func periodos() async throws -> [Periodo] { [] }
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview { SampleData.preview }
+    func categorias() async throws -> CatalogoCategorias { throw APIError.badStatus(0) }
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
         SampleData.commit
     }

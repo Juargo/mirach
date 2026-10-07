@@ -41,9 +41,110 @@ struct IngestaAPITests {
 
         #expect(preview == CartolaPreview(
             banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
-            totalFilas: 42, duplicados: 5, nuevas: 37
+            totalFilas: 42, duplicados: 5, nuevas: 37, filas: []
         ))
         #expect(transport.requests.first?.path == "/api/ingestas/preview")
+    }
+
+    private static func previewBody(rows: String) -> String {
+        """
+        {"banco":"BCI","tipoCuenta":"Cuenta Vista","numeroCuenta":"1","estructura":{"totalFilasDatos":4},
+         "muestra":[],"resumen":{"totalFilas":4,"duplicadosDetectados":1,"nuevas":3},"filas":[\(rows)]}
+        """
+    }
+
+    @Test func previewMapsEveryRowWithMoneyDateDuplicateAndSuggestion() async throws {
+        let rows = """
+        {"rowIndex":0,"fecha":"2026-10-03T00:00:00.000Z","descripcion":"LIDER","cargo":"25990","abono":"0",
+         "esDuplicado":false,"sugerido":{"bucket":"Necesidades","categoriaId":"cat-1"}},
+        {"rowIndex":1,"fecha":"2026-10-04T00:00:00.000Z","descripcion":"SUELDO","cargo":"0","abono":"1200000.00",
+         "esDuplicado":false,"sugerido":null},
+        {"rowIndex":2,"fecha":"2026-10-05T00:00:00Z","descripcion":"COPEC","cargo":"30000","abono":"0",
+         "esDuplicado":true,"sugerido":{"bucket":"Deseos","categoriaId":null}}
+        """
+        let transport = FakeTransport.json(Self.previewBody(rows: rows))
+
+        let preview = try await makeAPI(transport).previewIngesta(file: stagedFile(), password: nil)
+
+        #expect(preview.filas == [
+            CartolaRow(
+                rowIndex: 0, fecha: Date(timeIntervalSince1970: 1_790_985_600), descripcion: "LIDER",
+                cargo: 25_990, abono: 0, esDuplicado: false, sugerido: .init(bucket: .necesidades, categoriaId: "cat-1")
+            ),
+            CartolaRow(
+                rowIndex: 1, fecha: Date(timeIntervalSince1970: 1_791_072_000), descripcion: "SUELDO",
+                cargo: 0, abono: 1_200_000, esDuplicado: false, sugerido: nil
+            ),
+            CartolaRow(
+                rowIndex: 2, fecha: Date(timeIntervalSince1970: 1_791_158_400), descripcion: "COPEC",
+                cargo: 30_000, abono: 0, esDuplicado: true, sugerido: .init(bucket: .deseos, categoriaId: nil)
+            ),
+        ])
+    }
+
+    @Test func aSuggestionWithAnUnknownBucketCountsAsNoSuggestion() async throws {
+        let rows = """
+        {"rowIndex":0,"fecha":"2026-10-03T00:00:00.000Z","descripcion":"X","cargo":"1","abono":"0",
+         "esDuplicado":false,"sugerido":{"bucket":"Gustos","categoriaId":"c"}}
+        """
+        let transport = FakeTransport.json(Self.previewBody(rows: rows))
+
+        let preview = try await makeAPI(transport).previewIngesta(file: stagedFile(), password: nil)
+
+        #expect(preview.filas.count == 1)
+        #expect(preview.filas.first?.sugerido == nil)
+    }
+
+    @Test func aRowWithAnUnreadableAmountOrDateFailsTheWholePreview() async throws {
+        let badAmount = """
+        {"rowIndex":0,"fecha":"2026-10-03T00:00:00.000Z","descripcion":"X","cargo":"abc","abono":"0",
+         "esDuplicado":false,"sugerido":null}
+        """
+        let badDate = """
+        {"rowIndex":0,"fecha":"ayer","descripcion":"X","cargo":"1","abono":"0","esDuplicado":false,"sugerido":null}
+        """
+        let file = try stagedFile()
+
+        for rows in [badAmount, badDate] {
+            await #expect(throws: DecodingError.self) {
+                _ = try await makeAPI(FakeTransport.json(Self.previewBody(rows: rows))).previewIngesta(file: file, password: nil)
+            }
+        }
+    }
+
+    // MARK: categorias
+
+    private static func category(_ id: String, _ name: String, _ bucket: String) -> String {
+        """
+        {"id":"\(id)","nombre":"\(name)","bucket":"\(bucket)","icono":null,"esInterna":false,
+         "patrones":[],"transaccionesCount":0}
+        """
+    }
+
+    @Test func categoriasMapsTheCatalogAndDropsABucketTheAppDoesNotKnow() async throws {
+        let body = """
+        {"categorias":[\(Self.category("a", "Arriendo", "Necesidades")),\(Self.category("b", "Cine", "Deseos")),\(Self.category("c", "Otra", "Gustos"))]}
+        """
+        let transport = FakeTransport.json(body)
+
+        let catalog = try await makeAPI(transport).categorias()
+
+        #expect(catalog == CatalogoCategorias(categorias: [
+            CategoriaCatalogo(id: "a", nombre: "Arriendo", bucket: .necesidades),
+            CategoriaCatalogo(id: "b", nombre: "Cine", bucket: .deseos),
+        ]))
+        #expect(transport.requests.first?.path == "/api/categorias")
+    }
+
+    @Test func categoriasGoesThroughTheSingleExpiryRelayOn401() async {
+        let transport = FakeTransport.json(#"{"message":"x","code":"SESION_INVALIDA"}"#, status: .unauthorized)
+        let expired = LockedBox<[String]>([])
+
+        await #expect(throws: APIError.sessionExpired) {
+            _ = try await makeAPI(transport, expired: { token in expired.mutate { $0.append(token) } }).categorias()
+        }
+
+        #expect(expired.value == ["tok"])
     }
 
     @Test func previewSendsTheFileAndOnlyTheFileWithoutPassword() async throws {
@@ -237,9 +338,15 @@ struct IngestaAPITests {
         )
 
         let body = try #require(transport.bodies.first)
-        // Key order is up to the encoder; the server parses it as JSON.
-        #expect(body.contains(#""rowIndex":3"#))
-        #expect(body.contains(#""categoriaId":"cat-1""#))
+        #expect(body.contains(#"[{"rowIndex":3,"categoriaId":"cat-1"}]"#))
+    }
+
+    @Test func theEditsJSONIsExactlyTheContractsShapeAndEscapesTheId() {
+        #expect(CartolaEdit.json([]) == "[]")
+        #expect(
+            CartolaEdit.json([CartolaEdit(rowIndex: 3, categoriaId: "a"), CartolaEdit(rowIndex: 7, categoriaId: #"b"c"#)])
+                == #"[{"rowIndex":3,"categoriaId":"a"},{"rowIndex":7,"categoriaId":"b\"c"}]"#
+        )
     }
 
     @Test func commitMapsConflictToCatalogIncompleteAndTheOthersLikePreview() async throws {
@@ -283,3 +390,4 @@ final class LockedBox<Value: Sendable>: @unchecked Sendable {
     var value: Value { lock.withLock { stored } }
     func mutate(_ change: (inout Value) -> Void) { lock.withLock { change(&stored) } }
 }
+

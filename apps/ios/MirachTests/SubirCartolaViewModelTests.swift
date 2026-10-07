@@ -330,7 +330,7 @@ struct SubirCartolaViewModelTests {
         await viewModel.submitPassword("buena")
         await viewModel.uploadAsIs()
 
-        await viewModel.uploadAsIs()
+        await viewModel.retryImport()
 
         #expect(api.commitCalls.count == 2)
         #expect(api.commitCalls.first == api.commitCalls.last)
@@ -348,7 +348,7 @@ struct SubirCartolaViewModelTests {
         #expect(viewModel.state == .errorImportacion(.accountProblem))
         #expect(!SubirCartolaViewModel.ImportFailure.accountProblem.isRetryable)
         #expect(SubirCartolaViewModel.ImportFailure.accountProblem.message.hasPrefix("No pudimos importar tu cartola por un problema de tu cuenta."))
-        await viewModel.uploadAsIs()
+        await viewModel.retryImport()
         #expect(api.commitCalls.count == 1)
     }
 

@@ -152,17 +152,64 @@ struct StubMirachAPI: MirachAPI {
     /// `StubMirachAPI.pdfPassword`; any other file previews fine.
     static let pdfPassword = "correcta"
 
+    /// The stub's catalog: two real categories per bucket plus the internal «Desconocido».
+    static let catalog = CatalogoCategorias(categorias: [
+        CategoriaCatalogo(id: "stub-nec-desc", nombre: "Desconocido", bucket: .necesidades),
+        CategoriaCatalogo(id: "stub-nec-super", nombre: "Supermercado", bucket: .necesidades),
+        CategoriaCatalogo(id: "stub-nec-transp", nombre: "Transporte", bucket: .necesidades),
+        CategoriaCatalogo(id: "stub-des-desc", nombre: "Desconocido", bucket: .deseos),
+        CategoriaCatalogo(id: "stub-des-rest", nombre: "Restaurantes", bucket: .deseos),
+        CategoriaCatalogo(id: "stub-des-susc", nombre: "Suscripciones", bucket: .deseos),
+        CategoriaCatalogo(id: "stub-aho-desc", nombre: "Desconocido", bucket: .ahorro),
+        CategoriaCatalogo(id: "stub-aho-fondo", nombre: "Fondo de emergencia", bucket: .ahorro),
+    ])
+
+    /// Statement of the stub: row 1 has no suggestion, row 3 is an income, rows 5 and 6 were
+    /// already loaded. Dates are the first days of October 2026 (UTC midnight, as the API sends).
+    private static let rows: [CartolaRow] = {
+        func row(
+            _ index: Int, _ description: String, cargo: Int = 0, abono: Int = 0, duplicate: Bool = false,
+            _ suggestion: CartolaRow.Suggestion?
+        ) -> CartolaRow {
+            CartolaRow(
+                rowIndex: index, fecha: Date(timeIntervalSince1970: 1_790_985_600 + Double(index) * 86_400),
+                descripcion: description, cargo: cargo, abono: abono, esDuplicado: duplicate, sugerido: suggestion
+            )
+        }
+        return [
+            row(0, "COMPRA LIDER EXPRESS PROVIDENCIA", cargo: 25_990, .init(bucket: .necesidades, categoriaId: "stub-nec-super")),
+            row(1, "TRANSF A JUAN PEREZ", cargo: 40_000, nil),
+            row(2, "RESTAURANT LA PUNTA", cargo: 18_500, .init(bucket: .deseos, categoriaId: "stub-des-rest")),
+            row(3, "ABONO SUELDO", abono: 1_200_000, nil),
+            row(4, "NETFLIX.COM", cargo: 9_990, .init(bucket: .deseos, categoriaId: "stub-des-susc")),
+            row(5, "COPEC ESTACION 114", cargo: 30_000, duplicate: true, .init(bucket: .necesidades, categoriaId: "stub-nec-transp")),
+            row(6, "METRO DE SANTIAGO", cargo: 1_650, duplicate: true, .init(bucket: .necesidades, categoriaId: "stub-nec-transp")),
+        ]
+    }()
+
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview {
         try checkPassword(file: file, password: password)
         return CartolaPreview(
             banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
-            totalFilas: 42, duplicados: 5, nuevas: 37
+            totalFilas: Self.rows.count, duplicados: 2, nuevas: Self.rows.count - 2, filas: Self.rows
         )
     }
 
+    func categorias() async throws -> CatalogoCategorias { Self.catalog }
+
+    /// With edits, the answer reports how many the stub received as `totalTransacciones`, so a
+    /// UI test can assert the exact count; an edit that names a duplicate row or a category
+    /// outside the catalog is refused like the real server does (400, nothing saved).
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
         try checkPassword(file: file, password: password)
-        return CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5)
+        if edits.isEmpty { return CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5) }
+        for edit in edits {
+            let row = Self.rows.first { $0.rowIndex == edit.rowIndex }
+            guard let row, !row.esDuplicado, Self.catalog.categoria(id: edit.categoriaId) != nil else {
+                throw IngestaError.rejected(message: "Ediciones inválidas")
+            }
+        }
+        return CartolaCommitResult(totalTransacciones: edits.count, duplicadosOmitidos: 2)
     }
 
     private func checkPassword(file: CartolaFile, password: String?) throws {

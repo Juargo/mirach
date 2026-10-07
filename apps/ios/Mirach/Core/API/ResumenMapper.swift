@@ -61,11 +61,8 @@ enum ResumenMapper {
         }
     }
 
-    /// Money arrives as a decimal string of whole pesos; `Int(_:)` is exact and rejects
-    /// anything else ("12,5", "1e3", "").
     private static func money(_ text: String) throws -> Int {
-        guard let value = Int(text) else { throw malformed("amount \(text)") }
-        return value
+        do { return try Money.pesos(text) } catch { throw malformed("amount \(text)") }
     }
 
     /// Targets arrive as a JSON number (50, 30, 20): kept in basis points like every percentage.

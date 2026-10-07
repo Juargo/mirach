@@ -1,8 +1,7 @@
 import Foundation
 import Observation
 
-/// State machine of "Subir cartola" (`docs/catalogo/pantallas/subir-cartola.md`). T5a covers
-/// everything up to "Subir tal cual"; the `revisando` state belongs to T5b.
+/// State machine of "Subir cartola" (`docs/catalogo/pantallas/subir-cartola.md`).
 ///
 /// The password and the staged file live in private properties, never in `state`, so they
 /// cannot leak through a screen, a log line or a test failure message.
@@ -17,6 +16,8 @@ final class SubirCartolaViewModel {
         case protegido(filename: String, incorrect: Bool)
         case errorPrevia(PreviewFailure)
         case decidiendo(CartolaPreview)
+        /// Reviewing the rows. The edits live in `edits`, not here.
+        case revisando(CartolaPreview)
         case subiendo
         case errorImportacion(ImportFailure)
         case exito(ImportSummary)
@@ -48,9 +49,28 @@ final class SubirCartolaViewModel {
         let duplicadosOmitidos: Int
     }
 
+    /// The user's categories, loaded on reaching `decidiendo`. The review needs them; "Subir
+    /// tal cual" does not, so a failure here never blocks it.
+    enum CatalogState: Equatable {
+        case loading
+        case loaded(CatalogoCategorias)
+        case failed
+    }
+
     private(set) var state: State = .inicial(message: nil)
     /// Grows by one with every finished import: lets the signed-in shell reload the Resumen.
     private(set) var importsCompleted = 0
+
+    private(set) var catalog: CatalogState = .loading
+    /// What the person changed, `rowIndex` to `categoriaId`. Only touched rows are in here.
+    private(set) var edits: [Int: String] = [:]
+    /// A message above the review (a refused edit, a commit that bounced back), or `nil`.
+    private(set) var reviewNotice: String?
+
+    /// The catalog once it is loaded, `nil` while loading or after a failure.
+    var loadedCatalog: CatalogoCategorias? {
+        if case .loaded(let catalog) = catalog { catalog } else { nil }
+    }
 
     /// The staged file, for the "Archivo elegido" line. `nil` when nothing is staged.
     var stagedFile: CartolaFile? { file }
@@ -60,6 +80,14 @@ final class SubirCartolaViewModel {
     private var file: CartolaFile?
     private var password: String?
     private var preview: CartolaPreview?
+    /// The last commit attempt, to retry it as it was.
+    /// Set when a commit bounced because of the edits: the next catalog that loads drops the
+    /// edits whose category it no longer has.
+    private var pruneEditsPending = false
+    /// A commit already bounced back to the review because of the edits: a second rejection
+    /// is not about the edits.
+    private var editsBounced = false
+    private var lastCommit: (edits: [CartolaEdit], fromReview: Bool)?
     /// Bumped whenever the flow is reset so an answer to an old request is dropped.
     private var generation = 0
 
@@ -106,32 +134,71 @@ final class SubirCartolaViewModel {
         await runPreview(generation: generation)
     }
 
-    /// "Subir tal cual" (and "Reintentar" after a failed import): commit with no edits.
-    func uploadAsIs() async {
+    /// "Reintentar" for the catalog, from the decision or the review.
+    func retryCatalog() async {
         switch state {
-        case .decidiendo: break
-        case .errorImportacion(let failure) where failure.isRetryable: break
+        case .decidiendo, .revisando: break
         default: return
         }
-        guard let file, let preview else { return }
-        state = .subiendo
-        let mine = generation
-        do {
-            let result = try await api.commitIngesta(file: file, password: password, edits: [])
-            guard mine == generation else { return }
-            // Done: the copy and the password are not needed any more.
-            let summary = ImportSummary(
-                banco: preview.banco,
-                totalTransacciones: result.totalTransacciones,
-                duplicadosOmitidos: result.duplicadosOmitidos
-            )
-            clear()
-            importsCompleted += 1
-            state = .exito(summary)
-        } catch {
-            guard mine == generation else { return }
-            failImport(error)
+        guard catalog == .failed else { return }
+        await loadCatalog(generation: generation)
+    }
+
+    /// "Revisar y editar". Needs the catalog: without it the rows cannot be named or edited.
+    func startReview() {
+        guard case .decidiendo(let preview) = state, case .loaded = catalog else { return }
+        edits = [:]
+        reviewNotice = nil
+        state = .revisando(preview)
+    }
+
+    /// The person picked `categoriaId` for a row. Kept in memory until "Confirmar".
+    /// Picking the category the server already suggested undoes the edit: the row goes back to
+    /// being classified by the server, and the list of touched rows stays minimal.
+    func choose(_ categoriaId: String, forRow rowIndex: Int) {
+        guard case .revisando(let preview) = state, case .loaded(let categories) = catalog,
+              let row = preview.filas.first(where: { $0.rowIndex == rowIndex }), !row.esDuplicado,
+              categories.categoria(id: categoriaId) != nil
+        else { return }
+        var next = edits
+        next[rowIndex] = row.sugerido?.categoriaId == categoriaId ? nil : categoriaId
+        guard CartolaEdit.json(Self.sorted(next)).utf8.count <= CartolaEdit.maxJSONBytes else {
+            reviewNotice = Self.tooManyEditsMessage
+            return
         }
+        edits = next
+        reviewNotice = nil
+    }
+
+    /// "Confirmar": commits with only the rows the person touched.
+    func confirm() async {
+        guard case .revisando = state, case .loaded = catalog else { return }
+        await commit(edits: Self.sorted(edits), fromReview: true)
+    }
+
+    /// "Subir tal cual": commit with no edits.
+    func uploadAsIs() async {
+        guard case .decidiendo = state else { return }
+        await commit(edits: [], fromReview: false)
+    }
+
+    /// "Reintentar" after a failed import: the same edits again.
+    func retryImport() async {
+        guard case .errorImportacion(let failure) = state, failure.isRetryable, let lastCommit else { return }
+        await commit(edits: lastCommit.edits, fromReview: lastCommit.fromReview)
+    }
+
+    /// Whether the failed import came from the review, so the person can go back to it.
+    var canReturnToReview: Bool {
+        if case .errorImportacion = state, lastCommit?.fromReview == true { return true }
+        return false
+    }
+
+    /// "Volver a revisar": the edits are still there.
+    func backToReview() {
+        guard canReturnToReview, let preview else { return }
+        reviewNotice = nil
+        state = .revisando(preview)
     }
 
     /// Discard, "Subir otra cartola", "Empezar de nuevo" and sign-out all end here: back to
@@ -152,10 +219,67 @@ final class SubirCartolaViewModel {
             guard mine == generation else { return }
             preview = result
             state = .decidiendo(result)
+            // The catalog arrives after the decision shows: "Subir tal cual" never waits for it.
+            await loadCatalog(generation: mine)
         } catch {
             guard mine == generation else { return }
             failPreview(error, filename: file.filename)
         }
+    }
+
+    private func commit(edits: [CartolaEdit], fromReview: Bool) async {
+        guard let file, let preview else { return }
+        lastCommit = (edits, fromReview)
+        state = .subiendo
+        let mine = generation
+        do {
+            let result = try await api.commitIngesta(file: file, password: password, edits: edits)
+            guard mine == generation else { return }
+            // Done: the copy and the password are not needed any more.
+            let summary = ImportSummary(
+                banco: preview.banco,
+                totalTransacciones: result.totalTransacciones,
+                duplicadosOmitidos: result.duplicadosOmitidos
+            )
+            clear()
+            importsCompleted += 1
+            state = .exito(summary)
+        } catch {
+            guard mine == generation else { return }
+            await failImport(error, sentEdits: !edits.isEmpty)
+        }
+    }
+
+    /// Loads the catalog. Returns how many edits the pending prune dropped, or `nil` when the
+    /// load failed or the flow moved on.
+    @discardableResult
+    private func loadCatalog(generation mine: Int) async -> Int? {
+        catalog = .loading
+        do {
+            let result = try await api.categorias()
+            guard mine == generation else { return nil }
+            catalog = .loaded(result)
+            // An edit naming a category that no longer exists would be refused again. The prune
+            // waits for a catalog that loads, whichever call (reload or "Reintentar") gets it.
+            guard pruneEditsPending else { return 0 }
+            let kept = edits.filter { result.categoria(id: $0.value) != nil }
+            let removed = edits.count - kept.count
+            edits = kept
+            pruneEditsPending = false
+            return removed
+        } catch {
+            guard mine == generation else { return nil }
+            if case APIError.sessionExpired = error {
+                discard()
+            } else {
+                catalog = .failed
+            }
+            return nil
+        }
+    }
+
+    private static func sorted(_ edits: [Int: String]) -> [CartolaEdit] {
+        edits.sorted { $0.key < $1.key }.map { CartolaEdit(rowIndex: $0.key, categoriaId: $0.value) }
     }
 
     private func failPreview(_ error: any Error, filename: String) {
@@ -182,14 +306,29 @@ final class SubirCartolaViewModel {
         }
     }
 
-    private func failImport(_ error: any Error) {
+    private func failImport(_ error: any Error, sentEdits: Bool) async {
         switch error {
         case APIError.sessionExpired:
             discard()
+        case IngestaError.rejected(let message) where sentEdits && !editsBounced:
+            // The contract gives a 400 about `edits` the same shape as one about the file. This
+            // file just previewed fine, so the edits are the likely cause (the catalog drifted):
+            // reload the catalog and drop the edits it explains. If that explains nothing, the
+            // 400 is about the file after all.
+            guard let preview else { return }
+            let mine = generation
+            pruneEditsPending = true
+            let removed = await loadCatalog(generation: mine)
+            guard mine == generation else { return }
+            if removed == 0 {
+                rejectCommit(message)
+                return
+            }
+            editsBounced = true
+            reviewNotice = Self.badEditsMessage
+            state = .revisando(preview)
         case IngestaError.rejected(let message):
-            // Same family as the preview's 400 (file, bank, structure): back to the start.
-            clear()
-            state = .inicial(message: message)
+            rejectCommit(message)
         case IngestaError.noMovements:
             clear()
             state = .inicial(message: Self.noMovementsMessage)
@@ -205,6 +344,13 @@ final class SubirCartolaViewModel {
         }
     }
 
+    /// Same family as the preview's 400 (file, bank, structure): the server's message, back to
+    /// the start.
+    private func rejectCommit(_ message: String) {
+        clear()
+        state = .inicial(message: message)
+    }
+
     /// Forgets the file, its copy on disk, the password and any pending answer.
     private func clear() {
         generation += 1
@@ -212,5 +358,11 @@ final class SubirCartolaViewModel {
         file = nil
         password = nil
         preview = nil
+        lastCommit = nil
+        pruneEditsPending = false
+        editsBounced = false
+        catalog = .loading
+        edits = [:]
+        reviewNotice = nil
     }
 }
