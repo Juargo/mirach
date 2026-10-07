@@ -215,24 +215,28 @@ struct StubMirachAPI: MirachAPI {
     }
 
     func categorias() async throws -> CatalogoCategorias {
-        CatalogoCategorias(categorias: catalogStore.all.map { category in
-            CategoriaCatalogo(
-                id: category.id, nombre: category.nombre, bucket: category.bucket, icono: category.icono,
-                transaccionesCount: ledger.count(categoryId: category.id), esInterna: category.esInterna,
-                patrones: category.patrones
-            )
-        })
+        CatalogoCategorias(categorias: catalogStore.all.map(withLedgerCount))
+    }
+
+    /// The stored count is never trusted: every answer that carries a category reads it from the
+    /// ledger, like the server counts the movements it holds.
+    private func withLedgerCount(_ category: CategoriaCatalogo) -> CategoriaCatalogo {
+        CategoriaCatalogo(
+            id: category.id, nombre: category.nombre, bucket: category.bucket, icono: category.icono,
+            transaccionesCount: ledger.count(categoryId: category.id), esInterna: category.esInterna,
+            patrones: category.patrones
+        )
     }
 
     /// An empty name or one that exists in the bucket is refused like the server does.
     func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo {
-        try catalogStore.create(new)
+        withLedgerCount(try catalogStore.create(new))
     }
 
     func actualizarCategoria(id: String, cambios: CategoriaCambios) async throws -> CategoriaCatalogo {
         let updated = try catalogStore.update(id: id, cambios)
         if let bucket = cambios.bucket { ledger.rebucket(categoryId: id, to: bucket) }
-        return updated
+        return withLedgerCount(updated)
     }
 
     /// Its movements go to the «Desconocido» of the same bucket, like the server.

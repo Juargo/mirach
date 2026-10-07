@@ -80,8 +80,12 @@ final class StubCatalog: @unchecked Sendable {
             guard let index = items.firstIndex(where: { $0.id == id }) else { throw CategoriaError.notFound }
             guard !items[index].esInterna else { throw CategoriaError.isInternal }
             let bucket = items[index].bucket
+            // Every bucket has its «Desconocido» in the seed; without it there is nowhere to go.
+            guard let fallback = items.first(where: { $0.bucket == bucket && $0.esInterna }) else {
+                throw CategoriaError.notFound
+            }
             items.remove(at: index)
-            return items.first { $0.bucket == bucket && $0.esInterna }!
+            return fallback
         }
     }
 
