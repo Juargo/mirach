@@ -92,6 +92,15 @@ struct CategoriasAPITests {
         }
     }
 
+    @Test func anyUpdate404IsNotFoundWhateverItsCode() async {
+        for body in [#"{"message":"x","code":"OTRO"}"#, #"{"message":"x","code":"CATEGORIA_NO_ENCONTRADA"}"#] {
+            let transport = FakeTransport.json(body, status: .notFound)
+            await #expect(throws: CategoriaError.notFound) {
+                _ = try await makeAPI(transport).actualizarCategoria(id: "c-1", cambios: CategoriaCambios(nombre: "X"))
+            }
+        }
+    }
+
     @Test func aSystemCategoryAnswers403AsProtected() async {
         let transport = FakeTransport.json(#"{"message":"x","code":"CATEGORIA_INTERNA"}"#, status: .forbidden)
 

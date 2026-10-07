@@ -46,8 +46,9 @@ extension OpenAPIMirachAPI {
                 throw Self.categoriaError(from: try bad.body.json)
             case .conflict(let conflict):
                 throw Self.categoriaError(from: try conflict.body.json)
-            case .notFound(let missing):
-                throw Self.categoriaError(from: try missing.body.json)
+            case .notFound:
+                // Like the deletion: whatever its code, the category is not there.
+                throw CategoriaError.notFound
             case .forbidden:
                 throw CategoriaError.isInternal
             case .unauthorized(let unauthorized):
