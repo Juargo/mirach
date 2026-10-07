@@ -10,13 +10,15 @@ fecha_creacion: 2026-10-06
 fecha_actualizacion: 2026-10-06
 ---
 
-# ADR-050 — Deleting an uploaded statement from the iPhone app
+# ADR-050 — Deleting an uploaded statement and creating a category during review on the iPhone app
 
 ## Estado
 
 ✅ **Decidido** (2026-10-06, product owner) — plan phase 7, task T9 ("Cartolas subidas"). **Supersedes
 only the words "borrar ingestas" in rule 2 of ADR-038's Decisión** (the list of writes excluded from
-mobile). The rest of ADR-038 remains in force, as amended by ADR-044.
+mobile) **and only the words "crear categoría inline durante la revisión" in ADR-044** (the exclusions
+it kept). The rest of ADR-038 and ADR-044 remains in force; in particular, income rows and duplicates stay
+non-editable in the review (ADR-044, server-side Rule 2 of `CommitIngestaUseCase`).
 
 ## Contexto
 
@@ -41,6 +43,10 @@ imports the wrong file, the wrong account or the same period twice under another
    window (the deletion is immediate on the server).
 3. After a deletion the app refreshes the screens that show money (Resumen and details) so no stale totals
    remain.
+4. While reviewing a statement before importing it, the app may create a category from a row
+   (`POST /api/categorias`, existing endpoint), assign it to that row and repeat the preview so the new
+   category's pattern reclassifies other rows, keeping manual edits (catalog `subir-cartola.md`). The same
+   reasoning applies: the catalog of Mirach defines it, and there is no other client in which to do it.
 
 ## Consecuencias
 
