@@ -134,6 +134,59 @@ struct CatalogChangeTests {
         #expect(api.categoriasCalls == 2, "the sheet would otherwise offer a deleted category")
     }
 
+    @Test func anOpenCategorySheetReadsTheCatalogAtOnce() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(SampleData.deseosDetalle.grupos[0].transacciones[0])
+        let created = CategoriaCatalogo(id: "cat-new", nombre: "Mascotas", bucket: .deseos)
+        let changed = CatalogoCategorias(categorias: SampleData.catalog.categorias + [created])
+        api.setCategoriasResults([.success(changed)])
+
+        await viewModel.catalogDidChange()
+
+        #expect(api.categoriasCalls == 2)
+        #expect(viewModel.catalog == .loaded(changed), "the open sheet does not keep offering the old catalog")
+    }
+
+    @Test func aCatalogReadInFlightWhenTheChangeLandsCannotOverwriteTheNewerOne() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        let changed = withoutSupermercado
+        // The first read is answered with the old catalog, the second with the changed one.
+        api.setCategoriasResults([.success(SampleData.catalog), .success(changed)])
+        let gate = Gate()
+        api.categoriasGate = gate
+
+        let opening = Task { await viewModel.beginReclassify(SampleData.deseosDetalle.grupos[0].transacciones[0]) }
+        await gate.waitUntilWaiting()
+        api.categoriasGate = nil
+        await viewModel.catalogDidChange()
+        await gate.open()
+        await opening.value
+
+        #expect(viewModel.catalog == .loaded(changed))
+    }
+
+    @Test func aCatalogReadInFlightWhenAClosedSheetIsResetDoesNotComeBack() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        let gate = Gate()
+        api.categoriasGate = gate
+
+        let opening = Task { await viewModel.beginReclassify(SampleData.deseosDetalle.grupos[0].transacciones[0]) }
+        await gate.waitUntilWaiting()
+        viewModel.dismissSheet()
+        api.categoriasGate = nil
+        await viewModel.catalogDidChange()
+        await gate.open()
+        await opening.value
+
+        #expect(viewModel.catalog == .idle, "the old answer must not undo the reset: the sheet reads again next time")
+    }
+
     @Test func aDeletionFromTheCategoryDetailIsAnnouncedOnTheBucketDetail() async {
         let viewModel = make(FakeMirachAPI())
         await viewModel.load()

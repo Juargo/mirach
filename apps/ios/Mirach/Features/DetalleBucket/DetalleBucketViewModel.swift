@@ -65,6 +65,8 @@ final class DetalleBucketViewModel {
     /// Bumped on every detail request so a late answer for an older choice is dropped.
     private var generation = 0
     private var needsLoad = true
+    /// Bumped on every catalog read and every reset, so an answer for an older catalog is dropped.
+    private var catalogGeneration = 0
 
     init(api: any MirachAPI, bucket: Bucket, periodo: Periodo, onReclassified: @escaping @MainActor () -> Void = {}) {
         self.api = api
@@ -123,6 +125,7 @@ final class DetalleBucketViewModel {
     /// sheet's catalog certainly is. The list is read again without blanking it.
     func catalogDidChange() async {
         // Read the next time the sheet opens; if it is open now, read it at once.
+        catalogGeneration += 1
         catalog = .idle
         if sheetMovement != nil { await loadCatalog() }
         guard case .loaded = state else { return }
@@ -207,10 +210,15 @@ final class DetalleBucketViewModel {
     }
 
     private func loadCatalog() async {
+        catalogGeneration += 1
+        let mine = catalogGeneration
         catalog = .loading
         do {
-            catalog = .loaded(try await api.categorias())
+            let result = try await api.categorias()
+            guard mine == catalogGeneration else { return }
+            catalog = .loaded(result)
         } catch {
+            guard mine == catalogGeneration else { return }
             // A rejected session is already being handled; either way the sheet offers a retry.
             catalog = .failed
         }
