@@ -103,6 +103,16 @@ overrides:
   # (1), no por subred, así que la exposición práctica es baja, pero `req.ip`
   # alimenta el rate limiting. 2.0.8 se publicó 2026-09-15 (>7 días).
   proxy-addr: '>=2.0.8 <3.0.0'
+  # GHSA-68fv-2mgg-jv7q — source-map-js <1.2.2: DoS del event loop por offsets
+  # de secciones indexadas (high). Transitivo de build y tests (prisma > c12 >
+  # magicast, vitest, vite > postcss); no llega al runtime. 1.2.2 se publicó
+  # 2026-09-30 y se aplica desde 2026-10-07, al cumplir los 7 días de cuarentena.
+  source-map-js: '>=1.2.2 <2.0.0'
+  # GHSA-wq5f-xc86-pv6w — sharp <0.35.5: vulnerabilidad en su dependencia
+  # librsvg (CVE-2026-96889, high). Transitivo de apps/landing > astro (pide
+  # ^0.35.4); build tooling de un sitio estático, no llega al runtime. Acotado a
+  # 0.35.x: en 0.x cada minor puede romper. 0.35.5 se publicó 2026-09-27 (>7 días).
+  sharp: '>=0.35.5 <0.36.0'
 
 # ADR-006 — defensas de instalación. Viven ACÁ, no en `.npmrc`: pnpm 11 lee sus
 # settings de este archivo. Declararlos en `.npmrc` los deja INERTES sin ningún
