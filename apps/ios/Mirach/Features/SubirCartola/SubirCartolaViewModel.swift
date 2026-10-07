@@ -271,6 +271,20 @@ final class SubirCartolaViewModel {
         await loadCatalog(generation: generation)
     }
 
+    /// The catalog was written elsewhere (a category created, renamed or deleted): read it again
+    /// while a statement is being decided or reviewed, and drop the edits whose category is gone.
+    func catalogDidChange() async {
+        switch state {
+        case .decidiendo, .revisando: break
+        default: return
+        }
+        pruneEditsPending = true
+        let mine = generation
+        if let removed = await loadCatalog(generation: mine), removed > 0, mine == generation {
+            reviewNotice = Self.staleEditsMessage
+        }
+    }
+
     /// "Revisar y editar". Needs the catalog: without it the rows cannot be named or edited.
     func startReview() {
         guard case .decidiendo(let preview) = state, case .loaded = catalog else { return }

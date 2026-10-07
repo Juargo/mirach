@@ -82,6 +82,11 @@ final class CategoriasViewModel {
 
     func dismissAnnouncement() { announcement = nil }
 
+    /// The detail deleted a category and the person is back on the list.
+    func announceDeletion(of name: String) {
+        announcement = "Categoría «\(name)» eliminada"
+    }
+
     /// "Crear" in the form. On success the category joins its group at once, the form closes
     /// (`createdCount` changes) and the other screens are told. On failure the form stays.
     func create(_ new: NuevaCategoria) async {

@@ -117,6 +117,25 @@ final class DetalleBucketViewModel {
         await fetch(periodo: periodo)
     }
 
+    // MARK: the catalog changed elsewhere
+
+    /// A category was written (renamed, moved, deleted...): the groups may be out of date and the
+    /// sheet's catalog certainly is. The list is read again without blanking it.
+    func catalogDidChange() async {
+        // Read the next time the sheet opens; if it is open now, read it at once.
+        catalog = .idle
+        if sheetMovement != nil { await loadCatalog() }
+        guard case .loaded = state else { return }
+        if await fetch(periodo: periodo, keepingContentOnFailure: true) == false {
+            notice = "El cambio se aplicó, pero no pudimos actualizar la lista. Desliza hacia abajo para actualizar."
+        }
+    }
+
+    /// The category detail (opened from a group header) deleted the category.
+    func categoryDeleted(named name: String) {
+        announcement = "Categoría «\(name)» eliminada"
+    }
+
     private func neighbour(offset: Int) -> Periodo? {
         guard let index = periodos.firstIndex(of: periodo) else { return nil }
         let target = index + offset

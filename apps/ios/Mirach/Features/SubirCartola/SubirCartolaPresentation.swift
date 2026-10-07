@@ -14,6 +14,10 @@ extension SubirCartolaViewModel {
     nonisolated static let badEditsMessage =
         "No pudimos aplicar tus cambios. Revisa la clasificación e inténtalo de nuevo."
 
+    /// The catalog changed while reviewing and some chosen categories no longer exist.
+    nonisolated static let staleEditsMessage =
+        "Algunas categorías que elegiste ya no existen. Esas filas volvieron a su sugerencia."
+
     nonisolated static let unreadableCopyMessage = "No pudimos leer el archivo. Elígelo de nuevo."
 
     nonisolated static func message(for problem: CartolaFileProblem) -> String {

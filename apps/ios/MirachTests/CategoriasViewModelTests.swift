@@ -317,4 +317,13 @@ struct CategoriasViewModelTests {
 
         #expect(viewModel.announcement == nil)
     }
+
+    @Test func aDeletionFromTheDetailIsAnnouncedByTheList() async {
+        let viewModel = make()
+        await viewModel.load()
+
+        viewModel.announceDeletion(of: "Mascotas")
+
+        #expect(viewModel.announcement == "Categoría «Mascotas» eliminada")
+    }
 }
