@@ -803,7 +803,9 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.ios == 'true' }}
     runs-on: macos-26
-    timeout-minutes: 30
+    # The UI suite grows with every screen and the hosted runner is several
+    # times slower than a local Mac; minutes are free since the repo is public.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: apps/ios
