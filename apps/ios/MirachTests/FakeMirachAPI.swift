@@ -9,6 +9,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let nombre: String?
     }
 
+    /// What an upload call received: the file, the password and (commit only) the edits.
+    struct UploadCall: Equatable {
+        let file: CartolaFile
+        let password: String?
+        let edits: [CartolaEdit]?
+    }
+
     private let lock = NSLock()
     private var _signInCalls: [SignInCall] = []
     private var _currentUserCalls = 0
@@ -21,6 +28,11 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var resumenResult: Result<ResumenMes, any Error>
     private var periodosResult: Result<[Periodo], any Error>
     private var _resumenCalls: [Periodo?] = []
+    private var previewResults: [Result<CartolaPreview, any Error>] = [.success(SampleData.preview)]
+    private var commitResults: [Result<CartolaCommitResult, any Error>] = [.success(SampleData.commit)]
+    private var _previewGate: Gate?
+    private var _previewCalls: [UploadCall] = []
+    private var _commitCalls: [UploadCall] = []
 
     init(
         versionResult: Result<VersionInfo, any Error> = .success(VersionInfo(version: "0", commit: "0")),
@@ -64,6 +76,41 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         lock.withLock { periodosResult = result }
     }
 
+    var previewCalls: [UploadCall] { lock.withLock { _previewCalls } }
+    var commitCalls: [UploadCall] { lock.withLock { _commitCalls } }
+
+    /// Answers for the next preview calls, in order; the last one repeats once the rest are used.
+    func setPreviewResults(_ results: [Result<CartolaPreview, any Error>]) {
+        lock.withLock { previewResults = results }
+    }
+
+    func setCommitResults(_ results: [Result<CartolaCommitResult, any Error>]) {
+        lock.withLock { commitResults = results }
+    }
+
+    /// When set, `previewIngesta` waits at the gate before answering.
+    var previewGate: Gate? {
+        get { lock.withLock { _previewGate } }
+        set { lock.withLock { _previewGate = newValue } }
+    }
+
+    func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview {
+        await previewGate?.wait()
+        let result = lock.withLock {
+            _previewCalls.append(UploadCall(file: file, password: password, edits: nil))
+            return previewResults.count > 1 ? previewResults.removeFirst() : previewResults[0]
+        }
+        return try result.get()
+    }
+
+    func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
+        let result = lock.withLock {
+            _commitCalls.append(UploadCall(file: file, password: password, edits: edits))
+            return commitResults.count > 1 ? commitResults.removeFirst() : commitResults[0]
+        }
+        return try result.get()
+    }
+
     func resumen(periodo: Periodo?) async throws -> ResumenMes {
         let result = lock.withLock {
             _resumenCalls.append(periodo)
@@ -96,5 +143,28 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
             return currentUserResult
         }
         return try result.get()
+    }
+}
+
+/// Holds a fake call until the test lets it go, to observe the in-between state.
+actor Gate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var isOpen = false
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func open() {
+        isOpen = true
+        continuation?.resume()
+        continuation = nil
+    }
+
+    func waitUntilWaiting() async {
+        for _ in 0..<500 where continuation == nil {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 }

@@ -27,11 +27,7 @@ struct RootView: View {
             case .signedOut:
                 SignInView(viewModel: SignInViewModel(api: environment.api, session: environment.session))
             case .signedIn:
-                ResumenView(
-                    session: environment.session,
-                    api: environment.api,
-                    versionViewModel: ApiVersionViewModel(api: environment.api)
-                )
+                SignedInView(environment: environment)
             case .connectionFailed:
                 VStack(spacing: 12) {
                     Text("Problema de conexión. Revisa tu conexión e inténtalo de nuevo.")

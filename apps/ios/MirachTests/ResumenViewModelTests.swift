@@ -219,6 +219,10 @@ private final class SlowAPI: MirachAPI, @unchecked Sendable {
     }
 
     func periodos() async throws -> [Periodo] { [] }
+    func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview { SampleData.preview }
+    func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
+        SampleData.commit
+    }
     func version() async throws -> VersionInfo { VersionInfo(version: "0", commit: "0") }
     func authCapabilities() async throws -> AuthCapabilities { AuthCapabilities(appleLoginEnabled: true) }
     func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session {

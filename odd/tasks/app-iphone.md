@@ -32,7 +32,11 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 - [x] **T2 — Generated API client** (phase 6 T3): generator wired to `openapi.json`, CI check for stale generation plus `pnpm design:check` (phase 6 T2 review warning).
 - [x] **T3 — Design tokens to Swift:** colors (light/dark), typography rules and labels generated from `design/tokens.json`. Route: delegated writer; branch `feat/ios-design-tokens`, stacked on PR #43.
 - [x] **T4 — Learning slice** (T4a Apple sign-in and session: done 2026-10-04, PR #45; T4b Resumen del mes: done 2026-10-04, PR #46; T4c on the product owner's iPhone: done 2026-10-05): sign in with Apple against `POST /api/auth/apple/token`, session in the Keychain, and the read-only "Resumen del mes" screen, on the product owner's iPhone. Prerequisites found in T2: (a) **done** (fix/openapi-nullable-for-swift: OpenAPI emitted as 3.0.3 with `nullable: true`, multipart bodies `required: true`; generator warnings 29 unique/38 raw → 0, `GeneratedNullableFieldsTests` guards it) — the API had to declare nullable fields in a form `swift-openapi-generator` 1.13 supports — today `anyOf` with `type: "null"` drops `estadoGlobal`, `estadoSemaforo`, `porcentajeBp` and others from the generated types (plus the optional multipart bodies of the upload endpoints, which must be `required: true`); (b) **done in T4a** (`ConfigurationCheck`: Debug `assertionFailure` + log, Release error screen; a rejected key also shows it) — a missing `Secrets.xcconfig` must not fail silently: detect an empty `MIRACH_API_KEY` at startup (assert/log in Debug, fail the build or show a clear error in Release) — T2 review warning; (c) **done in T4b** (`ResumenMapper` maps `nil` and `_empty` to no state; tests for value, null and empty) — the nullable enums (`estadoSemaforo`, `estadoGlobal`) list `null` in their `enum` (OpenAPI 3.0.3 rule, review warning on the nullable fix), which `swift-openapi-generator` renders as an extra `case _empty = ""`: the adapter must map `_empty` (and `nil`) to "no state" and never expose it to screens.
-- [ ] **T5 onward:** the rest of the v1 catalog, one screen per task, in an order to agree after T4.
+- [ ] **T5 — Subir cartola** (catalog `subir-cartola.md`), in three slices:
+  - [x] **T5a — Subir tal cual** (tab bar Resumen + Subir; choose file, preview, protected PDF, commit with no edits, discard with confirmation, error mappings): done when the checks pass (see Progress).
+  - [ ] **T5b — Revisar y editar:** `GET /api/categorias`, per-row reclassification sheet, commit with `edits`.
+  - [ ] **T5c — Crear categoría desde una fila:** `POST /api/categorias`, repeat the preview keeping manual edits.
+- [ ] **T6 onward:** the rest of the v1 catalog, one screen per task, in an order to agree.
 
 ## Progress
 
@@ -47,6 +51,8 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 - CI fix (PR #45): the `ios` job ad-hoc signs for the simulator (`CODE_SIGN_IDENTITY=-`); an unsigned build has no entitlements and the real Keychain tests failed with `errSecMissingEntitlement` (-34018).
 - T4c done (2026-10-05): Debug build from `main` (`813be29`) on the product owner's iPhone against production (API 0.10.0, `813be29`). Observed: a placeholder key in `Secrets.xcconfig` shows "La app no está configurada correctamente" (rejected key, as designed); with the real key, Sign in with Apple created the account and the Resumen showed the empty-month state; reopening the app enters the Resumen directly (Keychain session validated with `/api/auth/me`); "Cerrar sesión" returns to sign-in.
 
+- T5a (2026-10-05, branch `feat/ios-subir-cartola`, stacked on `docs/ios-t4c`): `MirachAPI` gained `previewIngesta`/`commitIngesta` (app-owned models, `IngestaError` for the catalog's codes; the contract already types them, so catalog gap 1 is closed in `openapi.json`); `CartolaStaging` (validation + private temp copy); `SubirCartolaViewModel` state machine; `SubirCartolaView` and the tab bar (`SignedInView`); the Resumen empty state opens the Subir tab and the Resumen reloads after an import. "Revisar y editar" is omitted until T5b. RED observed per behaviour with a neutered implementation, then GREEN.
+
 ## Next step
 
-Agree the order of the remaining v1 screens (T5 onward).
+Product owner tries T5a on the iPhone with a real cartola (xlsx and a protected PDF); then T5b (revisar y editar).
