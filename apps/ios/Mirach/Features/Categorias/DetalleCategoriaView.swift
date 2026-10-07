@@ -382,7 +382,7 @@ private struct PatternSheet: View {
                 .listRowBackground(Color.Mirach.Base.card)
 
                 Section {
-                    ForEach(MatchType.selectable, id: \.apiName) { option in
+                    ForEach(MatchType.options(including: viewModel.patternSheetMatchType), id: \.apiName) { option in
                         Button { matchType = option } label: {
                             HStack {
                                 Text(option.label).foregroundStyle(Color.Mirach.Base.foreground)
@@ -434,7 +434,7 @@ private struct PatternSheet: View {
                 seeded = true
                 if case .editing(let pattern) = viewModel.patternSheet {
                     text = pattern.patron
-                    matchType = MatchType.selectable.contains(pattern.matchType) ? pattern.matchType : .contains
+                    matchType = viewModel.patternSheetMatchType
                 }
             }
         }

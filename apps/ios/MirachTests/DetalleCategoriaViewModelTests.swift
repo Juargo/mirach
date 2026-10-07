@@ -706,4 +706,35 @@ struct DetalleCategoriaViewModelTests {
     @Test func theThreeMatchTypesHaveTheirOwnLabelNotTheInternalValue() {
         #expect(MatchType.selectable.map(\.label) == ["Contiene", "Empieza con", "Expresión regular"])
     }
+
+    @Test func aMatchTypeTheAppDoesNotKnowStaysInTheListOfItsOwnPattern() {
+        let unknown = MatchType.other("ENDS_WITH")
+
+        #expect(MatchType.options(including: unknown) == [unknown, .contains, .startsWith, .regex])
+        #expect(MatchType.options(including: .startsWith) == MatchType.selectable)
+    }
+
+    @Test func theSheetOfAPatternStartsOnItsOwnMatchTypeEvenIfTheAppDoesNotKnowIt() async {
+        let api = FakeMirachAPI()
+        let viewModel = await loaded(api)
+        let odd = PatronCategoria(id: "p-odd", patron: "HBO", matchType: .other("ENDS_WITH"))
+
+        viewModel.beginEditPattern(odd)
+        #expect(viewModel.patternSheetMatchType == .other("ENDS_WITH"), "never silently «Contiene»")
+        viewModel.dismissPatternSheet()
+        viewModel.beginAddPattern()
+        #expect(viewModel.patternSheetMatchType == .contains)
+    }
+
+    @Test func changingOnlyTheTextOfAnUnknownTypePatternNeverSendsAMatchType() async {
+        let api = FakeMirachAPI()
+        let viewModel = await loaded(api)
+        let odd = PatronCategoria(id: "p-odd", patron: "HBO", matchType: .other("ENDS_WITH"))
+        api.setActualizarPatronResults([.success(PatronCategoria(id: "p-odd", patron: "HBO MAX", matchType: .other("ENDS_WITH")))])
+        viewModel.beginEditPattern(odd)
+
+        await viewModel.savePattern(text: "HBO MAX", matchType: viewModel.patternSheetMatchType)
+
+        #expect(api.actualizarPatronCalls == [.init(id: "p-odd", cambios: PatronCambios(patron: "HBO MAX"))])
+    }
 }

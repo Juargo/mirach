@@ -304,6 +304,13 @@ final class DetalleCategoriaViewModel {
 
     // MARK: patterns
 
+    /// The type the pattern sheet starts on: the pattern's own (even one the app does not know),
+    /// «Contiene» for a new one.
+    var patternSheetMatchType: MatchType {
+        if case .editing(let pattern) = patternSheet { return pattern.matchType }
+        return .contains
+    }
+
     func beginAddPattern() {
         guard category != nil, !isProtected, !isSavingPattern else { return }
         patternErrors = PatternErrors()

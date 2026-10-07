@@ -38,6 +38,13 @@ enum MatchType: Equatable, Sendable {
     /// The three the person can choose, in the order the form lists them.
     static let selectable: [MatchType] = [.contains, .startsWith, .regex]
 
+    /// What the picker lists for a pattern: the three, plus the pattern's own type when the app
+    /// does not know it, so editing the text never swaps the type for another.
+    static func options(including current: MatchType) -> [MatchType] {
+        if case .other = current { return [current] + selectable }
+        return selectable
+    }
+
     init(apiName: String) {
         switch apiName {
         case "CONTAINS": self = .contains
