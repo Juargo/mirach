@@ -85,12 +85,11 @@ struct CategoriasViewModelTests {
         await viewModel.load()
         let gate = Gate()
         api.categoriasGate = gate
-        api.setCategoriasResults([.success(CatalogoCategorias(categorias: []))])
+        api.setCategoriasResults([.success(CatalogoCategorias(categorias: [])), .success(SampleData.catalog)])
 
         let first = Task { await viewModel.refresh() }
         await gate.waitUntilWaiting()
         api.categoriasGate = nil
-        api.setCategoriasResults([.success(SampleData.catalog)])
         await viewModel.refresh()
         await gate.open()
         await first.value

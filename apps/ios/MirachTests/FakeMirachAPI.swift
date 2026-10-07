@@ -203,11 +203,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     }
 
     func categorias() async throws -> CatalogoCategorias {
-        await categoriasGate?.wait()
+        // The answer is fixed when the request is sent, like a server would: a gated (slow) request
+        // keeps the answer of its own moment.
         let result = lock.withLock {
             _categoriasCalls += 1
             return categoriasResults.count > 1 ? categoriasResults.removeFirst() : categoriasResults[0]
         }
+        await categoriasGate?.wait()
         return try result.get()
     }
 

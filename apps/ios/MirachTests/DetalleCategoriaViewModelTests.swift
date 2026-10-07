@@ -84,12 +84,11 @@ struct DetalleCategoriaViewModelTests {
         let viewModel = await loaded(api)
         let gate = Gate()
         api.categoriasGate = gate
-        api.setCategoriasResults([catalog(empty)])
+        api.setCategoriasResults([catalog(empty), catalog(super_)])
 
         let first = Task { await viewModel.refresh() }
         await gate.waitUntilWaiting()
         api.categoriasGate = nil
-        api.setCategoriasResults([catalog(super_)])
         await viewModel.refresh()
         await gate.open()
         await first.value
