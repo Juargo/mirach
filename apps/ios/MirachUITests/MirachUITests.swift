@@ -685,7 +685,8 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
         name.typeWhenFocused("Supermercado\n")
-        app.buttons["category.bucket.Deseos"].tap()
+        // Names are unique within a bucket (ADR-042), so the clash is in Necesidades.
+        app.buttons["category.bucket.Necesidades"].tap()
         app.buttons["category.save"].tap()
 
         XCTAssertTrue(element(app, "category.error.name").waitForExistence(timeout: 5))
@@ -792,6 +793,286 @@ final class MirachUITests: XCTestCase {
         swipes = 0
         while !delete.isHittable && swipes < 3 { app.swipeUp(); swipes += 1 }
         XCTAssertTrue(delete.isHittable, "first import not reachable within 3 swipes at the largest text size")
+    }
+
+    // MARK: Categorías y Detalle de categoría
+
+    private func openCategoriasTab(_ app: XCUIApplication) {
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Categorías"].tap()
+        XCTAssertTrue(app.navigationBars["Categorías"].waitForExistence(timeout: 10))
+    }
+
+    /// Scrolls a Form row into view: its rows are built lazily, so a row below the fold does not exist yet.
+    @discardableResult
+    private func reveal(_ app: XCUIApplication, _ identifier: String, maxSwipes: Int = 8) -> XCUIElement {
+        let target = element(app, identifier)
+        var swipes = 0
+        while !target.isHittable && swipes < maxSwipes {
+            app.swipeUp()
+            swipes += 1
+        }
+        return target
+    }
+
+    /// The pinned result line of the category detail, once it appears.
+    private func detailMessage(_ app: XCUIApplication) -> String {
+        let message = element(app, "categoria.announcement")
+        XCTAssertTrue(message.waitForExistence(timeout: 10))
+        return message.label
+    }
+
+    private func replaceText(_ field: XCUIElement, with text: String) {
+        field.tap()
+        let current = (field.value as? String) ?? ""
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count) + text)
+    }
+
+    @MainActor
+    func testCategoriasListsEveryBucketWithItsCategoriesAndCounts() {
+        let app = launch([savedSession])
+        openCategoriasTab(app)
+
+        for name in ["Necesidades", "Deseos", "Ahorro"] {
+            XCTAssertTrue(element(app, "categorias.group.\(name)").waitForExistence(timeout: 10), name)
+        }
+        let rest = element(app, "categorias.row.stub-des-rest")
+        XCTAssertTrue(rest.exists)
+        XCTAssertEqual(rest.label, "Restaurantes. 2 movimientos. 0 patrones")
+        XCTAssertEqual(element(app, "categorias.row.stub-nec-super").label, "Supermercado. 2 movimientos. 2 patrones")
+        XCTAssertTrue(element(app, "categorias.row.stub-des-desc").label.hasSuffix("Categoría del sistema"))
+        // The traffic light and the old name of the bucket never show.
+        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Gustos")).count, 0)
+    }
+
+    @MainActor
+    func testCreatingRenamingAndDeletingACategoryEndToEnd() {
+        let app = launch([savedSession])
+        openCategoriasTab(app)
+
+        // Create, with an icon.
+        app.buttons["categorias.new"].tap()
+        let name = app.textFields["category.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Mascotas\n")
+        app.buttons["category.bucket.Deseos"].tap()
+        app.buttons["category.icon.paw-print"].tap()
+        XCTAssertTrue(app.buttons["category.icon.paw-print"].isSelected)
+        app.buttons["category.save"].tap()
+
+        let announcement = element(app, "categorias.announcement")
+        XCTAssertTrue(announcement.waitForExistence(timeout: 10))
+        XCTAssertEqual(announcement.label, "Categoría «Mascotas» creada")
+        XCTAssertFalse(app.textFields["category.name"].exists, "the form closes")
+        let row = element(app, "categorias.row.stub-new-1")
+        XCTAssertTrue(row.exists)
+        XCTAssertEqual(row.label, "Mascotas. 0 movimientos. 0 patrones")
+
+        // Rename.
+        row.tap()
+        let field = app.textFields["categoria.name"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["categoria.save"].isEnabled, "nothing changed yet")
+        replaceText(field, with: "Mis mascotas")
+        XCTAssertTrue(app.buttons["categoria.save"].isEnabled)
+        app.buttons["categoria.save"].tap()
+        XCTAssertEqual(detailMessage(app), "Categoría guardada")
+        XCTAssertTrue(app.navigationBars["Mis mascotas"].waitForExistence(timeout: 5), "the title follows the saved name")
+
+        // Delete: the confirmation names the consequence and cancelling keeps it.
+        reveal(app, "categoria.delete").tap()
+        let alert = app.alerts["¿Eliminar categoría?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.staticTexts["No tiene movimientos. Esta acción no se puede deshacer."].exists)
+        alert.buttons["Cancelar"].tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: alert)
+        waitForExpectations(timeout: 5)
+
+        reveal(app, "categoria.delete").tap()
+        app.alerts.buttons["Eliminar"].tap()
+
+        let deleted = element(app, "categorias.announcement")
+        expectation(for: NSPredicate(format: "label == %@", "Categoría «Mis mascotas» eliminada"), evaluatedWith: deleted)
+        waitForExpectations(timeout: 10)
+        XCTAssertFalse(element(app, "categorias.row.stub-new-1").exists)
+    }
+
+    @MainActor
+    func testACategoryNameThatExistsInTheBucketShowsAFieldErrorAndTheFormStaysOpen() {
+        let app = launch([savedSession])
+        openCategoriasTab(app)
+
+        app.buttons["categorias.new"].tap()
+        let name = app.textFields["category.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("restaurantes\n")
+        app.buttons["category.bucket.Deseos"].tap()
+        app.buttons["category.save"].tap()
+
+        XCTAssertTrue(element(app, "category.error.name").waitForExistence(timeout: 5))
+        XCTAssertEqual(element(app, "category.error.name").label, "Ya tienes una categoría con ese nombre")
+        XCTAssertEqual(name.value as? String, "restaurantes", "what was typed stays")
+        XCTAssertTrue(app.buttons["category.save"].exists)
+    }
+
+    @MainActor
+    func testChangingTheBucketAsksFirstNamesTheMovementsAndTheSummaryFollows() {
+        let app = launch([savedSession])
+        openCategoriasTab(app)
+        element(app, "categorias.row.stub-des-rest").tap()
+        let save = app.buttons["categoria.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+
+        app.buttons["categoria.bucket.Necesidades"].tap()
+        save.tap()
+        let alert = app.alerts["Cambiar de grupo"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.staticTexts["2 movimientos pasarán de Deseos a Necesidades en todos los meses."].exists)
+        alert.buttons["Cancelar"].tap()
+        XCTAssertTrue(save.isEnabled, "cancelling keeps the draft")
+
+        save.tap()
+        app.alerts.buttons["Confirmar"].tap()
+        XCTAssertEqual(element(app, "categoria.announcement").waitForExistence(timeout: 10), true)
+
+        // The Resumen follows: Deseos was $610.400 and Restaurantes held $210.900.
+        app.tabBars.buttons["Resumen"].tap()
+        let deseos = element(app, "resumen.bucket.Deseos")
+        expectation(for: NSPredicate(format: "label CONTAINS %@", "$399.500"), evaluatedWith: deseos)
+        waitForExpectations(timeout: 10)
+    }
+
+    @MainActor
+    func testLeavingTheDetailWithUnsavedChangesAsksFirst() {
+        let app = launch([savedSession])
+        openCategoriasTab(app)
+        element(app, "categorias.row.stub-des-rest").tap()
+        let field = app.textFields["categoria.name"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        replaceText(field, with: "Otra")
+
+        app.buttons["categoria.back"].tap()
+        let alert = app.alerts["¿Descartar los cambios?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        alert.buttons["Seguir editando"].tap()
+        XCTAssertTrue(field.exists, "still on the detail")
+
+        app.buttons["categoria.back"].tap()
+        app.alerts.buttons["Descartar"].tap()
+        XCTAssertTrue(element(app, "categorias.row.stub-des-rest").waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testASystemCategoryShowsItsProtectionAndNothingCanBeEdited() {
+        let app = launch([savedSession])
+        openCategoriasTab(app)
+        element(app, "categorias.row.stub-nec-desc").tap()
+
+        XCTAssertTrue(element(app, "categoria.protected").waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["categoria.save"].isEnabled)
+        XCTAssertFalse(reveal(app, "categoria.delete").isEnabled)
+    }
+
+    @MainActor
+    func testPatternsAreAddedWithAFieldErrorForABadExpressionAndDeletedAfterConfirming() {
+        let app = launch([savedSession])
+        openCategoriasTab(app)
+        element(app, "categorias.row.stub-des-rest").tap()
+        XCTAssertTrue(reveal(app, "categoria.patterns.empty").waitForExistence(timeout: 10))
+
+        // A bad regular expression: the server's verdict under the field, the sheet stays.
+        reveal(app, "categoria.pattern.add").tap()
+        let text = app.textFields["pattern.text"]
+        XCTAssertTrue(text.waitForExistence(timeout: 5))
+        text.tap()
+        text.typeText("[\n")
+        app.buttons["pattern.type.REGEX"].tap()
+        app.buttons["pattern.save"].tap()
+        XCTAssertTrue(element(app, "pattern.error.text").waitForExistence(timeout: 5))
+        XCTAssertEqual(element(app, "pattern.error.text").label, "Esa expresión regular no es válida")
+
+        // A valid one: «Empieza con».
+        replaceText(text, with: "RESTAURANT")
+        app.buttons["pattern.type.STARTS_WITH"].tap()
+        app.buttons["pattern.save"].tap()
+        XCTAssertEqual(element(app, "categoria.announcement").waitForExistence(timeout: 10), true)
+        XCTAssertEqual(detailMessage(app), "Patrón guardado")
+        let row = element(app, "categoria.pattern.stub-pat-1")
+        XCTAssertTrue(row.exists)
+        XCTAssertEqual(row.label, "Empieza con: RESTAURANT")
+
+        // Delete asks first, and cancelling keeps it.
+        reveal(app, "categoria.pattern.delete.stub-pat-1").tap()
+        let alert = app.alerts["¿Eliminar este patrón?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        alert.buttons["Cancelar"].tap()
+        XCTAssertTrue(row.exists)
+        reveal(app, "categoria.pattern.delete.stub-pat-1").tap()
+        app.alerts.buttons["Eliminar"].tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: row)
+        waitForExpectations(timeout: 10)
+        XCTAssertEqual(detailMessage(app), "Patrón eliminado")
+    }
+
+    @MainActor
+    func testAGroupHeaderOfTheBucketDetailOpensItsCategoryAndGoingBackKeepsTheMonth() {
+        let app = launch([savedSession])
+        openDeseos(app)
+
+        element(app, "detalle.group.stub-des-rest").tap()
+
+        let name = app.textFields["categoria.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertEqual(name.value as? String, "Restaurantes")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(element(app, "detalle.header").waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["detalle.month"].label, "Septiembre de 2026")
+    }
+
+    @MainActor
+    func testRenamingFromABucketDetailUpdatesItsGroupHeader() {
+        let app = launch([savedSession])
+        openDeseos(app)
+        element(app, "detalle.group.stub-des-rest").tap()
+        let name = app.textFields["categoria.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        replaceText(name, with: "Comidas")
+        app.buttons["categoria.save"].tap()
+        XCTAssertEqual(element(app, "categoria.announcement").waitForExistence(timeout: 10), true)
+
+        app.navigationBars.buttons.firstMatch.tap()
+
+        let header = element(app, "detalle.group.stub-des-rest")
+        expectation(for: NSPredicate(format: "label BEGINSWITH %@", "Comidas."), evaluatedWith: header)
+        waitForExpectations(timeout: 10)
+    }
+
+    @MainActor
+    func testAtTheLargestTextSizeTheFirstCategoryAndItsDetailAreReachable() {
+        let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        openCategoriasTab(app)
+
+        let first = element(app, "categorias.row.stub-nec-super")
+        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        var swipes = 0
+        while !first.isHittable && swipes < 3 { app.swipeUp(); swipes += 1 }
+        XCTAssertTrue(first.isHittable, "first category not reachable within 3 swipes at the largest text size")
+        first.tap()
+
+        let name = app.textFields["categoria.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.isHittable)
+        // The first pattern and the delete button are reachable by scrolling.
+        let pattern = element(app, "categoria.pattern.stub-p-lider")
+        swipes = 0
+        while !pattern.isHittable && swipes < 8 { app.swipeUp(); swipes += 1 }
+        XCTAssertTrue(pattern.isHittable, "first pattern not reachable at the largest text size")
+        let delete = element(app, "categoria.delete")
+        swipes = 0
+        while !delete.isHittable && swipes < 8 { app.swipeUp(); swipes += 1 }
+        XCTAssertTrue(delete.isHittable, "delete button not reachable at the largest text size")
     }
 }
 
