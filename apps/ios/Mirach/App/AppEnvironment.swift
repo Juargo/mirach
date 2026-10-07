@@ -172,18 +172,6 @@ struct StubMirachAPI: MirachAPI {
     /// `StubMirachAPI.pdfPassword`; any other file previews fine.
     static let pdfPassword = "correcta"
 
-    /// The stub's catalog: two real categories per bucket plus the internal «Desconocido».
-    static let catalog = CatalogoCategorias(categorias: [
-        CategoriaCatalogo(id: "stub-nec-desc", nombre: "Desconocido", bucket: .necesidades),
-        CategoriaCatalogo(id: "stub-nec-super", nombre: "Supermercado", bucket: .necesidades),
-        CategoriaCatalogo(id: "stub-nec-transp", nombre: "Transporte", bucket: .necesidades),
-        CategoriaCatalogo(id: "stub-des-desc", nombre: "Desconocido", bucket: .deseos),
-        CategoriaCatalogo(id: "stub-des-rest", nombre: "Restaurantes", bucket: .deseos),
-        CategoriaCatalogo(id: "stub-des-susc", nombre: "Suscripciones", bucket: .deseos),
-        CategoriaCatalogo(id: "stub-aho-desc", nombre: "Desconocido", bucket: .ahorro),
-        CategoriaCatalogo(id: "stub-aho-fondo", nombre: "Fondo de emergencia", bucket: .ahorro),
-    ])
-
     /// Statement of the stub: row 1 has no suggestion, row 3 is an income, rows 5 and 6 were
     /// already loaded. Dates are the first days of October 2026 (UTC midnight, as the API sends).
     private static let rows: [CartolaRow] = {
@@ -210,8 +198,8 @@ struct StubMirachAPI: MirachAPI {
         ]
     }()
 
-    /// Categories created through the stub, with the pattern that reclassifies later previews.
-    private let created = StubCreatedCategories()
+    /// The stub's catalog: what the review, the bucket detail and Categorías all read and write.
+    let catalogStore = StubCatalog()
     /// The month's movements; the Resumen and the bucket detail both read them.
     let ledger = StubLedger()
     /// The imports "Cartolas subidas" lists.
@@ -219,7 +207,7 @@ struct StubMirachAPI: MirachAPI {
 
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview {
         try checkPassword(file: file, password: password)
-        let rows = created.apply(to: Self.rows)
+        let rows = catalogStore.apply(to: Self.rows)
         return CartolaPreview(
             banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
             totalFilas: rows.count, duplicados: 2, nuevas: rows.count - 2, filas: rows
@@ -227,18 +215,42 @@ struct StubMirachAPI: MirachAPI {
     }
 
     func categorias() async throws -> CatalogoCategorias {
-        CatalogoCategorias(categorias: Self.catalog.categorias + created.categories)
+        CatalogoCategorias(categorias: catalogStore.all.map { category in
+            CategoriaCatalogo(
+                id: category.id, nombre: category.nombre, bucket: category.bucket, icono: category.icono,
+                transaccionesCount: ledger.count(categoryId: category.id), esInterna: category.esInterna,
+                patrones: category.patrones
+            )
+        })
     }
 
-    /// An empty name or one that exists already is refused like the server does.
+    /// An empty name or one that exists in the bucket is refused like the server does.
     func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo {
-        let name = new.nombre.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty, name.count <= 40 else { throw CategoriaError.invalidName }
-        let all = Self.catalog.categorias + created.categories
-        guard !all.contains(where: { $0.nombre.lowercased() == name.lowercased() }) else {
-            throw CategoriaError.duplicateName
-        }
-        return created.add(name: name, bucket: new.bucket, pattern: new.patron)
+        try catalogStore.create(new)
+    }
+
+    func actualizarCategoria(id: String, cambios: CategoriaCambios) async throws -> CategoriaCatalogo {
+        let updated = try catalogStore.update(id: id, cambios)
+        if let bucket = cambios.bucket { ledger.rebucket(categoryId: id, to: bucket) }
+        return updated
+    }
+
+    /// Its movements go to the «Desconocido» of the same bucket, like the server.
+    func eliminarCategoria(id: String) async throws {
+        let fallback = try catalogStore.delete(id: id)
+        ledger.reassign(from: id, to: fallback)
+    }
+
+    func crearPatron(categoriaId: String, patron: String, matchType: MatchType) async throws -> PatronCategoria {
+        try catalogStore.addPattern(categoryId: categoriaId, text: patron, type: matchType)
+    }
+
+    func actualizarPatron(id: String, cambios: PatronCambios) async throws -> PatronCategoria {
+        try catalogStore.updatePattern(id: id, cambios)
+    }
+
+    func eliminarPatron(id: String) async throws {
+        try catalogStore.deletePattern(id: id)
     }
 
     /// With edits, the answer reports how many the stub received as `totalTransacciones`, so a
@@ -249,7 +261,7 @@ struct StubMirachAPI: MirachAPI {
         if edits.isEmpty { return CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5) }
         for edit in edits {
             let row = Self.rows.first { $0.rowIndex == edit.rowIndex }
-            guard let row, !row.esDuplicado, (Self.catalog.categoria(id: edit.categoriaId) != nil || created.categories.contains { $0.id == edit.categoriaId }) else {
+            guard let row, !row.esDuplicado, catalogStore.category(id: edit.categoriaId) != nil else {
                 throw IngestaError.rejected(message: "Ediciones inválidas")
             }
         }
@@ -285,40 +297,6 @@ struct StubMirachAPI: MirachAPI {
                         metaBp: figures.1, estado: bucket == .ahorro ? nil : .amarillo
                     )
                 }
-            )
-        }
-    }
-}
-
-/// State of the stub's created categories (the stub itself is a value type).
-private final class StubCreatedCategories: @unchecked Sendable {
-    private let lock = NSLock()
-    private var entries: [(category: CategoriaCatalogo, pattern: String?)] = []
-
-    var categories: [CategoriaCatalogo] { lock.withLock { entries.map(\.category) } }
-
-    func add(name: String, bucket: Bucket, pattern: String?) -> CategoriaCatalogo {
-        lock.withLock {
-            let category = CategoriaCatalogo(id: "stub-new-\(entries.count + 1)", nombre: name, bucket: bucket)
-            let text = pattern?.trimmingCharacters(in: .whitespaces)
-            entries.append((category, text?.isEmpty == false ? text : nil))
-            return category
-        }
-    }
-
-    /// Rows with no suggestion whose description contains a created pattern take its category.
-    func apply(to rows: [CartolaRow]) -> [CartolaRow] {
-        let current = lock.withLock { entries }
-        return rows.map { row in
-            guard row.sugerido == nil,
-                  let match = current.first(where: { entry in
-                      entry.pattern.map { row.descripcion.lowercased().contains($0.lowercased()) } ?? false
-                  })
-            else { return row }
-            return CartolaRow(
-                rowIndex: row.rowIndex, fecha: row.fecha, descripcion: row.descripcion, cargo: row.cargo,
-                abono: row.abono, esDuplicado: row.esDuplicado,
-                sugerido: .init(bucket: match.category.bucket, categoriaId: match.category.id)
             )
         }
     }

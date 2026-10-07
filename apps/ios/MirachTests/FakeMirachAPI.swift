@@ -26,6 +26,22 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let categoriaId: String
     }
 
+    struct ActualizarCategoriaCall: Equatable {
+        let id: String
+        let cambios: CategoriaCambios
+    }
+
+    struct CrearPatronCall: Equatable {
+        let categoriaId: String
+        let patron: String
+        let matchType: MatchType
+    }
+
+    struct ActualizarPatronCall: Equatable {
+        let id: String
+        let cambios: PatronCambios
+    }
+
     private let lock = NSLock()
     private var _signInCalls: [SignInCall] = []
     private var _currentUserCalls = 0
@@ -78,6 +94,23 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var eliminarResults: [Result<Void, any Error>] = [.success(())]
     private var _eliminarCalls: [String] = []
     private var _eliminarGate: Gate?
+    private var actualizarCategoriaResults: [Result<CategoriaCatalogo, any Error>] = [
+        .success(CategoriaCatalogo(id: "cat-edit", nombre: "Editada", bucket: .deseos))
+    ]
+    private var _actualizarCategoriaCalls: [ActualizarCategoriaCall] = []
+    private var eliminarCategoriaResults: [Result<Void, any Error>] = [.success(())]
+    private var _eliminarCategoriaCalls: [String] = []
+    private var crearPatronResults: [Result<PatronCategoria, any Error>] = [
+        .success(PatronCategoria(id: "pat-new", patron: "x", matchType: .contains))
+    ]
+    private var _crearPatronCalls: [CrearPatronCall] = []
+    private var actualizarPatronResults: [Result<PatronCategoria, any Error>] = [
+        .success(PatronCategoria(id: "pat-edit", patron: "x", matchType: .contains))
+    ]
+    private var _actualizarPatronCalls: [ActualizarPatronCall] = []
+    private var eliminarPatronResults: [Result<Void, any Error>] = [.success(())]
+    private var _eliminarPatronCalls: [String] = []
+    private var _catalogWriteGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -191,6 +224,97 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
             return crearResults.count > 1 ? crearResults.removeFirst() : crearResults[0]
         }
         return try result.get()
+    }
+
+    // MARK: catalog writes (Categorías, Detalle de categoría)
+
+    func setActualizarCategoriaResults(_ results: [Result<CategoriaCatalogo, any Error>]) {
+        lock.withLock { actualizarCategoriaResults = results }
+    }
+
+    func setEliminarCategoriaResults(_ results: [Result<Void, any Error>]) {
+        lock.withLock { eliminarCategoriaResults = results }
+    }
+
+    func setCrearPatronResults(_ results: [Result<PatronCategoria, any Error>]) {
+        lock.withLock { crearPatronResults = results }
+    }
+
+    func setActualizarPatronResults(_ results: [Result<PatronCategoria, any Error>]) {
+        lock.withLock { actualizarPatronResults = results }
+    }
+
+    func setEliminarPatronResults(_ results: [Result<Void, any Error>]) {
+        lock.withLock { eliminarPatronResults = results }
+    }
+
+    var actualizarCategoriaCalls: [ActualizarCategoriaCall] { lock.withLock { _actualizarCategoriaCalls } }
+    var eliminarCategoriaCalls: [String] { lock.withLock { _eliminarCategoriaCalls } }
+    var crearPatronCalls: [CrearPatronCall] { lock.withLock { _crearPatronCalls } }
+    var actualizarPatronCalls: [ActualizarPatronCall] { lock.withLock { _actualizarPatronCalls } }
+    var eliminarPatronCalls: [String] { lock.withLock { _eliminarPatronCalls } }
+
+    /// When set, every catalog write (category or pattern) waits at the gate before answering.
+    var catalogWriteGate: Gate? {
+        get { lock.withLock { _catalogWriteGate } }
+        set { lock.withLock { _catalogWriteGate = newValue } }
+    }
+
+    func actualizarCategoria(id: String, cambios: CategoriaCambios) async throws -> CategoriaCatalogo {
+        let (result, gate) = lock.withLock {
+            _actualizarCategoriaCalls.append(ActualizarCategoriaCall(id: id, cambios: cambios))
+            return (
+                actualizarCategoriaResults.count > 1 ? actualizarCategoriaResults.removeFirst() : actualizarCategoriaResults[0],
+                _catalogWriteGate
+            )
+        }
+        await gate?.wait()
+        return try result.get()
+    }
+
+    func eliminarCategoria(id: String) async throws {
+        let (result, gate) = lock.withLock {
+            _eliminarCategoriaCalls.append(id)
+            return (
+                eliminarCategoriaResults.count > 1 ? eliminarCategoriaResults.removeFirst() : eliminarCategoriaResults[0],
+                _catalogWriteGate
+            )
+        }
+        await gate?.wait()
+        try result.get()
+    }
+
+    func crearPatron(categoriaId: String, patron: String, matchType: MatchType) async throws -> PatronCategoria {
+        let (result, gate) = lock.withLock {
+            _crearPatronCalls.append(CrearPatronCall(categoriaId: categoriaId, patron: patron, matchType: matchType))
+            return (crearPatronResults.count > 1 ? crearPatronResults.removeFirst() : crearPatronResults[0], _catalogWriteGate)
+        }
+        await gate?.wait()
+        return try result.get()
+    }
+
+    func actualizarPatron(id: String, cambios: PatronCambios) async throws -> PatronCategoria {
+        let (result, gate) = lock.withLock {
+            _actualizarPatronCalls.append(ActualizarPatronCall(id: id, cambios: cambios))
+            return (
+                actualizarPatronResults.count > 1 ? actualizarPatronResults.removeFirst() : actualizarPatronResults[0],
+                _catalogWriteGate
+            )
+        }
+        await gate?.wait()
+        return try result.get()
+    }
+
+    func eliminarPatron(id: String) async throws {
+        let (result, gate) = lock.withLock {
+            _eliminarPatronCalls.append(id)
+            return (
+                eliminarPatronResults.count > 1 ? eliminarPatronResults.removeFirst() : eliminarPatronResults[0],
+                _catalogWriteGate
+            )
+        }
+        await gate?.wait()
+        try result.get()
     }
 
     // MARK: detalle de bucket

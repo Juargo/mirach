@@ -229,6 +229,17 @@ private final class SlowAPI: MirachAPI, @unchecked Sendable {
     }
     func categorias() async throws -> CatalogoCategorias { throw APIError.badStatus(0) }
     func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo { throw APIError.badStatus(0) }
+    func actualizarCategoria(id: String, cambios: CategoriaCambios) async throws -> CategoriaCatalogo {
+        throw APIError.badStatus(0)
+    }
+    func eliminarCategoria(id: String) async throws { throw APIError.badStatus(0) }
+    func crearPatron(categoriaId: String, patron: String, matchType: MatchType) async throws -> PatronCategoria {
+        throw APIError.badStatus(0)
+    }
+    func actualizarPatron(id: String, cambios: PatronCambios) async throws -> PatronCategoria {
+        throw APIError.badStatus(0)
+    }
+    func eliminarPatron(id: String) async throws { throw APIError.badStatus(0) }
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {
         SampleData.commit
     }

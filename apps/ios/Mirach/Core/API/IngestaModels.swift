@@ -47,11 +47,32 @@ struct CartolaRow: Equatable, Sendable, Identifiable {
     var id: Int { rowIndex }
 }
 
-/// A category of the user's catalog (`GET /api/categorias`), reduced to what the review needs.
+/// A category of the user's catalog (`GET /api/categorias`). The review only needs the first
+/// three fields; the rest default to «nothing known» so those callers stay small.
 struct CategoriaCatalogo: Equatable, Sendable, Identifiable {
     let id: String
     let nombre: String
     let bucket: Bucket
+    /// A value of the allowed icon list, or `nil` (the app shows a generic symbol).
+    let icono: String?
+    /// All the user's movements in this category (full history).
+    let transaccionesCount: Int
+    /// A system category («Desconocido»): the server refuses to edit or delete it.
+    let esInterna: Bool
+    let patrones: [PatronCategoria]
+
+    init(
+        id: String, nombre: String, bucket: Bucket, icono: String? = nil, transaccionesCount: Int = 0,
+        esInterna: Bool = false, patrones: [PatronCategoria] = []
+    ) {
+        self.id = id
+        self.nombre = nombre
+        self.bucket = bucket
+        self.icono = icono
+        self.transaccionesCount = transaccionesCount
+        self.esInterna = esInterna
+        self.patrones = patrones
+    }
 }
 
 /// The catalog as the API sends it (already ordered by name).

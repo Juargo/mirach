@@ -36,6 +36,18 @@ protocol MirachAPI: Sendable {
     /// `POST /api/categorias`: creates a category (with at most one pattern) from the review.
     /// Throws `CategoriaError` for the 400 and 409 the catalog names.
     func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo
+    /// `PATCH /api/categorias/{id}` with only the changed fields (`cambios` is never empty).
+    /// Throws `CategoriaError` for the 400, 403, 404 and 409 the catalog names.
+    func actualizarCategoria(id: String, cambios: CategoriaCambios) async throws -> CategoriaCatalogo
+    /// `DELETE /api/categorias/{id}`: its patterns go with it and its movements move to the
+    /// «Desconocido» of the same bucket. Throws `CategoriaError.notFound` or `.isInternal`.
+    func eliminarCategoria(id: String) async throws
+    /// `POST /api/patrones`; the category is identified by id. Throws `PatronError`.
+    func crearPatron(categoriaId: String, patron: String, matchType: MatchType) async throws -> PatronCategoria
+    /// `PATCH /api/patrones/{id}` with only the changed fields. Throws `PatronError`.
+    func actualizarPatron(id: String, cambios: PatronCambios) async throws -> PatronCategoria
+    /// `DELETE /api/patrones/{id}`. Throws `PatronError.patternNotFound` for the 404.
+    func eliminarPatron(id: String) async throws
     /// `GET /api/buckets/{bucket}/detalle`: the bucket's movements for a month, grouped by category.
     /// `periodo` is always one the app built or got from the API.
     func bucketDetalle(bucket: Bucket, periodo: Periodo) async throws -> BucketDetalle
