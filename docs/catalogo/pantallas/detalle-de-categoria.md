@@ -34,9 +34,9 @@ El campo `icono` solo acepta estos valores (si no, 400 `ICONO_INVALIDO`): `shopp
 
 Reglas y confirmaciones:
 
-- **Cambiar de bucket** afecta a todos los meses ya clasificados con esa categoría: si `transaccionesCount` es mayor que cero, se pide confirmación antes de guardar («N movimientos pasarán de {bucket actual} a {bucket nuevo} en todos los meses»).
+- **Cambiar de bucket** afecta a todos los meses ya clasificados con esa categoría: siempre se pide confirmación antes de guardar, también con cero movimientos (ADR-038; decisión del product owner, 2026-10-07). Con movimientos: «N movimientos pasarán de {bucket actual} a {bucket nuevo} en todos los meses»; sin movimientos, la confirmación nombra solo el cambio de bucket.
 - **Eliminar** pide confirmación con el número de movimientos afectados. El API borra también los patrones de la categoría y reasigna los movimientos a la categoría interna `Desconocido` del mismo bucket (según `EliminarCategoriaUseCase`; la web anterior decía «Sin categoría», que ya no existe como bucket). La confirmación nombra esa consecuencia: «Sus N movimientos pasarán a «Desconocido» de {bucket}».
-- **Eliminar un patrón** es inmediato y no cambia categorías ya asignadas; el resultado se anuncia.
+- **Eliminar un patrón** pide confirmación, como toda acción destructiva (reglas globales del catálogo; decisión del product owner, 2026-10-07). No cambia categorías ya asignadas; el resultado se anuncia.
 - Los patrones se aplican a las **próximas** importaciones y a la vista previa. Los movimientos ya importados no cambian por crear o editar un patrón; reevaluarlos queda para «Después» (ver el [índice](../README.md#después)).
 - Un patrón de tipo `REGEX` se valida en el servidor al guardar; la app no valida expresiones regulares por su cuenta.
 - La clasificación con patrones la hace el API; la app solo lista los patrones en el orden recibido y no decide cuál gana.
@@ -61,7 +61,7 @@ Reglas y confirmaciones:
 - **Error con reintento**: mensaje y «Reintentar» (repite `GET /api/categorias`).
 - **Éxito**: formulario con los valores actuales y la lista de patrones.
 - **Guardando**: botón «Guardar» deshabilitado con progreso.
-- **Confirmando**: diálogo de cambio de bucket o de eliminación con «Cancelar» y el botón de la acción.
+- **Confirmando**: diálogo de cambio de bucket, de eliminación de la categoría o de eliminación de un patrón, con «Cancelar» y el botón de la acción.
 - **Error de escritura**: mensaje junto al control que falló; lo escrito se conserva.
 - **Categoría protegida** (403): se muestra el mensaje y los controles de edición y eliminación se deshabilitan hasta salir de la pantalla.
 
