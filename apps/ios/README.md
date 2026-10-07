@@ -122,6 +122,14 @@ Si el servidor rechaza la clave (401 `API_KEY_INVALIDA`) se muestra la misma pan
 - **Salir de la pantalla:** cambiar de pestaña conserva la revisión en memoria (el view model vive en `AppEnvironment`), así que no se pierde nada y no se pide confirmación; solo «Descartar» (con confirmación) y cerrar sesión la borran.
 - **Cliente de prueba:** con `-uiTestStubbedClient`, el commit con ediciones responde `totalTransacciones` = número de ediciones recibidas y rechaza (400) una fila duplicada o una categoría fuera del catálogo, para que XCUITest verifique lo que llegó.
 
+### Crear categoría desde una fila (T5c)
+
+- **Entrada:** la hoja de categorías de una fila editable tiene «Crear categoría», que abre el formulario dentro de la misma hoja: nombre, grupo (Necesidades, Deseos o Ahorro, una fila rotulada cada uno con marca de selección, no solo color) y un patrón opcional que viene con la descripción de la fila (hasta 200 caracteres) y se puede editar o vaciar.
+- **Petición:** `POST /api/categorias` con `{nombre, bucket, patrones: [{patron, matchType: "CONTAINS"}]}`; sin patrón, sin `patrones`. Nunca se envía `icono`.
+- **Al crear:** la fila queda con la categoría nueva (una edición más), se refresca el catálogo y se repite la vista previa con el mismo archivo y contraseña («Actualizando la vista previa con la nueva categoría…»). Las ediciones manuales se conservan. El aviso es ««X» se aplicó a N filas más»; N cuenta las filas cuya sugerencia ahora es la categoría nueva, **sin** la fila de origen, las filas con edición manual ni los duplicados (sin cambios: «Categoría «X» creada.»). Si la vista previa repetida falla, la revisión sigue con las filas anteriores, la categoría nueva y las ediciones, con un aviso y «Reintentar».
+- **Errores:** cada `code` (`NOMBRE_INVALIDO`, `BUCKET_NO_ASIGNABLE`, `ICONO_INVALIDO`, `PATRON_INVALIDO`, `MATCH_TYPE_INVALIDO`, `REGEX_INVALIDA`, `NOMBRE_DUPLICADO`, `PATRON_DUPLICADO`; `indice` en los anidados) aparece junto a su campo; un código desconocido muestra el `message` del servidor; 401 va por el relé único.
+- **Aplazado:** selector de ícono (la lista de 25 valores no está en el contrato y habría que asociar cada uno a un símbolo) y tipos de coincidencia distintos de «contiene» (empieza con, expresión regular).
+
 ## Pruebas
 
 Desde Xcode: Cmd+U (corre unitarias y de interfaz).

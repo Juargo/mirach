@@ -32,8 +32,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var commitResults: [Result<CartolaCommitResult, any Error>] = [.success(SampleData.commit)]
     private var categoriasResults: [Result<CatalogoCategorias, any Error>] = [.success(SampleData.catalog)]
     private var _categoriasCalls = 0
+    private var crearResults: [Result<CategoriaCatalogo, any Error>] = [
+        .success(CategoriaCatalogo(id: "cat-new", nombre: "Nueva", bucket: .deseos))
+    ]
+    private var _crearCalls: [NuevaCategoria] = []
     private var _previewGate: Gate?
     private var _categoriasGate: Gate?
+    private var _crearGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -92,6 +97,12 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         lock.withLock { categoriasResults = results }
     }
 
+    func setCrearCategoriaResults(_ results: [Result<CategoriaCatalogo, any Error>]) {
+        lock.withLock { crearResults = results }
+    }
+
+    var crearCategoriaCalls: [NuevaCategoria] { lock.withLock { _crearCalls } }
+
     var categoriasCalls: Int { lock.withLock { _categoriasCalls } }
 
     func setCommitResults(_ results: [Result<CartolaCommitResult, any Error>]) {
@@ -124,6 +135,21 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let result = lock.withLock {
             _categoriasCalls += 1
             return categoriasResults.count > 1 ? categoriasResults.removeFirst() : categoriasResults[0]
+        }
+        return try result.get()
+    }
+
+    /// When set, `crearCategoria` waits at the gate before answering.
+    var crearGate: Gate? {
+        get { lock.withLock { _crearGate } }
+        set { lock.withLock { _crearGate = newValue } }
+    }
+
+    func crearCategoria(_ new: NuevaCategoria) async throws -> CategoriaCatalogo {
+        await crearGate?.wait()
+        let result = lock.withLock {
+            _crearCalls.append(new)
+            return crearResults.count > 1 ? crearResults.removeFirst() : crearResults[0]
         }
         return try result.get()
     }

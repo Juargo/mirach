@@ -72,3 +72,53 @@ extension SubirCartolaViewModel.State {
             : "Este archivo está protegido. Ingresa su contraseña para continuar."
     }
 }
+
+extension SubirCartolaViewModel {
+    nonisolated static let updatingPreviewMessage = "Actualizando la vista previa con la nueva categoría…"
+
+    /// «X» se aplicó a N filas más (or just "created" when nothing else matched).
+    nonisolated static func appliedMessage(name: String, count: Int) -> String {
+        guard count > 0 else { return "Categoría «\(name)» creada." }
+        return "«\(name)» se aplicó a \(count) \(count == 1 ? "fila" : "filas") más"
+    }
+
+    nonisolated static func refreshFailedMessage(name: String) -> String {
+        "«\(name)» se creó, pero no pudimos actualizar la vista previa. Tus cambios siguen aquí."
+    }
+
+    /// Where each error of `POST /api/categorias` shows in the form. Our own copy; the server's
+    /// `message` is only the fallback for a code the app does not know.
+    nonisolated static func formErrors(for error: any Error) -> CategoryFormErrors {
+        var errors = CategoryFormErrors()
+        switch error {
+        case CategoriaError.invalidName: errors.name = "El nombre debe tener entre 1 y 40 caracteres"
+        case CategoriaError.bucketNotAssignable: errors.bucket = "Elige un grupo: Necesidades, Deseos o Ahorro"
+        case CategoriaError.invalidIcon: errors.general = "Elige un ícono válido de la lista"
+        case CategoriaError.invalidPattern:
+            errors.pattern = "Escribe un texto válido para el patrón (de 1 a 200 caracteres)"
+        case CategoriaError.invalidMatchType: errors.pattern = "Ese tipo de coincidencia no es válido"
+        case CategoriaError.invalidRegex: errors.pattern = "Esa expresión regular no es válida"
+        case CategoriaError.duplicateName: errors.name = "Ya tienes una categoría con ese nombre"
+        case CategoriaError.duplicatePattern: errors.pattern = "Ya tienes un patrón con ese texto"
+        case CategoriaError.rejected(let message): errors.general = message
+        case is URLError, is CancellationError:
+            errors.general = "No pudimos crear la categoría. Revisa tu conexión e inténtalo de nuevo."
+        default: errors.general = "No pudimos crear la categoría. Inténtalo de nuevo."
+        }
+        return errors
+    }
+
+    /// Rows the new category now matches that it did not before: those whose suggestion became
+    /// the new category. Not counted: the row it was created from (it got the category as an
+    /// edit), rows the person classified by hand (the server's suggestion does not show there) and
+    /// duplicates (not imported). A row absent from `before` counts like a changed one.
+    nonisolated static func newMatches(
+        before: [CartolaRow], after: [CartolaRow], categoryID: String, fromRow: Int, edits: [Int: String]
+    ) -> Int {
+        let previous = Dictionary(before.map { ($0.rowIndex, $0.sugerido?.categoriaId) }, uniquingKeysWith: { first, _ in first })
+        return after.filter { row in
+            !row.esDuplicado && row.rowIndex != fromRow && edits[row.rowIndex] == nil
+                && row.sugerido?.categoriaId == categoryID && previous[row.rowIndex].flatMap { $0 } != categoryID
+        }.count
+    }
+}

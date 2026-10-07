@@ -303,6 +303,88 @@ struct IngestaAPITests {
         #expect(expired.value.isEmpty)
     }
 
+    // MARK: crearCategoria
+
+    private static let createdBody = """
+    {"id":"new-1","nombre":"Streaming","bucket":"Deseos","icono":null,"esInterna":false,"patrones":[],"transaccionesCount":0}
+    """
+
+    @Test func creatingACategorySendsTheContractsBodyAndMapsTheAnswer() async throws {
+        let transport = FakeTransport.json(Self.createdBody, status: .created)
+
+        let created = try await makeAPI(transport).crearCategoria(
+            NuevaCategoria(nombre: "Streaming", bucket: .deseos, patron: "NETFLIX")
+        )
+
+        #expect(created == CategoriaCatalogo(id: "new-1", nombre: "Streaming", bucket: .deseos))
+        #expect(transport.requests.first?.path == "/api/categorias")
+        #expect(transport.requests.first?.method == .post)
+        let body = try #require(transport.bodies.first)
+        let sent = try #require(try JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])
+        #expect(Set(sent.keys) == ["nombre", "bucket", "patrones"], "no icono, no prioridad")
+        #expect(sent["nombre"] as? String == "Streaming")
+        #expect(sent["bucket"] as? String == "Deseos")
+        let patterns = try #require(sent["patrones"] as? [[String: String]])
+        #expect(patterns == [["patron": "NETFLIX", "matchType": "CONTAINS"]])
+    }
+
+    @Test(arguments: [nil, "", "   "] as [String?])
+    func withoutAPatternTheBodyHasNoPatrones(pattern: String?) async throws {
+        let transport = FakeTransport.json(Self.createdBody, status: .created)
+
+        _ = try await makeAPI(transport).crearCategoria(NuevaCategoria(nombre: "X", bucket: .ahorro, patron: pattern))
+
+        let body = try #require(transport.bodies.first)
+        let sent = try #require(try JSONSerialization.jsonObject(with: Data(body.utf8)) as? [String: Any])
+        #expect(Set(sent.keys) == ["nombre", "bucket"])
+        #expect(sent["bucket"] as? String == "Ahorro")
+    }
+
+    @Test(arguments: [
+        (400, "NOMBRE_INVALIDO", nil, CategoriaError.invalidName),
+        (400, "BUCKET_NO_ASIGNABLE", nil, CategoriaError.bucketNotAssignable),
+        (400, "ICONO_INVALIDO", nil, CategoriaError.invalidIcon),
+        (400, "PATRON_INVALIDO", 0, CategoriaError.invalidPattern(index: 0)),
+        (400, "MATCH_TYPE_INVALIDO", 2, CategoriaError.invalidMatchType(index: 2)),
+        (400, "REGEX_INVALIDA", 1, CategoriaError.invalidRegex(index: 1)),
+        (409, "NOMBRE_DUPLICADO", nil, CategoriaError.duplicateName),
+        (409, "PATRON_DUPLICADO", 0, CategoriaError.duplicatePattern(index: 0)),
+        (409, "PATRON_DUPLICADO", nil, CategoriaError.duplicatePattern(index: nil)),
+        (400, "CODIGO_NUEVO", nil, CategoriaError.rejected(message: "texto")),
+        (409, "OTRO_NUEVO", nil, CategoriaError.rejected(message: "texto")),
+    ] as [(Int, String, Int?, CategoriaError)])
+    func eachNamedCodeMapsToItsError(status: Int, code: String, index: Int?, expected: CategoriaError) async throws {
+        let indice = index.map { #","indice":\#($0)"# } ?? ""
+        let transport = FakeTransport.json(
+            #"{"message":"texto","code":"\#(code)"\#(indice)}"#, status: HTTPResponse.Status(code: status)
+        )
+
+        await #expect(throws: expected) {
+            _ = try await makeAPI(transport).crearCategoria(NuevaCategoria(nombre: "X", bucket: .deseos, patron: "a"))
+        }
+    }
+
+    @Test func creatingACategorySendsAnExpiredSessionThroughTheSingleRelay() async {
+        let transport = FakeTransport.json(#"{"message":"x","code":"SESION_INVALIDA"}"#, status: .unauthorized)
+        let expired = LockedBox<[String]>([])
+
+        await #expect(throws: APIError.sessionExpired) {
+            _ = try await makeAPI(transport, expired: { token in expired.mutate { $0.append(token) } })
+                .crearCategoria(NuevaCategoria(nombre: "X", bucket: .deseos, patron: nil))
+        }
+
+        #expect(expired.value == ["tok"])
+    }
+
+    @Test func aServerFailureWhileCreatingIsNotACatalogError() async {
+        let transport = FakeTransport.json(#"{"message":"boom"}"#, status: .internalServerError)
+
+        // A status the contract does not document is a plain API error, never a form error.
+        await #expect(throws: APIError.badStatus(500)) {
+            _ = try await makeAPI(transport).crearCategoria(NuevaCategoria(nombre: "X", bucket: .deseos, patron: nil))
+        }
+    }
+
     // MARK: commit
 
     @Test func commitReportsAMissingStagedCopyAsUnreadable() async {

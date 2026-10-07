@@ -275,4 +275,62 @@ final class MirachUITests: XCTestCase {
         }
         XCTAssertTrue(row.isHittable, "no review row reachable within one swipe at the largest text size")
     }
+
+    @MainActor
+    func testCreatingACategoryFromARowAppliesItAndReportsTheOtherMatchingRows() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
+        waitForExpectations(timeout: 10)
+        app.buttons["subir.review"].tap()
+        let row = element(app, "review.row.1")
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(element(app, "review.sheet").waitForExistence(timeout: 5))
+
+        app.buttons["review.create"].tap()
+        let name = app.textFields["category.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["category.save"].isEnabled, "a name and a group are required")
+        name.tap()
+        // Return closes the keyboard so the group rows below are reachable.
+        name.typeText("Amigos\n")
+        app.buttons["category.bucket.Deseos"].tap()
+        // The pattern comes prefilled with the row's description.
+        let pattern = app.textFields["category.pattern"]
+        if !pattern.exists { app.swipeUp() }
+        XCTAssertEqual(pattern.value as? String, "TRANSF A JUAN PEREZ")
+        app.buttons["category.save"].tap()
+
+        // The sheet closes; the notice counts the two other transfers the pattern now matches.
+        XCTAssertTrue(element(app, "review.info").waitForExistence(timeout: 10))
+        XCTAssertEqual(element(app, "review.info").label, "«Amigos» se aplicó a 2 filas más")
+        XCTAssertTrue(row.label.contains("Deseos · Amigos"), row.label)
+        XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar (1 cambio)")
+    }
+
+    @MainActor
+    func testACategoryNameThatExistsShowsAFieldErrorAndKeepsWhatWasTyped() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
+        waitForExpectations(timeout: 10)
+        app.buttons["subir.review"].tap()
+        let row = element(app, "review.row.1")
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        app.buttons["review.create"].tap()
+        let name = app.textFields["category.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Supermercado\n")
+        app.buttons["category.bucket.Deseos"].tap()
+        app.buttons["category.save"].tap()
+
+        XCTAssertTrue(element(app, "category.error.name").waitForExistence(timeout: 5))
+        XCTAssertEqual(element(app, "category.error.name").label, "Ya tienes una categoría con ese nombre")
+        XCTAssertEqual(name.value as? String, "Supermercado")
+    }
 }
