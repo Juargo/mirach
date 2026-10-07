@@ -5,6 +5,11 @@ struct ResumenView: View {
     let versionViewModel: ApiVersionViewModel
     /// Changing it reloads the month (a statement was just imported).
     let reloadToken: Int
+    /// Changes whenever the catalog was written anywhere: the month is read again, keeping the
+    /// month on screen.
+    let catalogRevision: Int
+    /// A category opened from a bucket detail may write the catalog: the shell tells every screen.
+    let onCatalogChange: @MainActor () -> Void
     /// "Subir cartola" in the empty state: the shell opens the Subir tab.
     let onUploadStatement: () -> Void
     @State private var viewModel: ResumenViewModel
@@ -13,11 +18,14 @@ struct ResumenView: View {
 
     init(
         api: any MirachAPI, versionViewModel: ApiVersionViewModel,
-        reloadToken: Int = 0, onUploadStatement: @escaping () -> Void = {}
+        reloadToken: Int = 0, catalogRevision: Int = 0,
+        onCatalogChange: @escaping @MainActor () -> Void = {}, onUploadStatement: @escaping () -> Void = {}
     ) {
         self.api = api
         self.versionViewModel = versionViewModel
         self.reloadToken = reloadToken
+        self.catalogRevision = catalogRevision
+        self.onCatalogChange = onCatalogChange
         self.onUploadStatement = onUploadStatement
         _viewModel = State(initialValue: ResumenViewModel(api: api))
     }
@@ -46,11 +54,13 @@ struct ResumenView: View {
                 await viewModel.load()
                 if !Task.isCancelled { loadedToken = reloadToken }
             }
+            .onChange(of: catalogRevision) { Task { await viewModel.refresh() } }
             .navigationDestination(for: BucketRoute.self) { route in
                 DetalleBucketView(
-                    api: api, bucket: route.bucket, periodo: route.periodo,
+                    api: api, bucket: route.bucket, periodo: route.periodo, catalogRevision: catalogRevision,
                     // A move changes this month's figures too: repeat the query for the month on screen.
-                    onReclassified: { Task { await viewModel.refresh() } }
+                    onReclassified: { Task { await viewModel.refresh() } },
+                    onCatalogChange: onCatalogChange
                 )
             }
             .navigationDestination(for: IngresosRoute.self) { route in

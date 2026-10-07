@@ -5,8 +5,19 @@ import SwiftUI
 struct DetalleBucketView: View {
     @State private var viewModel: DetalleBucketViewModel
     @Environment(\.dynamicTypeSize) private var typeSize
+    private let api: any MirachAPI
+    /// Changes whenever the catalog was written anywhere: the groups and the sheet are stale.
+    private let catalogRevision: Int
+    /// A category opened from a group header may write the catalog: the other screens must know.
+    private let onCatalogChange: @MainActor () -> Void
 
-    init(api: any MirachAPI, bucket: Bucket, periodo: Periodo, onReclassified: @escaping @MainActor () -> Void) {
+    init(
+        api: any MirachAPI, bucket: Bucket, periodo: Periodo, catalogRevision: Int = 0,
+        onReclassified: @escaping @MainActor () -> Void, onCatalogChange: @escaping @MainActor () -> Void = {}
+    ) {
+        self.api = api
+        self.catalogRevision = catalogRevision
+        self.onCatalogChange = onCatalogChange
         _viewModel = State(initialValue: DetalleBucketViewModel(
             api: api, bucket: bucket, periodo: periodo, onReclassified: onReclassified
         ))
@@ -28,6 +39,14 @@ struct DetalleBucketView: View {
         // The task restarts whenever the view reappears: that must neither drop the month nor
         // leave a load that was cancelled midway as an endless spinner.
         .task { await viewModel.loadIfNeeded() }
+        .onChange(of: catalogRevision) { Task { await viewModel.catalogDidChange() } }
+        // A group header opens its category (edit, delete, patterns).
+        .navigationDestination(for: CategoriaRoute.self) { route in
+            DetalleCategoriaView(
+                api: api, categoriaId: route.id, onChange: onCatalogChange,
+                onDeleted: { name in viewModel.categoryDeleted(named: name) }
+            )
+        }
         .sheet(isPresented: Binding(
             get: { viewModel.sheetMovement != nil },
             set: { if !$0 { viewModel.dismissSheet() } }
@@ -167,6 +186,38 @@ private struct GroupHeader: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
+        // «Sin categoría» has no category to open: its header is plain.
+        if let id = group.categoriaId {
+            NavigationLink(value: CategoriaRoute(id: id)) {
+                HStack(spacing: 8) {
+                    header
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                        .accessibilityHidden(true)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 12)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(DetalleBucketPresentation.groupLabel(group))
+            .accessibilityHint("Abrir la categoría")
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("detalle.group.\(group.id)")
+        } else {
+            header
+                .padding(.top, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(DetalleBucketPresentation.groupLabel(group))
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("detalle.group.\(group.id)")
+        }
+    }
+
+    private var header: some View {
         Group {
             if typeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 4) {
@@ -181,12 +232,6 @@ private struct GroupHeader: View {
                 }
             }
         }
-        .padding(.top, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(DetalleBucketPresentation.groupLabel(group))
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityIdentifier("detalle.group.\(group.id)")
     }
 
     private var name: some View {
