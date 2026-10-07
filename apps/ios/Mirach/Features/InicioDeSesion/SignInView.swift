@@ -29,6 +29,10 @@ struct SignInView: View {
                     Label(notice.message, systemImage: "checkmark.circle")
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color.Mirach.Feedback.successText)
+                        // One VoiceOver element that reads only the message: on iOS 26 the
+                        // icon is otherwise its own element announced as "Seleccionado".
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(notice.message)
                         .accessibilityIdentifier("signin.notice")
                 }
                 content
