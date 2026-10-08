@@ -90,8 +90,7 @@ final class DetalleBucketViewModel {
     func load() async {
         state = .loading
         async let months = fetchPeriodos()
-        // Answered (even with a failure the screen shows): done. Cancelled: still to do.
-        if await fetch(periodo: periodo) != nil { needsLoad = false }
+        await fetch(periodo: periodo)
         if let months = await months { periodos = months }
     }
 
@@ -105,11 +104,16 @@ final class DetalleBucketViewModel {
     /// Pull to refresh: repeats the query without blanking the list, and keeps it if it fails.
     func refresh() async {
         guard case .loaded = state else { return await retry() }
-        await fetch(periodo: periodo, keepingContentOnFailure: true)
+        switch await fetch(periodo: periodo, keepingContentOnFailure: true) {
+        case true?: notice = nil
+        case false?: notice = "No se pudo actualizar la lista."
+        case nil: break
+        }
     }
 
     func select(_ periodo: Periodo) async {
         state = .loading
+        notice = nil
         await fetch(periodo: periodo)
     }
 
@@ -119,6 +123,8 @@ final class DetalleBucketViewModel {
         return periodos.indices.contains(target) ? periodos[target] : nil
     }
 
+    /// Any answer that is still current (also from `retry`, `refresh` or `select`) marks the screen
+    /// as loaded; a cancelled call does not, so the next appearance runs again.
     /// `true`: the detail on screen is now fresh. `false`: the request failed. `nil`: a newer
     /// request took over (or the call was cancelled), so there is nothing to report.
     @discardableResult
@@ -129,10 +135,12 @@ final class DetalleBucketViewModel {
         do {
             let detalle = try await api.bucketDetalle(bucket: bucket, periodo: periodo)
             guard mine == generation else { return nil }
+            needsLoad = false
             state = .loaded(detalle)
             return true
         } catch {
             guard mine == generation, Self.failure(for: error) != nil else { return nil }
+            needsLoad = false
             if !keepingContentOnFailure, let failure = Self.failure(for: error) { state = .failed(failure) }
             return false
         }

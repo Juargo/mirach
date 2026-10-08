@@ -69,6 +69,9 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     ]
     private var _reclasificarCalls: [ReclasificarCall] = []
     private var _reclasificarGate: Gate?
+    private var ingresosResults: [Result<IngresosMes, any Error>] = [.success(SampleData.ingresosSeptiembre)]
+    private var _ingresosCalls: [Periodo] = []
+    private var _ingresosGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -204,6 +207,31 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let (result, gate) = lock.withLock {
             _detalleCalls.append(DetalleCall(bucket: bucket, periodo: periodo))
             return (detalleResults.count > 1 ? detalleResults.removeFirst() : detalleResults[0], _detalleGate)
+        }
+        await gate?.wait()
+        return try result.get()
+    }
+
+    // MARK: ingresos del mes
+
+    /// Answers for the next `ingresosMes` calls, in order; the last one repeats.
+    func setIngresosResults(_ results: [Result<IngresosMes, any Error>]) {
+        lock.withLock { ingresosResults = results }
+    }
+
+    var ingresosCalls: [Periodo] { lock.withLock { _ingresosCalls } }
+
+    /// When set, `ingresosMes` waits at the gate before answering.
+    var ingresosGate: Gate? {
+        get { lock.withLock { _ingresosGate } }
+        set { lock.withLock { _ingresosGate = newValue } }
+    }
+
+    func ingresosMes(periodo: Periodo) async throws -> IngresosMes {
+        // The answer is fixed when the request arrives; the gate only delays delivering it.
+        let (result, gate) = lock.withLock {
+            _ingresosCalls.append(periodo)
+            return (ingresosResults.count > 1 ? ingresosResults.removeFirst() : ingresosResults[0], _ingresosGate)
         }
         await gate?.wait()
         return try result.get()

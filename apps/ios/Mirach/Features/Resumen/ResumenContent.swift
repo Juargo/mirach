@@ -31,24 +31,40 @@ struct ResumenContent: View {
         }
     }
 
+    /// The incomes of the month the Resumen is on.
+    static func ingresosRoute(for mes: ResumenMes) -> IngresosRoute { IngresosRoute(periodo: mes.periodo) }
+
+    /// The income card opens the month's incomes.
     private var summary: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(MirachCopy.Bucket.ingreso)
-                .font(.footnote)
-                .foregroundStyle(Color.Mirach.Base.mutedForeground)
-            Text(Format.income(mes.totalIngreso))
-                .font(.title2.bold())
-                .mirachFigures()
-                // A figure must not wrap or truncate: it shrinks first.
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .foregroundStyle(Color.Mirach.Ingreso.text)
-                .accessibilityIdentifier("resumen.ingreso")
+        NavigationLink(value: Self.ingresosRoute(for: mes)) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(MirachCopy.Bucket.ingreso)
+                        .font(.footnote)
+                        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    Text(Format.income(mes.totalIngreso))
+                        .font(.title2.bold())
+                        .mirachFigures()
+                        // A figure must not wrap or truncate: it shrinks first.
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .foregroundStyle(Color.Mirach.Ingreso.text)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.bold())
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    .accessibilityHidden(true)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.Mirach.Base.card)
+            .overlay(Rectangle().stroke(Color.Mirach.Base.border))
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.Mirach.Base.card)
-        .overlay(Rectangle().stroke(Color.Mirach.Base.border))
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(MirachCopy.Bucket.ingreso). \(Format.spokenIncome(mes.totalIngreso))")
+        .accessibilityHint("Ver los ingresos")
+        .accessibilityIdentifier("resumen.ingreso")
     }
 }
