@@ -893,8 +893,15 @@ final class MirachUITests: XCTestCase {
         app.alerts.buttons["Eliminar"].tap()
 
         let deleted = element(app, "categorias.announcement")
-        expectation(for: NSPredicate(format: "label == %@", "Categoría «Mis mascotas» eliminada"), evaluatedWith: deleted)
-        waitForExpectations(timeout: 10)
+        // Poll and then assert, so a failure prints the label actually on screen.
+        let expected = "Categoría «Mis mascotas» eliminada"
+        let deadline = Date().addingTimeInterval(15)
+        while Date() < deadline, !(deleted.exists && deleted.label == expected) {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        XCTAssertTrue(deleted.exists, "no announcement on the list after deleting")
+        XCTAssertEqual(deleted.label, expected)
+        XCTAssertTrue(app.navigationBars["Categorías"].exists, "back on the Categorías list")
         XCTAssertFalse(element(app, "categorias.row.stub-new-1").exists)
     }
 
