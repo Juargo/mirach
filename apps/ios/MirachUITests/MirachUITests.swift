@@ -105,7 +105,7 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(name.isHittable)
 
         name.tap()
-        name.typeText(" Dos")
+        name.typeWhenFocused(" Dos")
         XCTAssertTrue(app.buttons["perfil.save"].isEnabled)
         app.buttons["perfil.save"].tap()
 
@@ -122,7 +122,7 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(name.isHittable)
 
         name.tap()
-        name.typeText(" Dos\n")
+        name.typeWhenFocused(" Dos\n")
 
         XCTAssertTrue(element(app, "perfil.saved").waitForExistence(timeout: 10))
         // Where the caret lands is up to the system; what matters is that no line was added.
@@ -143,9 +143,9 @@ final class MirachUITests: XCTestCase {
         field.tap()
         let confirm = app.buttons["perfil.delete.confirm"]
         XCTAssertFalse(confirm.isEnabled)
-        field.typeText("ELIMINA")
+        field.typeWhenFocused("ELIMINA")
         XCTAssertFalse(confirm.isEnabled, "a partial word does not count")
-        field.typeText("R")
+        field.typeWhenFocused("R")
         XCTAssertTrue(confirm.isEnabled)
         confirm.tap()
 
@@ -314,7 +314,7 @@ final class MirachUITests: XCTestCase {
         // No pattern field here: patterns are added later from the category.
         XCTAssertFalse(element(app, "category.pattern").exists)
         name.tap()
-        name.typeText("Ropa")
+        name.typeWhenFocused("Ropa")
         element(app, "category.bucket.Deseos").tap()
         app.buttons["category.save"].tap()
 
@@ -427,12 +427,12 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Este archivo está protegido. Ingresa su contraseña para continuar."].exists)
 
-        field.typeText("mala")
+        field.typeWhenFocused("mala")
         app.buttons["subir.retry"].tap()
         XCTAssertTrue(app.staticTexts["La contraseña es incorrecta. Inténtalo de nuevo."].waitForExistence(timeout: 10))
 
         field.tap()
-        field.typeText("correcta")
+        field.typeWhenFocused("correcta")
         app.buttons["subir.retry"].tap()
         XCTAssertTrue(app.buttons["subir.uploadAsIs"].waitForExistence(timeout: 10))
     }
@@ -551,7 +551,7 @@ final class MirachUITests: XCTestCase {
         XCTAssertFalse(app.buttons["category.save"].isEnabled, "a name and a group are required")
         name.tap()
         // Return closes the keyboard so the group rows below are reachable.
-        name.typeText("Amigos\n")
+        name.typeWhenFocused("Amigos\n")
         app.buttons["category.bucket.Deseos"].tap()
         // The pattern comes prefilled with the row's description.
         let pattern = app.textFields["category.pattern"]
@@ -581,12 +581,31 @@ final class MirachUITests: XCTestCase {
         let name = app.textFields["category.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
-        name.typeText("Supermercado\n")
+        name.typeWhenFocused("Supermercado\n")
         app.buttons["category.bucket.Deseos"].tap()
         app.buttons["category.save"].tap()
 
         XCTAssertTrue(element(app, "category.error.name").waitForExistence(timeout: 5))
         XCTAssertEqual(element(app, "category.error.name").label, "Ya tienes una categoría con ese nombre")
         XCTAssertEqual(name.value as? String, "Supermercado")
+    }
+}
+
+extension XCUIElement {
+    /// Types only once the field really has keyboard focus. On the slow CI runner a
+    /// `typeText` right after `tap()` can run before the keyboard attaches and fail with
+    /// "Neither element nor any descendant has keyboard focus".
+    func typeWhenFocused(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        for _ in 0..<3 {
+            if (value(forKey: "hasKeyboardFocus") as? Bool) == true { break }
+            tap()
+            let deadline = Date().addingTimeInterval(3)
+            while Date() < deadline, (value(forKey: "hasKeyboardFocus") as? Bool) != true {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            }
+        }
+        XCTAssertEqual(value(forKey: "hasKeyboardFocus") as? Bool, true,
+                       "the field never got keyboard focus", file: file, line: line)
+        typeText(text)
     }
 }
