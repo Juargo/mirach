@@ -201,8 +201,15 @@ final class MirachUITests: XCTestCase {
     private func openDeseos(_ app: XCUIApplication) {
         let row = element(app, "resumen.bucket.Deseos")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        row.tap()
-        XCTAssertTrue(element(app, "detalle.header").waitForExistence(timeout: 10))
+        let header = element(app, "detalle.header")
+        // On the slow CI runner a tap that lands while the Resumen is still settling
+        // (its first load re-renders the rows) can be dropped. Tap again once if the
+        // detail did not open; a second miss is a real failure.
+        for _ in 0..<2 {
+            if row.isHittable { row.tap() }
+            if header.waitForExistence(timeout: 10) { return }
+        }
+        XCTFail("Tapping the Deseos row did not open its detail")
     }
 
     @MainActor
