@@ -526,8 +526,23 @@ final class MirachUITests: XCTestCase {
         duplicate.tap()
         XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1))
 
+        // XCUITest's own scroll can leave the row under the navigation bar and the pinned section
+        // header, where a tap lands on a neighbour. Scroll until it is hittable and inside the free
+        // area: below the bar and the header, above the action bar.
+        let header = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'review.section.'")).firstMatch
+        let topEdge = app.navigationBars.firstMatch.frame.maxY + (header.exists ? header.frame.height : 0)
+        let bottomEdge = app.buttons["review.confirm"].frame.minY
+        var moves = 0
+        while !(row.isHittable && row.frame.minY >= topEdge && row.frame.maxY <= bottomEdge) && moves < 6 {
+            if row.frame.minY < topEdge { app.swipeDown() } else { app.swipeUp() }
+            moves += 1
+        }
+        XCTAssertTrue(row.frame.minY >= topEdge && row.frame.maxY <= bottomEdge, "row never reached the free area")
         row.tap()
         XCTAssertTrue(element(app, "review.sheet").waitForExistence(timeout: 5))
+        // The sheet is for row 1 (4 oct, -$40.000), not for one of the other transfers to the same person.
+        XCTAssertTrue(app.staticTexts["4 oct · -$40.000"].exists, "the sheet opened for another row")
         // The sheet opens half height and its list is lazy: scroll to the Ahorro group.
         let fund = app.buttons["review.category.stub-aho-fondo"]
         var swipes = 0
@@ -539,14 +554,38 @@ final class MirachUITests: XCTestCase {
         fund.tap()
 
         XCTAssertTrue(element(app, "review.sheet").waitForNonExistence(timeout: 5))
-        XCTAssertTrue(row.label.contains("Ahorro · Fondo de emergencia"), row.label)
-        XCTAssertTrue(row.label.contains("editada"), row.label)
+        // The row changes section (the list is lazy): look for it by its new label.
+        let moved = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label CONTAINS 'Ahorro · Fondo de emergencia, editada'")
+        ).firstMatch
+        var looks = 0
+        while !moved.exists && looks < 6 { app.swipeUp(); looks += 1 }
+        // Row 1 is the only one dated 4 oct with this amount: the edit went to that row.
+        XCTAssertTrue(moved.label.hasPrefix("TRANSF A JUAN PEREZ. Gasto de $40.000. 4 oct."), moved.label)
         XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar (1 cambio)")
 
         app.buttons["review.confirm"].tap()
         XCTAssertTrue(element(app, "subir.success").waitForExistence(timeout: 10))
         // The stub answers with the number of edits it received.
         XCTAssertTrue(app.staticTexts["1 movimiento importado de Banco de Chile"].exists)
+    }
+
+    @MainActor
+    func testAnIncomeRowInTheReviewIsShownAsIngresoAndHasNoEditAffordance() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
+        waitForExpectations(timeout: 10)
+        app.buttons["subir.review"].tap()
+
+        let income = element(app, "review.row.3")
+        XCTAssertTrue(income.waitForExistence(timeout: 10))
+        XCTAssertTrue(income.label.contains("Ingreso, no se puede editar"), income.label)
+        XCTAssertFalse(income.label.contains("Deseos · Desconocido"), income.label)
+        income.tap()
+        XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1), "an income must open no sheet")
+        XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar")
     }
 
     @MainActor
@@ -652,6 +691,107 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(element(app, "category.error.name").waitForExistence(timeout: 5))
         XCTAssertEqual(element(app, "category.error.name").label, "Ya tienes una categoría con ese nombre")
         XCTAssertEqual(name.value as? String, "Supermercado")
+    }
+
+    // MARK: Cartolas subidas
+
+    private func openCartolasSubidas(_ app: XCUIApplication) {
+        openSubirTab(app)
+        let link = element(app, "subir.cartolasSubidas")
+        XCTAssertTrue(link.waitForExistence(timeout: 10))
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Cartolas subidas"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testTheSuccessScreenOpensTheImportsIncludingAFailedOneWithItsReason() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+        app.buttons["subir.fixture"].tap()
+        app.buttons["subir.uploadAsIs"].tap()
+        XCTAssertTrue(element(app, "subir.success").waitForExistence(timeout: 10))
+
+        element(app, "subir.cartolasSubidas").tap()
+
+        let processed = element(app, "cartolas.row.g-3")
+        XCTAssertTrue(processed.waitForExistence(timeout: 10))
+        XCTAssertTrue(processed.label.hasPrefix("Banco de Chile. "), processed.label)
+        XCTAssertTrue(processed.label.contains("Procesada. 37 movimientos"), processed.label)
+        let failed = element(app, "cartolas.row.g-2")
+        XCTAssertTrue(failed.exists)
+        XCTAssertTrue(failed.label.hasPrefix("Banco no identificado. "), failed.label)
+        XCTAssertTrue(failed.label.hasSuffix("Fallida. Motivo: No se reconoció el formato del archivo"), failed.label)
+        XCTAssertTrue(element(app, "cartolas.row.g-1").exists)
+    }
+
+    @MainActor
+    func testDeletingAFailedImportAsksFirstThenRemovesItAndSaysSo() {
+        let app = launch([savedSession])
+        openCartolasSubidas(app)
+
+        element(app, "cartolas.delete.g-2").tap()
+        let alert = app.alerts["¿Eliminar esta cartola?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.staticTexts["Se eliminará esta cartola fallida de Banco no identificado (2 oct)."].exists)
+        alert.buttons["Cancelar"].tap()
+        XCTAssertTrue(element(app, "cartolas.row.g-2").exists, "cancelling must keep the import")
+
+        element(app, "cartolas.delete.g-2").tap()
+        app.alerts.buttons["Eliminar"].tap()
+
+        XCTAssertTrue(element(app, "cartolas.message").waitForExistence(timeout: 10))
+        XCTAssertEqual(element(app, "cartolas.message").label, "Cartola eliminada")
+        XCTAssertFalse(element(app, "cartolas.row.g-2").exists)
+        XCTAssertTrue(element(app, "cartolas.row.g-3").exists)
+    }
+
+    @MainActor
+    func testDeletingAProcessedImportNamesItsMovementsInTheConfirmation() {
+        let app = launch([savedSession])
+        openCartolasSubidas(app)
+
+        element(app, "cartolas.delete.g-3").tap()
+
+        let alert = app.alerts["¿Eliminar esta cartola?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            alert.staticTexts["Se eliminarán 37 movimientos de Banco de Chile (3 oct). Esta acción no se puede deshacer."].exists
+        )
+    }
+
+    @MainActor
+    func testWithNoImportsLeftTheEmptyStateOffersToUploadAndGoesBack() {
+        let app = launch([savedSession])
+        openCartolasSubidas(app)
+
+        for id in ["g-3", "g-2", "g-1"] {
+            element(app, "cartolas.delete.\(id)").tap()
+            app.alerts.buttons["Eliminar"].tap()
+            expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: element(app, "cartolas.row.\(id)"))
+            waitForExpectations(timeout: 10)
+        }
+
+        XCTAssertTrue(element(app, "cartolas.empty").waitForExistence(timeout: 10))
+        element(app, "cartolas.upload").tap()
+        XCTAssertTrue(app.buttons["subir.chooseFile"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testAtTheLargestTextSizeTheFirstImportAndItsDeleteButtonAreReachable() {
+        let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        openSubirTab(app)
+        let link = element(app, "subir.cartolasSubidas")
+        XCTAssertTrue(link.waitForExistence(timeout: 10))
+        var swipes = 0
+        while !link.isHittable && swipes < 4 { app.swipeUp(); swipes += 1 }
+        link.tap()
+        XCTAssertTrue(app.navigationBars["Cartolas subidas"].waitForExistence(timeout: 10))
+
+        let delete = element(app, "cartolas.delete.g-3")
+        XCTAssertTrue(delete.waitForExistence(timeout: 10))
+        swipes = 0
+        while !delete.isHittable && swipes < 3 { app.swipeUp(); swipes += 1 }
+        XCTAssertTrue(delete.isHittable, "first import not reachable within 3 swipes at the largest text size")
     }
 }
 

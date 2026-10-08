@@ -13,7 +13,7 @@ Importar una cartola bancaria (`.xlsx` o `.pdf`) en tres pasos: vista previa sin
 | Tipo y número de cuenta | `tipoCuenta`, `numeroCuenta` | Texto; el número tal como llega |
 | Resumen de la cartola | `resumen.totalFilas`, `resumen.duplicadosDetectados`, `resumen.nuevas` | Tres enteros: «Total filas», «Duplicados», «Nuevas» |
 | Filas de la vista previa | `filas[]`: `rowIndex`, `fecha`, `descripcion`, `cargo`, `abono`, `esDuplicado`, `sugerido` | Fecha corta, texto, dinero (`cargo` es gasto, `abono` es ingreso), marca «Ya cargado» si `esDuplicado` |
-| Clasificación sugerida de una fila | `filas[].sugerido` (`bucket`, `categoriaId`) o `null`; el nombre de la categoría se resuelve contra `GET /api/categorias` | «Bucket · Categoría». Sin coincidencia con ningún patrón, la fila queda en «Deseos · Desconocido» |
+| Clasificación sugerida de una fila | `filas[].sugerido` (`bucket`, `categoriaId`) o `null`; el nombre de la categoría se resuelve contra `GET /api/categorias` | «Bucket · Categoría». Sin coincidencia con ningún patrón, una fila que no es ingreso queda en «Deseos · Desconocido». Una fila de ingreso (`abono > 0` y `cargo == 0`) se muestra como «Ingreso» en su propia sección, no es editable y nunca se envía en `edits`: el servidor siempre la importa como `Ingreso` sin categoría e ignora cualquier edición (regla 2 del commit, ADR-044) |
 | Categorías para elegir | `GET /api/categorias` → `categorias[]` | Agrupadas por bucket |
 | Resultado de la importación | `POST /api/ingestas/commit` → `totalTransacciones`, `duplicadosOmitidos` | «N movimientos importados» y, si corresponde, «N duplicados omitidos» |
 

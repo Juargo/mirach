@@ -55,10 +55,10 @@ struct ReviewPresentationTests {
         let sections = ReviewPresentation.sections(rows: SampleData.rows, edits: [:], catalog: catalog)
 
         #expect(sections.map(\.title) == [
-            "Necesidades · Supermercado", "Deseos · Desconocido", "Deseos · Restaurantes", "Ya cargados",
+            "Necesidades · Supermercado", "Deseos · Desconocido", "Deseos · Restaurantes", "Ingreso", "Ya cargados",
         ])
-        #expect(sections.map { $0.rows.map(\.rowIndex) } == [[0], [2, 3], [1], [4]])
-        #expect(sections.map(\.bucket) == [.necesidades, .deseos, .deseos, nil])
+        #expect(sections.map { $0.rows.map(\.rowIndex) } == [[0], [2, 3], [1], [5], [4]])
+        #expect(sections.map(\.bucket) == [.necesidades, .deseos, .deseos, nil, nil])
     }
 
     @Test func anEditMovesTheRowToItsNewGroup() {
@@ -68,7 +68,7 @@ struct ReviewPresentationTests {
 
         #expect(sections.map(\.title) == [
             "Necesidades · Supermercado", "Deseos · Desconocido", "Deseos · Restaurantes",
-            "Ahorro · Fondo de emergencia", "Ya cargados",
+            "Ahorro · Fondo de emergencia", "Ingreso", "Ya cargados",
         ])
         #expect(sections.first { $0.title == "Ahorro · Fondo de emergencia" }?.rows.map(\.rowIndex) == [2])
     }
@@ -85,9 +85,9 @@ struct ReviewPresentationTests {
 
     @Test func anExpenseAndAnIncomeReadWithTheirSign() {
         #expect(SampleData.rows[0].amountText == "-$25.990")
-        #expect(SampleData.rows[3].amountText == "+$1.200.000")
+        #expect(SampleData.rows[5].amountText == "+$1.200.000")
         #expect(SampleData.rows[0].spokenAmount == "Gasto de $25.990")
-        #expect(SampleData.rows[3].spokenAmount == "Ingreso de $1.200.000")
+        #expect(SampleData.rows[5].spokenAmount == "Ingreso de $1.200.000")
     }
 
     @Test func theShortDateIsReadInUTCAndIndependentOfTheDevice() {

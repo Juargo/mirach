@@ -30,7 +30,7 @@ struct ReviewView: View {
                                 ),
                                 isEdited: viewModel.edits[row.rowIndex] != nil,
                                 // No catalog (reloading or failed): nothing to choose from yet.
-                                onEdit: row.esDuplicado || catalog == nil || viewModel.previewRefresh == .updating ? nil : { editingRow = row }
+                                onEdit: !row.isEditable || catalog == nil || viewModel.previewRefresh == .updating ? nil : { editingRow = row }
                             )
                             Divider().overlay(Color.Mirach.Base.border)
                         }
@@ -298,7 +298,7 @@ private struct ReviewRow: View {
                 Text(Format.shortDate(row.fecha))
                 Text("·")
                 subtitleDetail
-                if !row.esDuplicado {
+                if row.isEditable {
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.footnote).accessibilityHidden(true)
                 }
@@ -312,6 +312,8 @@ private struct ReviewRow: View {
     private var subtitleDetail: some View {
         if row.esDuplicado {
             Label("Ya cargado", systemImage: "checkmark.circle")
+        } else if row.esIngreso {
+            Text(ReviewPresentation.incomeTitle)
         } else {
             Text(classification.text)
             if isEdited { Label("Editada", systemImage: "pencil").labelStyle(.titleAndIcon) }
@@ -320,6 +322,7 @@ private struct ReviewRow: View {
 
     private var detail: String {
         if row.esDuplicado { return "Ya cargado, no se puede editar" }
+        if row.esIngreso { return "\(ReviewPresentation.incomeTitle), no se puede editar" }
         return classification.text + (isEdited ? ", editada" : "")
     }
 }

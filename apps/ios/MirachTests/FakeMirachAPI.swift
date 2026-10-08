@@ -72,6 +72,12 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var ingresosResults: [Result<IngresosMes, any Error>] = [.success(SampleData.ingresosSeptiembre)]
     private var _ingresosCalls: [Periodo] = []
     private var _ingresosGate: Gate?
+    private var ingestasResults: [Result<[CartolaSubida], any Error>] = [.success(SampleData.cartolas)]
+    private var _ingestasCalls = 0
+    private var _ingestasGate: Gate?
+    private var eliminarResults: [Result<Void, any Error>] = [.success(())]
+    private var _eliminarCalls: [String] = []
+    private var _eliminarGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
 
@@ -235,6 +241,51 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         }
         await gate?.wait()
         return try result.get()
+    }
+
+    // MARK: cartolas subidas
+
+    /// Answers for the next `cartolasSubidas` calls, in order; the last one repeats.
+    func setIngestasResults(_ results: [Result<[CartolaSubida], any Error>]) {
+        lock.withLock { ingestasResults = results }
+    }
+
+    var ingestasCalls: Int { lock.withLock { _ingestasCalls } }
+
+    /// When set, `cartolasSubidas` waits at the gate before delivering its (already fixed) answer.
+    var ingestasGate: Gate? {
+        get { lock.withLock { _ingestasGate } }
+        set { lock.withLock { _ingestasGate = newValue } }
+    }
+
+    func cartolasSubidas() async throws -> [CartolaSubida] {
+        let (result, gate) = lock.withLock {
+            _ingestasCalls += 1
+            return (ingestasResults.count > 1 ? ingestasResults.removeFirst() : ingestasResults[0], _ingestasGate)
+        }
+        await gate?.wait()
+        return try result.get()
+    }
+
+    func setEliminarResults(_ results: [Result<Void, any Error>]) {
+        lock.withLock { eliminarResults = results }
+    }
+
+    var eliminarCalls: [String] { lock.withLock { _eliminarCalls } }
+
+    /// When set, `eliminarCartola` waits at the gate before answering.
+    var eliminarGate: Gate? {
+        get { lock.withLock { _eliminarGate } }
+        set { lock.withLock { _eliminarGate = newValue } }
+    }
+
+    func eliminarCartola(id: String) async throws {
+        let (result, gate) = lock.withLock {
+            _eliminarCalls.append(id)
+            return (eliminarResults.count > 1 ? eliminarResults.removeFirst() : eliminarResults[0], _eliminarGate)
+        }
+        await gate?.wait()
+        try result.get()
     }
 
     func setReclasificarResults(_ results: [Result<Reclasificacion, any Error>]) {

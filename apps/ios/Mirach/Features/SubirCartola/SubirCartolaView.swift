@@ -4,6 +4,10 @@ import UniformTypeIdentifiers
 /// "Subir cartola": one screen that changes with the view model's `state`.
 struct SubirCartolaView: View {
     let viewModel: SubirCartolaViewModel
+    /// For "Cartolas subidas", which this screen opens.
+    let api: any MirachAPI
+    /// An import was deleted there: the Resumen must reload.
+    var onCartolaDeleted: @MainActor () -> Void = {}
     /// "Ver resumen del mes": the shell switches to the Resumen tab.
     let onShowSummary: () -> Void
     /// UI tests only: a file the hook button picks instead of the system picker, which
@@ -37,6 +41,9 @@ struct SubirCartolaView: View {
             }
             .navigationTitle("Subir cartola")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: CartolasSubidasRoute.self) { _ in
+                CartolasSubidasView(api: api, onChange: onCartolaDeleted)
+            }
             // The system document picker, limited to the two formats the API reads. The URL it
             // returns is only readable inside a "security-scoped" window; staging handles that.
             .fileImporter(isPresented: $isPickingFile, allowedContentTypes: Self.allowedTypes) { result in
@@ -141,6 +148,8 @@ struct SubirCartolaView: View {
             .prominentButton().controlSize(.large)
             .accessibilityIdentifier("subir.chooseFile")
 
+            importsLink
+
             if let testFixtureURL {
                 Button("Usar archivo de prueba") { Task { await viewModel.chooseFile(testFixtureURL) } }
                     .buttonStyle(.bordered).controlSize(.large)
@@ -237,6 +246,19 @@ struct SubirCartolaView: View {
         }
     }
 
+    /// The way to the imports already made, to check or undo one.
+    private var importsLink: some View {
+        NavigationLink(value: CartolasSubidasRoute()) {
+            HStack {
+                Label("Cartolas subidas", systemImage: "tray.full")
+                Spacer()
+                Image(systemName: "chevron.right").accessibilityHidden(true)
+            }
+        }
+        .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
+        .accessibilityIdentifier("subir.cartolasSubidas")
+    }
+
     private func success(_ summary: SubirCartolaViewModel.ImportSummary) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
@@ -262,6 +284,7 @@ struct SubirCartolaView: View {
             Button("Subir otra cartola") { viewModel.discard() }
                 .buttonStyle(.bordered).controlSize(.large)
                 .accessibilityIdentifier("subir.another")
+            importsLink
         }
     }
 }

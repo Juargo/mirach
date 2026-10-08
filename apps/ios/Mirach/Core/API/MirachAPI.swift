@@ -46,6 +46,11 @@ protocol MirachAPI: Sendable {
     /// `GET /api/ingresos/mes`: every income of the month, with its total and count. The
     /// response carries no month, so the model gets the `periodo` that was asked for.
     func ingresosMes(periodo: Periodo) async throws -> IngresosMes
+    /// `GET /api/ingestas`: the imports, newest first (the order is kept as received).
+    func cartolasSubidas() async throws -> [CartolaSubida]
+    /// `DELETE /api/ingestas/{id}`: removes the import and its movements. Throws
+    /// `EliminarCartolaError.notFound` for the 404.
+    func eliminarCartola(id: String) async throws
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult

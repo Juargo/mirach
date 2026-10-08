@@ -59,18 +59,23 @@ extension SampleData {
             esDuplicado: false, sugerido: nil
         ),
         CartolaRow(
-            rowIndex: 3, fecha: date(day: 3), descripcion: "ABONO SUELDO", cargo: 0, abono: 1_200_000,
+            rowIndex: 3, fecha: date(day: 3), descripcion: "TRANSF A MARIA SOTO", cargo: 12_000, abono: 0,
             esDuplicado: false, sugerido: nil
         ),
         CartolaRow(
             rowIndex: 4, fecha: date(day: 4), descripcion: "COPEC", cargo: 30_000, abono: 0,
             esDuplicado: true, sugerido: .init(bucket: .necesidades, categoriaId: Cat.transporte)
         ),
+        // An income: the server imports it as «Ingreso» and ignores any edit.
+        CartolaRow(
+            rowIndex: 5, fecha: date(day: 5), descripcion: "ABONO SUELDO", cargo: 0, abono: 1_200_000,
+            esDuplicado: false, sugerido: nil
+        ),
     ]
 
     static let preview = CartolaPreview(
         banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
-        totalFilas: 5, duplicados: 1, nuevas: 4, filas: rows
+        totalFilas: 6, duplicados: 1, nuevas: 5, filas: rows
     )
     static let commit = CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5)
 }
@@ -117,4 +122,23 @@ extension SampleData {
         bucket: .deseos, periodo: Periodo("2026-08")!, total: 0, porcentajeBp: nil, metaBp: 3000,
         totalTransacciones: 0, totalCategorias: 0, grupos: []
     )
+
+    // MARK: cartolas subidas
+
+    /// A processed import, a failed one whose bank was never resolved, and an older processed one.
+    static let cartolas: [CartolaSubida] = [
+        CartolaSubida(
+            id: "g-3", banco: "Banco de Chile", nombreArchivo: "cartola-septiembre.xlsx", estado: .procesada,
+            motivoFallo: nil, fecha: Date(timeIntervalSince1970: 1_790_985_600), totalTransacciones: 37
+        ),
+        CartolaSubida(
+            id: "g-2", banco: nil, nombreArchivo: "estado-de-cuenta.pdf", estado: .fallida,
+            motivoFallo: "No se reconoció el formato del archivo", fecha: Date(timeIntervalSince1970: 1_790_899_200),
+            totalTransacciones: 0
+        ),
+        CartolaSubida(
+            id: "g-1", banco: "BancoEstado", nombreArchivo: "cuenta-rut.xlsx", estado: .procesada,
+            motivoFallo: nil, fecha: Date(timeIntervalSince1970: 1_788_307_200), totalTransacciones: 1
+        ),
+    ]
 }

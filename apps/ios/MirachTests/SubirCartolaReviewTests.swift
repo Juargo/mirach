@@ -3,7 +3,7 @@ import Testing
 @testable import Mirach
 
 /// The review half of "Subir cartola": catalog, edits, confirm. Row 0 is suggested
-/// Supermercado, 1 Restaurantes, 2 and 3 have no suggestion, 4 is a duplicate (`SampleData.rows`).
+/// Supermercado, 1 Restaurantes, 2 and 3 have no suggestion, 4 is a duplicate, 5 is an income (`SampleData.rows`).
 @MainActor
 struct SubirCartolaReviewTests {
     private let xlsx = URL(fileURLWithPath: "/picked/cartola.xlsx")
