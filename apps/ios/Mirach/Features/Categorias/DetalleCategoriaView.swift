@@ -7,6 +7,9 @@ struct DetalleCategoriaView: View {
     @Environment(\.dismiss) private var dismiss
     /// VoiceOver jumps to the result of a write when it appears.
     @AccessibilityFocusState private var messageFocused: Bool
+    /// Keyboard focus of the name field. Dropped on save and before a deletion: otherwise the
+    /// keyboard stays up after saving and the confirmation alert hands focus back to the field.
+    @FocusState private var nameFocused: Bool
 
     init(
         api: any MirachAPI, categoriaId: String,
@@ -96,7 +99,10 @@ struct DetalleCategoriaView: View {
             if viewModel.isSaving {
                 ProgressView().accessibilityLabel("Guardando…")
             } else {
-                Button("Guardar") { Task { await viewModel.save() } }
+                Button("Guardar") {
+                    nameFocused = false
+                    Task { await viewModel.save() }
+                }
                     .disabled(!viewModel.hasChanges || viewModel.isProtected)
                     .accessibilityIdentifier("categoria.save")
             }
@@ -166,6 +172,7 @@ struct DetalleCategoriaView: View {
             messages
             Section {
                 TextField("Nombre", text: $viewModel.draftNombre)
+                    .focused($nameFocused)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
                     .accessibilityIdentifier("categoria.name")
@@ -216,7 +223,10 @@ struct DetalleCategoriaView: View {
                     }
                     .accessibilityElement(children: .combine)
                 } else {
-                    Button(role: .destructive) { viewModel.requestDeletion() } label: {
+                    Button(role: .destructive) {
+                        nameFocused = false
+                        viewModel.requestDeletion()
+                    } label: {
                         Label("Eliminar categoría", systemImage: "trash")
                             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     }
