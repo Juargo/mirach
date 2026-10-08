@@ -10,6 +10,8 @@ struct DetalleCategoriaView: View {
     /// Keyboard focus of the name field. Dropped on save and before a deletion: otherwise the
     /// keyboard stays up after saving and the confirmation alert hands focus back to the field.
     @FocusState private var nameFocused: Bool
+    /// Whether the screen is still shown; used to make sure a deleted category's screen closes.
+    @State private var onScreen = false
 
     init(
         api: any MirachAPI, categoriaId: String,
@@ -31,7 +33,9 @@ struct DetalleCategoriaView: View {
             // The task restarts whenever the view reappears: that must neither blank the screen
             // nor leave a load that was cancelled midway as an endless spinner.
             .task { await viewModel.loadIfNeeded() }
-            .onChange(of: viewModel.isGone) { if viewModel.isGone { dismiss() } }
+            .onAppear { onScreen = true }
+            .onDisappear { onScreen = false }
+            .onChange(of: viewModel.isGone) { if viewModel.isGone { closeAfterDeletion() } }
             .onChange(of: viewModel.announcement) {
                 guard let text = viewModel.announcement else { return }
                 messageFocused = true
@@ -105,6 +109,23 @@ struct DetalleCategoriaView: View {
                 }
                     .disabled(!viewModel.hasChanges || viewModel.isProtected)
                     .accessibilityIdentifier("categoria.save")
+            }
+        }
+    }
+
+    /// Leaves the screen of a category that no longer exists. The deletion is confirmed in an
+    /// alert, and a `dismiss()` that arrives while that alert is still closing can be dropped (seen
+    /// on iOS 26), leaving the person on a deleted category. Ask again while the screen is still
+    /// shown, for at most about four seconds. The wait between attempts is longer than a pop
+    /// transition, so a dismissal that is already under way is never followed by a second one
+    /// (which would also close the screen underneath).
+    private func closeAfterDeletion() {
+        Task { @MainActor in
+            dismiss()
+            for _ in 0..<5 {
+                try? await Task.sleep(for: .milliseconds(800))
+                guard onScreen else { return }
+                dismiss()
             }
         }
     }
