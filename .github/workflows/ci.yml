@@ -919,9 +919,20 @@ jobs:
           xcodebuild test \
             -project Mirach.xcodeproj -scheme Mirach \
             -destination "platform=iOS Simulator,id=${udid}" \
+            -resultBundlePath "${RUNNER_TEMP}/ios-shard-${SHARD}.xcresult" \
             "${only[@]}" \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
+
+      # On failure keep the result bundle: it holds the accessibility hierarchy
+      # and a screenshot at the moment a UI test failed, which the log does not.
+      - name: Keep the test results of a failed shard
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-shard-${{ matrix.shard }}-xcresult
+          path: ${{ runner.temp }}/ios-shard-${{ matrix.shard }}.xcresult
+          retention-days: 7
 
   # Single stable required check (Slice C). Path-filtered jobs above can be
   # SKIPPED depending on which workspace changed — a branch-protection rule

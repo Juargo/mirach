@@ -12,6 +12,12 @@ struct CategoriasView: View {
     @State private var showingForm = false
     /// VoiceOver jumps to the result of a creation when it appears.
     @AccessibilityFocusState private var announcementFocused: Bool
+    /// The announcement is the list's first row: when it appears with the list scrolled down (or
+    /// while a category's detail covers the list), the list scrolls back to it once visible, so the
+    /// result of a write is always seen and stays in the accessibility tree.
+    @State private var scrollToAnnouncement = false
+    @State private var listVisible = false
+    private static let announcementRow = "categorias.announcement.row"
     private let api: any MirachAPI
     /// Changes whenever the catalog was written anywhere: the list is read again.
     private let catalogRevision: Int
@@ -26,8 +32,17 @@ struct CategoriasView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             List { content }
                 .listStyle(.plain)
+                .onAppear {
+                    listVisible = true
+                    if scrollToAnnouncement { showAnnouncement(proxy) }
+                }
+                .onDisappear { listVisible = false }
+                .onChange(of: scrollToAnnouncement) {
+                    if scrollToAnnouncement, listVisible { showAnnouncement(proxy) }
+                }
                 // The list paints its own backdrop otherwise: the page colour must reach every edge.
                 .scrollContentBackground(.hidden)
                 .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
@@ -48,6 +63,7 @@ struct CategoriasView: View {
                 .onChange(of: viewModel.createdCount) { showingForm = false }
                 .onChange(of: viewModel.announcement) {
                     guard let text = viewModel.announcement else { return }
+                    scrollToAnnouncement = true
                     announcementFocused = true
                     AccessibilityNotification.Announcement(text).post()
                 }
@@ -58,7 +74,13 @@ struct CategoriasView: View {
                         onDeleted: { name in viewModel.announceDeletion(of: name) }
                     )
                 }
+            }
         }
+    }
+
+    private func showAnnouncement(_ proxy: ScrollViewProxy) {
+        scrollToAnnouncement = false
+        withAnimation { proxy.scrollTo(Self.announcementRow, anchor: .top) }
     }
 
     private var isLoaded: Bool {
@@ -156,6 +178,7 @@ struct CategoriasView: View {
                 .accessibilityFocused($announcementFocused)
                 .accessibilityIdentifier("categorias.announcement")
                 .plainRow()
+                .id(Self.announcementRow)
         }
         if let text = viewModel.refreshNotice {
             Label(text, systemImage: "exclamationmark.triangle")
