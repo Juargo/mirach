@@ -40,7 +40,7 @@ enum IngestaMapper {
     }
 
     /// ISO 8601 UTC, with or without fractional seconds.
-    private static func date(_ text: String) throws -> Date {
+    static func date(_ text: String) throws -> Date {
         if let date = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text) { return date }
         if let date = try? Date.ISO8601FormatStyle().parse(text) { return date }
         throw malformed("date")

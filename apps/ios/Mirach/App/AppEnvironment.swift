@@ -212,6 +212,8 @@ struct StubMirachAPI: MirachAPI {
 
     /// Categories created through the stub, with the pattern that reclassifies later previews.
     private let created = StubCreatedCategories()
+    /// The month's movements; the Resumen and the bucket detail both read them.
+    let ledger = StubLedger()
 
     func previewIngesta(file: CartolaFile, password: String?) async throws -> CartolaPreview {
         try checkPassword(file: file, password: password)
@@ -271,14 +273,16 @@ struct StubMirachAPI: MirachAPI {
                 ]
             )
         default:
+            let totals = Bucket.allCases.map { ledger.total($0) }
+            let metas = [5000, 3000, 2000]
             return ResumenMes(
-                periodo: periodo, sinIngreso: false, totalIngreso: 1_850_000, estadoGlobal: .amarillo,
-                buckets: [
-                    BucketResumen(bucket: .necesidades, total: 912_500, porcentajeBp: 4932, metaBp: 5000, estado: .verde),
-                    BucketResumen(bucket: .deseos, total: 610_400, porcentajeBp: 3300, metaBp: 3000, estado: .amarillo),
-                    // No state yet: exercises the "label without state color" path.
-                    BucketResumen(bucket: .ahorro, total: 120_000, porcentajeBp: 649, metaBp: 2000, estado: nil),
-                ]
+                periodo: periodo, sinIngreso: false, totalIngreso: StubLedger.income, estadoGlobal: .amarillo,
+                buckets: zip(Bucket.allCases, zip(totals, metas)).map { bucket, figures in
+                    BucketResumen(
+                        bucket: bucket, total: figures.0, porcentajeBp: figures.0 * 10_000 / StubLedger.income,
+                        metaBp: figures.1, estado: bucket == .ahorro ? nil : .amarillo
+                    )
+                }
             )
         }
     }

@@ -1,24 +1,35 @@
 import SwiftUI
 
-/// "Crear categoría" from a review row: name, group and an optional pattern prefilled with the
-/// row's description. Icon and advanced match types are not offered yet.
+/// "Crear categoría" from a category sheet: name, group and, when the caller offers one, a pattern
+/// prefilled with the movement's description. Icon and advanced match types are not offered yet.
+/// It knows nothing of the screen it serves: state and the create action come in as values.
 struct NewCategoryForm: View {
-    let row: CartolaRow
-    let viewModel: SubirCartolaViewModel
+    let errors: SubirCartolaViewModel.CategoryFormErrors
+    let isCreating: Bool
+    let onAppear: () -> Void
+    let onCreate: (NuevaCategoria) -> Void
+    /// This sheet may not ask for a pattern (they are added later from the category).
+    let offersPattern: Bool
 
     @State private var name = ""
     @State private var bucket: Bucket?
     @State private var pattern: String
 
-    init(row: CartolaRow, viewModel: SubirCartolaViewModel) {
-        self.row = row
-        self.viewModel = viewModel
+    /// `initialPattern == nil` hides the pattern field.
+    init(
+        initialPattern: String?, errors: SubirCartolaViewModel.CategoryFormErrors, isCreating: Bool,
+        onAppear: @escaping () -> Void, onCreate: @escaping (NuevaCategoria) -> Void
+    ) {
+        self.errors = errors
+        self.isCreating = isCreating
+        self.onAppear = onAppear
+        self.onCreate = onCreate
+        offersPattern = initialPattern != nil
         // The API takes 1 to 200 characters.
-        _pattern = State(initialValue: String(row.descripcion.trimmingCharacters(in: .whitespaces).prefix(200)))
+        _pattern = State(initialValue: String((initialPattern ?? "").trimmingCharacters(in: .whitespaces).prefix(200)))
     }
 
     var body: some View {
-        let errors = viewModel.categoryFormErrors
         Form {
             Section {
                 TextField("Nombre", text: $name)
@@ -37,16 +48,18 @@ struct NewCategoryForm: View {
             }
             .listRowBackground(Color.Mirach.Base.card)
 
-            Section {
-                TextField("Texto a buscar", text: $pattern)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .accessibilityIdentifier("category.pattern")
-                fieldError(errors.pattern, id: "category.error.pattern")
-            } header: { Text("Patrón (opcional)") } footer: {
-                Text("Si la descripción de un movimiento contiene este texto, queda en esta categoría. No ignora tildes. Déjalo vacío para asignarla solo a mano.")
+            if offersPattern {
+                Section {
+                    TextField("Texto a buscar", text: $pattern)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .accessibilityIdentifier("category.pattern")
+                    fieldError(errors.pattern, id: "category.error.pattern")
+                } header: { Text("Patrón (opcional)") } footer: {
+                    Text("Si la descripción de un movimiento contiene este texto, queda en esta categoría. No ignora tildes. Déjalo vacío para asignarla solo a mano.")
+                }
+                .listRowBackground(Color.Mirach.Base.card)
             }
-            .listRowBackground(Color.Mirach.Base.card)
 
             if let general = errors.general {
                 Section {
@@ -63,7 +76,7 @@ struct NewCategoryForm: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                if viewModel.isCreatingCategory {
+                if isCreating {
                     ProgressView().accessibilityLabel("Creando…")
                 } else {
                     Button("Crear", action: save)
@@ -72,7 +85,7 @@ struct NewCategoryForm: View {
                 }
             }
         }
-        .onAppear { viewModel.resetCategoryForm() }
+        .onAppear(perform: onAppear)
         .accessibilityIdentifier("category.form")
     }
 
@@ -97,15 +110,14 @@ struct NewCategoryForm: View {
     }
 
     private var canSave: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty && bucket != nil && !viewModel.isCreatingCategory
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && bucket != nil && !isCreating
     }
 
     private func save() {
         guard let bucket else { return }
-        let new = NuevaCategoria(
-            nombre: name.trimmingCharacters(in: .whitespaces), bucket: bucket, patron: pattern
-        )
-        Task { await viewModel.createCategory(new, forRow: row.rowIndex) }
+        onCreate(NuevaCategoria(
+            nombre: name.trimmingCharacters(in: .whitespaces), bucket: bucket, patron: offersPattern ? pattern : nil
+        ))
     }
 
     @ViewBuilder
