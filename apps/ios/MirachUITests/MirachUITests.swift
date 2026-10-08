@@ -825,7 +825,7 @@ final class MirachUITests: XCTestCase {
     private func replaceText(_ field: XCUIElement, with text: String) {
         field.tap()
         let current = (field.value as? String) ?? ""
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count) + text)
+        field.typeWhenFocused(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count) + text)
     }
 
     @MainActor
@@ -855,7 +855,7 @@ final class MirachUITests: XCTestCase {
         let name = app.textFields["category.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
-        name.typeText("Mascotas\n")
+        name.typeWhenFocused("Mascotas\n")
         app.buttons["category.bucket.Deseos"].tap()
         app.buttons["category.icon.paw-print"].tap()
         XCTAssertTrue(app.buttons["category.icon.paw-print"].isSelected)
@@ -907,7 +907,7 @@ final class MirachUITests: XCTestCase {
         let name = app.textFields["category.name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         name.tap()
-        name.typeText("restaurantes\n")
+        name.typeWhenFocused("restaurantes\n")
         app.buttons["category.bucket.Deseos"].tap()
         app.buttons["category.save"].tap()
 
@@ -987,7 +987,7 @@ final class MirachUITests: XCTestCase {
         let text = app.textFields["pattern.text"]
         XCTAssertTrue(text.waitForExistence(timeout: 5))
         text.tap()
-        text.typeText("[\n")
+        text.typeWhenFocused("[\n")
         app.buttons["pattern.type.REGEX"].tap()
         app.buttons["pattern.save"].tap()
         XCTAssertTrue(element(app, "pattern.error.text").waitForExistence(timeout: 5))
