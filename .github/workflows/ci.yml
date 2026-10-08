@@ -798,6 +798,73 @@ jobs:
   # CI, so the app is ad-hoc signed for the simulator (CODE_SIGN_IDENTITY=-):
   # an unsigned build has no entitlements and the Keychain rejects it with
   # errSecMissingEntitlement (-34018), which breaks the real Keychain tests.
+  # Code-generation checks and every unit test, on their own runner so they run
+  # alongside the UI shards instead of making one shard the slowest.
+  ios-checks:
+    name: ios checks
+    needs: changes
+    if: ${{ needs.changes.outputs.ios == 'true' }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/ios
+    env:
+      XCODEGEN_VERSION: 2.46.0
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install XcodeGen (pinned release)
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -fsSL -o xcodegen.zip \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          unzip -q xcodegen.zip
+          echo "${RUNNER_TEMP}/xcodegen/bin" >> "$GITHUB_PATH"
+
+      # Fails when openapi.json changed without regenerating the committed client.
+      - name: Check the generated API client is up to date
+        run: |
+          ./scripts/generate-api.sh
+          git diff --exit-code -- Mirach/Core/API/Generated
+          test -z "$(git ls-files --others --exclude-standard -- Mirach/Core/API/Generated)"
+
+      # Run the validator directly: it only needs Node, not `pnpm install`.
+      - name: Check design tokens
+        working-directory: .
+        run: node scripts/check-design-tokens.mjs
+
+      # Fails when design/tokens.json changed without regenerating the committed
+      # Swift tokens. The generator is plain Node, tested with node --test.
+      - name: Check the generated design tokens are up to date
+        run: |
+          node --test ../../scripts/generate-ios-tokens.test.mjs
+          ./scripts/generate-tokens.sh
+          paths=(Mirach/Resources/Tokens.xcassets Mirach/Core/Design)
+          git diff --exit-code -- "${paths[@]}"
+          test -z "$(git ls-files --others --exclude-standard -- "${paths[@]}")"
+
+      - name: Check the UI test sharding
+        run: node --test scripts/ui-test-shard.test.mjs
+
+      - name: Generate the Xcode project
+        run: |
+          cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
+          ./scripts/generate.sh
+
+      - name: Unit tests on a simulator
+        run: |
+          set -o pipefail
+          udid="$(xcrun simctl list devices available iPhone -j \
+            | jq -r '[.devices[][] | select(.isAvailable)][0].udid')"
+          test -n "$udid" && test "$udid" != null
+          xcodebuild test \
+            -project Mirach.xcodeproj -scheme Mirach \
+            -destination "platform=iOS Simulator,id=${udid}" \
+            -only-testing:MirachTests \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
+
   ios:
     name: ios (shard ${{ matrix.shard }}/3)
     needs: changes
@@ -805,9 +872,9 @@ jobs:
     runs-on: macos-26
     # The UI suite is the slow part (about a minute per test on the hosted
     # runner), so it is split round-robin across three runners by
-    # scripts/ui-test-shard.mjs. Shard 0 also runs the code checks and the unit
-    # tests. Minutes are free since the repo is public. `ci-success` needs `ios`,
-    # which fails if any shard fails.
+    # scripts/ui-test-shard.mjs; `ios-checks` runs the rest in parallel. Minutes
+    # are free since the repo is public. `ci-success` needs both jobs; a matrix
+    # job fails if any shard fails.
     strategy:
       fail-fast: false
       matrix:
@@ -829,41 +896,12 @@ jobs:
           unzip -q xcodegen.zip
           echo "${RUNNER_TEMP}/xcodegen/bin" >> "$GITHUB_PATH"
 
-      # Fails when openapi.json changed without regenerating the committed client.
-      - name: Check the generated API client is up to date
-        if: ${{ matrix.shard == 0 }}
-        run: |
-          ./scripts/generate-api.sh
-          git diff --exit-code -- Mirach/Core/API/Generated
-          test -z "$(git ls-files --others --exclude-standard -- Mirach/Core/API/Generated)"
-
-      # Run the validator directly: it only needs Node, not `pnpm install`.
-      - name: Check design tokens
-        if: ${{ matrix.shard == 0 }}
-        working-directory: .
-        run: node scripts/check-design-tokens.mjs
-
-      # Fails when design/tokens.json changed without regenerating the committed
-      # Swift tokens. The generator is plain Node, tested with node --test.
-      - name: Check the generated design tokens are up to date
-        if: ${{ matrix.shard == 0 }}
-        run: |
-          node --test ../../scripts/generate-ios-tokens.test.mjs
-          ./scripts/generate-tokens.sh
-          paths=(Mirach/Resources/Tokens.xcassets Mirach/Core/Design)
-          git diff --exit-code -- "${paths[@]}"
-          test -z "$(git ls-files --others --exclude-standard -- "${paths[@]}")"
-
       - name: Generate the Xcode project
         run: |
           cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
           ./scripts/generate.sh
 
-      - name: Check the UI test sharding
-        if: ${{ matrix.shard == 0 }}
-        run: node --test scripts/ui-test-shard.test.mjs
-
-      - name: Build and test on a simulator
+      - name: UI tests on a simulator
         env:
           SHARD: ${{ matrix.shard }}
         run: |
@@ -873,13 +911,11 @@ jobs:
           udid="$(xcrun simctl list devices available iPhone -j \
             | jq -r '[.devices[][] | select(.isAvailable)][0].udid')"
           test -n "$udid" && test "$udid" != null
-          # This shard's UI tests; shard 0 also runs every unit test.
           only=()
           while IFS= read -r arg; do only+=("$arg"); done \
             < <(node scripts/ui-test-shard.mjs "$SHARD" 3)
           test "${#only[@]}" -gt 0
-          if [ "$SHARD" = 0 ]; then only+=("-only-testing:MirachTests"); fi
-          echo "Running ${#only[@]} selections on shard $SHARD"
+          echo "Running ${#only[@]} UI tests on shard $SHARD"
           xcodebuild test \
             -project Mirach.xcodeproj -scheme Mirach \
             -destination "platform=iOS Simulator,id=${udid}" \
@@ -896,7 +932,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, landing, security, ios]
+    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, landing, security, ios-checks, ios]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed
