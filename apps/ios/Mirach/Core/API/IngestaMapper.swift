@@ -15,9 +15,18 @@ enum IngestaMapper {
 
     static func catalog(_ wire: Components.Schemas.CatalogoResponse) -> CatalogoCategorias {
         // A category in a bucket the app does not know cannot be placed in a group: left out.
-        CatalogoCategorias(categorias: wire.categorias.compactMap { category in
-            Bucket(apiName: category.bucket).map { CategoriaCatalogo(id: category.id, nombre: category.nombre, bucket: $0) }
-        })
+        CatalogoCategorias(categorias: wire.categorias.compactMap(category))
+    }
+
+    /// `nil` for a bucket the app does not know: it cannot be placed in a group.
+    static func category(_ wire: Components.Schemas.CategoriaResponse) -> CategoriaCatalogo? {
+        Bucket(apiName: wire.bucket).map {
+            CategoriaCatalogo(
+                id: wire.id, nombre: wire.nombre, bucket: $0, icono: wire.icono,
+                transaccionesCount: Int(wire.transaccionesCount), esInterna: wire.esInterna,
+                patrones: wire.patrones.map { PatronCategoria(id: $0.id, patron: $0.patron, matchType: MatchType(apiName: $0.matchType)) }
+            )
+        }
     }
 
     private typealias Wire = Components.Schemas.PreviewIngestaResponse.filasPayloadPayload

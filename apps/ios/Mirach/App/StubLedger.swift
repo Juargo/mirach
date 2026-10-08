@@ -31,15 +31,32 @@ final class StubLedger: @unchecked Sendable {
     ]
 
     static let income = 1_850_000
-    /// The stub's icons (the catalog endpoint does not send them in the app's model).
-    private static let icons: [String: String] = [
-        "stub-nec-super": "shopping-cart", "stub-des-rest": "utensils", "stub-des-susc": "tv",
-        "stub-aho-fondo": "piggy-bank",
-    ]
     private static let monthStart = Date(timeIntervalSince1970: 1_788_220_800) // 2026-09-01 UTC
 
     func total(_ bucket: Bucket) -> Int {
         lock.withLock { entries.filter { $0.bucket == bucket }.reduce(0) { $0 + $1.monto } }
+    }
+
+    /// Movements of this month in a category (the stub's «all history»).
+    func count(categoryId: String) -> Int {
+        lock.withLock { entries.filter { $0.categoriaId == categoryId }.count }
+    }
+
+    /// The category changed bucket: its movements follow it, like the server derives the bucket.
+    func rebucket(categoryId: String, to bucket: Bucket) {
+        lock.withLock {
+            for index in entries.indices where entries[index].categoriaId == categoryId { entries[index].bucket = bucket }
+        }
+    }
+
+    /// The category was deleted: its movements go to another one (the bucket's «Desconocido»).
+    func reassign(from categoryId: String, to category: CategoriaCatalogo) {
+        lock.withLock {
+            for index in entries.indices where entries[index].categoriaId == categoryId {
+                entries[index].categoriaId = category.id
+                entries[index].bucket = category.bucket
+            }
+        }
     }
 
     /// Moves a movement to a catalog category, like the server does (the bucket follows).
@@ -64,7 +81,7 @@ final class StubLedger: @unchecked Sendable {
                 )
             }
             return GrupoCategoria(
-                categoriaId: id, nombre: name, icono: id.flatMap { Self.icons[$0] },
+                categoriaId: id, nombre: name, icono: categories.first { $0.id == id }?.icono,
                 subtotal: moves.reduce(0) { $0 + $1.monto }, conteo: moves.count, transacciones: moves
             )
         }
