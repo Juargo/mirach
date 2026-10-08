@@ -175,7 +175,7 @@ El job `ios` de `.github/workflows/ci.yml` corre en `macos-26` (imagen estable c
 3. `node scripts/check-design-tokens.mjs` (equivale a `pnpm design:check`, sin instalar dependencias).
 4. `node --test scripts/generate-ios-tokens.test.mjs`, regenera los tokens (`./scripts/generate-tokens.sh`) y falla si difieren de lo commiteado.
 5. Crea un `Secrets.xcconfig` de relleno desde el ejemplo y genera el proyecto.
-6. `xcodebuild test` en el primer simulador iPhone disponible, con firma ad hoc para el simulador (`CODE_SIGN_IDENTITY=-`): el CI no tiene certificados, y una compilación sin firmar no tiene entitlements, así que el Keychain la rechaza (`-34018`) y fallan los tests que lo usan. Límite: 60 minutos (la suite de UI crece con cada pantalla y el runner es varias veces más lento que una Mac local; correrla en paralelo no acortó el tiempo).
+6. `xcodebuild test` en el primer simulador iPhone disponible, con firma ad hoc para el simulador (`CODE_SIGN_IDENTITY=-`): el CI no tiene certificados, y una compilación sin firmar no tiene entitlements, así que el Keychain la rechaza (`-34018`) y fallan los tests que lo usan. El job corre en tres runners a la vez (matriz `shard: [0, 1, 2]`): `scripts/ui-test-shard.mjs` reparte los tests de UI de a uno por shard, en un orden estable, y cada runner corre solo los suyos con `-only-testing`; el shard 0 además hace los chequeos de código generado y corre los tests de unidad. Al agregar un test de UI no hay que tocar nada: el script lo encuentra y lo asigna. Para correr un shard en local: `node scripts/ui-test-shard.mjs <índice> 3` da los argumentos. Límite: 60 minutos por shard (los clones del simulador en un mismo runner no acortaron el tiempo; los runners separados sí).
 
 ## Estructura
 

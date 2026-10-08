@@ -799,12 +799,19 @@ jobs:
   # an unsigned build has no entitlements and the Keychain rejects it with
   # errSecMissingEntitlement (-34018), which breaks the real Keychain tests.
   ios:
-    name: ios
+    name: ios (shard ${{ matrix.shard }}/3)
     needs: changes
     if: ${{ needs.changes.outputs.ios == 'true' }}
     runs-on: macos-26
-    # The UI suite grows with every screen and the hosted runner is several
-    # times slower than a local Mac; minutes are free since the repo is public.
+    # The UI suite is the slow part (about a minute per test on the hosted
+    # runner), so it is split round-robin across three runners by
+    # scripts/ui-test-shard.mjs. Shard 0 also runs the code checks and the unit
+    # tests. Minutes are free since the repo is public. `ci-success` needs `ios`,
+    # which fails if any shard fails.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
     timeout-minutes: 60
     defaults:
       run:
@@ -824,6 +831,7 @@ jobs:
 
       # Fails when openapi.json changed without regenerating the committed client.
       - name: Check the generated API client is up to date
+        if: ${{ matrix.shard == 0 }}
         run: |
           ./scripts/generate-api.sh
           git diff --exit-code -- Mirach/Core/API/Generated
@@ -831,12 +839,14 @@ jobs:
 
       # Run the validator directly: it only needs Node, not `pnpm install`.
       - name: Check design tokens
+        if: ${{ matrix.shard == 0 }}
         working-directory: .
         run: node scripts/check-design-tokens.mjs
 
       # Fails when design/tokens.json changed without regenerating the committed
       # Swift tokens. The generator is plain Node, tested with node --test.
       - name: Check the generated design tokens are up to date
+        if: ${{ matrix.shard == 0 }}
         run: |
           node --test ../../scripts/generate-ios-tokens.test.mjs
           ./scripts/generate-tokens.sh
@@ -849,7 +859,13 @@ jobs:
           cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
           ./scripts/generate.sh
 
+      - name: Check the UI test sharding
+        if: ${{ matrix.shard == 0 }}
+        run: node --test scripts/ui-test-shard.test.mjs
+
       - name: Build and test on a simulator
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
           set -o pipefail
           # Pick the first available iPhone simulator instead of hardcoding a
@@ -857,9 +873,17 @@ jobs:
           udid="$(xcrun simctl list devices available iPhone -j \
             | jq -r '[.devices[][] | select(.isAvailable)][0].udid')"
           test -n "$udid" && test "$udid" != null
+          # This shard's UI tests; shard 0 also runs every unit test.
+          only=()
+          while IFS= read -r arg; do only+=("$arg"); done \
+            < <(node scripts/ui-test-shard.mjs "$SHARD" 3)
+          test "${#only[@]}" -gt 0
+          if [ "$SHARD" = 0 ]; then only+=("-only-testing:MirachTests"); fi
+          echo "Running ${#only[@]} selections on shard $SHARD"
           xcodebuild test \
             -project Mirach.xcodeproj -scheme Mirach \
             -destination "platform=iOS Simulator,id=${udid}" \
+            "${only[@]}" \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
 
