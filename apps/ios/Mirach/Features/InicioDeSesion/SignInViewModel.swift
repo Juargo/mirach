@@ -90,7 +90,8 @@ final class SignInViewModel {
         let newSession: Session
         do {
             newSession = try await api.signInWithApple(
-                identityToken: credential.identityToken, nonce: nonce, nombre: credential.fullName
+                identityToken: credential.identityToken, nonce: nonce, nombre: credential.fullName,
+                authorizationCode: credential.authorizationCode
             )
         } catch {
             await handleSignInFailure(error)

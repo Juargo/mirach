@@ -25,6 +25,13 @@ updates:
       - dependency-name: '@types/node'
         versions:
           - '>=23.0.0'
+      # TypeScript 7 (el compilador nativo en Go) queda fuera hasta que sus
+      # consumidores lo soporten: typescript-eslint 8 acepta `<6.1.0` (también
+      # el canary) y @astrojs/check `^5 || ^6`. Quitar este ignore cuando ambos
+      # declaren soporte para la 7. Las versiones 5.x y 6.x siguen llegando.
+      - dependency-name: 'typescript'
+        versions:
+          - '>=7.0.0'
     commit-message:
       prefix: chore
       include: scope

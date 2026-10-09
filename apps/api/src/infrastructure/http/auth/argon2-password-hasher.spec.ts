@@ -25,6 +25,14 @@ describe('Argon2PasswordHasher', () => {
     expect(resultado).toBe(false);
   });
 
+  it('un hash almacenado que no se puede decodificar retorna false, no lanza', async () => {
+    // @node-rs/argon2 >= 2.2 rechaza la promesa ("Decoding failed") ante un
+    // hash malformado; 2.0 resolvía false. El puerto promete un boolean.
+    const resultado = await hasher.verificar('lo-que-sea', '$argon2id$hash');
+
+    expect(resultado).toBe(false);
+  });
+
   it('produce un hash con formato argon2id', async () => {
     const hash = await hasher.hash('otra-contraseña');
 

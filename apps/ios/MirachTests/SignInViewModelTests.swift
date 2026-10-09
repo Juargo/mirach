@@ -76,6 +76,36 @@ struct SignInViewModelTests {
         #expect(h.viewModel.errorMessage == nil)
     }
 
+    @Test func successSendsTheAuthorizationCodeFromTheCredential() async throws {
+        let h = makeHarness()
+        await h.viewModel.loadProviders()
+        _ = h.viewModel.prepareAppleRequest()
+
+        await h.viewModel.completeAppleSignIn(.success(
+            AppleCredential(identityToken: "apple-jwt", fullName: nil, authorizationCode: "code-1")
+        ))
+
+        #expect(h.api.signInCalls.first?.authorizationCode == "code-1")
+    }
+
+    @Test func signInStillProceedsWithoutAnAuthorizationCode() async throws {
+        let h = makeHarness()
+        await h.viewModel.loadProviders()
+        _ = h.viewModel.prepareAppleRequest()
+
+        await h.viewModel.completeAppleSignIn(.success(credential))
+
+        #expect(h.api.signInCalls.first?.authorizationCode == nil)
+        #expect(h.session.phase == .signedIn(userId: "u-1"))
+    }
+
+    @Test func authorizationCodeIsDecodedAsUTF8OrOmitted() {
+        #expect(AppleCredential.authorizationCode(from: Data("c1.abc".utf8)) == "c1.abc")
+        #expect(AppleCredential.authorizationCode(from: nil) == nil)
+        #expect(AppleCredential.authorizationCode(from: Data()) == nil)
+        #expect(AppleCredential.authorizationCode(from: Data([0xFF, 0xFE, 0xFD])) == nil)
+    }
+
     @Test func eachAttemptUsesANewNonce() {
         let viewModel = makeHarness().viewModel
         #expect(viewModel.prepareAppleRequest() != viewModel.prepareAppleRequest())

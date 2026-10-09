@@ -123,9 +123,7 @@ export function registrarMovimientoManual(
               descripcion: body.descripcion,
               monto: body.monto,
               bucket: body.bucket as
-                | Bucket.Necesidades
-                | Bucket.Deseos
-                | Bucket.Ahorro,
+                Bucket.Necesidades | Bucket.Deseos | Bucket.Ahorro,
               categoriaId: body.categoriaId,
             } satisfies Parameters<typeof useCase.execute>[0]);
 
