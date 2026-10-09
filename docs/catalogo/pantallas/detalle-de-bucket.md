@@ -16,7 +16,7 @@ Todo viene de `GET /api/buckets/{bucket}/detalle` (`BucketDetalleMesResponse`).
 | Porcentaje del ingreso | `porcentajeBp` | Porcentaje, o «—» si es `null` |
 | Meta | `metaBp` | «Meta: N%»; se omite si es `null` |
 | Cantidades | `totalTransacciones`, `totalCategorias` | Enteros |
-| Grupos (ya ordenados alfabéticamente, «Sin categoría» al final) | `grupos[]` | Una sección por grupo |
+| Grupos (ya ordenados por subtotal descendente, empates por nombre, «Sin categoría» al final) | `grupos[]` | Una sección por grupo |
 | Cabecera de grupo | `grupos[].nombre`, `icono` (puede ser `null`), `subtotal`, `conteo` | Ícono de la lista permitida o un ícono genérico si es `null`; dinero |
 | Movimiento | `grupos[].transacciones[]`: `descripcion`, `fecha`, `monto`, `origen` (banco o «Manual») | Texto, fecha corta, dinero, nombre del banco |
 | Categorías disponibles para reclasificar | `GET /api/categorias` → `categorias[]` (`id`, `nombre`, `bucket`, `icono`) | Agrupadas por bucket |
