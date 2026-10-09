@@ -7,6 +7,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let identityToken: String
         let nonce: String
         let nombre: String?
+        let authorizationCode: String?
     }
 
     /// What an upload call received: the file, the password and (commit only) the edits.
@@ -527,8 +528,12 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         return try result.get()
     }
 
-    func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session {
-        lock.withLock { _signInCalls.append(SignInCall(identityToken: identityToken, nonce: nonce, nombre: nombre)) }
+    func signInWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session {
+        lock.withLock { _signInCalls.append(SignInCall(
+                identityToken: identityToken, nonce: nonce, nombre: nombre, authorizationCode: authorizationCode
+            )) }
         return try signInResult.get()
     }
 

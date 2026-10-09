@@ -141,7 +141,9 @@ struct StubMirachAPI: MirachAPI {
         AuthCapabilities(appleLoginEnabled: true)
     }
 
-    func signInWithApple(identityToken: String, nonce: String, nombre: String?) async throws -> Session {
+    func signInWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session {
         // Sign in with Apple cannot be automated, so UI tests never reach this.
         throw APIError.invalidCredentials
     }

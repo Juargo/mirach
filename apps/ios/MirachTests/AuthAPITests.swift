@@ -42,7 +42,7 @@ struct AuthAPITests {
         let transport = FakeTransport.json(loginBody)
 
         let session = try await makeAPI(transport).signInWithApple(
-            identityToken: "jwt", nonce: "raw-nonce", nombre: "Ana Pérez"
+            identityToken: "jwt", nonce: "raw-nonce", nombre: "Ana Pérez", authorizationCode: nil
         )
 
         #expect(session.token == "tok-abc")
@@ -58,9 +58,31 @@ struct AuthAPITests {
     @Test func signInWithAppleOmitsTheNameWhenAppleDidNotProvideIt() async throws {
         let transport = FakeTransport.json(loginBody)
 
-        _ = try await makeAPI(transport).signInWithApple(identityToken: "jwt", nonce: "n", nombre: nil)
+        _ = try await makeAPI(transport).signInWithApple(
+            identityToken: "jwt", nonce: "n", nombre: nil, authorizationCode: nil
+        )
 
         #expect(try sentJSON(transport).keys.contains("nombre") == false)
+    }
+
+    @Test func signInWithAppleSendsTheAuthorizationCodeWhenPresent() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        _ = try await makeAPI(transport).signInWithApple(
+            identityToken: "jwt", nonce: "n", nombre: nil, authorizationCode: "one-time-code"
+        )
+
+        #expect(try sentJSON(transport)["authorizationCode"] as? String == "one-time-code")
+    }
+
+    @Test func signInWithAppleOmitsTheAuthorizationCodeWhenThereIsNone() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        _ = try await makeAPI(transport).signInWithApple(
+            identityToken: "jwt", nonce: "n", nombre: nil, authorizationCode: nil
+        )
+
+        #expect(try sentJSON(transport).keys.contains("authorizationCode") == false)
     }
 
     @Test func signInWithAppleMapsEveryDocumentedFailure() async {
@@ -77,7 +99,7 @@ struct AuthAPITests {
 
             await #expect(throws: expected) {
                 _ = try await makeAPI(transport, expiry: counter).signInWithApple(
-                    identityToken: "jwt", nonce: "n", nombre: nil
+                    identityToken: "jwt", nonce: "n", nombre: nil, authorizationCode: nil
                 )
             }
             #expect(counter.count == 0, "a failed sign-in is not an expired session")
