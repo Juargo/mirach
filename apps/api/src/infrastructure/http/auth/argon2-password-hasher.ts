@@ -39,6 +39,13 @@ export class Argon2PasswordHasher implements IPasswordHasher {
   }
 
   async verificar(plano: string, hashed: string): Promise<boolean> {
-    return verify(hashed, plano);
+    // Since @node-rs/argon2 2.2 a stored hash that cannot be decoded rejects
+    // ("Decoding failed") instead of resolving false. It can never match, so
+    // fail closed with false and keep the port's boolean contract.
+    try {
+      return await verify(hashed, plano);
+    } catch {
+      return false;
+    }
   }
 }
