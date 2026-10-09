@@ -105,7 +105,7 @@
             "type": "string"
           },
           "grupos": {
-            "description": "One entry per present category, es-CL alphabetical, \"Sin categoría\" last. [] for an empty bucket month (MBD-01).",
+            "description": "One entry per present category, by subtotal descending (ties by name, es-CL), \"Sin categoría\" last. [] for an empty bucket month (MBD-01).",
             "items": {
               "additionalProperties": false,
               "properties": {

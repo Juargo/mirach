@@ -413,11 +413,11 @@ extension Components {
                     ])
                 }
             }
-            /// One entry per present category, es-CL alphabetical, "Sin categoría" last. [] for an empty bucket month (MBD-01).
+            /// One entry per present category, by subtotal descending (ties by name, es-CL), "Sin categoría" last. [] for an empty bucket month (MBD-01).
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/grupos`.
             internal typealias gruposPayload = [Components.Schemas.BucketDetalleMesResponse.gruposPayloadPayload]
-            /// One entry per present category, es-CL alphabetical, "Sin categoría" last. [] for an empty bucket month (MBD-01).
+            /// One entry per present category, by subtotal descending (ties by name, es-CL), "Sin categoría" last. [] for an empty bucket month (MBD-01).
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/grupos`.
             internal var grupos: Components.Schemas.BucketDetalleMesResponse.gruposPayload
@@ -447,7 +447,7 @@ extension Components {
             ///
             /// - Parameters:
             ///   - bucket: Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).
-            ///   - grupos: One entry per present category, es-CL alphabetical, "Sin categoría" last. [] for an empty bucket month (MBD-01).
+            ///   - grupos: One entry per present category, by subtotal descending (ties by name, es-CL), "Sin categoría" last. [] for an empty bucket month (MBD-01).
             ///   - metaBp: Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).
             ///   - periodo: Resolved period, format YYYY-MM.
             ///   - porcentajeBp: Basis-point percentage, round-half-up. null when the month has no income (D-05).

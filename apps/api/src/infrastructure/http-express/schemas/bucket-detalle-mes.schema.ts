@@ -116,7 +116,7 @@ export const bucketDetalleMesResponseSchema = z
     grupos: z
       .array(grupoDetalleMesSchema)
       .describe(
-        'One entry per present category, es-CL alphabetical, "Sin categoría" last. [] for an empty bucket month (MBD-01).',
+        'One entry per present category, by subtotal descending (ties by name, es-CL), "Sin categoría" last. [] for an empty bucket month (MBD-01).',
       ),
   })
   .meta({
