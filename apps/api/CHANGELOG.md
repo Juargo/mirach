@@ -1,5 +1,80 @@
 # Changelog
 
+## [0.11.0](https://github.com/Juargo/mirach/compare/api-v0.10.0...api-v0.11.0) (2026-10-09)
+
+
+### Features
+
+* **api:** accept Google ID tokens issued for the iOS client ([e1ad76f](https://github.com/Juargo/mirach/commit/e1ad76f60c08489b03beda9ae1ffef04986c98a4))
+* **api:** accept Google ID tokens issued for the iOS client ([49359ac](https://github.com/Juargo/mirach/commit/49359ac3385df96e873fba7315f19838f27b3abf))
+* **api:** add a stable code to 401 responses ([b2a6601](https://github.com/Juargo/mirach/commit/b2a6601fb23e2f84c7ac67233af8490a35fe34d3))
+* **api:** add account deletion use case and repository ([299e283](https://github.com/Juargo/mirach/commit/299e28326922f9ee3ad96879f1216b0c80bdf4c0))
+* **api:** add DELETE /api/cuenta for in-app account deletion ([9d40f78](https://github.com/Juargo/mirach/commit/9d40f78cfa1dcb8cefeaa0cad1ecfce796308811))
+* **api:** add DELETE /api/cuenta for in-app account deletion ([b61c1ff](https://github.com/Juargo/mirach/commit/b61c1ff0e1a9eb5548cbbf249f87297ca796f484))
+* **api:** add the Apple token exchange and revoke client ([3e6ef4d](https://github.com/Juargo/mirach/commit/3e6ef4d5d5abcf2ff27228a22c70487806a57ff5))
+* **api:** add the appleSub column and the Apple identity repository ([bdcdd90](https://github.com/Juargo/mirach/commit/bdcdd908609cd072b68f29c0b2dc74305043af63))
+* **api:** close the contract gaps found by the screen catalog ([5f57ab2](https://github.com/Juargo/mirach/commit/5f57ab282e78c51d3986972ede6552c8aa89b661))
+* **api:** drop the demo columns and delete demo users ([1e77208](https://github.com/Juargo/mirach/commit/1e77208ea03d86879f63467270a62ae1bdc7f3e5))
+* **api:** drop the demo columns and delete demo users ([acdc042](https://github.com/Juargo/mirach/commit/acdc04269f7ee11a79f2fe3ecacfc8f454cd35ed))
+* **api:** expose esInterna on categories ([3523aa0](https://github.com/Juargo/mirach/commit/3523aa0a25e6d52363a52d2c1e6b6cd92ce37e39))
+* **api:** expose POST /api/auth/apple/token behind APPLE_BUNDLE_ID ([c2ef9a8](https://github.com/Juargo/mirach/commit/c2ef9a8caebb13142aec55caecc1ecad06ebc5d1))
+* **api:** expose POST /api/auth/apple/token behind APPLE_BUNDLE_ID ([5f384f0](https://github.com/Juargo/mirach/commit/5f384f00e53bc21dd7f81c65a10cd9b83cb3352a))
+* **api:** list the months that have movements ([b393dbe](https://github.com/Juargo/mirach/commit/b393dbe1961342de9dcc72406c8036bc3cf2f3e7))
+* **api:** list the months that have movements ([48c0ca5](https://github.com/Juargo/mirach/commit/48c0ca53f84a3079fa41a81b121cce8bec4ca036))
+* **api:** pin and document list ordering ([1f84ad4](https://github.com/Juargo/mirach/commit/1f84ad4eece00de7dde15173ee7a4272154e709c))
+* **api:** return each bucket's share of monthly spend ([2875793](https://github.com/Juargo/mirach/commit/287579346e97bb99d76a4d3d3b1eb37b64ec16d8))
+* **api:** return each bucket's share of monthly spend ([43c8649](https://github.com/Juargo/mirach/commit/43c8649c6204c6f24293e08979d3d6e0a7c20163))
+* **api:** revoke the Apple token on account deletion ([d8f4053](https://github.com/Juargo/mirach/commit/d8f4053e7ce372d9c4a1dc97fd2ffacb7ae62b39))
+* **api:** revoke the Sign in with Apple token on account deletion ([0e22293](https://github.com/Juargo/mirach/commit/0e2229301594321f0a758ec2978a12fae1e2c117))
+* **api:** Sign in with Apple (verifier, login, POST /api/auth/apple/token) ([19b3b3e](https://github.com/Juargo/mirach/commit/19b3b3e3f81dfadbc1169564587a6319a3203bdb))
+* **api:** sign the Apple client secret ([57537cd](https://github.com/Juargo/mirach/commit/57537cdfb21459ee54a60bcf3ac12eac20f27f5a))
+* **api:** store the Apple refresh token on sign-in ([cfb6feb](https://github.com/Juargo/mirach/commit/cfb6feb1325285c043d68a73ca045c538ce84143))
+* **api:** verify Apple identity tokens and log in with Apple ([ebdfed9](https://github.com/Juargo/mirach/commit/ebdfed9e6882eb53fd25d6cfd8ff85db85f1ecba))
+
+
+### Bug Fixes
+
+* **api:** drain background tasks before shutting down ([0bbbcb8](https://github.com/Juargo/mirach/commit/0bbbcb8598b7713fe2f90c0ecf567fd86f6851df))
+* **api:** drain background tasks scheduled during shutdown ([504807b](https://github.com/Juargo/mirach/commit/504807ba91a642ff8e7ab73e8433cfa36c34d86f))
+* **api:** emit nullable fields in a form the Swift client generator supports ([908f41f](https://github.com/Juargo/mirach/commit/908f41f323721862a4d82d4e7b564a11bad8e1ae))
+* **api:** emit OpenAPI 3.0.3 so the Swift client keeps nullable fields ([e66f529](https://github.com/Juargo/mirach/commit/e66f529f815740ea8b9a167f6a243f070e67b293))
+* **api:** list null in nullable enums for OpenAPI 3.0.3 ([7cb2891](https://github.com/Juargo/mirach/commit/7cb28916abe14ff4ac9a42c84ff59a0bb1b5a481))
+* **api:** only keep an Apple refresh token issued for the same identity ([ee5b8d8](https://github.com/Juargo/mirach/commit/ee5b8d8def40cf700ce257a73020614ed6e67e1f))
+* **api:** reject demo sessions on manual transaction reclassification ([51b32af](https://github.com/Juargo/mirach/commit/51b32afb56a563fd408fdcf262738aca36c346a3))
+* **api:** reject demo sessions on manual transaction reclassification ([2a99b5c](https://github.com/Juargo/mirach/commit/2a99b5c284aab1ac0befee5e27c691ee40ab829b))
+* **api:** resolve concurrent Apple signups that collide on the email index ([d4457c8](https://github.com/Juargo/mirach/commit/d4457c870f5964329ee4b01f3d4ff442c6457bcc))
+* **api:** tell exchange failures from storage failures in the logs ([521865a](https://github.com/Juargo/mirach/commit/521865a354dc6bbe045a1b57af24daecdbd4ead3))
+* **api:** treat an undecodable password hash as a mismatch ([20dd1ec](https://github.com/Juargo/mirach/commit/20dd1eccd2bff6221ee847cebd230992d75c6da8))
+* **api:** use "Deseos" and neutral Spanish in user-facing messages ([bea5caf](https://github.com/Juargo/mirach/commit/bea5caf615ede0fff72fec7ba50aaec9bf0d28d7))
+* **api:** use "Deseos" and neutral Spanish in user-facing messages ([63fcea0](https://github.com/Juargo/mirach/commit/63fcea081ec24ae923b25f14abdbfb5bbef05ce6))
+
+
+### Performance
+
+* **api:** exchange the Apple code after the sign-in response ([cf792c8](https://github.com/Juargo/mirach/commit/cf792c85025fbdc4ba856cc8172142270a5df972))
+
+
+### Refactors
+
+* **api:** drop the demo flag from the session and auth/me ([fcf6e54](https://github.com/Juargo/mirach/commit/fcf6e544f58d9e6fe39b334752bb619f7e874e0b))
+* **api:** name the shared Google client ID suffix for every platform ([4305a82](https://github.com/Juargo/mirach/commit/4305a824533bef26acb372c92d70e109d97cc862))
+* **api:** narrow the identity email to a string ([8b90f15](https://github.com/Juargo/mirach/commit/8b90f15cb7c9b159210d54890b89d653e12060bf))
+* **api:** remove the demo entry point and cleanup job ([c764850](https://github.com/Juargo/mirach/commit/c76485060be5a0b062bfbe38a021ecbe1f64b745))
+* **api:** remove the demo entry point and cleanup job ([7992d10](https://github.com/Juargo/mirach/commit/7992d1072b090e07788e2fec16b1265dc0fdb703))
+* **api:** remove the demo read-only gates and the session demo flag ([1dad4b4](https://github.com/Juargo/mirach/commit/1dad4b47a2a38ed87dbdafd2907f8c1be7ff651c))
+* **api:** remove the demo read-only gates from use cases and routes ([9af734c](https://github.com/Juargo/mirach/commit/9af734c2bdf3aa45428cd6dcf164c8fc2eefbfd3))
+* **api:** require the background task tracker ([31b776b](https://github.com/Juargo/mirach/commit/31b776bac7429689561b1f4aa749d1f27ee4e3ac))
+* **api:** reuse the error-name helper ([b1eb3f4](https://github.com/Juargo/mirach/commit/b1eb3f421d92a08a5f7a9e03e18836b7b7d9041a))
+
+
+### Documentation
+
+* add the repository guide for Mirach ([d62c565](https://github.com/Juargo/mirach/commit/d62c565064f8a80dee73ee040a1070f75295335d))
+* **adr:** record Apple token revocation (ADR-049) ([f847811](https://github.com/Juargo/mirach/commit/f8478113d20a50854f4ad3f1e43bdf42abc19094))
+* **api:** apply the additive Apple migration before the deploy, not after ([fdfa274](https://github.com/Juargo/mirach/commit/fdfa274711b31d06380216cc7dbaa66b86fbd8ae))
+* **api:** declare upload and category error codes in OpenAPI ([225a5f6](https://github.com/Juargo/mirach/commit/225a5f65d685ff60b4baea4e06af8361b34a24fd))
+* **api:** keep the Apple client contract doc on its interface ([7add126](https://github.com/Juargo/mirach/commit/7add126f15ccdbfa542ea3f5a9b6f294799ae5b9))
+
 ## [0.10.0](https://github.com/Juargo/MoneyDiary/compare/api-v0.9.0...api-v0.10.0) (2026-09-25)
 
 
