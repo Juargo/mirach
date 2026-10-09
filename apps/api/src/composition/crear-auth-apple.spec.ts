@@ -1,5 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 import { crearAuthApple } from './crear-auth-apple';
+import { TareasSincronas } from '../../test/support/tareas-en-segundo-plano.double';
+import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
+import { Result } from '../shared/result';
 import { buildTestEnv } from '../../test/support/env.fixture';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
@@ -17,7 +20,15 @@ describe('crearAuthApple', () => {
     const env = buildTestEnv({ APPLE_BUNDLE_ID: undefined });
 
     expect(
-      crearAuthApple(prisma, env, blindIndex, crypto, new NoOpLogger()),
+      crearAuthApple(
+        prisma,
+        env,
+        blindIndex,
+        crypto,
+        new NoOpLogger(),
+        undefined,
+        new TareasSincronas(),
+      ),
     ).toBeUndefined();
   });
 
@@ -30,10 +41,52 @@ describe('crearAuthApple', () => {
       blindIndex,
       crypto,
       new NoOpLogger(),
+      undefined,
+      new TareasSincronas(),
     );
 
     expect(graph?.verificadorIdToken).toBeInstanceOf(AppleIdTokenVerifier);
     expect(graph?.loginConApple).toBeInstanceOf(LoginConAppleUseCase);
     expect(graph?.appleTokenRateLimiter).toBeInstanceOf(IpRateLimiter);
+  });
+
+  it('con cliente de Apple REST: un id_token del canje que no verifica NO se guarda y el token se revoca (T4)', async () => {
+    const env = buildTestEnv({ APPLE_BUNDLE_ID: 'cl.mirach.app' });
+    const intercambiarCodigo = vi
+      .fn()
+      .mockResolvedValue(
+        Result.ok({ refreshToken: 'rt-1', idToken: 'no.es.jwt' }),
+      );
+    const revocarRefreshToken = vi.fn().mockResolvedValue(Result.ok(undefined));
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const prismaFake = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'u1', appleSub: 's' }),
+        updateMany,
+      },
+      session: { create: vi.fn().mockResolvedValue({}) },
+    } as unknown as PrismaClient;
+
+    const graph = crearAuthApple(
+      prismaFake,
+      env,
+      blindIndex,
+      crypto,
+      new NoOpLogger(),
+      { intercambiarCodigo, revocarRefreshToken },
+      new TareasEnSegundoPlano(new NoOpLogger()),
+    );
+    await graph?.loginConApple.execute(
+      { sub: 's', email: null, emailVerificado: false, emailPrivado: false },
+      null,
+      'code-1',
+    );
+
+    // El canje corre en segundo plano: se espera a que termine.
+    await vi.waitFor(() =>
+      expect(revocarRefreshToken).toHaveBeenCalledWith('rt-1'),
+    );
+    expect(intercambiarCodigo).toHaveBeenCalledWith('code-1');
+    expect(updateMany).not.toHaveBeenCalled();
   });
 });

@@ -21,6 +21,15 @@ export const CONFIRMACION_ELIMINAR_CUENTA = 'ELIMINAR';
  *   borrado. Es best-effort: si falla, se loguea un warn SIN el mensaje del
  *   error (podría arrastrar tokens) y el borrado sigue — el derecho a borrar
  *   no puede depender de que Apple esté disponible.
+ * - Revocar antes de borrar, y el caso "revocó pero el borrado falló": se
+ *   acepta. El refresh token de Apple vive en la fila que el borrado destruye,
+ *   así que revocar DESPUÉS exigiría leerlo antes y, si Apple fallara tras un
+ *   borrado exitoso, ya no habría forma de reintentar (se incumpliría la
+ *   5.1.1(v) sin remedio). Si el borrado falla (la petición termina en 500) el
+ *   usuario conserva la cuenta; el único costo es que su autorización de Apple
+ *   quedó revocada: al volver a entrar, Apple le pide consentir de nuevo, el
+ *   login resuelve por `appleSub` y el nuevo `authorizationCode` reemplaza el
+ *   token guardado.
  * - Idempotencia: repetir la operación sobre un usuario ya borrado es un
  *   éxito (el repositorio no falla). En la práctica la sesión ya no existe y
  *   el session middleware responde 401 antes de llegar acá.
@@ -46,6 +55,7 @@ export class EliminarCuentaUseCase {
       await this.revocador.revocar(input.userId);
     } catch (err) {
       this.logger.warn('eliminar-cuenta: revocación externa fallida', {
+        userId: input.userId,
         errorName: err instanceof Error ? err.name : 'UnknownError',
       });
     }

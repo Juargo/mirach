@@ -75,6 +75,30 @@ describe('EliminarCuentaUseCase', () => {
     expect(JSON.stringify(warn)).not.toContain('SECRETO');
   });
 
+  it('el warn de una revocación fallida es atribuible: lleva userId y el nombre del error', async () => {
+    const { useCase, logger } = build({ revocarFalla: true });
+
+    await useCase.execute({ userId: 'u1', confirmacion: 'ELIMINAR' });
+
+    expect(logger.calls.find((c) => c.level === 'warn')?.context).toEqual({
+      userId: 'u1',
+      errorName: 'Error',
+    });
+  });
+
+  it('si el borrado falla DESPUÉS de revocar, la excepción propaga (el usuario conserva su cuenta y puede volver a entrar; el login re-vincula un token nuevo)', async () => {
+    const { useCase, cuentas, orden } = build();
+    vi.mocked(cuentas.eliminar).mockImplementation(async () => {
+      orden.push('eliminar');
+      throw new Error('db down');
+    });
+
+    await expect(
+      useCase.execute({ userId: 'u1', confirmacion: 'ELIMINAR' }),
+    ).rejects.toThrow('db down');
+    expect(orden).toEqual(['revocar', 'eliminar']);
+  });
+
   it('loguea una línea de auditoría info solo con el userId', async () => {
     const { useCase, logger } = build();
 

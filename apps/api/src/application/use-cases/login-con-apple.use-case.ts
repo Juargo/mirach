@@ -11,6 +11,10 @@ import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { ILogger } from '../ports/logger.port';
+import { IClienteAppleAuth } from '../ports/cliente-apple-auth.port';
+import { ITareasEnSegundoPlano } from '../ports/tareas-en-segundo-plano.port';
+import { IVerificadorSubCanjeApple } from '../ports/verificador-identidad-apple.port';
+import { IRefreshTokenAppleRepository } from '../ports/refresh-token-apple-repository.port';
 import { LoginUseCaseResult } from './login.use-case';
 
 /**
@@ -56,6 +60,19 @@ const NOMBRE_POR_DEFECTO = 'Usuario';
  *
  * Todas las ramas de fallo colapsan al mismo `LoginConAppleFallidoError`.
  * Redacción (ADR-013): nunca se loguea sub, email, nombre ni tokens.
+ *
+ * `authorizationCode` (opcional, T4): tras una resolución EXITOSA se canjea en
+ * Apple y el refresh token se guarda cifrado, para poder revocarlo al eliminar
+ * la cuenta. Es best-effort: cualquier fallo (Apple caído, código vencido o
+ * ya usado, BD) solo emite un `warn` con el motivo y el userId; el login ya
+ * tuvo éxito y no se ve afectado. Sin code, o con el intercambio apagado
+ * (sin credenciales de Apple), no se hace nada. El canje corre EN SEGUNDO
+ * PLANO (`ITareasEnSegundoPlano`): la sesión se devuelve sin esperar a Apple,
+ * así un Apple lento (hasta 5 s) no demora el login. Como el code vence a los
+ * 5 minutos y se canjea en cuanto responde el login, la ventana es holgada;
+ * si el proceso muere antes de terminar, el efecto es el mismo que un canje
+ * fallido (sin token hasta un login posterior con code). Nunca se loguea el code ni el
+ * refresh token.
  */
 export class LoginConAppleUseCase {
   constructor(
@@ -64,9 +81,135 @@ export class LoginConAppleUseCase {
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
     private readonly logger: ILogger,
+    private readonly clienteApple?: IClienteAppleAuth,
+    private readonly refreshTokens?: IRefreshTokenAppleRepository,
+    private readonly verificadorCanje?: IVerificadorSubCanjeApple,
+    private readonly tareas?: ITareasEnSegundoPlano,
   ) {}
 
   async execute(
+    identidad: IdentidadApple,
+    nombre?: string | null,
+    authorizationCode?: string | null,
+  ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {
+    const resultado = await this.resolverIdentidad(identidad, nombre);
+
+    if (resultado.isOk()) {
+      const { userId } = resultado.getValue();
+      this.tareas?.programar(() =>
+        this.guardarRefreshToken(userId, identidad.sub, authorizationCode),
+      );
+    }
+
+    return resultado;
+  }
+
+  /**
+   * Canje del code + guardado cifrado del refresh token; nunca lanza ni cambia
+   * el login. Antes de guardar se verifica el `id_token` del canje y su `sub`
+   * debe ser el de la identidad que inició sesión: un code ajeno (de otra
+   * cuenta Apple) NO se asocia a este usuario; el token recién emitido se
+   * revoca (best-effort) para no dejarlo colgando.
+   */
+  private async guardarRefreshToken(
+    userId: string,
+    sub: string,
+    authorizationCode: string | null | undefined,
+  ): Promise<void> {
+    const code = authorizationCode?.trim() ?? '';
+
+    if (
+      code === '' ||
+      !this.clienteApple ||
+      !this.refreshTokens ||
+      !this.verificadorCanje
+    ) {
+      return;
+    }
+
+    let refreshToken: string;
+
+    try {
+      const canje = await this.clienteApple.intercambiarCodigo(code);
+
+      if (canje.isFail()) {
+        const { motivo, detalle } = canje.getError();
+        this.logger.warn(
+          'login-con-apple: canje del authorizationCode fallido',
+          { userId, motivo, ...(detalle !== undefined && { detalle }) },
+        );
+        return;
+      }
+
+      const verificado = await this.verificadorCanje.verificarSubDelCanje(
+        canje.getValue().idToken,
+      );
+      const motivo = verificado.isFail()
+        ? 'id-token-invalido'
+        : verificado.getValue() !== sub
+          ? 'sub-no-coincide'
+          : null;
+
+      if (motivo !== null) {
+        this.logger.warn(
+          'login-con-apple: canje del authorizationCode descartado',
+          { userId, motivo },
+        );
+        await this.revocarDescartado(userId, canje.getValue().refreshToken);
+        return;
+      }
+
+      refreshToken = canje.getValue().refreshToken;
+    } catch (err) {
+      this.logger.warn('login-con-apple: canje del authorizationCode fallido', {
+        userId,
+        errorName: nombreDe(err),
+      });
+      return;
+    }
+
+    // Fallo de persistencia/cifrado: no es culpa de Apple, se distingue en el log.
+    try {
+      await this.refreshTokens.guardar(userId, refreshToken);
+      this.logger.debug('login-con-apple: refresh token guardado', { userId });
+    } catch (err) {
+      this.logger.warn(
+        'login-con-apple: no se pudo almacenar el refresh token de Apple',
+        { userId, errorName: nombreDe(err) },
+      );
+    }
+  }
+
+  /** Revoca un refresh token que no se guardó; best-effort, nunca lanza. */
+  private async revocarDescartado(
+    userId: string,
+    refreshToken: string,
+  ): Promise<void> {
+    try {
+      const revocacion =
+        await this.clienteApple?.revocarRefreshToken(refreshToken);
+
+      if (revocacion?.isFail()) {
+        this.logger.warn(
+          'login-con-apple: no se pudo revocar el token descartado',
+          {
+            userId,
+            motivo: revocacion.getError().motivo,
+          },
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        'login-con-apple: no se pudo revocar el token descartado',
+        {
+          userId,
+          errorName: nombreDe(err),
+        },
+      );
+    }
+  }
+
+  private async resolverIdentidad(
     identidad: IdentidadApple,
     nombre?: string | null,
   ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {
@@ -225,6 +368,10 @@ export class LoginConAppleUseCase {
 
     return Result.ok({ token, userId, expiresAt, esNuevoUsuario });
   }
+}
+
+function nombreDe(err: unknown): string {
+  return err instanceof Error ? err.name : 'UnknownError';
 }
 
 function resolverNombre(

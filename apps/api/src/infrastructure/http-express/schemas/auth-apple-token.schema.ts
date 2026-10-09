@@ -4,6 +4,8 @@ import { z } from 'zod';
 const IDENTITY_TOKEN_MAX = 8192;
 const NONCE_MAX = 256;
 const NOMBRE_MAX = 200;
+/** Los authorization codes de Apple miden ~100 caracteres; el tope evita basura enorme. */
+const AUTHORIZATION_CODE_MAX = 2048;
 
 /**
  * Request contract for `POST /api/auth/apple/token`.
@@ -13,6 +15,10 @@ const NOMBRE_MAX = 200;
  *   copió al claim `nonce` del token (el servidor lo hashea y compara).
  * - `nombre`: nombre completo, SOLO en la primera autorización (Apple no lo
  *   incluye en el token). `null`/ausente en los logins siguientes.
+ * - `authorizationCode`: OPCIONAL (T4). El código de un solo uso (vence a los 5
+ *   minutos) que entrega la misma autorización nativa; el servidor lo canjea
+ *   en Apple y guarda el refresh token cifrado para revocarlo al eliminar la
+ *   cuenta. Sin él el login funciona igual (builds anteriores de la app).
  *
  * A diferencia del contrato de Google, este esquema SÍ se parsea en la ruta
  * (`safeParse`), pero una forma inválida no produce 400: toma el mismo 401
@@ -37,5 +43,12 @@ export const authAppleTokenRequestSchema = z.object({
     .nullish()
     .describe(
       'Full name, only available on the FIRST authorization (Apple never puts it in the token). Omit or null afterwards.',
+    ),
+  authorizationCode: z
+    .string()
+    .max(AUTHORIZATION_CODE_MAX)
+    .nullish()
+    .describe(
+      'Optional one-time authorization code from the same native authorization (expires in 5 minutes). When present the server exchanges it with Apple and stores the refresh token encrypted so it can be revoked on account deletion. Sign-in succeeds even if the exchange fails; omit or null if unavailable.',
     ),
 });

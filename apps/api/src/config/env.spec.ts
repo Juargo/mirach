@@ -747,3 +747,34 @@ describe('loadEnv — APPLE_BUNDLE_ID (Sign in with Apple, plan phase 5 T3)', ()
     expect(error!.message).not.toContain('secreto-pegado XYZ789');
   });
 });
+
+describe('loadEnv — credenciales de la API REST de Apple (plan phase 5 T4)', () => {
+  const CLAVES = [
+    'APPLE_TEAM_ID',
+    'APPLE_KEY_ID',
+    'APPLE_PRIVATE_KEY',
+  ] as const;
+
+  it('ausentes → el API arranca (intercambio y revocación apagados), en cualquier ambiente', () => {
+    for (const source of [baseDevSource, baseProdSource]) {
+      const env = loadEnv(source);
+      for (const clave of CLAVES) {
+        expect(env[clave]).toBeUndefined();
+      }
+    }
+  });
+
+  it('presentes → se pasan tal cual (el PEM no se valida en el schema)', () => {
+    const env = loadEnv({
+      ...baseProdSource,
+      APPLE_TEAM_ID: 'TEAM123456',
+      APPLE_KEY_ID: 'KEY1234567',
+      APPLE_PRIVATE_KEY:
+        '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----',
+    });
+
+    expect(env.APPLE_TEAM_ID).toBe('TEAM123456');
+    expect(env.APPLE_KEY_ID).toBe('KEY1234567');
+    expect(env.APPLE_PRIVATE_KEY).toContain('BEGIN PRIVATE KEY');
+  });
+});

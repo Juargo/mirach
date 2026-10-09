@@ -30,6 +30,8 @@ import {
   type GoogleAuthMobileGraph,
 } from './crear-auth-google-mobile';
 import { crearAuthApple, type AppleAuthGraph } from './crear-auth-apple';
+import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
+import { crearClienteAppleAuth } from './crear-cliente-apple-auth';
 import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { crearCommitIngesta } from './crear-commit-ingesta';
@@ -51,6 +53,8 @@ import { PrismaReevaluarCategoriasReader } from '../infrastructure/persistence/p
 import { PrismaReevaluarCategoriasWriter } from '../infrastructure/persistence/prisma-reevaluar-categorias.writer';
 import { PrismaEliminarIngestaRepository } from '../infrastructure/persistence/prisma-eliminar-ingesta.repository';
 import { PrismaCuentaRepository } from '../infrastructure/persistence/prisma-cuenta.repository';
+import { AppleRevocadorIdentidadExterna } from '../infrastructure/identity/apple-revocador-identidad-externa';
+import { PrismaRefreshTokenAppleRepository } from '../infrastructure/persistence/prisma-refresh-token-apple.repository';
 import { NoopRevocadorIdentidadExterna } from '../infrastructure/identity/noop-revocador-identidad-externa';
 import { PrismaEliminarMovimientoManualRepository } from '../infrastructure/persistence/prisma-eliminar-movimiento-manual.repository';
 import { PrismaListarIngestasReader } from '../infrastructure/persistence/prisma-listar-ingestas.reader';
@@ -61,6 +65,14 @@ import {
   deriveLinkIntentKey,
 } from './derive-blind-index-key';
 import { createPinoLogger } from '../infrastructure/logging/pino-logger';
+
+/**
+ * Plazo máximo del apagado ordenado para terminar las tareas en segundo
+ * plano (canje de Apple, hasta 5 s por llamada). Debe quedar por debajo del
+ * período de gracia entre SIGTERM y SIGKILL de Render (30 s por defecto,
+ * según la documentación de Render; no se pudo verificar sin red).
+ */
+export const PLAZO_DRENADO_APAGADO_MS = 8_000;
 
 /**
  * Composition Root — ensamblado del grafo de dependencias (ADR-028/029).
@@ -227,7 +239,20 @@ export function createContainer(
 
   // Login con Apple: gate independiente (APPLE_BUNDLE_ID), mismas instancias
   // de `blindIndex`/`crypto` (el alta cifra el email), nunca re-derivaciones.
-  const appleAuth = crearAuthApple(prisma, env, blindIndex, crypto, logger);
+  // T4: el cliente de la API REST de Apple (canje del code + revocación) se
+  // arma una vez y se comparte con la eliminación de cuenta.
+  const clienteApple = crearClienteAppleAuth(env, logger);
+  // Compartido: el apagado ordenado las drena antes de cerrar Prisma.
+  const tareasEnSegundoPlano = new TareasEnSegundoPlano(logger);
+  const appleAuth = crearAuthApple(
+    prisma,
+    env,
+    blindIndex,
+    crypto,
+    logger,
+    clienteApple,
+    tareasEnSegundoPlano,
+  );
 
   // issue #747: período ausente ya no resuelve al mes en curso sino al
   // último mes del usuario con datos (resolverPeriodo). Cada use case de
@@ -335,10 +360,17 @@ export function createContainer(
     new PrismaListarIngestasReader(prisma),
     logger,
   );
-  // La revocación externa es un no-op hasta T4 (Sign in with Apple).
+  // Revocación de Sign in with Apple al eliminar la cuenta (T4); no-op cuando
+  // el cliente de Apple REST no está configurado.
   const eliminarCuenta = new EliminarCuentaUseCase(
     new PrismaCuentaRepository(prisma),
-    new NoopRevocadorIdentidadExterna(),
+    clienteApple
+      ? new AppleRevocadorIdentidadExterna(
+          new PrismaRefreshTokenAppleRepository(prisma, crypto),
+          clienteApple,
+          logger,
+        )
+      : new NoopRevocadorIdentidadExterna(),
     logger,
   );
   const catalogo = crearCatalogo(prisma);
@@ -375,7 +407,10 @@ export function createContainer(
     googleAuthMobile,
     appleAuth,
     loginRateLimiter: auth.loginRateLimiter,
-    shutdown: () => prisma.$disconnect(),
+    shutdown: async () => {
+      await tareasEnSegundoPlano.drenar(PLAZO_DRENADO_APAGADO_MS);
+      await prisma.$disconnect();
+    },
     logger,
   };
 }

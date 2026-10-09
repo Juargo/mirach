@@ -47,7 +47,7 @@ export interface AuthAppleTokenDeps {
  * `errorMiddleware` compartido (500 genérico). Todo throw inesperado de un colaborador también. El
  * log distingue la causa (`.warn` + `motivo` para fallos modelados, `.error` +
  * `errorName` para excepciones) pero nunca incluye el token, el nonce, el
- * nombre, el email ni el `sub`.
+ * authorizationCode, el nombre, el email ni el `sub`.
  */
 export function registrarAuthAppleToken(
   router: Router,
@@ -77,7 +77,7 @@ export function registrarAuthAppleToken(
         return;
       }
 
-      const { identityToken, nonce, nombre } = body.data;
+      const { identityToken, nonce, nombre, authorizationCode } = body.data;
 
       const verificacion = await verificadorIdToken.verificarIdToken(
         identityToken,
@@ -96,6 +96,7 @@ export function registrarAuthAppleToken(
       const resultado = await loginConApple.execute(
         verificacion.getValue(),
         nombre,
+        authorizationCode,
       );
 
       if (resultado.isFail()) {

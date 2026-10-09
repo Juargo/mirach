@@ -27,8 +27,28 @@ describe('authAppleTokenRequestSchema', () => {
     ).toBe(true);
   });
 
+  it('acepta un authorizationCode opcional (string o null)', () => {
+    for (const authorizationCode of ['c-abc.0.xyz', null]) {
+      expect(
+        authAppleTokenRequestSchema.safeParse({
+          identityToken: 'a.b.c',
+          nonce: 'n',
+          authorizationCode,
+        }).success,
+      ).toBe(true);
+    }
+  });
+
   it.each([
     [{}],
+    [{ identityToken: 'a.b.c', nonce: 'n', authorizationCode: 5 }],
+    [
+      {
+        identityToken: 'a.b.c',
+        nonce: 'n',
+        authorizationCode: 'x'.repeat(3000),
+      },
+    ],
     [{ identityToken: 'a.b.c' }],
     [{ nonce: 'n' }],
     [{ identityToken: '', nonce: 'n' }],

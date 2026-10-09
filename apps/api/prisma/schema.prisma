@@ -32,6 +32,12 @@ model User {
   // Sign in with Apple (plan phase 5, T3): `sub` opaco de Apple, cleartext y
   // @unique por la misma razón que `googleSub`. Nullable, additive-only.
   appleSub      String?   @unique
+  // Sign in with Apple (plan phase 5, T4): refresh token de Apple, CIFRADO en
+  // reposo (ADR-013, AES-GCM vía ICryptoService). Se guarda cuando el cliente
+  // envía el `authorizationCode` y se usa solo para revocar al eliminar la
+  // cuenta. Nullable, additive-only; vive junto a `appleSub` porque es de la
+  // misma identidad Apple y se destruye con la fila del User.
+  appleRefreshToken String?
   creadoEn      DateTime  @default(now())
   accounts      Account[]
   sessions      Session[]
