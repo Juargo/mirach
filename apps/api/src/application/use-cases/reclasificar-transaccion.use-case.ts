@@ -8,8 +8,7 @@ import {
 
 /** Unión de errores de `ReclasificarTransaccionUseCase`. */
 export type ReclasificarTransaccionError =
-  | CategoriaDesconocidaError
-  | TransaccionNoEncontradaError;
+  CategoriaDesconocidaError | TransaccionNoEncontradaError;
 
 /**
  * ReclasificarTransaccionUseCase — use case de escritura para la

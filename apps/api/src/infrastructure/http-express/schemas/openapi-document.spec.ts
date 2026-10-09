@@ -92,8 +92,7 @@ describe('buildOpenApiDocument', () => {
     expect(ingestasPath).toBeDefined();
     expect(ingestasPath?.post).toBeDefined();
     const requestBody = ingestasPath?.post?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['multipart/form-data']).toBeDefined();
     expect(ingestasPath?.post?.responses?.['200']).toBeDefined();
   });
@@ -105,8 +104,7 @@ describe('buildOpenApiDocument', () => {
     expect(previewPath).toBeDefined();
     expect(previewPath?.post).toBeDefined();
     const requestBody = previewPath?.post?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['multipart/form-data']).toBeDefined();
     expect(previewPath?.post?.responses?.['200']).toBeDefined();
   });
@@ -149,8 +147,7 @@ describe('buildOpenApiDocument', () => {
     expect(loginPath).toBeDefined();
     expect(loginPath?.post).toBeDefined();
     const requestBody = loginPath?.post?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['application/json']).toBeDefined();
     expect(loginPath?.post?.responses?.['200']).toBeDefined();
     expect(loginPath?.post?.responses?.['401']).toBeDefined();
@@ -180,8 +177,7 @@ describe('buildOpenApiDocument', () => {
       ]),
     );
     const requestBody = categoriaPath?.patch?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['application/json']).toBeDefined();
     expect(categoriaPath?.patch?.responses?.['200']).toBeDefined();
     expect(categoriaPath?.patch?.responses?.['400']).toBeDefined();
@@ -205,8 +201,7 @@ describe('buildOpenApiDocument', () => {
     expect(perfilPath).toBeDefined();
     expect(perfilPath?.patch).toBeDefined();
     const requestBody = perfilPath?.patch?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['application/json']).toBeDefined();
     expect(perfilPath?.patch?.responses?.['200']).toBeDefined();
     expect(perfilPath?.patch?.responses?.['400']).toBeDefined();
@@ -221,8 +216,7 @@ describe('buildOpenApiDocument', () => {
     expect(passwordPath).toBeDefined();
     expect(passwordPath?.patch).toBeDefined();
     const requestBody = passwordPath?.patch?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['application/json']).toBeDefined();
     expect(passwordPath?.patch?.responses?.['204']).toBeDefined();
     expect(passwordPath?.patch?.responses?.['400']).toBeDefined();
@@ -237,8 +231,7 @@ describe('buildOpenApiDocument', () => {
     expect(vincularPath).toBeDefined();
     expect(vincularPath?.post).toBeDefined();
     const requestBody = vincularPath?.post?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['application/json']).toBeDefined();
     expect(vincularPath?.post?.responses?.['200']).toBeDefined();
     expect(vincularPath?.post?.responses?.['400']).toBeDefined();
@@ -256,8 +249,7 @@ describe('buildOpenApiDocument', () => {
     expect(desvincularPath).toBeDefined();
     expect(desvincularPath?.post).toBeDefined();
     const requestBody = desvincularPath?.post?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['application/json']).toBeDefined();
     expect(desvincularPath?.post?.responses?.['204']).toBeDefined();
     expect(desvincularPath?.post?.responses?.['400']).toBeDefined();
@@ -327,8 +319,7 @@ describe('buildOpenApiDocument', () => {
     expect(commitPath).toBeDefined();
     expect(commitPath?.post).toBeDefined();
     const requestBody = commitPath?.post?.requestBody as
-      | { content?: Record<string, unknown> }
-      | undefined;
+      { content?: Record<string, unknown> } | undefined;
     expect(requestBody?.content?.['multipart/form-data']).toBeDefined();
     expect(commitPath?.post?.responses?.['201']).toBeDefined();
     expect(commitPath?.post?.responses?.['400']).toBeDefined();
@@ -381,8 +372,7 @@ describe('buildOpenApiDocument', () => {
 
     const postOp = document.paths?.['/api/movimientos']?.post;
     const requestBody = postOp?.requestBody as
-      | { content: Record<string, unknown> }
-      | undefined;
+      { content: Record<string, unknown> } | undefined;
     expect(requestBody).toBeDefined();
     expect(requestBody?.content?.['application/json']).toBeDefined();
   });
@@ -409,8 +399,7 @@ describe('buildOpenApiDocument', () => {
       | { content: { 'application/json': { schema: { anyOf: unknown[] } } } }
       | undefined;
     const schema = requestBody?.content?.['application/json']?.schema as
-      | { anyOf?: Array<{ additionalProperties?: boolean }> }
-      | undefined;
+      { anyOf?: Array<{ additionalProperties?: boolean }> } | undefined;
 
     expect(schema?.anyOf).toBeDefined();
     expect(schema?.anyOf?.length).toBeGreaterThanOrEqual(2);
@@ -436,8 +425,7 @@ describe('buildOpenApiDocument', () => {
       | { content: { 'application/json': { schema: { anyOf: unknown[] } } } }
       | undefined;
     const schema = requestBody?.content?.['application/json']?.schema as
-      | { anyOf?: Array<{ required?: string[] }> }
-      | undefined;
+      { anyOf?: Array<{ required?: string[] }> } | undefined;
 
     expect(schema?.anyOf).toBeDefined();
     // Find the Gasto variant by its discriminant rather than by position.
@@ -458,8 +446,7 @@ describe('buildOpenApiDocument', () => {
     // zod-openapi hoists named schemas to components/schemas (via .meta({ id })).
     // The 201 body schema is a $ref to RegistrarMovimientoManualResponse — navigate there.
     const components = document.components as
-      | Record<string, Record<string, { required?: string[] }>>
-      | undefined;
+      Record<string, Record<string, { required?: string[] }>> | undefined;
     const responseSchema =
       components?.schemas?.['RegistrarMovimientoManualResponse'];
     const required = responseSchema?.required ?? [];
@@ -487,8 +474,7 @@ describe('buildOpenApiDocument', () => {
     expect(reevaluarPath?.post?.responses?.['500']).toBeDefined();
 
     const components = document.components as
-      | Record<string, Record<string, { required?: string[] }>>
-      | undefined;
+      Record<string, Record<string, { required?: string[] }>> | undefined;
     const responseSchema = components?.schemas?.['ReevaluarCategoriasResponse'];
     expect(responseSchema?.required).toContain('transaccionesEvaluadas');
     expect(responseSchema?.required).toContain('transaccionesActualizadas');
@@ -597,8 +583,7 @@ describe('buildOpenApiDocument', () => {
       const responses = (operation as { responses?: Record<string, Json> })
         .responses;
       const content = responses?.[status]?.content as
-        | Record<string, { schema?: { $ref?: string } }>
-        | undefined;
+        Record<string, { schema?: { $ref?: string } }> | undefined;
       return content?.['application/json']?.schema?.$ref;
     }
 
