@@ -14,9 +14,7 @@ const NOMBRE_MIN = 1;
 const NOMBRE_MAX = 80;
 
 export type ActualizarPerfilError =
-  | NombrePerfilInvalidoError
-  | EmailInvalidoError
-  | PerfilRechazadoError; // EmailNoDisponibleError NO aparece: se colapsa acá (D-04)
+  NombrePerfilInvalidoError | EmailInvalidoError | PerfilRechazadoError; // EmailNoDisponibleError NO aparece: se colapsa acá (D-04)
 
 /**
  * ActualizarPerfilUseCase — `PATCH /api/perfil` (US-040, PERF040-01/02/03/04/07/08).

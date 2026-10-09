@@ -7,8 +7,7 @@ import { PerfilRechazadoError } from '../../domain/errors/perfil-rechazado.error
 import { VinculoRequierePasswordError } from '../../domain/errors/vinculo-requiere-password.error';
 
 export type DesvincularGoogleError =
-  | VinculoRequierePasswordError
-  | PerfilRechazadoError;
+  VinculoRequierePasswordError | PerfilRechazadoError;
 
 /**
  * DesvincularGoogleUseCase — `POST /api/perfil/google/desvincular`

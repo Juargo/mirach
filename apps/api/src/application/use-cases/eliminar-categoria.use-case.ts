@@ -5,8 +5,7 @@ import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-in
 import { seleccionarCategoriaInterna } from '../services/categoria-por-defecto';
 
 export type EliminarCategoriaError =
-  | CategoriaNoEncontradaError
-  | CategoriaInternaProtegidaError;
+  CategoriaNoEncontradaError | CategoriaInternaProtegidaError;
 
 /**
  * EliminarCategoriaUseCase — use case de escritura para

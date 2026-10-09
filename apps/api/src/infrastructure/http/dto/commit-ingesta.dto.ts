@@ -15,9 +15,7 @@ import type { CommitIngestaResult } from '../../../application/use-cases/commit-
 // ---------------------------------------------------------------------------
 
 type ParseFailureCause =
-  | 'json-invalido'
-  | 'no-es-arreglo'
-  | 'elemento-invalido';
+  'json-invalido' | 'no-es-arreglo' | 'elemento-invalido';
 
 const CAUSE_MESSAGES: Record<ParseFailureCause, string> = {
   'json-invalido': 'el campo edits no es un JSON válido',

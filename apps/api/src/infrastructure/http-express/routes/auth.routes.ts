@@ -37,8 +37,7 @@ export function registrarAuthPublic(
   router.post('/auth/login', async (req, res, next) => {
     try {
       const body = req.body as
-        | { email?: unknown; password?: unknown }
-        | undefined;
+        { email?: unknown; password?: unknown } | undefined;
       const email = typeof body?.email === 'string' ? body.email : '';
       const password = typeof body?.password === 'string' ? body.password : '';
       const ip = getClientIp(req);

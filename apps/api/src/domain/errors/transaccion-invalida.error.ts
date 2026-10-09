@@ -11,9 +11,7 @@
  * respuestas HTTP. Solo se reporta la categoría del problema vía `motivo`.
  */
 export type MotivoTransaccionInvalida =
-  | 'MONTO_NEGATIVO'
-  | 'SIN_MONTOS'
-  | 'CARGO_Y_ABONO';
+  'MONTO_NEGATIVO' | 'SIN_MONTOS' | 'CARGO_Y_ABONO';
 
 export class TransaccionInvalidaError extends Error {
   readonly motivo: MotivoTransaccionInvalida;

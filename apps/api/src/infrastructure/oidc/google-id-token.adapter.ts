@@ -26,8 +26,7 @@ export const ID_TOKEN_HTTP_TIMEOUT_MS = 10_000;
 export interface ClienteVerificadorIdToken {
   verifyIdToken(opciones: { idToken: string; audience: string[] }): Promise<{
     getPayload():
-      | { sub?: string; email?: string; email_verified?: boolean }
-      | undefined;
+      { sub?: string; email?: string; email_verified?: boolean } | undefined;
   }>;
 }
 
