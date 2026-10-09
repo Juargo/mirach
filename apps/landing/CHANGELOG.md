@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/Juargo/mirach/compare/landing-v0.3.2...landing-v0.4.0) (2026-10-09)
+
+
+### Features
+
+* **landing:** drop hero CTAs and show real app screenshots ([8e9563d](https://github.com/Juargo/mirach/commit/8e9563d9fc04304a449c43ea77d6fd99f8fd1141))
+* **landing:** drop hero CTAs, show real screenshots and remove contact email ([d86789f](https://github.com/Juargo/mirach/commit/d86789f87f1c43132db65409a51efb28f32fb493))
+* **landing:** explain needs, wants and savings under how-it-works ([49e3834](https://github.com/Juargo/mirach/commit/49e3834ecbdce7a174b7e17efa461804dfcebcf6))
+* **landing:** explain needs, wants and savings under how-it-works ([91ca3e1](https://github.com/Juargo/mirach/commit/91ca3e15b4381f9465edb90b2124c2cd2cfbf95f))
+* **landing:** remove every contact email reference ([e8cf39f](https://github.com/Juargo/mirach/commit/e8cf39f75c14deeea1d9b89ea0b05e2ea1eea47a))
+
+
+### Refactors
+
+* **api:** remove the demo entry point and cleanup job ([c764850](https://github.com/Juargo/mirach/commit/c76485060be5a0b062bfbe38a021ecbe1f64b745))
+* **landing:** drop the demo call to action ([f366a4b](https://github.com/Juargo/mirach/commit/f366a4bc9bab74d421f1121db3163d03ec422fd0))
+
 ## [0.3.2](https://github.com/Juargo/MoneyDiary/compare/landing-v0.3.1...landing-v0.3.2) (2026-09-21)
 
 
