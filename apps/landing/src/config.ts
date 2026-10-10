@@ -58,3 +58,13 @@ export const PRIVACY = {
   url: '/privacidad',
   label: 'Política de privacidad',
 } as const;
+
+export const SUPPORT = {
+  url: '/soporte',
+  label: 'Soporte',
+} as const;
+
+/** Public contact address for privacy and support requests. */
+export const CONTACT = {
+  email: 'jorgeretamalaburto@gmail.com',
+} as const;
