@@ -36,10 +36,10 @@ User, 2026-10-09: approach A. One reviewer account that signs in with email and 
 ## Progress
 
 - 2026-10-09: feature document created; worktree `~/dev/mirach-worktrees/review-api`.
-
 - 2026-10-09 T1 (`35934be`): RED login.use-case.spec (2 of 4 new allowlist tests failed: unset and other-email still logged in), env.spec (4 failed), app.auth-capabilities.spec (8 failed) and schema spec (5 failed); GREEN after `LoginUseCase` got the allowlisted `Email | null`, `REVIEW_LOGIN_EMAIL` in env.ts, `passwordLoginEnabled` in the route and schema. Full unit suite 299 files / 3157 tests green, tsc, lint, `openapi:check`, `env:example:check` green; Swift client regenerated (only `Types+Components+Schemas.swift` changed); ADR-051 added.
 - 2026-10-09 T2 (`5f5f008`): RED cartola-revision.fixture.spec and crear-usuario-revision.spec failed on missing modules (then one RED on the fixed-message wrapping of a sample-load failure); GREEN with the generator, fixture and script (18 new tests). Full unit suite 301 files / 3175 tests green. Manual run against a throwaway local Postgres: first run created user + 16 categories + 1 ingesta + 28 transactions, second run only refreshed the hash, a wrong key aborted before writing, a Supabase URL was refused by the gate.
 - `cartola-ejemplo.xlsx` (iOS UI fixture) parses with the real BCI parser (15 rows, all April 2026), but a new `apps/api/prisma/fixtures/cartola-revision.xlsx` (Sep-Oct 2026, 28 rows) is used for the reviewer so Resumen shows recent data.
+- 2026-10-09 review (4 lenses, consent granted): T1+T2 approved and acknowledged; risk lens found nothing. Advisory: `crear-auth.ts` threw at boot if zod and the `Email` VO disagreed on `REVIEW_LOGIN_EMAIL` → fixed in `4bce1e8` (fail closed + warn; RED "Cannot get value of a failed Result", GREEN 3176/3176), fix reviewed and acknowledged. Open advisories (non-blocking): the fix test asserts only no-throw, not that login is refused; fixture test naming; script TOCTOU on concurrent runs.
 
 ## Next step
 
