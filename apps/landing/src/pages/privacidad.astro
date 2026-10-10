@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import { SITE } from '../config';
+import { SITE, CONTACT } from '../config';
 ---
 
 <Layout title={`Política de privacidad — ${SITE.title}`}>
@@ -15,19 +15,50 @@ import { SITE } from '../config';
         Política de privacidad
       </h1>
       <p class="mt-4 text-body-sm text-on-surface-variant">
-        Última actualización: 8 de agosto de 2026
+        Última actualización: 9 de octubre de 2026
       </p>
 
       <div class="mt-10 space-y-8 text-body-sm leading-relaxed text-on-surface-variant">
         <section>
           <h2 class="font-display text-title-md font-bold text-on-surface">
-            Qué datos almacenamos
+            Quién es responsable
           </h2>
           <p class="mt-2">
-            Guardamos los datos necesarios para acceder a tu cuenta y los
-            movimientos bancarios que subes voluntariamente desde tus
-            cartolas en formato Excel o PDF. No accedemos a información
-            bancaria que no hayas cargado tú mismo.
+            El responsable del tratamiento de tus datos es el equipo que desarrolla Mirach, la aplicación para iPhone, y este sitio web. Para cualquier consulta sobre privacidad escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Qué datos recogemos y para qué
+          </h2>
+          <p class="mt-2">
+            Recogemos solo lo necesario para que la aplicación funcione:
+          </p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li><strong class="text-on-surface">Datos de cuenta:</strong> tu nombre, tu correo electrónico y un identificador de usuario que entrega Apple. Los usamos para crear tu cuenta y reconocerte cuando vuelves a entrar.</li>
+            <li><strong class="text-on-surface">Datos financieros:</strong> los movimientos de las cartolas bancarias que subes tú mismo (fecha, descripción, monto y banco), además de las categorías y los patrones de clasificación que creas. Los usamos para clasificar tus gastos y mostrarte tu resumen.</li>
+          </ul>
+          <p class="mt-2">
+            No accedemos a información bancaria que no hayas cargado tú, no nos conectamos a tu banco y no pedimos ni guardamos tus claves bancarias.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Inicio de sesión con Apple
+          </h2>
+          <p class="mt-2">
+            En la aplicación para iPhone inicias sesión únicamente con Apple. Recibimos de Apple el identificador de usuario y, en tu primer acceso, tu nombre y tu correo (que puede ser el correo privado de retransmisión que Apple te ofrece). No recibimos tu contraseña de Apple. Guardamos además un token de Apple, cifrado, solo para poder revocar el acceso de la aplicación a tu cuenta de Apple cuando eliminas tu cuenta.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Datos financieros de tus cartolas
+          </h2>
+          <p class="mt-2">
+            Las cartolas que subes se procesan para extraer los movimientos. Los datos extraídos se asocian únicamente a tu cuenta y ningún otro usuario puede acceder a ellos. Puedes eliminarlos junto con tu cuenta en cualquier momento (ver más abajo).
           </p>
         </section>
 
@@ -36,9 +67,7 @@ import { SITE } from '../config';
             Cómo protegemos tus datos
           </h2>
           <p class="mt-2">
-            Tus datos se almacenan cifrados en reposo. Los campos más
-            sensibles llevan además una capa adicional de cifrado a nivel de
-            aplicación.
+            La base de datos está cifrada en reposo. Además, el correo electrónico, la descripción de los movimientos y el número de cuenta se cifran a nivel de aplicación (AES-256-GCM) con una clave que se guarda fuera de la base de datos. La comunicación con el servidor usa HTTPS. Ningún sistema es infalible, pero aplicamos estas medidas para reducir el riesgo.
           </p>
         </section>
 
@@ -47,18 +76,41 @@ import { SITE } from '../config';
             Dónde se alojan tus datos
           </h2>
           <p class="mt-2">
-            MoneyDiary funciona sobre proveedores de infraestructura en la
-            nube. No operamos servidores propios.
+            No operamos servidores propios. Usamos Render para el servidor de la aplicación, Supabase (PostgreSQL) para la base de datos y Vercel para este sitio web. Estos proveedores tratan los datos solo para prestarnos el servicio de alojamiento.
           </p>
         </section>
 
         <section>
           <h2 class="font-display text-title-md font-bold text-on-surface">
-            No vendemos tus datos
+            Sin seguimiento, publicidad ni venta de datos
           </h2>
           <p class="mt-2">
-            No vendemos tus datos ni los compartimos con terceros con fines
-            comerciales.
+            No vendemos tus datos ni los compartimos con terceros con fines comerciales. La aplicación no incluye publicidad, no te rastrea entre otras aplicaciones o sitios web y no usa herramientas de analítica de terceros. Este sitio web tampoco usa cookies de seguimiento ni analítica.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Conservación y eliminación de tu cuenta
+          </h2>
+          <p class="mt-2">
+            Conservamos tus datos mientras mantengas tu cuenta. Puedes eliminarla en cualquier momento desde la aplicación: Perfil, Eliminar cuenta, y escribe ELIMINAR para confirmar. Al hacerlo:
+          </p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li>se revoca el acceso de la aplicación a tu cuenta de Apple (Iniciar sesión con Apple);</li>
+            <li>se borran de la base de datos activa tu cuenta, tus sesiones, tus movimientos, tus cuentas bancarias cargadas, tus categorías y tus patrones de clasificación.</li>
+          </ul>
+          <p class="mt-2">
+            La eliminación es inmediata e irreversible. Si necesitas ayuda o tienes dudas sobre copias de seguridad de nuestros proveedores, escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Tus derechos
+          </h2>
+          <p class="mt-2">
+            Puedes pedirnos acceso, rectificación o eliminación de tus datos personales. La eliminación puedes hacerla tú mismo desde la aplicación; para cualquier otra solicitud escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
           </p>
         </section>
 
@@ -67,8 +119,7 @@ import { SITE } from '../config';
             Estado beta
           </h2>
           <p class="mt-2">
-            MoneyDiary está en fase beta. Esta política puede actualizarse a
-            medida que el producto evoluciona.
+            Mirach está en fase beta. Esta política puede actualizarse a medida que el producto evoluciona; la fecha de la última actualización figura arriba.
           </p>
         </section>
       </div>

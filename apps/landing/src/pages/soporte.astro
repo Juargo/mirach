@@ -1,0 +1,68 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE, CONTACT, PRIVACY } from '../config';
+---
+
+<Layout title={`Soporte — ${SITE.title}`}>
+  <Header />
+  <main id="main" class="scroll-mt-20 px-6 py-16 sm:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-display text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
+      >
+        Soporte
+      </h1>
+      <p class="mt-4 text-body-sm text-on-surface-variant">
+        Ayuda y contacto
+      </p>
+
+      <div class="mt-10 space-y-8 text-body-sm leading-relaxed text-on-surface-variant">
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Qué es Mirach
+          </h2>
+          <p class="mt-2">
+            Mirach es una aplicación de finanzas personales para Chile: subes tus cartolas bancarias y la aplicación clasifica tus gastos con la regla 50/30/20.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Contacto
+          </h2>
+          <p class="mt-2">
+            Para consultas, problemas o solicitudes escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Preguntas frecuentes
+          </h2>
+          <dl class="mt-2 space-y-5">
+            <div>
+              <dt class="font-semibold text-on-surface">¿Cómo inicio sesión?</dt>
+              <dd class="mt-1">En la aplicación para iPhone inicias sesión con Apple. No necesitas crear una contraseña.</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-on-surface">¿Qué bancos y archivos son compatibles?</dt>
+              <dd class="mt-1">Trabajamos con cartolas de BancoEstado, Banco de Chile, BCI y Santander, en formato Excel o PDF.</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-on-surface">¿Cómo elimino mi cuenta?</dt>
+              <dd class="mt-1">En la aplicación ve a Perfil, Eliminar cuenta y escribe ELIMINAR para confirmar. Se borran tu cuenta y todos tus datos, y se revoca el acceso de la aplicación a tu cuenta de Apple.</dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-on-surface">¿Qué datos guardan y cómo los protegen?</dt>
+              <dd class="mt-1">Lo detallamos en la <a href={PRIVACY.url} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{PRIVACY.label}</a>.</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>

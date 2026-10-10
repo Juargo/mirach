@@ -1,5 +1,5 @@
 ---
-import { APP, SITE } from '../config';
+import { SITE } from '../config';
 ---
 
 <header
@@ -15,17 +15,9 @@ import { APP, SITE } from '../config';
         class="h-9 w-auto sm:h-10"
       />
       <span class="font-display text-xl font-bold leading-none">
-        <span class="text-on-surface">Money</span><span class="text-primary">Diary</span>
+        <span class="text-primary">Mirach</span>
       </span>
     </a>
-    <nav class="flex items-center gap-3 sm:gap-4" aria-label="Acceso">
-      <a
-        href={APP.loginHref}
-        class="inline-flex min-h-[44px] items-center justify-center rounded px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-5 sm:py-2"
-      >
-        {APP.label}
-      </a>
-    </nav>
   </div>
 </header>
 

@@ -1,7 +1,7 @@
 # apps/landing — Notas técnicas (gotchas)
 
 Landing en Astro 100 % estático, workspace propio desplegado como proyecto Vercel
-independiente bajo el dominio raíz `moneydiary.cl` (ADR-025).
+independiente bajo el dominio raíz `mirachbudget.app` (marca Mirach).
 
 ## Tailwind 4 (CSS-first)
 

@@ -1,5 +1,5 @@
 ---
-import { PRIVACY } from '../config';
+import { PRIVACY, SUPPORT } from '../config';
 const year = new Date().getFullYear();
 ---
 
@@ -14,9 +14,15 @@ const year = new Date().getFullYear();
       >
         {PRIVACY.label}
       </a>
+      <a
+        href={SUPPORT.url}
+        class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        {SUPPORT.label}
+      </a>
     </nav>
     <p class="text-body-sm text-on-surface-variant">
-      &copy; {year} MoneyDiary. Todos los derechos reservados.
+      &copy; {year} Mirach. Todos los derechos reservados.
     </p>
   </div>
 </footer>
