@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://moneydiary.cl/sitemap-index.xml
+Sitemap: https://mirachbudget.app/sitemap-index.xml

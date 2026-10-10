@@ -1,25 +1,9 @@
 export const SITE = {
-  title: 'MoneyDiary',
+  title: 'Mirach',
   description:
-    'Controla tus finanzas personales con la regla 50/30/20. MoneyDiary analiza tus gastos bancarios y te muestra exactamente a dónde va tu dinero.',
-  url: 'https://moneydiary.cl',
+    'Controla tus finanzas personales con la regla 50/30/20. Mirach, la app para iPhone, analiza tus gastos bancarios y te muestra exactamente a dónde va tu dinero.',
+  url: 'https://mirachbudget.app',
   ogImage: '/og-image.png',
-  twitter: '@moneydiary',
-} as const;
-
-const APP_URL = import.meta.env.PUBLIC_APP_URL ?? 'http://localhost:5173';
-
-export const APP = {
-  /** Web app URL, resuelto por ambiente en build (Astro estático). Prod/preview:
-   * `PUBLIC_APP_URL` (seteada en el proyecto Vercel del landing =
-   * `https://app.moneydiary.cl`); dev: fallback al server local (`pnpm web dev`).
-   * De acá deriva "Ingresar" (`APP`), así que en prod apunta al web correcto. */
-  url: APP_URL,
-  /** Destino del CTA "Ingresar": la ruta `/login`, no la raíz de la app —
-   * apuntar a la raíz permitía que una cookie de sesión demo residual saltara
-   * directo al dashboard sin pasar por el formulario de login (bugfix). */
-  loginHref: `${APP_URL}/login`,
-  label: 'Ingresar',
 } as const;
 
 export interface FAQItem {
@@ -29,28 +13,24 @@ export interface FAQItem {
 
 export const FAQ_ITEMS: FAQItem[] = [
   {
-    q: '¿Qué es MoneyDiary y cómo funciona?',
-    a: 'MoneyDiary es una aplicación que te ayuda a controlar tus finanzas personales usando la regla 50/30/20. Solo subes tu cartola bancaria en formato Excel y nosotros clasificamos automáticamente tus gastos en Necesidades, Deseos y Ahorro.',
+    q: '¿Qué es Mirach y cómo funciona?',
+    a: 'Mirach es una aplicación para iPhone que te ayuda a controlar tus finanzas personales usando la regla 50/30/20. Solo subes tu cartola bancaria en formato Excel o PDF y nosotros clasificamos automáticamente tus gastos en Necesidades, Deseos y Ahorro.',
   },
   {
     q: '¿Mis datos bancarios están seguros?',
-    a: 'Sí. MoneyDiary no se conecta directamente a tu banco ni almacena credenciales. Solo procesas archivos que tú subes voluntariamente. Tus datos se cifran y puedes eliminarlos en cualquier momento.',
+    a: 'Sí. Mirach no se conecta directamente a tu banco ni almacena credenciales. Solo procesamos archivos que tú subes voluntariamente. Tus datos se cifran y puedes eliminarlos en cualquier momento.',
   },
   {
     q: '¿Qué bancos son compatibles?',
-    a: 'Actualmente trabajamos con BancoEstado, Banco de Chile, BCI y Santander, que cubren a más del 90% de los usuarios en Chile. Si tu banco no está en la lista, escríbenos y lo agregaremos.',
+    a: 'Actualmente trabajamos con BancoEstado, Banco de Chile, BCI y Santander. Si tu banco no está en la lista, escríbenos y lo agregaremos.',
   },
   {
     q: '¿La regla 50/30/20 se adapta a mi realidad?',
-    a: 'Totalmente. La regla es solo un punto de partida. MoneyDiary te muestra cómo distribuyes tus gastos y te permite ajustar los porcentajes según tus metas y estilo de vida.',
+    a: 'Totalmente. La regla es solo un punto de partida. Mirach te muestra cómo distribuyes tus gastos y te permite ajustar los porcentajes según tus metas y estilo de vida.',
   },
   {
-    q: '¿MoneyDiary es gratis?',
-    a: 'Estamos en fase beta y el acceso es completamente gratuito. Queremos validar el producto con usuarios reales antes de definir un modelo de suscripción. Al registrarte en la beta, tendrás acceso prioritario.',
-  },
-  {
-    q: '¿Puedo usar MoneyDiary desde el celular?',
-    a: 'Sí. MoneyDiary está optimizado para funcionar en cualquier navegador móvil. Además, estamos desarrollando una app nativa para iOS y Android que estará disponible próximamente.',
+    q: '¿Dónde puedo usar Mirach?',
+    a: 'Mirach es una app nativa para iPhone (iOS 17 o superior) y estará disponible próximamente en el App Store. Inicias sesión con Sign in with Apple.',
   },
 ];
 

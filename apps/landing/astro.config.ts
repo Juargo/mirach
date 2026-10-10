@@ -16,7 +16,7 @@ import sitemap from '@astrojs/sitemap';
 // 2. `compressHTML` cambió su default de `true` a `'jsx'`: el whitespace se
 //    recorta con reglas JSX, no HTML.
 export default defineConfig({
-  site: 'https://moneydiary.cl',
+  site: 'https://mirachbudget.app',
   output: 'static',
   integrations: [sitemap()],
   vite: {
