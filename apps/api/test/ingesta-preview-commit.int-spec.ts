@@ -5,7 +5,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
-import { createContainer } from '../src/composition/container';
+import { createTestContainer } from './support/test-container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { loginAsSeededUser, type Sesion } from './support/login.e2e-helper';
@@ -286,7 +286,7 @@ describe('US-057 CA-01 — preview writes nothing to the DB (HTTP, PREV-EXT-02)'
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     sesion = await loginAsSeededUser(app);
   });
 
@@ -506,7 +506,7 @@ describe('US-057 CA-06 — commit isolation: cross-tenant categoriaId rejected (
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    appForA = createApp(createContainer(env, prisma), env);
+    appForA = createApp(createTestContainer(env, prisma), env);
 
     // Use the seeded user as user A (we can log in as them).
     // Catalog: fetch a categoriaId belonging to the seeded user.
@@ -747,7 +747,7 @@ describe('US-057 CA-02 — overlay persistence: committed rows carry categoriaId
       logger,
     );
 
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     sesion = await loginAsSeededUser(app);
 
     // Fetch a categoria belonging to the seeded user (USER = seed user)
@@ -1275,7 +1275,7 @@ describe('US-057 D-17 — decrypt regression: preview detects prior import dupli
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     sesion = await loginAsSeededUser(app);
     // Snapshot the seeded user's existing accounts so we only delete ones this
     // suite creates (never the seeded user's pre-existing data).

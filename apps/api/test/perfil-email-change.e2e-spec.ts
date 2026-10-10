@@ -15,7 +15,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
-import { createContainer } from '../src/composition/container';
+import { createTestContainer } from './support/test-container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
@@ -45,7 +45,7 @@ describe('THE BINDING E2E — email change proves the ciphertext/blind-index inv
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     // buildEncryptedEmailFields cifra + computa el blind index EXACTAMENTE

@@ -29,7 +29,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
-import { createContainer } from '../src/composition/container';
+import { createTestContainer } from './support/test-container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv, type Env } from '../src/config/env';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
@@ -66,7 +66,7 @@ describe('BucketDetalleMes (e2e) — GET /api/buckets/:bucket/detalle', () => {
     env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     sesion = await loginAsSeededUser(app);
     // Misma clave que container.ts — NO la de test/support/env.fixture.ts
     // (mismo patrón probado que ingesta/movimientos e2e, ADR-013).

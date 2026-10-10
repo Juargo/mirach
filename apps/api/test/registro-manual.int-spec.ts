@@ -34,7 +34,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
-import { createContainer } from '../src/composition/container';
+import { createTestContainer } from './support/test-container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv, type Env } from '../src/config/env';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
@@ -147,7 +147,7 @@ describe('MAN-01 / MAN-03 — domain validation end-to-end (scrubbed 400)', () =
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );
@@ -290,7 +290,7 @@ describe('MAN-02 — Ingreso auto-classification (no catalog call, stray bucket 
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );
@@ -397,7 +397,7 @@ describe('MAN-03 — Gasto cascade (catalog validation)', () => {
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );
@@ -551,7 +551,7 @@ describe('MAN-04 — Sentinel account idempotency (find-or-create)', () => {
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );
@@ -648,7 +648,7 @@ describe('CA-04 — delete-ingesta immunity (manual row with ingestaId=null surv
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );
@@ -766,7 +766,7 @@ describe('D-06 — Origen truthy branch (GET /api/ingresos/mes shows origen="Man
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );
@@ -850,7 +850,7 @@ describe('CA-05 / D-07 — resumen zero-reader-change (manual Gasto appears in b
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );
@@ -1071,7 +1071,7 @@ describe('ISO-01 / ISO-02 — user isolation (userId scoping, unauthenticated �
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     const crypto = new AesGcmCryptoService(
       Buffer.from(env.ENCRYPTION_KEY, 'base64'),
     );

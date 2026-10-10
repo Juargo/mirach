@@ -32,6 +32,7 @@ import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
 import { createContainer } from '../src/composition/container';
+import { createTestContainer } from './support/test-container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { Argon2PasswordHasher } from '../src/infrastructure/http/auth/argon2-password-hasher';
@@ -46,6 +47,8 @@ const PASSWORD = 'correcto-123-clave';
 
 describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
   let app: Express;
+  let appDefault: Express;
+  let appAllowlisted: Express;
   let prisma: PrismaClient;
   let userId: string;
 
@@ -55,7 +58,15 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
+    // ADR-051, production wiring: no REVIEW_LOGIN_EMAIL (the env of the test
+    // process leaves it unset) vs. the user's own email allowlisted.
+    appDefault = createApp(createContainer(env, prisma), env);
+    const envAllowlisted = { ...env, REVIEW_LOGIN_EMAIL: EMAIL };
+    appAllowlisted = createApp(
+      createContainer(envAllowlisted, prisma),
+      envAllowlisted,
+    );
 
     const passwordHash = await new Argon2PasswordHasher().hash(PASSWORD);
     // US-035: email cifrado en reposo — este helper cifra + computa el
@@ -231,6 +242,27 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
       .get('/api/auth/me')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieY)
+      .expect(200);
+  });
+
+  it('ADR-051: con el wiring de producción y sin REVIEW_LOGIN_EMAIL, las credenciales correctas → 401', async () => {
+    if (!ALLOW) return;
+    if (loadEnv().REVIEW_LOGIN_EMAIL !== undefined) return;
+
+    await request(appDefault)
+      .post('/api/auth/login')
+      .set('x-api-key', API_KEY)
+      .send({ email: EMAIL, password: PASSWORD })
+      .expect(401);
+  });
+
+  it('ADR-051: con REVIEW_LOGIN_EMAIL = el email del usuario (normalizado) → 200', async () => {
+    if (!ALLOW) return;
+
+    await request(appAllowlisted)
+      .post('/api/auth/login')
+      .set('x-api-key', API_KEY)
+      .send({ email: EMAIL.toUpperCase(), password: PASSWORD })
       .expect(200);
   });
 });

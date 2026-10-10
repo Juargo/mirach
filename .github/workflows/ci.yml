@@ -375,6 +375,9 @@ jobs:
       LOGIN_RATELIMIT_WINDOW_MS: '900000'
       SEED_USER_EMAIL: test@moneydiary.local
       SEED_USER_PASSWORD: local-ci-password-123
+      # ADR-051: password login is refused unless the email is allowlisted.
+      # The DAST readiness script logs in as the seed user, so allowlist it.
+      REVIEW_LOGIN_EMAIL: test@moneydiary.local
       NODE_ENV: test
       PORT: '3000'
       API_BASE_URL: http://localhost:3000
