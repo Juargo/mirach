@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.12.0](https://github.com/Juargo/mirach/compare/api-v0.11.0...api-v0.12.0) (2026-10-10)
+
+
+### Features
+
+* **api:** add a script to create the App Review user ([5f5f008](https://github.com/Juargo/mirach/commit/5f5f008f8d2972eae41f07fd13ad1ea85b5622db))
+* **api:** allow password login only for the review account ([35934be](https://github.com/Juargo/mirach/commit/35934be22c8358c5408ac933f34b8a40f549211a))
+* **api:** App Review account with allowlisted password login ([e853ab5](https://github.com/Juargo/mirach/commit/e853ab559b6f47fa3fa74c1511cc9e1adbb052d4))
+* **ios:** App Store privacy manifest, export compliance and app icon ([25c3953](https://github.com/Juargo/mirach/commit/25c395377b43bcc20b55433ef049c62ff2cca18c))
+
+
+### Bug Fixes
+
+* **api:** keep the API up when the review email fails domain validation ([4bce1e8](https://github.com/Juargo/mirach/commit/4bce1e847e26a3346f980b2a01caf8ee609957df))
+* **api:** let the CI test users log in under the review allowlist ([6c416bc](https://github.com/Juargo/mirach/commit/6c416bc7de2e3279f01412fadc773fb3f20a3638))
+
+
+### Documentation
+
+* **api:** describe detail groups as ordered by subtotal ([b2d5a2c](https://github.com/Juargo/mirach/commit/b2d5a2c0ebda33f1498447480e55972b099a7b2c))
+* **api:** describe detail groups as ordered by subtotal ([88399d3](https://github.com/Juargo/mirach/commit/88399d3c1412d02a40dc2d47b77a5a0837a9eb14))
+* mark Apple token revocation as live and fix the runbook bundle ID ([107e2cd](https://github.com/Juargo/mirach/commit/107e2cd0f58cbf3c22f162410ac360e615b84757))
+
 ## [0.11.0](https://github.com/Juargo/mirach/compare/api-v0.10.0...api-v0.11.0) (2026-10-09)
 
 
