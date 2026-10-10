@@ -122,6 +122,13 @@ services:
         value: "20"
       - key: LOGIN_RATELIMIT_WINDOW_MS
         value: "900000"
+      # Cuenta de App Review (ADR-051): único email que puede usar el login por
+      # contraseña (POST /api/auth/login). Opcional: sin ella, el login por
+      # contraseña se rechaza para todos y /api/auth/capabilities reporta
+      # passwordLoginEnabled=false. Setearla en el dashboard solo mientras dure
+      # la revisión de App Store; quitarla después de la aprobación.
+      - key: REVIEW_LOGIN_EMAIL
+        sync: false
       # CORS allowlist (ADR-029): orígenes de navegador autorizados a leer
       # respuestas cross-origin. Las apps nativas no usan CORS y el web está
       # dormido (ADR-046, D5), así que va VACÍA a propósito. Vacía y explícita:

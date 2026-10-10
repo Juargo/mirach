@@ -2,7 +2,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/infrastructure/http-express/app';
-import { createContainer } from '../src/composition/container';
+import { createTestContainer } from './support/test-container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv, type Env } from '../src/config/env';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
@@ -49,7 +49,7 @@ describe('MovimientosController (e2e) — GET /api/movimientos', () => {
     env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     // Session-protected endpoint: log in as USER_ID_FIJO (= FIXED_USER_ID)
     // so req.userId matches the seeded rows below — otherwise every
     // happy-path assertion would silently degrade to an empty-response

@@ -37,7 +37,7 @@ import type { Express } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { join } from 'path';
 import { createApp } from '../src/infrastructure/http-express/app';
-import { createContainer } from '../src/composition/container';
+import { createTestContainer } from './support/test-container';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
@@ -88,7 +88,7 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     const env = loadEnv();
     prisma = createPrismaClient(env);
     await prisma.$connect();
-    app = createApp(createContainer(env, prisma), env);
+    app = createApp(createTestContainer(env, prisma), env);
     // US-036/US-035: `createContainer` cablea AesGcmCryptoService con la
     // clave de RUNTIME (env.ENCRYPTION_KEY, aleatoria en CI) — los seeds de
     // `descripcion`/`numeroCuenta` de abajo deben cifrarse con esa MISMA

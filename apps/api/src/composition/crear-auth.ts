@@ -6,6 +6,7 @@ import type { IBlindIndexService } from '../application/ports/blind-index-servic
 import type { ILogger } from '../application/ports/logger.port';
 
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
+import { Email } from '../domain/value-objects/email';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identidad.use-case';
@@ -63,6 +64,7 @@ export function crearAuth(
     | 'LOGIN_RATELIMIT_MAX_EMAIL'
     | 'LOGIN_RATELIMIT_MAX_IP'
     | 'LOGIN_RATELIMIT_WINDOW_MS'
+    | 'REVIEW_LOGIN_EMAIL'
   >,
   crypto: ICryptoService,
   blindIndex: IBlindIndexService,
@@ -75,9 +77,33 @@ export function crearAuth(
   const sessions = new PrismaSessionRepository(prisma);
   const creds = new PrismaUserCredentialRepository(prisma, crypto, blindIndex);
 
+  // ADR-051: env.ts validates the address with zod, the domain with its own
+  // regex. If they ever disagree, fail closed (password login refused for all)
+  // instead of throwing while the container is built, which would take the
+  // whole API down. The address itself is never logged.
+  let emailPermitido: Email | null = null;
+  if (env.REVIEW_LOGIN_EMAIL !== undefined) {
+    const parsed = Email.crear(env.REVIEW_LOGIN_EMAIL);
+    if (parsed.isOk()) {
+      emailPermitido = parsed.getValue();
+    } else {
+      logger.warn(
+        'REVIEW_LOGIN_EMAIL is not a valid email for the domain: password login stays disabled',
+      );
+    }
+  }
+
   return {
     validarSesion: new ValidarSesionUseCase(sessions, tokens, reloj, logger),
-    login: new LoginUseCase(creds, hasher, sessions, tokens, reloj, logger),
+    login: new LoginUseCase(
+      creds,
+      hasher,
+      sessions,
+      tokens,
+      reloj,
+      logger,
+      emailPermitido,
+    ),
     logout: new LogoutUseCase(sessions, tokens, logger),
     obtenerIdentidad: new ObtenerIdentidadUseCase(creds, logger),
     loginRateLimiter: new LoginRateLimiter({

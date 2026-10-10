@@ -51,3 +51,21 @@ describe('crearAuth — mapeo env.LOGIN_RATELIMIT_* -> RateLimitConfig', () => {
     });
   });
 });
+
+describe('crearAuth — REVIEW_LOGIN_EMAIL (ADR-051)', () => {
+  it('un email que el value object rechaza no tumba el arranque: el login por contraseña queda cerrado', () => {
+    // env.ts valida con zod y el dominio con su propio regex. Si algún día
+    // divergen, construir el container no debe lanzar (dejaría la API caída).
+    const env = buildTestEnv({ REVIEW_LOGIN_EMAIL: 'sin-arroba' });
+
+    expect(() =>
+      crearAuth(
+        {} as unknown as PrismaClient,
+        env,
+        fakeCrypto,
+        fakeBlindIndex,
+        new NoOpLogger(),
+      ),
+    ).not.toThrow();
+  });
+});

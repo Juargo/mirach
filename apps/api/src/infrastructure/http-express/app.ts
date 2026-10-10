@@ -139,6 +139,7 @@ export function createApp(container: Container, env: Env): Express {
     googleAuth: container.googleAuth,
     googleAuthMobile: container.googleAuthMobile,
     appleAuth: container.appleAuth,
+    passwordLoginEnabled: env.REVIEW_LOGIN_EMAIL !== undefined,
   });
   app.use('/api', authPublicApi);
 

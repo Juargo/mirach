@@ -200,6 +200,15 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Contenido PEM de la clave `.p8` (secreto; admite `\\n` literales en una sola línea). Opcional; ver APPLE_TEAM_ID. Nunca se loguea.',
     ),
+  REVIEW_LOGIN_EMAIL: z
+    .string()
+    .trim()
+    .transform((value) => (value === '' ? undefined : value))
+    .pipe(z.email().optional())
+    .optional()
+    .describe(
+      'Email de la cuenta de App Review (ADR-051): el ÚNICO que puede usar POST /api/auth/login (email + contraseña). Opcional: activación por presencia — ausente (o en blanco) = login por contraseña rechazado para todos y GET /api/auth/capabilities reporta passwordLoginEnabled=false. Se normaliza (trim + minúsculas) al comparar. Apagar tras la aprobación quitando la variable.',
+    ),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info')

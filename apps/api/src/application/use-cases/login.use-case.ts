@@ -32,6 +32,12 @@ export const HASH_DUMMY_PARA_TIMING =
  * enumeración). Las dos primeras ramas invocan un `verificar()` "dummy"
  * contra un hash constante para igualar la forma temporal del camino real.
  *
+ * ADR-051: el login por contraseña solo lo puede usar UN email allowlisted
+ * (`emailPermitido`, la cuenta de App Review). Sin allowlist (`null`) todo
+ * login por contraseña se rechaza. El rechazo por allowlist sigue EXACTAMENTE
+ * el camino de "email desconocido" (misma búsqueda + `verificar` dummy), así
+ * que no es distinguible ni por respuesta ni por tiempo.
+ *
  * Nunca lanza. Nunca persiste ni retorna el token en ningún otro lugar que
  * el valor de éxito — el controller decide qué hacer con él (cookie/body).
  */
@@ -43,6 +49,7 @@ export class LoginUseCase {
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
     private readonly logger: ILogger,
+    private readonly emailPermitido: Email | null,
   ) {}
 
   async execute(input: {
@@ -59,10 +66,19 @@ export class LoginUseCase {
       return Result.fail(new CredencialesInvalidasError());
     }
 
-    const cred = await this.creds.buscarPorEmail(emailResult.getValue());
-    this.logger.debug('login: credential lookup', { found: cred !== null });
+    const email = emailResult.getValue();
+    const permitido =
+      this.emailPermitido !== null && email.valor === this.emailPermitido.valor;
 
-    if (cred === null) {
+    // The lookup runs even for a non-allowlisted email so a refusal costs the
+    // same as an unknown email (no timing oracle on the allowlist).
+    const cred = await this.creds.buscarPorEmail(email);
+    this.logger.debug('login: credential lookup', {
+      found: cred !== null,
+      permitido,
+    });
+
+    if (cred === null || !permitido) {
       await this.hasher.verificar(input.password, HASH_DUMMY_PARA_TIMING);
       return Result.fail(new CredencialesInvalidasError());
     }
