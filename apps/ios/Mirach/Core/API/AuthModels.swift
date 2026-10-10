@@ -4,6 +4,13 @@ import Foundation
 /// Google joins when its iOS client exists.
 struct AuthCapabilities: Equatable, Sendable {
     let appleLoginEnabled: Bool
+    /// The App Review email and password form (ADR-051); off for everyone else.
+    let passwordLoginEnabled: Bool
+
+    init(appleLoginEnabled: Bool, passwordLoginEnabled: Bool = false) {
+        self.appleLoginEnabled = appleLoginEnabled
+        self.passwordLoginEnabled = passwordLoginEnabled
+    }
 }
 
 /// The signed-in person as `GET /api/auth/me` reports it.

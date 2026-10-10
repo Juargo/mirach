@@ -2,18 +2,19 @@ import AuthenticationServices
 import Foundation
 import Observation
 
-/// Drives the sign-in screen (catalog: `inicio-de-sesion.md`), Apple only for now.
+/// Drives the sign-in screen (catalog: `inicio-de-sesion.md`): Apple, plus the App Review
+/// email and password form when the server enables it (ADR-051).
 @MainActor
 @Observable
 final class SignInViewModel {
     enum State: Equatable {
         case loadingProviders
-        /// The Apple button is available.
+        /// At least one provider (Apple, or the review password form) is available.
         case ready
         /// The server has every provider switched off.
         case noProviders
         case providersFailed(String)
-        /// The API call after Apple's sheet is in flight; the button is disabled.
+        /// The sign-in API call is in flight; the buttons are disabled.
         case authenticating
     }
 
@@ -22,6 +23,7 @@ final class SignInViewModel {
         static let connection = "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
         static let misconfigured = "La app no está configurada correctamente."
         static let invalidCredentials = "No se pudo iniciar sesión"
+        static let passwordRejected = "Correo o contraseña incorrectos"
         static let rateLimited = "Demasiados intentos, intenta más tarde"
         static let appleFailed = "No se pudo completar el inicio de sesión con Apple. Inténtalo de nuevo."
         static let saveFailed = "No pudimos guardar tu sesión en este dispositivo. Inténtalo de nuevo."
@@ -30,6 +32,9 @@ final class SignInViewModel {
     private(set) var state: State = .loadingProviders
     /// The last attempt's error, shown under the button. `nil` when there is none.
     private(set) var errorMessage: String?
+    /// What the server enabled; only meaningful once `state` is `.ready`.
+    private(set) var appleLoginAvailable = false
+    private(set) var passwordLoginAvailable = false
 
     private let api: any MirachAPI
     private let session: SessionController
@@ -50,7 +55,10 @@ final class SignInViewModel {
     func loadProviders() async {
         state = .loadingProviders
         do {
-            state = try await api.authCapabilities().appleLoginEnabled ? .ready : .noProviders
+            let capabilities = try await api.authCapabilities()
+            appleLoginAvailable = capabilities.appleLoginEnabled
+            passwordLoginAvailable = capabilities.passwordLoginEnabled
+            state = appleLoginAvailable || passwordLoginAvailable ? .ready : .noProviders
         } catch is CancellationError {
         } catch let error as URLError where error.code == .cancelled {
         } catch APIError.apiKeyRejected {
@@ -97,16 +105,38 @@ final class SignInViewModel {
             await handleSignInFailure(error)
             return
         }
-        do {
-            try session.signIn(newSession)
-            state = .ready
-        } catch {
-            errorMessage = Message.saveFailed
-            state = .ready
-        }
+        store(newSession)
     }
 
-    private func handleSignInFailure(_ error: any Error) async {
+    /// The same path for both providers: Keychain through the session controller.
+    private func store(_ newSession: Session) {
+        do {
+            try session.signIn(newSession)
+        } catch {
+            errorMessage = Message.saveFailed
+        }
+        state = .ready
+    }
+
+    /// Called by the review form. Both fields are required; the email is trimmed. On failure the
+    /// view keeps what was typed. The password is never logged or stored here.
+    func signInWithPassword(email: String, password: String) async {
+        let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        // One attempt at a time, and only when the server offers the form.
+        guard state == .ready, passwordLoginAvailable, !email.isEmpty, !password.isEmpty else { return }
+        errorMessage = nil
+        state = .authenticating
+        let newSession: Session
+        do {
+            newSession = try await api.signInWithPassword(email: email, password: password)
+        } catch {
+            await handleSignInFailure(error, rejected: Message.passwordRejected)
+            return
+        }
+        store(newSession)
+    }
+
+    private func handleSignInFailure(_ error: any Error, rejected: String = Message.invalidCredentials) async {
         state = .ready
         switch error {
         case is CancellationError:
@@ -114,7 +144,7 @@ final class SignInViewModel {
         case let error as URLError where error.code == .cancelled:
             break
         case APIError.invalidCredentials:
-            errorMessage = Message.invalidCredentials
+            errorMessage = rejected
         case APIError.rateLimited:
             errorMessage = Message.rateLimited
         case APIError.apiKeyRejected:

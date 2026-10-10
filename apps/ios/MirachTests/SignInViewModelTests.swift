@@ -57,6 +57,117 @@ struct SignInViewModelTests {
         #expect(h.viewModel.state == .providersFailed(SignInViewModel.Message.misconfigured))
     }
 
+    @Test func hidesThePasswordPathUnlessTheServerEnablesIt() async {
+        let h = makeHarness()
+        await h.viewModel.loadProviders()
+        #expect(h.viewModel.appleLoginAvailable)
+        #expect(!h.viewModel.passwordLoginAvailable)
+    }
+
+    @Test func offersThePasswordPathBesideApple() async {
+        let caps = AuthCapabilities(appleLoginEnabled: true, passwordLoginEnabled: true)
+        let h = makeHarness(api: FakeMirachAPI(capabilitiesResult: .success(caps)))
+        await h.viewModel.loadProviders()
+        #expect(h.viewModel.state == .ready)
+        #expect(h.viewModel.appleLoginAvailable)
+        #expect(h.viewModel.passwordLoginAvailable)
+    }
+
+    @Test func passwordOnlyIsNotTheEmptyState() async {
+        let caps = AuthCapabilities(appleLoginEnabled: false, passwordLoginEnabled: true)
+        let h = makeHarness(api: FakeMirachAPI(capabilitiesResult: .success(caps)))
+        await h.viewModel.loadProviders()
+        #expect(h.viewModel.state == .ready)
+        #expect(!h.viewModel.appleLoginAvailable)
+        #expect(h.viewModel.passwordLoginAvailable)
+    }
+
+    // MARK: password sign-in
+
+    private func passwordHarness(_ api: FakeMirachAPI = FakeMirachAPI()) async -> Harness {
+        api.setCapabilitiesResult(.success(AuthCapabilities(appleLoginEnabled: true, passwordLoginEnabled: true)))
+        let h = makeHarness(api: api)
+        await h.viewModel.loadProviders()
+        return h
+    }
+
+    @Test func passwordSuccessSavesTheSessionLikeApple() async {
+        let h = await passwordHarness()
+
+        await h.viewModel.signInWithPassword(email: "  rev@example.com ", password: "s3cret")
+
+        #expect(h.api.passwordSignInCalls == [.init(email: "rev@example.com", password: "s3cret")])
+        #expect(h.store.load()?.token == "tok-pw")
+        #expect(h.session.phase == .signedIn(userId: "u-1"))
+        #expect(h.viewModel.errorMessage == nil)
+    }
+
+    @Test func passwordRejectedShowsTheSpecificMessageAndSavesNothing() async {
+        let h = await passwordHarness(FakeMirachAPI(passwordSignInResult: .failure(APIError.invalidCredentials)))
+
+        await h.viewModel.signInWithPassword(email: "a@b.cl", password: "x")
+
+        #expect(h.viewModel.errorMessage == "Correo o contraseña incorrectos")
+        #expect(h.viewModel.state == .ready)
+        #expect(h.store.load() == nil)
+    }
+
+    @Test func passwordRateLimitSaysToTryLater() async {
+        let h = await passwordHarness(FakeMirachAPI(passwordSignInResult: .failure(APIError.rateLimited)))
+
+        await h.viewModel.signInWithPassword(email: "a@b.cl", password: "x")
+
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.rateLimited)
+    }
+
+    @Test func passwordConnectionFailureShowsTheConnectionMessage() async {
+        let h = await passwordHarness(FakeMirachAPI(passwordSignInResult: .failure(URLError(.timedOut))))
+
+        await h.viewModel.signInWithPassword(email: "a@b.cl", password: "x")
+
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.connection)
+        #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func passwordSessionThatCannotBeSavedShowsAnError() async {
+        let api = FakeMirachAPI(capabilitiesResult: .success(
+            AuthCapabilities(appleLoginEnabled: true, passwordLoginEnabled: true)
+        ))
+        let h = makeHarness(api: api, store: FailingSessionStore())
+        await h.viewModel.loadProviders()
+
+        await h.viewModel.signInWithPassword(email: "a@b.cl", password: "x")
+
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.saveFailed)
+        #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func submittingDisablesTheFormUntilTheAnswerArrives() async {
+        let gate = Gate()
+        let api = FakeMirachAPI()
+        api.holdPasswordSignIn(with: gate)
+        let h = await passwordHarness(api)
+
+        let attempt = Task { await h.viewModel.signInWithPassword(email: "a@b.cl", password: "x") }
+        while h.viewModel.state != .authenticating { await Task.yield() }
+        // A second tap while the first is in flight must not send another request.
+        await h.viewModel.signInWithPassword(email: "a@b.cl", password: "x")
+        await gate.open()
+        await attempt.value
+
+        #expect(h.api.passwordSignInCalls.count == 1)
+        #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func emptyFieldsNeverReachTheAPI() async {
+        let h = await passwordHarness()
+
+        await h.viewModel.signInWithPassword(email: "   ", password: "x")
+        await h.viewModel.signInWithPassword(email: "a@b.cl", password: "")
+
+        #expect(h.api.passwordSignInCalls.isEmpty)
+    }
+
     // MARK: success
 
     @Test func successSendsTheRawNonceAndNameAndSavesTheSession() async throws {

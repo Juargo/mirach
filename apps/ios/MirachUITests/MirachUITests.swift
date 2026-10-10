@@ -6,6 +6,7 @@ final class MirachUITests: XCTestCase {
     private let stubbedClient = "-uiTestStubbedClient"   // canned API instead of the network
     private let savedSession = "-uiTestSavedSession"     // start as if already signed in
     private let missingAPIKey = "-uiTestMissingAPIKey"   // pretend the client key is empty
+    private let passwordLogin = "-uiTestPasswordLogin"   // the server enables the review password form
 
     override func setUp() {
         continueAfterFailure = false
@@ -27,6 +28,51 @@ final class MirachUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["signin.apple"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["signedin.signOut"].exists)
+    }
+
+    @MainActor
+    func testPasswordFormIsHiddenUnlessTheServerEnablesIt() {
+        let app = launch()
+
+        XCTAssertTrue(app.buttons["signin.apple"].waitForExistence(timeout: 10))
+        XCTAssertFalse(element(app, "signin.password.toggle").exists)
+        XCTAssertFalse(element(app, "signin.email").exists)
+    }
+
+    /// Opens the review form and fills it; the toggle hides the form until asked for.
+    private func fillPasswordForm(_ app: XCUIApplication, email: String, password: String) {
+        let toggle = app.buttons["signin.password.toggle"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        XCTAssertFalse(element(app, "signin.email").exists, "the form stays closed until asked for")
+        toggle.tap()
+        let emailField = element(app, "signin.email")
+        XCTAssertTrue(emailField.waitForExistence(timeout: 10))
+        emailField.typeWhenFocused(email)
+        element(app, "signin.password").typeWhenFocused(password)
+        app.buttons["signin.password.submit"].tap()
+    }
+
+    @MainActor
+    func testReviewerSignsInWithEmailAndPassword() {
+        let app = launch([passwordLogin])
+
+        fillPasswordForm(app, email: "revisor@example.com", password: "correcta")
+
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["signin.apple"].exists)
+    }
+
+    @MainActor
+    func testWrongPasswordShowsTheMessageAndKeepsTheFields() {
+        let app = launch([passwordLogin])
+
+        fillPasswordForm(app, email: "revisor@example.com", password: "equivocada")
+
+        XCTAssertTrue(element(app, "signin.error").waitForExistence(timeout: 10))
+        XCTAssertEqual(element(app, "signin.error").label, "Correo o contraseña incorrectos")
+        XCTAssertEqual(element(app, "signin.email").value as? String, "revisor@example.com")
+        XCTAssertTrue(app.buttons["signin.password.submit"].isEnabled, "the password is kept, so retrying is possible")
+        XCTAssertFalse(app.staticTexts["resumen.month"].exists)
     }
 
     /// A fixture file from this test bundle, handed to the app through a Debug-only launch

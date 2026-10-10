@@ -16,6 +16,9 @@ protocol MirachAPI: Sendable {
     func signInWithApple(
         identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
     ) async throws -> Session
+    /// `POST /api/auth/login`: only the App Review account can use it (ADR-051). The server never
+    /// says why a sign-in failed. Never log the password.
+    func signInWithPassword(email: String, password: String) async throws -> Session
     /// `GET /api/auth/me`: validates the saved session.
     func currentUser() async throws -> CurrentUser
     /// `PATCH /api/perfil` with only the name; answers the updated identity.
@@ -130,7 +133,10 @@ struct OpenAPIMirachAPI: MirachAPI {
         do {
             switch try await client.get_sol_api_sol_auth_sol_capabilities() {
             case .ok(let ok):
-                return AuthCapabilities(appleLoginEnabled: try ok.body.json.appleLoginEnabled)
+                let body = try ok.body.json
+                return AuthCapabilities(
+                    appleLoginEnabled: body.appleLoginEnabled, passwordLoginEnabled: body.passwordLoginEnabled
+                )
             case .unauthorized:
                 throw APIError.apiKeyRejected
             case .undocumented(let statusCode, _):
@@ -164,6 +170,33 @@ struct OpenAPIMirachAPI: MirachAPI {
                 }
             case .notFound:
                 throw APIError.appleSignInUnavailable
+            case .tooManyRequests:
+                throw APIError.rateLimited
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func signInWithPassword(email: String, password: String) async throws -> Session {
+        do {
+            let body = Operations.post_sol_api_sol_auth_sol_login.Input.Body.jsonPayload(
+                email: email, password: password
+            )
+            switch try await client.post_sol_api_sol_auth_sol_login(body: .json(body)) {
+            case .ok(let ok):
+                let login = try ok.body.json
+                return Session(
+                    token: login.token, userId: login.userId, expiresAt: try Self.parseExpiry(login.expiresAt)
+                )
+            case .unauthorized(let unauthorized):
+                // A failed sign-in is never "session expired": there is no session yet.
+                switch try unauthorized.body.json.code {
+                case .API_KEY_INVALIDA: throw APIError.apiKeyRejected
+                case .CREDENCIALES_INVALIDAS: throw APIError.invalidCredentials
+                }
             case .tooManyRequests:
                 throw APIError.rateLimited
             case .undocumented(let statusCode, _):

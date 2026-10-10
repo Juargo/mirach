@@ -16,6 +16,22 @@ struct SignInView: View {
 
     var body: some View {
         NavigationStack {
+            // The review form plus the keyboard can exceed a small screen: scroll instead of clipping.
+            GeometryReader { proxy in
+                ScrollView {
+                    column.frame(minHeight: proxy.size.height)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .background(Color.Mirach.Base.background)
+            .navigationBarHidden(true)
+        }
+        // Runs when the screen appears and again when `retryCount` changes.
+        .task(id: retryCount) { await viewModel.loadProviders() }
+    }
+
+    private var column: some View {
             VStack(spacing: 24) {
                 Spacer()
                 VStack(spacing: 8) {
@@ -39,12 +55,7 @@ struct SignInView: View {
                 Spacer()
             }
             .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.Mirach.Base.background)
-            .navigationBarHidden(true)
-        }
-        // Runs when the screen appears and again when `retryCount` changes.
-        .task(id: retryCount) { await viewModel.loadProviders() }
+            .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -54,7 +65,8 @@ struct SignInView: View {
             ProgressView("Cargando…")
         case .ready, .authenticating:
             VStack(spacing: 16) {
-                appleButton
+                if viewModel.appleLoginAvailable { appleButton }
+                if viewModel.passwordLoginAvailable { PasswordSignInForm(viewModel: viewModel) }
                 if viewModel.state == .authenticating {
                     ProgressView("Iniciando sesión…")
                 }
