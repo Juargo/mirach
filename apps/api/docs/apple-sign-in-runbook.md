@@ -60,7 +60,7 @@ hasheada, y un token sin claim `nonce` falla.
 ## Pasos de activación
 
 1. **Apple Developer.** Registrar el App ID con la capability _Sign in with
-   Apple_ habilitada. Anotar el Bundle ID (p. ej. `cl.mirach.app`). Hace falta
+   Apple_ habilitada. Anotar el Bundle ID (p. ej. `app.mirachbudget.ios`). Hace falta
    una cuenta del Apple Developer Program.
 2. **Migración (manual, ANTES del deploy).** Render no corre migraciones.
    Aplicar contra la base de producción `20261004000000_add_apple_sub`
