@@ -31,7 +31,7 @@ El API no tiene un endpoint de lectura del perfil: los datos salen de `GET /api/
 3. Mientras el API responde, los controles se deshabilitan para evitar envíos dobles.
 4. En 204 la app borra todo lo local (token, datos en memoria) antes de mostrar el inicio de sesión.
 
-La eliminación de cuenta con Apple exige revocar los tokens de Sign in with Apple; el API todavía no lo hace de verdad (brecha 6).
+La eliminación de cuenta con Apple exige revocar los tokens de Sign in with Apple; el API lo hace antes de borrar la cuenta (ADR-049, brecha 6 resuelta).
 
 ## Endpoints
 

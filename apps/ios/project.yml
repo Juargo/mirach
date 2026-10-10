@@ -66,6 +66,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         MIRACH_API_KEY: $(MIRACH_API_KEY)   # public client gate (ADR-047), read by AppConfiguration
+        ITSAppUsesNonExemptEncryption: false  # only exempt HTTPS/TLS and system crypto (export compliance)
         UILaunchScreen: {}                  # empty = default launch screen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
