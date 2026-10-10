@@ -156,7 +156,7 @@ struct AuthAPITests {
 
     @Test func capabilitiesMapAppleFlag() async throws {
         let transport = FakeTransport.json(
-            #"{"appleLoginEnabled":true,"googleLoginEnabled":false,"googleLoginMobileEnabled":false}"#
+            #"{"appleLoginEnabled":true,"googleLoginEnabled":false,"googleLoginMobileEnabled":false,"passwordLoginEnabled":false}"#
         )
 
         let capabilities = try await makeAPI(transport).authCapabilities()

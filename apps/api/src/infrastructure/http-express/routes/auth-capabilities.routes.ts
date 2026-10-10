@@ -26,10 +26,13 @@ export function registrarAuthCapabilities(
     googleAuth,
     googleAuthMobile,
     appleAuth,
+    passwordLoginEnabled,
   }: {
     googleAuth: Container['googleAuth'];
     googleAuthMobile: Container['googleAuthMobile'];
     appleAuth: Container['appleAuth'];
+    /** ADR-051: `REVIEW_LOGIN_EMAIL` is set (derived once in app.ts from env). */
+    passwordLoginEnabled: boolean;
   },
 ): void {
   router.get('/auth/capabilities', (_req, res) => {
@@ -37,6 +40,7 @@ export function registrarAuthCapabilities(
       googleLoginEnabled: googleAuth !== undefined,
       googleLoginMobileEnabled: googleAuthMobile !== undefined,
       appleLoginEnabled: appleAuth !== undefined,
+      passwordLoginEnabled,
     };
     res.status(200).json(body);
   });

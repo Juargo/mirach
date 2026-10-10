@@ -110,6 +110,7 @@ describe('GET /api/auth/capabilities (AC-10)', () => {
         googleLoginEnabled: expectedWeb,
         googleLoginMobileEnabled: expectedMobile,
         appleLoginEnabled: false,
+        passwordLoginEnabled: false,
       });
     },
   );
@@ -131,7 +132,29 @@ describe('GET /api/auth/capabilities (AC-10)', () => {
         googleLoginEnabled: false,
         googleLoginMobileEnabled: false,
         appleLoginEnabled: expected,
+        passwordLoginEnabled: false,
       });
+    },
+  );
+
+  it.each([
+    ['reviewer@example.com', true],
+    [undefined, false],
+  ])(
+    'passwordLoginEnabled es true sii REVIEW_LOGIN_EMAIL está seteado (env=%s)',
+    async (reviewEmail, expected) => {
+      const env = buildTestEnv({
+        API_KEY: KEY,
+        REVIEW_LOGIN_EMAIL: reviewEmail,
+      });
+      const res = await request(createApp(fakeContainer(undefined), env))
+        .get('/api/auth/capabilities')
+        .set('x-api-key', KEY);
+
+      expect(res.status).toBe(200);
+      expect(res.body.passwordLoginEnabled).toBe(expected);
+      // Never leaks the allowlisted address.
+      expect(JSON.stringify(res.body)).not.toContain('@');
     },
   );
 

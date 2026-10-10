@@ -60,7 +60,7 @@ extension Components {
                 ])
             }
         }
-        /// GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10). googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations; appleLoginEnabled gates Sign in with Apple (APPLE_BUNDLE_ID).
+        /// GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10). googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations; appleLoginEnabled gates Sign in with Apple (APPLE_BUNDLE_ID); passwordLoginEnabled gates the App Review password form (REVIEW_LOGIN_EMAIL).
         ///
         /// - Remark: Generated from `#/components/schemas/AuthCapabilitiesResponse`.
         internal struct AuthCapabilitiesResponse: Codable, Hashable, Sendable {
@@ -76,25 +76,33 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/AuthCapabilitiesResponse/googleLoginMobileEnabled`.
             internal var googleLoginMobileEnabled: Swift.Bool
+            /// true when REVIEW_LOGIN_EMAIL is configured (ADR-051): POST /api/auth/login accepts exactly that one allowlisted email. false otherwise — every password login is refused. Clients show a password form only when true.
+            ///
+            /// - Remark: Generated from `#/components/schemas/AuthCapabilitiesResponse/passwordLoginEnabled`.
+            internal var passwordLoginEnabled: Swift.Bool
             /// Creates a new `AuthCapabilitiesResponse`.
             ///
             /// - Parameters:
             ///   - appleLoginEnabled: true when APPLE_BUNDLE_ID is configured (container.appleAuth !== undefined), false otherwise — POST /api/auth/apple/token is reachable exactly when true. Independent of the Google flags.
             ///   - googleLoginEnabled: true when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are both configured (container.googleAuth !== undefined), false otherwise (AUTH-16).
             ///   - googleLoginMobileEnabled: true when GOOGLE_CLIENT_ID_ANDROID and/or GOOGLE_CLIENT_ID_IOS is configured (container.googleAuthMobile !== undefined), false otherwise (AUTH-22). Computed independently of googleLoginEnabled — either, both, or neither may be true.
+            ///   - passwordLoginEnabled: true when REVIEW_LOGIN_EMAIL is configured (ADR-051): POST /api/auth/login accepts exactly that one allowlisted email. false otherwise — every password login is refused. Clients show a password form only when true.
             internal init(
                 appleLoginEnabled: Swift.Bool,
                 googleLoginEnabled: Swift.Bool,
-                googleLoginMobileEnabled: Swift.Bool
+                googleLoginMobileEnabled: Swift.Bool,
+                passwordLoginEnabled: Swift.Bool
             ) {
                 self.appleLoginEnabled = appleLoginEnabled
                 self.googleLoginEnabled = googleLoginEnabled
                 self.googleLoginMobileEnabled = googleLoginMobileEnabled
+                self.passwordLoginEnabled = passwordLoginEnabled
             }
             internal enum CodingKeys: String, CodingKey {
                 case appleLoginEnabled
                 case googleLoginEnabled
                 case googleLoginMobileEnabled
+                case passwordLoginEnabled
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -110,10 +118,15 @@ extension Components {
                     Swift.Bool.self,
                     forKey: .googleLoginMobileEnabled
                 )
+                self.passwordLoginEnabled = try container.decode(
+                    Swift.Bool.self,
+                    forKey: .passwordLoginEnabled
+                )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "appleLoginEnabled",
                     "googleLoginEnabled",
-                    "googleLoginMobileEnabled"
+                    "googleLoginMobileEnabled",
+                    "passwordLoginEnabled"
                 ])
             }
         }

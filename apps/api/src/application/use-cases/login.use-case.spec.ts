@@ -11,6 +11,7 @@ import {
 } from '../ports/session-token.port';
 import { IReloj } from '../ports/reloj.port';
 import { CredencialesInvalidasError } from '../../domain/errors/credenciales-invalidas.error';
+import { Email } from '../../domain/value-objects/email';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ function makeFakeReloj(ahora: Date): IReloj {
   return { ahora: () => ahora };
 }
 
+const EMAIL_PERMITIDO = Email.crear('jorge@example.com').getValue();
 const AHORA = new Date('2026-07-15T00:00:00.000Z');
 const TOKEN_GENERADO: TokenGenerado = {
   token: 'raw-token-abc',
@@ -81,6 +83,7 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         new NoOpLogger(),
+        EMAIL_PERMITIDO,
       );
 
       const result = await uc.execute({
@@ -120,6 +123,7 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         new NoOpLogger(),
+        EMAIL_PERMITIDO,
       );
 
       const result = await uc.execute({
@@ -157,6 +161,7 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         new NoOpLogger(),
+        EMAIL_PERMITIDO,
       );
 
       const result = await uc.execute({
@@ -185,6 +190,7 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         new NoOpLogger(),
+        EMAIL_PERMITIDO,
       );
 
       const result = await uc.execute({
@@ -214,6 +220,7 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         new NoOpLogger(),
+        EMAIL_PERMITIDO,
       );
       const rInvalido = await ucInvalido.execute({
         emailRaw: 'no-es-un-email',
@@ -228,6 +235,7 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         new NoOpLogger(),
+        EMAIL_PERMITIDO,
       );
       const rDesconocido = await ucDesconocido.execute({
         emailRaw: 'nadie@example.com',
@@ -242,9 +250,10 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         new NoOpLogger(),
+        EMAIL_PERMITIDO,
       );
       const rPassMala = await ucPassMala.execute({
-        emailRaw: 'user@example.com',
+        emailRaw: 'jorge@example.com',
         password: 'incorrecta',
       });
 
@@ -261,6 +270,89 @@ describe('LoginUseCase', () => {
       expect(ePassMala.name).toBe(eInvalido.name);
       expect(eDesconocido.message).toBe(eInvalido.message);
       expect(ePassMala.message).toBe(eInvalido.message);
+    });
+  });
+
+  describe('review-account allowlist (ADR-051)', () => {
+    function makeUc(
+      emailPermitido: Email | null,
+      row: CredencialUsuario | null,
+    ) {
+      const creds = makeMockCreds(row);
+      const hasher = makeMockHasher(true);
+      const sessions = makeMockSessions();
+      const uc = new LoginUseCase(
+        creds,
+        hasher,
+        sessions,
+        makeMockTokens(TOKEN_GENERADO),
+        makeFakeReloj(AHORA),
+        new NoOpLogger(),
+        emailPermitido,
+      );
+      return { uc, creds, hasher, sessions };
+    }
+    const CRED: CredencialUsuario = {
+      userId: 'user-1',
+      passwordHash: 'stored-hash',
+    };
+
+    it('refuses every password login when no email is allowlisted, even with valid credentials', async () => {
+      const { uc, hasher, sessions } = makeUc(null, CRED);
+
+      const result = await uc.execute({
+        emailRaw: 'jorge@example.com',
+        password: 'correct-password',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CredencialesInvalidasError);
+      expect(result.getError().message).toBe('Credenciales inválidas.');
+      expect(sessions.crear).not.toHaveBeenCalled();
+      // Timing: only the dummy hash ran, never the stored one.
+      expect(hasher.verificar).toHaveBeenCalledTimes(1);
+      expect(hasher.verificar).toHaveBeenCalledWith(
+        'correct-password',
+        HASH_DUMMY_PARA_TIMING,
+      );
+    });
+
+    it('refuses an email other than the allowlisted one, even with valid credentials', async () => {
+      const { uc, hasher, sessions } = makeUc(EMAIL_PERMITIDO, CRED);
+
+      const result = await uc.execute({
+        emailRaw: 'otro@example.com',
+        password: 'correct-password',
+      });
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(CredencialesInvalidasError);
+      expect(sessions.crear).not.toHaveBeenCalled();
+      expect(hasher.verificar).toHaveBeenCalledTimes(1);
+      expect(hasher.verificar).toHaveBeenCalledWith(
+        'correct-password',
+        HASH_DUMMY_PARA_TIMING,
+      );
+    });
+
+    it('does the same lookup on a refusal as on an unknown email (no timing oracle)', async () => {
+      const { uc, creds } = makeUc(EMAIL_PERMITIDO, CRED);
+
+      await uc.execute({ emailRaw: 'otro@example.com', password: 'x' });
+
+      expect(creds.buscarPorEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('accepts the allowlisted email regardless of case and surrounding spaces', async () => {
+      const { uc, sessions } = makeUc(EMAIL_PERMITIDO, CRED);
+
+      const result = await uc.execute({
+        emailRaw: '  Jorge@Example.COM ',
+        password: 'correct-password',
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(sessions.crear).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -283,6 +375,7 @@ describe('LoginUseCase', () => {
         tokens,
         reloj,
         logger,
+        EMAIL_PERMITIDO,
       );
 
       await uc.execute({

@@ -13,12 +13,14 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
         googleLoginEnabled,
         googleLoginMobileEnabled,
         appleLoginEnabled: false,
+        passwordLoginEnabled: false,
       });
 
       expect(parsed).toEqual({
         googleLoginEnabled,
         googleLoginMobileEnabled,
         appleLoginEnabled: false,
+        passwordLoginEnabled: false,
       });
     },
   );
@@ -28,6 +30,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
       authCapabilitiesResponseSchema.parse({
         googleLoginMobileEnabled: true,
         appleLoginEnabled: true,
+        passwordLoginEnabled: true,
       }),
     ).toThrow();
   });
@@ -37,6 +40,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
       authCapabilitiesResponseSchema.parse({
         googleLoginEnabled: true,
         appleLoginEnabled: true,
+        passwordLoginEnabled: true,
       }),
     ).toThrow();
   });
@@ -47,6 +51,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
         googleLoginEnabled: 'true',
         googleLoginMobileEnabled: true,
         appleLoginEnabled: true,
+        passwordLoginEnabled: true,
       }),
     ).toThrow();
   });
@@ -57,6 +62,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
         googleLoginEnabled: true,
         googleLoginMobileEnabled: 'true',
         appleLoginEnabled: true,
+        passwordLoginEnabled: true,
       }),
     ).toThrow();
   });
@@ -66,6 +72,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
       googleLoginEnabled: true,
       googleLoginMobileEnabled: false,
       appleLoginEnabled: true,
+      passwordLoginEnabled: true,
       somethingElse: 'ignored-by-zod-default-strip',
     });
 
@@ -74,6 +81,7 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
         'appleLoginEnabled',
         'googleLoginEnabled',
         'googleLoginMobileEnabled',
+        'passwordLoginEnabled',
       ].sort(),
     );
   });
@@ -93,6 +101,16 @@ describe('authCapabilitiesResponseSchema (AC-10)', () => {
         googleLoginEnabled: true,
         googleLoginMobileEnabled: true,
         appleLoginEnabled: 'true',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a missing passwordLoginEnabled', () => {
+    expect(() =>
+      authCapabilitiesResponseSchema.parse({
+        googleLoginEnabled: true,
+        googleLoginMobileEnabled: true,
+        appleLoginEnabled: true,
       }),
     ).toThrow();
   });

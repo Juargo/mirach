@@ -36,10 +36,17 @@ export const authCapabilitiesResponseSchema = z
           'false otherwise — POST /api/auth/apple/token is reachable exactly when true. ' +
           'Independent of the Google flags.',
       ),
+    passwordLoginEnabled: z
+      .boolean()
+      .describe(
+        'true when REVIEW_LOGIN_EMAIL is configured (ADR-051): POST /api/auth/login ' +
+          'accepts exactly that one allowlisted email. false otherwise — every ' +
+          'password login is refused. Clients show a password form only when true.',
+      ),
   })
   .meta({
     id: 'AuthCapabilitiesResponse',
     description:
       'GET /api/auth/capabilities — feature-activation discovery for auth-related, environment-gated affordances (AC-10). ' +
-      'googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations; appleLoginEnabled gates Sign in with Apple (APPLE_BUNDLE_ID).',
+      'googleLoginEnabled gates the web Google-login affordance; googleLoginMobileEnabled gates the mobile one — independent env configurations; appleLoginEnabled gates Sign in with Apple (APPLE_BUNDLE_ID); passwordLoginEnabled gates the App Review password form (REVIEW_LOGIN_EMAIL).',
   });

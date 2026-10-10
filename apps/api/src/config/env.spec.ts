@@ -778,3 +778,33 @@ describe('loadEnv — credenciales de la API REST de Apple (plan phase 5 T4)', (
     expect(env.APPLE_PRIVATE_KEY).toContain('BEGIN PRIVATE KEY');
   });
 });
+
+describe('loadEnv — REVIEW_LOGIN_EMAIL (App Review account, ADR-051)', () => {
+  it('ausente → undefined (password login apagado), en cualquier ambiente', () => {
+    expect(loadEnv(baseDevSource).REVIEW_LOGIN_EMAIL).toBeUndefined();
+    expect(loadEnv(baseProdSource).REVIEW_LOGIN_EMAIL).toBeUndefined();
+  });
+
+  it('un email válido se acepta', () => {
+    expect(
+      loadEnv({ ...baseProdSource, REVIEW_LOGIN_EMAIL: 'review@example.com' })
+        .REVIEW_LOGIN_EMAIL,
+    ).toBe('review@example.com');
+  });
+
+  it('un valor vacío o solo blancos equivale a ausente (Render permite dejarlo en blanco)', () => {
+    expect(
+      loadEnv({ ...baseDevSource, REVIEW_LOGIN_EMAIL: '  ' })
+        .REVIEW_LOGIN_EMAIL,
+    ).toBeUndefined();
+  });
+
+  it.each(['no-es-un-email', 'a@b', 'dos@@example.com'])(
+    'valor inválido %j → boot falla nombrando la variable',
+    (valor) => {
+      expect(() =>
+        loadEnv({ ...baseDevSource, REVIEW_LOGIN_EMAIL: valor }),
+      ).toThrow(/REVIEW_LOGIN_EMAIL/);
+    },
+  );
+});
