@@ -59,9 +59,11 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
     prisma = createPrismaClient(env);
     await prisma.$connect();
     app = createApp(createTestContainer(env, prisma), env);
-    // ADR-051, production wiring: no REVIEW_LOGIN_EMAIL (the env of the test
-    // process leaves it unset) vs. the user's own email allowlisted.
-    appDefault = createApp(createContainer(env, prisma), env);
+    // ADR-051, production wiring: REVIEW_LOGIN_EMAIL explicitly unset (so the
+    // refusal case runs even if the test process sets it) vs. the user's own
+    // email allowlisted.
+    const envDefault = { ...env, REVIEW_LOGIN_EMAIL: undefined };
+    appDefault = createApp(createContainer(envDefault, prisma), envDefault);
     const envAllowlisted = { ...env, REVIEW_LOGIN_EMAIL: EMAIL };
     appAllowlisted = createApp(
       createContainer(envAllowlisted, prisma),
@@ -247,7 +249,6 @@ describe('AuthController (e2e) — /api/auth/login, /logout, /me', () => {
 
   it('ADR-051: con el wiring de producción y sin REVIEW_LOGIN_EMAIL, las credenciales correctas → 401', async () => {
     if (!ALLOW) return;
-    if (loadEnv().REVIEW_LOGIN_EMAIL !== undefined) return;
 
     await request(appDefault)
       .post('/api/auth/login')
