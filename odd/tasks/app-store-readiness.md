@@ -29,14 +29,19 @@ Out of scope: app icon (needs an image from the product owner), App Review demo 
 
 - [x] **T1 — iOS privacy manifest and export compliance.** Route: delegated writer (2+ non-trivial files). Acceptance: a test proves the built app bundles `PrivacyInfo.xcprivacy` declaring the required-reason APIs actually used (none: `.fileSizeKey` is not on Apple's list, verified 2026-10-09) and the collected data types, and that `ITSAppUsesNonExemptEncryption` is `false`; RED observed first.
 - [x] **T2 — Stale docs.** Route: same writer, mechanical. Acceptance: no doc says Apple revocation is a no-op; the runbook uses `app.mirachbudget.ios`.
-- [ ] **T3 — Landing privacy and support pages.** Route: delegated writer. Acceptance: privacy page covers Apple sign-in, financial data, deletion and retention, and the contact email; `/soporte` exists and is linked; landing checks green.
+- [x] **T3 — Landing privacy and support pages.** Route: delegated writer. Acceptance: privacy page covers Apple sign-in, financial data, deletion and retention, and the contact email; `/soporte` exists and is linked; landing checks green.
+- [x] **T4 — Landing rebrand to Mirach.** Decision (user, 2026-10-09): everything moves to Mirach; the product name is "Mirach" and only the domain is `mirachbudget.app`. Route: delegated writer on `feat/landing-privacy-support`. Acceptance: no "MoneyDiary" or moneydiary.cl in landing source; site URL `https://mirachbudget.app`; copy describes the iPhone app (no web-app login links); checks green.
+- [x] **T5 — App icon.** Source image from the user (placeholder for now). Route: inline. Acceptance: a 1024x1024 opaque PNG in `AppIcon.appiconset` referenced by `Contents.json`; build green.
+- [ ] **Owner — Deploy the landing.** The Mirach landing was never deployed (`odd/tasks/infra-mirach.md`): create the Vercel project for `apps/landing` and attach `mirachbudget.app`, so the privacy and support URLs exist for App Store Connect.
 
 ## Progress
 
 - 2026-10-09: feature document created; worktree `~/dev/mirach-worktrees/appstore-ios`.
 - 2026-10-09: T1 done in c4989f1. RED: 4 PrivacyManifestTests failed (no manifest, no encryption key); GREEN after adding both; full `-only-testing:MirachTests` 551 tests passed. `.fileSizeKey` is not a required-reason API, so `NSPrivacyAccessedAPITypes` is empty (the acceptance wording about a file-size reason was wrong). Collected: name, email, user ID, other financial info.
 - 2026-10-09: T2 done: revocation docs (iOS README, catalog README gap 6, perfil.md) and the runbook bundle ID. ADR-047 still describes revocation as pending: left as a historical record, superseded by ADR-049.
+- 2026-10-09: T3 done in 13706ba (privacy page rewritten, `/soporte` added; RED/GREEN structural on the build: the landing has no unit-test runner). T4 done in cedf39d: brand, site URL `https://mirachbudget.app`, web-app links and `PUBLIC_APP_URL` removed, FAQ true for the iPhone app; MoneyDiary screenshots and unverifiable claims (pricing, "90% of users") removed. Still old-brand assets: `public/images/logo-icon.png`, `public/favicon.ico`, `public/og-image.png`.
+- 2026-10-09: T5: placeholder icon from the user (1376x768) center-cropped to 768 and scaled to a 1024x1024 opaque PNG. RED: `AppIconTests` failed with "CFBundleIcons is missing"; GREEN: 552/552 `MirachTests`.
 
 ## Next step
 
-T3 (landing worktree).
+Push both branches and open the PRs; owner deploys the landing on Vercel with `mirachbudget.app`. Optional: replace the landing logo and favicon with the new icon.
