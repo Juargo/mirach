@@ -3,6 +3,11 @@ import Foundation
 
 /// Programmable `MirachAPI` for view model and session tests. Records sign-in calls.
 final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
+    struct PasswordSignInCall: Equatable {
+        let email: String
+        let password: String
+    }
+
     struct SignInCall: Equatable {
         let identityToken: String
         let nonce: String
@@ -45,12 +50,15 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
 
     private let lock = NSLock()
     private var _signInCalls: [SignInCall] = []
+    private var _passwordSignInCalls: [PasswordSignInCall] = []
+    private var passwordSignInGate: Gate?
     private var _currentUserCalls = 0
     private var _capabilitiesCalls = 0
 
     private let versionResult: Result<VersionInfo, any Error>
     private var capabilitiesResult: Result<AuthCapabilities, any Error>
     private let signInResult: Result<Session, any Error>
+    private let passwordSignInResult: Result<Session, any Error>
     private var currentUserResult: Result<CurrentUser, any Error>
     private var resumenResult: Result<ResumenMes, any Error>
     private var periodosResult: Result<[Periodo], any Error>
@@ -121,6 +129,9 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         signInResult: Result<Session, any Error> = .success(
             Session(token: "tok", userId: "u-1", expiresAt: Date(timeIntervalSince1970: 1_800_000_000))
         ),
+        passwordSignInResult: Result<Session, any Error> = .success(
+            Session(token: "tok-pw", userId: "u-1", expiresAt: Date(timeIntervalSince1970: 1_800_000_000))
+        ),
         currentUserResult: Result<CurrentUser, any Error> = .success(CurrentUser(userId: "u-1", nombre: "Ana")),
         resumenResult: Result<ResumenMes, any Error> = .success(SampleData.septiembre),
         periodosResult: Result<[Periodo], any Error> = .success([])
@@ -130,10 +141,17 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         self.versionResult = versionResult
         self.capabilitiesResult = capabilitiesResult
         self.signInResult = signInResult
+        self.passwordSignInResult = passwordSignInResult
         self.currentUserResult = currentUserResult
     }
 
     var signInCalls: [SignInCall] { lock.withLock { _signInCalls } }
+    var passwordSignInCalls: [PasswordSignInCall] { lock.withLock { _passwordSignInCalls } }
+
+    /// Holds `signInWithPassword` until the test opens the gate, to observe the in-flight state.
+    func holdPasswordSignIn(with gate: Gate) {
+        lock.withLock { passwordSignInGate = gate }
+    }
     var currentUserCalls: Int { lock.withLock { _currentUserCalls } }
     var capabilitiesCalls: Int { lock.withLock { _capabilitiesCalls } }
 
@@ -535,6 +553,15 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
                 identityToken: identityToken, nonce: nonce, nombre: nombre, authorizationCode: authorizationCode
             )) }
         return try signInResult.get()
+    }
+
+    func signInWithPassword(email: String, password: String) async throws -> Session {
+        let gate = lock.withLock {
+            _passwordSignInCalls.append(PasswordSignInCall(email: email, password: password))
+            return passwordSignInGate
+        }
+        await gate?.wait()
+        return try passwordSignInResult.get()
     }
 
     func currentUser() async throws -> CurrentUser {

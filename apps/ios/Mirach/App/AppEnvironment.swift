@@ -12,6 +12,8 @@ enum AppEnvironment {
     static let savedSessionArgument = "-uiTestSavedSession"
     /// With the stub: pretend `MIRACH_API_KEY` is empty, to see the configuration error screen.
     static let missingAPIKeyArgument = "-uiTestMissingAPIKey"
+    /// With the stub: the server enables the App Review password form (ADR-051).
+    static let passwordLoginArgument = "-uiTestPasswordLogin"
     /// Debug builds only: `-uiTestFixturePath <file>` makes the Subir screen offer a button that
     /// picks that file, because XCUITest cannot drive the system document picker.
     static let fixturePathArgument = "-uiTestFixturePath"
@@ -52,7 +54,7 @@ enum AppEnvironment {
             let stubStore = InMemorySessionStore(
                 session: arguments.contains(savedSessionArgument) ? StubMirachAPI.savedSession : nil
             )
-            let api = StubMirachAPI()
+            let api = StubMirachAPI(passwordLoginEnabled: arguments.contains(passwordLoginArgument))
             let subir = SubirCartolaViewModel(api: api, staging: staging)
             let session = SessionController(api: api, store: stubStore)
             session.onSessionEnded = { subir.discard() }
@@ -137,8 +139,22 @@ struct StubMirachAPI: MirachAPI {
         VersionInfo(version: "0.0.0-stub", commit: "stub123")
     }
 
+    /// `-uiTestPasswordLogin` turns the review password form on.
+    var passwordLoginEnabled = false
+
+    /// The only credentials the stub accepts.
+    static let reviewEmail = "revisor@example.com"
+    static let reviewPassword = "correcta"
+
     func authCapabilities() async throws -> AuthCapabilities {
-        AuthCapabilities(appleLoginEnabled: true)
+        AuthCapabilities(appleLoginEnabled: true, passwordLoginEnabled: passwordLoginEnabled)
+    }
+
+    func signInWithPassword(email: String, password: String) async throws -> Session {
+        guard passwordLoginEnabled, email == Self.reviewEmail, password == Self.reviewPassword else {
+            throw APIError.invalidCredentials
+        }
+        return Self.savedSession
     }
 
     func signInWithApple(

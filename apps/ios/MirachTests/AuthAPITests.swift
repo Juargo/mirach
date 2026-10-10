@@ -106,6 +106,40 @@ struct AuthAPITests {
         }
     }
 
+    // MARK: sign in with email and password
+
+    @Test func signInWithPasswordSendsTheCredentialsAndMapsTheSession() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        let session = try await makeAPI(transport).signInWithPassword(email: "rev@example.com", password: "s3cret")
+
+        #expect(session == Session(
+            token: "tok-abc", userId: "u-1", expiresAt: Date(timeIntervalSince1970: 1_791_115_200)
+        ))
+        #expect(transport.requests.first?.path == "/api/auth/login")
+        let sent = try sentJSON(transport)
+        #expect(sent["email"] as? String == "rev@example.com")
+        #expect(sent["password"] as? String == "s3cret")
+    }
+
+    @Test func signInWithPasswordMapsEveryDocumentedFailure() async {
+        let cases: [(HTTPResponse.Status, String, APIError)] = [
+            (.unauthorized, unauthorized("CREDENCIALES_INVALIDAS"), .invalidCredentials),
+            (.unauthorized, unauthorized("API_KEY_INVALIDA"), .apiKeyRejected),
+            (.tooManyRequests, "", .rateLimited),
+            (.serviceUnavailable, "{}", .badStatus(503)),
+        ]
+        for (status, body, expected) in cases {
+            let counter = ExpiryCounter()
+            let transport = FakeTransport.json(body, status: status)
+
+            await #expect(throws: expected) {
+                _ = try await makeAPI(transport, expiry: counter).signInWithPassword(email: "a@b.cl", password: "x")
+            }
+            #expect(counter.count == 0, "a failed sign-in is not an expired session")
+        }
+    }
+
     // MARK: current user
 
     @Test func currentUserMapsTheResponse() async throws {
@@ -163,6 +197,21 @@ struct AuthAPITests {
 
         #expect(capabilities == AuthCapabilities(appleLoginEnabled: true))
         #expect(transport.requests.first?.path == "/api/auth/capabilities")
+    }
+
+    @Test func capabilitiesMapThePasswordFlag() async throws {
+        let on = FakeTransport.json(
+            #"{"appleLoginEnabled":false,"googleLoginEnabled":false,"googleLoginMobileEnabled":false,"passwordLoginEnabled":true}"#
+        )
+        let off = FakeTransport.json(
+            #"{"appleLoginEnabled":true,"googleLoginEnabled":false,"googleLoginMobileEnabled":false,"passwordLoginEnabled":false}"#
+        )
+
+        let enabled = try await makeAPI(on).authCapabilities()
+        let disabled = try await makeAPI(off).authCapabilities()
+
+        #expect(enabled == AuthCapabilities(appleLoginEnabled: false, passwordLoginEnabled: true))
+        #expect(disabled.passwordLoginEnabled == false)
     }
 
     @Test func capabilitiesRejectedKeyIsReported() async {
