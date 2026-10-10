@@ -77,12 +77,21 @@ export function crearAuth(
   const sessions = new PrismaSessionRepository(prisma);
   const creds = new PrismaUserCredentialRepository(prisma, crypto, blindIndex);
 
-  // ADR-051: env.ts already validated the address, so a failed parse here can
-  // only mean "not set"; both collapse to "password login refused for all".
-  const emailPermitido =
-    env.REVIEW_LOGIN_EMAIL === undefined
-      ? null
-      : Email.crear(env.REVIEW_LOGIN_EMAIL).getValue();
+  // ADR-051: env.ts validates the address with zod, the domain with its own
+  // regex. If they ever disagree, fail closed (password login refused for all)
+  // instead of throwing while the container is built, which would take the
+  // whole API down. The address itself is never logged.
+  let emailPermitido: Email | null = null;
+  if (env.REVIEW_LOGIN_EMAIL !== undefined) {
+    const parsed = Email.crear(env.REVIEW_LOGIN_EMAIL);
+    if (parsed.isOk()) {
+      emailPermitido = parsed.getValue();
+    } else {
+      logger.warn(
+        'REVIEW_LOGIN_EMAIL is not a valid email for the domain: password login stays disabled',
+      );
+    }
+  }
 
   return {
     validarSesion: new ValidarSesionUseCase(sessions, tokens, reloj, logger),
