@@ -85,3 +85,16 @@ Ese plazo de 14 días es el camino más largo del plan.
   nadie usa; **`minSdk` 29 o superior** descartaría teléfonos aún comunes.
 - **Cuenta de organización en Play** (sin el requisito de los 14 días): exige una empresa registrada y
   verificación D-U-N-S, que el proyecto no tiene.
+
+## Actualización: cliente de la API generado (T2)
+
+Decisión: el cliente de Android se genera **antes** (script `apps/android/scripts/generate-api.sh`, salida commiteada, CI falla si queda desactualizado) con **OpenAPI Generator 7.25.0** (jar fijado por versión y SHA-256; publicado el 2026-08-24), generador `kotlin`, librería **`jvm-retrofit2`** con kotlinx.serialization y corrutinas, sobre Retrofit 3.0.0 y OkHttp 5.5.0. Las pantallas dependen de la interfaz propia `MirachApi`, nunca de los tipos generados.
+
+Evaluación breve (ambas se generaron y compilaron contra la spec real):
+
+- **`jvm-retrofit2` (elegida):** métodos `suspend` cuya cancelación cancela la llamada HTTP (cierra el aviso de la revisión de T1: E/S bloqueante no cancelable), multipart como `@Part`, nulos y enums anulables correctos.
+- **`jvm-okhttp4`:** menos dependencias, pero sus llamadas son bloqueantes (`execute`); habría que envolverlas a mano para poder cancelarlas.
+- **Cliente escrito a mano:** descartado por ADR-046 D9 (modelos generados desde el contrato).
+- **Generar durante el build (plugin de Gradle):** descartado: el diff de contrato no se vería en el PR y el build dependería de un plugin.
+
+Hallazgos sobre el contrato (el generador no pierde campos; no se tocó `apps/api`): (1) el validador rechaza `contentEncoding: binary` en los `file` de `/api/ingestas*` (palabra clave de 3.1 dentro de un documento 3.0.3), por lo que se usa `--skip-validate-spec`; (2) la spec no declara `operationId`; (3) `DELETE /api/cuenta` con cuerpo no es utilizable con Retrofit tal como se genera. Los tres son prerrequisitos opcionales del lado de la API (quitar `contentEncoding`, declarar `operationId`) o trabajo de T7 (declarar a mano el DELETE con cuerpo).
