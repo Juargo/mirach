@@ -52,18 +52,36 @@ class GeneratedMirachApi(
     override suspend fun currentUser(): CurrentUser {
         val sentToken = tokenProvider.token()
         val response = api.apiAuthMeGet()
-        if (response.code() == 401) {
-            when (errorCode(response)) {
-                "SESION_INVALIDA" -> {
-                    sentToken?.let(onSessionExpired)
-                    throw SessionExpiredException()
-                }
-                "API_KEY_INVALIDA" -> throw ApiKeyRejectedException()
-                else -> throw ApiException(401)
-            }
-        }
+        if (response.code() == 401) throw rejection(response, sentToken)
         val me = response.bodyOrThrow("GET /api/auth/me")
         return CurrentUser(userId = me.userId, nombre = me.nombre, email = me.email)
+    }
+
+    override suspend fun resumen(periodo: Periodo?): ResumenMes {
+        val sentToken = tokenProvider.token()
+        val response = api.apiResumenGet(periodo?.apiValue)
+        if (response.code() == 401) throw rejection(response, sentToken)
+        return ResumenMapper.map(response.bodyOrThrow("GET /api/resumen"))
+    }
+
+    override suspend fun periodos(): List<Periodo> {
+        val sentToken = tokenProvider.token()
+        val response = api.apiPeriodosGet()
+        if (response.code() == 401) throw rejection(response, sentToken)
+        return response.bodyOrThrow("GET /api/periodos").periodos.map(ResumenMapper::periodo)
+    }
+
+    /**
+     * Every authenticated endpoint funnels its 401 through here, so the expired-session
+     * notification lives in exactly one place.
+     */
+    private fun rejection(response: Response<*>, sentToken: String?): Exception = when (errorCode(response)) {
+        "SESION_INVALIDA" -> {
+            sentToken?.let(onSessionExpired)
+            SessionExpiredException()
+        }
+        "API_KEY_INVALIDA" -> ApiKeyRejectedException()
+        else -> ApiException(401)
     }
 
     /** A failed sign-in is never "session expired": there is no session yet. */
