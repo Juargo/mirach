@@ -31,8 +31,10 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
     val session = dependencies.session
     val phase by session.phase.collectAsStateWithLifecycle()
     var retry by remember { mutableIntStateOf(0) }
-    // Validates the saved session at launch; "Reintentar" bumps [retry] to run it again.
-    LaunchedEffect(retry) { session.start() }
+    // Both calls are no-ops unless the phase asks for them, so recreating the activity
+    // (rotation, theme) never re-validates; "Reintentar" bumps the counter to call session.retry().
+    LaunchedEffect(Unit) { session.start() }
+    LaunchedEffect(retry) { if (retry > 0) session.retry() }
 
     when (phase) {
         Phase.Validating -> ValidatingScreen()

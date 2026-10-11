@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,7 +82,8 @@ fun SignInScreen(
 private fun PasswordSignInForm(busy: Boolean, onSubmit: (String, String) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    // Plain remember: a saved password would land in the plaintext saved-instance Bundle.
+    var password by remember { mutableStateOf("") }
     val canSubmit = !busy && email.isNotBlank() && password.isNotEmpty()
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {

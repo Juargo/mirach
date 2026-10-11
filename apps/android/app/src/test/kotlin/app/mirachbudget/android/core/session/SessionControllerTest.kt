@@ -96,6 +96,57 @@ class SessionControllerTest {
         controller.start()
         offline = false
 
+        controller.retry()
+
+        assertEquals(Phase.SignedIn("u-1"), controller.phase.value)
+    }
+
+    @Test
+    fun startingAgainAfterSignInDoesNotValidateAgain() = runTest {
+        api.onCurrentUser = { CurrentUser("u-1", "Ana") }
+        val controller = controller(InMemorySessionStore(session))
+        controller.start()
+
+        controller.start()
+
+        assertEquals(Phase.SignedIn("u-1"), controller.phase.value)
+        assertEquals(1, api.currentUserCalls)
+    }
+
+    @Test
+    fun startingAgainWhileConnectionFailedDoesNotRevalidate() = runTest {
+        api.onCurrentUser = { throw IOException() }
+        val controller = controller(InMemorySessionStore(session))
+        controller.start()
+
+        controller.start()
+
+        assertEquals(Phase.ConnectionFailed, controller.phase.value)
+        assertEquals(1, api.currentUserCalls)
+    }
+
+    @Test
+    fun retryOutsideConnectionFailedDoesNothing() = runTest {
+        api.onCurrentUser = { CurrentUser("u-1", "Ana") }
+        val controller = controller(InMemorySessionStore(session))
+        controller.start()
+
+        controller.retry()
+
+        assertEquals(1, api.currentUserCalls)
+    }
+
+    @Test
+    fun aStartCancelledMidValidationCanBeStartedAgain() = runTest {
+        var cancel = true
+        api.onCurrentUser = { if (cancel) throw CancellationException("rotated") else CurrentUser("u-1", "Ana") }
+        val controller = controller(InMemorySessionStore(session))
+        try {
+            controller.start()
+        } catch (_: CancellationException) {
+        }
+        cancel = false
+
         controller.start()
 
         assertEquals(Phase.SignedIn("u-1"), controller.phase.value)
@@ -141,7 +192,7 @@ class SessionControllerTest {
     }
 
     @Test
-    fun signInThatCannotBeStoredThrowsAndStaysSignedOut() {
+    fun signInThatCannotBeStoredThrowsAndLeavesThePhaseUnchanged() {
         val store = InMemorySessionStore().apply { failOnSave = true }
         val controller = controller(store)
         controller.phase.value.let { assertEquals(Phase.Validating, it) }

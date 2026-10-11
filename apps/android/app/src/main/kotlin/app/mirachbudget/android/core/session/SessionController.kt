@@ -29,11 +29,31 @@ class SessionController(
     private val _phase = MutableStateFlow<Phase>(Phase.Validating)
     val phase: StateFlow<Phase> = _phase
 
-    /** Runs every time the session ends (sign-out, expiry): the app drops what is tied to the person. */
+    /**
+     * Extension point for screens that hold person-specific data (the staged statement arrives in
+     * T6): they assign a callback to drop that data. Runs after every sign-out or expiry. Nothing
+     * is registered yet.
+     */
     var onSessionEnded: () -> Unit = {}
 
-    /** Startup (and retry): with a saved token ask `GET /api/auth/me`; without one go to sign-in. */
+    /**
+     * Startup: with a saved token ask `GET /api/auth/me`; without one go to sign-in. Idempotent:
+     * it only acts while nothing has been decided yet, so activity recreation (rotation, theme)
+     * never re-validates a working session. A start cancelled mid-flight leaves the phase
+     * undecided, so the next call still validates.
+     */
     suspend fun start() {
+        if (_phase.value != Phase.Validating) return
+        validate()
+    }
+
+    /** The explicit "Reintentar": the only way to validate again after [Phase.ConnectionFailed]. */
+    suspend fun retry() {
+        if (_phase.value != Phase.ConnectionFailed) return
+        validate()
+    }
+
+    private suspend fun validate() {
         val validatedToken = store.load()?.token
         if (validatedToken == null) {
             _phase.value = Phase.SignedOut
