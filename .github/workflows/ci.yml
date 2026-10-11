@@ -993,7 +993,11 @@ jobs:
         run: node --test scripts/generate-android-tokens.test.mjs
 
       - name: Write a dummy secrets file
-        run: echo "MIRACH_API_KEY=ci-dummy-key" > secrets.properties
+        run: |
+          {
+            echo "MIRACH_API_KEY=ci-dummy-key"
+            echo "GOOGLE_WEB_CLIENT_ID=ci-dummy.apps.googleusercontent.com"
+          } > secrets.properties
 
       - name: Unit tests, debug build and lint
         run: ./gradlew testDebugUnitTest assembleDebug lint --no-daemon

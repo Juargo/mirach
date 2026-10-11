@@ -1,6 +1,6 @@
 # Mirach para Android
 
-App nativa (Kotlin + Jetpack Compose, Android 8.0 / API 26 o superior) de Mirach. Es un cliente delgado de la API (ADR-046 D9). Estado actual: esqueleto con una pantalla que consulta `GET /version` a través del cliente generado (con carga, error y «Reintentar»). Las decisiones de base están en [ADR-052](../../docs/adr/ADR-052-base-app-android.md).
+App nativa (Kotlin + Jetpack Compose, Android 8.0 / API 26 o superior) de Mirach. Es un cliente delgado de la API (ADR-046 D9). Estado actual: inicio de sesión (Google y, solo para la revisión de la tienda, correo y contraseña), sesión guardada cifrada, validación con `GET /api/auth/me` al abrir y una pantalla provisoria con «Cerrar sesión» (el Resumen llega después). Las decisiones de base están en [ADR-052](../../docs/adr/ADR-052-base-app-android.md).
 
 ## Requisitos
 
@@ -29,6 +29,14 @@ No hace falta instalar Gradle: el *wrapper* (`./gradlew`) descarga la versión f
    ```
 
    `secrets.properties` está en `.gitignore`: **nunca se commitea**. Sin clave la app compila, pero al abrirla muestra «La app no está configurada correctamente.» (y en Debug lo anota en Logcat con la etiqueta `MirachConfiguration`).
+
+3. **Inicio de sesión con Google (opcional para compilar).** Pon en `secrets.properties` el `GOOGLE_WEB_CLIENT_ID`: el ID del cliente OAuth de tipo **Web** del proyecto de Google Cloud (el mismo proyecto de la app de iPhone). Credential Manager lo usa como `serverClientId`, por lo que ese valor queda como `aud` del ID token. Sin él la app compila y funciona, pero el botón «Continuar con Google» no aparece (Debug lo anota en Logcat, etiqueta `MirachConfiguration`). Para que Google funcione de punta a punta hacen falta además:
+
+   - En Render, `GOOGLE_CLIENT_ID_ANDROID` debe contener **ese mismo ID de cliente Web** (no el de tipo Android): el API compara el `aud` del token con esa variable.
+   - En el mismo proyecto de Google Cloud, un cliente OAuth de tipo **Android** con el paquete `app.mirachbudget.android` y la huella SHA-1 de la llave con la que se firma el APK: la de depuración (`./gradlew signingReport`), la llave de subida y la llave de firma de Play (App integrity en Play Console). Sin ese cliente Credential Manager falla con un error de configuración.
+   - Si la cuenta de Google no está en el emulador (necesita imagen con Google Play) el selector no ofrece cuentas.
+
+   El correo y la contraseña de la cuenta de revisión (ADR-051) solo aparecen si el API los habilita (`passwordLoginEnabled`).
 
 ## Ejecutar en el emulador
 
@@ -64,7 +72,7 @@ Es lo mismo que corre el job `android` de CI. Los reportes quedan en `app/build/
 
 ## Estructura
 
-- `app/src/main/kotlin/app/mirachbudget/android/core/`: configuración (`config/`), red (`networking/`: `MirachApi`, su adaptador, el interceptor de credenciales) y el cliente generado (`api/generated/`, no se edita a mano).
+- `app/src/main/kotlin/app/mirachbudget/android/core/`: configuración (`config/`), sesión (`session/`: `SessionController`, almacenamiento cifrado con Android Keystore), red (`networking/`: `MirachApi`, su adaptador, el interceptor de credenciales, el aviso único de sesión vencida) y el cliente generado (`api/generated/`, no se edita a mano).
 - `app/src/main/kotlin/app/mirachbudget/android/features/<pantalla>/`: un `ViewModel` que expone un `StateFlow` y un composable sin estado.
 - `AppEnvironment.kt`: raíz de composición (qué dependencias concretas usa la app).
 - `gradle/libs.versions.toml`: catálogo de versiones. Se eligen versiones con al menos dos semanas desde su publicación.
