@@ -86,6 +86,18 @@ cd apps/android
 - **Particularidades del contrato:** `openapi.json` es OpenAPI 3.0.3; las propiedades anulables (`estadoGlobal`, `estadoSemaforo`, `porcentajeBp`...) se generan como tipos `?` y los cuerpos `multipart/form-data` de `/api/ingestas*` como `@Part`. El script pasa `--skip-validate-spec` porque el validador rechaza `contentEncoding` (palabra clave de 3.1) en esos `file`. La spec no declara `operationId`, así que los métodos se llaman por ruta (`apiAuthMeGet`); es estable, pero renombrar una ruta renombra el método. Cualquier otro `WARN` del generador hace fallar el script: significa que se está omitiendo algo del contrato.
 - **Limitación conocida:** el generador emite `@DELETE` con `@Body` para `DELETE /api/cuenta`, y Retrofit lo rechaza al llamarlo (`Non-body HTTP method cannot contain @Body`). Para la pantalla de eliminar cuenta (T7) hay que declarar a mano ese endpoint con `@HTTP(method = "DELETE", hasBody = true)`.
 
+## Tokens de diseño
+
+Los colores (tema claro y oscuro), textos, tipografía y radios salen de `design/tokens.json`, la misma fuente que usa la app de iPhone. `scripts/generate-android-tokens.mjs` (Node, sin dependencias) escribe `app/src/main/kotlin/app/mirachbudget/android/core/design/GeneratedTokens.kt`, que **se commitea** y no se edita a mano.
+
+```bash
+apps/android/scripts/generate-tokens.sh
+```
+
+- **Cuándo regenerar:** cada vez que cambie `design/tokens.json`. El job `android` de CI ejecuta el script y falla si el diff no está vacío; también corre `node --test scripts/generate-android-tokens.test.mjs`.
+- **Uso en pantallas:** `MirachTheme { ... }` (ya aplicado en `MainActivity`) sigue el tema del sistema. Los colores se leen con `MirachTheme.colors.<grupo>.<token>` (por ejemplo `bucket.deseos`, `feedback.errorText`), los textos con `MirachCopy`, las cifras con `.mirachFigures()` (dígitos tabulares) y las esquinas con `MirachRadius`. Los colores Material 3 (`MaterialTheme.colorScheme`) se derivan de los tokens donde existe un rol equivalente.
+- **Reglas de los tokens:** los colores de `bucket` son solo relleno, nunca texto, y siempre van con una etiqueta; el bucket del 30% se llama «Deseos».
+
 ## Notas
 
 - El `applicationId` (`app.mirachbudget.android`) no puede cambiar una vez subida la primera versión a Google Play.

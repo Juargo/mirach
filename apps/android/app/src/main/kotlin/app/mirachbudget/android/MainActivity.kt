@@ -4,10 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.features.version.ApiVersionRoute
 import app.mirachbudget.android.features.version.ApiVersionViewModel
 import app.mirachbudget.android.features.version.ConfigurationErrorScreen
@@ -25,8 +25,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface {
+            MirachTheme {
+                Surface(color = MirachTheme.colors.base.background) {
                     if (dependencies.configurationProblem != null) {
                         ConfigurationErrorScreen()
                     } else {

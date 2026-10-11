@@ -81,10 +81,10 @@ jobs:
             openspec: ['openspec/changes/**', 'scripts/check-openspec-artifacts.sh']
             # iPhone app: its sources, the API contract the client is generated
             # from, the design tokens it will consume, and this workflow.
-            ios: ['apps/ios/**', 'apps/api/openapi.json', 'design/**', 'scripts/check-design-tokens.mjs', 'scripts/generate-ios-tokens*.mjs', '.github/workflows/ci.yml']
-            # Android app: its sources and this workflow (its API client arrives
-            # generated from openapi.json, which will then be listed here too).
-            android: ['apps/android/**', 'apps/api/openapi.json', '.github/workflows/ci.yml']
+            ios: ['apps/ios/**', 'apps/api/openapi.json', 'design/**', 'scripts/check-design-tokens.mjs', 'scripts/generate-ios-tokens*.mjs', 'scripts/design-tokens.mjs', '.github/workflows/ci.yml']
+            # Android app: its sources, the API contract its client is generated
+            # from, the design tokens it consumes, and this workflow.
+            android: ['apps/android/**', 'apps/api/openapi.json', 'design/**', 'scripts/check-design-tokens.mjs', 'scripts/generate-android-tokens*.mjs', 'scripts/design-tokens.mjs', '.github/workflows/ci.yml']
 
   # ADR-020: the REAL commit-message enforcement (local husky hooks are
   # --no-verify-skippable, this is not). Runs on every PR/push — NOT
@@ -976,6 +976,21 @@ jobs:
           ./scripts/generate-api.sh
           git diff --exit-code -- .
           test -z "$(git status --porcelain -- .)" || { git status --short -- .; exit 1; }
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      # Design tokens are generated from design/tokens.json and committed too.
+      - name: Generated design tokens are up to date
+        run: |
+          ./scripts/generate-tokens.sh
+          git diff --exit-code -- .
+          test -z "$(git status --porcelain -- .)" || { git status --short -- .; exit 1; }
+
+      - name: Token generator tests
+        working-directory: .
+        run: node --test scripts/generate-android-tokens.test.mjs
 
       - name: Write a dummy secrets file
         run: echo "MIRACH_API_KEY=ci-dummy-key" > secrets.properties
