@@ -24,7 +24,7 @@ ADR-046 D8: Android second, after the iPhone app. The 14-day clock is the longes
 
 - **Play account:** personal, created 2026 (user, 2026-10-11) → closed test, 12+ testers, 14 days.
 - **applicationId:** `app.mirachbudget.android` (proposed 2026-10-11, mirrors `app.mirachbudget.ios`; immutable after first upload).
-- **minSdk 26**, target/compile SDK: latest stable the Play target-API policy requires.
+- **minSdk 26, targetSdk 36** (Play policy from 2026-08-31), **compileSdk 37** (required by the AndroidX versions in use). Recorded in ADR-052.
 - **Location:** `apps/android/`, outside the pnpm workspace, Gradle wrapper committed.
 
 ## Constraints
@@ -53,6 +53,8 @@ ADR-046 D8: Android second, after the iPhone app. The 14-day clock is the longes
 
 - 2026-10-11: feature document created; branch `feat/android-skeleton`.
 - 2026-10-11: **T1 done** (route: delegated writer, many new files). Commits: `e3210f0` feat(android) skeleton, `592f23c` docs(adr) ADR-052 + index + CLAUDE.md, `7c41943` ci `android` job. Versions (all >= 2 weeks old, checked against Maven metadata `Last-Modified`): Gradle 9.7.1 (wrapper, SHA-256 pinned), AGP 9.4.1 (2026-09-18), Kotlin 2.4.20 (2026-09-07), Compose BOM 2026.09.00 (2026-09-09), activity-compose 1.13.0, lifecycle 2.11.0, core-ktx 1.19.0, coroutines 1.11.0, serialization-json 1.10.0, JUnit 4.13.2. targetSdk 36 (Play policy from 2026-08-31, verified), compileSdk 37 (androidx deps require it; platform `android-37.0` installed). TDD: RED = `./gradlew testDebugUnitTest` -> "13 tests completed, 9 failed" (stubs); GREEN = 13/13 pass. Mutation checks: `isBlank`->`isEmpty` failed `blankKeyIsAProblem`; swapping the `SocketTimeoutException` catch failed `reportsTimeoutWithDedicatedMessage`; both restored. `assembleDebug lint` and `assembleRelease` (R8) OK; `actionlint` clean. Not run: emulator/physical device (no UI test in T1), CI job itself (needs a push).
+
+- 2026-10-11 review of T1 (lineage `review-4a9ff2061288c11c`, risk high, 4 lenses, consent granted): approved and acknowledged. Advisories (non-blocking, later work): R3 WARNING `HttpVersionApi` untested (replaced by the generated client in T2: test the new adapter there); R3 blocking I/O not cancellable, cancellation path untested, placeholder key not detected, BuildConfig key unescaped; R2 small readability notes; R1 CI suggestion at `ci.yml:975`. Fixed: the stale SDK decision line (R2).
 
 ## Next step
 
