@@ -1,8 +1,8 @@
 package app.mirachbudget.android.features.version
 
 import app.mirachbudget.android.core.networking.ApiException
-import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.core.networking.VersionInfo
+import app.mirachbudget.android.testing.FakeMirachApi
 import java.io.IOException
 import java.net.SocketTimeoutException
 import kotlinx.coroutines.test.runTest
@@ -14,18 +14,22 @@ class ApiVersionViewModelTest {
     private val sample = VersionInfo(version = "1.2.3", commit = "abc1234")
 
     /** Each call consumes one outcome: a [VersionInfo] to return or a [Throwable] to throw. */
-    private class FakeApi(private val outcomes: MutableList<Any>) : MirachApi {
+    private class Outcomes(private val outcomes: MutableList<Any>) {
+        val api = FakeMirachApi()
         var calls = 0
-        override suspend fun version(): VersionInfo {
-            calls++
-            return when (val outcome = outcomes.removeAt(0)) {
-                is Throwable -> throw outcome
-                else -> outcome as VersionInfo
+
+        init {
+            api.onVersion = {
+                calls++
+                when (val outcome = outcomes.removeAt(0)) {
+                    is Throwable -> throw outcome
+                    else -> outcome as VersionInfo
+                }
             }
         }
     }
 
-    private fun viewModel(outcome: Any) = ApiVersionViewModel(FakeApi(mutableListOf(outcome)))
+    private fun viewModel(outcome: Any) = ApiVersionViewModel(Outcomes(mutableListOf(outcome)).api)
 
     @Test
     fun startsIdle() {
@@ -81,11 +85,11 @@ class ApiVersionViewModelTest {
 
     @Test
     fun retryAfterFailureLoadsAgain() = runTest {
-        val api = FakeApi(mutableListOf<Any>(IOException(), sample))
-        val vm = ApiVersionViewModel(api)
+        val outcomes = Outcomes(mutableListOf<Any>(IOException(), sample))
+        val vm = ApiVersionViewModel(outcomes.api)
         vm.load()
         vm.retry()
         assertEquals(ApiVersionState.Loaded(sample), vm.state.value)
-        assertEquals(2, api.calls)
+        assertEquals(2, outcomes.calls)
     }
 }
