@@ -1,6 +1,6 @@
 # Mirach para Android
 
-App nativa (Kotlin + Jetpack Compose, Android 8.0 / API 26 o superior) de Mirach. Es un cliente delgado de la API (ADR-046 D9). Estado actual: esqueleto con una pantalla que consulta `GET /version` (con carga, error y «Reintentar»). Las decisiones de base están en [ADR-052](../../docs/adr/ADR-052-base-app-android.md).
+App nativa (Kotlin + Jetpack Compose, Android 8.0 / API 26 o superior) de Mirach. Es un cliente delgado de la API (ADR-046 D9). Estado actual: esqueleto con una pantalla que consulta `GET /version` a través del cliente generado (con carga, error y «Reintentar»). Las decisiones de base están en [ADR-052](../../docs/adr/ADR-052-base-app-android.md).
 
 ## Requisitos
 
@@ -64,12 +64,29 @@ Es lo mismo que corre el job `android` de CI. Los reportes quedan en `app/build/
 
 ## Estructura
 
-- `app/src/main/kotlin/app/mirachbudget/android/core/`: configuración (`config/`) y red (`networking/`).
+- `app/src/main/kotlin/app/mirachbudget/android/core/`: configuración (`config/`), red (`networking/`: `MirachApi`, su adaptador, el interceptor de credenciales) y el cliente generado (`api/generated/`, no se edita a mano).
 - `app/src/main/kotlin/app/mirachbudget/android/features/<pantalla>/`: un `ViewModel` que expone un `StateFlow` y un composable sin estado.
 - `AppEnvironment.kt`: raíz de composición (qué dependencias concretas usa la app).
 - `gradle/libs.versions.toml`: catálogo de versiones. Se eligen versiones con al menos dos semanas desde su publicación.
 
+## Cliente de la API generado
+
+El cliente se genera desde `apps/api/openapi.json` con [OpenAPI Generator](https://openapi-generator.tech) (generador `kotlin`, librería `jvm-retrofit2`, kotlinx.serialization y corrutinas) y **se commitea** en `app/src/main/kotlin/app/mirachbudget/android/core/api/generated/` (no se genera durante el build: así el diff de un cambio de contrato se ve en el PR).
+
+```bash
+cd apps/android
+./scripts/generate-api.sh
+```
+
+- **Cuándo regenerar:** cada vez que cambie `apps/api/openapi.json`. **Un cambio de contrato debe regenerar los dos clientes** (`apps/ios/scripts/generate-api.sh` y este); el job `android` de CI ejecuta el script y falla si el diff no está vacío.
+- **Determinismo:** el script fija la versión del generador (7.25.0) y la suma SHA-256 de su jar, que descarga a `~/.cache/mirach/openapi-generator/` la primera vez (necesita JDK 17 y `curl`). Solo copia `src/main`; no genera pruebas, documentación ni archivos de Gradle.
+- **Las pantallas no usan los tipos generados:** dependen de `MirachApi` (`core/networking/MirachApi.kt`), cuya implementación `GeneratedMirachApi` envuelve el cliente generado y expone solo lo que las pantallas necesitan. Para sumar un endpoint: agrega el método a la interfaz y al adaptador, con su prueba (MockWebServer).
+- **Credenciales:** `ApiAuthInterceptor` agrega `x-api-key` y, si hay sesión, `Authorization: Bearer` únicamente en rutas `/api`; `/version` no recibe nada. El token sale de `AuthTokenProvider` (hoy devuelve `null`).
+- **Errores y cancelación:** el adaptador no captura excepciones: timeout (`SocketTimeoutException`), sin conexión (`IOException`), cuerpo inválido (`SerializationException`) y 5xx (`ApiException`) los traduce el `ViewModel`; la cancelación de la corrutina cancela la llamada de red y sigue siendo `CancellationException`. El timeout es de 90 s (Render duerme la instancia gratuita).
+- **Particularidades del contrato:** `openapi.json` es OpenAPI 3.0.3; las propiedades anulables (`estadoGlobal`, `estadoSemaforo`, `porcentajeBp`...) se generan como tipos `?` y los cuerpos `multipart/form-data` de `/api/ingestas*` como `@Part`. El script pasa `--skip-validate-spec` porque el validador rechaza `contentEncoding` (palabra clave de 3.1) en esos `file`. La spec no declara `operationId`, así que los métodos se llaman por ruta (`apiAuthMeGet`); es estable, pero renombrar una ruta renombra el método. Cualquier otro `WARN` del generador hace fallar el script: significa que se está omitiendo algo del contrato.
+- **Limitación conocida:** el generador emite `@DELETE` con `@Body` para `DELETE /api/cuenta`, y Retrofit lo rechaza al llamarlo (`Non-body HTTP method cannot contain @Body`). Para la pantalla de eliminar cuenta (T7) hay que declarar a mano ese endpoint con `@HTTP(method = "DELETE", hasBody = true)`.
+
 ## Notas
 
 - El `applicationId` (`app.mirachbudget.android`) no puede cambiar una vez subida la primera versión a Google Play.
-- El cliente HTTP actual es mínimo y está detrás de la interfaz `VersionApi`; se reemplaza por el cliente generado desde `apps/api/openapi.json` en la tarea siguiente.
+- Las pantallas no usan el cliente generado: dependen de la interfaz `MirachApi` (ver «Cliente de la API generado»).

@@ -84,7 +84,7 @@ jobs:
             ios: ['apps/ios/**', 'apps/api/openapi.json', 'design/**', 'scripts/check-design-tokens.mjs', 'scripts/generate-ios-tokens*.mjs', '.github/workflows/ci.yml']
             # Android app: its sources and this workflow (its API client arrives
             # generated from openapi.json, which will then be listed here too).
-            android: ['apps/android/**', '.github/workflows/ci.yml']
+            android: ['apps/android/**', 'apps/api/openapi.json', '.github/workflows/ci.yml']
 
   # ADR-020: the REAL commit-message enforcement (local husky hooks are
   # --no-verify-skippable, this is not). Runs on every PR/push — NOT
@@ -968,6 +968,14 @@ jobs:
       # compileSdk 37: the runner image may not ship that platform yet.
       - name: Install the Android platform
         run: yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" > /dev/null
+
+      # The generated client is committed; a contract change must regenerate it (see
+      # apps/android/README.md). `git status` also catches files the generator added.
+      - name: Generated API client is up to date
+        run: |
+          ./scripts/generate-api.sh
+          git diff --exit-code -- .
+          test -z "$(git status --porcelain -- .)" || { git status --short -- .; exit 1; }
 
       - name: Write a dummy secrets file
         run: echo "MIRACH_API_KEY=ci-dummy-key" > secrets.properties

@@ -1,7 +1,7 @@
 package app.mirachbudget.android.features.version
 
 import app.mirachbudget.android.core.networking.ApiException
-import app.mirachbudget.android.core.networking.VersionApi
+import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.core.networking.VersionInfo
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -14,7 +14,7 @@ class ApiVersionViewModelTest {
     private val sample = VersionInfo(version = "1.2.3", commit = "abc1234")
 
     /** Each call consumes one outcome: a [VersionInfo] to return or a [Throwable] to throw. */
-    private class FakeApi(private val outcomes: MutableList<Any>) : VersionApi {
+    private class FakeApi(private val outcomes: MutableList<Any>) : MirachApi {
         var calls = 0
         override suspend fun version(): VersionInfo {
             calls++

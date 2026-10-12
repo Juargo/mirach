@@ -2,7 +2,7 @@ package app.mirachbudget.android.features.version
 
 import androidx.lifecycle.ViewModel
 import app.mirachbudget.android.core.networking.ApiException
-import app.mirachbudget.android.core.networking.VersionApi
+import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.core.networking.VersionInfo
 import java.net.SocketTimeoutException
 import kotlinx.coroutines.CancellationException
@@ -18,7 +18,7 @@ sealed interface ApiVersionState {
 }
 
 /** TEMPORARY: proves networking end to end, like the iOS first screen. */
-class ApiVersionViewModel(private val api: VersionApi) : ViewModel() {
+class ApiVersionViewModel(private val api: MirachApi) : ViewModel() {
     private val _state = MutableStateFlow<ApiVersionState>(ApiVersionState.Idle)
     val state: StateFlow<ApiVersionState> = _state
 

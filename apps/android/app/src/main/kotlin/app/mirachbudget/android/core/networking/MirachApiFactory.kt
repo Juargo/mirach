@@ -1,0 +1,28 @@
+package app.mirachbudget.android.core.networking
+
+import app.mirachbudget.android.core.api.generated.apis.DefaultApi
+import app.mirachbudget.android.core.api.generated.infrastructure.ApiClient
+import java.util.concurrent.TimeUnit
+import okhttp3.OkHttpClient
+
+/** Builds the app's [MirachApi] over the generated client. */
+object MirachApiFactory {
+    /** Generous: the free Render instance sleeps and its cold start takes up to ~1 minute. */
+    const val TIMEOUT_MILLIS = 90_000L
+
+    fun create(
+        baseUrl: String,
+        apiKey: String,
+        tokenProvider: AuthTokenProvider = AuthTokenProvider.None,
+        timeoutMillis: Long = TIMEOUT_MILLIS,
+    ): MirachApi {
+        // Our own builder replaces the generator's default one, which logs request bodies.
+        val client = OkHttpClient.Builder()
+            .connectTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
+            .readTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
+            .writeTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
+            .addInterceptor(ApiAuthInterceptor(apiKey, tokenProvider))
+        val service = ApiClient(baseUrl = baseUrl, okHttpClientBuilder = client).createService(DefaultApi::class.java)
+        return GeneratedMirachApi(service)
+    }
+}
