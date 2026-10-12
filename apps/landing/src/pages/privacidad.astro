@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import { SITE, CONTACT } from '../config';
+import { SITE, CONTACT, ACCOUNT_DELETION } from '../config';
 ---
 
 <Layout title={`Política de privacidad — ${SITE.title}`}>
@@ -15,7 +15,7 @@ import { SITE, CONTACT } from '../config';
         Política de privacidad
       </h1>
       <p class="mt-4 text-body-sm text-on-surface-variant">
-        Última actualización: 9 de octubre de 2026
+        Última actualización: 11 de octubre de 2026
       </p>
 
       <div class="mt-10 space-y-8 text-body-sm leading-relaxed text-on-surface-variant">
@@ -24,7 +24,7 @@ import { SITE, CONTACT } from '../config';
             Quién es responsable
           </h2>
           <p class="mt-2">
-            El responsable del tratamiento de tus datos es el equipo que desarrolla Mirach, la aplicación para iPhone, y este sitio web. Para cualquier consulta sobre privacidad escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
+            El responsable del tratamiento de tus datos es el equipo que desarrolla Mirach, las aplicaciones para iPhone y para Android, y este sitio web. Para cualquier consulta sobre privacidad escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
           </p>
         </section>
 
@@ -36,7 +36,7 @@ import { SITE, CONTACT } from '../config';
             Recogemos solo lo necesario para que la aplicación funcione:
           </p>
           <ul class="mt-2 list-disc space-y-1 pl-5">
-            <li><strong class="text-on-surface">Datos de cuenta:</strong> tu nombre, tu correo electrónico y un identificador de usuario que entrega Apple. Los usamos para crear tu cuenta y reconocerte cuando vuelves a entrar.</li>
+            <li><strong class="text-on-surface">Datos de cuenta:</strong> tu nombre, tu correo electrónico y un identificador de usuario que entrega el proveedor con el que inicias sesión (Apple en iPhone, Google en Android). Los usamos para crear tu cuenta y reconocerte cuando vuelves a entrar.</li>
             <li><strong class="text-on-surface">Datos financieros:</strong> los movimientos de las cartolas bancarias que subes tú mismo (fecha, descripción, monto y banco), además de las categorías y los patrones de clasificación que creas. Los usamos para clasificar tus gastos y mostrarte tu resumen.</li>
           </ul>
           <p class="mt-2">
@@ -46,10 +46,15 @@ import { SITE, CONTACT } from '../config';
 
         <section>
           <h2 class="font-display text-title-md font-bold text-on-surface">
-            Inicio de sesión con Apple
+            Inicio de sesión con Apple y con Google
           </h2>
           <p class="mt-2">
-            En la aplicación para iPhone inicias sesión únicamente con Apple. Recibimos de Apple el identificador de usuario y, en tu primer acceso, tu nombre y tu correo (que puede ser el correo privado de retransmisión que Apple te ofrece). No recibimos tu contraseña de Apple. Guardamos además un token de Apple, cifrado, solo para poder revocar el acceso de la aplicación a tu cuenta de Apple cuando eliminas tu cuenta.
+            No creas una contraseña en Mirach. En la aplicación para iPhone inicias sesión con Apple y en la aplicación para Android, con Google.</p>
+          <p class="mt-2">
+            Con Apple: Recibimos de Apple el identificador de usuario y, en tu primer acceso, tu nombre y tu correo (que puede ser el correo privado de retransmisión que Apple te ofrece). No recibimos tu contraseña de Apple. Guardamos además un token de Apple, cifrado, solo para poder revocar el acceso de la aplicación a tu cuenta de Apple cuando eliminas tu cuenta.
+          </p>
+          <p class="mt-2">
+            Con Google: recibimos de Google el identificador de usuario, tu nombre y tu correo electrónico. No recibimos tu contraseña de Google. Puedes revisar o quitar el acceso de Mirach a tu cuenta de Google en cualquier momento desde la configuración de seguridad de tu cuenta de Google.
           </p>
         </section>
 
@@ -94,14 +99,14 @@ import { SITE, CONTACT } from '../config';
             Conservación y eliminación de tu cuenta
           </h2>
           <p class="mt-2">
-            Conservamos tus datos mientras mantengas tu cuenta. Puedes eliminarla en cualquier momento desde la aplicación: Perfil, Eliminar cuenta, y escribe ELIMINAR para confirmar. Al hacerlo:
+            Conservamos tus datos mientras mantengas tu cuenta. Puedes eliminarla en cualquier momento desde la aplicación para iPhone o la de Android: Perfil, Eliminar cuenta, y escribe ELIMINAR para confirmar. Si ya no tienes la aplicación, puedes pedir la eliminación desde la página <a href={ACCOUNT_DELETION.url} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Eliminar cuenta</a>. Al eliminar tu cuenta:
           </p>
           <ul class="mt-2 list-disc space-y-1 pl-5">
-            <li>se revoca el acceso de la aplicación a tu cuenta de Apple (Iniciar sesión con Apple);</li>
-            <li>se borran de la base de datos activa tu cuenta, tus sesiones, tus movimientos, tus cuentas bancarias cargadas, tus categorías y tus patrones de clasificación.</li>
+            <li>si iniciaste sesión con Apple, se revoca el acceso de la aplicación a tu cuenta de Apple (Iniciar sesión con Apple);</li>
+            <li>se borran de la base de datos activa tu cuenta, tus sesiones, tus movimientos, tus cuentas bancarias cargadas, tus categorías y tus patrones de clasificación, todo en una sola operación: o se borra todo o no se borra nada.</li>
           </ul>
           <p class="mt-2">
-            La eliminación es inmediata e irreversible. Si necesitas ayuda o tienes dudas sobre copias de seguridad de nuestros proveedores, escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
+            La eliminación desde la aplicación es inmediata e irreversible. Los registros técnicos del servidor pueden conservar el identificador interno de usuario (sin tu nombre, correo ni datos financieros) para dejar constancia de que la cuenta fue eliminada. Si necesitas ayuda o tienes dudas sobre copias de seguridad de nuestros proveedores, escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
           </p>
         </section>
 
@@ -110,7 +115,7 @@ import { SITE, CONTACT } from '../config';
             Tus derechos
           </h2>
           <p class="mt-2">
-            Puedes pedirnos acceso, rectificación o eliminación de tus datos personales. La eliminación puedes hacerla tú mismo desde la aplicación; para cualquier otra solicitud escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
+            Puedes pedirnos acceso, rectificación o eliminación de tus datos personales. La eliminación puedes hacerla tú mismo desde la aplicación o desde la página de eliminación de cuenta; para cualquier otra solicitud escríbenos a <a href={`mailto:${CONTACT.email}`} class="font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{CONTACT.email}</a>.
           </p>
         </section>
 

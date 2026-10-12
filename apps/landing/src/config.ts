@@ -44,6 +44,11 @@ export const SUPPORT = {
   label: 'Soporte',
 } as const;
 
+export const ACCOUNT_DELETION = {
+  url: '/eliminar-cuenta',
+  label: 'Eliminar cuenta',
+} as const;
+
 /** Public contact address for privacy and support requests. */
 export const CONTACT = {
   email: 'jorgeretamalaburto@gmail.com',
