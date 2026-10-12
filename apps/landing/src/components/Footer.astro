@@ -1,5 +1,5 @@
 ---
-import { PRIVACY, SUPPORT } from '../config';
+import { PRIVACY, SUPPORT, ACCOUNT_DELETION } from '../config';
 const year = new Date().getFullYear();
 ---
 
@@ -7,7 +7,7 @@ const year = new Date().getFullYear();
   <div
     class="mx-auto flex max-w-6xl flex-col items-center gap-4 sm:flex-row sm:justify-between"
   >
-    <nav class="flex gap-6 text-body-sm text-on-surface-variant" aria-label="Legal">
+    <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-body-sm text-on-surface-variant" aria-label="Legal">
       <a
         href={PRIVACY.url}
         class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -19,6 +19,12 @@ const year = new Date().getFullYear();
         class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         {SUPPORT.label}
+      </a>
+      <a
+        href={ACCOUNT_DELETION.url}
+        class="transition-colors hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        {ACCOUNT_DELETION.label}
       </a>
     </nav>
     <p class="text-body-sm text-on-surface-variant">

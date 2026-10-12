@@ -1,0 +1,93 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE, CONTACT, PRIVACY } from '../config';
+
+const linkClass =
+  'font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
+const subject = encodeURIComponent('Solicitud de eliminación de cuenta Mirach');
+---
+
+<Layout
+  title={`Eliminar cuenta — ${SITE.title}`}
+  description="Cómo eliminar tu cuenta de Mirach y los datos asociados, desde la aplicación o sin ella."
+>
+  <Header />
+  <main id="main" class="scroll-mt-20 px-6 py-16 sm:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-display text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
+      >
+        Eliminar tu cuenta de Mirach
+      </h1>
+      <p class="mt-4 text-body-sm text-on-surface-variant">
+        Aplicación: Mirach (iPhone y Android). Desarrollador: el equipo de Mirach.
+      </p>
+
+      <div class="mt-10 space-y-8 text-body-sm leading-relaxed text-on-surface-variant">
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Desde la aplicación
+          </h2>
+          <p class="mt-2">
+            Es la forma más rápida, y la eliminación es inmediata:
+          </p>
+          <ol class="mt-2 list-decimal space-y-1 pl-5">
+            <li>Abre Mirach e inicia sesión.</li>
+            <li>Ve a <strong class="text-on-surface">Perfil</strong>.</li>
+            <li>Elige <strong class="text-on-surface">Eliminar cuenta</strong>.</li>
+            <li>Escribe <strong class="text-on-surface">ELIMINAR</strong> para confirmar.</li>
+          </ol>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Sin la aplicación
+          </h2>
+          <p class="mt-2">
+            Si ya no tienes la aplicación instalada o no puedes iniciar sesión, escríbenos a <a href={`mailto:${CONTACT.email}?subject=${subject}`} class={linkClass}>{CONTACT.email}</a> desde el correo electrónico asociado a tu cuenta de Mirach. Incluye:
+          </p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li>el asunto «Solicitud de eliminación de cuenta Mirach»;</li>
+            <li>tu nombre, tal como aparece en tu cuenta;</li>
+            <li>el proveedor con el que iniciabas sesión (Apple o Google).</li>
+          </ul>
+          <p class="mt-2">
+            Por seguridad, solo atendemos solicitudes enviadas desde el correo asociado a la cuenta. Si usabas el correo privado de retransmisión de Apple, indícanoslo en el mensaje. Si necesitamos confirmar tu identidad, te lo pediremos por el mismo correo. Procesamos la solicitud lo antes posible y te avisamos por correo cuando la cuenta haya sido eliminada.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Qué datos se eliminan
+          </h2>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li>tu cuenta (nombre, correo electrónico e identificador de usuario);</li>
+            <li>tus sesiones en todos tus dispositivos;</li>
+            <li>los movimientos y las cuentas bancarias cargadas desde tus cartolas, y el historial de cargas;</li>
+            <li>tus categorías y tus patrones de clasificación;</li>
+            <li>si iniciaste sesión con Apple, el acceso de la aplicación a tu cuenta de Apple se revoca.</li>
+          </ul>
+          <p class="mt-2">
+            El borrado se hace en una sola operación: o se elimina todo o no se elimina nada. La eliminación es irreversible.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Qué datos se conservan
+          </h2>
+          <p class="mt-2">
+            No conservamos tus datos personales ni financieros en la base de datos activa. Los registros técnicos del servidor pueden conservar el identificador interno de usuario, sin tu nombre, correo ni datos financieros, para dejar constancia de que la cuenta fue eliminada. Si tienes dudas sobre copias de seguridad de nuestros proveedores, escríbenos al mismo correo.
+          </p>
+          <p class="mt-2">
+            Más detalles en la <a href={PRIVACY.url} class={linkClass}>{PRIVACY.label}</a>.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>
