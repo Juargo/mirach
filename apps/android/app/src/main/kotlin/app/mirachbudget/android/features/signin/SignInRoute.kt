@@ -18,8 +18,9 @@ fun SignInRoute(viewModel: SignInViewModel, googleWebClientId: String, notice: S
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current
     var retry by remember { mutableIntStateOf(0) }
-    // Runs when the screen appears and again when "Reintentar" bumps [retry].
-    LaunchedEffect(viewModel, retry) { viewModel.loadProviders() }
+    // `start()` is a no-op once the providers are known (rotation); "Reintentar" bumps [retry] to reload.
+    LaunchedEffect(viewModel) { viewModel.start() }
+    LaunchedEffect(retry) { if (retry > 0) viewModel.loadProviders() }
     SignInScreen(
         state = state,
         notice = notice,

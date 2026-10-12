@@ -60,6 +60,18 @@ class SignInViewModel(
     private val _state = MutableStateFlow(SignInUiState())
     val state: StateFlow<SignInUiState> = _state
 
+    /**
+     * Called whenever the screen is composed. Loads the providers the first time and after a
+     * failure; once they are known it does nothing, so a rotation never swaps the form for
+     * "Cargando…" (which would drop the form's open/closed toggle). "Reintentar" calls [loadProviders].
+     */
+    suspend fun start() {
+        when (_state.value.phase) {
+            Phase.LoadingProviders, is Phase.ProvidersFailed -> loadProviders()
+            Phase.Ready, Phase.NoProviders, Phase.Authenticating -> Unit
+        }
+    }
+
     suspend fun loadProviders() {
         _state.update { it.copy(phase = Phase.LoadingProviders) }
         try {

@@ -104,6 +104,43 @@ class SignInViewModelTest {
         assertEquals(SignInViewModel.Phase.ProvidersFailed(Message.MISCONFIGURED), vm.state.value.phase)
     }
 
+    // --- recreation (rotation): the screen must not flash back to "Cargando…"
+
+    @Test
+    fun startLoadsTheProvidersTheFirstTime() = runTest {
+        api.onCapabilities = { AuthCapabilities(googleLoginEnabled = true, passwordLoginEnabled = true) }
+        val vm = viewModel()
+
+        vm.start()
+
+        assertEquals(SignInViewModel.Phase.Ready, vm.state.value.phase)
+    }
+
+    @Test
+    fun startingAgainAfterRotationKeepsTheLoadedScreenAndAsksNothing() = runTest {
+        var calls = 0
+        api.onCapabilities = { calls++; AuthCapabilities(googleLoginEnabled = true, passwordLoginEnabled = true) }
+        val vm = viewModel()
+        vm.start()
+
+        vm.start()
+
+        assertEquals(1, calls)
+        assertEquals(SignInViewModel.Phase.Ready, vm.state.value.phase)
+    }
+
+    @Test
+    fun startingAgainAfterAFailureTriesAgain() = runTest {
+        api.onCapabilities = { throw IOException() }
+        val vm = viewModel()
+        vm.start()
+        api.onCapabilities = { AuthCapabilities(googleLoginEnabled = true, passwordLoginEnabled = false) }
+
+        vm.start()
+
+        assertEquals(SignInViewModel.Phase.Ready, vm.state.value.phase)
+    }
+
     // --- Google
 
     @Test
