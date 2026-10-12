@@ -19,7 +19,7 @@ Monorepo `pnpm workspaces` (ADR-006). El workspace contiene solo:
 
 Además: `docs/adr/` (decisiones), `openspec/` (proceso SDD; solo `specs/` migró) y `odd/tasks/` (seguimiento de trabajo en curso).
 
-**Apps nativas (aún no existen):** `apps/ios` (Swift/SwiftUI, primero) y `apps/android` (Kotlin/Compose, después). Vivirán en esas carpetas pero **fuera** del workspace de pnpm, con su propia cadena de build. Son clientes delgados: sus modelos y llamadas se generan desde `apps/api/openapi.json` (ADR-046, D1, D8, D9).
+**Apps nativas:** `apps/ios` (Swift/SwiftUI, primero) y `apps/android` (Kotlin/Compose, después; esqueleto en curso, ADR-052). Viven en esas carpetas **fuera** del workspace de pnpm, con su propia cadena de build. Son clientes delgados: sus modelos y llamadas se generan desde `apps/api/openapi.json` (ADR-046, D1, D8, D9).
 
 ---
 
