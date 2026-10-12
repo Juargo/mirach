@@ -73,6 +73,9 @@ ADR-046 D8: Android second, after the iPhone app. The 14-day clock is the longes
 - 2026-10-11 review of T5a (range `affda53..f342f64`, 7 files, 294 lines, lineage `review-3011dad8c3838c85`, risk high, consent granted): approved and acknowledged. Warnings (later work, none affects the key already created at the default path): `MIRACH_ANDROID_SIGNING_DIR` (script) and `MIRACH_ANDROID_SIGNING` (Gradle) are different overrides and the script does not say so; a properties file with a blank key gives the same "create the file" error as a missing file. Suggestions: pass the keytool password via `:env` instead of argv, strip the tab in the printed fingerprints, a CI check for the signing guard, cleanup trap for a half-created keystore. Emulator note: rotation collapses the reviewer form toggle (cosmetic).
 - 2026-10-11 plan change: Google Play requires in-app account deletion plus a public web resource for apps that create accounts, and the closed track is reviewed. T7 (Perfil, with account deletion) and the landing privacy/deletion page move ahead of the first closed-test upload (T5b).
 
+- 2026-10-11 landing privacy + `/eliminar-cuenta` page on `feat/landing-android-privacy` (`41c9a36`, from main, worktree): reviewed (lineage `review-e8e8ca49d676d99f`, medium, one lens) approved and acknowledged; suggestion: a post-build check that the deletion route exists and is linked. Open owner decisions: a response deadline for e-mail deletion requests (Ley 21.719), and deploying the landing (Play needs both URLs).
+- iOS follow-up found in T7 review: the iOS `PerfilViewModel` also marks "deletion may have happened" on any server failure, so a 400 then a 401 can show «Tu cuenta y tus datos se eliminaron» wrongly. Fix on iOS like Android `787eaef`.
+
 ## Next step
 
 T5b (owner): follow `apps/android/docs/publicar-en-play.md`. In parallel, T6 onward.
