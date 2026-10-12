@@ -19,11 +19,18 @@ class FakeMirachApi : MirachApi {
     var onResumen: suspend (Periodo?) -> ResumenMes = { error("resumen() not scripted") }
     var onPeriodos: suspend () -> List<Periodo> = { error("periodos() not scripted") }
 
+    var onUpdateNombre: suspend (String) -> CurrentUser = { error("updateNombre() not scripted") }
+    var onLogout: suspend () -> Unit = {}
+    var onDeleteAccount: suspend (String) -> Unit = {}
+
     val googleTokens = mutableListOf<String>()
     val passwordAttempts = mutableListOf<Pair<String, String>>()
     var currentUserCalls = 0
     val resumenCalls = mutableListOf<Periodo?>()
     var periodosCalls = 0
+    val updateNombreCalls = mutableListOf<String>()
+    var logoutCalls = 0
+    val deleteCalls = mutableListOf<String>()
 
     override suspend fun version() = onVersion()
     override suspend fun capabilities() = onCapabilities()
@@ -40,6 +47,21 @@ class FakeMirachApi : MirachApi {
     override suspend fun currentUser(): CurrentUser {
         currentUserCalls++
         return onCurrentUser()
+    }
+
+    override suspend fun updateNombre(nombre: String): CurrentUser {
+        updateNombreCalls += nombre
+        return onUpdateNombre(nombre)
+    }
+
+    override suspend fun logout() {
+        logoutCalls++
+        onLogout()
+    }
+
+    override suspend fun deleteAccount(confirmacion: String) {
+        deleteCalls += confirmacion
+        onDeleteAccount(confirmacion)
     }
 
     override suspend fun resumen(periodo: Periodo?): ResumenMes {

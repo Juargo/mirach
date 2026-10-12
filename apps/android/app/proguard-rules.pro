@@ -15,3 +15,5 @@
 
 # Generated request/response models are decoded by kotlinx.serialization (enums use @SerialName values).
 -keepclassmembers class app.mirachbudget.android.core.api.generated.models.** { *; }
+
+-keep interface app.mirachbudget.android.core.networking.CuentaApi { *; }

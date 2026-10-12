@@ -32,6 +32,21 @@ interface MirachApi {
      */
     suspend fun currentUser(): CurrentUser
 
+    /**
+     * `PATCH /api/perfil` with only the name; answers the updated identity. Throws
+     * [InvalidNameException] for `NOMBRE_INVALIDO`, [SessionExpiredException] on 401.
+     */
+    suspend fun updateNombre(nombre: String): CurrentUser
+
+    /** `POST /api/auth/logout`: revokes the session on the server. Throws on any failure; the caller signs out locally either way. */
+    suspend fun logout()
+
+    /**
+     * `DELETE /api/cuenta` with `{"confirmacion": confirmacion}`. Throws [ConfirmationRejectedException]
+     * for `CONFIRMACION_INVALIDA` and [SessionExpiredException] on 401.
+     */
+    suspend fun deleteAccount(confirmacion: String)
+
     /** `GET /api/resumen`. `null` lets the API resolve the latest month with movements. */
     suspend fun resumen(periodo: Periodo?): ResumenMes
 

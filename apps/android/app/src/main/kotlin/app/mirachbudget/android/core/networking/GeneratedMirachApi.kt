@@ -3,6 +3,8 @@ package app.mirachbudget.android.core.networking
 import app.mirachbudget.android.core.api.generated.apis.DefaultApi
 import app.mirachbudget.android.core.api.generated.models.ApiAuthGoogleTokenPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiAuthLoginPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiCuentaDeleteRequest
+import app.mirachbudget.android.core.api.generated.models.ApiPerfilPatchRequest
 import app.mirachbudget.android.core.api.generated.models.AuthLoginResponse
 import app.mirachbudget.android.core.session.Session
 import java.time.Instant
@@ -23,6 +25,7 @@ import retrofit2.Response
  */
 class GeneratedMirachApi(
     private val api: DefaultApi,
+    private val cuenta: CuentaApi,
     private val tokenProvider: AuthTokenProvider = AuthTokenProvider.None,
     private val onSessionExpired: (String) -> Unit = {},
 ) : MirachApi {
@@ -55,6 +58,35 @@ class GeneratedMirachApi(
         if (response.code() == 401) throw rejection(response, sentToken)
         val me = response.bodyOrThrow("GET /api/auth/me")
         return CurrentUser(userId = me.userId, nombre = me.nombre, email = me.email)
+    }
+
+    override suspend fun updateNombre(nombre: String): CurrentUser {
+        val sentToken = tokenProvider.token()
+        // Only the name: `email` needs the current password and the app never changes it.
+        val response = api.apiPerfilPatch(ApiPerfilPatchRequest(nombre = nombre))
+        when (response.code()) {
+            400 -> throw if (errorCode(response) == "NOMBRE_INVALIDO") InvalidNameException() else ApiException(400)
+            401 -> throw rejection(response, sentToken)
+        }
+        val me = response.bodyOrThrow("PATCH /api/perfil")
+        return CurrentUser(userId = me.userId, nombre = me.nombre, email = me.email)
+    }
+
+    override suspend fun logout() {
+        val response = api.apiAuthLogoutPost()
+        // Public endpoint: its only 401 is the client key.
+        if (response.code() == 401) throw rejectedKey(response)
+        if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
+    override suspend fun deleteAccount(confirmacion: String) {
+        val sentToken = tokenProvider.token()
+        val response = cuenta.apiCuentaDelete(ApiCuentaDeleteRequest(confirmacion = confirmacion))
+        when (response.code()) {
+            400 -> throw if (errorCode(response) == "CONFIRMACION_INVALIDA") ConfirmationRejectedException() else ApiException(400)
+            401 -> throw rejection(response, sentToken)
+        }
+        if (!response.isSuccessful) throw ApiException(response.code())
     }
 
     override suspend fun resumen(periodo: Periodo?): ResumenMes {

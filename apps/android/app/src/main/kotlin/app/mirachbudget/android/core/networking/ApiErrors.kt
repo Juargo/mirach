@@ -14,3 +14,9 @@ class SignInUnavailableException : Exception("Sign-in provider unavailable")
 
 /** 429: too many attempts. */
 class RateLimitedException : Exception("Rate limited")
+
+/** 400 `NOMBRE_INVALIDO` on `PATCH /api/perfil`: the name is not 1 to 80 characters. */
+class InvalidNameException : Exception("Invalid name")
+
+/** 400 `CONFIRMACION_INVALIDA` on `DELETE /api/cuenta`: the server took the word as wrong; nothing was deleted. */
+class ConfirmationRejectedException : Exception("Confirmation rejected")
