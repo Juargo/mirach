@@ -76,6 +76,8 @@ ADR-046 D8: Android second, after the iPhone app. The 14-day clock is the longes
 - 2026-10-11 landing privacy + `/eliminar-cuenta` page on `feat/landing-android-privacy` (`41c9a36`, from main, worktree): reviewed (lineage `review-e8e8ca49d676d99f`, medium, one lens) approved and acknowledged; suggestion: a post-build check that the deletion route exists and is linked. Open owner decisions: a response deadline for e-mail deletion requests (Ley 21.719), and deploying the landing (Play needs both URLs).
 - iOS follow-up found in T7 review: the iOS `PerfilViewModel` also marks "deletion may have happened" on any server failure, so a 400 then a 401 can show «Tu cuenta y tus datos se eliminaron» wrongly. Fix on iOS like Android `787eaef`.
 
+- 2026-10-11 launcher icon (`feat/android-icon`): the first emulator run with Google enabled showed the generic launcher icon. RED: `aapt2 dump badging` reported `icon=''`; GREEN after an adaptive icon (`mipmap-anydpi/ic_launcher{,_round}.xml`, foreground PNGs per density generated with `sips` from the iOS placeholder `AppIcon.png` at 69% inside the safe zone, background `#F6F9FA`): badging reports `res/mipmap-anydpi-v21/ic_launcher.xml`. Play store icon `apps/android/play/icon-512.png` (512x512, opaque). Lint OK; open lint notes: no monochrome (themed) icon, `CredentialManagerMisuse` (`NoCredentialException` falls into the generic error; check on a real phone). Route: inline (mechanical resources). Release build with `GOOGLE_WEB_CLIENT_ID` set shows «Continuar con Google» on the emulator; Render answers `googleLoginMobileEnabled: true`, `googleLoginEnabled: false`.
+
 ## Next step
 
 T5b (owner): follow `apps/android/docs/publicar-en-play.md`. In parallel, T6 onward.
