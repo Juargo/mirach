@@ -35,7 +35,12 @@ object MirachApiFactory {
             .readTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
             .writeTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
             .addInterceptor(ApiAuthInterceptor(apiKey, tokenProvider))
-        val service = ApiClient(baseUrl = baseUrl, okHttpClientBuilder = client).createService(DefaultApi::class.java)
-        return GeneratedMirachApi(service, tokenProvider, onSessionExpired)
+        val apiClient = ApiClient(baseUrl = baseUrl, okHttpClientBuilder = client)
+        return GeneratedMirachApi(
+            api = apiClient.createService(DefaultApi::class.java),
+            cuenta = apiClient.createService(CuentaApi::class.java),
+            tokenProvider = tokenProvider,
+            onSessionExpired = onSessionExpired,
+        )
     }
 }

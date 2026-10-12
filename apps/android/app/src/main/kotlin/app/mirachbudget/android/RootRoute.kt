@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -14,8 +15,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.mirachbudget.android.core.session.SessionController.Phase
 import app.mirachbudget.android.features.session.ConnectionFailedScreen
 import app.mirachbudget.android.features.session.ValidatingScreen
+import app.mirachbudget.android.features.perfil.PerfilMessages
+import app.mirachbudget.android.features.perfil.PerfilRoute
+import app.mirachbudget.android.features.perfil.PerfilViewModel
 import app.mirachbudget.android.features.resumen.ResumenRoute
 import app.mirachbudget.android.features.resumen.ResumenViewModel
+import app.mirachbudget.android.features.shell.ShellTab
+import app.mirachbudget.android.features.shell.SignedInShell
 import app.mirachbudget.android.features.signin.SignInRoute
 import app.mirachbudget.android.features.signin.SignInViewModel
 import app.mirachbudget.android.features.version.ApiVersionState
@@ -32,6 +38,10 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
     val session = dependencies.session
     val phase by session.phase.collectAsStateWithLifecycle()
     var retry by remember { mutableIntStateOf(0) }
+    // Counts the sessions that ended, so a ViewModel never outlives its session: the same person
+    // signing in again gets a fresh Perfil (no stale lock, no stale deletion suspicion).
+    var sessionsEnded by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(phase == Phase.SignedOut) { if (phase == Phase.SignedOut) sessionsEnded++ }
     // Both calls are no-ops unless the phase asks for them, so recreating the activity
     // (rotation, theme) never re-validates; "Reintentar" bumps the counter to call session.retry().
     LaunchedEffect(Unit) { session.start() }
@@ -47,7 +57,8 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                     }
                 },
             )
-            SignInRoute(viewModel, dependencies.googleWebClientId)
+            val notice by session.signedOutNotice.collectAsStateWithLifecycle()
+            SignInRoute(viewModel, dependencies.googleWebClientId, notice = notice?.let(PerfilMessages::notice))
         }
         is Phase.SignedIn -> {
             val versionViewModel = viewModel<ApiVersionViewModel>(
@@ -60,10 +71,17 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                 key = "resumen-${(phase as Phase.SignedIn).userId}",
                 factory = viewModelFactory { initializer { ResumenViewModel(dependencies.api) } },
             )
-            ResumenRoute(
-                viewModel = resumenViewModel,
-                version = (version as? ApiVersionState.Loaded)?.info,
-                onSignOut = session::signOut,
+            val perfilViewModel = viewModel<PerfilViewModel>(
+                key = "perfil-${(phase as Phase.SignedIn).userId}-$sessionsEnded",
+                factory = viewModelFactory { initializer { PerfilViewModel(dependencies.api, session) } },
+            )
+            SignedInShell(
+                listOf(
+                    ShellTab("resumen", "Resumen") {
+                        ResumenRoute(viewModel = resumenViewModel, version = (version as? ApiVersionState.Loaded)?.info)
+                    },
+                    ShellTab("perfil", "Perfil") { PerfilRoute(perfilViewModel) },
+                ),
             )
         }
         Phase.ConnectionFailed -> ConnectionFailedScreen(onRetry = { retry++ })

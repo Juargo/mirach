@@ -23,6 +23,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -33,6 +36,8 @@ import app.mirachbudget.android.core.design.MirachTheme
 @Composable
 fun SignInScreen(
     state: SignInUiState,
+    /** Why the person is here when it is not their own doing, e.g. «Tu cuenta y tus datos se eliminaron». */
+    notice: String?,
     onRetry: () -> Unit,
     onGoogle: () -> Unit,
     onPassword: (email: String, password: String) -> Unit,
@@ -49,6 +54,15 @@ fun SignInScreen(
             style = MaterialTheme.typography.bodyLarge,
             color = MirachTheme.colors.base.mutedForeground,
         )
+        notice?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MirachTheme.colors.feedback.successText,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
         when (val phase = state.phase) {
             SignInViewModel.Phase.LoadingProviders -> Loading("Cargando…")
             SignInViewModel.Phase.NoProviders -> RetryBlock("El inicio de sesión no está disponible por ahora", onRetry)
