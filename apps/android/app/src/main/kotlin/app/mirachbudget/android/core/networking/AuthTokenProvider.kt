@@ -6,7 +6,7 @@ fun interface AuthTokenProvider {
     fun token(): String?
 
     companion object {
-        /** No session yet; replaced by the real store when sign-in lands. */
+        /** No session: used by tests and by calls made before sign-in. */
         val None = AuthTokenProvider { null }
     }
 }

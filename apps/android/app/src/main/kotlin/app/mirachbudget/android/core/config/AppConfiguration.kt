@@ -6,4 +6,7 @@ import app.mirachbudget.android.BuildConfig
 object AppConfiguration {
     const val apiBaseUrl: String = BuildConfig.API_BASE_URL
     const val apiKey: String = BuildConfig.MIRACH_API_KEY
+
+    /** WEB-type OAuth client ID passed to Credential Manager as `serverClientId`; blank when unset. */
+    const val googleWebClientId: String = BuildConfig.GOOGLE_WEB_CLIENT_ID
 }

@@ -15,6 +15,8 @@ object MirachApiFactory {
         apiKey: String,
         tokenProvider: AuthTokenProvider = AuthTokenProvider.None,
         timeoutMillis: Long = TIMEOUT_MILLIS,
+        /** Called with the rejected token when an authenticated call gets 401 `SESION_INVALIDA`. */
+        onSessionExpired: (String) -> Unit = {},
     ): MirachApi {
         // Our own builder replaces the generator's default one, which logs request bodies.
         val client = OkHttpClient.Builder()
@@ -23,6 +25,6 @@ object MirachApiFactory {
             .writeTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
             .addInterceptor(ApiAuthInterceptor(apiKey, tokenProvider))
         val service = ApiClient(baseUrl = baseUrl, okHttpClientBuilder = client).createService(DefaultApi::class.java)
-        return GeneratedMirachApi(service)
+        return GeneratedMirachApi(service, tokenProvider, onSessionExpired)
     }
 }

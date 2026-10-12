@@ -13,6 +13,8 @@ val secrets = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 val mirachApiKey: String = secrets.getProperty("MIRACH_API_KEY", "").trim()
+// WEB-type OAuth client ID for Credential Manager (optional: blank hides the Google button).
+val googleWebClientId: String = secrets.getProperty("GOOGLE_WEB_CLIENT_ID", "").trim()
 
 android {
     namespace = "app.mirachbudget.android"
@@ -27,6 +29,7 @@ android {
 
         buildConfigField("String", "API_BASE_URL", "\"https://mirach-api.onrender.com\"")
         buildConfigField("String", "MIRACH_API_KEY", "\"$mirachApiKey\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {
@@ -64,6 +67,9 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     // Generated API client (core/api/generated, see scripts/generate-api.sh): Retrofit + OkHttp.
