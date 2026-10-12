@@ -7,6 +7,7 @@ import app.mirachbudget.android.core.networking.SessionExpiredException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** Owns "who is signed in" for the whole app. The root screen only draws [phase]. */
 class SessionController(
@@ -28,6 +29,14 @@ class SessionController(
 
     private val _phase = MutableStateFlow<Phase>(Phase.Validating)
     val phase: StateFlow<Phase> = _phase
+
+    /** Why the person is on the sign-in screen when it is not their own doing. */
+    enum class SignedOutNotice { AccountDeleted }
+
+    private val _signedOutNotice = MutableStateFlow<SignedOutNotice?>(null)
+
+    /** Shown once on the sign-in screen; the next sign-in clears it. */
+    val signedOutNotice: StateFlow<SignedOutNotice?> = _signedOutNotice
 
     /**
      * Extension point for screens that hold person-specific data (the staged statement arrives in
@@ -79,10 +88,40 @@ class SessionController(
     /** Saves a fresh session and opens the signed-in area. Throws when the store refuses the write. */
     fun signIn(session: Session) {
         store.save(session)
+        _signedOutNotice.value = null
         _phase.value = Phase.SignedIn(session.userId)
     }
 
-    /** Local sign-out only (the server-side logout arrives with Perfil). */
+    /**
+     * "Cerrar sesión": revokes the session on the server, then signs out locally. The server call is
+     * best effort: whatever happens to it (offline, 5xx, no answer within [timeoutMillis]) the
+     * person ends up signed out and never sees an error. The request goes out while the token is
+     * still stored; the cap keeps a cold server (about 50 s on the free tier) from holding the person.
+     */
+    suspend fun signOutRemotely(timeoutMillis: Long = LOGOUT_TIMEOUT_MILLIS) {
+        try {
+            withTimeoutOrNull(timeoutMillis) {
+                try {
+                    api.logout()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Best effort.
+                }
+            }
+        } finally {
+            // Also when the screen that started this goes away mid-request.
+            signOut()
+        }
+    }
+
+    /** The server deleted the account: no token to revoke, only local state to drop, and a notice for sign-in. */
+    fun accountDeleted() {
+        _signedOutNotice.value = SignedOutNotice.AccountDeleted
+        signOut()
+    }
+
+    /** Local sign-out only; [signOutRemotely] is the one that also tells the server. */
     fun signOut() {
         try {
             store.clear()
@@ -107,5 +146,6 @@ class SessionController(
 
     private companion object {
         const val TAG = "MirachSession"
+        const val LOGOUT_TIMEOUT_MILLIS = 5_000L
     }
 }

@@ -14,8 +14,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.mirachbudget.android.core.session.SessionController.Phase
 import app.mirachbudget.android.features.session.ConnectionFailedScreen
 import app.mirachbudget.android.features.session.ValidatingScreen
+import app.mirachbudget.android.features.perfil.PerfilMessages
+import app.mirachbudget.android.features.perfil.PerfilRoute
+import app.mirachbudget.android.features.perfil.PerfilViewModel
 import app.mirachbudget.android.features.resumen.ResumenRoute
 import app.mirachbudget.android.features.resumen.ResumenViewModel
+import app.mirachbudget.android.features.shell.ShellTab
+import app.mirachbudget.android.features.shell.SignedInShell
 import app.mirachbudget.android.features.signin.SignInRoute
 import app.mirachbudget.android.features.signin.SignInViewModel
 import app.mirachbudget.android.features.version.ApiVersionState
@@ -47,7 +52,8 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                     }
                 },
             )
-            SignInRoute(viewModel, dependencies.googleWebClientId)
+            val notice by session.signedOutNotice.collectAsStateWithLifecycle()
+            SignInRoute(viewModel, dependencies.googleWebClientId, notice = notice?.let(PerfilMessages::notice))
         }
         is Phase.SignedIn -> {
             val versionViewModel = viewModel<ApiVersionViewModel>(
@@ -60,10 +66,17 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                 key = "resumen-${(phase as Phase.SignedIn).userId}",
                 factory = viewModelFactory { initializer { ResumenViewModel(dependencies.api) } },
             )
-            ResumenRoute(
-                viewModel = resumenViewModel,
-                version = (version as? ApiVersionState.Loaded)?.info,
-                onSignOut = session::signOut,
+            val perfilViewModel = viewModel<PerfilViewModel>(
+                key = "perfil-${(phase as Phase.SignedIn).userId}",
+                factory = viewModelFactory { initializer { PerfilViewModel(dependencies.api, session) } },
+            )
+            SignedInShell(
+                listOf(
+                    ShellTab("resumen", "Resumen") {
+                        ResumenRoute(viewModel = resumenViewModel, version = (version as? ApiVersionState.Loaded)?.info)
+                    },
+                    ShellTab("perfil", "Perfil") { PerfilRoute(perfilViewModel) },
+                ),
             )
         }
         Phase.ConnectionFailed -> ConnectionFailedScreen(onRetry = { retry++ })
