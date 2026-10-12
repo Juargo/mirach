@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.mirachbudget.android.core.design.MirachTheme
+import app.mirachbudget.android.core.design.mirachFigures
 
 /** Stateless: renders [state] and reports the retry tap. */
 @Composable
@@ -29,11 +31,20 @@ fun ApiVersionScreen(state: ApiVersionState, onRetry: () -> Unit, modifier: Modi
                 Text("Conectando con el servidor…", style = MaterialTheme.typography.bodyMedium)
             }
             is ApiVersionState.Loaded -> {
-                Text("Mirach", style = MaterialTheme.typography.headlineLarge)
-                Text("API ${state.info.version} · ${state.info.commit}", style = MaterialTheme.typography.bodyMedium)
+                Text("Mirach", style = MaterialTheme.typography.headlineLarge, color = MirachTheme.colors.base.foreground)
+                Text(
+                    "API ${state.info.version} · ${state.info.commit}",
+                    style = MaterialTheme.typography.bodyMedium.mirachFigures(),
+                    color = MirachTheme.colors.base.mutedForeground,
+                )
             }
             is ApiVersionState.Failed -> {
-                Text(state.message, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                Text(
+                    state.message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MirachTheme.colors.feedback.errorText,
+                    textAlign = TextAlign.Center,
+                )
                 Button(onClick = onRetry) { Text("Reintentar") }
             }
         }

@@ -14,6 +14,10 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { camel, collectColors, pascal } from './design-tokens.mjs';
+
+// Re-exported for the tests and for callers that used these helpers from here.
+export { camel, collectColors, pascal };
 
 const ASSET_CATALOG = 'Resources/Tokens.xcassets';
 const SWIFT_FILE = 'Core/Design/GeneratedTokens.swift';
@@ -27,36 +31,7 @@ export function hexToSrgb(hex) {
   return { red, green, blue, alpha: '1.000000' };
 }
 
-/** "sin-categoria" -> "sinCategoria" (Swift identifier). */
-export function camel(name) {
-  return name.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase());
-}
-
-/** "bucket" -> "Bucket" (asset folder and Swift enum). */
-export function pascal(name) {
-  const c = camel(name);
-  return c[0].toUpperCase() + c.slice(1);
-}
-
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
-
-/** Flattens color.{light,dark}.<group>.<token> into ordered entries, checking both themes match. */
-export function collectColors(tokens) {
-  const { light, dark } = tokens.color;
-  const entries = [];
-  for (const [group, items] of Object.entries(light)) {
-    if (group.startsWith('$')) continue;
-    for (const [name, leaf] of Object.entries(items)) {
-      const darkLeaf = dark[group]?.[name];
-      if (!darkLeaf) throw new Error(`Missing dark value for ${group}.${name}`);
-      entries.push({ group, name, light: leaf.$value, dark: darkLeaf.$value });
-    }
-    for (const name of Object.keys(dark[group] ?? {})) {
-      if (!items[name]) throw new Error(`Missing light value for ${group}.${name}`);
-    }
-  }
-  return entries;
-}
 
 function colorsetContents({ light, dark }) {
   const color = (hex) => ({ 'color-space': 'srgb', components: hexToSrgb(hex) });

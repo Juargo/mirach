@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.mirachbudget.android.core.design.MirachTheme
 
 /** Shown instead of the app when the build has no API key (see ConfigurationCheck). */
 @Composable
@@ -23,6 +24,7 @@ fun ConfigurationErrorScreen(modifier: Modifier = Modifier) {
         Text(
             "La app no está configurada correctamente.",
             style = MaterialTheme.typography.bodyLarge,
+            color = MirachTheme.colors.feedback.errorText,
             textAlign = TextAlign.Center,
         )
     }
