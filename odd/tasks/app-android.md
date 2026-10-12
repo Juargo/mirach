@@ -70,6 +70,9 @@ ADR-046 D8: Android second, after the iPhone app. The 14-day clock is the longes
 
 - 2026-10-11 review of T4a follow-up + T4b (range `0813565..04218c5`, 25 files, 1818 lines, risk medium, `slice_budget_reached`, one reliability lens, lineage `review-f5d73118af8f42fb`, consent granted): approved and acknowledged. R3 WARNING "a month with spend but no income shows the empty state": verified to match iOS exactly (`ResumenView.swift:94`, `if mes.sinIngreso { EmptyMonth }`), so parity is kept; open product question for both apps, not changed. R3 suggestion: `basisPoints` throws `ArithmeticException` instead of `SerializationException` on an out-of-range target (still classified as a server failure).
 
+- 2026-10-11 review of T5a (range `affda53..f342f64`, 7 files, 294 lines, lineage `review-3011dad8c3838c85`, risk high, consent granted): approved and acknowledged. Warnings (later work, none affects the key already created at the default path): `MIRACH_ANDROID_SIGNING_DIR` (script) and `MIRACH_ANDROID_SIGNING` (Gradle) are different overrides and the script does not say so; a properties file with a blank key gives the same "create the file" error as a missing file. Suggestions: pass the keytool password via `:env` instead of argv, strip the tab in the printed fingerprints, a CI check for the signing guard, cleanup trap for a half-created keystore. Emulator note: rotation collapses the reviewer form toggle (cosmetic).
+- 2026-10-11 plan change: Google Play requires in-app account deletion plus a public web resource for apps that create accounts, and the closed track is reviewed. T7 (Perfil, with account deletion) and the landing privacy/deletion page move ahead of the first closed-test upload (T5b).
+
 ## Next step
 
 T5b (owner): follow `apps/android/docs/publicar-en-play.md`. In parallel, T6 onward.
