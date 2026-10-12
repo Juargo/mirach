@@ -16,6 +16,26 @@ val mirachApiKey: String = secrets.getProperty("MIRACH_API_KEY", "").trim()
 // WEB-type OAuth client ID for Credential Manager (optional: blank hides the Google button).
 val googleWebClientId: String = secrets.getProperty("GOOGLE_WEB_CLIENT_ID", "").trim()
 
+// Release signing (upload key) lives OUTSIDE the repository, see scripts/create-upload-key.sh.
+// Without the file everything but `bundleRelease` still works (release APK stays unsigned).
+val signingPropertiesFile: File = File(
+    System.getenv("MIRACH_ANDROID_SIGNING")
+        ?: "${System.getProperty("user.home")}/.config/mirach/android-upload.properties",
+)
+val signingProperties: Properties? = signingPropertiesFile.takeIf { it.isFile }
+    ?.let { file -> Properties().apply { file.inputStream().use { load(it) } } }
+    ?.takeIf { props -> listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all { !props.getProperty(it).isNullOrBlank() } }
+
+gradle.taskGraph.whenReady {
+    if (signingProperties == null && hasTask(":app:bundleRelease")) {
+        throw GradleException(
+            "bundleRelease needs the upload key: create ${signingPropertiesFile.path} " +
+                "(keys storeFile, storePassword, keyAlias, keyPassword) with apps/android/scripts/create-upload-key.sh, " +
+                "or point MIRACH_ANDROID_SIGNING at another properties file.",
+        )
+    }
+}
+
 android {
     namespace = "app.mirachbudget.android"
     compileSdk = 37
@@ -24,16 +44,28 @@ android {
         applicationId = "app.mirachbudget.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("mirach.versionCode").get().toInt()
+        versionName = providers.gradleProperty("mirach.versionName").get()
 
         buildConfigField("String", "API_BASE_URL", "\"https://mirach-api.onrender.com\"")
         buildConfigField("String", "MIRACH_API_KEY", "\"$mirachApiKey\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
+    signingConfigs {
+        if (signingProperties != null) {
+            create("release") {
+                storeFile = file(signingProperties.getProperty("storeFile"))
+                storePassword = signingProperties.getProperty("storePassword")
+                keyAlias = signingProperties.getProperty("keyAlias")
+                keyPassword = signingProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

@@ -70,6 +70,15 @@ cd apps/android
 
 Es lo mismo que corre el job `android` de CI. Los reportes quedan en `app/build/reports/`.
 
+## Publicar en Google Play
+
+La guía para el dueño (cuenta de Play Console, clientes OAuth, formularios, prueba cerrada de 14 días) está en [`docs/publicar-en-play.md`](docs/publicar-en-play.md). Lo que hace el repositorio:
+
+1. **Llave de subida (una sola vez).** `./scripts/create-upload-key.sh` crea `~/.config/mirach/android-upload.jks` y `android-upload.properties` (claves `storeFile`, `storePassword`, `keyAlias`, `keyPassword`; permisos 600), con una contraseña aleatoria que no se imprime, y muestra las huellas SHA-1 y SHA-256 del certificado. Se niega a sobrescribir archivos existentes. **Respalda ambos archivos fuera del repo.** Otra ruta: variable `MIRACH_ANDROID_SIGNING` (apunta al `.properties`).
+2. **Versión.** `mirach.versionCode` y `mirach.versionName` en `gradle.properties`. Play rechaza una subida cuyo `versionCode` no sea mayor al de todas las anteriores: súbelo antes de **cada** subida.
+3. **Compilar.** `./gradlew bundleRelease` genera el AAB firmado con R8 en `app/build/outputs/bundle/release/app-release.aab`; `./gradlew assembleRelease` genera el APK en `app/build/outputs/apk/release/app-release.apk` (firmado si existe el archivo de claves, sin firmar si no). Sin el archivo de claves todo lo demás (debug, pruebas, lint, CI) funciona y `bundleRelease` falla con un mensaje que nombra el archivo que falta.
+4. Las reglas de R8 están en `app/proguard-rules.pro`; la verificación de un release real se hace instalando el APK firmado en un emulador con imagen de Google Play.
+
 ## Estructura
 
 - `app/src/main/kotlin/app/mirachbudget/android/core/`: configuración (`config/`), sesión (`session/`: `SessionController`, almacenamiento cifrado con Android Keystore), red (`networking/`: `MirachApi`, su adaptador, el interceptor de credenciales, el aviso único de sesión vencida) y el cliente generado (`api/generated/`, no se edita a mano).
