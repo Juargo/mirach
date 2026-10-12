@@ -2,6 +2,7 @@ package app.mirachbudget.android.core.networking
 
 import app.mirachbudget.android.core.api.generated.apis.DefaultApi
 import app.mirachbudget.android.core.api.generated.infrastructure.ApiClient
+import app.mirachbudget.android.core.api.generated.infrastructure.Serializer
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 
@@ -9,6 +10,16 @@ import okhttp3.OkHttpClient
 object MirachApiFactory {
     /** Generous: the free Render instance sleeps and its cold start takes up to ~1 minute. */
     const val TIMEOUT_MILLIS = 90_000L
+
+    init {
+        // The generated Json is configured once, before its first use. An enum value the app does
+        // not know (the spec also lists `null` among them) must not fail a whole response: on a
+        // nullable field it reads as null, which the mappers treat as "no state".
+        Serializer.kotlinxSerializationJsonConfiguration = {
+            coerceInputValues = true
+            explicitNulls = false
+        }
+    }
 
     fun create(
         baseUrl: String,

@@ -13,8 +13,9 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.mirachbudget.android.core.session.SessionController.Phase
 import app.mirachbudget.android.features.session.ConnectionFailedScreen
-import app.mirachbudget.android.features.session.SignedInScreen
 import app.mirachbudget.android.features.session.ValidatingScreen
+import app.mirachbudget.android.features.resumen.ResumenRoute
+import app.mirachbudget.android.features.resumen.ResumenViewModel
 import app.mirachbudget.android.features.signin.SignInRoute
 import app.mirachbudget.android.features.signin.SignInViewModel
 import app.mirachbudget.android.features.version.ApiVersionState
@@ -54,7 +55,13 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
             )
             val version by versionViewModel.state.collectAsStateWithLifecycle()
             LaunchedEffect(versionViewModel) { versionViewModel.load() }
-            SignedInScreen(
+            // Keyed by person, so signing in as someone else never shows the previous Resumen.
+            val resumenViewModel = viewModel<ResumenViewModel>(
+                key = "resumen-${(phase as Phase.SignedIn).userId}",
+                factory = viewModelFactory { initializer { ResumenViewModel(dependencies.api) } },
+            )
+            ResumenRoute(
+                viewModel = resumenViewModel,
                 version = (version as? ApiVersionState.Loaded)?.info,
                 onSignOut = session::signOut,
             )

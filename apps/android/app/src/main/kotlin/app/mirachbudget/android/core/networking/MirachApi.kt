@@ -31,6 +31,12 @@ interface MirachApi {
      * once through the [SessionExpiryRelay]) and [ApiKeyRejectedException] on `API_KEY_INVALIDA`.
      */
     suspend fun currentUser(): CurrentUser
+
+    /** `GET /api/resumen`. `null` lets the API resolve the latest month with movements. */
+    suspend fun resumen(periodo: Periodo?): ResumenMes
+
+    /** `GET /api/periodos`: months with movements, most recent first. */
+    suspend fun periodos(): List<Periodo>
 }
 
 /** The server answered with a non-2xx status. */

@@ -3,6 +3,8 @@ package app.mirachbudget.android.testing
 import app.mirachbudget.android.core.networking.AuthCapabilities
 import app.mirachbudget.android.core.networking.CurrentUser
 import app.mirachbudget.android.core.networking.MirachApi
+import app.mirachbudget.android.core.networking.Periodo
+import app.mirachbudget.android.core.networking.ResumenMes
 import app.mirachbudget.android.core.networking.VersionInfo
 import app.mirachbudget.android.core.session.Session
 
@@ -14,9 +16,14 @@ class FakeMirachApi : MirachApi {
     var onPassword: suspend (String, String) -> Session = { _, _ -> error("signInWithPassword() not scripted") }
     var onCurrentUser: suspend () -> CurrentUser = { error("currentUser() not scripted") }
 
+    var onResumen: suspend (Periodo?) -> ResumenMes = { error("resumen() not scripted") }
+    var onPeriodos: suspend () -> List<Periodo> = { error("periodos() not scripted") }
+
     val googleTokens = mutableListOf<String>()
     val passwordAttempts = mutableListOf<Pair<String, String>>()
     var currentUserCalls = 0
+    val resumenCalls = mutableListOf<Periodo?>()
+    var periodosCalls = 0
 
     override suspend fun version() = onVersion()
     override suspend fun capabilities() = onCapabilities()
@@ -33,5 +40,15 @@ class FakeMirachApi : MirachApi {
     override suspend fun currentUser(): CurrentUser {
         currentUserCalls++
         return onCurrentUser()
+    }
+
+    override suspend fun resumen(periodo: Periodo?): ResumenMes {
+        resumenCalls += periodo
+        return onResumen(periodo)
+    }
+
+    override suspend fun periodos(): List<Periodo> {
+        periodosCalls++
+        return onPeriodos()
     }
 }
