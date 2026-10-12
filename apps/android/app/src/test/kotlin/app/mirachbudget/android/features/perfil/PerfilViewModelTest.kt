@@ -335,6 +335,31 @@ class PerfilViewModelTest {
         assertEquals(1, api.logoutCalls)
     }
 
+    @Test
+    fun signOutFinishingLeavesTheScreenUsable() = runTest {
+        loaded()
+
+        vm.signOut()
+
+        assertFalse(state.isSigningOut)
+        assertFalse(state.isBusyWithSession)
+    }
+
+    @Test
+    fun theSameUserSigningInAgainGetsAUsablePerfil() = runTest {
+        loaded()
+        vm.signOut()
+        assertEquals(Phase.SignedOut, session.phase.value)
+
+        session.signIn(saved)
+        vm.load()
+        vm.onNombreChange("Ana María")
+        vm.onDeleteConfirmationChange("ELIMINAR")
+
+        assertTrue(state.canSave)
+        assertTrue(state.canDelete)
+    }
+
     // --- account deletion
 
     @Test
@@ -471,6 +496,63 @@ class PerfilViewModelTest {
         loaded()
         api.onDeleteAccount = { throw ConfirmationRejectedException() }
         vm.onDeleteConfirmationChange("ELIMINAR")
+        vm.deleteAccount()
+
+        api.onDeleteAccount = { throw SessionExpiredException() }
+        vm.deleteAccount()
+
+        assertNull(session.signedOutNotice.value)
+    }
+
+    @Test
+    fun aLater401MeansDeletedOnlyAfterAnAttemptThatGotNoAnswer() = runTest {
+        // A definite answer (4xx, rejected key, refused word) proves the account exists, so it must
+        // not leave a "may have been deleted" suspicion behind, even after an earlier lost attempt.
+        val definiteAnswers = listOf<Pair<String, Exception>>(
+            "400" to ApiException(400),
+            "403" to ApiException(403),
+            "key" to ApiKeyRejectedException(),
+        )
+        for ((name, answer) in definiteAnswers) {
+            val api = FakeMirachApi().apply { onCurrentUser = { ana } }
+            val session = SessionController(api, InMemorySessionStore(saved))
+            val vm = PerfilViewModel(api, session)
+            session.start()
+            vm.load()
+            vm.onDeleteConfirmationChange("ELIMINAR")
+
+            api.onDeleteAccount = { throw answer }
+            vm.deleteAccount()
+            api.onDeleteAccount = { throw SessionExpiredException() }
+            vm.deleteAccount()
+
+            assertNull(name, session.signedOutNotice.value)
+            assertEquals(name, DeleteState.Idle, vm.state.value.delete)
+        }
+    }
+
+    @Test
+    fun aRefusedConfirmationClearsTheSuspicionFromAnEarlierLostAttempt() = runTest {
+        loaded()
+        vm.onDeleteConfirmationChange("ELIMINAR")
+        api.onDeleteAccount = { throw SocketTimeoutException() }
+        vm.deleteAccount()
+        api.onDeleteAccount = { throw ConfirmationRejectedException() }
+        vm.deleteAccount()
+
+        api.onDeleteAccount = { throw SessionExpiredException() }
+        vm.deleteAccount()
+
+        assertNull(session.signedOutNotice.value)
+    }
+
+    @Test
+    fun aDefiniteAnswerAfterALostAttemptClearsTheSuspicion() = runTest {
+        loaded()
+        vm.onDeleteConfirmationChange("ELIMINAR")
+        api.onDeleteAccount = { throw SocketTimeoutException() }
+        vm.deleteAccount()
+        api.onDeleteAccount = { throw ApiException(400) }
         vm.deleteAccount()
 
         api.onDeleteAccount = { throw SessionExpiredException() }

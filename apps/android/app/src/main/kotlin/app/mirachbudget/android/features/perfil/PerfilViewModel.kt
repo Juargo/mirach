@@ -1,6 +1,8 @@
 package app.mirachbudget.android.features.perfil
 
 import androidx.lifecycle.ViewModel
+import app.mirachbudget.android.core.networking.ApiException
+import app.mirachbudget.android.core.networking.ApiKeyRejectedException
 import app.mirachbudget.android.core.networking.ConfirmationRejectedException
 import app.mirachbudget.android.core.networking.CurrentUser
 import app.mirachbudget.android.core.networking.InvalidNameException
@@ -83,7 +85,8 @@ class PerfilViewModel(
 
     /**
      * An attempt ended without an answer (timeout, 5xx): the server may have deleted everything
-     * anyway. Kept until a deletion succeeds, even if the dialog is closed and reopened.
+     * anyway. Kept even if the dialog is closed and reopened, until a definite answer (4xx,
+     * rejected word or key) shows the account exists.
      */
     private var deletionMayHaveHappened = false
 
@@ -156,7 +159,13 @@ class PerfilViewModel(
     suspend fun signOut() {
         if (_state.value.isSigningOut) return
         _state.update { it.copy(isSigningOut = true) }
-        session.signOutRemotely()
+        try {
+            session.signOutRemotely()
+        } finally {
+            // The ViewModel outlives the session (same user can sign in again, or a cancelled
+            // sign-out leaves the screen up): the lock must not.
+            _state.update { it.copy(isSigningOut = false) }
+        }
     }
 
     /** Only a typed `ELIMINAR` reaches the API; a second tap while one request is out does nothing. */
@@ -172,6 +181,8 @@ class PerfilViewModel(
             _state.update { it.copy(delete = DeleteState.Idle) }
             throw cancelled
         } catch (e: ConfirmationRejectedException) {
+            // The server answered and the account exists: no earlier lost attempt matters anymore.
+            deletionMayHaveHappened = false
             _state.update { it.copy(delete = DeleteState.Failed(DeleteFailure.ConfirmationRejected)) }
         } catch (e: Exception) {
             when (failure(e)) {
@@ -184,7 +195,11 @@ class PerfilViewModel(
                     _state.update { it.copy(delete = DeleteState.Idle) }
                 }
                 Failure.Connection, Failure.Server -> {
-                    deletionMayHaveHappened = true
+                    when {
+                        outcomeUnknown(e) -> deletionMayHaveHappened = true
+                        // A 4xx or a rejected key: the server answered and did not delete.
+                        answeredWithoutDeleting(e) -> deletionMayHaveHappened = false
+                    }
                     _state.update { it.copy(delete = DeleteState.Failed(DeleteFailure.Retry)) }
                 }
             }
@@ -200,6 +215,13 @@ class PerfilViewModel(
     // --- internals
 
     private fun State.apply(user: CurrentUser) = copy(nombre = user.nombre, savedNombre = user.nombre, email = user.email)
+
+    /** No answer (offline, timeout) or a 5xx: the server may have deleted everything anyway. */
+    private fun outcomeUnknown(error: Exception) =
+        error is IOException || (error is ApiException && error.status >= 500)
+
+    private fun answeredWithoutDeleting(error: Exception) =
+        (error is ApiException && error.status in 400..499) || error is ApiKeyRejectedException
 
     /** `null` for what needs no message here: an expired session, because the relay already signs out. */
     private fun failure(error: Exception): Failure? = when (error) {

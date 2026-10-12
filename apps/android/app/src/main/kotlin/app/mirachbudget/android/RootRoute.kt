@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +38,10 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
     val session = dependencies.session
     val phase by session.phase.collectAsStateWithLifecycle()
     var retry by remember { mutableIntStateOf(0) }
+    // Counts the sessions that ended, so a ViewModel never outlives its session: the same person
+    // signing in again gets a fresh Perfil (no stale lock, no stale deletion suspicion).
+    var sessionsEnded by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(phase == Phase.SignedOut) { if (phase == Phase.SignedOut) sessionsEnded++ }
     // Both calls are no-ops unless the phase asks for them, so recreating the activity
     // (rotation, theme) never re-validates; "Reintentar" bumps the counter to call session.retry().
     LaunchedEffect(Unit) { session.start() }
@@ -67,7 +72,7 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                 factory = viewModelFactory { initializer { ResumenViewModel(dependencies.api) } },
             )
             val perfilViewModel = viewModel<PerfilViewModel>(
-                key = "perfil-${(phase as Phase.SignedIn).userId}",
+                key = "perfil-${(phase as Phase.SignedIn).userId}-$sessionsEnded",
                 factory = viewModelFactory { initializer { PerfilViewModel(dependencies.api, session) } },
             )
             SignedInShell(
