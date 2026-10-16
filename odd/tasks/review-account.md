@@ -31,7 +31,7 @@ User, 2026-10-09: approach A. One reviewer account that signs in with email and 
 - [x] **T2 — API: reviewer-user script.** Route: same writer. Commit `5f5f008`. Acceptance: an idempotent one-off script creates (or updates) the reviewer user with an encrypted email, blind index, argon2 hash, the catalog template and sample transactions from a synthetic statement through the real parser; verifies the encryption key before writing; never logs the password; tested.
 - [x] **T3 — iOS: password sign-in form.** Route: delegated writer. Commit `1c81b7e`. Acceptance: the form appears only when the capability is on; it signs in through the generated `/auth/login` client and stores the session like Apple sign-in; errors mapped; tests RED then GREEN.
 - [x] **T4 — Landing: sample statement download.** Route: delegated writer. Commit `03672c9`. Acceptance: the file parses with the real API parser; `/soporte` links it; checks green.
-- [ ] **Owner — Production setup.** Set the allowlist env in Render, run the script against production, record the credentials only in App Store Connect.
+- [x] **Owner — Production setup.** Set the allowlist env in Render, run the script against production, record the credentials only in App Store Connect.
 
 ## Progress
 
@@ -44,7 +44,9 @@ User, 2026-10-09: approach A. One reviewer account that signs in with email and 
 - 2026-10-10 T3 (`1c81b7e`): RED the new AuthAPI, SignInViewModel and fake tests did not compile (no `appleLoginAvailable`, `passwordLoginAvailable`, `signInWithPassword`, `AuthCapabilities.passwordLoginEnabled`); GREEN with `MirachTests` 565 tests in 44 suites passed. UI: new `testReviewerSignsInWithEmailAndPassword`, `testWrongPasswordShowsTheMessageAndKeepsTheFields`, `testPasswordFormIsHiddenUnlessTheServerEnablesIt` plus the existing sign-in, sign-out, delete-account and missing-key tests passed. A UI attempt that cleared a field by typing delete keys was flaky (caret position), so the wrong-password case is its own test.
 - 2026-10-10 merges: API #86 (`e853ab5`), iOS #87 (`c1a5e39`), landing #88 (`10c07e1`). T4 (`03672c9`): `https://mirachbudget.app/ejemplos/cartola-ejemplo-mirach.xlsx` serves 200 with the xlsx MIME type and 7779 bytes, byte-identical to `apps/api/prisma/fixtures/cartola-revision.xlsx`; `/soporte` links it.
 - 2026-10-10 owner setup, partial: `REVIEW_LOGIN_EMAIL` set in Render and `GET /api/auth/capabilities` returned `passwordLoginEnabled: true`; `pnpm review:create-user` against production created the user with the catalog copied and the sample loaded; signing in through "Acceso con correo" on a physical iPhone showed the September and October 2026 transactions. Pending: credentials in the App Store Connect review notes.
+- 2026-10-14: Apple asked for more information (new developer account): a screen recording on a physical device, the app's purpose and audience, setup and demo credentials, external services, regional differences, and regulated-industry documentation. The owner replied in App Store Connect with the recording and an English text (review account through "Acceso con correo", the sample-statement link, Sign in with Apple + Render + Supabase, no AI, payments or analytics) The same text was also pasted into the App Review Information notes.
+- 2026-10-14 decision: the review account stays enabled after approval, which replaces "switched off after approval" in the Decision section, because every future submission is reviewed again.
 
 ## Next step
 
-Owner: put the credentials and the sample-statement link in the App Store Connect review notes; remove `REVIEW_LOGIN_EMAIL` from Render after approval.
+Wait for Apple's answer. Keep `REVIEW_LOGIN_EMAIL` in Render and the review account intact after approval: every future update goes through App Review again and needs the same account.
