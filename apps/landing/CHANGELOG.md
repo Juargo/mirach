@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/Juargo/mirach/compare/landing-v0.4.0...landing-v0.5.0) (2026-10-17)
+
+
+### Features
+
+* **landing:** Android in the privacy policy and an account deletion page ([f3c096b](https://github.com/Juargo/mirach/commit/f3c096bcc32010c954a7b5b1a92a2a260069663a))
+* **landing:** commit to a 30-day deadline for account deletion requests ([df2fccb](https://github.com/Juargo/mirach/commit/df2fccb16fc874315c6421cdd4e91d4cc199de24))
+* **landing:** complete the privacy page and add a support page ([13706ba](https://github.com/Juargo/mirach/commit/13706ba463101f7b81e4f4924b76e07255b712e3))
+* **landing:** cover Android in privacy policy and add account deletion page ([41c9a36](https://github.com/Juargo/mirach/commit/41c9a36cf4fc52a062408cf8e959369475775e5b))
+* **landing:** Mirach rebrand, privacy and support pages ([35ee6e9](https://github.com/Juargo/mirach/commit/35ee6e9bbed1feaf70595da25980ff9192089348))
+* **landing:** offer a sample statement to download on the support page ([03672c9](https://github.com/Juargo/mirach/commit/03672c90685e3ed4bb8908b46f2ba6d23b4e84db))
+* **landing:** rebrand the landing to Mirach for the iPhone app ([cedf39d](https://github.com/Juargo/mirach/commit/cedf39d71bdaa6b07341ed13bf794360a594d181))
+* **landing:** sample statement download on the support page ([10c07e1](https://github.com/Juargo/mirach/commit/10c07e117d9dcc72ca97affe65913b928c09a975))
+
 ## [0.4.0](https://github.com/Juargo/mirach/compare/landing-v0.3.2...landing-v0.4.0) (2026-10-09)
 
 
