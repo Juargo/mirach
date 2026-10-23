@@ -935,7 +935,7 @@ jobs:
       # and a screenshot at the moment a UI test failed, which the log does not.
       - name: Keep the test results of a failed shard
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-shard-${{ matrix.shard }}-xcresult
           path: ${{ runner.temp }}/ios-shard-${{ matrix.shard }}.xcresult
@@ -955,7 +955,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
