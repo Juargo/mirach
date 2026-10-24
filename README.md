@@ -2,7 +2,7 @@
 
 Aplicación de finanzas personales que importa cartolas de bancos chilenos (Banco de Chile, BancoEstado, BCI y Santander) desde archivos `.xlsx` y `.pdf`, clasifica los movimientos y muestra un presupuesto **50/30/20** con un semáforo por bucket (Necesidades 50 %, Deseos 30 %, Ahorro 20 %).
 
-Mirach continúa MoneyDiary como producto. Este repositorio conserva el API y la landing con su historial; las apps nativas para iPhone (Swift/SwiftUI) y Android (Kotlin/Compose) se construirán como clientes delgados generados desde el contrato OpenAPI. Las decisiones fundacionales están en [ADR-046](docs/adr/ADR-046-fundacion-mirach.md).
+Mirach continúa MoneyDiary como producto. Este repositorio conserva el API y la landing con su historial; las apps nativas para iPhone (Swift/SwiftUI) y Android (Kotlin/Compose) se construirán como clientes delgados generados desde el contrato OpenAPI. Las decisiones de arquitectura están en [`docs/adr/`](docs/adr/README.md).
 
 ## Estructura
 
