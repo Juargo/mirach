@@ -33,7 +33,7 @@ Las pruebas de integración y e2e necesitan una BD local: ver `apps/api/docs/loc
 - Nuevo use case: dominio → application (ports + use case) → infrastructure, en ese orden.
 - Excel: ExcelJS, solo `.xlsx` (ADR-007). Leer celdas con `cell.text`, **no** `String(cell.value)` (BCI usa richText).
 - Dinero: `BigInt` exacto, nunca `float`. Todo repo que devuelve datos de usuario filtra por `userId` en el WHERE.
-- Las piezas web del API (sesión por cookie, CORS, Sec-Fetch, modo demo, Google web OAuth) están dormidas (ADR-046): no las borres ni las actives en producción.
+- Las piezas web del API (sesión por cookie, CORS, Sec-Fetch, modo demo, Google web OAuth) están dormidas (ADR-005): no las borres ni las actives en producción.
 - `@types/node` fijado en `^22`; no subir a 24 (rompe los tipos de ExcelJS).
 
 ## Prisma
@@ -43,7 +43,7 @@ Las pruebas de integración y e2e necesitan una BD local: ver `apps/api/docs/loc
 
 ## Clientes
 
-- Ningún cliente importa `apps/api/src/domain`. El contrato es `apps/api/openapi.json`; las apps nativas generan sus modelos desde él (ADR-046).
+- Ningún cliente importa `apps/api/src/domain`. El contrato es `apps/api/openapi.json`; las apps nativas generan sus modelos desde él (ADR-001, ADR-005).
 
 ## Gotchas
 
