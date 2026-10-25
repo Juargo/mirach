@@ -286,7 +286,7 @@ Siete puntos donde lo construido antes y esta versión no coinciden. Las decisio
 | Registrar movimiento a mano | El formulario existía solo en la app web | No hay app web | Resuelto: pasa a móvil (MOV-02) |
 | Borrar movimiento manual | Solo en web, para no dejar destruir donde no se puede crear | No hay app web | Resuelto: va con el registro a móvil (MOV-09) |
 | Modo demo | Había un usuario de demostración en web, de solo lectura y con siete días de vida | No está | Resuelto: no hay modo demo; se eliminó del producto |
-| Perfiles de porcentajes y mes financiero | No existían; los bloques estaban fijos | PER-03 a PER-08 los proponen | Es funcionalidad nueva, sin decisión previa |
+| Perfiles de porcentajes y mes financiero | No existían; los bloques estaban fijos | PER-03 a PER-08 los proponen | Resuelto: PER-04, PER-06 y PER-08 se decidieron el 23-10-2026 |
 
 ## Contraste con el registro anterior (moneyDiary)
 
