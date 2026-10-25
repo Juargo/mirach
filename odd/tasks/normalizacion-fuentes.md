@@ -18,9 +18,9 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 — Decisions D1–D5 asked one at a time and logged in `docs/requisitos` | S3 | inline | done (L6–L11) | |
-| T2 — Requirements cleanup: count 123 vs 136, «dentro» → «Bien» in `ui-design.md`, RNF header placeholder, resolved pending decisions (Apple on Android, store order, password, demo), backlog decision A obsolete and Sprint 0 items done, MOV-08 gap noted | S1, S2 | inline | done (L12); MOV-08 left open | |
-| T3 — ADRs: ADR-010:144 (BCI/Santander no longer blocked), ADR-007 per D2, ADR-012 per D1, states per D4; land `629cf80` (CLAUDE.md trim) | S1, S3 | inline | pending (D1, D2, D4) | |
+| T1 — Decisions D1–D5 asked one at a time and logged in `docs/requisitos` | S3 | inline | done (L6–L11) | `2fe2afc` |
+| T2 — Requirements cleanup: count 123 vs 136, «dentro» → «Bien» in `ui-design.md`, RNF header placeholder, resolved pending decisions (Apple on Android, store order, password, demo), backlog decision A obsolete and Sprint 0 items done, MOV-08 gap noted | S1, S2 | inline | done (L12); MOV-08 left open | `6b5f7c1` |
+| T3 — ADRs: ADR-010:144 (BCI/Santander no longer blocked), ADR-007 per D2, ADR-012 per D1, states per D4; land `629cf80` (CLAUDE.md trim) | S1, S3 | inline | done (L13) | `5f7cc6e`, `2a7e444`, `841514b`, `2c376c1` |
 | T4 — `design/tokens.json` from Figma variables (Gustos, block and state colors, type scale, spacing) and regenerated iOS/Android resources | S1, S2 | inline | pending (D2) | |
 | T5 — Screen catalog: slim to behavior, cite RF + Figma node per screen, «Deseos» → «Gustos», retired ADR refs, Figma screen map, missing screens (supersedes the checklist of #108) | S1, S2 | inline | pending (D1, D3) | |
 | T6 — Figma: frame names carry their requirement IDs; apply D3 | S1, S2 | inline | pending (D3) | |
@@ -41,4 +41,6 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
 - **L11** (2026-10-25, user, D5): "mandan los requisitos, como recomendás".
 - T1 committed (`2fe2afc`).
 - **L12** (2026-10-25) T2: the audit's "136 requirements" was wrong (the grep counted rows of other tables); a parse of the requirement rows gives 123 (77/35/11) and matches backlog §3 module by module, so the backlog was not changed. Applied, each citing its existing source: pending 4 and 9 resolved (ADR-006; milestone Sprint 5), "Qué cambia" rows resolved (ADR-006, MOV-02, MOV-09, demo removed), AUTH note and PUB-01 updated (both store accounts active), RNF header `proyecto: Mirach`, `ui-design.md` «dentro» → «bien», backlog A and D marked superseded, Sprint 0 Play account and ADRs marked done, related-documents links. Left open: MOV-08 gap (backlog §3 #6) and pending decisions 1, 6, 8. All `.md` links in `docs/requisitos` resolve.
-- Next: T3 (ADRs).
+- T2 committed (`6b5f7c1`).
+- **L13** (2026-10-25) T3: ADR-007 Inter only; ADR-012 billing in v1.1 (Estado + alternatives row) and a README pending item "Plus gratis en la v1.0" (how Plus rights are granted with no billing); ADR-010 corrected with evidence: BCI and Santander PDF readers exist and are tested with real statements (`apps/api/test/fixtures/pdf`), so the #109 wording "no longer blocked" was also inexact; the gap is product/format coverage (pending decision 1). ADRs 001–012 accepted (frontmatter, Estado, index). `629cf80` cherry-picked cleanly (`841514b`). CLAUDE.md: Gustos (API id still `Deseos`), landing on Vercel under `mirachbudget.app`, bundle ids `app.mirachbudget.ios` / `app.mirachbudget.android`, no "después" for Android. `apps/api/CLAUDE.md` only cites ADR-001 and ADR-009 (new series), no change. Not done from #109: IMP-17 "descartado" depends on backlog decision C (fusions), still unanswered.
+- Next: T4 needs its own PR (it changes shipped app resources, and the state tokens depend on #113); T5 and T7 are docs/GitHub only.
