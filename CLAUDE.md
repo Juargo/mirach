@@ -17,7 +17,7 @@ Monorepo `pnpm workspaces` (ADR-007). El workspace contiene solo:
 - `apps/api` — `@mirach/api`: API Express + Clean Architecture. Su contrato es `apps/api/openapi.json`.
 - `apps/landing` — `@mirach/landing`: sitio estático en Astro.
 
-Además: `docs/adr/` (decisiones), `openspec/` (proceso SDD; solo `specs/` migró) y `odd/tasks/` (seguimiento de trabajo en curso).
+Además: `docs/requisitos/` (requisitos funcionales y no funcionales, fuente de verdad de producto), `docs/adr/` (decisiones), `openspec/` (proceso SDD; solo `specs/` migró) y `odd/tasks/` (seguimiento de trabajo en curso).
 
 **Apps nativas:** `apps/ios` (Swift/SwiftUI, primero) y `apps/android` (Kotlin/Compose, después; ADR-007). Viven en esas carpetas **fuera** del workspace de pnpm, con su propia cadena de build. Son clientes delgados: sus modelos y llamadas se generan desde `apps/api/openapi.json` (ADR-001, ADR-005).
 

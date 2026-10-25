@@ -1,8 +1,8 @@
 # Architecture Decision Records (ADRs) — Mirach
 
 Este directorio es la fuente de verdad de las decisiones de arquitectura de Mirach. Los
-requisitos (qué debe hacer el producto y con qué calidad) viven en los documentos de
-requisitos funcionales y no funcionales; aquí se registra **cómo** se cumplen y por qué.
+requisitos (qué debe hacer el producto y con qué calidad) viven en
+[`docs/requisitos/`](../requisitos/README.md); aquí se registra **cómo** se cumplen y por qué.
 
 ## Convención
 
