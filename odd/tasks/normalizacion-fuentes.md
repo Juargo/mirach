@@ -13,6 +13,7 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
   - **D3** — Scope of VIS-08, VIS-16 and MOV-06: out of v1 (milestone "Después de v1.0") or in v1 (already drawn in Figma). **Decided (L9): all three out of v1.0.** Recorded in their RF rows and backlog §6 (VIS-08 and VIS-16 moved from Incr. 4 to Después; MOV-06 stays in v1.1). Figma marks them as later in T6.
   - **D4** — ADRs 001–012: move from `Propuesto` to `Aceptado` (product-owner review per `docs/adr/README.md`). **Decided (L10): accept all 12 in the T3 PR, after correcting ADR-007, ADR-010 and ADR-012 while still `Propuesto`; the state change is the last commit.**
   - **D5** — Issues #80 (match types) and #82 (pattern priority) contradict CLA-14 and CLA-12: close or rewrite. **Decided (L11): the requirements win.** The API itself contradicts them: it supports `CONTAINS`/`STARTS_WITH`/`REGEX` (`validar-patron.ts:14`), breaks ties by `prioridad` then text then id (`categorizar-transaccion.use-case.ts:133`), and only lower-cases without ignoring accents (`patron-clasificacion.ts:67`). Done: CLA-12 and CLA-14 rows note the decision; #82 closed (not planned); #80 rewritten to the icon picker only (CLA-11); implementation issues #129 (API) and #130 (iOS) opened in Sprint 3.
+  - **D6** — Scope of VIS-13 (annual calendar) and VIS-14 (block detail by merchant): backlog §6 put them in v1.0, the "Después de v1.0" milestone after. **Decided (L16): both out of v1.0.** Recorded in their RF rows and backlog §6 (moved from Incr. 4 to Después).
 
 ## Tasks
 
@@ -47,4 +48,5 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
 - User (2026-10-25): open the PR for T1–T3 now, continue T5 and T7 on this branch, T4 in its own PR.
 - PR #131 opened for T1–T3 (2026-10-25).
 - **L15** (2026-10-25) T7 partial: progress comments on #109 (done items; open: pending 6, IMP-17/decision C) and #108 (checklist adjusted for D1, D3, D5; catalog work moves to T5); Sprint 3 milestone description now says billing is decided for v1.1 instead of "Decisión del cobro el domingo 15". Still open in T7: VIS-13/VIS-14 scope (backlog §6 puts them in v1.0, the "Después de v1.0" milestone lists them after), populating Sprints 2–5 from the Figma screen map, issues for SOP-03 and AUTH-06, and #63 (only the on-device Apple revocation test remains).
+- **L16** (2026-10-25, user, D6): "las dos fuera de v1.0, como recomendás".
 - Next: T4 needs its own PR (it changes shipped app resources, and the state tokens depend on #113); T5 and T7 are docs/GitHub only.

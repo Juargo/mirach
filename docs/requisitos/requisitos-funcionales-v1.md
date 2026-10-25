@@ -198,8 +198,8 @@ La pantalla principal responde una pregunta: ¿mi mes está equilibrado? Debe en
 | VIS-10 | Mostrar los ingresos totales del mes | Debe | Aparecen junto a los tres bloques, indicando si el monto es el declarado o el detectado en la cartola |
 | VIS-11 | Indicador único del estado del mes | Debe | El mes toma el peor estado de sus bloques (Bien, Cerca o Sobre), con la misma marca y palabra. La frase del mes (VIS-03) explica qué bloque lo define |
 | VIS-12 | Criterios definidos para el estado del mes | Debería | Decidido el 23-10-2026: el estado del mes es el peor bloque (VIS-11) y no hay criterio aparte para "Desconocido". Esos movimientos ya suman en gustos (regla 14), así que afectan el estado a través de ese bloque |
-| VIS-13 | Calendario anual con el estado de cada mes | Debería | Los meses sin movimientos se ven deshabilitados y no se pueden abrir |
-| VIS-14 | Detalle del bloque desglosado también por comercio | Debería | Dentro de un bloque se ve cuánto se gastó en cada comercio, no solo por categoría |
+| VIS-13 | Calendario anual con el estado de cada mes | Debería | Los meses sin movimientos se ven deshabilitados y no se pueden abrir. Fuera de la v1.0 (decidido el 25-10-2026) |
+| VIS-14 | Detalle del bloque desglosado también por comercio | Debería | Dentro de un bloque se ve cuánto se gastó en cada comercio, no solo por categoría. Fuera de la v1.0 (decidido el 25-10-2026) |
 | VIS-15 | Sugerencias accionables de ahorro | Podría | Indica un cambio concreto que acercaría un bloque a su meta, con el monto involucrado |
 | VIS-16 | Tema claro y oscuro, con selector de tres estados | Debería | Claro, oscuro o seguir el sistema. Por defecto claro. La elección queda en el teléfono y no se sincroniza entre dispositivos. Fuera de la v1.0 (decidido el 25-10-2026) |
 | VIS-17 | La frase del mes dice cuánto del exceso de gustos viene de "Desconocido" | Debería | Si gustos está sobre su meta y hay movimientos en "Desconocido", la frase lo dice en puntos, por ejemplo "Gustos: 8 puntos sobre tu meta. 5 son movimientos sin clasificar." Decidido el 23-10-2026 |
