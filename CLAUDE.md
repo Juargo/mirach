@@ -2,11 +2,11 @@
 
 ## ¿Qué es este proyecto?
 
-Mirach es una app de finanzas personales que importa cartolas de bancos chilenos (Banco de Chile, BancoEstado, BCI, Santander) desde archivos `.xlsx` y `.pdf`, clasifica los movimientos y muestra un presupuesto **50/30/20** con un semáforo por bucket (Necesidades, Deseos, Ahorro). Es la continuación como producto de MoneyDiary: de allí heredó el API, la landing y el historial de decisiones (la serie anterior de ADRs se retiró en el commit `0f33729`; ver `docs/adr/README.md`).
+Mirach es una app de finanzas personales que importa cartolas de bancos chilenos (Banco de Chile, BancoEstado, BCI, Santander) desde archivos `.xlsx` y `.pdf`, clasifica los movimientos y muestra un presupuesto **50/30/20** con un semáforo por bucket (Necesidades, Gustos y Ahorro; el API todavía nombra `Deseos` al bucket de Gustos). Es la continuación como producto de MoneyDiary: de allí heredó el API, la landing y el historial de decisiones (la serie anterior de ADRs se retiró en el commit `0f33729`; ver `docs/adr/README.md`).
 
 **Repositorio:** `Juargo/mirach`
 **Stack:** Express + TypeScript strict en `apps/api` (ADR-007) · Prisma + PostgreSQL · Astro en `apps/landing`. Las versiones exactas están en cada `package.json`.
-**Infraestructura:** propia de Mirach (ADR-002): base Supabase `mirach` en `us-east-1` y servicio Render `mirach-api` en Virginia (`https://mirach-api.onrender.com`), con `API_KEY` y `ENCRYPTION_KEY` propias. Render despliega `main` solo y **no corre migraciones**: una migración que agrega columnas se aplica antes de mergear; una que las elimina, después del deploy. El landing todavía no está desplegado. El dominio y el bundle identifier están por definir. Las URLs y dominios que aparecen en el código (`moneydiary.cl`) son residuos del despliegue anterior y no corresponden a infraestructura de Mirach.
+**Infraestructura:** propia de Mirach (ADR-002): base Supabase `mirach` en `us-east-1` y servicio Render `mirach-api` en Virginia (`https://mirach-api.onrender.com`), con `API_KEY` y `ENCRYPTION_KEY` propias. Render despliega `main` solo y **no corre migraciones**: una migración que agrega columnas se aplica antes de mergear; una que las elimina, después del deploy. El landing está en Vercel bajo `mirachbudget.app`; el dominio propio del API (`api.mirachbudget.app`) todavía no existe (ADR-002). Los bundle identifiers son `app.mirachbudget.ios` y `app.mirachbudget.android`. Las URLs y dominios que aparecen en el código (`moneydiary.cl`) son residuos del despliegue anterior y no corresponden a infraestructura de Mirach.
 
 ---
 
@@ -19,7 +19,7 @@ Monorepo `pnpm workspaces` (ADR-007). El workspace contiene solo:
 
 Además: `docs/requisitos/` (requisitos funcionales y no funcionales, fuente de verdad de producto), `docs/adr/` (decisiones), `openspec/` (proceso SDD; solo `specs/` migró) y `odd/tasks/` (seguimiento de trabajo en curso).
 
-**Apps nativas:** `apps/ios` (Swift/SwiftUI, primero) y `apps/android` (Kotlin/Compose, después; ADR-007). Viven en esas carpetas **fuera** del workspace de pnpm, con su propia cadena de build. Son clientes delgados: sus modelos y llamadas se generan desde `apps/api/openapi.json` (ADR-001, ADR-005).
+**Apps nativas:** `apps/ios` (Swift/SwiftUI) y `apps/android` (Kotlin/Compose) (ADR-007). Viven en esas carpetas **fuera** del workspace de pnpm, con su propia cadena de build. Son clientes delgados: sus modelos y llamadas se generan desde `apps/api/openapi.json` (ADR-001, ADR-005).
 
 ---
 
