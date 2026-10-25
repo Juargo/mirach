@@ -64,7 +64,7 @@ Por módulo:
 
 | # | Qué pasa | Propuesta |
 |---|---|---|
-| 1 | IMP-24 (límite de bancos del plan gratis) y PLA-07 (conservar datos al vencer el plan) son "Debe", pero los planes (PLA-01 a 06) son "Debería" | Que IMP-24 y PLA-07 sigan la suerte de PLA: si los planes no entran en v1.0, tampoco ellos |
+| 1 | IMP-24 (límite de bancos del plan gratis) y PLA-07 (conservar datos al vencer el plan) son "Debe", pero los planes (PLA-01 a 06) son "Debería" | Que IMP-24 y PLA-07 sigan la suerte de PLA: si los planes no entran en v1.0, tampoco ellos. Resuelta con la decisión B (25-10-2026): pasan a v1.1 |
 | 2 | CLA-05 y CLA-07 (Debería) se solapan con CLA-09 (Debe): los tres hablan de crear y editar categorías y reglas | Fusionarlos en CLA-09 y dejar CLA-07 solo como "ver por qué un movimiento quedó en un bloque" |
 | 3 | IMP-17 (reprocesar) exige guardar el archivo, lo que choca con IMP-07 y RNF-PRV-005 | Descartar IMP-17 del v1 |
 | 4 | IMP-22 (eliminar una ingesta) y PRI-05 (borrar una importación) son el mismo requisito | Dejar uno y referenciar el otro |
@@ -133,7 +133,7 @@ Sprints de **2 semanas**. No hay velocidad conocida, así que los números de sp
 | IMP | 01, 02 (un banco), 03, 04, 07, 14, 16, 18, 19, 21, 23 | 02 (cuatro bancos), 05, 06, 08, 11, 13, 15, 20, 22 | | 09, 10 | 24 | 12; 17 descartado |
 | MOV | 01 (básico) | | 02, 03, 04, 05, 09, 10 | 11 | 06 | 07 |
 | CLA | 01, 02, 06, 08, 12, 13, 14, 18 | 04 | 03, 09, 10, 11, 15, 16, 17 | 07 | 05 (fusionar con 09) | |
-| VIS | 01, 02, 07, 10, 11 | | 03, 04, 05, 06, 12, 17 | 08, 13, 14, 16 | | 09, 15 |
+| VIS | 01, 02, 07, 10, 11 | | 03, 04, 05, 06, 12, 17 | 13, 14 | | 08, 09, 15, 16 |
 | PLA | | | | | 01 a 07, 09 | 08 |
 | PRI | 02, 03 | | | 01, 04, 05 | 06 | |
 | SOP | | | 03 | 01, 02 | | |
@@ -170,7 +170,7 @@ Objetivo: **dejar listo todo lo que bloquea el Incremento 1 y empezar a medir in
 | # | Decisión | Opciones | Propuesta |
 |---|---|---|---|
 | A | ¿Qué plataforma va primero? (pendiente 9) | Android primero / iPhone primero / ambas a la vez | **Android primero:** Google Play no exige cuenta pagada de Apple, la pista cerrada es simple y Android tiene la mayoría del mercado en Chile. Con dos apps nativas, hacer ambas a la vez duplica cada sprint |
-| B | ¿Los planes entran en v1.0 o en v1.1? | v1.0 con cobro / v1.0 todo gratis y cobro en v1.1 | **v1.1**, con "Plus gratis durante el lanzamiento". Permite medir retención antes de cobrar y saca IMP-24 y PLA-07 del camino crítico. Riesgo: los primeros usuarios pueden molestarse cuando empiece el cobro, así que conviene avisarlo desde el inicio |
+| B | ¿Los planes entran en v1.0 o en v1.1? | v1.0 con cobro / v1.0 todo gratis y cobro en v1.1 | **v1.1**, con "Plus gratis durante el lanzamiento". Permite medir retención antes de cobrar y saca IMP-24 y PLA-07 del camino crítico. Riesgo: los primeros usuarios pueden molestarse cuando empiece el cobro, así que conviene avisarlo desde el inicio. **Decidido el 25-10-2026: v1.1, con Plus gratis durante el lanzamiento** |
 | C | ¿Se aceptan las fusiones de la sección 3 (CLA-05/07 con CLA-09, IMP-22 con PRI-05, descartar IMP-17)? | Sí / No | Sí |
 | D | Duración del sprint | 1 semana / 2 semanas | **2 semanas**, por trabajar en paralelo con el magíster |
 

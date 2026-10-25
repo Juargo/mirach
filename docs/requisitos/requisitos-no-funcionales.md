@@ -47,7 +47,7 @@ estado: borrador para revisión
 | RNF-USA-003 | El usuario entiende su mes en menos de un minuto después de cargar la cartola. | Es la métrica de validación de valor del producto.                          | Must      |
 | RNF-USA-004 | La educación financiera se entrega en explicaciones breves y en contexto.      | Nada de textos largos ni tono de cátedra.                                   | Should    |
 | RNF-USA-005 | Cargar una cartola tiene la menor fricción posible.                            | Pocos pasos, y cada paso guiado para quien no sabe dónde buscar el archivo. | Must      |
-| RNF-USA-006 | La interfaz usa una paleta y una tipografía consistentes.                      | Definidas una vez y respetadas en ambas plataformas.                        | Should    |
+| RNF-USA-006 | La interfaz usa una paleta y una tipografía consistentes.                      | Definidas una vez y respetadas en ambas plataformas. Tipografía: solo Inter, con cifras tabulares en montos y fechas (decidido el 25-10-2026). | Should    |
 
 ## 4. Rendimiento (PER)
 
