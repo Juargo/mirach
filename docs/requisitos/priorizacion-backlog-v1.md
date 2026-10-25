@@ -70,7 +70,7 @@ Por módulo:
 | 4 | IMP-22 (eliminar una ingesta) y PRI-05 (borrar una importación) son el mismo requisito | Dejar uno y referenciar el otro |
 | 5 | RNF-LOC-002 se solapa con CLA-06 (catálogo de comercios chilenos) | Ya estaba anotado en el RNF; dejarlo en CLA-06 |
 | 6 | Falta MOV-08 en la numeración | Confirmar si se eliminó a propósito |
-| 7 | RNF dice "dos apps nativas separadas" y no hay decisión sobre qué plataforma va primero (pendiente 9) | Es la decisión que más cambia el plan; ver sección 8 |
+| 7 | RNF dice "dos apps nativas separadas" y no hay decisión sobre qué plataforma va primero (pendiente 9) | Es la decisión que más cambia el plan; ver sección 8. Resuelta: ver decisión A |
 
 ## 4. Método de priorización
 
@@ -158,10 +158,10 @@ Objetivo: **dejar listo todo lo que bloquea el Incremento 1 y empezar a medir in
 | Reunir cartolas reales de los cuatro bancos, cuenta corriente y cuenta vista (pendiente 1) | Investigación | Bloquea E2 entero. BCI y Santander no están verificados |
 | Ejecutar la prueba del prototipo v1 con 3 a 5 personas | Validación | Puede reordenar E3 antes de construirlo |
 | Landing con lista de espera y puerta falsa de precios (LAN-01, 02, 03, 04, 08, 09) | Validación | Mide el umbral de 5% de visitas mientras se construye |
-| Cuenta de Google Play Console (PUB-01) | Habilitador | Las cuentas personales nuevas deben pasar una prueba cerrada antes de publicar en producción; confirmar el requisito vigente |
+| Cuenta de Google Play Console (PUB-01) | Habilitador | Las cuentas personales nuevas deben pasar una prueba cerrada antes de publicar en producción; confirmar el requisito vigente. Hecho |
 | Definir versiones mínimas de sistema operativo (PUB-04) | Decisión | Afecta el proyecto base |
 | Confirmar el nombre y el ícono (PUB-07) | Decisión | Ya está el dominio mirachbudget.app; falta revisar choques en las tiendas |
-| ADRs pendientes: plataforma primero, cifrado por columna (SEC-003), manejo de montos (EXA-001) | Habilitador | Sin ellos la DoD no se puede cumplir |
+| ADRs pendientes: plataforma primero, cifrado por columna (SEC-003), manejo de montos (EXA-001) | Habilitador | Sin ellos la DoD no se puede cumplir. Hecho: ADR-001 a ADR-012 (`docs/adr`) |
 | Repositorio, CI y primeras pruebas con cartolas reales (FIA-003) | Habilitador | El camino crítico de ingesta debe estar cubierto desde el primer lector |
 | Estimar en puntos las historias del Incremento 1 | Refinamiento | Permite medir velocidad desde el Sprint 1 |
 
@@ -169,10 +169,10 @@ Objetivo: **dejar listo todo lo que bloquea el Incremento 1 y empezar a medir in
 
 | # | Decisión | Opciones | Propuesta |
 |---|---|---|---|
-| A | ¿Qué plataforma va primero? (pendiente 9) | Android primero / iPhone primero / ambas a la vez | **Android primero:** Google Play no exige cuenta pagada de Apple, la pista cerrada es simple y Android tiene la mayoría del mercado en Chile. Con dos apps nativas, hacer ambas a la vez duplica cada sprint |
+| A | ¿Qué plataforma va primero? (pendiente 9) | Android primero / iPhone primero / ambas a la vez | **Android primero:** Google Play no exige cuenta pagada de Apple, la pista cerrada es simple y Android tiene la mayoría del mercado en Chile. Con dos apps nativas, hacer ambas a la vez duplica cada sprint. **Superada:** iPhone fue primero (pasó por App Review) y Android le siguió; las dos se lanzan a la vez (milestone Sprint 5) |
 | B | ¿Los planes entran en v1.0 o en v1.1? | v1.0 con cobro / v1.0 todo gratis y cobro en v1.1 | **v1.1**, con "Plus gratis durante el lanzamiento". Permite medir retención antes de cobrar y saca IMP-24 y PLA-07 del camino crítico. Riesgo: los primeros usuarios pueden molestarse cuando empiece el cobro, así que conviene avisarlo desde el inicio. **Decidido el 25-10-2026: v1.1, con Plus gratis durante el lanzamiento** |
 | C | ¿Se aceptan las fusiones de la sección 3 (CLA-05/07 con CLA-09, IMP-22 con PRI-05, descartar IMP-17)? | Sí / No | Sí |
-| D | Duración del sprint | 1 semana / 2 semanas | **2 semanas**, por trabajar en paralelo con el magíster |
+| D | Duración del sprint | 1 semana / 2 semanas | **2 semanas**, por trabajar en paralelo con el magíster. **Superada:** los milestones usan sprints de 1 semana (26-10 al 29-11-2026) |
 
 ## 9. Definiciones de Listo y de Terminado
 

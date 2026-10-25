@@ -1,7 +1,7 @@
 ---
 tipo: requisitos
 categoria: Requisito no Funcional (RNF)
-proyecto: <nombre del proyecto>
+proyecto: Mirach
 fecha: 2026-10-20
 estado: borrador para revisión
 ---

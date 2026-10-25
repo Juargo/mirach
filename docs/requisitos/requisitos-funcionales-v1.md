@@ -55,7 +55,7 @@ Notas:
 
 - Las tiendas de apps suelen exigir poder borrar la cuenta desde la app (AUTH-05); hay que revisar las guías vigentes de Apple y Google antes de publicar.
 - Con Apple y Google, la app puede no recibir un correo real. El soporte debe funcionar sin depender de él.
-- Iniciar sesión con Apple en Android suele requerir un flujo web. Decisión pendiente: ofrecerlo en Android o solo en iPhone.
+- Iniciar sesión con Apple en Android suele requerir un flujo web. Resuelto: en la v1 se ofrece solo en iPhone; en Android no (ADR-006).
 
 ## Perfil de presupuesto y onboarding (PER)
 
@@ -264,7 +264,7 @@ El producto es una app móvil nativa que se descarga desde App Store y Google Pl
 
 | ID | Requisito | Prioridad | Criterio de aceptación |
 | --- | --- | --- | --- |
-| PUB-01 | Cuentas de desarrollador en Apple y Google | Debe | Publicación como persona natural; falta inscribirse en Apple Developer |
+| PUB-01 | Cuentas de desarrollador en Apple y Google | Debe | Publicación como persona natural. Ambas cuentas están activas: la app de iPhone pasó por App Review y la de Android está en prueba en Google Play |
 | PUB-02 | Ficha de tienda en español de Chile | Debe | Nombre, descripción, capturas, ícono y categoría, con Chile entre los países de distribución |
 | PUB-03 | Declaración de datos que recopila la app en ambas tiendas | Debe | Coincide con lo que dice la política de privacidad y con lo que la app hace de verdad |
 | PUB-04 | Versiones mínimas de sistema operativo definidas | Debe | Se eligen según el parque de equipos en Chile, no solo los más nuevos |
@@ -281,11 +281,11 @@ Siete puntos donde lo construido antes y esta versión no coinciden. Las decisio
 | Tema | En el proyecto anterior | En esta versión | Qué falta resolver |
 | --- | --- | --- | --- |
 | Publicar en tiendas | Distribución interna por archivo, sin publicar | Se publica en App Store y Google Play | Nada; la decisión está tomada |
-| Ingreso con Apple | No existía | Apple ID junto con Google | Falta definir cómo funciona en Android |
-| Contraseña | Había ingreso con contraseña y forma de cambiarla | Solo Apple y Google | Decidir si la contraseña desaparece del todo |
-| Registrar movimiento a mano | El formulario existía solo en la app web | No hay app web | Pasa a móvil o sale del alcance |
-| Borrar movimiento manual | Solo en web, para no dejar destruir donde no se puede crear | No hay app web | Si el registro pasa a móvil, el borrado va con él |
-| Modo demo | Había un usuario de demostración en web, de solo lectura y con siete días de vida | No está | Decidir si alguien puede probar sin registrarse |
+| Ingreso con Apple | No existía | Apple ID junto con Google | Resuelto: en Android no se ofrece en la v1 (ADR-006) |
+| Contraseña | Había ingreso con contraseña y forma de cambiarla | Solo Apple y Google | Resuelto: desaparece para los usuarios; queda solo para la cuenta de revisión de las tiendas (ADR-006) |
+| Registrar movimiento a mano | El formulario existía solo en la app web | No hay app web | Resuelto: pasa a móvil (MOV-02) |
+| Borrar movimiento manual | Solo en web, para no dejar destruir donde no se puede crear | No hay app web | Resuelto: va con el registro a móvil (MOV-09) |
+| Modo demo | Había un usuario de demostración en web, de solo lectura y con siete días de vida | No está | Resuelto: no hay modo demo; se eliminó del producto |
 | Perfiles de porcentajes y mes financiero | No existían; los bloques estaban fijos | PER-03 a PER-08 los proponen | Es funcionalidad nueva, sin decisión previa |
 
 ## Contraste con el registro anterior (moneyDiary)
@@ -344,7 +344,7 @@ Si el documento de prioridades va a separar MVP de lo que viene después, convie
 
 ## Fuera de alcance y decisiones pendientes
 
-Hay nueve decisiones abiertas de producto, más las siete de la sección anterior; las tres primeras bloquean el desarrollo de la importación y la clasificación. Las decisiones técnicas viven en el documento de arquitectura.
+Quedan tres decisiones abiertas de producto (1, 6 y 8); las de la sección anterior están resueltas. La primera bloquea el desarrollo de la importación y la clasificación. Las decisiones técnicas viven en el documento de arquitectura.
 
 ### Fuera de la primera versión
 
@@ -366,11 +366,11 @@ Hay nueve decisiones abiertas de producto, más las siete de la sección anterio
 | 1 | Reunir cartolas reales de los cuatro bancos, en cuenta corriente y cuenta vista | Sin muestras no se pueden diseñar los lectores; BCI y Santander no están verificados |
 | 2 | ~~¿Qué perfil se sugiere a un usuario con deuda alta?~~ Resuelta el 23-10-2026: el 80/10/10, presentado como "Salir de deudas" (PER-04) | Con la deuda dentro de necesidades, el 50% es inalcanzable para muchos; el perfil deja de ser un extra |
 | 3 | ~~¿Cómo se trata el pago de tarjeta cuando solo se sube la cuenta corriente?~~ Resuelta el 23-10-2026: en la v1 no se leen estados de cuenta de tarjeta y el pago cuenta como Pago de deudas (regla 3) | Evita duplicar gastos |
-| 4 | ¿Iniciar sesión con Apple también en Android? | Cambia el trabajo del login en Android |
+| 4 | ~~¿Iniciar sesión con Apple también en Android?~~ Resuelta: no en la v1 (ADR-006) | Cambia el trabajo del login en Android |
 | 5 | ~~Límites exactos del plan gratis~~ Resuelta el 23-10-2026: ver PLA-01 | Define cuánto se puede probar antes de pagar |
 | 6 | Plazo de borrado del archivo y de la cuenta | Debe coincidir con la política de privacidad |
 | 7 | ~~¿Mes financiero configurable en la v1?~~ Resuelta el 23-10-2026: sí, con día del 1 al 28 y tolerancia de 3 días (PER-08) | Afecta cómo se calculan todos los totales |
 | 8 | Si la app es solo móvil, ¿cómo sube la cartola quien la descarga en el computador? | Muchos bancos entregan la cartola desde su sitio web |
-| 9 | ¿Se lanza en las dos tiendas a la vez o primero en una? | La revisión de Apple puede demorar, y aún no hay cuenta de Apple Developer |
+| 9 | ~~¿Se lanza en las dos tiendas a la vez o primero en una?~~ Resuelta: a la vez; el lunes 23-11-2026 se solicita producción en Google Play y se envía a Apple (milestone Sprint 5) | La revisión de Apple puede demorar |
 
-Documentos relacionados: arquitectura (dónde vive cada cosa) y, pendiente, requisitos no funcionales (seguridad, privacidad, rendimiento y accesibilidad).
+Documentos relacionados: [arquitectura](../adr/README.md) (dónde vive cada cosa) y [requisitos no funcionales](requisitos-no-funcionales.md) (seguridad, privacidad, rendimiento y accesibilidad).
