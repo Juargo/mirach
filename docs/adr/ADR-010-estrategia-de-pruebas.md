@@ -141,8 +141,9 @@ Un cambio está terminado cuando:
 ## Consecuencias
 
 - El tiempo de prueba se invierte donde está el riesgo.
-- Conseguir y anonimizar cartolas reales de BCI y Santander bloquea sus lectores
-  (decisión pendiente 1 de los requisitos).
+- Los lectores PDF de BCI y Santander ya se prueban con cartolas reales
+  (`apps/api/test/fixtures/pdf`). Falta reunir cartolas reales de cada banco en cuenta
+  corriente y cuenta vista, en todos sus formatos (decisión pendiente 1 de los requisitos).
 - La prueba de mutación es lenta; corre en el módulo de dinero, no en todo el código.
 
 ## Referencias

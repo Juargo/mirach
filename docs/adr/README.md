@@ -98,6 +98,13 @@ Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y E
 | Eventos de producto | Tabla propia en PostgreSQL | ADR-011 |
 | Clave de duplicados | Agregar saldo y orden dentro del archivo antes del lanzamiento | ADR-004 |
 
+## Decisiones tomadas en la revisión del 2026-10-25
+
+| Tema | Decisión | ADR |
+|------|----------|-----|
+| Tipografía | Solo Inter, con cifras tabulares; se retira Geist Mono | ADR-007 |
+| Cobro | Los planes y el cobro entran en la v1.1; la v1.0 sale con Plus gratis para todos | ADR-012 |
+
 ## Pendientes
 
 | Tema | ADR | Qué falta |
@@ -105,3 +112,4 @@ Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y E
 | Proyecto Supabase `mirach` pausado | ADR-002 | Reactivarlo; revisar los avisos de seguridad (Data API) |
 | Transferencia internacional de datos (servidores en EE. UU.) | ADR-002, ADR-009 | Revisión legal frente a la Ley 21.719 |
 | Landing en Vercel Hobby (no permite uso comercial) | ADR-002 | Decidir al lanzar: Vercel Pro u otro hosting estático |
+| Plus gratis en la v1.0 | ADR-012 | Definir cómo se otorgan los derechos de Plus a todas las cuentas mientras no hay cobro, y cómo se pasa a la prueba de 30 días en la v1.1 |
