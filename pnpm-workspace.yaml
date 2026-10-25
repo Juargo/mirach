@@ -63,7 +63,9 @@ overrides:
   # dev de vitest/jsdom; no llega a prod, pero el piso es gratis.
   # Burn-down 2026-10-02: piso subido a 7.29.1 por GHSA-rfgv-xxqx-mfg5 y
   # GHSA-w293-vg96-wgc3 (high), que 7.29.0 no cubre.
-  undici: '>=7.29.1 <8.0.0'
+  # Burn-down 2026-10-25: piso subido a 7.30.1 por GHSA-xjj6-f33q-929c (DoS por
+  # exceso de content-encodings, high). 7.30.1 se publicó 2026-10-15 (>7 días).
+  undici: '>=7.30.1 <8.0.0'
 
   # --- Burn-down 2026-09-08 (desbloquea el gate `pnpm audit` de ADR-021) ---
   # Las advisories de estos dos se publicaron DESPUÉS del burn-down anterior,
