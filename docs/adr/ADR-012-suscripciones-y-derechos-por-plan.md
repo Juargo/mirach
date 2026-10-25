@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [PLA-01, PLA-02, PLA-03, PLA-04, PLA-05, PLA-06, PLA-07, PLA-08, PLA-09, IMP-24, PUB-05]
 ---
@@ -10,7 +10,7 @@ requisitos: [PLA-01, PLA-02, PLA-03, PLA-04, PLA-05, PLA-06, PLA-07, PLA-08, PLA
 
 ## Estado
 
-Propuesto (2026-10-24). Decisión del product owner (2026-10-24): **RevenueCat** como capa
+Aceptado (2026-10-25); propuesto el 2026-10-24. Decisión del product owner (2026-10-24): **RevenueCat** como capa
 de suscripciones (**nuevo**). No hay nada construido todavía. Decisión del product owner
 (2026-10-25): los planes y el cobro entran en la **v1.1**; en la v1.0 Plus es gratis para
 todos durante el lanzamiento, y se avisa desde el inicio que Plus será pago.

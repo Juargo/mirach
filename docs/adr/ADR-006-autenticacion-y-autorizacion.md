@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07, RNF-SEC-002, RNF-PRV-001, IMP-24, PLA-01, ADM-02]
 ---
@@ -10,7 +10,7 @@ requisitos: [AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06, AUTH-07, RNF-
 
 ## Estado
 
-Propuesto (2026-10-24). Inicio de sesión con Apple y Google, sesión opaca, borrado de cuenta
+Aceptado (2026-10-25); propuesto el 2026-10-24. Inicio de sesión con Apple y Google, sesión opaca, borrado de cuenta
 y aislamiento por usuario están desplegados (**vigente**). La sesión renovable, el cierre en
 todos los dispositivos, los derechos por plan y el modelo de soporte son **nuevos**.
 

@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-OBS-001, RNF-USA-003, RNF-SEC-004, RNF-PER-001, RNF-PER-002, RNF-FIA-001, PER-01, ADM-01, ADM-03, LAN-03, LAN-04, LAN-08, SOP-03]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-OBS-001, RNF-USA-003, RNF-SEC-004, RNF-PER-001, RNF-PER-002, RN
 
 ## Estado
 
-Propuesto (2026-10-24). Logging estructurado con Pino y redacción está construido
+Aceptado (2026-10-25); propuesto el 2026-10-24. Logging estructurado con Pino y redacción está construido
 (**vigente**). Decisiones del product owner (2026-10-24): eventos de producto en una
 **tabla propia en PostgreSQL**, y errores con una plataforma gratis o freemium con miras a
 Sentry, por lo que se usa **Sentry en su plan gratuito** desde el inicio (**nuevo**).

@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-SEC-002, RNF-SEC-003, RNF-FIA-002, RNF-EXA-001, RNF-PRV-005, IMP-05, IMP-18, IMP-19, IMP-22, AUTH-03, AUTH-05, CLA-08, CLA-10, CLA-12, PER-03, PER-08, PRI-02]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-SEC-002, RNF-SEC-003, RNF-FIA-002, RNF-EXA-001, RNF-PRV-005, IM
 
 ## Estado
 
-Propuesto (2026-10-24). Motor, ORM, modelo multiusuario, tipos de dinero y cifrado ya
+Aceptado (2026-10-25); propuesto el 2026-10-24. Motor, ORM, modelo multiusuario, tipos de dinero y cifrado ya
 están en producción (**vigente**). Las tablas para perfiles, consentimientos, suscripción
 y eventos son **nuevas**.
 

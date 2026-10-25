@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-FIA-003, RNF-SEC-001, RNF-SEC-004, PUB-06]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-FIA-003, RNF-SEC-001, RNF-SEC-004, PUB-06]
 
 ## Estado
 
-Propuesto (2026-10-24). Ramas, CI, hooks, release-please y deploy automático del API y la
+Aceptado (2026-10-25); propuesto el 2026-10-24. Ramas, CI, hooks, release-please y deploy automático del API y la
 landing están funcionando (**vigente**). El chequeo de compatibilidad del contrato, la
 automatización de builds móviles y el lanzamiento escalonado son **nuevos**.
 

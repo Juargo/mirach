@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-PER-001, RNF-PER-002, RNF-EXA-002, RNF-FIA-001, RNF-USA-006, PER-06, PER-08]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-PER-001, RNF-PER-002, RNF-EXA-002, RNF-FIA-001, RNF-USA-006, PE
 
 ## Estado
 
-Propuesto (2026-10-24).
+Aceptado (2026-10-25); propuesto el 2026-10-24.
 
 ## Contexto
 

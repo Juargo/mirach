@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-SEC-001, RNF-EXA-001, RNF-FIA-001, RNF-USA-006, RNF-ACC-002, PUB-04]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-SEC-001, RNF-EXA-001, RNF-FIA-001, RNF-USA-006, RNF-ACC-002, PU
 
 ## Estado
 
-Propuesto (2026-10-24). Todo el stack listado como vigente ya está en el repositorio. Los
+Aceptado (2026-10-25); propuesto el 2026-10-24. Todo el stack listado como vigente ya está en el repositorio. Los
 proveedores de errores y suscripciones son **nuevos** y se deciden en ADR-011 y ADR-012.
 Las versiones exactas viven en cada `package.json`, `project.yml` y `libs.versions.toml`;
 aquí se registran la elección y su motivo.

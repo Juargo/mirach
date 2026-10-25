@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-PER-001, RNF-PER-002, RNF-PRV-004, RNF-FIA-002, LAN-05, LAN-06, LAN-07, PUB-06]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-PER-001, RNF-PER-002, RNF-PRV-004, RNF-FIA-002, LAN-05, LAN-06,
 
 ## Estado
 
-Propuesto (2026-10-24). La topología actual está desplegada (**vigente**). El dominio
+Aceptado (2026-10-25); propuesto el 2026-10-24. La topología actual está desplegada (**vigente**). El dominio
 propio del API es **nuevo**. Decisión del product owner (2026-10-24): **seguir en los
 planes gratis por ahora**, como riesgo aceptado, con los gatillos de la sección 6 para
 pasar a plan pagado y crear staging.
