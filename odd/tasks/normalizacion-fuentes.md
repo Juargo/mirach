@@ -25,7 +25,7 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
 | T4 — `design/tokens.json` from Figma variables (Gustos, block and state colors, type scale, spacing) and regenerated iOS/Android resources | S1, S2 | inline | pending (D2) | |
 | T5 — Screen catalog: slim to behavior, cite RF + Figma node per screen, «Deseos» → «Gustos», retired ADR refs, Figma screen map, missing screens (supersedes the checklist of #108) | S1, S2 | inline | pending (D1, D3) | |
 | T6 — Figma: frame names carry their requirement IDs; apply D3 | S1, S2 | inline | pending (D3) | |
-| T7 — Milestones and issues: #63, #80, #82 per D5; update #108 and #109; populate Sprints 2–5 from the Figma screen map; issues for SOP-03 and AUTH-06 | S1, S3 | inline | in progress (L11, L15) | |
+| T7 — Milestones and issues: #63, #80, #82 per D5; update #108 and #109; populate Sprints 2–5 from the Figma screen map; issues for SOP-03 and AUTH-06 | S1, S3 | inline | done except #63 (L11, L15, L18) | |
 
 ## Log
 
@@ -51,4 +51,5 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
 - **L16** (2026-10-25, user, D6): "las dos fuera de v1.0, como recomendás".
 - **L17** (2026-10-25) native review of the updated #131 approved with three advisories: (1) valid, three requirement lines still said BCI and Santander were unverified, contradicting ADR-010; updated with the same evidence; (2) and (3) declined: the HTTP middleware order lives in `app.ts:59-66` and the common commands in each `package.json`, which is what the intentional `629cf80` trim relied on.
 - User (2026-10-25): create the 23 Sprint 2–5 issues, with screens 50 and 34 out of v1.0.
+- **L18** (2026-10-25) T7: created 25 issues from the Figma screen map, each with requirement IDs, Figma node links and an iOS/Android checklist: Sprint 2 #132–#137, Sprint 3 #138–#142, Sprint 4 #143–#151 (includes SOP-03 in #145 and AUTH-06 in #146), Sprint 5 #152–#154, Después de v1.0 #155 (plan screens 15, 32, 38–40 and the plan-gratis variants 26b/27b, per D1) and #156 (screens 50 and 34: PER-05 and PRI-06 stay in v1.1). Remaining in T7: #63 (on-device Apple revocation test only).
 - Next: T4 needs its own PR (it changes shipped app resources, and the state tokens depend on #113); T5 and T7 are docs/GitHub only.
