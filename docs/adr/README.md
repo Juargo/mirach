@@ -39,20 +39,20 @@ requisitos: [RNF-..., IMP-...]
 
 | ADR | Título | Estado |
 |-----|--------|--------|
-| [ADR-001](ADR-001-estilo-de-arquitectura.md) | Estilo de arquitectura: monolito modular con Clean Architecture y clientes nativos delgados | Propuesto |
-| [ADR-002](ADR-002-topologia-de-despliegue.md) | Topología de despliegue y ambientes | Propuesto |
-| [ADR-003](ADR-003-mantenibilidad-y-escalabilidad.md) | Mantenibilidad y escalabilidad | Propuesto |
-| [ADR-004](ADR-004-persistencia-postgresql-acid.md) | Persistencia: PostgreSQL relacional con transacciones ACID | Propuesto |
-| [ADR-005](ADR-005-api-rest-contrato-openapi.md) | API REST con contrato OpenAPI, reutilizando el API de MoneyDiary | Propuesto |
-| [ADR-006](ADR-006-autenticacion-y-autorizacion.md) | Autenticación y autorización | Propuesto |
-| [ADR-007](ADR-007-stack-tecnologico.md) | Stack tecnológico | Propuesto |
-| [ADR-008](ADR-008-ci-cd.md) | CI/CD, estrategia de ramas y releases | Propuesto |
-| [ADR-009](ADR-009-seguridad-by-design-y-by-default.md) | Seguridad by design y by default | Propuesto |
-| [ADR-010](ADR-010-estrategia-de-pruebas.md) | Pirámide de pruebas y criterios de aceptación | Propuesto |
-| [ADR-011](ADR-011-observabilidad-kpis-y-logs.md) | Observabilidad: KPIs, logs, errores y métricas técnicas | Propuesto |
-| [ADR-012](ADR-012-suscripciones-y-derechos-por-plan.md) | Suscripciones y derechos por plan | Propuesto |
+| [ADR-001](ADR-001-estilo-de-arquitectura.md) | Estilo de arquitectura: monolito modular con Clean Architecture y clientes nativos delgados | Aceptado |
+| [ADR-002](ADR-002-topologia-de-despliegue.md) | Topología de despliegue y ambientes | Aceptado |
+| [ADR-003](ADR-003-mantenibilidad-y-escalabilidad.md) | Mantenibilidad y escalabilidad | Aceptado |
+| [ADR-004](ADR-004-persistencia-postgresql-acid.md) | Persistencia: PostgreSQL relacional con transacciones ACID | Aceptado |
+| [ADR-005](ADR-005-api-rest-contrato-openapi.md) | API REST con contrato OpenAPI, reutilizando el API de MoneyDiary | Aceptado |
+| [ADR-006](ADR-006-autenticacion-y-autorizacion.md) | Autenticación y autorización | Aceptado |
+| [ADR-007](ADR-007-stack-tecnologico.md) | Stack tecnológico | Aceptado |
+| [ADR-008](ADR-008-ci-cd.md) | CI/CD, estrategia de ramas y releases | Aceptado |
+| [ADR-009](ADR-009-seguridad-by-design-y-by-default.md) | Seguridad by design y by default | Aceptado |
+| [ADR-010](ADR-010-estrategia-de-pruebas.md) | Pirámide de pruebas y criterios de aceptación | Aceptado |
+| [ADR-011](ADR-011-observabilidad-kpis-y-logs.md) | Observabilidad: KPIs, logs, errores y métricas técnicas | Aceptado |
+| [ADR-012](ADR-012-suscripciones-y-derechos-por-plan.md) | Suscripciones y derechos por plan | Aceptado |
 
-Todos quedan en `Propuesto` hasta la revisión del product owner. Las partes que describen
+El product owner los aceptó el 2026-10-25. Las partes que describen
 lo que ya está construido y desplegado se marcan como **vigente** dentro de cada ADR; las
 que agregan algo nuevo se marcan como **nuevo**.
 
@@ -98,6 +98,13 @@ Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y E
 | Eventos de producto | Tabla propia en PostgreSQL | ADR-011 |
 | Clave de duplicados | Agregar saldo y orden dentro del archivo antes del lanzamiento | ADR-004 |
 
+## Decisiones tomadas en la revisión del 2026-10-25
+
+| Tema | Decisión | ADR |
+|------|----------|-----|
+| Tipografía | Solo Inter, con cifras tabulares; se retira Geist Mono | ADR-007 |
+| Cobro | Los planes y el cobro entran en la v1.1; la v1.0 sale con Plus gratis para todos | ADR-012 |
+
 ## Pendientes
 
 | Tema | ADR | Qué falta |
@@ -105,3 +112,4 @@ Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y E
 | Proyecto Supabase `mirach` pausado | ADR-002 | Reactivarlo; revisar los avisos de seguridad (Data API) |
 | Transferencia internacional de datos (servidores en EE. UU.) | ADR-002, ADR-009 | Revisión legal frente a la Ley 21.719 |
 | Landing en Vercel Hobby (no permite uso comercial) | ADR-002 | Decidir al lanzar: Vercel Pro u otro hosting estático |
+| Plus gratis en la v1.0 | ADR-012 | Definir cómo se otorgan los derechos de Plus a todas las cuentas mientras no hay cobro, y cómo se pasa a la prueba de 30 días en la v1.1 |

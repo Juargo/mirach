@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-EXA-002, RNF-PER-001, IMP-01, IMP-06, IMP-10, IMP-23, PER-03, PER-08, PLA-08, PRI-04, AUTH-06]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-EXA-002, RNF-PER-001, IMP-01, IMP-06, IMP-10, IMP-23, PER-03, P
 
 ## Estado
 
-Propuesto (2026-10-24). El API heredado de MoneyDiary vive en `apps/api` y está desplegado
+Aceptado (2026-10-25); propuesto el 2026-10-24. El API heredado de MoneyDiary vive en `apps/api` y está desplegado
 (**vigente**). La política de compatibilidad, la configuración remota y la lista de cambios
 para la v1 son **nuevas**.
 

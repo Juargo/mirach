@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-EXA-001, RNF-EXA-002, RNF-FIA-001, RNF-FIA-002, RNF-SEC-002, IMP-10]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-EXA-001, RNF-EXA-002, RNF-FIA-001, RNF-FIA-002, RNF-SEC-002, IM
 
 ## Estado
 
-Propuesto (2026-10-24). Formaliza lo que ya está construido en `apps/api`, `apps/ios` y
+Aceptado (2026-10-25); propuesto el 2026-10-24. Formaliza lo que ya está construido en `apps/api`, `apps/ios` y
 `apps/android` (**vigente**) y agrega la división en módulos y el uso acotado de eventos
 (**nuevo**).
 

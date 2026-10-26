@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-SEC-001, RNF-EXA-001, RNF-FIA-001, RNF-USA-006, RNF-ACC-002, PUB-04]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-SEC-001, RNF-EXA-001, RNF-FIA-001, RNF-USA-006, RNF-ACC-002, PU
 
 ## Estado
 
-Propuesto (2026-10-24). Todo el stack listado como vigente ya está en el repositorio. Los
+Aceptado (2026-10-25); propuesto el 2026-10-24. Todo el stack listado como vigente ya está en el repositorio. Los
 proveedores de errores y suscripciones son **nuevos** y se deciden en ADR-011 y ADR-012.
 Las versiones exactas viven en cada `package.json`, `project.yml` y `libs.versions.toml`;
 aquí se registran la elección y su motivo.
@@ -74,7 +74,7 @@ Criterios de selección, en orden:
 |-------|----------|
 | Diseño de pantallas | Figma (archivo "Mirach-UI") |
 | Tokens | `design/tokens.json` → recursos generados para iOS y Android con scripts Node propios |
-| Tipografía | Inter y Geist Mono empaquetadas en ambas apps, respetando el tamaño de fuente del sistema (RNF-ACC-002) |
+| Tipografía | Solo Inter, empaquetada en ambas apps, con cifras tabulares (`tnum`) en montos y fechas y respetando el tamaño de fuente del sistema (RNF-ACC-002, RNF-USA-006). Geist Mono se retira (decisión del product owner, 2026-10-25) |
 
 ### Landing (`apps/landing`)
 

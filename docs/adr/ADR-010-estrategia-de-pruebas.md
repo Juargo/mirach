@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-FIA-001, RNF-FIA-002, RNF-FIA-003, RNF-EXA-001, RNF-EXA-002, RNF-SEC-002, RNF-ACC-001, RNF-ACC-002, RNF-USA-003, PUB-06]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-FIA-001, RNF-FIA-002, RNF-FIA-003, RNF-EXA-001, RNF-EXA-002, RN
 
 ## Estado
 
-Propuesto (2026-10-24). Las capas de unidad, integración, e2e del API y DAST corren en CI
+Aceptado (2026-10-25); propuesto el 2026-10-24. Las capas de unidad, integración, e2e del API y DAST corren en CI
 (**vigente**). Los casos compartidos de formato, la prueba de mutación del dinero, las
 pruebas de UI móviles y el formato de criterios de aceptación son **nuevos**.
 
@@ -141,8 +141,9 @@ Un cambio está terminado cuando:
 ## Consecuencias
 
 - El tiempo de prueba se invierte donde está el riesgo.
-- Conseguir y anonimizar cartolas reales de BCI y Santander bloquea sus lectores
-  (decisión pendiente 1 de los requisitos).
+- Los lectores PDF de BCI y Santander ya se prueban con cartolas reales
+  (`apps/api/test/fixtures/pdf`). Falta reunir cartolas reales de cada banco en cuenta
+  corriente y cuenta vista, en todos sus formatos (decisión pendiente 1 de los requisitos).
 - La prueba de mutación es lenta; corre en el módulo de dinero, no en todo el código.
 
 ## Referencias

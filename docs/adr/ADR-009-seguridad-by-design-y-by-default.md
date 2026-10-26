@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [RNF-SEC-001, RNF-SEC-002, RNF-SEC-003, RNF-SEC-004, RNF-PRV-001, RNF-PRV-002, RNF-PRV-003, RNF-PRV-004, RNF-PRV-005, IMP-11, IMP-23, PRI-02, PRI-04, AUTH-05]
 ---
@@ -10,7 +10,7 @@ requisitos: [RNF-SEC-001, RNF-SEC-002, RNF-SEC-003, RNF-SEC-004, RNF-PRV-001, RN
 
 ## Estado
 
-Propuesto (2026-10-24). Cifrado, aislamiento, validación, redacción de logs y controles del
+Aceptado (2026-10-25); propuesto el 2026-10-24. Cifrado, aislamiento, validación, redacción de logs y controles del
 pipeline están construidos (**vigente**). La verificación de la Data API de Supabase, los
 límites de lectura de PDF, el versionado de llaves y el plan de cumplimiento de la Ley
 21.719 son **nuevos**.

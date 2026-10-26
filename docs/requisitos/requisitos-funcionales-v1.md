@@ -17,6 +17,7 @@ La primera versión permite que una persona inicie sesión con Apple o Google, s
 | Track de precios de productos | No entra en la v1 | Tomada |
 | Usuario principal | Dependiente con sueldo fijo, 35 a 50 años, ingreso medio, nivel tecnológico bajo | Hipótesis por validar |
 | Roles | Usuario y administrador interno | Tomada para la v1 |
+| Planes y cobro | Entran en la v1.1. En la v1.0 todos tienen Plus gratis durante el lanzamiento, y se avisa desde el inicio que Plus será pago | Tomada (25-10-2026) |
 
 ## Módulos y prioridades
 
@@ -54,7 +55,7 @@ Notas:
 
 - Las tiendas de apps suelen exigir poder borrar la cuenta desde la app (AUTH-05); hay que revisar las guías vigentes de Apple y Google antes de publicar.
 - Con Apple y Google, la app puede no recibir un correo real. El soporte debe funcionar sin depender de él.
-- Iniciar sesión con Apple en Android suele requerir un flujo web. Decisión pendiente: ofrecerlo en Android o solo en iPhone.
+- Iniciar sesión con Apple en Android suele requerir un flujo web. Resuelto: en la v1 se ofrece solo en iPhone; en Android no (ADR-006).
 
 ## Perfil de presupuesto y onboarding (PER)
 
@@ -105,7 +106,7 @@ El usuario sube la cartola de su banco y ve sus movimientos sin duplicados. Es e
 
 Regla propuesta para IMP-05: un movimiento se considera repetido si coincide en banco, cuenta, fecha, descripción, monto y saldo. Si dos movimientos idénticos ocurren el mismo día, se distinguen por su orden en el archivo.
 
-Formatos conocidos: Banco de Chile entrega Excel, TXT y PDF; BancoEstado entrega PDF. No verifiqué el formato para personas de BCI ni de Santander. Antes de construir los lectores hay que reunir cartolas reales de cada banco y producto, sin estados de cuenta de tarjeta, que no entran en la v1.
+Formatos conocidos: Banco de Chile entrega Excel, TXT y PDF; BancoEstado entrega PDF. No verifiqué el formato para personas de BCI ni de Santander. Antes de construir los lectores hay que reunir cartolas reales de cada banco y producto, sin estados de cuenta de tarjeta, que no entran en la v1. Actualización (25-10-2026): los lectores PDF de BCI y Santander ya se prueban con una cartola real cada uno (`apps/api/test/fixtures/pdf`); falta cubrir cuenta corriente y cuenta vista en cada formato.
 
 ## Movimientos (MOV)
 
@@ -118,7 +119,7 @@ El usuario ve todo lo que entró y salió, y puede corregirlo.
 | MOV-03 | Reclasificar un movimiento | Debe | Solo se puede cambiar el bloque y la categoría. Monto, fecha y descripción no se editan |
 | MOV-04 | Marcar un movimiento como "ignorar" | Debe | Un movimiento ignorado no cuenta en los porcentajes, pero sigue visible con una marca. Eliminar es otra cosa y tiene su propia regla (MOV-09) |
 | MOV-05 | Aviso de movimientos en "Desconocido" | Debe | La lista muestra cuántos faltan y permite ir directo a ellos |
-| MOV-06 | Búsqueda por texto | Debería | Encuentra por palabras de la descripción |
+| MOV-06 | Búsqueda por texto | Debería | Encuentra por palabras de la descripción. Fuera de la v1.0 (decidido el 25-10-2026) |
 | MOV-07 | Dividir un movimiento entre dos bloques | Podría | Los dos montos suman el original |
 | MOV-09 | Eliminar solo los movimientos registrados a mano | Debe | Sin plazo para hacerlo y con confirmación. Los movimientos venidos de una cartola no se borran de a uno |
 | MOV-10 | Corregir un movimiento manual es borrarlo y registrarlo de nuevo | Debe | La app no promete que un movimiento sea permanente, y tampoco ofrece editar el monto |
@@ -141,9 +142,9 @@ Cada movimiento pertenece a una categoría y cada categoría a uno de tres bloqu
 | CLA-09 | Crear, editar y borrar categorías y patrones propios | Debe | Cada categoría pertenece a un bloque. En el plan gratis se ven las categorías y sus patrones; crearlos y editarlos desde Ajustes es Plus (PLA-01) |
 | CLA-10 | Un nombre de categoría puede repetirse entre bloques, nunca dentro de uno | Debe | Se puede tener "Transporte" en necesidades y en gustos, pero no dos "Transporte" en necesidades |
 | CLA-11 | Cada categoría puede tener un ícono de una lista curada | Debería | 24 íconos disponibles; sin ícono se usa uno genérico. Las ocho de la plantilla traen el suyo. Set definido el 23-10-2026: Carro, Auto, Bus, Cruz, Corazón, Casa, Ampolleta, Tarjeta, Bolsa, Paquete, Pantalla, Taza, Cubiertos, Alcancía, Gráfico, Pata, Libro, Camiseta, Avión, Regalo, Teléfono, Mancuerna, Flechas y Pregunta. Plantilla: Supermercado → Carro, Combustible → Auto, Farmacia → Cruz, Salud → Corazón, Transporte → Bus, Streaming → Pantalla, Delivery → Paquete, Ahorro → Alcancía, Fintual y Racional → Gráfico, Arriendo o dividendo → Casa, Servicios básicos → Ampolleta, Pago de deudas → Tarjeta, Desconocido → Pregunta (el genérico) |
-| CLA-12 | Cuando dos patrones empatan, el desempate es estable | Debe | Dos usuarios con el mismo catálogo obtienen la misma clasificación para el mismo gasto. Gana el patrón más largo, por ser el más específico ("uber eats" gana sobre "uber"); si miden igual, gana el más antiguo |
+| CLA-12 | Cuando dos patrones empatan, el desempate es estable | Debe | Dos usuarios con el mismo catálogo obtienen la misma clasificación para el mismo gasto. Gana el patrón más largo, por ser el más específico ("uber eats" gana sobre "uber"); si miden igual, gana el más antiguo. Decidido el 25-10-2026: reemplaza la prioridad numérica heredada del API, que la app no muestra ni edita |
 | CLA-13 | La categoría "Desconocido", con ícono de interrogación, recibe todo lo que no se clasifica solo | Debe | Pertenece a gustos, viene en la plantilla de todo usuario y no se puede borrar ni mover de bloque |
-| CLA-14 | Un patrón coincide si la descripción contiene su texto | Debe | No importan las mayúsculas ni las tildes: "uber" encuentra "UBER EATS" y "Uber Trip". Decidido el 23-10-2026 |
+| CLA-14 | Un patrón coincide si la descripción contiene su texto | Debe | No importan las mayúsculas ni las tildes: "uber" encuentra "UBER EATS" y "Uber Trip". Decidido el 23-10-2026. Es el único tipo de patrón: los tipos «empieza con» y «expresión regular» heredados del API no se ofrecen (decidido el 25-10-2026) |
 | CLA-15 | Vista previa al guardar un patrón | Debe | La app muestra con cuántos movimientos del mes coincide y pregunta si moverlos. Si la persona no lo marca, el patrón solo se usa en las próximas cartolas. Decidido el 23-10-2026 |
 | CLA-16 | Lo que la persona cambió a mano no lo cambia un patrón | Debe | Un movimiento reclasificado a mano (MOV-03) no se mueve al crear, editar o borrar patrones. Decidido el 23-10-2026 |
 | CLA-17 | Un mismo texto vive en una sola categoría | Debe | Si el patrón ya existe en otra categoría, la app lo dice y ofrece moverlo. Decidido el 23-10-2026 |
@@ -192,20 +193,20 @@ La pantalla principal responde una pregunta: ¿mi mes está equilibrado? Debe en
 | VIS-05 | Selector de mes | Debe | Se puede ir al mes anterior y al siguiente |
 | VIS-06 | Detalle por bloque | Debe | Al tocar un bloque se ven sus categorías y sus movimientos |
 | VIS-07 | Estado vacío guiado | Debe | Sin datos, la pantalla invita a subir la primera cartola y no muestra porcentajes vacíos |
-| VIS-08 | Comparación con el mes anterior | Debería | Muestra cuánto cambió cada bloque en puntos porcentuales |
+| VIS-08 | Comparación con el mes anterior | Debería | Muestra cuánto cambió cada bloque en puntos porcentuales. Fuera de la v1.0 (decidido el 25-10-2026) |
 | VIS-09 | Evolución de los últimos seis meses | Podría | Un gráfico con los tres bloques por mes |
 | VIS-10 | Mostrar los ingresos totales del mes | Debe | Aparecen junto a los tres bloques, indicando si el monto es el declarado o el detectado en la cartola |
 | VIS-11 | Indicador único del estado del mes | Debe | El mes toma el peor estado de sus bloques (Bien, Cerca o Sobre), con la misma marca y palabra. La frase del mes (VIS-03) explica qué bloque lo define |
 | VIS-12 | Criterios definidos para el estado del mes | Debería | Decidido el 23-10-2026: el estado del mes es el peor bloque (VIS-11) y no hay criterio aparte para "Desconocido". Esos movimientos ya suman en gustos (regla 14), así que afectan el estado a través de ese bloque |
-| VIS-13 | Calendario anual con el estado de cada mes | Debería | Los meses sin movimientos se ven deshabilitados y no se pueden abrir |
-| VIS-14 | Detalle del bloque desglosado también por comercio | Debería | Dentro de un bloque se ve cuánto se gastó en cada comercio, no solo por categoría |
+| VIS-13 | Calendario anual con el estado de cada mes | Debería | Los meses sin movimientos se ven deshabilitados y no se pueden abrir. Fuera de la v1.0 (decidido el 25-10-2026) |
+| VIS-14 | Detalle del bloque desglosado también por comercio | Debería | Dentro de un bloque se ve cuánto se gastó en cada comercio, no solo por categoría. Fuera de la v1.0 (decidido el 25-10-2026) |
 | VIS-15 | Sugerencias accionables de ahorro | Podría | Indica un cambio concreto que acercaría un bloque a su meta, con el monto involucrado |
-| VIS-16 | Tema claro y oscuro, con selector de tres estados | Debería | Claro, oscuro o seguir el sistema. Por defecto claro. La elección queda en el teléfono y no se sincroniza entre dispositivos |
+| VIS-16 | Tema claro y oscuro, con selector de tres estados | Debería | Claro, oscuro o seguir el sistema. Por defecto claro. La elección queda en el teléfono y no se sincroniza entre dispositivos. Fuera de la v1.0 (decidido el 25-10-2026) |
 | VIS-17 | La frase del mes dice cuánto del exceso de gustos viene de "Desconocido" | Debería | Si gustos está sobre su meta y hay movimientos en "Desconocido", la frase lo dice en puntos, por ejemplo "Gustos: 8 puntos sobre tu meta. 5 son movimientos sin clasificar." Decidido el 23-10-2026 |
 
 ## Planes, suscripción y límites (PLA)
 
-La app usa una suscripción con plan gratis limitado y prueba de 30 días del plan pago. Los límites y el precio son supuestos que se validan con la encuesta de precios y la página de espera.
+La app usa una suscripción con plan gratis limitado y prueba de 30 días del plan pago. Los límites y el precio son supuestos que se validan con la encuesta de precios y la página de espera. Decidido el 25-10-2026: los planes y el cobro entran en la v1.1; en la v1.0 Plus es gratis para todos durante el lanzamiento (backlog, decisión B).
 
 | ID | Requisito | Prioridad | Criterio de aceptación |
 | --- | --- | --- | --- |
@@ -263,7 +264,7 @@ El producto es una app móvil nativa que se descarga desde App Store y Google Pl
 
 | ID | Requisito | Prioridad | Criterio de aceptación |
 | --- | --- | --- | --- |
-| PUB-01 | Cuentas de desarrollador en Apple y Google | Debe | Publicación como persona natural; falta inscribirse en Apple Developer |
+| PUB-01 | Cuentas de desarrollador en Apple y Google | Debe | Publicación como persona natural. Ambas cuentas están activas: la app de iPhone pasó por App Review y la de Android está en prueba en Google Play |
 | PUB-02 | Ficha de tienda en español de Chile | Debe | Nombre, descripción, capturas, ícono y categoría, con Chile entre los países de distribución |
 | PUB-03 | Declaración de datos que recopila la app en ambas tiendas | Debe | Coincide con lo que dice la política de privacidad y con lo que la app hace de verdad |
 | PUB-04 | Versiones mínimas de sistema operativo definidas | Debe | Se eligen según el parque de equipos en Chile, no solo los más nuevos |
@@ -280,12 +281,12 @@ Siete puntos donde lo construido antes y esta versión no coinciden. Las decisio
 | Tema | En el proyecto anterior | En esta versión | Qué falta resolver |
 | --- | --- | --- | --- |
 | Publicar en tiendas | Distribución interna por archivo, sin publicar | Se publica en App Store y Google Play | Nada; la decisión está tomada |
-| Ingreso con Apple | No existía | Apple ID junto con Google | Falta definir cómo funciona en Android |
-| Contraseña | Había ingreso con contraseña y forma de cambiarla | Solo Apple y Google | Decidir si la contraseña desaparece del todo |
-| Registrar movimiento a mano | El formulario existía solo en la app web | No hay app web | Pasa a móvil o sale del alcance |
-| Borrar movimiento manual | Solo en web, para no dejar destruir donde no se puede crear | No hay app web | Si el registro pasa a móvil, el borrado va con él |
-| Modo demo | Había un usuario de demostración en web, de solo lectura y con siete días de vida | No está | Decidir si alguien puede probar sin registrarse |
-| Perfiles de porcentajes y mes financiero | No existían; los bloques estaban fijos | PER-03 a PER-08 los proponen | Es funcionalidad nueva, sin decisión previa |
+| Ingreso con Apple | No existía | Apple ID junto con Google | Resuelto: en Android no se ofrece en la v1 (ADR-006) |
+| Contraseña | Había ingreso con contraseña y forma de cambiarla | Solo Apple y Google | Resuelto: desaparece para los usuarios; queda solo para la cuenta de revisión de las tiendas (ADR-006) |
+| Registrar movimiento a mano | El formulario existía solo en la app web | No hay app web | Resuelto: pasa a móvil (MOV-02) |
+| Borrar movimiento manual | Solo en web, para no dejar destruir donde no se puede crear | No hay app web | Resuelto: va con el registro a móvil (MOV-09) |
+| Modo demo | Había un usuario de demostración en web, de solo lectura y con siete días de vida | No está | Resuelto: no hay modo demo; se eliminó del producto |
+| Perfiles de porcentajes y mes financiero | No existían; los bloques estaban fijos | PER-03 a PER-08 los proponen | Resuelto: PER-04, PER-06 y PER-08 se decidieron el 23-10-2026 |
 
 ## Contraste con el registro anterior (moneyDiary)
 
@@ -343,7 +344,7 @@ Si el documento de prioridades va a separar MVP de lo que viene después, convie
 
 ## Fuera de alcance y decisiones pendientes
 
-Hay nueve decisiones abiertas de producto, más las siete de la sección anterior; las tres primeras bloquean el desarrollo de la importación y la clasificación. Las decisiones técnicas viven en el documento de arquitectura.
+Quedan tres decisiones abiertas de producto (1, 6 y 8); las de la sección anterior están resueltas. La primera bloquea el desarrollo de la importación y la clasificación. Las decisiones técnicas viven en el documento de arquitectura.
 
 ### Fuera de la primera versión
 
@@ -362,14 +363,14 @@ Hay nueve decisiones abiertas de producto, más las siete de la sección anterio
 
 | N° | Decisión | Por qué importa |
 | --- | --- | --- |
-| 1 | Reunir cartolas reales de los cuatro bancos, en cuenta corriente y cuenta vista | Sin muestras no se pueden diseñar los lectores; BCI y Santander no están verificados |
+| 1 | Reunir cartolas reales de los cuatro bancos, en cuenta corriente y cuenta vista | Sin muestras no se pueden diseñar los lectores. BCI y Santander ya tienen lector PDF probado con una cartola real cada uno (`apps/api/test/fixtures/pdf`); falta cubrir cada producto y formato |
 | 2 | ~~¿Qué perfil se sugiere a un usuario con deuda alta?~~ Resuelta el 23-10-2026: el 80/10/10, presentado como "Salir de deudas" (PER-04) | Con la deuda dentro de necesidades, el 50% es inalcanzable para muchos; el perfil deja de ser un extra |
 | 3 | ~~¿Cómo se trata el pago de tarjeta cuando solo se sube la cuenta corriente?~~ Resuelta el 23-10-2026: en la v1 no se leen estados de cuenta de tarjeta y el pago cuenta como Pago de deudas (regla 3) | Evita duplicar gastos |
-| 4 | ¿Iniciar sesión con Apple también en Android? | Cambia el trabajo del login en Android |
+| 4 | ~~¿Iniciar sesión con Apple también en Android?~~ Resuelta: no en la v1 (ADR-006) | Cambia el trabajo del login en Android |
 | 5 | ~~Límites exactos del plan gratis~~ Resuelta el 23-10-2026: ver PLA-01 | Define cuánto se puede probar antes de pagar |
 | 6 | Plazo de borrado del archivo y de la cuenta | Debe coincidir con la política de privacidad |
 | 7 | ~~¿Mes financiero configurable en la v1?~~ Resuelta el 23-10-2026: sí, con día del 1 al 28 y tolerancia de 3 días (PER-08) | Afecta cómo se calculan todos los totales |
 | 8 | Si la app es solo móvil, ¿cómo sube la cartola quien la descarga en el computador? | Muchos bancos entregan la cartola desde su sitio web |
-| 9 | ¿Se lanza en las dos tiendas a la vez o primero en una? | La revisión de Apple puede demorar, y aún no hay cuenta de Apple Developer |
+| 9 | ~~¿Se lanza en las dos tiendas a la vez o primero en una?~~ Resuelta: a la vez; el lunes 23-11-2026 se solicita producción en Google Play y se envía a Apple (milestone Sprint 5) | La revisión de Apple puede demorar |
 
-Documentos relacionados: arquitectura (dónde vive cada cosa) y, pendiente, requisitos no funcionales (seguridad, privacidad, rendimiento y accesibilidad).
+Documentos relacionados: [arquitectura](../adr/README.md) (dónde vive cada cosa) y [requisitos no funcionales](requisitos-no-funcionales.md) (seguridad, privacidad, rendimiento y accesibilidad).

@@ -1,7 +1,7 @@
 ---
 tipo: adr
 proyecto: Mirach
-estado: Propuesto
+estado: Aceptado
 fecha: 2026-10-24
 requisitos: [PLA-01, PLA-02, PLA-03, PLA-04, PLA-05, PLA-06, PLA-07, PLA-08, PLA-09, IMP-24, PUB-05]
 ---
@@ -10,8 +10,10 @@ requisitos: [PLA-01, PLA-02, PLA-03, PLA-04, PLA-05, PLA-06, PLA-07, PLA-08, PLA
 
 ## Estado
 
-Propuesto (2026-10-24). Decisión del product owner (2026-10-24): **RevenueCat** como capa
-de suscripciones (**nuevo**). No hay nada construido todavía.
+Aceptado (2026-10-25); propuesto el 2026-10-24. Decisión del product owner (2026-10-24): **RevenueCat** como capa
+de suscripciones (**nuevo**). No hay nada construido todavía. Decisión del product owner
+(2026-10-25): los planes y el cobro entran en la **v1.1**; en la v1.0 Plus es gratis para
+todos durante el lanzamiento, y se avisa desde el inicio que Plus será pago.
 
 ## Contexto
 
@@ -87,7 +89,7 @@ precio se hace en la landing con el botón de puerta falsa (LAN-04).
 | Integración propia con ambas tiendas | Semanas de trabajo en recibos, notificaciones y casos borde de dos tiendas, más un proyecto de Google Cloud para Pub/Sub. Se revisa si la comisión de RevenueCat pesa en el margen o si se quiere internalizar. |
 | Adapty o Qonversion | Funcionalidad parecida; RevenueCat tiene más documentación y comunidad para Swift y Kotlin. |
 | Cobro directo por web | Las tiendas lo restringen para contenido digital consumido en la app; fuera de la v1. |
-| Postergar los planes | El modelo de negocio es una hipótesis que hay que validar con cobro real. |
+| Postergar los planes por completo | El modelo de negocio es una hipótesis que hay que validar con cobro real. Se posterga solo el cobro: la v1.0 sale con Plus gratis y el cobro entra en la v1.1 (2026-10-25), para medir retención antes de cobrar y no sumar las compras dentro de la app a la salida a producción. |
 
 ## Consecuencias
 
