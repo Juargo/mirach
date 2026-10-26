@@ -128,8 +128,8 @@ Lo que las pantallas necesitan y el contrato o el servidor aún no ofrecen. Ning
 | 18 | Cerrar sesión en todos los dispositivos (AUTH-06). | Cuenta | #146 |
 | 19 | Configuración remota y versión mínima por plataforma (`GET /api/config`). | Todos | #116 |
 | 20 | Coincidencia de patrones sin distinguir tildes y desempate por largo (CLA-12, CLA-14). | Categorías, Subir cartola | #129 |
-| 21 | El 400 de `POST /api/movimientos` responde solo `{message}`, sin `code`; los motivos (`FECHA_FUTURA`, `MONTO_INVALIDO`…) existen en el dominio pero no salen en la respuesta. | Registrar a mano | #138 (por desglosar en el API) |
-| 22 | Marcar un movimiento como ignorado: no cuenta en los porcentajes pero sigue visible (MOV-04). No hay soporte en el API. | Movimientos | #139 (por desglosar en el API) |
-| 23 | La allowlist de íconos del API (25 valores, `icono-categoria.ts`) no coincide con el set de 24 íconos de CLA-11 (decidido el 23-10-2026): CLA-11 pide Bolsa, Paquete, Taza, Libro y Flechas, que el API no tiene, y el API tiene `fuel`, `wifi`, `graduation-cap`, `shield`, `bike` y `gamepad-2`, que CLA-11 no lista. | Categorías | — |
+| 21 | El 400 de `POST /api/movimientos` responde solo `{message}`, sin `code`; los motivos (`FECHA_FUTURA`, `MONTO_INVALIDO`…) existen en el dominio pero no salen en la respuesta. | Registrar a mano | #157 |
+| 22 | Marcar un movimiento como ignorado: no cuenta en los porcentajes pero sigue visible (MOV-04). No hay soporte en el API. | Movimientos | #158 |
+| 23 | La allowlist de íconos del API (25 valores, `icono-categoria.ts`) no coincide con el set de 24 íconos de CLA-11 (decidido el 23-10-2026): CLA-11 pide Bolsa, Paquete, Taza, Libro y Flechas, que el API no tiene, y el API tiene `fuel`, `wifi`, `graduation-cap`, `shield`, `bike` y `gamepad-2`, que CLA-11 no lista. | Categorías | #159 |
 
 Cerradas: 1 (códigos de la subida documentados en `openapi.json`), 2 (`403 CATEGORIA_INTERNA`), 3 (`esInterna` en `CategoriaResponse`), 4 (el gráfico del Inicio usa `porcentajeBp` frente a la meta, sin un «% del gasto» propio), 6 (revocación de Sign in with Apple al eliminar la cuenta) y 8 (el 401 distingue `API_KEY_INVALIDA` de `SESION_INVALIDA`).

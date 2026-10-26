@@ -70,7 +70,7 @@ El campo `icono` acepta solo la allowlist de `apps/api/src/domain/value-objects/
 
 - Brecha 16 (#140): vista previa de un patrón (CLA-15) sin mover lo cambiado a mano (CLA-16).
 - Brecha 20 (#129, #130): coincidencia sin tildes y desempate por largo; la app deja de ofrecer los otros tipos.
-- Brecha 23: allowlist de íconos distinta del set de CLA-11.
+- Brecha 23 (#159): allowlist de íconos distinta del set de CLA-11.
 
 ## Notas por plataforma
 

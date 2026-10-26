@@ -50,7 +50,7 @@ Reglas de contrato:
 
 ## Pendiente en el API
 
-- Brecha 21: el 400 de `POST /api/movimientos` no trae `code`, así que la app no puede marcar el campo que falló a partir de la respuesta.
+- Brecha 21 (#157): el 400 de `POST /api/movimientos` no trae `code`, así que la app no puede marcar el campo que falló a partir de la respuesta.
 
 ## Notas por plataforma
 

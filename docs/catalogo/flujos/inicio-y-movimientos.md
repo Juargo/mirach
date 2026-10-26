@@ -74,7 +74,7 @@ Reglas de contrato:
 - Brecha 14 (#142): sobregiros marcados y fuera del cálculo (pantalla 47).
 - Brecha 15 (#136): «Datos hasta el …», frase del mes, «sin gastar» y cantidad en Desconocido.
 - Brecha 16 (#140): aplicar una reclasificación a movimientos parecidos sin tocar los cambiados a mano.
-- Brecha 22 (#139): marcar un movimiento como ignorado (MOV-04).
+- Brecha 22 (#158): marcar un movimiento como ignorado (MOV-04).
 
 ## Notas por plataforma
 
