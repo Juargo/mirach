@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// State machine of "Subir cartola" (`docs/catalogo/pantallas/subir-cartola.md`).
+/// State machine of "Subir cartola" (`docs/catalogo/flujos/subir-cartola.md`).
 ///
 /// The password and the staged file live in private properties, never in `state`, so they
 /// cannot leak through a screen, a log line or a test failure message.
