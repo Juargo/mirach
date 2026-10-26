@@ -43,7 +43,7 @@ fun SignedInShell(tabs: List<ShellTab>, modifier: Modifier = Modifier) {
                         colors = NavigationBarItemDefaults.colors(
                             selectedTextColor = colors.foreground,
                             unselectedTextColor = colors.mutedForeground,
-                            indicatorColor = colors.muted,
+                            indicatorColor = colors.accent,
                         ),
                     )
                 }

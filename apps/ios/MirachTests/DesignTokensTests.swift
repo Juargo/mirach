@@ -21,7 +21,7 @@ struct DesignTokensTests {
     }
 
     @Test func everyColorTokenResolvesInLightAndDark() {
-        #expect(MirachTokenCatalog.colorAssetNames.count == 49)
+        #expect(MirachTokenCatalog.colorAssetNames.count == 25)
         for name in MirachTokenCatalog.colorAssetNames {
             #expect(resolve(name, .light) != nil, "\(name) missing in light")
             #expect(resolve(name, .dark) != nil, "\(name) missing in dark")
@@ -37,24 +37,24 @@ struct DesignTokensTests {
         }
     }
 
-    @Test func deseosBucketMatchesTokensJson() throws {
-        // light #782c5c, dark #bb6c90 (design/tokens.json, color.*.bucket.deseos)
-        let light = try #require(resolve("Bucket/deseos", .light))
-        let dark = try #require(resolve("Bucket/deseos", .dark))
-        #expect(isClose(components(light), [0x78 / 255.0, 0x2c / 255.0, 0x5c / 255.0, 1]))
-        #expect(isClose(components(dark), [0xbb / 255.0, 0x6c / 255.0, 0x90 / 255.0, 1]))
+    @Test func gustosBucketMatchesTokensJson() throws {
+        // light #7b61a8, dark #a891d6 (design/tokens.json, color.*.bucket.gustos, from Figma)
+        let light = try #require(resolve("Bucket/gustos", .light))
+        let dark = try #require(resolve("Bucket/gustos", .dark))
+        #expect(isClose(components(light), [0x7b / 255.0, 0x61 / 255.0, 0xa8 / 255.0, 1]))
+        #expect(isClose(components(dark), [0xa8 / 255.0, 0x91 / 255.0, 0xd6 / 255.0, 1]))
     }
 
-    @Test func bucketLabelsSayDeseos() {
+    @Test func bucketLabelsSayGustos() {
         #expect(MirachCopy.Bucket.necesidades == "Necesidades")
-        #expect(MirachCopy.Bucket.deseos == "Deseos")
+        #expect(MirachCopy.Bucket.gustos == "Gustos")
         #expect(MirachCopy.Bucket.ahorro == "Ahorro")
         #expect(MirachCopy.Bucket.ingreso == "Ingreso")
-        #expect(MirachCopy.Semaforo.sinDatos == "Sin datos")
+        #expect(MirachCopy.Estado.sinDatos == "Sin datos")
     }
 
-    @Test func radiusIsSquare() {
+    @Test func radiusIsSquareAndSpacingFollowsFigma() {
         #expect(MirachRadius.base == 0)
-        #expect(MirachRadius.maxAllowed == 2)
+        #expect(MirachSpacing.m == 16)
     }
 }

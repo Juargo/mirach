@@ -215,7 +215,7 @@ struct CategoriasViewModelTests {
     @Test(arguments: [
         (CategoriaError.invalidName, "name", "El nombre debe tener entre 1 y 40 caracteres"),
         (CategoriaError.duplicateName, "name", "Ya tienes una categoría con ese nombre"),
-        (CategoriaError.bucketNotAssignable, "bucket", "Elige un grupo: Necesidades, Deseos o Ahorro"),
+        (CategoriaError.bucketNotAssignable, "bucket", "Elige un grupo: Necesidades, Gustos o Ahorro"),
         (CategoriaError.invalidIcon, "general", "Elige un ícono válido de la lista"),
         (CategoriaError.rejected(message: "Otra cosa"), "general", "Otra cosa"),
     ] as [(CategoriaError, String, String)])

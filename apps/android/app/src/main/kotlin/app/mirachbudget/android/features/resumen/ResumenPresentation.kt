@@ -11,14 +11,14 @@ import app.mirachbudget.android.core.networking.ResumenMes
 val Bucket.label: String
     get() = when (this) {
         Bucket.Necesidades -> MirachCopy.Bucket.necesidades
-        Bucket.Deseos -> MirachCopy.Bucket.deseos
+        Bucket.Deseos -> MirachCopy.Bucket.gustos
         Bucket.Ahorro -> MirachCopy.Bucket.ahorro
     }
 
 /** A fill (the swatch and the chart slice), never a text color. */
 fun BucketColors.fill(bucket: Bucket) = when (bucket) {
     Bucket.Necesidades -> necesidades
-    Bucket.Deseos -> deseos
+    Bucket.Deseos -> gustos
     Bucket.Ahorro -> ahorro
 }
 

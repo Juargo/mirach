@@ -6,7 +6,7 @@ extension Bucket {
     var label: String {
         switch self {
         case .necesidades: MirachCopy.Bucket.necesidades
-        case .deseos: MirachCopy.Bucket.deseos
+        case .deseos: MirachCopy.Bucket.gustos
         case .ahorro: MirachCopy.Bucket.ahorro
         }
     }
@@ -15,7 +15,7 @@ extension Bucket {
     var fill: Color {
         switch self {
         case .necesidades: Color.Mirach.Bucket.necesidades
-        case .deseos: Color.Mirach.Bucket.deseos
+        case .deseos: Color.Mirach.Bucket.gustos
         case .ahorro: Color.Mirach.Bucket.ahorro
         }
     }

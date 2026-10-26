@@ -96,7 +96,7 @@ extension SubirCartolaViewModel {
         var errors = CategoryFormErrors()
         switch error {
         case CategoriaError.invalidName: errors.name = "El nombre debe tener entre 1 y 40 caracteres"
-        case CategoriaError.bucketNotAssignable: errors.bucket = "Elige un grupo: Necesidades, Deseos o Ahorro"
+        case CategoriaError.bucketNotAssignable: errors.bucket = "Elige un grupo: Necesidades, Gustos o Ahorro"
         case CategoriaError.invalidIcon: errors.general = "Elige un ícono válido de la lista"
         case CategoriaError.invalidPattern:
             errors.pattern = "Escribe un texto válido para el patrón (de 1 a 200 caracteres)"

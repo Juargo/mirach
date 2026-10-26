@@ -51,10 +51,10 @@ cd apps/ios
 
 ## Tokens de diseño
 
-Colores, textos de bucket y semáforo, familias tipográficas y radios salen de `design/tokens.json` (fuente única, ver `design/README.md`). El script `scripts/generate-ios-tokens.mjs` (Node, sin dependencias) los convierte, de forma determinista, en dos cosas que **se commitean**:
+Colores, textos de bloque y de estado, familia tipográfica, radio y espaciado salen de `design/tokens.json`, que a su vez copia las variables de Figma (ver `design/README.md`). El script `scripts/generate-ios-tokens.mjs` (Node, sin dependencias) los convierte, de forma determinista, en dos cosas que **se commitean**:
 
-- `Mirach/Resources/Tokens.xcassets`: un color set por token, en una carpeta por grupo (`Base`, `Bucket`, `Pie`, `Ingreso`, `Semaforo`, `Feedback`) con espacio de nombres (`Bucket/deseos`). El valor claro es la apariencia "Any" y el oscuro la apariencia `luminosity: dark`, en sRGB.
-- `Mirach/Core/Design/GeneratedTokens.swift`: accesores tipados. `Color.Mirach.<Grupo>.<token>` (por ejemplo `Color.Mirach.Bucket.deseos`), `MirachCopy.Bucket.deseos` (textos), `MirachFont` (familias), `MirachRadius` (radios) y el modificador `.mirachFigures()` (cifras con dígitos tabulares).
+- `Mirach/Resources/Tokens.xcassets`: un color set por token, en una carpeta por grupo (`Base`, `Bucket`, `Estado`, `Feedback`, `Ingreso`) con espacio de nombres (`Bucket/gustos`). El valor claro es la apariencia "Any" y el oscuro la apariencia `luminosity: dark`, en sRGB.
+- `Mirach/Core/Design/GeneratedTokens.swift`: accesores tipados. `Color.Mirach.<Grupo>.<token>` (por ejemplo `Color.Mirach.Bucket.gustos`), `MirachCopy.Bucket.gustos` (textos), `MirachFont` (familia), `MirachRadius` (radio), `MirachSpacing` (espaciado) y el modificador `.mirachFigures()` (cifras con dígitos tabulares).
 
 ```bash
 cd apps/ios
@@ -63,7 +63,8 @@ cd apps/ios
 
 - **Cuándo regenerar:** cada vez que cambie `design/tokens.json`. El CI falla si lo commiteado quedó desactualizado. Nunca edites los archivos generados a mano.
 - **Claro y oscuro:** los colores se adaptan solos a la apariencia del sistema; ninguna vista decide un color según el tema.
-- **Reglas que los tokens no expresan:** el color nunca va solo (siempre con etiqueta o glifo) y los rellenos de bucket no se usan como color de texto.
+- **Reglas que los tokens no expresan:** el color nunca va solo (siempre con etiqueta o glifo) y los rellenos de bloque no se usan como color de texto.
+- **Gustos y `Deseos`:** el bloque del 30% se muestra siempre como «Gustos» (`MirachCopy.Bucket.gustos`). `Deseos` es el valor del API: solo se usa al hablar con el API y en los identificadores de accesibilidad (`resumen.bucket.Deseos`), que se arman con `apiName` para no depender del texto visible.
 
 ```swift
 Text(MirachCopy.Bucket.deseos)
@@ -120,7 +121,7 @@ Si el servidor rechaza la clave (401 `API_KEY_INVALIDA`) se muestra la misma pan
 ### Revisar y editar (T5b)
 
 - **Catálogo:** `GET /api/categorias` se carga al llegar a la decisión. Si falla, «Subir tal cual» sigue disponible y «Revisar y editar» queda deshabilitada con «Reintentar».
-- **Lista:** todas las filas, agrupadas por bucket y categoría (Necesidades, Deseos, Ahorro), con las ya cargadas aparte al final («Ya cargados», no editables). Cada fila muestra su clasificación «Bucket · Categoría» (la sugerida; sin sugerencia, «Deseos · Desconocido»). La lista es perezosa (`LazyVStack` con cabeceras fijas), pensada para cientos de filas.
+- **Lista:** todas las filas, agrupadas por bucket y categoría (Necesidades, Gustos, Ahorro), con las ya cargadas aparte al final («Ya cargados», no editables). Cada fila muestra su clasificación «Bucket · Categoría» (la sugerida; sin sugerencia, «Deseos · Desconocido»). La lista es perezosa (`LazyVStack` con cabeceras fijas), pensada para cientos de filas.
 - **Edición:** tocar una fila abre una hoja modal con las categorías agrupadas por bucket. La elección se guarda en memoria como `{rowIndex, categoriaId}`; solo viajan las filas tocadas y nunca un `categoriaId` nulo. Elegir de nuevo la categoría que el servidor ya sugería deshace la edición (la fila vuelve a clasificarla el servidor). El texto de `edits` se limita a 256 KB: una edición que lo superaría se rechaza con un aviso.
 - **Errores:** un 400 en un `commit` con ediciones vuelve a la revisión con un mensaje genérico, recarga el catálogo y descarta las ediciones cuyas categorías ya no existen (el contrato no distingue un 400 por `edits` de uno por archivo; el archivo ya había pasado la vista previa). Otros errores conservan las ediciones y «Reintentar» las reenvía; «Volver a revisar» regresa a la lista.
 - **Salir de la pantalla:** cambiar de pestaña conserva la revisión en memoria (el view model vive en `AppEnvironment`), así que no se pierde nada y no se pide confirmación; solo «Descartar» (con confirmación) y cerrar sesión la borran.

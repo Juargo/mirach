@@ -240,7 +240,7 @@ struct DetalleCategoriaViewModelTests {
     @Test(arguments: [
         (CategoriaError.invalidName, "name", "El nombre debe tener entre 1 y 40 caracteres"),
         (CategoriaError.duplicateName, "name", "Ya tienes una categoría con ese nombre"),
-        (CategoriaError.bucketNotAssignable, "bucket", "Elige un grupo: Necesidades, Deseos o Ahorro"),
+        (CategoriaError.bucketNotAssignable, "bucket", "Elige un grupo: Necesidades, Gustos o Ahorro"),
         (CategoriaError.invalidIcon, "icon", "Elige un ícono válido de la lista"),
         (CategoriaError.rejected(message: "Otra cosa"), "general", "Otra cosa"),
     ] as [(CategoriaError, String, String)])
@@ -684,11 +684,11 @@ struct DetalleCategoriaViewModelTests {
 
     @Test func theBucketChangeSentenceNamesTheMovementsAndSoftensTheZeroCase() {
         #expect(DetalleCategoriaPresentation.bucketChange(.init(count: 12, from: .deseos, to: .necesidades))
-            == "12 movimientos pasarán de Deseos a Necesidades en todos los meses.")
+            == "12 movimientos pasarán de Gustos a Necesidades en todos los meses.")
         #expect(DetalleCategoriaPresentation.bucketChange(.init(count: 1, from: .deseos, to: .ahorro))
-            == "1 movimiento pasará de Deseos a Ahorro en todos los meses.")
+            == "1 movimiento pasará de Gustos a Ahorro en todos los meses.")
         #expect(DetalleCategoriaPresentation.bucketChange(.init(count: 0, from: .deseos, to: .ahorro))
-            == "Esta categoría todavía no tiene movimientos. Pasará de Deseos a Ahorro.")
+            == "Esta categoría todavía no tiene movimientos. Pasará de Gustos a Ahorro.")
     }
 
     @Test func theDeletionSentenceNamesWhereTheMovementsGoAndWhatElseIsRemoved() {
@@ -699,7 +699,7 @@ struct DetalleCategoriaViewModelTests {
             patrones: [PatronCategoria(id: "p", patron: "a", matchType: .contains)]
         )
         #expect(DetalleCategoriaPresentation.deletion(one)
-            == "Su movimiento pasará a «Desconocido» de Deseos. También se eliminará su patrón. Esta acción no se puede deshacer.")
+            == "Su movimiento pasará a «Desconocido» de Gustos. También se eliminará su patrón. Esta acción no se puede deshacer.")
         #expect(DetalleCategoriaPresentation.deletion(empty) == "No tiene movimientos. Esta acción no se puede deshacer.")
     }
 

@@ -11,7 +11,7 @@ import org.junit.Test
 class ResumenPresentationTest {
     @Test
     fun bucketLabelsComeFromTheDesignTokens() {
-        assertEquals(listOf("Necesidades", "Deseos", "Ahorro"), Bucket.entries.map { it.label })
+        assertEquals(listOf("Necesidades", "Gustos", "Ahorro"), Bucket.entries.map { it.label })
     }
 
     @Test
@@ -25,7 +25,7 @@ class ResumenPresentationTest {
     fun aBucketWithoutIncomeSaysSoInsteadOfInventingAShare() {
         val item = mes(sinIngreso = true).buckets[1]
 
-        assertEquals("Deseos. Gasto de $305.000, sin porcentaje del ingreso. Meta 30%", item.accessibilityLabel())
+        assertEquals("Gustos. Gasto de $305.000, sin porcentaje del ingreso. Meta 30%", item.accessibilityLabel())
     }
 
     @Test
@@ -45,7 +45,7 @@ class ResumenPresentationTest {
     fun theChartIsReadAsOneSummaryWithoutNegativeSlices() {
         val buckets = mes(totals = listOf(450_000, -10, 0)).buckets
 
-        assertEquals("Necesidades $450.000, Deseos $0, Ahorro $0", chartDescription(buckets))
+        assertEquals("Necesidades $450.000, Gustos $0, Ahorro $0", chartDescription(buckets))
     }
 
     @Test

@@ -12,11 +12,11 @@ struct ReviewPresentationTests {
 
     @Test func aSuggestedIdIsResolvedAgainstTheCatalog() {
         #expect(classify(0) == "Necesidades · Supermercado")
-        #expect(classify(1) == "Deseos · Restaurantes")
+        #expect(classify(1) == "Gustos · Restaurantes")
     }
 
     @Test func noSuggestionMeansDeseosDesconocido() {
-        #expect(classify(2) == "Deseos · Desconocido")
+        #expect(classify(2) == "Gustos · Desconocido")
     }
 
     @Test func aBucketWithoutCategoryReadsDesconocidoInThatBucket() {
@@ -44,9 +44,10 @@ struct ReviewPresentationTests {
         #expect(classify(2, edit: SampleData.Cat.transporte) == "Necesidades · Transporte")
     }
 
-    @Test func noBucketIsEverCalledGustos() {
+    @Test func noBucketIsEverCalledDeseos() {
         let all = Bucket.allCases.map(\.label) + SampleData.rows.indices.map { classify($0) }
-        #expect(all.allSatisfy { !$0.localizedCaseInsensitiveContains("gustos") })
+        #expect(all.allSatisfy { !$0.localizedCaseInsensitiveContains("deseos") })
+        #expect(Bucket.allCases.map(\.label).contains("Gustos"))
     }
 
     // MARK: sections
@@ -55,7 +56,7 @@ struct ReviewPresentationTests {
         let sections = ReviewPresentation.sections(rows: SampleData.rows, edits: [:], catalog: catalog)
 
         #expect(sections.map(\.title) == [
-            "Necesidades · Supermercado", "Deseos · Desconocido", "Deseos · Restaurantes", "Ingreso", "Ya cargados",
+            "Necesidades · Supermercado", "Gustos · Desconocido", "Gustos · Restaurantes", "Ingreso", "Ya cargados",
         ])
         #expect(sections.map { $0.rows.map(\.rowIndex) } == [[0], [2, 3], [1], [5], [4]])
         #expect(sections.map(\.bucket) == [.necesidades, .deseos, .deseos, nil, nil])
@@ -67,7 +68,7 @@ struct ReviewPresentationTests {
         )
 
         #expect(sections.map(\.title) == [
-            "Necesidades · Supermercado", "Deseos · Desconocido", "Deseos · Restaurantes",
+            "Necesidades · Supermercado", "Gustos · Desconocido", "Gustos · Restaurantes",
             "Ahorro · Fondo de emergencia", "Ingreso", "Ya cargados",
         ])
         #expect(sections.first { $0.title == "Ahorro · Fondo de emergencia" }?.rows.map(\.rowIndex) == [2])

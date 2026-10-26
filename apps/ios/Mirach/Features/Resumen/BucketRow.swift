@@ -34,7 +34,7 @@ struct BucketRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
         .accessibilityHint("Ver los movimientos")
-        .accessibilityIdentifier("resumen.bucket.\(item.bucket.label)")
+        .accessibilityIdentifier("resumen.bucket.\(item.bucket.apiName)")
     }
 
     /// Says the row opens something; VoiceOver gets the hint instead.

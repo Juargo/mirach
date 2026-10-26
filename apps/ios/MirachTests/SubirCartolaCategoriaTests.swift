@@ -225,7 +225,7 @@ struct SubirCartolaCategoriaTests {
 
     @Test(arguments: [
         (CategoriaError.invalidName, "name", "El nombre debe tener entre 1 y 40 caracteres"),
-        (.bucketNotAssignable, "bucket", "Elige un grupo: Necesidades, Deseos o Ahorro"),
+        (.bucketNotAssignable, "bucket", "Elige un grupo: Necesidades, Gustos o Ahorro"),
         (.invalidIcon, "general", "Elige un ícono válido de la lista"),
         (.invalidPattern(index: 0), "pattern", "Escribe un texto válido para el patrón (de 1 a 200 caracteres)"),
         (.invalidMatchType(index: 0), "pattern", "Ese tipo de coincidencia no es válido"),

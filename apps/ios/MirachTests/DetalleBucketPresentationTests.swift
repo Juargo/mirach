@@ -11,7 +11,7 @@ struct DetalleBucketPresentationTests {
 
     @Test func theHeaderIsReadWithTheSpendSignAndTheTarget() {
         #expect(DetalleBucketPresentation.headerLabel(SampleData.deseosDetalle)
-            == "Deseos. Gasto de $610.400. 33% del ingreso. Meta 30%. 4 movimientos. 3 categorías")
+            == "Gustos. Gasto de $610.400. 33% del ingreso. Meta 30%. 4 movimientos. 3 categorías")
     }
 
     @Test func aMissingPercentageAndTargetAreSaidOrLeftOut() {
@@ -40,6 +40,6 @@ struct DetalleBucketPresentationTests {
 
     @Test func theBucketChangeMessageNamesBothBucketsWithTheOfficialLabels() {
         let text = DetalleBucketPresentation.bucketChangeMessage(from: .deseos, to: .necesidades)
-        #expect(text == "Este movimiento pasará de Deseos a Necesidades y cambiará el cálculo del mes.")
+        #expect(text == "Este movimiento pasará de Gustos a Necesidades y cambiará el cálculo del mes.")
     }
 }

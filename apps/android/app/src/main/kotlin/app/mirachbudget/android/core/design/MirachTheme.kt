@@ -14,7 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 
 private val LocalMirachPalette = staticCompositionLocalOf { MirachPalettes.light }
 
-/** Accessor for the full Mirach palette: `MirachTheme.colors.bucket.deseos`. */
+/** Accessor for the full Mirach palette: `MirachTheme.colors.bucket.gustos`. */
 object MirachTheme {
     val colors: MirachPalette
         @Composable
@@ -28,20 +28,20 @@ fun MirachPalette.toMaterialColorScheme(dark: Boolean): ColorScheme {
     return if (dark) {
         darkColorScheme(
             primary = b.primary, onPrimary = b.primaryForeground,
-            secondary = b.secondary, onSecondary = b.secondaryForeground,
+            secondary = b.accent, onSecondary = b.accentForeground,
             background = b.background, onBackground = b.foreground,
             surface = b.card, onSurface = b.cardForeground,
-            surfaceVariant = b.muted, onSurfaceVariant = b.mutedForeground,
+            surfaceVariant = b.accent, onSurfaceVariant = b.mutedForeground,
             error = b.destructive, onError = b.primaryForeground,
             outline = b.input, outlineVariant = b.border,
         )
     } else {
         lightColorScheme(
             primary = b.primary, onPrimary = b.primaryForeground,
-            secondary = b.secondary, onSecondary = b.secondaryForeground,
+            secondary = b.accent, onSecondary = b.accentForeground,
             background = b.background, onBackground = b.foreground,
             surface = b.card, onSurface = b.cardForeground,
-            surfaceVariant = b.muted, onSurfaceVariant = b.mutedForeground,
+            surfaceVariant = b.accent, onSurfaceVariant = b.mutedForeground,
             error = b.destructive, onError = b.primaryForeground,
             outline = b.input, outlineVariant = b.border,
         )

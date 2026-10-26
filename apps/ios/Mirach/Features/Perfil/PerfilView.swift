@@ -216,6 +216,7 @@ private struct DeleteAccountSheet: View {
                     .buttonStyle(.borderedProminent).controlSize(.large)
                     .modifier(GrowingButton())
                     .tint(Color.Mirach.Base.destructive)
+                    .foregroundStyle(Color.Mirach.Base.primaryForeground)
                     .disabled(!viewModel.canDelete)
                     .accessibilityIdentifier("perfil.delete.confirm")
                 }
