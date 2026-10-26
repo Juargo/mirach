@@ -78,6 +78,10 @@ function renderSwift(tokens, colors) {
   const list = (arr) => `[${arr.map(q).join(', ')}]`;
   const radius = tokens.radius;
   const px = (leaf) => String(parseFloat(leaf.$value));
+  const spacing = Object.entries(tokens.spacing)
+    .filter(([k]) => !k.startsWith('$'))
+    .map(([k, leaf]) => `    static let ${camel(k)}: CGFloat = ${px(leaf)}`)
+    .join('\n');
 
   return `// GENERATED FILE. DO NOT EDIT.
 // Source: design/tokens.json. Regenerate with: apps/ios/scripts/generate-tokens.sh
@@ -89,7 +93,7 @@ import SwiftUI
 
 /// Light/dark colors live in the \`Tokens.xcassets\` asset catalog; the system picks
 /// the variant from the current appearance, so no view decides a color per theme.
-/// Use: \`Color.Mirach.Bucket.deseos\`, \`Color.Mirach.Base.foreground\`.
+/// Use: \`Color.Mirach.Bucket.gustos\`, \`Color.Mirach.Base.foreground\`.
 extension Color {
     enum Mirach {
 ${colorEnums}
@@ -109,10 +113,10 @@ ${names}
 
 // MARK: - Copy
 
-/// User-facing labels from \`copy.*\` in tokens.json. The 30% bucket is "Deseos".
+/// User-facing labels from \`copy.*\` in tokens.json. The 30% bucket is "Gustos".
 enum MirachCopy {
 ${copyEnum('bucket')}
-${copyEnum('semaforo')}
+${copyEnum('estado')}
 }
 
 // MARK: - Typography
@@ -120,7 +124,6 @@ ${copyEnum('semaforo')}
 /// Font family names from \`typography.font-family\`, in fallback order. Fonts are not bundled yet.
 enum MirachFont {
     static let sans: [String] = ${list(fam.sans.$value ?? fam.sans)}
-    static let mono: [String] = ${list(fam.mono.$value ?? fam.mono)}
     /// OpenType feature required for figures (\`typography.figure-features\`).
     static let figureFeatures = ${q(tokens.typography['figure-features'].$value)}
 }
@@ -134,10 +137,16 @@ extension View {
 
 // MARK: - Radius
 
-/// Corner radii from \`radius.*\`. The base is square; \`maxAllowed\` is a ceiling, not a default.
+/// Corner radii from \`radius.*\`. Corners are square.
 enum MirachRadius {
     static let base: CGFloat = ${px(radius.base)}
-    static let maxAllowed: CGFloat = ${px(radius['max-allowed'])}
+}
+
+// MARK: - Spacing
+
+/// Spacing scale from \`spacing.*\`, in points.
+enum MirachSpacing {
+${spacing}
 }
 `;
 }
