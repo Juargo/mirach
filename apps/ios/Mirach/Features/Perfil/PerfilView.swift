@@ -71,7 +71,7 @@ struct PerfilView: View {
 
     private var nameSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Nombre").font(.footnote).foregroundStyle(Color.Mirach.Base.mutedForeground)
+            Text("Nombre").font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
             TextField("Nombre", text: $viewModel.nombre, axis: .vertical)
                 .lineLimit(1...4)
                 .textContentType(.name)
@@ -116,7 +116,7 @@ struct PerfilView: View {
 
     private func emailSection(_ email: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Correo").font(.footnote).foregroundStyle(Color.Mirach.Base.mutedForeground)
+            Text("Correo").font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
             // Read only. It may be Apple's private relay address.
             Text(email)
                 .foregroundStyle(Color.Mirach.Base.foreground)
@@ -172,7 +172,7 @@ private struct DeleteAccountSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Esta acción no se puede deshacer")
-                        .font(.title3.bold())
+                        .font(.mirach(.title3).bold())
                         .foregroundStyle(Color.Mirach.Base.foreground)
                         .accessibilityAddTraits(.isHeader)
                     Text("Se eliminarán tu cuenta, tus cartolas, tus movimientos, tus categorías y tus patrones. No podrás recuperarlos.")

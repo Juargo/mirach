@@ -166,21 +166,21 @@ private struct CartolaSubidaRow: View {
     private var details: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(CartolasPresentation.banco(cartola))
-                .font(.headline)
+                .font(.mirach(.headline))
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Text(cartola.nombreArchivo)
-                .font(.subheadline)
+                .font(.mirach(.subheadline))
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             Text(dateAndCount)
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .fixedSize(horizontal: false, vertical: true)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             status
             if let reason = CartolasPresentation.motivo(cartola) {
                 Text(reason)
-                    .font(.footnote)
+                    .font(.mirach(.footnote))
                     // Whole words at the largest sizes, never cut by syllable.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -198,7 +198,7 @@ private struct CartolaSubidaRow: View {
     private var status: some View {
         let ok = cartola.estado == .procesada
         return Label(CartolasPresentation.estado(cartola), systemImage: ok ? "checkmark.circle" : "exclamationmark.triangle")
-            .font(.footnote.weight(.semibold))
+            .font(.mirach(.footnote).weight(.semibold))
             .foregroundStyle(ok ? Color.Mirach.Feedback.successText : Color.Mirach.Feedback.errorText)
     }
 

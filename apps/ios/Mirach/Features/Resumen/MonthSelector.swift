@@ -35,7 +35,7 @@ struct MonthSelector: View {
 
     private var title: some View {
         Text(Format.monthTitle(periodo))
-            .font(.title3.bold())
+            .font(.mirach(.title3).bold())
             .foregroundStyle(Color.Mirach.Base.foreground)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)

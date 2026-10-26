@@ -68,6 +68,11 @@ targets:
         MIRACH_API_KEY: $(MIRACH_API_KEY)   # public client gate (ADR-047), read by AppConfiguration
         ITSAppUsesNonExemptEncryption: false  # only exempt HTTPS/TLS and system crypto (export compliance)
         UILaunchScreen: {}                  # empty = default launch screen
+        UIAppFonts:                         # Inter 4.1, the only family (D2); files in Mirach/Resources/Fonts
+          - Inter-Regular.ttf
+          - Inter-Medium.ttf
+          - Inter-SemiBold.ttf
+          - Inter-Bold.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
 

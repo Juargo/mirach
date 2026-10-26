@@ -97,7 +97,7 @@ struct DetalleBucketView: View {
             notices
             if detalle.grupos.isEmpty {
                 Text("Sin movimientos en \(Format.month(detalle.periodo))")
-                    .font(.headline)
+                    .font(.mirach(.headline))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                     .frame(maxWidth: .infinity)
@@ -148,27 +148,27 @@ private struct BucketHeader: View {
                 // The bucket color is a fill, the name next to it is the real label.
                 Rectangle().fill(detalle.bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
                 Text(detalle.bucket.label)
-                    .font(.headline)
+                    .font(.mirach(.headline))
                     .foregroundStyle(Color.Mirach.Base.cardForeground)
             }
             Text(Format.expense(detalle.total))
-                .font(.title2.bold())
+                .font(.mirach(.title2).bold())
                 .mirachFigures()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .foregroundStyle(Color.Mirach.Feedback.expenseText)
             Text("\(Format.percent(bp: detalle.porcentajeBp)) del ingreso")
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .mirachFigures()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             if let meta = detalle.metaBp {
                 Text("Meta: \(Format.percent(bp: meta))")
-                    .font(.footnote)
+                    .font(.mirach(.footnote))
                     .mirachFigures()
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             Text("\(DetalleBucketPresentation.movements(detalle.totalTransacciones)) · \(DetalleBucketPresentation.categories(detalle.totalCategorias))")
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
         .padding(12)
@@ -192,7 +192,7 @@ private struct GroupHeader: View {
                 HStack(spacing: 8) {
                     header
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
+                        .font(.mirach(.footnote).weight(.semibold))
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                         .accessibilityHidden(true)
                 }
@@ -240,7 +240,7 @@ private struct GroupHeader: View {
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 .accessibilityHidden(true)
             Text(group.nombre)
-                .font(.headline)
+                .font(.mirach(.headline))
                 // A category name is one word often: capped so it wraps by word, not by syllable.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .lineLimit(2)
@@ -252,12 +252,12 @@ private struct GroupHeader: View {
     private var figures: some View {
         HStack(spacing: 8) {
             Text(DetalleBucketPresentation.movements(group.conteo))
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .fixedSize(horizontal: false, vertical: true)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             Text(Format.expense(group.subtotal))
-                .font(.subheadline.bold())
+                .font(.mirach(.subheadline).bold())
                 .mirachFigures()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -312,7 +312,7 @@ private struct MovementRow: View {
 
     private var description: some View {
         Text(movement.descripcion)
-            .font(.body)
+            .font(.mirach(.body))
             // Large text: show the whole description instead of cutting it.
             .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
             .foregroundStyle(Color.Mirach.Base.foreground)
@@ -320,7 +320,7 @@ private struct MovementRow: View {
 
     private var amount: some View {
         Text(Format.expense(movement.monto))
-            .font(.body)
+            .font(.mirach(.body))
             .mirachFigures()
             .lineLimit(1)
             .minimumScaleFactor(0.6)
@@ -340,7 +340,7 @@ private struct MovementRow: View {
                 Image(systemName: "tag").accessibilityHidden(true)
             }
         }
-        .font(.footnote)
+        .font(.mirach(.footnote))
         .foregroundStyle(Color.Mirach.Base.mutedForeground)
     }
 }

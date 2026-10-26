@@ -56,7 +56,7 @@ Los generadores (`scripts/generate-ios-tokens.mjs`, `scripts/generate-android-to
 
 Las apps siguen el tema del sistema, claro u oscuro (VIS-16). No escriben colores ni etiquetas a mano: el texto de los bloques sale de `copy.bucket.*`. El API todavía nombra `Deseos` al bloque de Gustos; ese valor solo se usa para hablar con el API y como identificador de accesibilidad, nunca como texto visible.
 
-La escala tipográfica (`typography.text-style.*`) todavía no se genera, y las apps usan la fuente del sistema hasta que se empaquete Inter (decisión D2).
+Las dos apps empaquetan Inter 4.1 (Regular, Medium, SemiBold y Bold, licencia SIL OFL 1.1): iPhone en `Resources/Fonts` con `Font.mirach(_:)`, que conserva el tamaño de cada estilo del sistema y Dynamic Type; Android en `res/font` con `MirachTypography` en el tema de Material. La escala tipográfica de Figma (`typography.text-style.*`) todavía no se genera.
 
 ## Reglas que los tokens no pueden expresar
 

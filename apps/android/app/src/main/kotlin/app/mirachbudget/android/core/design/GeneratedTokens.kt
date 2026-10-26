@@ -169,7 +169,7 @@ object MirachCopy {
 
 // region Typography
 
-/** Font family names from `typography.font-family`, in fallback order. Fonts are not bundled yet. */
+/** Font family names from `typography.font-family`, in fallback order. Inter is bundled (see MirachTypography.kt). */
 object MirachFont {
     val sans: List<String> = listOf("Inter", "system-ui")
 

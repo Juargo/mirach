@@ -132,7 +132,7 @@ struct SubirCartolaView: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sube tu cartola")
-                    .font(.title3.bold())
+                    .font(.mirach(.title3).bold())
                     .foregroundStyle(Color.Mirach.Base.foreground)
                     .accessibilityAddTraits(.isHeader)
                 Text("Archivos .xlsx o .pdf de Banco de Chile, BancoEstado, BCI y Santander, de hasta 10 MB.")
@@ -162,15 +162,15 @@ struct SubirCartolaView: View {
         VStack(alignment: .leading, spacing: 16) {
             if let file = viewModel.stagedFile {
                 Text("\(file.filename) · \(file.byteCount.formatted(.byteCount(style: .file)))")
-                    .font(.footnote)
+                    .font(.mirach(.footnote))
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
                     .accessibilityIdentifier("subir.file")
             }
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(preview.banco).font(.headline)
+                    Text(preview.banco).font(.mirach(.headline))
                     Text("\(preview.tipoCuenta) · \(preview.numeroCuenta)")
-                        .font(.subheadline)
+                        .font(.mirach(.subheadline))
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
                 .accessibilityElement(children: .combine)
@@ -212,12 +212,12 @@ struct SubirCartolaView: View {
         case .loaded: EmptyView()
         case .loading:
             Label("Cargando categorías…", systemImage: "arrow.triangle.2.circlepath")
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 .accessibilityIdentifier("subir.catalogLoading")
         case .failed:
             Text("No pudimos cargar tus categorías, así que no se puede revisar. Puedes subir tal cual.")
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityIdentifier("subir.catalogError")
             Button("Reintentar") { Task { await viewModel.retryCatalog() } }
@@ -238,8 +238,8 @@ struct SubirCartolaView: View {
         layout {
             ForEach(items, id: \.0) { label, value in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(label).font(.footnote).foregroundStyle(Color.Mirach.Base.mutedForeground)
-                    Text(String(value)).font(.title3.bold()).mirachFigures()
+                    Text(label).font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    Text(String(value)).font(.mirach(.title3).bold()).mirachFigures()
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -263,10 +263,10 @@ struct SubirCartolaView: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.largeTitle)
+                    .font(.mirach(.largeTitle))
                     .foregroundStyle(Color.Mirach.Feedback.successText)
                     .accessibilityHidden(true)
-                Text(summary.headline).font(.title3.bold())
+                Text(summary.headline).font(.mirach(.title3).bold())
                 if let line = summary.duplicatesLine {
                     Text(line).foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
@@ -331,7 +331,7 @@ private struct PasswordPrompt: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(filename).font(.footnote).foregroundStyle(Color.Mirach.Base.mutedForeground)
+            Text(filename).font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
             StatusMessage(
                 text: SubirCartolaViewModel.State.passwordPrompt(incorrect: incorrect), isError: incorrect
             )

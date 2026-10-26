@@ -109,7 +109,7 @@ private struct EmptyMonth: View {
             // element so it remains reachable.
             VStack(spacing: 8) {
                 Text("Todavía no hay datos este mes")
-                    .font(.headline)
+                    .font(.mirach(.headline))
                     .foregroundStyle(Color.Mirach.Base.foreground)
                 Text("Cuando subas una cartola, aquí verás cómo se repartió tu mes.")
                     .multilineTextAlignment(.center)

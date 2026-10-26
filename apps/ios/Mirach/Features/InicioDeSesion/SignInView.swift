@@ -36,7 +36,7 @@ struct SignInView: View {
                 Spacer()
                 VStack(spacing: 8) {
                     Text("Mirach")
-                        .font(.largeTitle.bold())
+                        .font(.mirach(.largeTitle).bold())
                         .foregroundStyle(Color.Mirach.Base.foreground)
                     Text("Inicia sesión para ver tus finanzas.")
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)

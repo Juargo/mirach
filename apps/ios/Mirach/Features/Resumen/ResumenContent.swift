@@ -40,10 +40,10 @@ struct ResumenContent: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(MirachCopy.Bucket.ingreso)
-                        .font(.footnote)
+                        .font(.mirach(.footnote))
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                     Text(Format.income(mes.totalIngreso))
-                        .font(.title2.bold())
+                        .font(.mirach(.title2).bold())
                         .mirachFigures()
                         // A figure must not wrap or truncate: it shrinks first.
                         .lineLimit(1)
@@ -52,7 +52,7 @@ struct ResumenContent: View {
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
-                    .font(.footnote.bold())
+                    .font(.mirach(.footnote).bold())
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
                     .accessibilityHidden(true)
             }
