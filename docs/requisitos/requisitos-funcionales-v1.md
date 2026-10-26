@@ -201,7 +201,7 @@ La pantalla principal responde una pregunta: ¿mi mes está equilibrado? Debe en
 | VIS-13 | Calendario anual con el estado de cada mes | Debería | Los meses sin movimientos se ven deshabilitados y no se pueden abrir. Fuera de la v1.0 (decidido el 25-10-2026) |
 | VIS-14 | Detalle del bloque desglosado también por comercio | Debería | Dentro de un bloque se ve cuánto se gastó en cada comercio, no solo por categoría. Fuera de la v1.0 (decidido el 25-10-2026) |
 | VIS-15 | Sugerencias accionables de ahorro | Podría | Indica un cambio concreto que acercaría un bloque a su meta, con el monto involucrado |
-| VIS-16 | Tema claro y oscuro, con selector de tres estados | Debería | Claro, oscuro o seguir el sistema. Por defecto claro. La elección queda en el teléfono y no se sincroniza entre dispositivos. Fuera de la v1.0 (decidido el 25-10-2026) |
+| VIS-16 | Tema claro y oscuro, con selector de tres estados | Debería | Claro, oscuro o seguir el sistema. Por defecto claro. La elección queda en el teléfono y no se sincroniza entre dispositivos. El selector queda fuera de la v1.0 (decidido el 25-10-2026), pero la v1.0 tiene modo claro y oscuro y sigue el tema del sistema (decidido el 26-10-2026) |
 | VIS-17 | La frase del mes dice cuánto del exceso de gustos viene de "Desconocido" | Debería | Si gustos está sobre su meta y hay movimientos en "Desconocido", la frase lo dice en puntos, por ejemplo "Gustos: 8 puntos sobre tu meta. 5 son movimientos sin clasificar." Decidido el 23-10-2026 |
 
 ## Planes, suscripción y límites (PLA)
