@@ -894,8 +894,9 @@ final class MirachUITests: XCTestCase {
         XCTAssertEqual(rest.label, "Restaurantes. 2 movimientos. 0 patrones")
         XCTAssertEqual(element(app, "categorias.row.stub-nec-super").label, "Supermercado. 2 movimientos. 2 patrones")
         XCTAssertTrue(element(app, "categorias.row.stub-des-desc").label.hasSuffix("Categoría del sistema"))
-        // The traffic light and the old name of the bucket never show.
-        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Gustos")).count, 0)
+        // The bucket shows its official name; the API value "Deseos" never reaches a label.
+        XCTAssertGreaterThan(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Gustos")).count, 0)
+        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Deseos")).count, 0)
     }
 
     @MainActor
