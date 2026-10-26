@@ -22,9 +22,9 @@ struct IncomeRowsReviewTests {
         let sections = ReviewPresentation.sections(rows: SampleData.rows, edits: [:], catalog: catalog)
 
         #expect(sections.map(\.title) == [
-            "Necesidades · Supermercado", "Deseos · Desconocido", "Deseos · Restaurantes", "Ingreso", "Ya cargados",
+            "Necesidades · Supermercado", "Gustos · Desconocido", "Gustos · Restaurantes", "Ingreso", "Ya cargados",
         ])
-        #expect(sections.first { $0.title == "Deseos · Desconocido" }?.rows.map(\.rowIndex) == [2, 3])
+        #expect(sections.first { $0.title == "Gustos · Desconocido" }?.rows.map(\.rowIndex) == [2, 3])
         #expect(sections.first { $0.title == "Ingreso" }?.rows.map(\.rowIndex) == [5])
     }
 

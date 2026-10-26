@@ -40,7 +40,7 @@ enum DetalleCategoriaPresentation {
         switch error {
         case CategoriaError.invalidName: errors.name = "El nombre debe tener entre 1 y 40 caracteres"
         case CategoriaError.duplicateName: errors.name = "Ya tienes una categoría con ese nombre"
-        case CategoriaError.bucketNotAssignable: errors.bucket = "Elige un grupo: Necesidades, Deseos o Ahorro"
+        case CategoriaError.bucketNotAssignable: errors.bucket = "Elige un grupo: Necesidades, Gustos o Ahorro"
         case CategoriaError.invalidIcon: errors.icon = "Elige un ícono válido de la lista"
         case CategoriaError.isInternal: errors.general = protectedMessage
         case CategoriaError.rejected(let message): errors.general = message

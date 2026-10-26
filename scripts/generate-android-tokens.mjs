@@ -61,6 +61,10 @@ function renderKotlin(tokens, colors) {
   const fam = tokens.typography['font-family'];
   const list = (arr) => `listOf(${arr.map(q).join(', ')})`;
   const { radius } = tokens;
+  const spacing = Object.entries(tokens.spacing)
+    .filter(([k]) => !k.startsWith('$'))
+    .map(([k, leaf]) => `    val ${kotlinName(k)}: Dp = ${px(leaf)}.dp`)
+    .join('\n');
 
   return `// GENERATED FILE. DO NOT EDIT.
 // Source: design/tokens.json. Regenerate with: apps/android/scripts/generate-tokens.sh
@@ -78,7 +82,7 @@ import androidx.compose.ui.unit.dp
 
 ${groupClasses}
 
-/** Every Mirach color for one theme. Use: \`MirachTheme.colors.bucket.deseos\`. */
+/** Every Mirach color for one theme. Use: \`MirachTheme.colors.bucket.gustos\`. */
 @Immutable
 class MirachPalette(
 ${paletteParams}
@@ -94,10 +98,10 @@ ${palette('dark')}
 
 // region Copy
 
-/** User-facing labels from \`copy.*\` in tokens.json. The 30% bucket is "Deseos". */
+/** User-facing labels from \`copy.*\` in tokens.json. The 30% bucket is "Gustos". */
 object MirachCopy {
 ${copyObject('bucket')}
-${copyObject('semaforo')}
+${copyObject('estado')}
 }
 
 // endregion
@@ -107,7 +111,6 @@ ${copyObject('semaforo')}
 /** Font family names from \`typography.font-family\`, in fallback order. Fonts are not bundled yet. */
 object MirachFont {
     val sans: List<String> = ${list(fam.sans.$value)}
-    val mono: List<String> = ${list(fam.mono.$value)}
 
     /** OpenType feature required for figures (\`typography.figure-features\`). */
     const val figureFeatures = ${q(tokens.typography['figure-features'].$value)}
@@ -120,10 +123,18 @@ fun TextStyle.mirachFigures(): TextStyle = copy(fontFeatureSettings = ${q(tokens
 
 // region Radius
 
-/** Corner radii from \`radius.*\`. The base is square; \`maxAllowed\` is a ceiling, not a default. */
+/** Corner radii from \`radius.*\`. Corners are square. */
 object MirachRadius {
     val base: Dp = ${px(radius.base)}.dp
-    val maxAllowed: Dp = ${px(radius['max-allowed'])}.dp
+}
+
+// endregion
+
+// region Spacing
+
+/** Spacing scale from \`spacing.*\`, in dp. */
+object MirachSpacing {
+${spacing}
 }
 
 // endregion

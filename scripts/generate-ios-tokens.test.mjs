@@ -37,25 +37,35 @@ test('output is deterministic', () => {
 test('one colorset per token with light as any and dark as luminosity:dark', () => {
   const files = new Map(buildOutputs(tokens).map((f) => [f.path, f.content]));
   const colors = collectColors(tokens);
-  assert.equal(colors.length, 49);
-  const set = JSON.parse(files.get('Resources/Tokens.xcassets/Bucket/deseos.colorset/Contents.json'));
+  assert.equal(colors.length, 25);
+  const set = JSON.parse(files.get('Resources/Tokens.xcassets/Bucket/gustos.colorset/Contents.json'));
   assert.equal(set.colors[0].appearances, undefined);
-  assert.equal(set.colors[0].color.components.red, hexToSrgb('#782c5c').red);
+  assert.equal(set.colors[0].color.components.red, hexToSrgb('#7b61a8').red);
   assert.deepEqual(set.colors[1].appearances, [{ appearance: 'luminosity', value: 'dark' }]);
-  assert.equal(set.colors[1].color.components.red, hexToSrgb('#bb6c90').red);
+  assert.equal(set.colors[1].color.components.red, hexToSrgb('#a891d6').red);
   const ns = JSON.parse(files.get('Resources/Tokens.xcassets/Bucket/Contents.json'));
   assert.equal(ns.properties['provides-namespace'], true);
 });
 
-test('Swift file exposes the copy and never says Gustos', () => {
+test('Swift file exposes the copy and never says Deseos', () => {
   const swift = buildOutputs(tokens).find((f) => f.path.endsWith('GeneratedTokens.swift')).content;
-  assert.match(swift, /static let deseos = "Deseos"/);
-  assert.match(swift, /static let deseos = Color\("Bucket\/deseos", bundle: \.main\)/);
-  assert.doesNotMatch(swift, /gustos/i);
+  assert.match(swift, /static let gustos = "Gustos"/);
+  assert.match(swift, /static let gustos = Color\("Bucket\/gustos", bundle: \.main\)/);
+  assert.match(swift, /enum Estado \{[^}]*static let sinDatos = "Sin datos"/);
+  assert.doesNotMatch(swift, /deseos/i);
+});
+
+test('Swift file exposes spacing and the square radius, without mono or a radius ceiling', () => {
+  const swift = buildOutputs(tokens).find((f) => f.path.endsWith('GeneratedTokens.swift')).content;
+  assert.match(swift, /enum MirachSpacing \{[^}]*static let m: CGFloat = 16/);
+  assert.match(swift, /static let base: CGFloat = 0/);
+  assert.match(swift, /static let sans: \[String\] = \["Inter"/);
+  assert.match(swift, /monospacedDigit\(\)/);
+  assert.doesNotMatch(swift, /static let mono|maxAllowed/);
 });
 
 test('a missing dark value fails the generation', () => {
   const broken = structuredClone(tokens);
-  delete broken.color.dark.bucket.deseos;
-  assert.throws(() => buildOutputs(broken), /Missing dark value for bucket.deseos/);
+  delete broken.color.dark.bucket.gustos;
+  assert.throws(() => buildOutputs(broken), /Missing dark value for bucket.gustos/);
 });

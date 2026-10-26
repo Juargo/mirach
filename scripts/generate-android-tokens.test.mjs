@@ -27,35 +27,37 @@ test('emits light and dark palettes with per-theme values', () => {
   const src = kotlin();
   assert.match(src, /val light = MirachPalette\(/);
   assert.match(src, /val dark = MirachPalette\(/);
-  assert.match(src, /deseos = Color\(0xFF782C5C\)/);
-  assert.match(src, /deseos = Color\(0xFFBB6C90\)/);
+  assert.match(src, /gustos = Color\(0xFF7B61A8\)/);
+  assert.match(src, /gustos = Color\(0xFFA891D6\)/);
 });
 
 test('colors are grouped like the iOS Color.Mirach namespaces', () => {
   const src = kotlin();
-  for (const g of ['Base', 'Bucket', 'Pie', 'Ingreso', 'Semaforo', 'Feedback']) {
+  for (const g of ['Base', 'Bucket', 'Estado', 'Feedback', 'Ingreso']) {
     assert.match(src, new RegExp(`class ${g}Colors\\(`));
   }
-  assert.match(src, /val sinCategoria: Color/);
+  assert.match(src, /val ahorroText: Color/);
+  assert.doesNotMatch(src, /class (Pie|Semaforo)Colors/);
 });
 
-test('exposes the copy and never says Gustos', () => {
+test('exposes the copy and never says Deseos', () => {
   const src = kotlin();
-  assert.match(src, /const val deseos = "Deseos"/);
-  assert.match(src, /const val sinDatos = "Sin datos"/);
-  assert.doesNotMatch(src, /gustos/i);
+  assert.match(src, /const val gustos = "Gustos"/);
+  assert.match(src, /object Estado \{[^}]*const val sinDatos = "Sin datos"/);
+  assert.doesNotMatch(src, /deseos/i);
 });
 
 test('exposes fonts, tabular figures and radius', () => {
   const src = kotlin();
-  assert.match(src, /val sans: List<String> = listOf\("Inter Variable"/);
+  assert.match(src, /val sans: List<String> = listOf\("Inter"/);
   assert.match(src, /fontFeatureSettings = "tnum"/);
   assert.match(src, /val base: Dp = 0\.dp/);
-  assert.match(src, /val maxAllowed: Dp = 2\.dp/);
+  assert.match(src, /object MirachSpacing \{[^}]*val m: Dp = 16\.dp/);
+  assert.doesNotMatch(src, /mono|maxAllowed/);
 });
 
 test('a missing dark value fails the generation', () => {
   const broken = structuredClone(tokens);
-  delete broken.color.dark.bucket.deseos;
-  assert.throws(() => buildOutputs(broken), /Missing dark value for bucket.deseos/);
+  delete broken.color.dark.bucket.gustos;
+  assert.throws(() => buildOutputs(broken), /Missing dark value for bucket.gustos/);
 });

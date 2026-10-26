@@ -55,55 +55,35 @@ const ratio = (a, b) => {
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 };
-const mix = (fg, bg, a) =>
-  '#' + rgb(fg).map((c, i) => Math.round(c * a + rgb(bg)[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
 
 const TEXT = 4.5;
 const GRAPHIC = 3;
 // [fg, bg, kind] — token paths relative to color.<theme>; "#rrggbb" literals allowed.
-const WHITE = '#ffffff'; // text on destructive: index.css comment ("white text on this fill clears AA")
+const SURFACES = ['base.background', 'base.card'];
+const onSurfaces = (fg, kind) => SURFACES.map((bg) => [fg, bg, kind]);
 const pairs = [
-  ['base.foreground', 'base.background', 'text'],
-  ['base.foreground', 'base.card', 'text'],
+  // text (4.5:1) on both surfaces
+  ...['base.foreground', 'base.muted-foreground', 'feedback.error-text', 'feedback.success-text',
+    'feedback.expense-text', 'ingreso.text', 'estado.sobre', 'estado.bien-text', 'estado.cerca-text',
+    'bucket.ahorro-text'].flatMap((fg) => onSurfaces(fg, 'text')),
   ['base.card-foreground', 'base.card', 'text'],
-  ['base.popover-foreground', 'base.popover', 'text'],
-  ['base.muted-foreground', 'base.background', 'text'],
-  ['base.muted-foreground', 'base.card', 'text'],
+  ['base.accent-foreground', 'base.accent', 'text'],
   ['base.primary-foreground', 'base.primary', 'text'],
-  ['base.secondary-foreground', 'base.secondary', 'text'],
-  [WHITE, 'base.destructive', 'text'],
-  ['ingreso.text', 'ingreso.fill', 'text'],
-  ['semaforo.verde-ink', 'semaforo.verde-fill', 'text'],
-  ['semaforo.amarillo-ink', 'semaforo.amarillo-fill', 'text'],
-  ['semaforo.rojo-ink', 'semaforo.rojo-fill', 'text'],
-  ['pie.label-necesidades', 'bucket.necesidades', 'text'],
-  ['pie.label-deseos', 'bucket.deseos', 'text'],
-  ['pie.label-ahorro', 'bucket.ahorro', 'text'],
-  ['pie.label-sin-categoria', 'bucket.sin-categoria', 'text'],
-  ['feedback.warning-ink', 'feedback.warning-fill', 'text'],
-  ['feedback.link-active-ink', 'feedback.link-active-fill', 'text'],
-  ['feedback.success-text', 'base.card', 'text'],
-  ['feedback.expense-text', 'base.card', 'text'],
-  ['feedback.error-text', 'base.card', 'text'],
-  // graphic (3:1): strokes, zone bands and bucket fills against the card
-  ['base.input', 'base.card', 'graphic'],
-  ['base.ring', 'base.background', 'graphic'],
-  ['semaforo.verde-band', 'base.card', 'graphic'],
-  ['semaforo.amarillo-band', 'base.card', 'graphic'],
-  ['semaforo.rojo-band', 'base.card', 'graphic'],
-  ['bucket.necesidades', 'base.card', 'graphic'],
-  ['bucket.deseos', 'base.card', 'graphic'],
-  ['bucket.ahorro', 'base.card', 'graphic'],
-  ['bucket.sin-categoria', 'base.card', 'graphic'],
+  ['base.primary-foreground', 'base.destructive', 'text'],
+  // chart labels: the background color written over each bucket fill (Figma screen 05)
+  ['base.background', 'bucket.necesidades', 'text'],
+  ['base.background', 'bucket.gustos', 'text'],
+  ['base.background', 'bucket.ahorro', 'text'],
+  // graphic (3:1): strokes, bucket fills and state marks on both surfaces
+  ...['base.input', 'bucket.necesidades', 'bucket.gustos', 'bucket.ahorro', 'estado.bien', 'estado.cerca',
+    'estado.sobre'].flatMap((fg) => onSurfaces(fg, 'graphic')),
 ];
-// Known exceptions: real web-palette pairs below threshold (values are NOT changed).
+// Known exceptions: real Figma pairs below threshold, reported to the owner (values are NOT changed here).
 // Key: "<theme> <fg> on <bg>". Each one is also listed in design/README.md.
 const KNOWN_EXCEPTIONS = new Set([
-  // "Sin datos" chip: muted-foreground over its own 15% wash (semaforo-estilos.ts, SIN_DATOS).
-  'light semaforo.sin-datos-ink on 15% wash over base.background',
-  'dark semaforo.sin-datos-ink on 15% wash over base.card',
+  // Chart percentage label over the Ahorro slice in light mode (3.51:1).
+  'light base.background on bucket.ahorro',
 ]);
-
 const results = [];
 const failures = [];
 for (const theme of ['light', 'dark']) {
@@ -124,10 +104,6 @@ for (const theme of ['light', 'dark']) {
   };
   try {
     for (const [fg, bg, kind] of pairs) run(`${fg} on ${bg}`, get(fg), get(bg), kind);
-    // "sin datos": ink = muted-foreground over its own 15% wash on the card
-    const ink = get('semaforo.sin-datos-ink');
-    run('semaforo.sin-datos-ink on 15% wash over base.card', ink, mix(ink, get('base.card'), 0.15), 'text');
-    run('semaforo.sin-datos-ink on 15% wash over base.background', ink, mix(ink, get('base.background'), 0.15), 'text');
   } catch (e) {
     errors.push(e.message);
   }

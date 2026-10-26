@@ -266,7 +266,7 @@ struct DetalleBucketViewModelTests {
         #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes)])
         #expect(viewModel.pendingChange == nil)
         #expect(viewModel.sheetMovement == nil)
-        #expect(viewModel.announcement == "Movida a Deseos · Restaurantes")
+        #expect(viewModel.announcement == "Movida a Gustos · Restaurantes")
         #expect(api.detalleCalls.count == 2)
         #expect(viewModel.state == .loaded(SampleData.deseosVacio))
         #expect(changes.count == 1)

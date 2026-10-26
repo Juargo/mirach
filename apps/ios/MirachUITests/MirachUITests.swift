@@ -115,8 +115,9 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts["resumen.month"].label, "Septiembre de 2026")
         // The three buckets, by their official names (the third has no traffic-light state).
-        for name in ["Necesidades", "Deseos", "Ahorro"] {
-            let row = element(app, "resumen.bucket.\(name)")
+        // Identifiers use the API value; the visible label is the official name ("Deseos" shows as "Gustos").
+        for (apiName, name) in [("Necesidades", "Necesidades"), ("Deseos", "Gustos"), ("Ahorro", "Ahorro")] {
+            let row = element(app, "resumen.bucket.\(apiName)")
             XCTAssertTrue(row.exists, "missing bucket row \(name)")
             XCTAssertTrue(row.label.hasPrefix(name), "row label: \(row.label)")
         }
@@ -281,7 +282,7 @@ final class MirachUITests: XCTestCase {
         openDeseos(app)
 
         // The groups of Deseos, biggest first and «Sin categoría» last, and the month it came from.
-        XCTAssertTrue(app.navigationBars["Deseos"].exists)
+        XCTAssertTrue(app.navigationBars["Gustos"].exists)
         XCTAssertEqual(app.staticTexts["detalle.month"].label, "Septiembre de 2026")
         let rest = element(app, "detalle.group.stub-des-rest")
         let susc = element(app, "detalle.group.stub-des-susc")
@@ -329,7 +330,7 @@ final class MirachUITests: XCTestCase {
 
         let announcement = element(app, "detalle.announcement")
         XCTAssertTrue(announcement.waitForExistence(timeout: 10))
-        XCTAssertEqual(announcement.label, "Movida a Deseos · Restaurantes")
+        XCTAssertEqual(announcement.label, "Movida a Gustos · Restaurantes")
         XCTAssertFalse(element(app, "detalle.sheet").exists)
         XCTAssertTrue(element(app, "detalle.group.stub-des-rest").label.hasPrefix("Restaurantes. 3 movimientos"))
     }
@@ -344,7 +345,7 @@ final class MirachUITests: XCTestCase {
         element(app, "detalle.category.stub-nec-super").tap()
         // Another bucket: nothing is sent until the person confirms.
         XCTAssertTrue(app.alerts["Cambiar de grupo"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.alerts.staticTexts["Este movimiento pasará de Deseos a Necesidades y cambiará el cálculo del mes."].exists)
+        XCTAssertTrue(app.alerts.staticTexts["Este movimiento pasará de Gustos a Necesidades y cambiará el cálculo del mes."].exists)
         app.alerts.buttons["Cancelar"].tap()
         XCTAssertTrue(element(app, "detalle.sheet").exists, "cancelling keeps the sheet and the movement")
 
@@ -383,7 +384,7 @@ final class MirachUITests: XCTestCase {
 
         let announcement = element(app, "detalle.announcement")
         XCTAssertTrue(announcement.waitForExistence(timeout: 10))
-        XCTAssertEqual(announcement.label, "Movida a Deseos · Ropa")
+        XCTAssertEqual(announcement.label, "Movida a Gustos · Ropa")
         XCTAssertTrue(element(app, "detalle.group.stub-new-1").exists)
     }
 
@@ -581,7 +582,7 @@ final class MirachUITests: XCTestCase {
         let row = element(app, "review.row.1")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         XCTAssertTrue(row.label.contains("Sin categoría") == false)
-        XCTAssertTrue(row.label.contains("Deseos · Desconocido"), "no suggestion: \(row.label)")
+        XCTAssertTrue(row.label.contains("Gustos · Desconocido"), "no suggestion: \(row.label)")
 
         // A duplicate shows its mark and opens nothing.
         let duplicate = element(app, "review.row.5")
@@ -634,7 +635,7 @@ final class MirachUITests: XCTestCase {
         let income = element(app, "review.row.3")
         XCTAssertTrue(income.waitForExistence(timeout: 10))
         XCTAssertTrue(income.label.contains("Ingreso, no se puede editar"), income.label)
-        XCTAssertFalse(income.label.contains("Deseos · Desconocido"), income.label)
+        XCTAssertFalse(income.label.contains("Gustos · Desconocido"), income.label)
         income.tap()
         XCTAssertFalse(element(app, "review.sheet").waitForExistence(timeout: 1), "an income must open no sheet")
         XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar")
@@ -717,7 +718,7 @@ final class MirachUITests: XCTestCase {
         // The sheet closes; the notice counts the two other transfers the pattern now matches.
         XCTAssertTrue(element(app, "review.info").waitForExistence(timeout: 10))
         XCTAssertEqual(element(app, "review.info").label, "«Amigos» se aplicó a 2 filas más")
-        XCTAssertTrue(row.label.contains("Deseos · Amigos"), row.label)
+        XCTAssertTrue(row.label.contains("Gustos · Amigos"), row.label)
         XCTAssertEqual(app.buttons["review.confirm"].label, "Confirmar (1 cambio)")
     }
 
@@ -893,8 +894,9 @@ final class MirachUITests: XCTestCase {
         XCTAssertEqual(rest.label, "Restaurantes. 2 movimientos. 0 patrones")
         XCTAssertEqual(element(app, "categorias.row.stub-nec-super").label, "Supermercado. 2 movimientos. 2 patrones")
         XCTAssertTrue(element(app, "categorias.row.stub-des-desc").label.hasSuffix("Categoría del sistema"))
-        // The traffic light and the old name of the bucket never show.
-        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Gustos")).count, 0)
+        // The bucket shows its official name; the API value "Deseos" never reaches a label.
+        XCTAssertGreaterThan(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Gustos")).count, 0)
+        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Deseos")).count, 0)
     }
 
     @MainActor
@@ -988,7 +990,7 @@ final class MirachUITests: XCTestCase {
         save.tap()
         let alert = app.alerts["Cambiar de grupo"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
-        XCTAssertTrue(alert.staticTexts["2 movimientos pasarán de Deseos a Necesidades en todos los meses."].exists)
+        XCTAssertTrue(alert.staticTexts["2 movimientos pasarán de Gustos a Necesidades en todos los meses."].exists)
         alert.buttons["Cancelar"].tap()
         XCTAssertTrue(save.isEnabled, "cancelling keeps the draft")
 

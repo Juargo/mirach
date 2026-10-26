@@ -8,9 +8,9 @@ import org.junit.Test
 class MirachThemeTest {
     @Test
     fun lightAndDarkPalettesDifferWhereTheTokensDo() {
-        // design/tokens.json: bucket.deseos is #782c5c in light and #bb6c90 in dark.
-        assertEquals(Color(0xFF782C5C), MirachPalettes.light.bucket.deseos)
-        assertEquals(Color(0xFFBB6C90), MirachPalettes.dark.bucket.deseos)
+        // design/tokens.json (from Figma): bucket.gustos is #7b61a8 in light and #a891d6 in dark.
+        assertEquals(Color(0xFF7B61A8), MirachPalettes.light.bucket.gustos)
+        assertEquals(Color(0xFFA891D6), MirachPalettes.dark.bucket.gustos)
         assertNotEquals(MirachPalettes.light.base.background, MirachPalettes.dark.base.background)
     }
 
