@@ -155,7 +155,7 @@ Objetivo: **dejar listo todo lo que bloquea el Incremento 1 y empezar a medir in
 
 | Ítem | Tipo | Por qué ahora |
 |---|---|---|
-| Reunir cartolas reales de los cuatro bancos, cuenta corriente y cuenta vista (pendiente 1) | Investigación | Bloquea E2 entero. BCI y Santander no están verificados |
+| Reunir cartolas reales de los cuatro bancos, cuenta corriente y cuenta vista (pendiente 1) | Investigación | Bloquea E2 entero. BCI y Santander ya tienen lector PDF probado con una cartola real cada uno (`apps/api/test/fixtures/pdf`); falta cubrir cada producto y formato |
 | Ejecutar la prueba del prototipo v1 con 3 a 5 personas | Validación | Puede reordenar E3 antes de construirlo |
 | Landing con lista de espera y puerta falsa de precios (LAN-01, 02, 03, 04, 08, 09) | Validación | Mide el umbral de 5% de visitas mientras se construye |
 | Cuenta de Google Play Console (PUB-01) | Habilitador | Las cuentas personales nuevas deben pasar una prueba cerrada antes de publicar en producción; confirmar el requisito vigente. Hecho |

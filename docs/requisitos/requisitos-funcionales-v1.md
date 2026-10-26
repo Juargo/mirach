@@ -106,7 +106,7 @@ El usuario sube la cartola de su banco y ve sus movimientos sin duplicados. Es e
 
 Regla propuesta para IMP-05: un movimiento se considera repetido si coincide en banco, cuenta, fecha, descripción, monto y saldo. Si dos movimientos idénticos ocurren el mismo día, se distinguen por su orden en el archivo.
 
-Formatos conocidos: Banco de Chile entrega Excel, TXT y PDF; BancoEstado entrega PDF. No verifiqué el formato para personas de BCI ni de Santander. Antes de construir los lectores hay que reunir cartolas reales de cada banco y producto, sin estados de cuenta de tarjeta, que no entran en la v1.
+Formatos conocidos: Banco de Chile entrega Excel, TXT y PDF; BancoEstado entrega PDF. No verifiqué el formato para personas de BCI ni de Santander. Antes de construir los lectores hay que reunir cartolas reales de cada banco y producto, sin estados de cuenta de tarjeta, que no entran en la v1. Actualización (25-10-2026): los lectores PDF de BCI y Santander ya se prueban con una cartola real cada uno (`apps/api/test/fixtures/pdf`); falta cubrir cuenta corriente y cuenta vista en cada formato.
 
 ## Movimientos (MOV)
 
@@ -363,7 +363,7 @@ Quedan tres decisiones abiertas de producto (1, 6 y 8); las de la sección anter
 
 | N° | Decisión | Por qué importa |
 | --- | --- | --- |
-| 1 | Reunir cartolas reales de los cuatro bancos, en cuenta corriente y cuenta vista | Sin muestras no se pueden diseñar los lectores; BCI y Santander no están verificados |
+| 1 | Reunir cartolas reales de los cuatro bancos, en cuenta corriente y cuenta vista | Sin muestras no se pueden diseñar los lectores. BCI y Santander ya tienen lector PDF probado con una cartola real cada uno (`apps/api/test/fixtures/pdf`); falta cubrir cada producto y formato |
 | 2 | ~~¿Qué perfil se sugiere a un usuario con deuda alta?~~ Resuelta el 23-10-2026: el 80/10/10, presentado como "Salir de deudas" (PER-04) | Con la deuda dentro de necesidades, el 50% es inalcanzable para muchos; el perfil deja de ser un extra |
 | 3 | ~~¿Cómo se trata el pago de tarjeta cuando solo se sube la cuenta corriente?~~ Resuelta el 23-10-2026: en la v1 no se leen estados de cuenta de tarjeta y el pago cuenta como Pago de deudas (regla 3) | Evita duplicar gastos |
 | 4 | ~~¿Iniciar sesión con Apple también en Android?~~ Resuelta: no en la v1 (ADR-006) | Cambia el trabajo del login en Android |
