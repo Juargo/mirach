@@ -14,7 +14,7 @@ struct ApiVersionFootnote: View {
         // Always a Text (empty until loaded): `.task` needs a real view to attach to,
         // an `if` that produces nothing would never start the request.
         Text(label)
-            .font(.footnote)
+            .font(.mirach(.footnote))
             .mirachFigures()
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
             .accessibilityIdentifier("signedin.apiVersion")

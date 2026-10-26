@@ -6,11 +6,11 @@ struct ConfigurationErrorView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
+                .font(.mirach(.largeTitle))
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityHidden(true)
             Text("La app no está configurada correctamente")
-                .font(.title3.bold())
+                .font(.mirach(.title3).bold())
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Text("Falta la clave de acceso a la API. Instala una versión actualizada de Mirach o contacta a quien te la entregó.")

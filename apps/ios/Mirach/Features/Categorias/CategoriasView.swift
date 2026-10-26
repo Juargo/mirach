@@ -223,7 +223,7 @@ private struct BucketHeader: View {
             Rectangle().fill(bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
             Text(bucket.label)
         }
-        .font(.subheadline.bold())
+        .font(.mirach(.subheadline).bold())
         .foregroundStyle(Color.Mirach.Base.foreground)
         .textCase(nil)
         .accessibilityElement(children: .combine)
@@ -246,13 +246,13 @@ private struct CategoriaRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(category.nombre)
-                    .font(.headline)
+                    .font(.mirach(.headline))
                     // A category name is one word often: capped so it wraps by word, not by syllable.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .lineLimit(2)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                 Text(CategoriasPresentation.counts(category))
-                    .font(.footnote)
+                    .font(.mirach(.footnote))
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)

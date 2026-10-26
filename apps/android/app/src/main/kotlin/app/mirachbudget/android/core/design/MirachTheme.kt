@@ -48,7 +48,7 @@ fun MirachPalette.toMaterialColorScheme(dark: Boolean): ColorScheme {
     }
 }
 
-/** Light/dark follows the system. Corners are square (`radius.base`). */
+/** Light/dark follows the system. Corners are square (`radius.base`) and text uses Inter (`MirachTypography`). */
 @Composable
 fun MirachTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val palette = if (darkTheme) MirachPalettes.dark else MirachPalettes.light
@@ -57,6 +57,7 @@ fun MirachTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable
         MaterialTheme(
             colorScheme = palette.toMaterialColorScheme(darkTheme),
             shapes = Shapes(square, square, square, square, square),
+            typography = MirachTypography,
             content = content,
         )
     }

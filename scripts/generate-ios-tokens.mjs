@@ -121,7 +121,7 @@ ${copyEnum('estado')}
 
 // MARK: - Typography
 
-/// Font family names from \`typography.font-family\`, in fallback order. Fonts are not bundled yet.
+/// Font family names from \`typography.font-family\`, in fallback order. Inter is bundled (see MirachTypography.swift).
 enum MirachFont {
     static let sans: [String] = ${list(fam.sans.$value ?? fam.sans)}
     /// OpenType feature required for figures (\`typography.figure-features\`).

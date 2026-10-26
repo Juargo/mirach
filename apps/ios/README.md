@@ -55,6 +55,7 @@ Colores, textos de bloque y de estado, familia tipográfica, radio y espaciado s
 
 - `Mirach/Resources/Tokens.xcassets`: un color set por token, en una carpeta por grupo (`Base`, `Bucket`, `Estado`, `Feedback`, `Ingreso`) con espacio de nombres (`Bucket/gustos`). El valor claro es la apariencia "Any" y el oscuro la apariencia `luminosity: dark`, en sRGB.
 - `Mirach/Core/Design/GeneratedTokens.swift`: accesores tipados. `Color.Mirach.<Grupo>.<token>` (por ejemplo `Color.Mirach.Bucket.gustos`), `MirachCopy.Bucket.gustos` (textos), `MirachFont` (familia), `MirachRadius` (radio), `MirachSpacing` (espaciado) y el modificador `.mirachFigures()` (cifras con dígitos tabulares).
+- **Tipografía:** Inter 4.1 vive en `Mirach/Resources/Fonts` (con su licencia OFL) y se registra con `UIAppFonts` en `project.yml`. Las vistas usan `.font(.mirach(.footnote))` en lugar de `.font(.footnote)`: misma medida del estilo del sistema y Dynamic Type, con Inter. `MirachTypography.applyToSystemBars()` pone Inter en las barras de navegación y pestañas; las alertas del sistema siguen en San Francisco.
 
 ```bash
 cd apps/ios

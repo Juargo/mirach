@@ -24,7 +24,7 @@ struct IconPicker: View {
         let isSelected = selection == value
         return Button { onSelect(value) } label: {
             Image(systemName: symbol)
-                .font(.title3)
+                .font(.mirach(.title3))
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .foregroundStyle(isSelected ? Color.Mirach.Base.accentForeground : Color.Mirach.Base.foreground)
                 .background(isSelected ? Color.Mirach.Base.accent : Color.clear)
@@ -35,7 +35,7 @@ struct IconPicker: View {
                 .overlay(alignment: .topTrailing) {
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
+                            .font(.mirach(.caption))
                             .foregroundStyle(Color.Mirach.Base.foreground)
                             .padding(2)
                     }

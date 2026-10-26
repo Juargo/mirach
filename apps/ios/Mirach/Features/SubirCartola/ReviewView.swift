@@ -86,10 +86,10 @@ struct ReviewView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(preview.banco) · \(preview.tipoCuenta)")
-                .font(.headline)
+                .font(.mirach(.headline))
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Text("Revisa las filas y confirma para importar. Nada se ha guardado aún.")
-                .font(.subheadline)
+                .font(.mirach(.subheadline))
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
         // At accessibility sizes the rows are the content: keep the header from filling the
@@ -200,11 +200,11 @@ private struct SectionHeader: View {
                 Rectangle().fill(bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
             }
             Text(section.title)
-                .font(.subheadline.bold())
+                .font(.mirach(.subheadline).bold())
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Spacer(minLength: 0)
             Text(String(section.rows.count))
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .mirachFigures()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
@@ -266,14 +266,14 @@ private struct ReviewRow: View {
 
     private var description: some View {
         Text(row.descripcion)
-            .font(.body)
+            .font(.mirach(.body))
             .lineLimit(2)
             .foregroundStyle(row.esDuplicado ? Color.Mirach.Base.mutedForeground : Color.Mirach.Base.foreground)
     }
 
     private var amount: some View {
         Text(row.amountText)
-            .font(.body)
+            .font(.mirach(.body))
             .mirachFigures()
             .lineLimit(1)
             .minimumScaleFactor(0.6)
@@ -291,7 +291,7 @@ private struct ReviewRow: View {
             }
             // Wrap at word boundaries instead of truncating.
             .fixedSize(horizontal: false, vertical: true)
-            .font(.footnote)
+            .font(.mirach(.footnote))
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
         } else {
             HStack(spacing: 6) {
@@ -300,10 +300,10 @@ private struct ReviewRow: View {
                 subtitleDetail
                 if row.isEditable {
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.footnote).accessibilityHidden(true)
+                    Image(systemName: "chevron.right").font(.mirach(.footnote)).accessibilityHidden(true)
                 }
             }
-            .font(.footnote)
+            .font(.mirach(.footnote))
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
     }
@@ -375,7 +375,7 @@ struct CategorySheet<CreateForm: View>: View {
                             Label("Crear categoría", systemImage: "plus")
                                 .foregroundStyle(Color.Mirach.Base.foreground)
                             Spacer()
-                            Image(systemName: "chevron.right").font(.footnote).accessibilityHidden(true)
+                            Image(systemName: "chevron.right").font(.mirach(.footnote)).accessibilityHidden(true)
                         }
                         .frame(minHeight: 44)
                         .contentShape(Rectangle())
@@ -407,7 +407,7 @@ struct CategorySheet<CreateForm: View>: View {
                             Rectangle().fill(group.bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
                             Text(group.bucket.label)
                         }
-                        .font(.subheadline.bold())
+                        .font(.mirach(.subheadline).bold())
                         .foregroundStyle(Color.Mirach.Base.foreground)
                         .textCase(nil)
                         .accessibilityElement(children: .combine)
@@ -440,9 +440,9 @@ struct CategorySheet<CreateForm: View>: View {
 
     private var rowSummary: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(summaryTitle).font(.headline).lineLimit(2)
+            Text(summaryTitle).font(.mirach(.headline)).lineLimit(2)
             Text(summaryDetail)
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .mirachFigures()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }

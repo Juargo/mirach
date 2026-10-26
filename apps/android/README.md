@@ -112,7 +112,7 @@ apps/android/scripts/generate-tokens.sh
 ```
 
 - **Cuándo regenerar:** cada vez que cambie `design/tokens.json`. El job `android` de CI ejecuta el script y falla si el diff no está vacío; también corre `node --test scripts/generate-android-tokens.test.mjs`.
-- **Uso en pantallas:** `MirachTheme { ... }` (ya aplicado en `MainActivity`) sigue el tema del sistema. Los colores se leen con `MirachTheme.colors.<grupo>.<token>` (por ejemplo `bucket.gustos`, `feedback.errorText`), los textos con `MirachCopy`, las cifras con `.mirachFigures()` (dígitos tabulares), las esquinas con `MirachRadius` y el espaciado con `MirachSpacing`. Los colores Material 3 (`MaterialTheme.colorScheme`) se derivan de los tokens donde existe un rol equivalente.
+- **Uso en pantallas:** `MirachTheme { ... }` (ya aplicado en `MainActivity`) sigue el tema del sistema. Los colores se leen con `MirachTheme.colors.<grupo>.<token>` (por ejemplo `bucket.gustos`, `feedback.errorText`), los textos con `MirachCopy`, las cifras con `.mirachFigures()` (dígitos tabulares), las esquinas con `MirachRadius` y el espaciado con `MirachSpacing`. La tipografía es Inter 4.1 (`res/font`, licencia en `licenses/Inter-OFL.txt`), aplicada a todos los estilos de Material por `MirachTypography` en el tema. Los colores Material 3 (`MaterialTheme.colorScheme`) se derivan de los tokens donde existe un rol equivalente.
 - **Reglas de los tokens:** los colores de `bucket` son solo relleno, nunca texto, y siempre van con una etiqueta; el bloque del 30% se muestra como «Gustos»; `Deseos` es solo el valor del API.
 
 ## Notas

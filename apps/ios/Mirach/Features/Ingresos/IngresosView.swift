@@ -76,7 +76,7 @@ struct IngresosView: View {
             if ingresos.transacciones.isEmpty {
                 VStack(spacing: 8) {
                     Text("Sin ingresos en \(Format.month(ingresos.periodo))")
-                        .font(.headline)
+                        .font(.mirach(.headline))
                         .foregroundStyle(Color.Mirach.Base.foreground)
                     Text("No hay ingresos registrados para este período.")
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
@@ -100,17 +100,17 @@ private struct IngresosHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(MirachCopy.Bucket.ingreso)
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             Text(Format.income(ingresos.total))
-                .font(.title2.bold())
+                .font(.mirach(.title2).bold())
                 .mirachFigures()
                 // A figure must not wrap or truncate: it shrinks first.
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .foregroundStyle(Color.Mirach.Ingreso.text)
             Text(IngresosPresentation.count(ingresos.conteo))
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
         .padding(12)
@@ -162,7 +162,7 @@ private struct IngresoRow: View {
 
     private var description: some View {
         Text(ingreso.descripcion)
-            .font(.body)
+            .font(.mirach(.body))
             // The description may take several lines (never cut), capped so a long word wraps
             // by word and not by syllable at the largest sizes.
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
@@ -171,7 +171,7 @@ private struct IngresoRow: View {
 
     private var amount: some View {
         Text(Format.income(ingreso.monto))
-            .font(.body)
+            .font(.mirach(.body))
             .mirachFigures()
             .lineLimit(1)
             .minimumScaleFactor(0.6)
@@ -180,7 +180,7 @@ private struct IngresoRow: View {
 
     private var subtitle: some View {
         Text("\(Format.shortDate(ingreso.fecha)) · \(ingreso.origen)")
-            .font(.footnote)
+            .font(.mirach(.footnote))
             // Wrap at word boundaries instead of truncating.
             .fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(Color.Mirach.Base.mutedForeground)

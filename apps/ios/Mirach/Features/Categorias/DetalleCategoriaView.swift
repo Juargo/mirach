@@ -156,7 +156,7 @@ struct DetalleCategoriaView: View {
         case .notFound:
             centered {
                 Text(DetalleCategoriaPresentation.goneMessage)
-                    .font(.headline)
+                    .font(.mirach(.headline))
                     .foregroundStyle(Color.Mirach.Base.foreground)
                 Button("Volver a Categorías") { dismiss() }
                     .prominentButton()
@@ -330,7 +330,7 @@ struct DetalleCategoriaView: View {
     private func fieldError(_ text: String?, id: String) -> some View {
         if let text {
             Text(text)
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityIdentifier(id)
         }
@@ -350,11 +350,11 @@ private struct PatternRow: View {
             Button(action: edit) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(pattern.patron)
-                        .font(.body.monospaced())
+                        .font(.mirach(.body))
                         .foregroundStyle(Color.Mirach.Base.foreground)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(pattern.matchType.label)
-                        .font(.footnote)
+                        .font(.mirach(.footnote))
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -403,7 +403,7 @@ private struct PatternSheet: View {
                         .accessibilityIdentifier("pattern.text")
                     if let error = viewModel.patternErrors.pattern {
                         Text(error)
-                            .font(.footnote)
+                            .font(.mirach(.footnote))
                             .foregroundStyle(Color.Mirach.Feedback.errorText)
                             .accessibilityIdentifier("pattern.error.text")
                     }

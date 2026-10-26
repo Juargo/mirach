@@ -116,7 +116,7 @@ struct NewCategoryForm: View {
     private func fieldError(_ text: String?, id: String) -> some View {
         if let text {
             Text(text)
-                .font(.footnote)
+                .font(.mirach(.footnote))
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityIdentifier(id)
         }
