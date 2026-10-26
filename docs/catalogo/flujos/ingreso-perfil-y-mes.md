@@ -6,7 +6,7 @@ Cambiar desde Ajustes el ingreso mensual, el perfil de porcentajes, el día en q
 
 | N° | Pantalla | Figma | Requisitos | Alcance |
 |---|---|---|---|---|
-| 14 | Ajustes | [`91:453`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=91-453) | AUTH-04, PRI-01, SOP-01 | v1.0 |
+| 14 | Ajustes | [`91:368`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=91-368) | AUTH-04, PRI-01, SOP-01 | v1.0 |
 | 48 | Ingreso mensual (Ajustes) | [`154:1610`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=154-1610) | PER-02 | v1.0 |
 | 49 | Perfil (Ajustes) | [`154:1640`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=154-1640) | PER-03, PER-04, PER-06 | v1.0, sin la opción «Personalizado» |
 | 51 | Inicio del mes | [`154:1753`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=154-1753) | PER-08 | v1.0 |

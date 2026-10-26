@@ -6,7 +6,7 @@ Plan gratis, prueba de 30 días de Plus y cobro mediante las tiendas (PLA-01 a P
 
 | N° | Pantalla | Figma | Requisitos | Alcance |
 |---|---|---|---|---|
-| 15 | Planes | [`91:368`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=91-368) | PLA-01, PLA-03, PLA-04, PLA-05 | v1.1 |
+| 15 | Planes | [`91:453`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=91-453) | PLA-01, PLA-03, PLA-04, PLA-05 | v1.1 |
 | 32 | Aviso · límite de 2 bancos (plan gratis) | [`138:1022`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=138-1022) | IMP-24 | v1.1 |
 | 38 | Inicio · aviso de fin de prueba | [`198:3919`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=198-3919) | PLA-09 | v1.1 |
 | 39 | Terminó la prueba · plan gratis | [`146:1158`](https://www.figma.com/design/NY2IRzO5C4z6Y4NTfuAG2u/Mirach-UI?node-id=146-1158) | PLA-02, PLA-07, PLA-09 | v1.1 |
