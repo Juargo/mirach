@@ -24,7 +24,7 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
 | T3 — ADRs: ADR-010:144 (BCI/Santander no longer blocked), ADR-007 per D2, ADR-012 per D1, states per D4; land `629cf80` (CLAUDE.md trim) | S1, S3 | inline | done (L13) | `5f7cc6e`, `2a7e444`, `841514b`, `2c376c1` |
 | T4 — `design/tokens.json` from Figma variables (Gustos, block and state colors, type scale, spacing) and regenerated iOS/Android resources | S1, S2 | inline | pending (D2) | |
 | T5 — Screen catalog: slim to behavior, cite RF + Figma node per screen, «Deseos» → «Gustos», retired ADR refs, Figma screen map, missing screens (supersedes the checklist of #108) | S1, S2 | inline | done (L19–L20) | `c63ca13` |
-| T6 — Figma: frame names carry their requirement IDs; apply D3 | S1, S2 | inline | done except D3 elements inside v1.0 screens (L22) | Figma |
+| T6 — Figma: frame names carry their requirement IDs; apply D3 | S1, S2 | inline | done (L22); D3 elements stay until redesign | Figma |
 | T7 — Milestones and issues: #63, #80, #82 per D5; update #108 and #109; populate Sprints 2–5 from the Figma screen map; issues for SOP-03 and AUTH-06 | S1, S3 | inline | done except #63 (L11, L15, L18) | |
 
 ## Log
@@ -58,4 +58,5 @@ Branch: `docs/normalizacion-fuentes` (one PR per work unit). Delivery: `ask-on-r
 - User (2026-10-25): skip the native review of the updated #131 (declined for that candidate only); create the API issues for gaps 21–23, then do T6.
 - **L21** (2026-10-25) API issues for the catalog gaps, Sprint 3: #157 (manual movement 400 codes, gap 21), #158 (ignore a movement, MOV-04, gap 22), #159 (icon allowlist vs CLA-11, gap 23); the catalog links them (`580d87f`).
 - **L22** (2026-10-25) T6: building the Figma names from the catalog tables exposed a swap I made: screen 14 Ajustes is `91:368` and 15 Planes is `91:453`; the catalog and issues #145 and #155 had them reversed. Fixed in both, then a check of every catalog screen number against its Figma frame name found no other mismatch. Renamed the 57 high-fidelity frames on the Diseño page (`2:3`) to `<screen> · <requirement IDs>`, with the file's existing prefix convention for screens outside v1.0 (`v1.1 · ` for 15, 26b, 27b, 32, 34, 38, 39, 40, 50; `Después · ` for 13). Names only: no visual change; prototype links use node IDs. Wireframe frames were not renamed. Not done (would be a visual change): D3 elements inside v1.0 screens («Campo · Tema» in Ajustes, «Buscar por descripción» in Movimientos).
+- User (2026-10-25): "déjalo para cuando se rediseñen esas pantallas" → the D3 elements stay in Figma until those screens are redesigned; scope notes added to #139 (search, MOV-06) and #141 (theme field, VIS-16) so they are not implemented.
 - Next: T4 needs its own PR (it changes shipped app resources, and the state tokens depend on #113); T5 and T7 are docs/GitHub only.
