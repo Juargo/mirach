@@ -1,10 +1,16 @@
 import { Bucket } from './bucket';
 import { participacionDelGasto } from './participacion-gasto';
 import {
+  BANDAS_SEMAFORO,
   EstadoSemaforo,
   calcularEstadoBucket,
   calcularEstadoGlobal,
 } from './estado-semaforo';
+import {
+  EstadoBloque,
+  calcularEstadoBloque,
+  calcularEstadoMes,
+} from './estado-bloque';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-01: ResumenMes VO + porcentajeBasisPoints helper + TARGETS_503020
@@ -67,6 +73,8 @@ export interface BucketSlice {
   readonly participacionGastoBp: bigint | null;
   /** Traffic-light health estado for this bucket (US-016). null for sinIngreso. */
   readonly estadoSemaforo: EstadoSemaforo | null;
+  /** Rule 9 state (issue #113): bien / cerca / sobre. null for sinIngreso. */
+  readonly estado: EstadoBloque | null;
 }
 
 /** Input shape for ResumenMes.crear(). */
@@ -96,6 +104,10 @@ export class ResumenMes {
   readonly buckets: ReadonlyArray<BucketSlice>;
   /** Worst traffic-light estado across Necesidades/Deseos/Ahorro (US-016). null when sinIngreso. */
   readonly estadoGlobal: EstadoSemaforo | null;
+  /** Worst rule 9 state across the three blocks (VIS-11). null when sinIngreso. */
+  readonly estadoMes: EstadoBloque | null;
+  /** Blocks tied at the worst state (VIS-03); empty when Bien or sinIngreso. */
+  readonly bloquesEstadoMes: ReadonlyArray<Bucket>;
 
   private constructor(
     totalIngreso: bigint,
@@ -106,6 +118,9 @@ export class ResumenMes {
     this.sinIngreso = totalIngreso === 0n;
     this.buckets = buckets;
     this.estadoGlobal = estadoGlobal;
+    const estadoMes = calcularEstadoMes(buckets);
+    this.estadoMes = estadoMes.estado;
+    this.bloquesEstadoMes = estadoMes.bloques;
   }
 
   /**
@@ -132,6 +147,11 @@ export class ResumenMes {
         porcentajeBp,
         participacionGastoBp: participaciones[indice] ?? null,
         estadoSemaforo: calcularEstadoBucket(bucket, porcentajeBp),
+        estado: calcularEstadoBloque(
+          bucket,
+          porcentajeBp,
+          BANDAS_SEMAFORO[bucket].metaBp,
+        ),
       };
     });
 

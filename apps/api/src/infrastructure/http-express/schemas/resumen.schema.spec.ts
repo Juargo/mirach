@@ -138,6 +138,8 @@ describe('resumenResponseSchema (sync guarantee)', () => {
       buckets: [],
       targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
       estadoGlobal: null,
+      estadoMes: null,
+      bloquesEstadoMes: [],
     };
 
     it('parses without the field (it is no longer required)', () => {
@@ -149,5 +151,34 @@ describe('resumenResponseSchema (sync guarantee)', () => {
       const parsed = resumenResponseSchema.parse(withStaleField);
       expect('cantidadSinCategoria' in parsed).toBe(false);
     });
+  });
+});
+
+// Issue #113: zod strips unknown keys, so `not.toThrow()` alone would not
+// notice a field missing from the schema (and from openapi.json).
+describe('resumenResponseSchema — rule 9 fields (issue #113)', () => {
+  it('keeps estado, estadoMes and bloquesEstadoMes after parsing', () => {
+    const dto = aResumenMesDto(
+      '2026-10',
+      makeResumen({
+        totalIngreso: 1_000_000n,
+        necesidades: 580_000n,
+        deseos: 300_000n,
+        ahorro: 170_000n,
+      }),
+    );
+
+    expect(resumenResponseSchema.parse(dto)).toEqual(dto);
+  });
+
+  it('rejects an estado outside bien / cerca / sobre', () => {
+    const dto = aResumenMesDto(
+      '2026-10',
+      makeResumen({ totalIngreso: 1_000_000n, necesidades: 500_000n }),
+    );
+
+    expect(() =>
+      resumenResponseSchema.parse({ ...dto, estadoMes: 'dentro' }),
+    ).toThrow();
   });
 });

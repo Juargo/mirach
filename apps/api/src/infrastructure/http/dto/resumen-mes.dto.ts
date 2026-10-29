@@ -2,6 +2,7 @@ import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
 import { TARGETS_503020 } from '../../../domain/value-objects/resumen-mes';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
+import { EstadoBloque } from '../../../domain/value-objects/estado-bloque';
 
 /**
  * BucketResumenDto — HTTP shape for a single spend bucket in the resumen.
@@ -16,6 +17,8 @@ import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
  * estadoSemaforo: lowercase wire representation of EstadoSemaforo (US-016).
  *   - 'verde' | 'amarillo' | 'rojo' | null
  *   - null for the sinIngreso path.
+ * estado: rule 9 state (issue #113), 'bien' | 'cerca' | 'sobre' | null.
+ *   - null for the sinIngreso path.
  */
 export interface BucketResumenDto {
   readonly bucket: string;
@@ -23,6 +26,7 @@ export interface BucketResumenDto {
   readonly porcentajeBp: number | null;
   readonly participacionGastoBp: number | null;
   readonly estadoSemaforo: string | null;
+  readonly estado: string | null;
 }
 
 /**
@@ -41,6 +45,10 @@ export interface BucketResumenDto {
  * estadoGlobal: worst traffic-light state across measured buckets (US-016).
  *   - lowercase: 'verde' | 'amarillo' | 'rojo' | null
  *   - null when sinIngreso=true.
+ * estadoMes: worst rule 9 state of the three blocks (issue #113, VIS-11),
+ *   'bien' | 'cerca' | 'sobre' | null (null when sinIngreso=true).
+ * bloquesEstadoMes: bucket ids tied at that worst state, in `buckets` order,
+ *   for the month sentence (VIS-03); [] when the month is 'bien' or null.
  */
 export interface ResumenMesDto {
   readonly periodo: string;
@@ -53,6 +61,8 @@ export interface ResumenMesDto {
     readonly Ahorro: number;
   };
   readonly estadoGlobal: string | null;
+  readonly estadoMes: string | null;
+  readonly bloquesEstadoMes: ReadonlyArray<string>;
 }
 
 /**
@@ -69,6 +79,18 @@ const ESTADO_WIRE = Object.freeze({
 /** Convert EstadoSemaforo enum → lowercase wire string, or null → null. */
 function aWire(estado: EstadoSemaforo | null): string | null {
   return estado === null ? null : ESTADO_WIRE[estado];
+}
+
+/** ESTADO_BLOQUE_WIRE — rule 9 states on the wire (issue #113). */
+const ESTADO_BLOQUE_WIRE = Object.freeze({
+  [EstadoBloque.Bien]: 'bien',
+  [EstadoBloque.Cerca]: 'cerca',
+  [EstadoBloque.Sobre]: 'sobre',
+} as const satisfies Record<EstadoBloque, string>);
+
+/** Convert EstadoBloque enum → lowercase wire string, or null → null. */
+function aWireBloque(estado: EstadoBloque | null): string | null {
+  return estado === null ? null : ESTADO_BLOQUE_WIRE[estado];
 }
 
 /**
@@ -98,6 +120,7 @@ export function aResumenMesDto(
           ? null
           : Number(slice.participacionGastoBp),
       estadoSemaforo: aWire(slice.estadoSemaforo),
+      estado: aWireBloque(slice.estado),
     })),
     targets: {
       [Bucket.Necesidades]: TARGETS_503020[Bucket.Necesidades]!,
@@ -105,5 +128,7 @@ export function aResumenMesDto(
       [Bucket.Ahorro]: TARGETS_503020[Bucket.Ahorro]!,
     },
     estadoGlobal: aWire(resumen.estadoGlobal),
+    estadoMes: aWireBloque(resumen.estadoMes),
+    bloquesEstadoMes: [...resumen.bloquesEstadoMes],
   };
 }

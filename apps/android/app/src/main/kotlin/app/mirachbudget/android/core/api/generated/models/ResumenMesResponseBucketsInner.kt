@@ -32,6 +32,7 @@ import kotlinx.serialization.Contextual
  * 
  *
  * @param bucket Bucket name (Bucket domain enum value).
+ * @param estado Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.
  * @param estadoSemaforo Traffic-light health state, lowercase wire enum (US-016), or null.
  * @param participacionGastoBp This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.
  * @param porcentajeBp Basis-point percentage (0-10000). null when sinIngreso=true.
@@ -44,6 +45,10 @@ data class ResumenMesResponseBucketsInner (
     /* Bucket name (Bucket domain enum value). */
     @SerialName(value = "bucket")
     val bucket: kotlin.String,
+
+    /* Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true. */
+    @SerialName(value = "estado")
+    val estado: ResumenMesResponseBucketsInner.Estado?,
 
     /* Traffic-light health state, lowercase wire enum (US-016), or null. */
     @SerialName(value = "estadoSemaforo")
@@ -63,6 +68,17 @@ data class ResumenMesResponseBucketsInner (
 
 ) {
 
+    /**
+     * Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.
+     *
+     * Values: bien,cerca,sobre
+     */
+    @Serializable
+    enum class Estado(val value: kotlin.String) {
+        @SerialName(value = "bien") bien("bien"),
+        @SerialName(value = "cerca") cerca("cerca"),
+        @SerialName(value = "sobre") sobre("sobre");
+    }
     /**
      * Traffic-light health state, lowercase wire enum (US-016), or null.
      *

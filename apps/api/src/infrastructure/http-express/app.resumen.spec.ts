@@ -21,6 +21,8 @@ const RESUMEN_MES_OK = {
   sinIngreso: true,
   buckets: [],
   estadoGlobal: null,
+  estadoMes: null,
+  bloquesEstadoMes: [],
   cantidadSinCategoria: 0,
 };
 

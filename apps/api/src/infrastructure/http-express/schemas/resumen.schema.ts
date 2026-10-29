@@ -21,6 +21,9 @@ export const resumenQuerySchema = z.object({
     ),
 });
 
+/** Rule 9 states (issue #113), lowercase wire enum, or null. */
+const estadoBloqueSchema = z.enum(['bien', 'cerca', 'sobre']).nullable();
+
 /**
  * Response contract for a single spend bucket slice (mirrors
  * `BucketResumenDto`, `infrastructure/http/dto/resumen-mes.dto.ts`).
@@ -50,6 +53,9 @@ const bucketResumenSchema = z.object({
     .describe(
       'Traffic-light health state, lowercase wire enum (US-016), or null.',
     ),
+  estado: estadoBloqueSchema.describe(
+    'Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.',
+  ),
 });
 
 /**
@@ -81,6 +87,14 @@ export const resumenResponseSchema = z
       .enum(['verde', 'amarillo', 'rojo'])
       .nullable()
       .describe('Worst traffic-light state across measured buckets, or null.'),
+    estadoMes: estadoBloqueSchema.describe(
+      'Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.',
+    ),
+    bloquesEstadoMes: z
+      .array(z.string())
+      .describe(
+        'Bucket ids tied at the worst state, in `buckets` order, that define `estadoMes` (VIS-03). Empty when estadoMes is bien or null.',
+      ),
   })
   .meta({
     id: 'ResumenMesResponse',
