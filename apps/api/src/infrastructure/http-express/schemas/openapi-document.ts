@@ -98,6 +98,10 @@ import {
   passwordUpdateRequestSchema,
 } from './perfil.schema';
 import {
+  perfilPresupuestoUpdateRequestSchema,
+  perfilPresupuestoResponseSchema,
+} from './perfil-presupuesto.schema';
+import {
   cuentaDeleteRequestSchema,
   cuentaErrorResponseSchema,
 } from './cuenta.schema';
@@ -1187,6 +1191,63 @@ const perfilUpdateOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `GET /api/perfil/presupuesto` (#110, ADR-005 §7) — the caller's budget
+ * profile. Never 404: a user who never chose one has 50/30/20.
+ */
+const perfilPresupuestoGetOperation: ZodOpenApiOperationObject = {
+  summary: "Get the current user's budget profile",
+  description:
+    "Authenticated endpoint that returns the caller's budget profile (issue #110, PER-03..PER-06): " +
+    'its id and three targets in basis points that sum 10000. A user who never chose a profile ' +
+    'gets 50_30_20. Requires x-api-key + a valid session.',
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: "The caller's budget profile.",
+      content: {
+        'application/json': { schema: perfilPresupuestoResponseSchema },
+      },
+    },
+  },
+};
+
+/**
+ * `PUT /api/perfil/presupuesto` (#110, ADR-005 §7) — replaces the caller's
+ * budget profile. The summaries read it on every request, so the change
+ * applies to every month, past ones too (PER-06).
+ */
+const perfilPresupuestoPutOperation: ZodOpenApiOperationObject = {
+  summary: "Replace the current user's budget profile",
+  description:
+    "Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). " +
+    'Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), ' +
+    'or `personalizado` with three non-negative targets in basis points. Custom targets that do not ' +
+    'sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in ' +
+    'both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, ' +
+    '`GET /api/resumen/semaforo` and `GET /api/buckets/{bucket}/detalle` measure every month against ' +
+    'the current profile. Requires x-api-key + a valid session.',
+  requestBody: {
+    content: {
+      'application/json': { schema: perfilPresupuestoUpdateRequestSchema },
+    },
+  },
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: 'Profile saved; the stored profile is returned.',
+      content: {
+        'application/json': { schema: perfilPresupuestoResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Malformed body (BODY_INVALIDO), custom targets that do not sum 10000 (PERFIL_NO_SUMA_100), or a negative target (META_INVALIDA).',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+  },
+};
+
+/**
  * `PATCH /api/perfil/password` (US-040, design.md §5.5) — changes the
  * caller's own password. Revokes every OTHER active session belonging to
  * the caller's user (PERF040-06) — the caller's own session stays valid.
@@ -1693,6 +1754,10 @@ const paths: ZodOpenApiPathsObject = {
   },
   '/api/perfil': { patch: perfilUpdateOperation },
   '/api/perfil/password': { patch: perfilPasswordUpdateOperation },
+  '/api/perfil/presupuesto': {
+    get: perfilPresupuestoGetOperation,
+    put: perfilPresupuestoPutOperation,
+  },
   '/api/perfil/google/vincular': { post: perfilGoogleVincularOperation },
   '/api/perfil/google/desvincular': {
     post: perfilGoogleDesvincularOperation,

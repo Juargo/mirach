@@ -16,7 +16,7 @@ Delivery: `ask-on-risk`. Test runner: vitest (`pnpm api test`, `pnpm api test:in
 ## Tasks
 
 - [x] T1 S1, S5 — domain VO `PerfilPresupuesto`, `PerfilNoSuma100Error`, bands derived from goals. Route: inline. RED observed (15 VO + 7 bands/goals); GREEN: unit 3235/3235, tsc clean. Commit: 2635535.
-- [ ] T2 S2, S4, S5 — migration + repository port/adapter; summaries, annual, bucket detail and semáforo read goals from the profile. Route: inline. Risk: item 1 (migration).
+- [x] T2 S2, S4, S5 — migration + repository port/adapter; summaries, annual, bucket detail and semáforo read goals from the profile. Route: inline. Risk: item 1 (migration). Use-case tests mutation-checked; unit 3242/3242, int 235/235 (8 new), e2e 76/76, lint/build/openapi/env checks green. Commit: 235c3cb. Independent verifier launched (item 1).
 - [ ] T3 S3, S6 — `GET/PUT /api/perfil/presupuesto`, schemas, error mapping, e2e (acceptance + isolation). Route: inline.
 - [ ] T4 S7 — openapi emit, regenerate iOS/Android clients, openspec deltas. Route: inline.
 
@@ -24,3 +24,4 @@ Delivery: `ask-on-risk`. Test runner: vitest (`pnpm api test`, `pnpm api test:in
 
 - L1 (2026-10-29) User: "si" to "¿Sigo con #110?" (issue #110 is the request; its text is quoted in S1–S6).
 - L2 (2026-10-29) Plan accepted; user chose option "a": shift legacy traffic-light bands with the profile goal (S5).
+- L3 (2026-10-29) T2: legacy `targets` stays in percentage points (now from the profile, decimals allowed for custom goals); exact goals travel as `buckets[].metaBp`. `/api/resumen/semaforo` bands and advice follow the profile (S5). Profile reader is a required constructor param (no silent 50/30/20 fallback in wiring); the Prisma reader falls back to 50/30/20 only for a missing user or an invalid stored row.

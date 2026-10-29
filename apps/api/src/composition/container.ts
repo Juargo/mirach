@@ -39,6 +39,11 @@ import { crearCommitIngesta } from './crear-commit-ingesta';
 import { crearRegistrarMovimientoManual } from './crear-registrar-movimiento-manual';
 import { crearCatalogo, type CatalogoGraph } from './crear-catalogo';
 import { crearPerfil, type PerfilGraph } from './crear-perfil';
+import type { PerfilPresupuestoGraph } from '../infrastructure/http-express/routes/perfil-presupuesto.routes';
+import {
+  ActualizarPerfilPresupuestoUseCase,
+  ObtenerPerfilPresupuestoUseCase,
+} from '../application/use-cases/perfil-presupuesto.use-case';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { CommitIngestaUseCase } from '../application/use-cases/commit-ingesta.use-case';
 import { RegistrarMovimientoManualUseCase } from '../application/use-cases/registrar-movimiento-manual.use-case';
@@ -142,6 +147,8 @@ export interface Container {
   readonly eliminarCuenta: EliminarCuentaUseCase;
   /** Edición de perfil (US-040, PR#1) — `PATCH /api/perfil`. */
   readonly perfil: PerfilGraph;
+  /** Perfil de presupuesto (#110) — `GET/PUT /api/perfil/presupuesto`. */
+  readonly perfilPresupuesto: PerfilPresupuestoGraph;
   /** Login por credenciales — POST /api/auth/login. */
   readonly login: LoginUseCase;
   /** Revocar sesión — POST /api/auth/logout. */
@@ -385,6 +392,13 @@ export function createContainer(
   // US-040: reusa las MISMAS instancias crypto/blindIndex derivadas arriba —
   // nunca una re-derivación (mismo carry-forward que googleAuth/googleAuthMobile).
   const perfil = crearPerfil(prisma, crypto, blindIndex, logger);
+  const perfilPresupuestoGraph: PerfilPresupuestoGraph = {
+    obtener: new ObtenerPerfilPresupuestoUseCase(perfilPresupuesto),
+    actualizar: new ActualizarPerfilPresupuestoUseCase(
+      perfilPresupuesto,
+      logger,
+    ),
+  };
 
   return {
     validarSesion: auth.validarSesion,
@@ -408,6 +422,7 @@ export function createContainer(
     catalogo,
     eliminarCuenta,
     perfil,
+    perfilPresupuesto: perfilPresupuestoGraph,
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
