@@ -1,0 +1,26 @@
+# Perfil de presupuesto (#110)
+
+Objective: budget goals come from a per-user profile instead of fixed 50/30/20. Branch `feat/perfil-presupuesto` from `main` (5132a8f).
+Delivery: `ask-on-risk`. Test runner: vitest (`pnpm api test`, `pnpm api test:integration`, `pnpm api test:e2e`).
+
+## Specs
+
+- **S1** Domain profile. Issue #110: "perfil predefinido (50/30/20, 60/20/20, 70/15/15, 80/10/10 «Salir de deudas») o personalizado; tres metas en puntos base que suman 10.000." PER-03: "Al elegir uno, las metas de los tres bloques cambian en toda la app. El 80/10/10 se presenta como "Salir de deudas"". PER-04: no fifth profile. PER-05: "Los tres porcentajes deben sumar 100% o la app no deja guardar".
+- **S2** Persistence: "campos de perfil en el usuario (migración de expansión)." ADR-004 §8: "tipo (predefinido o personalizado) y tres metas en puntos base que suman 10.000". Default for existing users: 50/30/20. Migration is applied to production by hand BEFORE merging (Render does not run migrations).
+- **S3** Endpoints: "`GET/PUT /api/perfil/presupuesto`." Proposed shape (accepted with the plan, 2026-10-29): GET returns `{ perfil, metas: { Necesidades, Deseos, Ahorro } }` in basis points; PUT accepts `{ perfil: "<predefined id>" }` or `{ perfil: "personalizado", metas: {...} }`. Acceptance: "Cuando Marcela guarda 60/30/20 Entonces recibe 400 con código PERFIL_NO_SUMA_100 y su perfil no cambia". Isolation test (ADR-010 §7).
+- **S4** Summaries: "`GET /api/resumen`, `GET /api/resumen/anual` y `GET /api/buckets/{bucket}/detalle` usan las metas del perfil, para todos los meses (PER-06)." Acceptance: "Dado que Marcela tiene perfil 50/30/20 y movimientos en septiembre y octubre Cuando cambia su perfil a 80/10/10 Entonces el resumen de septiembre y de octubre muestra metas 80%, 10% y 10%". `targets` follows the profile; per-bucket `metaBp` is added (additive).
+- **S5** Legacy traffic light (decision A, 2026-10-29): `estadoSemaforo`/`estadoGlobal` bands shift with the profile goal, keeping today's offsets (Necesidades/Deseos: verde ≤ meta, amarillo ≤ meta + 1000; Ahorro: verde meta..meta + 2000, amarillo meta − 1000..meta + 3000). Applies to `/api/resumen/semaforo` too.
+- **S6** "Perfil personalizado detrás de derecho de plan cuando exista ADR-012; por ahora, permitido."
+- **S7** Contract (ADR-010 §7): `openapi:emit`, both clients regenerated, openspec specs updated (`resumen-semaforo`, `bucket-detalle-mes`, new `perfil-presupuesto`). Logs carry no amounts or personal data.
+
+## Tasks
+
+- [x] T1 S1, S5 — domain VO `PerfilPresupuesto`, `PerfilNoSuma100Error`, bands derived from goals. Route: inline. RED observed (15 VO + 7 bands/goals); GREEN: unit 3235/3235, tsc clean. Commit: T1.
+- [ ] T2 S2, S4, S5 — migration + repository port/adapter; summaries, annual, bucket detail and semáforo read goals from the profile. Route: inline. Risk: item 1 (migration).
+- [ ] T3 S3, S6 — `GET/PUT /api/perfil/presupuesto`, schemas, error mapping, e2e (acceptance + isolation). Route: inline.
+- [ ] T4 S7 — openapi emit, regenerate iOS/Android clients, openspec deltas. Route: inline.
+
+## Log
+
+- L1 (2026-10-29) User: "si" to "¿Sigo con #110?" (issue #110 is the request; its text is quoted in S1–S6).
+- L2 (2026-10-29) Plan accepted; user chose option "a": shift legacy traffic-light bands with the profile goal (S5).

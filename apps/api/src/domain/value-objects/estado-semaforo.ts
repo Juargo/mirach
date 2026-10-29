@@ -41,39 +41,55 @@ export interface BandasBucket {
   /** null ⇒ no lower amarillo band (unilateral buckets). */
   readonly amarilloMin: bigint | null;
   readonly amarilloMax: bigint;
-  /** 50/30/20 target CENTER in basis points. */
+  /** Budget profile goal (target CENTER) in basis points. */
   readonly metaBp: bigint;
 }
 
+/** Width of the amarillo band past the unfavorable edge (10 points). */
+const ANCHO_AMARILLO_BP = 1000n;
+/** Width of Ahorro's verde band above its goal (20 points). */
+const ANCHO_VERDE_AHORRO_BP = 2000n;
+
 /**
- * BANDAS_SEMAFORO — the SINGLE source of truth for zone-band edges and
- * 50/30/20 targets, per spend bucket. `calcularEstadoBucket` below reads
- * this table directly (US-049 design §1.1) — there is no second,
- * independently-derived copy of these 8 threshold constants anywhere.
+ * bandasParaMeta — zone-band edges for one spend bucket around its goal
+ * (#110, decision A): the bands keep the 50/30/20 offsets and move with the
+ * budget profile goal.
+ *
+ * - Necesidades, Deseos: verde ≤ meta, amarillo ≤ meta + 1000.
+ * - Ahorro: verde meta..meta + 2000, amarillo meta − 1000..meta + 3000.
+ */
+export function bandasParaMeta(
+  bucket: Bucket.Necesidades | Bucket.Deseos | Bucket.Ahorro,
+  metaBp: bigint,
+): BandasBucket {
+  if (bucket === Bucket.Ahorro) {
+    return {
+      verdeMin: metaBp,
+      verdeMax: metaBp + ANCHO_VERDE_AHORRO_BP,
+      amarilloMin: metaBp - ANCHO_AMARILLO_BP,
+      amarilloMax: metaBp + ANCHO_VERDE_AHORRO_BP + ANCHO_AMARILLO_BP,
+      metaBp,
+    };
+  }
+  return {
+    verdeMin: null,
+    verdeMax: metaBp,
+    amarilloMin: null,
+    amarilloMax: metaBp + ANCHO_AMARILLO_BP,
+    metaBp,
+  };
+}
+
+/**
+ * BANDAS_SEMAFORO — the bands of the default 50/30/20 profile, per spend
+ * bucket. Derived from `bandasParaMeta`, so the offsets live in one place;
+ * a budget profile (#110) passes its own goal to `calcularEstadoBucket`.
  */
 export const BANDAS_SEMAFORO = Object.freeze({
-  [Bucket.Necesidades]: {
-    verdeMin: null,
-    verdeMax: 5000n,
-    amarilloMin: null,
-    amarilloMax: 6000n,
-    metaBp: 5000n,
-  },
-  [Bucket.Deseos]: {
-    verdeMin: null,
-    verdeMax: 3000n,
-    amarilloMin: null,
-    amarilloMax: 4000n,
-    metaBp: 3000n,
-  },
-  [Bucket.Ahorro]: {
-    verdeMin: 2000n,
-    verdeMax: 4000n,
-    amarilloMin: 1000n,
-    amarilloMax: 5000n,
-    metaBp: 2000n,
-  },
-} as const satisfies Record<
+  [Bucket.Necesidades]: bandasParaMeta(Bucket.Necesidades, 5000n),
+  [Bucket.Deseos]: bandasParaMeta(Bucket.Deseos, 3000n),
+  [Bucket.Ahorro]: bandasParaMeta(Bucket.Ahorro, 2000n),
+} satisfies Record<
   Bucket.Necesidades | Bucket.Deseos | Bucket.Ahorro,
   BandasBucket
 >);
@@ -102,15 +118,24 @@ function estadoDesdeBandas(bp: bigint, b: BandasBucket): EstadoSemaforo {
  * Rules:
  * - porcentajeBp === null (sinIngreso)   → null (no income, no meaningful state)
  * -  * - bucket not in BANDAS_SEMAFORO        → null (Ingreso, etc. — no rule defined)
- * - bucket in BANDAS_SEMAFORO            → estadoDesdeBandas(bp, BANDAS_SEMAFORO[bucket])
+ * - bucket in BANDAS_SEMAFORO            → estadoDesdeBandas(bp, bands)
+ *
+ * `metaBp` is the budget profile goal (#110); without it the bands are the
+ * 50/30/20 ones.
  */
 export function calcularEstadoBucket(
   bucket: Bucket,
   porcentajeBp: bigint | null,
+  metaBp?: bigint,
 ): EstadoSemaforo | null {
   if (porcentajeBp === null) return null;
-  const bandas = BANDAS_SEMAFORO[bucket as keyof typeof BANDAS_SEMAFORO];
-  return bandas === undefined ? null : estadoDesdeBandas(porcentajeBp, bandas);
+  const porDefecto = BANDAS_SEMAFORO[bucket as keyof typeof BANDAS_SEMAFORO];
+  if (porDefecto === undefined) return null;
+  const bandas =
+    metaBp === undefined
+      ? porDefecto
+      : bandasParaMeta(bucket as keyof typeof BANDAS_SEMAFORO, metaBp);
+  return estadoDesdeBandas(porcentajeBp, bandas);
 }
 
 /**

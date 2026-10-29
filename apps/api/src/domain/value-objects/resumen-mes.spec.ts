@@ -336,3 +336,44 @@ describe('ResumenMes — rule 9 states (issue #113)', () => {
     expect(r.bloquesEstadoMes).toEqual([]);
   });
 });
+
+describe('ResumenMes.crear with profile goals (#110)', () => {
+  const input = {
+    totalIngreso: 1000000n,
+    necesidades: 750000n,
+    deseos: 100000n,
+    ahorro: 150000n,
+  };
+  const metas8010 = {
+    [Bucket.Necesidades]: 8000n,
+    [Bucket.Deseos]: 1000n,
+    [Bucket.Ahorro]: 1000n,
+  };
+
+  it('each slice carries the profile goal in metaBp', () => {
+    const r = ResumenMes.crear(input, metas8010);
+    expect(r.buckets.map((b) => b.metaBp)).toEqual([8000n, 1000n, 1000n]);
+    expect(r.metas).toEqual(metas8010);
+  });
+
+  it('estado and estadoSemaforo are measured against the profile goal', () => {
+    const r = ResumenMes.crear(input, metas8010);
+    expect(r.buckets.map((b) => b.estado)).toEqual([
+      EstadoBloque.Bien,
+      EstadoBloque.Bien,
+      EstadoBloque.Bien,
+    ]);
+    expect(r.buckets.map((b) => b.estadoSemaforo)).toEqual([
+      EstadoSemaforo.Verde,
+      EstadoSemaforo.Verde,
+      EstadoSemaforo.Verde,
+    ]);
+  });
+
+  it('without goals it keeps 50/30/20 (previous behavior)', () => {
+    const r = ResumenMes.crear(input);
+    expect(r.buckets.map((b) => b.metaBp)).toEqual([5000n, 3000n, 2000n]);
+    expect(r.buckets[0].estado).toBe(EstadoBloque.Sobre);
+    expect(r.buckets[0].estadoSemaforo).toBe(EstadoSemaforo.Rojo);
+  });
+});

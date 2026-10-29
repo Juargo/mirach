@@ -1,7 +1,6 @@
 import { Bucket } from './bucket';
 import { participacionDelGasto } from './participacion-gasto';
 import {
-  BANDAS_SEMAFORO,
   EstadoSemaforo,
   calcularEstadoBucket,
   calcularEstadoGlobal,
@@ -11,6 +10,7 @@ import {
   calcularEstadoBloque,
   calcularEstadoMes,
 } from './estado-bloque';
+import { METAS_POR_DEFECTO, MetasPresupuesto } from './perfil-presupuesto';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-01: ResumenMes VO + porcentajeBasisPoints helper + TARGETS_503020
@@ -71,6 +71,8 @@ export interface BucketSlice {
    * Unlike porcentajeBp (share of income), this is independent of sinIngreso.
    */
   readonly participacionGastoBp: bigint | null;
+  /** Budget profile goal for this block, in basis points (#110). */
+  readonly metaBp: bigint;
   /** Traffic-light health estado for this bucket (US-016). null for sinIngreso. */
   readonly estadoSemaforo: EstadoSemaforo | null;
   /** Rule 9 state (issue #113): bien / cerca / sobre. null for sinIngreso. */
@@ -108,13 +110,17 @@ export class ResumenMes {
   readonly estadoMes: EstadoBloque | null;
   /** Blocks tied at the worst state (VIS-03); empty when Bien or sinIngreso. */
   readonly bloquesEstadoMes: ReadonlyArray<Bucket>;
+  /** Budget profile goals the month was measured against (#110, PER-06). */
+  readonly metas: MetasPresupuesto;
 
   private constructor(
     totalIngreso: bigint,
     buckets: ReadonlyArray<BucketSlice>,
     estadoGlobal: EstadoSemaforo | null,
+    metas: MetasPresupuesto,
   ) {
     this.totalIngreso = totalIngreso;
+    this.metas = metas;
     this.sinIngreso = totalIngreso === 0n;
     this.buckets = buckets;
     this.estadoGlobal = estadoGlobal;
@@ -126,8 +132,13 @@ export class ResumenMes {
   /**
    * Factory method — always returns a ResumenMes (construction cannot fail).
    * When totalIngreso === 0n, all porcentajeBp will be null.
+   * `metas` are the user's budget profile goals (#110); every month uses the
+   * current profile (PER-06). Without them the goals are 50/30/20.
    */
-  static crear(input: ResumenMesInput): ResumenMes {
+  static crear(
+    input: ResumenMesInput,
+    metas: MetasPresupuesto = METAS_POR_DEFECTO,
+  ): ResumenMes {
     const totals: Record<(typeof SPEND_BUCKETS)[number], bigint> = {
       [Bucket.Necesidades]: input.necesidades,
       [Bucket.Deseos]: input.deseos,
@@ -141,17 +152,15 @@ export class ResumenMes {
     const buckets: BucketSlice[] = SPEND_BUCKETS.map((bucket, indice) => {
       const total = totals[bucket];
       const porcentajeBp = porcentajeBasisPoints(total, input.totalIngreso);
+      const metaBp = metas[bucket];
       return {
         bucket,
         total,
         porcentajeBp,
         participacionGastoBp: participaciones[indice] ?? null,
-        estadoSemaforo: calcularEstadoBucket(bucket, porcentajeBp),
-        estado: calcularEstadoBloque(
-          bucket,
-          porcentajeBp,
-          BANDAS_SEMAFORO[bucket].metaBp,
-        ),
+        metaBp,
+        estadoSemaforo: calcularEstadoBucket(bucket, porcentajeBp, metaBp),
+        estado: calcularEstadoBloque(bucket, porcentajeBp, metaBp),
       };
     });
 
@@ -159,6 +168,6 @@ export class ResumenMes {
       buckets.map((b) => b.estadoSemaforo),
     );
 
-    return new ResumenMes(input.totalIngreso, buckets, estadoGlobal);
+    return new ResumenMes(input.totalIngreso, buckets, estadoGlobal, metas);
   }
 }
