@@ -221,3 +221,27 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
     });
   });
 });
+
+describe('ObtenerSemaforoDetalleUseCase — budget profile goals (#110)', () => {
+  it("bands follow the requesting user's profile goals", async () => {
+    const obtener = vi
+      .fn()
+      .mockResolvedValue(PerfilPresupuesto.predefinido('80_10_10'));
+    const uc = new ObtenerSemaforoDetalleUseCase(
+      makeMockReader(allBucketRows()),
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      { obtener },
+    );
+
+    const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
+
+    expect(obtener).toHaveBeenCalledWith('user-a');
+    const { detalle } = result.getValue();
+    expect(detalle.buckets.map((b) => b.bandas.metaBp)).toEqual([
+      8000n,
+      1000n,
+      1000n,
+    ]);
+  });
+});
