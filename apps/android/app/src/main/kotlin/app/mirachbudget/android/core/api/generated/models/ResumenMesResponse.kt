@@ -33,8 +33,10 @@ import kotlinx.serialization.Contextual
 /**
  * GET /api/resumen — 50/30/20 monthly breakdown (US-015/016).
  *
+ * @param bloquesEstadoMes Bucket ids tied at the worst state, in `buckets` order, that define `estadoMes` (VIS-03). Empty when estadoMes is bien or null.
  * @param buckets Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape.
  * @param estadoGlobal Worst traffic-light state across measured buckets, or null.
+ * @param estadoMes Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
  * @param periodo Resolved period, format YYYY-MM.
  * @param sinIngreso 
  * @param targets 
@@ -44,6 +46,10 @@ import kotlinx.serialization.Contextual
 
 data class ResumenMesResponse (
 
+    /* Bucket ids tied at the worst state, in `buckets` order, that define `estadoMes` (VIS-03). Empty when estadoMes is bien or null. */
+    @SerialName(value = "bloquesEstadoMes")
+    val bloquesEstadoMes: kotlin.collections.List<kotlin.String>,
+
     /* Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape. */
     @SerialName(value = "buckets")
     val buckets: kotlin.collections.List<ResumenMesResponseBucketsInner>,
@@ -51,6 +57,10 @@ data class ResumenMesResponse (
     /* Worst traffic-light state across measured buckets, or null. */
     @SerialName(value = "estadoGlobal")
     val estadoGlobal: ResumenMesResponse.EstadoGlobal?,
+
+    /* Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true. */
+    @SerialName(value = "estadoMes")
+    val estadoMes: ResumenMesResponse.EstadoMes?,
 
     /* Resolved period, format YYYY-MM. */
     @SerialName(value = "periodo")
@@ -78,6 +88,17 @@ data class ResumenMesResponse (
         @SerialName(value = "verde") verde("verde"),
         @SerialName(value = "amarillo") amarillo("amarillo"),
         @SerialName(value = "rojo") rojo("rojo");
+    }
+    /**
+     * Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
+     *
+     * Values: bien,cerca,sobre
+     */
+    @Serializable
+    enum class EstadoMes(val value: kotlin.String) {
+        @SerialName(value = "bien") bien("bien"),
+        @SerialName(value = "cerca") cerca("cerca"),
+        @SerialName(value = "sobre") sobre("sobre");
     }
 
 }

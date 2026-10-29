@@ -24,9 +24,9 @@ struct ResumenMapperTests {
         ]
     ) -> String {
         let list = buckets.map { name, total, bp, estado in
-            #"{"bucket":"\#(name)","total":"\#(total)","porcentajeBp":\#(bp),"participacionGastoBp":null,"estadoSemaforo":\#(estado)}"#
+            #"{"bucket":"\#(name)","total":"\#(total)","porcentajeBp":\#(bp),"participacionGastoBp":null,"estadoSemaforo":\#(estado),"estado":null}"#
         }.joined(separator: ",")
-        return #"{"periodo":"\#(periodo)","sinIngreso":\#(sinIngreso),"totalIngreso":"\#(ingreso)","estadoGlobal":\#(estadoGlobal),"targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},"buckets":[\#(list)]}"#
+        return #"{"periodo":"\#(periodo)","sinIngreso":\#(sinIngreso),"totalIngreso":"\#(ingreso)","estadoGlobal":\#(estadoGlobal),"estadoMes":null,"bloquesEstadoMes":[],"targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},"buckets":[\#(list)]}"#
     }
 
     @Test func mapsAMonthWithExactMoneyAndBasisPoints() async throws {

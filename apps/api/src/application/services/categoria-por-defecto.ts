@@ -13,8 +13,9 @@ import { Bucket } from '../../domain/value-objects/bucket';
  * antes, así que el usuario la nota y la reclasifica en vez de que quede
  * absuelta en silencio.
  *
- * El término oficial es "Deseos" (`ETIQUETA_BUCKET_COPY[Bucket.Deseos]` en
- * `domain/value-objects/semaforo-detalle.ts`), igual que el dominio.
+ * El nombre de producto es "Gustos" (`ETIQUETA_BUCKET_COPY[Bucket.Deseos]` en
+ * `domain/value-objects/semaforo-detalle.ts`, issue #113); el id de dominio
+ * sigue siendo `Deseos`.
  */
 export const BUCKET_POR_DEFECTO = Bucket.Deseos;
 

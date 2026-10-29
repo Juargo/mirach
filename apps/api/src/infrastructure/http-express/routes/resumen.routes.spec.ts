@@ -25,6 +25,8 @@ const RESUMEN_MES_OK = {
   sinIngreso: false,
   buckets: [],
   estadoGlobal: null,
+  estadoMes: null,
+  bloquesEstadoMes: [],
   cantidadSinCategoria: 0,
 };
 const RESUMEN_ANUAL_OK = { anio: 2026, meses: [] };

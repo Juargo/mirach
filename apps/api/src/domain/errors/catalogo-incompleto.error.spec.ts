@@ -9,11 +9,11 @@ describe('CatalogoIncompletoError', () => {
     expect(error.bucket).toBe(Bucket.Deseos);
   });
 
-  it('el mensaje usa la etiqueta de producto del bucket ("Deseos"), nunca "Gustos"', () => {
+  it('el mensaje usa la etiqueta de producto del bucket ("Gustos"), nunca "Deseos"', () => {
     const error = new CatalogoIncompletoError(Bucket.Deseos);
 
-    expect(error.message).toContain('categoría Desconocido de Deseos');
-    expect(error.message).not.toContain('Gustos');
+    expect(error.message).toContain('categoría Desconocido de Gustos');
+    expect(error.message).not.toContain('Deseos');
   });
 
   it('el mensaje nombra la categoría faltante', () => {

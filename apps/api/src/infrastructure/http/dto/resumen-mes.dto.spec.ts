@@ -238,7 +238,7 @@ describe('aResumenMesDto', () => {
       expect('cantidadSinCategoria' in dto).toBe(false);
     });
 
-    it('BucketResumenDto entries still have exactly the 4 known keys (ISP boundary, D-02)', () => {
+    it('BucketResumenDto entries have exactly the known keys (ISP boundary, D-02; estado added by #113)', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
       const dto = aResumenMesDto('2026-07', resumen);
 
@@ -246,6 +246,7 @@ describe('aResumenMesDto', () => {
         expect(Object.keys(bucket).sort()).toEqual(
           [
             'bucket',
+            'estado',
             'estadoSemaforo',
             'participacionGastoBp',
             'porcentajeBp',
@@ -311,5 +312,55 @@ describe('aResumenMesDto — participacionGastoBp', () => {
     expect(dto.buckets.map((b) => b.participacionGastoBp)).toEqual([
       7500, 2500, 0,
     ]);
+  });
+});
+
+// Issue #113: rule 9 states on the wire, next to the legacy traffic light.
+describe('aResumenMesDto — rule 9 states (issue #113)', () => {
+  it('serializes estado per bucket, estadoMes and bloquesEstadoMes in lowercase / bucket ids', () => {
+    const dto = aResumenMesDto(
+      '2026-10',
+      makeResumen({
+        totalIngreso: 1_000_000n,
+        necesidades: 580_000n,
+        deseos: 300_000n,
+        ahorro: 170_000n,
+      }),
+    );
+
+    expect(dto.buckets.map((b) => [b.bucket, b.estado])).toEqual([
+      [Bucket.Necesidades, 'sobre'],
+      [Bucket.Deseos, 'bien'],
+      [Bucket.Ahorro, 'cerca'],
+    ]);
+    expect(dto.estadoMes).toBe('sobre');
+    expect(dto.bloquesEstadoMes).toEqual([Bucket.Necesidades]);
+  });
+
+  it('keeps the legacy estadoSemaforo / estadoGlobal values', () => {
+    const dto = aResumenMesDto(
+      '2026-10',
+      makeResumen({
+        totalIngreso: 1_000_000n,
+        necesidades: 580_000n,
+        deseos: 300_000n,
+        ahorro: 170_000n,
+      }),
+    );
+
+    expect(dto.buckets.map((b) => b.estadoSemaforo)).toEqual([
+      'amarillo',
+      'verde',
+      'amarillo',
+    ]);
+    expect(dto.estadoGlobal).toBe('amarillo');
+  });
+
+  it('sinIngreso → null states and no defining block', () => {
+    const dto = aResumenMesDto('2026-10', makeResumen({ totalIngreso: 0n }));
+
+    expect(dto.buckets.map((b) => b.estado)).toEqual([null, null, null]);
+    expect(dto.estadoMes).toBeNull();
+    expect(dto.bloquesEstadoMes).toEqual([]);
   });
 });

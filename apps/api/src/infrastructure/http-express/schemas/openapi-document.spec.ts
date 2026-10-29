@@ -729,14 +729,20 @@ describe('buildOpenApiDocument', () => {
       return out;
     };
 
-    it('lists null (and keeps nullable: true) in every nullable enum, incl. estadoSemaforo/estadoGlobal', () => {
+    it('lists null (and keeps nullable: true) in every nullable enum, incl. estadoSemaforo/estadoGlobal and estado/estadoMes', () => {
       const found = collect(buildOpenApiDocument());
+      // Legacy traffic light (US-016) and rule 9 states (issue #113).
+      const vocabularios = [
+        ['verde', 'amarillo', 'rojo', null],
+        ['bien', 'cerca', 'sobre', null],
+      ];
 
-      expect(found.length).toBeGreaterThanOrEqual(4);
+      expect(found.length).toBeGreaterThanOrEqual(6);
       for (const schema of found) {
-        expect(schema.enum).toEqual(['verde', 'amarillo', 'rojo', null]);
+        expect(vocabularios).toContainEqual(schema.enum);
         expect(schema.nullable).toBe(true);
       }
+      expect(found.map((s) => s.enum)).toContainEqual(vocabularios[1]);
     });
 
     it('listNullInNullableEnums only touches nullable enums and is idempotent', () => {

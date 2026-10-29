@@ -2912,12 +2912,29 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/ResumenMesResponse`.
         internal struct ResumenMesResponse: Codable, Hashable, Sendable {
+            /// Bucket ids tied at the worst state, in `buckets` order, that define `estadoMes` (VIS-03). Empty when estadoMes is bien or null.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bloquesEstadoMes`.
+            internal var bloquesEstadoMes: [Swift.String]
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload`.
             internal struct bucketsPayloadPayload: Codable, Hashable, Sendable {
                 /// Bucket name (Bucket domain enum value).
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/bucket`.
                 internal var bucket: Swift.String
+                /// Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estado`.
+                internal enum estadoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                    case bien = "bien"
+                    case cerca = "cerca"
+                    case sobre = "sobre"
+                    case _empty = ""
+                }
+                /// Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estado`.
+                internal var estado: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoPayload?
                 /// Traffic-light health state, lowercase wire enum (US-016), or null.
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estadoSemaforo`.
@@ -2947,18 +2964,21 @@ extension Components {
                 ///
                 /// - Parameters:
                 ///   - bucket: Bucket name (Bucket domain enum value).
+                ///   - estado: Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.
                 ///   - estadoSemaforo: Traffic-light health state, lowercase wire enum (US-016), or null.
                 ///   - participacionGastoBp: This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.
                 ///   - porcentajeBp: Basis-point percentage (0-10000). null when sinIngreso=true.
                 ///   - total: BigInt-safe decimal string amount (never a JSON number).
                 internal init(
                     bucket: Swift.String,
+                    estado: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoPayload? = nil,
                     estadoSemaforo: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload? = nil,
                     participacionGastoBp: Swift.Int? = nil,
                     porcentajeBp: Swift.Int? = nil,
                     total: Swift.String
                 ) {
                     self.bucket = bucket
+                    self.estado = estado
                     self.estadoSemaforo = estadoSemaforo
                     self.participacionGastoBp = participacionGastoBp
                     self.porcentajeBp = porcentajeBp
@@ -2966,6 +2986,7 @@ extension Components {
                 }
                 internal enum CodingKeys: String, CodingKey {
                     case bucket
+                    case estado
                     case estadoSemaforo
                     case participacionGastoBp
                     case porcentajeBp
@@ -2976,6 +2997,10 @@ extension Components {
                     self.bucket = try container.decode(
                         Swift.String.self,
                         forKey: .bucket
+                    )
+                    self.estado = try container.decodeIfPresent(
+                        Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoPayload.self,
+                        forKey: .estado
                     )
                     self.estadoSemaforo = try container.decodeIfPresent(
                         Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload.self,
@@ -2995,6 +3020,7 @@ extension Components {
                     )
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
                         "bucket",
+                        "estado",
                         "estadoSemaforo",
                         "participacionGastoBp",
                         "porcentajeBp",
@@ -3023,6 +3049,19 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/estadoGlobal`.
             internal var estadoGlobal: Components.Schemas.ResumenMesResponse.estadoGlobalPayload?
+            /// Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/estadoMes`.
+            internal enum estadoMesPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case bien = "bien"
+                case cerca = "cerca"
+                case sobre = "sobre"
+                case _empty = ""
+            }
+            /// Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/estadoMes`.
+            internal var estadoMes: Components.Schemas.ResumenMesResponse.estadoMesPayload?
             /// Resolved period, format YYYY-MM.
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/periodo`.
@@ -3091,30 +3130,38 @@ extension Components {
             /// Creates a new `ResumenMesResponse`.
             ///
             /// - Parameters:
+            ///   - bloquesEstadoMes: Bucket ids tied at the worst state, in `buckets` order, that define `estadoMes` (VIS-03). Empty when estadoMes is bien or null.
             ///   - buckets: Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape.
             ///   - estadoGlobal: Worst traffic-light state across measured buckets, or null.
+            ///   - estadoMes: Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
             ///   - periodo: Resolved period, format YYYY-MM.
             ///   - sinIngreso:
             ///   - targets: Hardcoded 50/30/20 reference targets.
             ///   - totalIngreso: BigInt-safe decimal string amount (never a JSON number).
             internal init(
+                bloquesEstadoMes: [Swift.String],
                 buckets: Components.Schemas.ResumenMesResponse.bucketsPayload,
                 estadoGlobal: Components.Schemas.ResumenMesResponse.estadoGlobalPayload? = nil,
+                estadoMes: Components.Schemas.ResumenMesResponse.estadoMesPayload? = nil,
                 periodo: Swift.String,
                 sinIngreso: Swift.Bool,
                 targets: Components.Schemas.ResumenMesResponse.targetsPayload,
                 totalIngreso: Swift.String
             ) {
+                self.bloquesEstadoMes = bloquesEstadoMes
                 self.buckets = buckets
                 self.estadoGlobal = estadoGlobal
+                self.estadoMes = estadoMes
                 self.periodo = periodo
                 self.sinIngreso = sinIngreso
                 self.targets = targets
                 self.totalIngreso = totalIngreso
             }
             internal enum CodingKeys: String, CodingKey {
+                case bloquesEstadoMes
                 case buckets
                 case estadoGlobal
+                case estadoMes
                 case periodo
                 case sinIngreso
                 case targets
@@ -3122,6 +3169,10 @@ extension Components {
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.bloquesEstadoMes = try container.decode(
+                    [Swift.String].self,
+                    forKey: .bloquesEstadoMes
+                )
                 self.buckets = try container.decode(
                     Components.Schemas.ResumenMesResponse.bucketsPayload.self,
                     forKey: .buckets
@@ -3129,6 +3180,10 @@ extension Components {
                 self.estadoGlobal = try container.decodeIfPresent(
                     Components.Schemas.ResumenMesResponse.estadoGlobalPayload.self,
                     forKey: .estadoGlobal
+                )
+                self.estadoMes = try container.decodeIfPresent(
+                    Components.Schemas.ResumenMesResponse.estadoMesPayload.self,
+                    forKey: .estadoMes
                 )
                 self.periodo = try container.decode(
                     Swift.String.self,
@@ -3147,8 +3202,10 @@ extension Components {
                     forKey: .totalIngreso
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "bloquesEstadoMes",
                     "buckets",
                     "estadoGlobal",
+                    "estadoMes",
                     "periodo",
                     "sinIngreso",
                     "targets",

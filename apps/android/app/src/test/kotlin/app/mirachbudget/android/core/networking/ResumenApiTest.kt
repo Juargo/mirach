@@ -52,9 +52,9 @@ class ResumenApiTest {
         ),
     ): String {
         val list = buckets.joinToString(",") {
-            """{"bucket":"${it.name}","total":"${it.total}","porcentajeBp":${it.bp},"participacionGastoBp":null,"estadoSemaforo":${it.estado}}"""
+            """{"bucket":"${it.name}","total":"${it.total}","porcentajeBp":${it.bp},"participacionGastoBp":null,"estadoSemaforo":${it.estado},"estado":null}"""
         }
-        return """{"periodo":"$periodo","sinIngreso":$sinIngreso,"totalIngreso":"$ingreso","estadoGlobal":$estadoGlobal,"targets":$targets,"buckets":[$list]}"""
+        return """{"periodo":"$periodo","sinIngreso":$sinIngreso,"totalIngreso":"$ingreso","estadoGlobal":$estadoGlobal,"estadoMes":null,"bloquesEstadoMes":[],"targets":$targets,"buckets":[$list]}"""
     }
 
     private fun three(necesidades: String = "null", deseos: String = "null", ahorro: String = "null") = listOf(

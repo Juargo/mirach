@@ -1,6 +1,7 @@
 import { expectTypeOf } from 'vitest';
 import { Bucket } from './bucket';
 import { EstadoSemaforo } from './estado-semaforo';
+import { EstadoBloque } from './estado-bloque';
 import {
   BucketSlice,
   porcentajeBasisPoints,
@@ -264,5 +265,74 @@ describe('ResumenMes — participacionGastoBp', () => {
       null,
       null,
     ]);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Issue #113 — rule 9 states per block and the month state (VIS-11), added
+// next to the legacy estadoSemaforo / estadoGlobal, which keep their values.
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('ResumenMes — rule 9 states (issue #113)', () => {
+  const estadoDe = (r: ResumenMes, bucket: Bucket) =>
+    r.buckets.find((b) => b.bucket === bucket)?.estado;
+
+  it('Escenario: necesidades sobre la meta (5.800 bp vs 5.000)', () => {
+    const r = ResumenMes.crear({
+      totalIngreso: 1_000_000n,
+      necesidades: 580_000n,
+      deseos: 200_000n,
+      ahorro: 220_000n,
+    });
+
+    const necesidades = r.buckets.find((b) => b.bucket === Bucket.Necesidades);
+    expect(necesidades?.porcentajeBp).toBe(5800n);
+    expect(necesidades?.estado).toBe(EstadoBloque.Sobre);
+    expect(r.estadoMes).toBe(EstadoBloque.Sobre);
+    expect(r.bloquesEstadoMes).toEqual([Bucket.Necesidades]);
+  });
+
+  it('Escenario: ahorro bajo la meta (17%) is cerca', () => {
+    const r = ResumenMes.crear({
+      totalIngreso: 1_000_000n,
+      necesidades: 500_000n,
+      deseos: 300_000n,
+      ahorro: 170_000n,
+    });
+
+    expect(estadoDe(r, Bucket.Ahorro)).toBe(EstadoBloque.Cerca);
+    expect(estadoDe(r, Bucket.Necesidades)).toBe(EstadoBloque.Bien);
+    expect(estadoDe(r, Bucket.Deseos)).toBe(EstadoBloque.Bien);
+    expect(r.estadoMes).toBe(EstadoBloque.Cerca);
+    expect(r.bloquesEstadoMes).toEqual([Bucket.Ahorro]);
+  });
+
+  it('keeps the legacy traffic light unchanged (ahorro 45%: amarillo, but bien)', () => {
+    const r = ResumenMes.crear({
+      totalIngreso: 1_000_000n,
+      necesidades: 350_000n,
+      deseos: 200_000n,
+      ahorro: 450_000n,
+    });
+
+    const ahorro = r.buckets.find((b) => b.bucket === Bucket.Ahorro);
+    expect(ahorro?.estadoSemaforo).toBe(EstadoSemaforo.Amarillo);
+    expect(ahorro?.estado).toBe(EstadoBloque.Bien);
+    expect(r.estadoGlobal).toBe(EstadoSemaforo.Amarillo);
+    expect(r.estadoMes).toBe(EstadoBloque.Bien);
+    expect(r.bloquesEstadoMes).toEqual([]);
+  });
+
+  it('without income every state is null and no block defines the month', () => {
+    const r = ResumenMes.crear({
+      totalIngreso: 0n,
+      necesidades: 100n,
+      deseos: 100n,
+      ahorro: 100n,
+    });
+
+    expect(r.buckets.map((b) => b.estado)).toEqual([null, null, null]);
+    expect(r.estadoMes).toBeNull();
+    expect(r.bloquesEstadoMes).toEqual([]);
   });
 });
