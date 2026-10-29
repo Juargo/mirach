@@ -42,7 +42,7 @@
     "express": "^5.2.1",
     "google-auth-library": "^11.1.0",
     "jose": "6.2.8",
-    "multer": "^2.4.0",
+    "multer": "^2.5.0",
     "openid-client": "6.8.4",
     "pdfjs-dist": "^6.3.289",
     "pg": "^8.23.1",

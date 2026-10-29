@@ -34,6 +34,10 @@ overrides:
   # a la línea 3.x: postcss requiere nanoid CJS (4+ es ESM-only) y un rango
   # abierto resolvería a 6.x rompiendo el build tooling.
   nanoid: '>=3.3.17 <4.0.0'
+  # GHSA-27r3-jxmh-p828 — DoS por bytes sobrantes tras un body comprimido
+  # (high). Alcanzable en runtime vía express. 2.4.0 se publicó 2026-10-22 y
+  # salió de la cuarentena de 7 días el 2026-10-29.
+  body-parser: '>=2.4.0 <3.0.0'
 
   # --- Burn-down del baseline de ADR-021 (2026-09-04) ---
   # Cada piso retira su(s) advisory(es) de auditConfig.ignoreGhsas. Todos son
