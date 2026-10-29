@@ -2,12 +2,12 @@ import { Result } from '../../shared/result';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
-import { BANDAS_SEMAFORO } from '../../domain/value-objects/estado-semaforo';
 import { porcentajeBasisPoints } from '../../domain/value-objects/resumen-mes';
 import { IDetalleBucketReader } from '../ports/detalle-bucket.port';
 import { IResumenMesReader } from '../ports/resumen-mes.port';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import {
   agruparDetallePorCategoria,
   GrupoDetalleCategoria,
@@ -69,6 +69,7 @@ export class ObtenerDetalleBucketMesUseCase {
     private readonly resumenReader: IResumenMesReader,
     private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
+    private readonly perfilReader: IPerfilPresupuestoReader,
   ) {}
 
   async execute(input: {
@@ -101,9 +102,10 @@ export class ObtenerDetalleBucketMesUseCase {
     const periodoVO = periodoResult.getValue();
 
     // 3. Ambos readers (D-02): filas del bucket + base de ingresos del mes.
-    const [rows, resumenRows] = await Promise.all([
+    const [rows, resumenRows, perfil] = await Promise.all([
       this.reader.findByPeriodoYBucket(input.userId, periodoVO, bucket),
       this.resumenReader.sumarPorBucket(input.userId, periodoVO),
+      this.perfilReader.obtener(input.userId),
     ]);
     // Counts only — never montos/descripcion/numeroCuenta (ADR-013).
     this.logger.debug('obtener-detalle-bucket-mes: repo fetch', {
@@ -127,8 +129,8 @@ export class ObtenerDetalleBucketMesUseCase {
     // 5. Header (MBD-01/03/05, D-04/D-05): metaBp null ⇒ porcentajeBp null
     //    (SinCategoria); si hay meta, % single-shot round-half-up vs los
     //    valores crudos (nunca sobre un valor ya redondeado).
-    const metaBp =
-      BANDAS_SEMAFORO[bucket as keyof typeof BANDAS_SEMAFORO]?.metaBp ?? null;
+    //    The goal comes from the user's budget profile (#110, PER-06).
+    const metaBp = perfil.metas[bucket as keyof typeof perfil.metas] ?? null;
     const porcentajeBp =
       metaBp === null ? null : porcentajeBasisPoints(total, ingreso);
 

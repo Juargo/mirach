@@ -37,7 +37,7 @@ import kotlinx.serialization.Contextual
  * @param bucket Bucket name (Bucket domain enum value).
  * @param consejo 
  * @param estadoSemaforo Traffic-light health state, lowercase wire enum, or null.
- * @param metaBp Bucket's 50/30/20 target center, in basis points (SEM-02).
+ * @param metaBp Bucket's target center in basis points, from the user's budget profile (issue #110, SEM-02).
  * @param porcentajeBp Basis-point percentage (0-10000). null when sinIngreso=true.
  * @param total BigInt-safe decimal string amount (never a JSON number).
  */
@@ -59,7 +59,7 @@ data class SemaforoDetalleResponseBucketsInner (
     @SerialName(value = "estadoSemaforo")
     val estadoSemaforo: SemaforoDetalleResponseBucketsInner.EstadoSemaforo?,
 
-    /* Bucket's 50/30/20 target center, in basis points (SEM-02). */
+    /* Bucket's target center in basis points, from the user's budget profile (issue #110, SEM-02). */
     @SerialName(value = "metaBp")
     val metaBp: kotlin.Int,
 

@@ -51,49 +51,45 @@ client-side.
 - THEN `estadoGlobal` equals Verde
 - AND the diagnosis is a Spanish sentence that does not name any bucket as needing attention
 
-### Requirement: SEM-02 — Each spend bucket exposes its own zone-band edges AND its target percentage (`metaBp`) on the wire, sourced from the single domain threshold table
+### Requirement: SEM-02 — Each spend bucket exposes its own zone-band edges AND its target percentage (`metaBp`) on the wire, derived from the user's budget profile
 
 The response MUST expose, per spend bucket (Necesidades, Deseos, Ahorro), its `porcentajeBp`, its
-`estadoSemaforo` (mirrors `resumen-mensual`), its `metaBp` — the bucket's 50/30/20 target center,
-in basis points (Necesidades `5000`, Deseos `3000`, Ahorro `2000`) — AND the band edges (in basis
-points) used to compute that estado — the same threshold values `estado-semaforo.ts` already
-enforces server-side: Necesidades `verdeMax=5000`/`amarMax=6000`; Deseos `verdeMax=3000`/
-`amarMax=4000`; Ahorro `verdeMin=2000`/`verdeMax=4000` plus the outer Amarillo edges `1000`/
-`5000`. These 8 threshold constants and each bucket's `metaBp` MUST be sourced from the SAME
-single threshold table already governing classification — the response MUST NOT expose a second,
-independently-derived copy of the thresholds or targets that could drift from the classification
-logic or from `resumen-mensual`'s existing 50/30/20 target percentages.
+`estadoSemaforo` (mirrors `resumen-mensual`), its `metaBp` — the bucket's target center in basis
+points, taken from the user's budget profile (`perfil-presupuesto`, issue #110) — AND the band
+edges (in basis points) used to compute that estado. The bands keep the 50/30/20 offsets around
+the target: Necesidades and Deseos `verdeMax = metaBp`, `amarMax = metaBp + 1000`; Ahorro
+`verdeMin = metaBp`, `verdeMax = metaBp + 2000`, outer Amarillo edges `metaBp − 1000` and
+`metaBp + 3000`. The edges and `metaBp` MUST come from the same function the classifier uses
+(`bandasParaMeta`), so the wire never carries a second copy that could drift from the
+classification or from `resumen-mensual`'s targets.
 
-#### Scenario: Necesidades exposes its own band edges (50%/60%)
+#### Scenario: Default profile exposes the 50/30/20 band edges
 
-- GIVEN a period with Necesidades at some percentage
+- GIVEN a user with the default 50/30/20 profile
 - WHEN a client calls `GET /api/resumen/semaforo?periodo=<period>`
-- THEN Necesidades' response entry exposes `verdeMax=5000` and `amarMax=6000` (basis points),
-  matching the exact thresholds the domain classifier reads from `BANDAS_SEMAFORO` — the single
-  threshold table that is also the classifier's own source of truth (design §1.1)
+- THEN Necesidades exposes `verdeMax=5000` and `amarMax=6000`, Deseos `3000`/`4000`, and Ahorro
+  all 4 edges `1000`, `2000`, `4000`, `5000` — the `BANDAS_SEMAFORO` table, which is
+  `bandasParaMeta` applied to 50/30/20
 
-#### Scenario: Ahorro exposes its bidirectional band edges (10%/20%/40%/50%)
+#### Scenario: The bands move with the profile target
 
-- GIVEN any period
+- GIVEN a user whose profile is 80/10/10
 - WHEN a client calls `GET /api/resumen/semaforo?periodo=<period>`
-- THEN Ahorro's response entry exposes all 4 edges — `1000`, `2000`, `4000`, `5000` basis points —
-  matching the exact bidirectional thresholds in `BANDAS_SEMAFORO[Bucket.Ahorro]` (same single
-  table the classifier reads)
+- THEN Necesidades' `metaBp` is `8000` with `verdeMax=8000` and `amarMax=9000`, and Ahorro's
+  `metaBp` is `1000` with edges `0`, `1000`, `3000`, `4000`
+- AND each bucket's `estadoSemaforo` and advice (SEM-03) are computed against those edges
 
-#### Scenario: Band edges are static domain constants, unaffected by that period's own data
+#### Scenario: Band edges do not depend on that period's own data
 
-- GIVEN two different periods with different bucket percentages
+- GIVEN two different periods with different bucket percentages and the same profile
 - WHEN a client calls `GET /api/resumen/semaforo?periodo=<period>` for each
-- THEN the band edges returned for each bucket are identical across both responses — they are
-  static domain constants, never derived from that period's amounts
+- THEN the band edges returned for each bucket are identical across both responses
 
-#### Scenario: Each bucket exposes its 50/30/20 target as `metaBp`, matching the existing target percentages
+#### Scenario: `metaBp` matches the targets of `resumen-mensual`
 
 - GIVEN any period
-- WHEN a client calls `GET /api/resumen/semaforo?periodo=<period>`
-- THEN Necesidades' `metaBp` is `5000`, Deseos' is `3000`, and Ahorro's is `2000` — identical to
-  the target percentages `resumen-mensual`'s 50/30/20 split already uses, sourced from the same
-  threshold table, never a second independently-derived constant
+- WHEN a client calls `GET /api/resumen/semaforo` and `GET /api/resumen` for that period
+- THEN each bucket's `metaBp` is the same in both responses, and equals the user's profile target
 
 ### Requirement: SEM-03 — Every Amarillo/Rojo bucket exposes a CLP amount and direction that would return it to Verde; Ahorro covers both directions (CA-05)
 

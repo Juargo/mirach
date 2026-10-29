@@ -2,6 +2,7 @@ import { Bucket } from './bucket';
 import { TARGETS_503020 } from './resumen-mes';
 import {
   BANDAS_SEMAFORO,
+  bandasParaMeta,
   EstadoSemaforo,
   calcularEstadoBucket,
   calcularEstadoGlobal,
@@ -276,5 +277,53 @@ describe('BANDAS_SEMAFORO — single threshold table (US-049 design §1.1)', () 
         Number(BANDAS_SEMAFORO[bucket].metaBp),
       );
     }
+  });
+});
+
+describe('bandasParaMeta (#110, decision A): bands shift with the profile goal', () => {
+  it("rebuilds today's 50/30/20 table exactly", () => {
+    expect(bandasParaMeta(Bucket.Necesidades, 5000n)).toEqual(
+      BANDAS_SEMAFORO[Bucket.Necesidades],
+    );
+    expect(bandasParaMeta(Bucket.Deseos, 3000n)).toEqual(
+      BANDAS_SEMAFORO[Bucket.Deseos],
+    );
+    expect(bandasParaMeta(Bucket.Ahorro, 2000n)).toEqual(
+      BANDAS_SEMAFORO[Bucket.Ahorro],
+    );
+  });
+
+  it('Necesidades and Deseos: verde up to the goal, amarillo up to goal + 1000', () => {
+    expect(bandasParaMeta(Bucket.Necesidades, 8000n)).toEqual({
+      verdeMin: null,
+      verdeMax: 8000n,
+      amarilloMin: null,
+      amarilloMax: 9000n,
+      metaBp: 8000n,
+    });
+  });
+
+  it('Ahorro: verde goal..goal + 2000, amarillo goal - 1000..goal + 3000', () => {
+    expect(bandasParaMeta(Bucket.Ahorro, 1000n)).toEqual({
+      verdeMin: 1000n,
+      verdeMax: 3000n,
+      amarilloMin: 0n,
+      amarilloMax: 4000n,
+      metaBp: 1000n,
+    });
+  });
+
+  it('calcularEstadoBucket uses the given goal: 75% Necesidades is Verde under 80/10/10', () => {
+    expect(calcularEstadoBucket(Bucket.Necesidades, 7500n, 8000n)).toBe(
+      EstadoSemaforo.Verde,
+    );
+    expect(calcularEstadoBucket(Bucket.Necesidades, 7500n)).toBe(
+      EstadoSemaforo.Rojo,
+    );
+  });
+
+  it('calcularEstadoBucket with a goal still returns null for Ingreso and sinIngreso', () => {
+    expect(calcularEstadoBucket(Bucket.Ingreso, 5000n, 5000n)).toBeNull();
+    expect(calcularEstadoBucket(Bucket.Necesidades, null, 8000n)).toBeNull();
   });
 });

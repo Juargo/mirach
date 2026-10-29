@@ -6,6 +6,13 @@ import {
 import { Bucket } from '../../domain/value-objects/bucket';
 import { AnioInvalidoError } from '../../domain/errors/anio-invalido.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
+import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
+
+/** Budget profile reader for tests: every user has the 50/30/20 default (#110). */
+const perfilPorDefecto: IPerfilPresupuestoReader = {
+  obtener: () => Promise.resolve(PerfilPresupuesto.porDefecto()),
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-XX: Unit tests — CalcularResumenAnualUseCase (mocked IResumenAnualReader)
@@ -59,7 +66,11 @@ describe('CalcularResumenAnualUseCase', () => {
         allRows.push(...rowsFor(`2026-${String(m).padStart(2, '0')}`));
       }
       const reader = makeMockReader(allRows);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -75,7 +86,11 @@ describe('CalcularResumenAnualUseCase', () => {
 
     it('returns the resolved anio number', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -107,7 +122,11 @@ describe('CalcularResumenAnualUseCase', () => {
         },
       ];
       const reader = makeMockReader(rows);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -136,7 +155,11 @@ describe('CalcularResumenAnualUseCase', () => {
     it('empty months yield a zeroed sinIngreso ResumenMes, other months keep their data', async () => {
       // Only January has data; rest of the year is empty.
       const reader = makeMockReader(rowsFor('2026-01'));
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -162,7 +185,11 @@ describe('CalcularResumenAnualUseCase', () => {
   describe('empty year (no data at all)', () => {
     it('returns 12 zeroed sinIngreso ResumenMes', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -182,7 +209,11 @@ describe('CalcularResumenAnualUseCase', () => {
       const expectedAnio = now.getUTCFullYear();
 
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: undefined });
 
@@ -192,7 +223,11 @@ describe('CalcularResumenAnualUseCase', () => {
 
     it('invalid anio (non-numeric) → Result.fail(AnioInvalidoError)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: 'not-a-year' });
 
@@ -202,7 +237,11 @@ describe('CalcularResumenAnualUseCase', () => {
 
     it('anio out of range (1999) → Result.fail(AnioInvalidoError)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: '1999' });
 
@@ -212,7 +251,11 @@ describe('CalcularResumenAnualUseCase', () => {
 
     it('plain "2026" → resolves to anio=2026 (canonical 4-digit format)', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -224,7 +267,11 @@ describe('CalcularResumenAnualUseCase', () => {
       'anio=%p → Result.fail(AnioInvalidoError) — rejected by strict ^\\d{4}$ format, not silently coerced by Number()',
       async (rawAnio) => {
         const reader = makeMockReader([]);
-        const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+        const uc = new CalcularResumenAnualUseCase(
+          reader,
+          new NoOpLogger(),
+          perfilPorDefecto,
+        );
 
         const result = await uc.execute({ userId: 'user-a', anio: rawAnio });
 
@@ -237,7 +284,11 @@ describe('CalcularResumenAnualUseCase', () => {
   describe('userId isolation (structural — repo receives the correct userId)', () => {
     it('passes the authenticated userId through to the reader, never a fixed constant', async () => {
       const reader = makeMockReader([]);
-      const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger());
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        new NoOpLogger(),
+        perfilPorDefecto,
+      );
 
       await uc.execute({ userId: 'user-a', anio: '2026' });
       await uc.execute({ userId: 'user-b', anio: '2026' });
@@ -263,7 +314,11 @@ describe('CalcularResumenAnualUseCase', () => {
       }
       const reader = makeMockReader(allRows);
       const logger = new FakeLogger();
-      const uc = new CalcularResumenAnualUseCase(reader, logger);
+      const uc = new CalcularResumenAnualUseCase(
+        reader,
+        logger,
+        perfilPorDefecto,
+      );
 
       await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -280,5 +335,26 @@ describe('CalcularResumenAnualUseCase', () => {
       expect(serializedContexts).not.toContain('200000');
       expect(serializedContexts).not.toContain('@');
     });
+  });
+});
+
+describe('CalcularResumenAnualUseCase — budget profile goals (#110, PER-06)', () => {
+  it('every month of the year uses the current profile goals', async () => {
+    const obtener = vi
+      .fn()
+      .mockResolvedValue(PerfilPresupuesto.predefinido('80_10_10'));
+    const reader = { sumarPorBucketAnual: vi.fn().mockResolvedValue([]) };
+    const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger(), {
+      obtener,
+    });
+
+    const result = await uc.execute({ userId: 'user-a', anio: '2026' });
+
+    expect(obtener).toHaveBeenCalledWith('user-a');
+    const meses = result.getValue().resumenAnual.meses;
+    expect(meses).toHaveLength(12);
+    for (const mes of meses) {
+      expect(mes.buckets.map((b) => b.metaBp)).toEqual([8000n, 1000n, 1000n]);
+    }
   });
 });

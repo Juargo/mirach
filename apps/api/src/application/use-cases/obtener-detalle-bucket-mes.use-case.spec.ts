@@ -12,6 +12,13 @@ import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { porcentajeBasisPoints } from '../../domain/value-objects/resumen-mes';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
+import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
+
+/** Budget profile reader for tests: every user has the 50/30/20 default (#110). */
+const perfilPorDefecto: IPerfilPresupuestoReader = {
+  obtener: () => Promise.resolve(PerfilPresupuesto.porDefecto()),
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // US-051 PR1: Unit tests — ObtenerDetalleBucketMesUseCase (mocked readers).
@@ -73,6 +80,7 @@ function makeUseCase(
     readers.resumenReader,
     readers.ultimoPeriodoReader,
     logger,
+    perfilPorDefecto,
   );
 }
 
@@ -83,7 +91,7 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       [Bucket.Deseos, 3000n],
       [Bucket.Ahorro, 2000n],
     ])(
-      'acepta %s y expone su metaBp de BANDAS_SEMAFORO (%s)',
+      'acepta %s y expone la meta del perfil por defecto (%s)',
       async (bucket, metaBp) => {
         const readers = makeReaders([], []);
         const uc = makeUseCase(readers);
@@ -460,5 +468,30 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       expect(serializedContexts).not.toContain('Compra supermercado');
       expect(serializedContexts).not.toContain('12345678');
     });
+  });
+});
+
+describe('ObtenerDetalleBucketMesUseCase — budget profile goals (#110)', () => {
+  it("metaBp comes from the requesting user's profile", async () => {
+    const obtener = vi
+      .fn()
+      .mockResolvedValue(PerfilPresupuesto.predefinido('80_10_10'));
+    const readers = makeReaders([], [incomeRow(1_000_000n)]);
+    const uc = new ObtenerDetalleBucketMesUseCase(
+      readers.reader,
+      readers.resumenReader,
+      readers.ultimoPeriodoReader,
+      new NoOpLogger(),
+      { obtener },
+    );
+
+    const result = await uc.execute({
+      userId: 'user-a',
+      bucket: Bucket.Necesidades,
+      periodo: '2026-07',
+    });
+
+    expect(obtener).toHaveBeenCalledWith('user-a');
+    expect(result.getValue().metaBp).toBe(8000n);
   });
 });

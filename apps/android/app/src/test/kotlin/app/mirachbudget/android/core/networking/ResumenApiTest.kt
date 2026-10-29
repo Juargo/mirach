@@ -52,7 +52,7 @@ class ResumenApiTest {
         ),
     ): String {
         val list = buckets.joinToString(",") {
-            """{"bucket":"${it.name}","total":"${it.total}","porcentajeBp":${it.bp},"participacionGastoBp":null,"estadoSemaforo":${it.estado},"estado":null}"""
+            """{"bucket":"${it.name}","total":"${it.total}","porcentajeBp":${it.bp},"participacionGastoBp":null,"metaBp":5000,"estadoSemaforo":${it.estado},"estado":null}"""
         }
         return """{"periodo":"$periodo","sinIngreso":$sinIngreso,"totalIngreso":"$ingreso","estadoGlobal":$estadoGlobal,"estadoMes":null,"bloquesEstadoMes":[],"targets":$targets,"buckets":[$list]}"""
     }

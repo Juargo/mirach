@@ -8743,6 +8743,394 @@ internal enum Operations {
             }
         }
     }
+    /// Get the current user's budget profile
+    ///
+    /// Authenticated endpoint that returns the caller's budget profile (issue #110, PER-03..PER-06): its id and three targets in basis points that sum 10000. A user who never chose a profile gets 50_30_20. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/get`.
+    internal enum get_sol_api_sol_perfil_sol_presupuesto {
+        internal static let id: Swift.String = "get/api/perfil/presupuesto"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/perfil/presupuesto/GET/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_perfil_sol_presupuesto.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_perfil_sol_presupuesto.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.get_sol_api_sol_perfil_sol_presupuesto.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            internal init(headers: Operations.get_sol_api_sol_perfil_sol_presupuesto.Input.Headers = .init()) {
+                self.headers = headers
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/perfil/presupuesto/GET/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/perfil/presupuesto/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.PerfilPresupuestoResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PerfilPresupuestoResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// The caller's budget profile.
+            ///
+            /// - Remark: Generated from `#/paths//api/perfil/presupuesto/get/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/perfil/presupuesto/GET/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/perfil/presupuesto/GET/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/perfil/presupuesto/get/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Replace the current user's budget profile
+    ///
+    /// Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), or `personalizado` with three non-negative targets in basis points. Custom targets that do not sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, `GET /api/resumen/semaforo` and `GET /api/buckets/{bucket}/detalle` measure every month against the current profile. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `PUT /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put`.
+    internal enum put_sol_api_sol_perfil_sol_presupuesto {
+        internal static let id: Swift.String = "put/api/perfil/presupuesto"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.put_sol_api_sol_perfil_sol_presupuesto.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.put_sol_api_sol_perfil_sol_presupuesto.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input.Headers
+            /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/requestBody`.
+            internal enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/requestBody/content/application\/json`.
+                case json(Components.Schemas.PerfilPresupuestoUpdateRequest)
+            }
+            internal var body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            internal init(
+                headers: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input.Headers = .init(),
+                body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input.Body? = nil
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/200/content/application\/json`.
+                    case json(Components.Schemas.PerfilPresupuestoResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PerfilPresupuestoResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Profile saved; the stored profile is returned.
+            ///
+            /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/400/content/application\/json`.
+                    case json(Components.Schemas.PerfilErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PerfilErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Malformed body (BODY_INVALIDO), custom targets that do not sum 10000 (PERFIL_NO_SUMA_100), or a negative target (META_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Months that have movements for the session user
     ///
     /// Feeds the month selector of Resumen, Detalle de bucket and Ingresos del mes. Lists every month (YYYY-MM, UTC) in which the session user has at least one movement: any transaction counts, expense or income-only, whatever its category (internal categories included) — the same rule as the default period of GET /api/resumen, with the same UTC month derivation, so a listed month always has data there. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Ordering: `periodos` most recent first, no duplicates; empty list when the user has no movements.

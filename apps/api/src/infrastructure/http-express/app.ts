@@ -43,6 +43,7 @@ import { registrarCategorias } from './routes/categorias.routes';
 import { registrarPatrones } from './routes/patrones.routes';
 import { registrarCuenta } from './routes/cuenta.routes';
 import { registrarPerfil } from './routes/perfil.routes';
+import { registrarPerfilPresupuesto } from './routes/perfil-presupuesto.routes';
 import {
   registrarPerfilGoogleVincular,
   registrarPerfilGoogleVincularDeshabilitado,
@@ -226,6 +227,7 @@ export function createApp(container: Container, env: Env): Express {
   registrarCategorias(protectedApi, container.catalogo);
   registrarPatrones(protectedApi, container.catalogo);
   registrarPerfil(protectedApi, container.perfil);
+  registrarPerfilPresupuesto(protectedApi, container.perfilPresupuesto);
   registrarCuenta(protectedApi, {
     eliminarCuenta: container.eliminarCuenta,
     cookieSecure,

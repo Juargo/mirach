@@ -29,7 +29,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Contextual
 
 /**
- * Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).
+ * Zone-band edges used to compute this estado. They keep the 50/30/20 offsets around the profile target (issue #110, SEM-02).
  *
  * @param amarilloMax 
  * @param amarilloMin 

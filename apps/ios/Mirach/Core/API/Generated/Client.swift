@@ -3671,6 +3671,207 @@ internal struct Client: APIProtocol {
             }
         )
     }
+    /// Get the current user's budget profile
+    ///
+    /// Authenticated endpoint that returns the caller's budget profile (issue #110, PER-03..PER-06): its id and three targets in basis points that sum 10000. A user who never chose a profile gets 50_30_20. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/get`.
+    internal func get_sol_api_sol_perfil_sol_presupuesto(_ input: Operations.get_sol_api_sol_perfil_sol_presupuesto.Input) async throws -> Operations.get_sol_api_sol_perfil_sol_presupuesto.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.get_sol_api_sol_perfil_sol_presupuesto.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/api/perfil/presupuesto",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.PerfilPresupuestoResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.get_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UnauthorizedResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Replace the current user's budget profile
+    ///
+    /// Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), or `personalizado` with three non-negative targets in basis points. Custom targets that do not sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, `GET /api/resumen/semaforo` and `GET /api/buckets/{bucket}/detalle` measure every month against the current profile. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `PUT /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put`.
+    internal func put_sol_api_sol_perfil_sol_presupuesto(_ input: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input) async throws -> Operations.put_sol_api_sol_perfil_sol_presupuesto.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.put_sol_api_sol_perfil_sol_presupuesto.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/api/perfil/presupuesto",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .put
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case .none:
+                    body = nil
+                case let .json(value):
+                    body = try converter.setOptionalRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.PerfilPresupuestoResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 400:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.BadRequest.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.PerfilErrorResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .badRequest(.init(body: body))
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UnauthorizedResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Months that have movements for the session user
     ///
     /// Feeds the month selector of Resumen, Detalle de bucket and Ingresos del mes. Lists every month (YYYY-MM, UTC) in which the session user has at least one movement: any transaction counts, expense or income-only, whatever its category (internal categories included) — the same rule as the default period of GET /api/resumen, with the same UTC month derivation, so a listed month always has data there. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Ordering: `periodos` most recent first, no duplicates; empty list when the user has no movements.

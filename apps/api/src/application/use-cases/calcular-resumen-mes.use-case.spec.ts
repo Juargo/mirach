@@ -5,6 +5,13 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
+import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
+
+/** Budget profile reader for tests: every user has the 50/30/20 default (#110). */
+const perfilPorDefecto: IPerfilPresupuestoReader = {
+  obtener: () => Promise.resolve(PerfilPresupuesto.porDefecto()),
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-05: Unit tests — CalcularResumenMesUseCase (mocked IResumenMesReader)
@@ -63,6 +70,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -84,6 +92,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -117,6 +126,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -144,6 +154,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -163,6 +174,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -178,6 +190,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -203,6 +216,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(null),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: undefined });
@@ -220,6 +234,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         ultimoPeriodoReader,
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: undefined });
@@ -244,6 +259,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         ultimoPeriodoReader,
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -259,6 +275,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({
@@ -276,6 +293,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-13' });
@@ -290,6 +308,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-00' });
@@ -320,6 +339,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -342,6 +362,7 @@ describe('CalcularResumenMesUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         logger,
+        perfilPorDefecto,
       );
 
       await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -359,5 +380,25 @@ describe('CalcularResumenMesUseCase', () => {
       expect(serializedContexts).not.toContain('300000');
       expect(serializedContexts).not.toContain('@');
     });
+  });
+});
+
+describe('CalcularResumenMesUseCase — budget profile goals (#110)', () => {
+  it("measures the month against the requesting user's profile goals", async () => {
+    const obtener = vi
+      .fn()
+      .mockResolvedValue(PerfilPresupuesto.predefinido('80_10_10'));
+    const uc = new CalcularResumenMesUseCase(
+      makeMockReader(allBucketRows()),
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      { obtener },
+    );
+
+    const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
+
+    expect(obtener).toHaveBeenCalledWith('user-a');
+    const { resumen } = result.getValue();
+    expect(resumen.buckets.map((b) => b.metaBp)).toEqual([8000n, 1000n, 1000n]);
   });
 });

@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { Env } from '../config/env';
 import type { PinoLogger } from '../infrastructure/logging/pino-logger';
 import { createPrismaClient } from '../infrastructure/persistence/create-prisma-client';
+import { PrismaPerfilPresupuestoRepository } from '../infrastructure/persistence/prisma-perfil-presupuesto.repository';
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case';
@@ -38,6 +39,11 @@ import { crearCommitIngesta } from './crear-commit-ingesta';
 import { crearRegistrarMovimientoManual } from './crear-registrar-movimiento-manual';
 import { crearCatalogo, type CatalogoGraph } from './crear-catalogo';
 import { crearPerfil, type PerfilGraph } from './crear-perfil';
+import type { PerfilPresupuestoGraph } from '../infrastructure/http-express/routes/perfil-presupuesto.routes';
+import {
+  ActualizarPerfilPresupuestoUseCase,
+  ObtenerPerfilPresupuestoUseCase,
+} from '../application/use-cases/perfil-presupuesto.use-case';
 import { PreviewIngestaUseCase } from '../application/use-cases/preview-ingesta.use-case';
 import { CommitIngestaUseCase } from '../application/use-cases/commit-ingesta.use-case';
 import { RegistrarMovimientoManualUseCase } from '../application/use-cases/registrar-movimiento-manual.use-case';
@@ -141,6 +147,8 @@ export interface Container {
   readonly eliminarCuenta: EliminarCuentaUseCase;
   /** Edición de perfil (US-040, PR#1) — `PATCH /api/perfil`. */
   readonly perfil: PerfilGraph;
+  /** Perfil de presupuesto (#110) — `GET/PUT /api/perfil/presupuesto`. */
+  readonly perfilPresupuesto: PerfilPresupuestoGraph;
   /** Login por credenciales — POST /api/auth/login. */
   readonly login: LoginUseCase;
   /** Revocar sesión — POST /api/auth/logout. */
@@ -260,14 +268,19 @@ export function createContainer(
   // PrismaUltimoPeriodoConDatosReader — mismo patrón un-`new`-por-use-case
   // stateless que PrismaResumenMesRepository/PrismaDetalleBucketRepository
   // en este mismo archivo (US-049 D-12 / US-051 D-10 / US-052 D-07).
+  // #110: the summaries read the user's budget profile goals (PER-06). One
+  // stateless instance shared by the readers and PUT /api/perfil/presupuesto.
+  const perfilPresupuesto = new PrismaPerfilPresupuestoRepository(prisma);
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
   const calcularResumenAnual = new CalcularResumenAnualUseCase(
     new PrismaResumenAnualRepository(prisma),
     logger,
+    perfilPresupuesto,
   );
   // US-049, D-12: segunda instancia de PrismaResumenMesRepository (stateless,
   // sin costo) — matches el estilo un-`new`-por-use-case del archivo; no hay
@@ -277,6 +290,7 @@ export function createContainer(
     new PrismaResumenMesRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
 
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
@@ -294,6 +308,7 @@ export function createContainer(
     new PrismaResumenMesRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
   // US-052, D-07: TERCERA instancia de PrismaDetalleBucketRepository (misma
   // disciplina un-`new`-por-use-case de US-049 D-12 / US-051 D-10 — las
@@ -377,6 +392,13 @@ export function createContainer(
   // US-040: reusa las MISMAS instancias crypto/blindIndex derivadas arriba —
   // nunca una re-derivación (mismo carry-forward que googleAuth/googleAuthMobile).
   const perfil = crearPerfil(prisma, crypto, blindIndex, logger);
+  const perfilPresupuestoGraph: PerfilPresupuestoGraph = {
+    obtener: new ObtenerPerfilPresupuestoUseCase(perfilPresupuesto),
+    actualizar: new ActualizarPerfilPresupuestoUseCase(
+      perfilPresupuesto,
+      logger,
+    ),
+  };
 
   return {
     validarSesion: auth.validarSesion,
@@ -400,6 +422,7 @@ export function createContainer(
     catalogo,
     eliminarCuenta,
     perfil,
+    perfilPresupuesto: perfilPresupuestoGraph,
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,

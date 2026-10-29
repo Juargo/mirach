@@ -33,7 +33,8 @@ import kotlinx.serialization.Contextual
  *
  * @param bucket Bucket name (Bucket domain enum value).
  * @param estado Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.
- * @param estadoSemaforo Traffic-light health state, lowercase wire enum (US-016), or null.
+ * @param estadoSemaforo Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000.
+ * @param metaBp Target of this bucket in basis points, from the user's budget profile (issue #110). Every month uses the current profile, past ones too. 5000/3000/2000 for the default 50/30/20 profile.
  * @param participacionGastoBp This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.
  * @param porcentajeBp Basis-point percentage (0-10000). null when sinIngreso=true.
  * @param total BigInt-safe decimal string amount (never a JSON number).
@@ -50,9 +51,13 @@ data class ResumenMesResponseBucketsInner (
     @SerialName(value = "estado")
     val estado: ResumenMesResponseBucketsInner.Estado?,
 
-    /* Traffic-light health state, lowercase wire enum (US-016), or null. */
+    /* Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000. */
     @SerialName(value = "estadoSemaforo")
     val estadoSemaforo: ResumenMesResponseBucketsInner.EstadoSemaforo?,
+
+    /* Target of this bucket in basis points, from the user's budget profile (issue #110). Every month uses the current profile, past ones too. 5000/3000/2000 for the default 50/30/20 profile. */
+    @SerialName(value = "metaBp")
+    val metaBp: kotlin.Int,
 
     /* This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income. */
     @SerialName(value = "participacionGastoBp")
@@ -80,7 +85,7 @@ data class ResumenMesResponseBucketsInner (
         @SerialName(value = "sobre") sobre("sobre");
     }
     /**
-     * Traffic-light health state, lowercase wire enum (US-016), or null.
+     * Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000.
      *
      * Values: verde,amarillo,rojo
      */

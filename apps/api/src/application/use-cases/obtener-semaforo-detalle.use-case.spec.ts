@@ -5,6 +5,13 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
+import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
+
+/** Budget profile reader for tests: every user has the 50/30/20 default (#110). */
+const perfilPorDefecto: IPerfilPresupuestoReader = {
+  obtener: () => Promise.resolve(PerfilPresupuesto.porDefecto()),
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // US-049 PR3: Unit tests — ObtenerSemaforoDetalleUseCase (mocked IResumenMesReader).
@@ -62,6 +69,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         makeUltimoPeriodoReader(null),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: undefined });
@@ -79,6 +87,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         ultimoPeriodoReader,
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: undefined });
@@ -99,6 +108,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         ultimoPeriodoReader,
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -114,6 +124,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -130,6 +141,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({
@@ -150,6 +162,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -167,6 +180,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         new NoOpLogger(),
+        perfilPorDefecto,
       );
 
       await uc.execute({ userId: 'user-xyz-789', periodo: '2026-07' });
@@ -184,6 +198,7 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
         reader,
         makeUltimoPeriodoReader(),
         logger,
+        perfilPorDefecto,
       );
 
       await uc.execute({ userId: 'user-a', periodo: '2026-07' });
@@ -204,5 +219,29 @@ describe('ObtenerSemaforoDetalleUseCase', () => {
       expect(serializedContexts).not.toContain('Tu veredicto del mes es');
       expect(serializedContexts).not.toContain('registramos ingresos');
     });
+  });
+});
+
+describe('ObtenerSemaforoDetalleUseCase — budget profile goals (#110)', () => {
+  it("bands follow the requesting user's profile goals", async () => {
+    const obtener = vi
+      .fn()
+      .mockResolvedValue(PerfilPresupuesto.predefinido('80_10_10'));
+    const uc = new ObtenerSemaforoDetalleUseCase(
+      makeMockReader(allBucketRows()),
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      { obtener },
+    );
+
+    const result = await uc.execute({ userId: 'user-a', periodo: '2026-07' });
+
+    expect(obtener).toHaveBeenCalledWith('user-a');
+    const { detalle } = result.getValue();
+    expect(detalle.buckets.map((b) => b.bandas.metaBp)).toEqual([
+      8000n,
+      1000n,
+      1000n,
+    ]);
   });
 });

@@ -422,13 +422,38 @@ describe('construirSemaforoDetalle (Group G — SEM-01/02/05/06, D-01/D-03)', ()
     ]);
   });
 
-  it('bandas are carried per bucket from the single BANDAS_SEMAFORO table', () => {
+  it('bandas for the default profile equal the BANDAS_SEMAFORO table', () => {
     const detalle = construirSemaforoDetalle(resumenCon({}));
     for (const b of detalle.buckets) {
-      expect(b.bandas).toBe(
+      expect(b.bandas).toEqual(
         BANDAS_SEMAFORO[b.bucket as keyof typeof BANDAS_SEMAFORO],
       );
     }
+  });
+
+  it('bandas, estado and advice follow the profile goals (#110, decision A)', () => {
+    const resumen = ResumenMes.crear(
+      {
+        totalIngreso: 1_000_000n,
+        necesidades: 850_000n,
+        deseos: 50_000n,
+        ahorro: 100_000n,
+      },
+      {
+        [Bucket.Necesidades]: 8000n,
+        [Bucket.Deseos]: 1000n,
+        [Bucket.Ahorro]: 1000n,
+      },
+    );
+    const detalle = construirSemaforoDetalle(resumen);
+    const necesidades = detalle.buckets[0];
+    expect(necesidades.bandas.metaBp).toBe(8000n);
+    expect(necesidades.bandas.amarilloMax).toBe(9000n);
+    expect(necesidades.estadoSemaforo).toBe(EstadoSemaforo.Amarillo);
+    // 85% against an 80% goal: the largest spend that still rounds to
+    // 8000bp is 800.049, so the advice is to reduce 49.951.
+    expect(necesidades.consejo?.monto).toBe(49_951n);
+    expect(detalle.buckets[2].estadoSemaforo).toBe(EstadoSemaforo.Verde);
   });
 
   it('metaBp is 5000/3000/2000 for Necesidades/Deseos/Ahorro', () => {

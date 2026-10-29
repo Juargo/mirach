@@ -8,6 +8,7 @@ import {
   BucketSumRowAnual,
 } from '../ports/resumen-anual.port';
 import { ILogger } from '../ports/logger.port';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
 
 /** Tipo de retorno del use case en caso de éxito — mirrors CalcularResumenMesResult. */
@@ -42,6 +43,7 @@ export class CalcularResumenAnualUseCase {
   constructor(
     private readonly reader: IResumenAnualReader,
     private readonly logger: ILogger,
+    private readonly perfilReader: IPerfilPresupuestoReader,
   ) {}
 
   async execute(input: {
@@ -74,7 +76,10 @@ export class CalcularResumenAnualUseCase {
       anioVO = resultado.getValue();
     }
 
-    const rows = await this.reader.sumarPorBucketAnual(input.userId, anioVO);
+    const [rows, perfil] = await Promise.all([
+      this.reader.sumarPorBucketAnual(input.userId, anioVO),
+      this.perfilReader.obtener(input.userId),
+    ]);
     // Counts only — never amounts (ADR-013). rows spans up to 12 months x 5
     // buckets in a single query.
     this.logger.debug('calcular-resumen-anual: repo fetch', {
@@ -94,7 +99,10 @@ export class CalcularResumenAnualUseCase {
     const meses = anioVO
       .meses()
       .map((periodoMes) =>
-        construirResumenMesDesdeFilas(rowsPorMes.get(periodoMes.valor) ?? []),
+        construirResumenMesDesdeFilas(
+          rowsPorMes.get(periodoMes.valor) ?? [],
+          perfil.metas,
+        ),
       );
 
     const resultadoResumenAnual = ResumenAnual.crear(anioVO.anio, meses);

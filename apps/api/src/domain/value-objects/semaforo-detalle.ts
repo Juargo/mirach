@@ -1,6 +1,7 @@
 import { Bucket } from './bucket';
 import {
   BANDAS_SEMAFORO,
+  bandasParaMeta,
   type BandasBucket,
   EstadoSemaforo,
   calcularEstadoBucket,
@@ -202,13 +203,17 @@ export function montoParaVerde(
   bucket: Bucket,
   total: bigint,
   base: bigint,
+  metaBp?: bigint,
 ): ConsejoVerde | null {
   if (base === 0n) return null; // sinIngreso — nothing to advise
   if (!esBucketSemaforo(bucket)) return null; // Ingreso — no rule defined
-  const bandas = BANDAS_SEMAFORO[bucket];
+  const bandas =
+    metaBp === undefined
+      ? BANDAS_SEMAFORO[bucket]
+      : bandasParaMeta(bucket, metaBp);
 
   const bp = porcentajeBasisPoints(total, base);
-  const estado = calcularEstadoBucket(bucket, bp);
+  const estado = calcularEstadoBucket(bucket, bp, metaBp);
   if (bp === null || estado === null || estado === EstadoSemaforo.Verde) {
     return null;
   }
@@ -242,8 +247,11 @@ export function montoParaVerde(
   // the pathological small-base granularity case where one peso moves bp by
   // more than a whole band (e.g. base = 1n ⇒ 10000bp per peso).
   if (
-    calcularEstadoBucket(bucket, porcentajeBasisPoints(objetivo, base)) !==
-    EstadoSemaforo.Verde
+    calcularEstadoBucket(
+      bucket,
+      porcentajeBasisPoints(objetivo, base),
+      metaBp,
+    ) !== EstadoSemaforo.Verde
   ) {
     return null;
   }
@@ -290,8 +298,14 @@ export function construirSemaforoDetalle(resumen: ResumenMes): SemaforoDetalle {
         total,
         porcentajeBp: slice?.porcentajeBp ?? null,
         estadoSemaforo: slice?.estadoSemaforo ?? null,
-        bandas: BANDAS_SEMAFORO[bucket],
-        consejo: montoParaVerde(bucket, total, resumen.totalIngreso),
+        // Bands and advice follow the profile goal (#110, decision A).
+        bandas: bandasParaMeta(bucket, resumen.metas[bucket]),
+        consejo: montoParaVerde(
+          bucket,
+          total,
+          resumen.totalIngreso,
+          resumen.metas[bucket],
+        ),
       };
     },
   );

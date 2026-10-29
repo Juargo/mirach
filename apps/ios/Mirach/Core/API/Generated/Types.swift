@@ -229,6 +229,20 @@ internal protocol APIProtocol: Sendable {
     /// - Remark: HTTP `PATCH /api/perfil/password`.
     /// - Remark: Generated from `#/paths//api/perfil/password/patch`.
     func patch_sol_api_sol_perfil_sol_password(_ input: Operations.patch_sol_api_sol_perfil_sol_password.Input) async throws -> Operations.patch_sol_api_sol_perfil_sol_password.Output
+    /// Get the current user's budget profile
+    ///
+    /// Authenticated endpoint that returns the caller's budget profile (issue #110, PER-03..PER-06): its id and three targets in basis points that sum 10000. A user who never chose a profile gets 50_30_20. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/get`.
+    func get_sol_api_sol_perfil_sol_presupuesto(_ input: Operations.get_sol_api_sol_perfil_sol_presupuesto.Input) async throws -> Operations.get_sol_api_sol_perfil_sol_presupuesto.Output
+    /// Replace the current user's budget profile
+    ///
+    /// Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), or `personalizado` with three non-negative targets in basis points. Custom targets that do not sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, `GET /api/resumen/semaforo` and `GET /api/buckets/{bucket}/detalle` measure every month against the current profile. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `PUT /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put`.
+    func put_sol_api_sol_perfil_sol_presupuesto(_ input: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input) async throws -> Operations.put_sol_api_sol_perfil_sol_presupuesto.Output
     /// Months that have movements for the session user
     ///
     /// Feeds the month selector of Resumen, Detalle de bucket and Ingresos del mes. Lists every month (YYYY-MM, UTC) in which the session user has at least one movement: any transaction counts, expense or income-only, whatever its category (internal categories included) — the same rule as the default period of GET /api/resumen, with the same UTC month derivation, so a listed month always has data there. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Ordering: `periodos` most recent first, no duplicates; empty list when the user has no movements.
@@ -710,6 +724,30 @@ extension APIProtocol {
         body: Operations.patch_sol_api_sol_perfil_sol_password.Input.Body? = nil
     ) async throws -> Operations.patch_sol_api_sol_perfil_sol_password.Output {
         try await patch_sol_api_sol_perfil_sol_password(Operations.patch_sol_api_sol_perfil_sol_password.Input(
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Get the current user's budget profile
+    ///
+    /// Authenticated endpoint that returns the caller's budget profile (issue #110, PER-03..PER-06): its id and three targets in basis points that sum 10000. A user who never chose a profile gets 50_30_20. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/get`.
+    internal func get_sol_api_sol_perfil_sol_presupuesto(headers: Operations.get_sol_api_sol_perfil_sol_presupuesto.Input.Headers = .init()) async throws -> Operations.get_sol_api_sol_perfil_sol_presupuesto.Output {
+        try await get_sol_api_sol_perfil_sol_presupuesto(Operations.get_sol_api_sol_perfil_sol_presupuesto.Input(headers: headers))
+    }
+    /// Replace the current user's budget profile
+    ///
+    /// Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), or `personalizado` with three non-negative targets in basis points. Custom targets that do not sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, `GET /api/resumen/semaforo` and `GET /api/buckets/{bucket}/detalle` measure every month against the current profile. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `PUT /api/perfil/presupuesto`.
+    /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put`.
+    internal func put_sol_api_sol_perfil_sol_presupuesto(
+        headers: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input.Headers = .init(),
+        body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Input.Body? = nil
+    ) async throws -> Operations.put_sol_api_sol_perfil_sol_presupuesto.Output {
+        try await put_sol_api_sol_perfil_sol_presupuesto(Operations.put_sol_api_sol_perfil_sol_presupuesto.Input(
             headers: headers,
             body: body
         ))

@@ -42,6 +42,8 @@ import app.mirachbudget.android.core.api.generated.models.IngresosMesResponse
 import app.mirachbudget.android.core.api.generated.models.MovimientosMesResponse
 import app.mirachbudget.android.core.api.generated.models.PatronResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilErrorResponse
+import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoResponse
+import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoUpdateRequest
 import app.mirachbudget.android.core.api.generated.models.PeriodosResponse
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponse
 import app.mirachbudget.android.core.api.generated.models.ReevaluarCategoriasResponse
@@ -553,6 +555,34 @@ interface DefaultApi {
      */
     @PATCH("api/perfil")
     suspend fun apiPerfilPatch(@Body apiPerfilPatchRequest: ApiPerfilPatchRequest? = null): Response<AuthMeResponse>
+
+    /**
+     * GET api/perfil/presupuesto
+     * Get the current user&#39;s budget profile
+     * Authenticated endpoint that returns the caller&#39;s budget profile (issue #110, PER-03..PER-06): its id and three targets in basis points that sum 10000. A user who never chose a profile gets 50_30_20. Requires x-api-key + a valid session.
+     * Responses:
+     *  - 200: The caller's budget profile.
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *
+     * @return [PerfilPresupuestoResponse]
+     */
+    @GET("api/perfil/presupuesto")
+    suspend fun apiPerfilPresupuestoGet(): Response<PerfilPresupuestoResponse>
+
+    /**
+     * PUT api/perfil/presupuesto
+     * Replace the current user&#39;s budget profile
+     * Authenticated endpoint that replaces the caller&#39;s budget profile (issue #110, PER-03..PER-06). Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), or &#x60;personalizado&#x60; with three non-negative targets in basis points. Custom targets that do not sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in both cases the stored profile does not change. &#x60;GET /api/resumen&#x60;, &#x60;GET /api/resumen/anual&#x60;, &#x60;GET /api/resumen/semaforo&#x60; and &#x60;GET /api/buckets/{bucket}/detalle&#x60; measure every month against the current profile. Requires x-api-key + a valid session.
+     * Responses:
+     *  - 200: Profile saved; the stored profile is returned.
+     *  - 400: Malformed body (BODY_INVALIDO), custom targets that do not sum 10000 (PERFIL_NO_SUMA_100), or a negative target (META_INVALIDA).
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *
+     * @param perfilPresupuestoUpdateRequest  (optional)
+     * @return [PerfilPresupuestoResponse]
+     */
+    @PUT("api/perfil/presupuesto")
+    suspend fun apiPerfilPresupuestoPut(@Body perfilPresupuestoUpdateRequest: PerfilPresupuestoUpdateRequest? = null): Response<PerfilPresupuestoResponse>
 
     /**
      * GET api/periodos

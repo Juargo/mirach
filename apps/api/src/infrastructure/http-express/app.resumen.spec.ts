@@ -4,6 +4,7 @@ import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { ResumenMes } from '../../domain/value-objects/resumen-mes';
+import { METAS_POR_DEFECTO } from '../../domain/value-objects/perfil-presupuesto';
 import { resumenResponseSchema } from './schemas/resumen.schema';
 
 /**
@@ -23,6 +24,7 @@ const RESUMEN_MES_OK = {
   estadoGlobal: null,
   estadoMes: null,
   bloquesEstadoMes: [],
+  metas: METAS_POR_DEFECTO,
   cantidadSinCategoria: 0,
 };
 
