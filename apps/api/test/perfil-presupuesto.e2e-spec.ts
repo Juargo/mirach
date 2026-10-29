@@ -132,6 +132,13 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
     });
   });
 
+  it('GET requires a session (401 without one)', async () => {
+    await request(app)
+      .get('/api/perfil/presupuesto')
+      .set('x-api-key', API_KEY)
+      .expect(401);
+  });
+
   it('requires a session (401 without one)', async () => {
     await request(app)
       .put('/api/perfil/presupuesto')
@@ -178,6 +185,7 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
     const anual = await get('/api/resumen/anual?anio=2026', authMarcela).expect(
       200,
     );
+    expect(anual.body.meses).toHaveLength(12);
     for (const mes of anual.body.meses as Array<{ targets: unknown }>) {
       expect(mes.targets).toEqual({ Necesidades: 80, Deseos: 10, Ahorro: 10 });
     }
