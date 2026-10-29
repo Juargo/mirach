@@ -951,6 +951,71 @@
         ],
         "type": "object"
       },
+      "PerfilPresupuestoMetas": {
+        "additionalProperties": false,
+        "properties": {
+          "Ahorro": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "Deseos": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "Necesidades": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "Necesidades",
+          "Deseos",
+          "Ahorro"
+        ],
+        "type": "object"
+      },
+      "PerfilPresupuestoPersonalizado": {
+        "additionalProperties": false,
+        "description": "Custom profile: three non-negative targets in basis points that must sum 10000.",
+        "properties": {
+          "metas": {
+            "$ref": "#/components/schemas/PerfilPresupuestoMetas"
+          },
+          "perfil": {
+            "enum": [
+              "personalizado"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "perfil",
+          "metas"
+        ],
+        "type": "object"
+      },
+      "PerfilPresupuestoPredefinido": {
+        "additionalProperties": false,
+        "description": "Predefined profile. 80_10_10 is the «Salir de deudas» profile.",
+        "properties": {
+          "perfil": {
+            "enum": [
+              "50_30_20",
+              "60_20_20",
+              "70_15_15",
+              "80_10_10"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "perfil"
+        ],
+        "type": "object"
+      },
       "PerfilPresupuestoResponse": {
         "additionalProperties": false,
         "description": "The user's budget profile (issue #110, PER-03..PER-06).",
@@ -1001,70 +1066,15 @@
         "type": "object"
       },
       "PerfilPresupuestoUpdateRequest": {
-        "description": "A predefined profile id, or `personalizado` with three targets in basis points that must sum 10000. 80_10_10 is the «Salir de deudas» profile.",
-        "oneOf": [
+        "anyOf": [
           {
-            "additionalProperties": false,
-            "properties": {
-              "perfil": {
-                "enum": [
-                  "50_30_20",
-                  "60_20_20",
-                  "70_15_15",
-                  "80_10_10"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "perfil"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/PerfilPresupuestoPredefinido"
           },
           {
-            "additionalProperties": false,
-            "properties": {
-              "metas": {
-                "additionalProperties": false,
-                "properties": {
-                  "Ahorro": {
-                    "maximum": 9007199254740991,
-                    "minimum": -9007199254740991,
-                    "type": "integer"
-                  },
-                  "Deseos": {
-                    "maximum": 9007199254740991,
-                    "minimum": -9007199254740991,
-                    "type": "integer"
-                  },
-                  "Necesidades": {
-                    "maximum": 9007199254740991,
-                    "minimum": -9007199254740991,
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "Necesidades",
-                  "Deseos",
-                  "Ahorro"
-                ],
-                "type": "object"
-              },
-              "perfil": {
-                "enum": [
-                  "personalizado"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "perfil",
-              "metas"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/PerfilPresupuestoPersonalizado"
           }
         ],
-        "type": "object"
+        "description": "A predefined profile id, or `personalizado` with three targets in basis points that must sum 10000. The branches are mutually exclusive by `perfil`."
       },
       "PeriodosResponse": {
         "additionalProperties": false,

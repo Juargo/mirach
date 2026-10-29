@@ -12,7 +12,7 @@ struct GeneratedNullableFieldsTests {
         Data("""
         {"periodo":"2026-09","totalIngreso":"1000000","sinIngreso":false,
          "buckets":[{"bucket":"Necesidades","total":"500000","porcentajeBp":\(porcentajeBp),
-                     "participacionGastoBp":10000,"estadoSemaforo":\(estadoSemaforo),"estado":\(estado)}],
+                     "participacionGastoBp":10000,"metaBp":5000,"estadoSemaforo":\(estadoSemaforo),"estado":\(estado)}],
          "targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},
          "estadoGlobal":\(estadoGlobal),"estadoMes":\(estadoMes),"bloquesEstadoMes":[]}
         """.utf8)

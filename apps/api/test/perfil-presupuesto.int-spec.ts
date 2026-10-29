@@ -117,6 +117,16 @@ describe('PrismaPerfilPresupuestoRepository (#110)', () => {
     ).rejects.toThrow(/User_perfilPresupuesto_check/);
   });
 
+  it('the DB rejects a predefined id with goals that are not its own', async () => {
+    if (!ALLOW) return;
+    await expect(
+      prisma.user.update({
+        where: { id: userIdB },
+        data: { perfilPresupuesto: '80_10_10' },
+      }),
+    ).rejects.toThrow(/User_perfil_predefinido_metas_check/);
+  });
+
   it('the DB rejects a negative goal', async () => {
     if (!ALLOW) return;
     await expect(

@@ -29,7 +29,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Contextual
 
 /**
- * Hardcoded 50/30/20 reference targets.
+ * Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.
  *
  * @param ahorro 
  * @param deseos 

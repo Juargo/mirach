@@ -21,9 +21,9 @@ The response MUST expose a header with `total` (the bucket's accumulated spend f
 BigInt-safe string), `totalTransacciones` (number of transactions), `totalCategorias` (number of
 category groups in the payload, INCLUDING the synthetic Sin categoría group when present),
 `porcentajeBp` (% vs meta, in basis points, round-half-up) and `metaBp` (the bucket's target from
-`BANDAS_SEMAFORO`). Since the route only accepts the three spend buckets (MBD-07), `BANDAS_SEMAFORO`
-always has a rule for it, so `metaBp`/`porcentajeBp` are never null for a bucket this endpoint
-actually serves. A period with no transactions for the bucket is a SUCCESS case: 200 with zeroed
+the user's budget profile, `perfil-presupuesto`, issue #110 — the same for every month). Since the
+route only accepts the three spend buckets (MBD-07), the profile always has a target for it, so
+`metaBp`/`porcentajeBp` are never null for a bucket this endpoint actually serves. A period with no transactions for the bucket is a SUCCESS case: 200 with zeroed
 totals and an empty `grupos` array, never an error.
 
 #### Scenario: Header exposes correct BigInt string and basis-point values
@@ -32,6 +32,12 @@ totals and an empty `grupos` array, never an error.
 - WHEN a client calls `GET /api/buckets/Necesidades/detalle?periodo=<period>`
 - THEN `total` is the string `"250000"`, `metaBp` is 5000, and `porcentajeBp` equals the
   round-half-up percentage of 250000 against the period's income
+
+#### Scenario: `metaBp` follows the budget profile
+
+- GIVEN a user whose profile is 80/10/10
+- WHEN a client calls `GET /api/buckets/Necesidades/detalle?periodo=<any period>`
+- THEN `metaBp` is 8000
 
 #### Scenario: An empty bucket month returns 200 with zeroed totals
 

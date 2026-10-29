@@ -18,3 +18,13 @@ ALTER TABLE "User" ADD CONSTRAINT "User_metas_no_negativas_check"
   CHECK ("metaNecesidadesBp" >= 0 AND "metaDeseosBp" >= 0 AND "metaAhorroBp" >= 0);
 ALTER TABLE "User" ADD CONSTRAINT "User_metas_suman_10000_check"
   CHECK ("metaNecesidadesBp" + "metaDeseosBp" + "metaAhorroBp" = 10000);
+-- A predefined profile carries exactly its own goals; only 'personalizado'
+-- has free goals. Mirrors PerfilPresupuesto.desdePersistencia.
+ALTER TABLE "User" ADD CONSTRAINT "User_perfil_predefinido_metas_check"
+  CHECK (
+    "perfilPresupuesto" = 'personalizado'
+    OR ("perfilPresupuesto" = '50_30_20' AND "metaNecesidadesBp" = 5000 AND "metaDeseosBp" = 3000 AND "metaAhorroBp" = 2000)
+    OR ("perfilPresupuesto" = '60_20_20' AND "metaNecesidadesBp" = 6000 AND "metaDeseosBp" = 2000 AND "metaAhorroBp" = 2000)
+    OR ("perfilPresupuesto" = '70_15_15' AND "metaNecesidadesBp" = 7000 AND "metaDeseosBp" = 1500 AND "metaAhorroBp" = 1500)
+    OR ("perfilPresupuesto" = '80_10_10' AND "metaNecesidadesBp" = 8000 AND "metaDeseosBp" = 1000 AND "metaAhorroBp" = 1000)
+  );

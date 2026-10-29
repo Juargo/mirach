@@ -17,11 +17,14 @@ Delivery: `ask-on-risk`. Test runner: vitest (`pnpm api test`, `pnpm api test:in
 
 - [x] T1 S1, S5 — domain VO `PerfilPresupuesto`, `PerfilNoSuma100Error`, bands derived from goals. Route: inline. RED observed (15 VO + 7 bands/goals); GREEN: unit 3235/3235, tsc clean. Commit: 2635535.
 - [x] T2 S2, S4, S5 — migration + repository port/adapter; summaries, annual, bucket detail and semáforo read goals from the profile. Route: inline. Risk: item 1 (migration). Use-case tests mutation-checked; unit 3242/3242, int 235/235 (8 new), e2e 76/76, lint/build/openapi/env checks green. Commit: 235c3cb. Independent verifier launched (item 1).
-- [ ] T3 S3, S6 — `GET/PUT /api/perfil/presupuesto`, schemas, error mapping, e2e (acceptance + isolation). Route: inline.
-- [ ] T4 S7 — openapi emit, regenerate iOS/Android clients, openspec deltas. Route: inline.
+- [x] T3 S3, S6 — `GET/PUT /api/perfil/presupuesto`, schemas, error mapping, e2e (acceptance + isolation). Route: inline. RED observed (use cases); e2e 12/12 (both acceptance scenarios, isolation, 401, BODY_INVALIDO cases), mutation-checked; unit 3247/3247; lint/build/openapi green. Commit: 47f37ca.
+- [x] T4 S7 — openapi emit, regenerate iOS/Android clients, openspec deltas. Route: inline. iOS MirachTests 569/569, Android testDebugUnitTest + assembleDebug + lint green; API unit 3247, int 236, e2e 88 (serial). Commit: T4.
 
 ## Log
 
 - L1 (2026-10-29) User: "si" to "¿Sigo con #110?" (issue #110 is the request; its text is quoted in S1–S6).
 - L2 (2026-10-29) Plan accepted; user chose option "a": shift legacy traffic-light bands with the profile goal (S5).
 - L3 (2026-10-29) T2: legacy `targets` stays in percentage points (now from the profile, decimals allowed for custom goals); exact goals travel as `buckets[].metaBp`. `/api/resumen/semaforo` bands and advice follow the profile (S5). Profile reader is a required constructor param (no silent 50/30/20 fallback in wiring); the Prisma reader falls back to 50/30/20 only for a missing user or an invalid stored row.
+- L4 (2026-10-29) T3: a negative custom target returns 400 `META_INVALIDA` (domain error `MetaPresupuestoInvalidaError`); not in the issue, added because the domain rejects it. `ingesta-preview.e2e-spec` CA-04 counts global rows and fails when another process writes to the same test DB concurrently; passes alone (8/8).
+- L5 (2026-10-29) Independent verifier on T2 (235c3cb): no blockers; S1, S2, S4, S5 PASS (migration on 5000 rows, no drift, differential vs 5132a8f byte-identical except additive `metaBp`). Advisory accepted: added CHECK `User_perfil_predefinido_metas_check` (a predefined id must carry its own goals) before the migration reaches production. Advisory noted: the e2e suite is flaky with file parallelism at baseline too; serial run passes.
+- L6 (2026-10-29) T4: Kotlin generator cannot name anonymous `oneOf` branches; document schema uses `z.union` with named branches (`PerfilPresupuestoPredefinido`, `PerfilPresupuestoPersonalizado`, `PerfilPresupuestoMetas`), runtime keeps `discriminatedUnion` (movimientos precedent). App fixtures updated with `metaBp`. Delivery order matters: a client generated from this contract requires `buckets[].metaBp`, so the API must deploy before new app builds ship.

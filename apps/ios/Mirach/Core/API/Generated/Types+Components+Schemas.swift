@@ -434,7 +434,7 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/grupos`.
             internal var grupos: Components.Schemas.BucketDetalleMesResponse.gruposPayload
-            /// Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).
+            /// Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/metaBp`.
             internal var metaBp: Swift.Int?
@@ -461,7 +461,7 @@ extension Components {
             /// - Parameters:
             ///   - bucket: Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).
             ///   - grupos: One entry per present category, by subtotal descending (ties by name, es-CL), "Sin categoría" last. [] for an empty bucket month (MBD-01).
-            ///   - metaBp: Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).
+            ///   - metaBp: Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).
             ///   - periodo: Resolved period, format YYYY-MM.
             ///   - porcentajeBp: Basis-point percentage, round-half-up. null when the month has no income (D-05).
             ///   - total: BigInt-safe decimal string amount (never a JSON number).
@@ -2281,6 +2281,285 @@ extension Components {
                 ])
             }
         }
+        /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoMetas`.
+        internal struct PerfilPresupuestoMetas: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoMetas/Ahorro`.
+            internal var Ahorro: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoMetas/Deseos`.
+            internal var Deseos: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoMetas/Necesidades`.
+            internal var Necesidades: Swift.Int
+            /// Creates a new `PerfilPresupuestoMetas`.
+            ///
+            /// - Parameters:
+            ///   - Ahorro:
+            ///   - Deseos:
+            ///   - Necesidades:
+            internal init(
+                Ahorro: Swift.Int,
+                Deseos: Swift.Int,
+                Necesidades: Swift.Int
+            ) {
+                self.Ahorro = Ahorro
+                self.Deseos = Deseos
+                self.Necesidades = Necesidades
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case Ahorro
+                case Deseos
+                case Necesidades
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.Ahorro = try container.decode(
+                    Swift.Int.self,
+                    forKey: .Ahorro
+                )
+                self.Deseos = try container.decode(
+                    Swift.Int.self,
+                    forKey: .Deseos
+                )
+                self.Necesidades = try container.decode(
+                    Swift.Int.self,
+                    forKey: .Necesidades
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "Ahorro",
+                    "Deseos",
+                    "Necesidades"
+                ])
+            }
+        }
+        /// Custom profile: three non-negative targets in basis points that must sum 10000.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado`.
+        internal struct PerfilPresupuestoPersonalizado: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado/metas`.
+            internal var metas: Components.Schemas.PerfilPresupuestoMetas
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado/perfil`.
+            internal enum perfilPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case personalizado = "personalizado"
+            }
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado/perfil`.
+            internal var perfil: Components.Schemas.PerfilPresupuestoPersonalizado.perfilPayload
+            /// Creates a new `PerfilPresupuestoPersonalizado`.
+            ///
+            /// - Parameters:
+            ///   - metas:
+            ///   - perfil:
+            internal init(
+                metas: Components.Schemas.PerfilPresupuestoMetas,
+                perfil: Components.Schemas.PerfilPresupuestoPersonalizado.perfilPayload
+            ) {
+                self.metas = metas
+                self.perfil = perfil
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case metas
+                case perfil
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.metas = try container.decode(
+                    Components.Schemas.PerfilPresupuestoMetas.self,
+                    forKey: .metas
+                )
+                self.perfil = try container.decode(
+                    Components.Schemas.PerfilPresupuestoPersonalizado.perfilPayload.self,
+                    forKey: .perfil
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "metas",
+                    "perfil"
+                ])
+            }
+        }
+        /// Predefined profile. 80_10_10 is the «Salir de deudas» profile.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido`.
+        internal struct PerfilPresupuestoPredefinido: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido/perfil`.
+            internal enum perfilPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case _50_30_20 = "50_30_20"
+                case _60_20_20 = "60_20_20"
+                case _70_15_15 = "70_15_15"
+                case _80_10_10 = "80_10_10"
+            }
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido/perfil`.
+            internal var perfil: Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload
+            /// Creates a new `PerfilPresupuestoPredefinido`.
+            ///
+            /// - Parameters:
+            ///   - perfil:
+            internal init(perfil: Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload) {
+                self.perfil = perfil
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case perfil
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.perfil = try container.decode(
+                    Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload.self,
+                    forKey: .perfil
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "perfil"
+                ])
+            }
+        }
+        /// The user's budget profile (issue #110, PER-03..PER-06).
+        ///
+        /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse`.
+        internal struct PerfilPresupuestoResponse: Codable, Hashable, Sendable {
+            /// Targets in basis points (5000 = 50%); they sum 10000. The summaries measure every month against them, past ones too.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/metas`.
+            internal struct metasPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/metas/Ahorro`.
+                internal var Ahorro: Swift.Int
+                /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/metas/Deseos`.
+                internal var Deseos: Swift.Int
+                /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/metas/Necesidades`.
+                internal var Necesidades: Swift.Int
+                /// Creates a new `metasPayload`.
+                ///
+                /// - Parameters:
+                ///   - Ahorro:
+                ///   - Deseos:
+                ///   - Necesidades:
+                internal init(
+                    Ahorro: Swift.Int,
+                    Deseos: Swift.Int,
+                    Necesidades: Swift.Int
+                ) {
+                    self.Ahorro = Ahorro
+                    self.Deseos = Deseos
+                    self.Necesidades = Necesidades
+                }
+                internal enum CodingKeys: String, CodingKey {
+                    case Ahorro
+                    case Deseos
+                    case Necesidades
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.Ahorro = try container.decode(
+                        Swift.Int.self,
+                        forKey: .Ahorro
+                    )
+                    self.Deseos = try container.decode(
+                        Swift.Int.self,
+                        forKey: .Deseos
+                    )
+                    self.Necesidades = try container.decode(
+                        Swift.Int.self,
+                        forKey: .Necesidades
+                    )
+                    try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "Ahorro",
+                        "Deseos",
+                        "Necesidades"
+                    ])
+                }
+            }
+            /// Targets in basis points (5000 = 50%); they sum 10000. The summaries measure every month against them, past ones too.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/metas`.
+            internal var metas: Components.Schemas.PerfilPresupuestoResponse.metasPayload
+            /// Budget profile id. 80_10_10 is shown as «Salir de deudas». 50_30_20 for a user who never chose one.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/perfil`.
+            internal enum perfilPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case _50_30_20 = "50_30_20"
+                case _60_20_20 = "60_20_20"
+                case _70_15_15 = "70_15_15"
+                case _80_10_10 = "80_10_10"
+                case personalizado = "personalizado"
+            }
+            /// Budget profile id. 80_10_10 is shown as «Salir de deudas». 50_30_20 for a user who never chose one.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/perfil`.
+            internal var perfil: Components.Schemas.PerfilPresupuestoResponse.perfilPayload
+            /// Creates a new `PerfilPresupuestoResponse`.
+            ///
+            /// - Parameters:
+            ///   - metas: Targets in basis points (5000 = 50%); they sum 10000. The summaries measure every month against them, past ones too.
+            ///   - perfil: Budget profile id. 80_10_10 is shown as «Salir de deudas». 50_30_20 for a user who never chose one.
+            internal init(
+                metas: Components.Schemas.PerfilPresupuestoResponse.metasPayload,
+                perfil: Components.Schemas.PerfilPresupuestoResponse.perfilPayload
+            ) {
+                self.metas = metas
+                self.perfil = perfil
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case metas
+                case perfil
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.metas = try container.decode(
+                    Components.Schemas.PerfilPresupuestoResponse.metasPayload.self,
+                    forKey: .metas
+                )
+                self.perfil = try container.decode(
+                    Components.Schemas.PerfilPresupuestoResponse.perfilPayload.self,
+                    forKey: .perfil
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "metas",
+                    "perfil"
+                ])
+            }
+        }
+        /// A predefined profile id, or `personalizado` with three targets in basis points that must sum 10000. The branches are mutually exclusive by `perfil`.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoUpdateRequest`.
+        internal struct PerfilPresupuestoUpdateRequest: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoUpdateRequest/value1`.
+            internal var value1: Components.Schemas.PerfilPresupuestoPredefinido?
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoUpdateRequest/value2`.
+            internal var value2: Components.Schemas.PerfilPresupuestoPersonalizado?
+            /// Creates a new `PerfilPresupuestoUpdateRequest`.
+            ///
+            /// - Parameters:
+            ///   - value1:
+            ///   - value2:
+            internal init(
+                value1: Components.Schemas.PerfilPresupuestoPredefinido? = nil,
+                value2: Components.Schemas.PerfilPresupuestoPersonalizado? = nil
+            ) {
+                self.value1 = value1
+                self.value2 = value2
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                var errors: [any Swift.Error] = []
+                do {
+                    self.value1 = try .init(from: decoder)
+                } catch {
+                    errors.append(error)
+                }
+                do {
+                    self.value2 = try .init(from: decoder)
+                } catch {
+                    errors.append(error)
+                }
+                try Swift.DecodingError.verifyAtLeastOneSchemaIsNotNil(
+                    [
+                        self.value1,
+                        self.value2
+                    ],
+                    type: Self.self,
+                    codingPath: decoder.codingPath,
+                    errors: errors
+                )
+            }
+            internal func encode(to encoder: any Swift.Encoder) throws {
+                try self.value1?.encode(to: encoder)
+                try self.value2?.encode(to: encoder)
+            }
+        }
         /// GET /api/periodos — months that have movements for the session user (month selector).
         ///
         /// - Remark: Generated from `#/components/schemas/PeriodosResponse`.
@@ -2935,7 +3214,7 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estado`.
                 internal var estado: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoPayload?
-                /// Traffic-light health state, lowercase wire enum (US-016), or null.
+                /// Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000.
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estadoSemaforo`.
                 internal enum estadoSemaforoPayload: String, Codable, Hashable, Sendable, CaseIterable {
@@ -2944,10 +3223,14 @@ extension Components {
                     case rojo = "rojo"
                     case _empty = ""
                 }
-                /// Traffic-light health state, lowercase wire enum (US-016), or null.
+                /// Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000.
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/estadoSemaforo`.
                 internal var estadoSemaforo: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload?
+                /// Target of this bucket in basis points, from the user's budget profile (issue #110). Every month uses the current profile, past ones too. 5000/3000/2000 for the default 50/30/20 profile.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/metaBp`.
+                internal var metaBp: Swift.Int
                 /// This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.
                 ///
                 /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/bucketsPayload/participacionGastoBp`.
@@ -2965,7 +3248,8 @@ extension Components {
                 /// - Parameters:
                 ///   - bucket: Bucket name (Bucket domain enum value).
                 ///   - estado: Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.
-                ///   - estadoSemaforo: Traffic-light health state, lowercase wire enum (US-016), or null.
+                ///   - estadoSemaforo: Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000.
+                ///   - metaBp: Target of this bucket in basis points, from the user's budget profile (issue #110). Every month uses the current profile, past ones too. 5000/3000/2000 for the default 50/30/20 profile.
                 ///   - participacionGastoBp: This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.
                 ///   - porcentajeBp: Basis-point percentage (0-10000). null when sinIngreso=true.
                 ///   - total: BigInt-safe decimal string amount (never a JSON number).
@@ -2973,6 +3257,7 @@ extension Components {
                     bucket: Swift.String,
                     estado: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoPayload? = nil,
                     estadoSemaforo: Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload? = nil,
+                    metaBp: Swift.Int,
                     participacionGastoBp: Swift.Int? = nil,
                     porcentajeBp: Swift.Int? = nil,
                     total: Swift.String
@@ -2980,6 +3265,7 @@ extension Components {
                     self.bucket = bucket
                     self.estado = estado
                     self.estadoSemaforo = estadoSemaforo
+                    self.metaBp = metaBp
                     self.participacionGastoBp = participacionGastoBp
                     self.porcentajeBp = porcentajeBp
                     self.total = total
@@ -2988,6 +3274,7 @@ extension Components {
                     case bucket
                     case estado
                     case estadoSemaforo
+                    case metaBp
                     case participacionGastoBp
                     case porcentajeBp
                     case total
@@ -3006,6 +3293,10 @@ extension Components {
                         Components.Schemas.ResumenMesResponse.bucketsPayloadPayload.estadoSemaforoPayload.self,
                         forKey: .estadoSemaforo
                     )
+                    self.metaBp = try container.decode(
+                        Swift.Int.self,
+                        forKey: .metaBp
+                    )
                     self.participacionGastoBp = try container.decodeIfPresent(
                         Swift.Int.self,
                         forKey: .participacionGastoBp
@@ -3022,6 +3313,7 @@ extension Components {
                         "bucket",
                         "estado",
                         "estadoSemaforo",
+                        "metaBp",
                         "participacionGastoBp",
                         "porcentajeBp",
                         "total"
@@ -3068,7 +3360,7 @@ extension Components {
             internal var periodo: Swift.String
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/sinIngreso`.
             internal var sinIngreso: Swift.Bool
-            /// Hardcoded 50/30/20 reference targets.
+            /// Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/targets`.
             internal struct targetsPayload: Codable, Hashable, Sendable {
@@ -3119,7 +3411,7 @@ extension Components {
                     ])
                 }
             }
-            /// Hardcoded 50/30/20 reference targets.
+            /// Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/targets`.
             internal var targets: Components.Schemas.ResumenMesResponse.targetsPayload
@@ -3136,7 +3428,7 @@ extension Components {
             ///   - estadoMes: Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
             ///   - periodo: Resolved period, format YYYY-MM.
             ///   - sinIngreso:
-            ///   - targets: Hardcoded 50/30/20 reference targets.
+            ///   - targets: Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.
             ///   - totalIngreso: BigInt-safe decimal string amount (never a JSON number).
             internal init(
                 bloquesEstadoMes: [Swift.String],
@@ -3219,7 +3511,7 @@ extension Components {
         internal struct SemaforoDetalleResponse: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload`.
             internal struct bucketsPayloadPayload: Codable, Hashable, Sendable {
-                /// Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).
+                /// Zone-band edges used to compute this estado. They keep the 50/30/20 offsets around the profile target (issue #110, SEM-02).
                 ///
                 /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/bandas`.
                 internal struct bandasPayload: Codable, Hashable, Sendable {
@@ -3281,7 +3573,7 @@ extension Components {
                         ])
                     }
                 }
-                /// Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).
+                /// Zone-band edges used to compute this estado. They keep the 50/30/20 offsets around the profile target (issue #110, SEM-02).
                 ///
                 /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/bandas`.
                 internal var bandas: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.bandasPayload
@@ -3366,7 +3658,7 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/estadoSemaforo`.
                 internal var estadoSemaforo: Components.Schemas.SemaforoDetalleResponse.bucketsPayloadPayload.estadoSemaforoPayload?
-                /// Bucket's 50/30/20 target center, in basis points (SEM-02).
+                /// Bucket's target center in basis points, from the user's budget profile (issue #110, SEM-02).
                 ///
                 /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/bucketsPayload/metaBp`.
                 internal var metaBp: Swift.Int
@@ -3381,11 +3673,11 @@ extension Components {
                 /// Creates a new `bucketsPayloadPayload`.
                 ///
                 /// - Parameters:
-                ///   - bandas: Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).
+                ///   - bandas: Zone-band edges used to compute this estado. They keep the 50/30/20 offsets around the profile target (issue #110, SEM-02).
                 ///   - bucket: Bucket name (Bucket domain enum value).
                 ///   - consejo: CLP-to-Verde advice (SEM-03/SEM-04). null when estadoSemaforo is verde or null.
                 ///   - estadoSemaforo: Traffic-light health state, lowercase wire enum, or null.
-                ///   - metaBp: Bucket's 50/30/20 target center, in basis points (SEM-02).
+                ///   - metaBp: Bucket's target center in basis points, from the user's budget profile (issue #110, SEM-02).
                 ///   - porcentajeBp: Basis-point percentage (0-10000). null when sinIngreso=true.
                 ///   - total: BigInt-safe decimal string amount (never a JSON number).
                 internal init(

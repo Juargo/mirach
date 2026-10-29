@@ -22,19 +22,46 @@ const metasSchema = z
     Deseos: z.number().int(),
     Ahorro: z.number().int(),
   })
-  .strict();
+  .strict()
+  .meta({ id: 'PerfilPresupuestoMetas' });
 
-export const perfilPresupuestoUpdateRequestSchema = z
-  .discriminatedUnion('perfil', [
-    z.object({ perfil: z.enum(PERFILES_PREDEFINIDOS) }).strict(),
-    z
-      .object({ perfil: z.literal('personalizado'), metas: metasSchema })
-      .strict(),
-  ])
+const variantePredefinida = z
+  .object({ perfil: z.enum(PERFILES_PREDEFINIDOS) })
+  .strict()
+  .meta({
+    id: 'PerfilPresupuestoPredefinido',
+    description:
+      'Predefined profile. 80_10_10 is the «Salir de deudas» profile.',
+  });
+
+const variantePersonalizada = z
+  .object({ perfil: z.literal('personalizado'), metas: metasSchema })
+  .strict()
+  .meta({
+    id: 'PerfilPresupuestoPersonalizado',
+    description:
+      'Custom profile: three non-negative targets in basis points that must sum 10000.',
+  });
+
+/** Runtime validation of the PUT body: one branch per `perfil` value. */
+export const perfilPresupuestoUpdateRequestSchema = z.discriminatedUnion(
+  'perfil',
+  [variantePredefinida, variantePersonalizada],
+);
+
+/**
+ * Document schema of the PUT body. Same branches as a `z.union` (emits
+ * `anyOf`) — the `registrarMovimientoManualRequestOpenApiSchema` precedent:
+ * zod-openapi emits anonymous `oneOf` branches for `z.discriminatedUnion`,
+ * which the Kotlin generator cannot name. The branches are mutually
+ * exclusive by `perfil`.
+ */
+export const perfilPresupuestoUpdateRequestOpenApiSchema = z
+  .union([variantePredefinida, variantePersonalizada])
   .meta({
     id: 'PerfilPresupuestoUpdateRequest',
     description:
-      'A predefined profile id, or `personalizado` with three targets in basis points that must sum 10000. 80_10_10 is the «Salir de deudas» profile.',
+      'A predefined profile id, or `personalizado` with three targets in basis points that must sum 10000. The branches are mutually exclusive by `perfil`.',
   });
 
 export const perfilPresupuestoResponseSchema = z

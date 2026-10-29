@@ -34,7 +34,7 @@ import kotlinx.serialization.Contextual
  *
  * @param bucket Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).
  * @param grupos One entry per present category, by subtotal descending (ties by name, es-CL), \"Sin categoría\" last. [] for an empty bucket month (MBD-01).
- * @param metaBp Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).
+ * @param metaBp Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).
  * @param periodo Resolved period, format YYYY-MM.
  * @param porcentajeBp Basis-point percentage, round-half-up. null when the month has no income (D-05).
  * @param total BigInt-safe decimal string amount (never a JSON number).
@@ -53,7 +53,7 @@ data class BucketDetalleMesResponse (
     @SerialName(value = "grupos")
     val grupos: kotlin.collections.List<BucketDetalleMesResponseGruposInner>,
 
-    /* Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05). */
+    /* Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05). */
     @SerialName(value = "metaBp")
     val metaBp: kotlin.Int?,
 

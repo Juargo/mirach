@@ -98,7 +98,7 @@ import {
   passwordUpdateRequestSchema,
 } from './perfil.schema';
 import {
-  perfilPresupuestoUpdateRequestSchema,
+  perfilPresupuestoUpdateRequestOpenApiSchema,
   perfilPresupuestoResponseSchema,
 } from './perfil-presupuesto.schema';
 import {
@@ -1228,7 +1228,9 @@ const perfilPresupuestoPutOperation: ZodOpenApiOperationObject = {
     'the current profile. Requires x-api-key + a valid session.',
   requestBody: {
     content: {
-      'application/json': { schema: perfilPresupuestoUpdateRequestSchema },
+      'application/json': {
+        schema: perfilPresupuestoUpdateRequestOpenApiSchema,
+      },
     },
   },
   responses: {
