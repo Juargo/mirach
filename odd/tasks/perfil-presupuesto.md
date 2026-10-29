@@ -15,7 +15,7 @@ Delivery: `ask-on-risk`. Test runner: vitest (`pnpm api test`, `pnpm api test:in
 
 ## Tasks
 
-- [x] T1 S1, S5 — domain VO `PerfilPresupuesto`, `PerfilNoSuma100Error`, bands derived from goals. Route: inline. RED observed (15 VO + 7 bands/goals); GREEN: unit 3235/3235, tsc clean. Commit: T1.
+- [x] T1 S1, S5 — domain VO `PerfilPresupuesto`, `PerfilNoSuma100Error`, bands derived from goals. Route: inline. RED observed (15 VO + 7 bands/goals); GREEN: unit 3235/3235, tsc clean. Commit: 2635535.
 - [ ] T2 S2, S4, S5 — migration + repository port/adapter; summaries, annual, bucket detail and semáforo read goals from the profile. Route: inline. Risk: item 1 (migration).
 - [ ] T3 S3, S6 — `GET/PUT /api/perfil/presupuesto`, schemas, error mapping, e2e (acceptance + isolation). Route: inline.
 - [ ] T4 S7 — openapi emit, regenerate iOS/Android clients, openspec deltas. Route: inline.

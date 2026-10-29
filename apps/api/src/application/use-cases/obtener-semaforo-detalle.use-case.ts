@@ -7,6 +7,7 @@ import {
 import { IResumenMesReader } from '../ports/resumen-mes.port';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
 import { resolverPeriodo } from './resolver-periodo';
 
@@ -35,6 +36,7 @@ export class ObtenerSemaforoDetalleUseCase {
     private readonly reader: IResumenMesReader,
     private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
+    private readonly perfilReader: IPerfilPresupuestoReader,
   ) {}
 
   async execute(input: {
@@ -51,7 +53,10 @@ export class ObtenerSemaforoDetalleUseCase {
     }
     const periodoVO = periodoResult.getValue();
 
-    const rows = await this.reader.sumarPorBucket(input.userId, periodoVO);
+    const [rows, perfil] = await Promise.all([
+      this.reader.sumarPorBucket(input.userId, periodoVO),
+      this.perfilReader.obtener(input.userId),
+    ]);
     // Counts only — never amounts (ADR-013). Row count reflects how many of
     // the up-to-5 bucket-sum rows the reader returned for this period.
     this.logger.debug('obtener-semaforo-detalle: repo fetch', {
@@ -60,7 +65,7 @@ export class ObtenerSemaforoDetalleUseCase {
       rows: rows.length,
     });
 
-    const resumen = construirResumenMesDesdeFilas(rows);
+    const resumen = construirResumenMesDesdeFilas(rows, perfil.metas);
     const detalle = construirSemaforoDetalle(resumen);
     this.logger.debug('obtener-semaforo-detalle: computed', {
       periodo: periodoVO.valor,

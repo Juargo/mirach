@@ -111,7 +111,7 @@ export const bucketDetalleMesResponseSchema = z
       .int()
       .nullable()
       .describe(
-        "Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).",
+        "Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).",
       ),
     grupos: z
       .array(grupoDetalleMesSchema)

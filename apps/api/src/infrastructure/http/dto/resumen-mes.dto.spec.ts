@@ -238,7 +238,7 @@ describe('aResumenMesDto', () => {
       expect('cantidadSinCategoria' in dto).toBe(false);
     });
 
-    it('BucketResumenDto entries have exactly the known keys (ISP boundary, D-02; estado added by #113)', () => {
+    it('BucketResumenDto entries have exactly the known keys (ISP boundary, D-02; estado added by #113, metaBp by #110)', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
       const dto = aResumenMesDto('2026-07', resumen);
 
@@ -248,6 +248,7 @@ describe('aResumenMesDto', () => {
             'bucket',
             'estado',
             'estadoSemaforo',
+            'metaBp',
             'participacionGastoBp',
             'porcentajeBp',
             'total',
@@ -362,5 +363,46 @@ describe('aResumenMesDto — rule 9 states (issue #113)', () => {
     expect(dto.buckets.map((b) => b.estado)).toEqual([null, null, null]);
     expect(dto.estadoMes).toBeNull();
     expect(dto.bloquesEstadoMes).toEqual([]);
+  });
+});
+
+describe('aResumenMesDto — budget profile goals (#110)', () => {
+  const resumen = ResumenMes.crear(
+    { totalIngreso: 1_000_000n, necesidades: 0n, deseos: 0n, ahorro: 0n },
+    {
+      [Bucket.Necesidades]: 8000n,
+      [Bucket.Deseos]: 1000n,
+      [Bucket.Ahorro]: 1000n,
+    },
+  );
+
+  it('targets follow the profile in percentage points', () => {
+    expect(aResumenMesDto('2026-10', resumen).targets).toEqual({
+      Necesidades: 80,
+      Deseos: 10,
+      Ahorro: 10,
+    });
+  });
+
+  it('each bucket carries its metaBp', () => {
+    expect(
+      aResumenMesDto('2026-10', resumen).buckets.map((b) => b.metaBp),
+    ).toEqual([8000, 1000, 1000]);
+  });
+
+  it('a custom goal with decimals keeps them in targets (3350 bp → 33.5)', () => {
+    const custom = ResumenMes.crear(
+      { totalIngreso: 0n, necesidades: 0n, deseos: 0n, ahorro: 0n },
+      {
+        [Bucket.Necesidades]: 3350n,
+        [Bucket.Deseos]: 3325n,
+        [Bucket.Ahorro]: 3325n,
+      },
+    );
+    expect(aResumenMesDto('2026-10', custom).targets).toEqual({
+      Necesidades: 33.5,
+      Deseos: 33.25,
+      Ahorro: 33.25,
+    });
   });
 });

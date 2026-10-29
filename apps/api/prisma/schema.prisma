@@ -39,6 +39,14 @@ model User {
   // misma identidad Apple y se destruye con la fila del User.
   appleRefreshToken String?
   creadoEn      DateTime  @default(now())
+  // Perfil de presupuesto (#110, ADR-004 §8): tipo y tres metas en puntos
+  // base que suman 10.000. Por defecto 50/30/20. La suma, el rango y los
+  // perfiles permitidos se validan con CHECK en SQL puro (Prisma no modela
+  // CHECK); ver la migración add_perfil_presupuesto.
+  perfilPresupuesto String @default("50_30_20")
+  metaNecesidadesBp Int    @default(5000)
+  metaDeseosBp      Int    @default(3000)
+  metaAhorroBp      Int    @default(2000)
   accounts      Account[]
   sessions      Session[]
   // US-004: historial de ingestas — aislamiento directo por userId,

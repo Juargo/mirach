@@ -183,7 +183,7 @@
             "type": "array"
           },
           "metaBp": {
-            "description": "Bucket's 50/30/20 target from BANDAS_SEMAFORO; null when absent (D-05).",
+            "description": "Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).",
             "maximum": 9007199254740991,
             "minimum": -9007199254740991,
             "nullable": true,
@@ -1250,7 +1250,7 @@
                   "type": "string"
                 },
                 "estadoSemaforo": {
-                  "description": "Traffic-light health state, lowercase wire enum (US-016), or null.",
+                  "description": "Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000.",
                   "enum": [
                     "verde",
                     "amarillo",
@@ -1259,6 +1259,12 @@
                   ],
                   "nullable": true,
                   "type": "string"
+                },
+                "metaBp": {
+                  "description": "Target of this bucket in basis points, from the user's budget profile (issue #110). Every month uses the current profile, past ones too. 5000/3000/2000 for the default 50/30/20 profile.",
+                  "maximum": 10000,
+                  "minimum": 0,
+                  "type": "integer"
                 },
                 "participacionGastoBp": {
                   "description": "This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.",
@@ -1284,6 +1290,7 @@
                 "total",
                 "porcentajeBp",
                 "participacionGastoBp",
+                "metaBp",
                 "estadoSemaforo",
                 "estado"
               ],
@@ -1322,7 +1329,7 @@
           },
           "targets": {
             "additionalProperties": false,
-            "description": "Hardcoded 50/30/20 reference targets.",
+            "description": "Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.",
             "properties": {
               "Ahorro": {
                 "type": "number"
@@ -1369,7 +1376,7 @@
               "properties": {
                 "bandas": {
                   "additionalProperties": false,
-                  "description": "Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).",
+                  "description": "Zone-band edges used to compute this estado. They keep the 50/30/20 offsets around the profile target (issue #110, SEM-02).",
                   "properties": {
                     "amarilloMax": {
                       "maximum": 9007199254740991,
@@ -1446,7 +1453,7 @@
                   "type": "string"
                 },
                 "metaBp": {
-                  "description": "Bucket's 50/30/20 target center, in basis points (SEM-02).",
+                  "description": "Bucket's target center in basis points, from the user's budget profile (issue #110, SEM-02).",
                   "maximum": 9007199254740991,
                   "minimum": -9007199254740991,
                   "type": "integer"

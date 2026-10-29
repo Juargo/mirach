@@ -68,9 +68,11 @@ const bucketSemaforoDetalleSchema = z.object({
   metaBp: z
     .number()
     .int()
-    .describe("Bucket's 50/30/20 target center, in basis points (SEM-02)."),
+    .describe(
+      "Bucket's target center in basis points, from the user's budget profile (issue #110, SEM-02).",
+    ),
   bandas: bandasSemaforoSchema.describe(
-    'Zone-band edges used to compute this estado, sourced from the single BANDAS_SEMAFORO table (SEM-02).',
+    'Zone-band edges used to compute this estado. They keep the 50/30/20 offsets around the profile target (issue #110, SEM-02).',
   ),
   consejo: consejoVerdeSchema
     .nullable()

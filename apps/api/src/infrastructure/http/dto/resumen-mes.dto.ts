@@ -1,5 +1,4 @@
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
-import { TARGETS_503020 } from '../../../domain/value-objects/resumen-mes';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import { EstadoBloque } from '../../../domain/value-objects/estado-bloque';
@@ -25,6 +24,7 @@ export interface BucketResumenDto {
   readonly total: string;
   readonly porcentajeBp: number | null;
   readonly participacionGastoBp: number | null;
+  readonly metaBp: number;
   readonly estadoSemaforo: string | null;
   readonly estado: string | null;
 }
@@ -102,6 +102,11 @@ function aWireBloque(estado: EstadoBloque | null): string | null {
  *   - No float, no Math.*, no parseFloat at any step.
  * US-016: estadoSemaforo per bucket + estadoGlobal at top level via aWire().
  */
+/** Basis points → percentage points for display (5000 → 50, 3350 → 33.5). */
+function aPuntosPorcentuales(bp: bigint): number {
+  return Number(bp) / 100;
+}
+
 export function aResumenMesDto(
   periodo: string,
   resumen: ResumenMes,
@@ -119,13 +124,18 @@ export function aResumenMesDto(
         slice.participacionGastoBp === null
           ? null
           : Number(slice.participacionGastoBp),
+      metaBp: Number(slice.metaBp),
       estadoSemaforo: aWire(slice.estadoSemaforo),
       estado: aWireBloque(slice.estado),
     })),
+    // Percentage points of the user's budget profile goals (#110). Kept for
+    // clients that read `targets`; `buckets[].metaBp` is the exact value.
     targets: {
-      [Bucket.Necesidades]: TARGETS_503020[Bucket.Necesidades]!,
-      [Bucket.Deseos]: TARGETS_503020[Bucket.Deseos]!,
-      [Bucket.Ahorro]: TARGETS_503020[Bucket.Ahorro]!,
+      [Bucket.Necesidades]: aPuntosPorcentuales(
+        resumen.metas[Bucket.Necesidades],
+      ),
+      [Bucket.Deseos]: aPuntosPorcentuales(resumen.metas[Bucket.Deseos]),
+      [Bucket.Ahorro]: aPuntosPorcentuales(resumen.metas[Bucket.Ahorro]),
     },
     estadoGlobal: aWire(resumen.estadoGlobal),
     estadoMes: aWireBloque(resumen.estadoMes),

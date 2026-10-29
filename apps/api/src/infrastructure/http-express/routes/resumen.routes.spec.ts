@@ -9,6 +9,7 @@ import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import type { CalcularResumenMesUseCase } from '../../../application/use-cases/calcular-resumen-mes.use-case';
 import type { CalcularResumenAnualUseCase } from '../../../application/use-cases/calcular-resumen-anual.use-case';
 import type { ObtenerSemaforoDetalleUseCase } from '../../../application/use-cases/obtener-semaforo-detalle.use-case';
+import { METAS_POR_DEFECTO } from '../../../domain/value-objects/perfil-presupuesto';
 
 /**
  * Traducción Result<T,E> → HTTP del endpoint resumen (port del ResumenController).
@@ -27,6 +28,7 @@ const RESUMEN_MES_OK = {
   estadoGlobal: null,
   estadoMes: null,
   bloquesEstadoMes: [],
+  metas: METAS_POR_DEFECTO,
   cantidadSinCategoria: 0,
 };
 const RESUMEN_ANUAL_OK = { anio: 2026, meses: [] };

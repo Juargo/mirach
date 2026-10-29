@@ -47,11 +47,19 @@ const bucketResumenSchema = z.object({
     .describe(
       "This bucket's share of the month's TOTAL SPEND (the sum of `total` over the 3 buckets of this response), in basis points (0-10000), for pie charts. Across the 3 buckets the values sum to exactly 10000 (largest-remainder rounding; ties go to the earlier bucket in `buckets`). null on every bucket when total spend is 0. Unlike `porcentajeBp`, whose base is the month's income (`totalIngreso`) and which is null when sinIngreso=true, this is independent of income.",
     ),
+  metaBp: z
+    .number()
+    .int()
+    .min(0)
+    .max(10000)
+    .describe(
+      "Target of this bucket in basis points, from the user's budget profile (issue #110). Every month uses the current profile, past ones too. 5000/3000/2000 for the default 50/30/20 profile.",
+    ),
   estadoSemaforo: z
     .enum(['verde', 'amarillo', 'rojo'])
     .nullable()
     .describe(
-      'Traffic-light health state, lowercase wire enum (US-016), or null.',
+      'Traffic-light health state, lowercase wire enum (US-016), or null. The bands move with the profile target (issue #110): Necesidades and Deseos are verde up to `metaBp` and amarillo up to `metaBp` + 1000; Ahorro is verde from `metaBp` to `metaBp` + 2000 and amarillo from `metaBp` - 1000 to `metaBp` + 3000.',
     ),
   estado: estadoBloqueSchema.describe(
     'Rule 9 state of this block (issue #113): bien when it meets its target, cerca when it deviates 5 points or less in the unfavorable direction, sobre when it deviates more. For Ahorro, below the target is unfavorable. null when sinIngreso=true.',
@@ -82,7 +90,9 @@ export const resumenResponseSchema = z
         Deseos: z.number(),
         Ahorro: z.number(),
       })
-      .describe('Hardcoded 50/30/20 reference targets.'),
+      .describe(
+        "Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.",
+      ),
     estadoGlobal: z
       .enum(['verde', 'amarillo', 'rojo'])
       .nullable()

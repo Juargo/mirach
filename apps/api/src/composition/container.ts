@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { Env } from '../config/env';
 import type { PinoLogger } from '../infrastructure/logging/pino-logger';
 import { createPrismaClient } from '../infrastructure/persistence/create-prisma-client';
+import { PrismaPerfilPresupuestoRepository } from '../infrastructure/persistence/prisma-perfil-presupuesto.repository';
 import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.use-case';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case';
@@ -260,14 +261,19 @@ export function createContainer(
   // PrismaUltimoPeriodoConDatosReader — mismo patrón un-`new`-por-use-case
   // stateless que PrismaResumenMesRepository/PrismaDetalleBucketRepository
   // en este mismo archivo (US-049 D-12 / US-051 D-10 / US-052 D-07).
+  // #110: the summaries read the user's budget profile goals (PER-06). One
+  // stateless instance shared by the readers and PUT /api/perfil/presupuesto.
+  const perfilPresupuesto = new PrismaPerfilPresupuestoRepository(prisma);
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
   const calcularResumenAnual = new CalcularResumenAnualUseCase(
     new PrismaResumenAnualRepository(prisma),
     logger,
+    perfilPresupuesto,
   );
   // US-049, D-12: segunda instancia de PrismaResumenMesRepository (stateless,
   // sin costo) — matches el estilo un-`new`-por-use-case del archivo; no hay
@@ -277,6 +283,7 @@ export function createContainer(
     new PrismaResumenMesRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
 
   const obtenerDetalleBucket = new ObtenerDetalleBucketUseCase(
@@ -294,6 +301,7 @@ export function createContainer(
     new PrismaResumenMesRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
   // US-052, D-07: TERCERA instancia de PrismaDetalleBucketRepository (misma
   // disciplina un-`new`-por-use-case de US-049 D-12 / US-051 D-10 — las
