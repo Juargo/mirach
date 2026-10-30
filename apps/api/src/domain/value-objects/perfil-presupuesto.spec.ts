@@ -5,6 +5,7 @@ import {
   PERFILES_PREDEFINIDOS,
   PerfilPresupuesto,
 } from './perfil-presupuesto';
+import { MesFinanciero } from './mes-financiero';
 import { PerfilNoSuma100Error } from '../errors/perfil-no-suma-100.error';
 import { MetaPresupuestoInvalidaError } from '../errors/meta-presupuesto-invalida.error';
 
@@ -101,5 +102,22 @@ describe('PerfilPresupuesto (#110, PER-03..PER-05)', () => {
       metas(9000n, 500n, 500n),
     );
     expect(r.isFail()).toBe(true);
+  });
+
+  describe('financial month (#111)', () => {
+    it('defaults to the calendar month with no declared income', () => {
+      const perfil = PerfilPresupuesto.porDefecto();
+      expect(perfil.mesFinanciero.diaCorte.valor).toBe(1);
+      expect(perfil.mesFinanciero.ingresoDeclarado).toBeNull();
+    });
+
+    it('conMesFinanciero keeps the goals and replaces the financial month', () => {
+      const mes = MesFinanciero.crear(25, 900_000n).getValue();
+      const perfil =
+        PerfilPresupuesto.predefinido('60_20_20').conMesFinanciero(mes);
+      expect(perfil.perfil).toBe('60_20_20');
+      expect(perfil.metas).toEqual(PERFILES_PREDEFINIDOS['60_20_20']);
+      expect(perfil.mesFinanciero).toBe(mes);
+    });
   });
 });

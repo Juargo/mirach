@@ -235,19 +235,21 @@ contract already governing every other data endpoint applies unchanged to this n
 - WHEN it calls `GET /api/resumen/semaforo?periodo=<period>`
 - THEN the response status is 200
 
-### Requirement: SEM-09 — Absent `periodo` defaults to the current month; a malformed `periodo` is rejected, mirroring `/api/resumen`
+### Requirement: SEM-09 — Absent `periodo` defaults to the latest period with data; a malformed `periodo` is rejected, mirroring `/api/resumen`
 
-WHEN `periodo` is absent from the query, the endpoint MUST default to the current calendar month,
-identically to `GET /api/resumen`. WHEN `periodo` is present but does not match the domain's
+WHEN `periodo` is absent from the query, the endpoint MUST default to the user's latest period
+with at least one transaction, labelled with the user's cut-off day (perfil-presupuesto PPR-07); the
+period in progress is the fallback only when the user has no transaction at all, identically to
+`GET /api/resumen`. WHEN `periodo` is present but does not match the domain's
 `YYYY-MM` format rule, the endpoint MUST reject the request with a 400 response carrying a
 scrubbed message (never reflecting the raw invalid input), identically to `GET /api/resumen`'s
 existing rule.
 
-#### Scenario: Absent `periodo` defaults to the current month
+#### Scenario: Absent `periodo` defaults to the latest period with data
 
-- GIVEN a client calls `GET /api/resumen/semaforo` with no `periodo` query param
-- WHEN the request is processed
-- THEN the response's period equals the current calendar month
+- GIVEN a user whose latest transaction falls in period `2026-08`
+- WHEN they call `GET /api/resumen/semaforo` with no `periodo` query param
+- THEN the response's period is `2026-08`
 
 #### Scenario: A malformed `periodo` is rejected with a scrubbed 400
 
@@ -272,3 +274,19 @@ web app — money formatting MUST NOT be duplicated server-side. A bucket with n
 - THEN Necesidades' advice `mensaje` is a Spanish sentence containing the literal token `{monto}`
   exactly once
 - AND the client substitutes `{monto}` with the CLP-formatted advice amount before rendering
+
+### Requirement: SEM-11 — The semáforo follows the cut-off day and rule 1 (issue #111)
+
+The period MUST be the financial month of perfil-presupuesto PPR-07 (this endpoint carries no date
+fields). Percentages, zones and the advised amounts MUST use the base of PPR-08: `totalIngreso` is
+the base used, `fuenteIngreso` names its source (`declarado` | `detectado`) and `ingresoDetectado`
+is the sum of the period's income credits. A period without any movement stays `sinIngreso`
+(SEM-06) even with a declared income.
+
+#### Scenario: The semáforo measures against the declared income
+
+- GIVEN a user with `ingresoDeclarado` `"2000000"`, income credits of 1000000 and a Necesidades
+  spend of 500000 in the period
+- WHEN they call `GET /api/resumen/semaforo?periodo=<period>`
+- THEN `totalIngreso` is `"2000000"`, `fuenteIngreso` is `declarado`, `ingresoDetectado` is
+  `"1000000"` and Necesidades is 2500 basis points

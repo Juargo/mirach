@@ -12,6 +12,7 @@ import type { IUltimoPeriodoConDatosReader } from '../../application/ports/ultim
 import type { ILogger } from '../../application/ports/logger.port';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
 import { ingresosMesResponseSchema } from './schemas/ingresos-mes.schema';
 
 /**
@@ -32,6 +33,8 @@ import { ingresosMesResponseSchema } from './schemas/ingresos-mes.schema';
  * la señal de aislamiento que esta suite quiere medir.
  */
 const INGRESOS_MES_OK: ObtenerIngresosMesResult = {
+  fechaInicio: '2026-07-01',
+  fechaFin: '2026-07-31',
   total: 3_000_000n,
   conteo: 3,
   transacciones: [
@@ -176,14 +179,19 @@ describe('GET /api/ingresos/mes — cadena de auth + aislamiento (US-052)', () =
     // Valores concretos del fixture — el parse por sí solo no prueba mapping.
     expect(parsed.total).toBe('3000000');
     expect(parsed.conteo).toBe(3);
-    // MID-03: EXACTAMENTE {total, conteo, transacciones} — sin
+    // MID-03: EXACTAMENTE {fechaInicio, fechaFin, total, conteo,
+    // transacciones} (fechas del mes financiero, #111) — sin
     // meta/porcentaje/estado/periodo en NINGÚN nivel (el .strict() ya los
     // rechazaría; esto además prueba que la ruta no los emitió).
     expect(Object.keys(parsed).sort()).toEqual([
       'conteo',
+      'fechaFin',
+      'fechaInicio',
       'total',
       'transacciones',
     ]);
+    expect(parsed.fechaInicio).toBe('2026-07-01');
+    expect(parsed.fechaFin).toBe('2026-07-31');
     // Las TRES transacciones del fixture mapean 1:1 al wire (id, fecha
     // ISO-8601 UTC, descripcion, origen, monto) — no solo la primera.
     expect(parsed.transacciones).toEqual([
@@ -236,6 +244,7 @@ describe('GET /api/ingresos/mes — cadena de auth + aislamiento (US-052)', () =
         reader,
         fakeUltimoPeriodoReader(),
         fakeLogger(),
+        perfilReaderConCorte(),
       ),
     );
 

@@ -1,4 +1,5 @@
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 
 /**
  * IPeriodosConDatosReader — narrow read-only port: every calendar month (UTC)
@@ -16,7 +17,10 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
  * month in the database — never load the user's transactions into memory.
  */
 export interface IPeriodosConDatosReader {
-  periodosConDatos(userId: string): Promise<ReadonlyArray<PeriodoMes>>;
+  periodosConDatos(
+    userId: string,
+    diaCorte: DiaCorte,
+  ): Promise<ReadonlyArray<PeriodoMes>>;
 }
 
 /** Injection token — interfaces are erased at runtime. */

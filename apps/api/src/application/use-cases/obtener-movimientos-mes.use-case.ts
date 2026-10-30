@@ -4,6 +4,7 @@ import {
   IMovimientosMesReader,
   MovimientoMesRow,
 } from '../ports/movimientos-mes.port';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
 import { resolverPeriodo } from './resolver-periodo';
@@ -28,6 +29,7 @@ export class ObtenerMovimientosMesUseCase {
     private readonly reader: IMovimientosMesReader,
     private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
+    private readonly perfilReader: IPerfilPresupuestoReader,
   ) {}
 
   async execute(input: {
@@ -36,10 +38,13 @@ export class ObtenerMovimientosMesUseCase {
   }): Promise<Result<ObtenerMovimientosMesResult, PeriodoInvalidoError>> {
     // Parámetro ausente → último mes del usuario con datos (fallback mes
     // actual UTC); parámetro presente → validar con el VO.
+    // The cut-off day of the user's financial month (#111) defines the period.
+    const perfil = await this.perfilReader.obtener(input.userId);
     const periodoResult = await resolverPeriodo(
       this.ultimoPeriodoReader,
       input.userId,
       input.periodo,
+      perfil.mesFinanciero.diaCorte,
     );
     if (periodoResult.isFail()) {
       return Result.fail(periodoResult.getError());

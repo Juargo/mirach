@@ -129,6 +129,8 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
     expect(res.body).toEqual({
       perfil: '50_30_20',
       metas: { Necesidades: 5000, Deseos: 3000, Ahorro: 2000 },
+      diaCorte: 1,
+      ingresoDeclarado: null,
     });
   });
 
@@ -164,6 +166,8 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
     expect(res.body).toEqual({
       perfil: '80_10_10',
       metas: { Necesidades: 8000, Deseos: 1000, Ahorro: 1000 },
+      diaCorte: 1,
+      ingresoDeclarado: null,
     });
 
     // Entonces el resumen de septiembre y de octubre muestra metas 80%, 10% y 10%
@@ -287,5 +291,100 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
       Deseos: 30,
       Ahorro: 20,
     });
+  });
+
+  // ── Financial month (#111, PER-02, PER-08) ──────────────────────────────
+
+  it('PUT saves the cut-off day and declared income; GET reads them back', async () => {
+    const res = await put(
+      { perfil: '60_20_20', diaCorte: 25, ingresoDeclarado: '1500000' },
+      authMarcela,
+    ).expect(200);
+    expect(() => perfilPresupuestoResponseSchema.parse(res.body)).not.toThrow();
+    expect(res.body).toEqual({
+      perfil: '60_20_20',
+      metas: { Necesidades: 6000, Deseos: 2000, Ahorro: 2000 },
+      diaCorte: 25,
+      ingresoDeclarado: '1500000',
+    });
+    const leido = await get('/api/perfil/presupuesto', authMarcela).expect(200);
+    expect(leido.body).toEqual(res.body);
+  });
+
+  it('a PUT with only the profile keeps the cut-off day and income; null clears the income', async () => {
+    await put(
+      { perfil: '50_30_20', diaCorte: 25, ingresoDeclarado: '900000' },
+      authMarcela,
+    ).expect(200);
+
+    const soloPerfil = await put({ perfil: '80_10_10' }, authMarcela).expect(
+      200,
+    );
+    expect(soloPerfil.body.diaCorte).toBe(25);
+    expect(soloPerfil.body.ingresoDeclarado).toBe('900000');
+
+    const sinIngreso = await put(
+      { perfil: '80_10_10', ingresoDeclarado: null },
+      authMarcela,
+    ).expect(200);
+    expect(sinIngreso.body.diaCorte).toBe(25);
+    expect(sinIngreso.body.ingresoDeclarado).toBeNull();
+
+    await put({ perfil: '50_30_20', diaCorte: 1 }, authMarcela).expect(200);
+  });
+
+  it.each([0, 29])(
+    'cut-off day %i is 400 DIA_CORTE_INVALIDO and nothing changes',
+    async (dia) => {
+      const antes = await get('/api/perfil/presupuesto', authMarcela).expect(
+        200,
+      );
+      const res = await put(
+        { perfil: '70_15_15', diaCorte: dia },
+        authMarcela,
+      ).expect(400);
+      expect(res.body.code).toBe('DIA_CORTE_INVALIDO');
+      const despues = await get('/api/perfil/presupuesto', authMarcela).expect(
+        200,
+      );
+      expect(despues.body).toEqual(antes.body);
+    },
+  );
+
+  it('a declared income of 0 is 400 INGRESO_DECLARADO_INVALIDO', async () => {
+    const res = await put(
+      { perfil: '50_30_20', ingresoDeclarado: '0' },
+      authMarcela,
+    ).expect(400);
+    expect(res.body.code).toBe('INGRESO_DECLARADO_INVALIDO');
+    expect(JSON.stringify(res.body)).not.toContain('"0"');
+  });
+
+  it.each([
+    [{ perfil: '50_30_20', diaCorte: 2.5 }],
+    [{ perfil: '50_30_20', diaCorte: '25' }],
+    [{ perfil: '50_30_20', ingresoDeclarado: 1500000 }],
+    [{ perfil: '50_30_20', ingresoDeclarado: '-5' }],
+    [{ perfil: '50_30_20', ingresoDeclarado: '1.5' }],
+    [{ perfil: '50_30_20', ingresoDeclarado: '1234567890123456789' }],
+  ])('a malformed financial month %j is 400 BODY_INVALIDO', async (body) => {
+    const res = await put(body, authMarcela).expect(400);
+    expect(res.body.code).toBe('BODY_INVALIDO');
+  });
+
+  it("isolation: Marcela's cut-off day and income never reach another user", async () => {
+    await put(
+      { perfil: '50_30_20', diaCorte: 15, ingresoDeclarado: '700000' },
+      authMarcela,
+    ).expect(200);
+    const otroPerfil = await get('/api/perfil/presupuesto', authOtro).expect(
+      200,
+    );
+    expect(otroPerfil.body.diaCorte).toBe(1);
+    expect(otroPerfil.body.ingresoDeclarado).toBeNull();
+    await put(
+      { perfil: '50_30_20', diaCorte: 1, ingresoDeclarado: null },
+      authMarcela,
+    ).expect(200);
   });
 });

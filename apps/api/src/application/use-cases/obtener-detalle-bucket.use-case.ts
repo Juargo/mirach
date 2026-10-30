@@ -6,6 +6,7 @@ import {
   IDetalleBucketReader,
   DetalleBucketRow,
 } from '../ports/detalle-bucket.port';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
 import { resolverPeriodo } from './resolver-periodo';
@@ -34,6 +35,7 @@ export class ObtenerDetalleBucketUseCase {
     private readonly reader: IDetalleBucketReader,
     private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
+    private readonly perfilReader: IPerfilPresupuestoReader,
   ) {}
 
   async execute(input: {
@@ -54,10 +56,13 @@ export class ObtenerDetalleBucketUseCase {
 
     // 2. Resolve periodo via resolverPeriodo: undefined → user's latest
     //    month with data (fallback PeriodoMes.actual()); present → PeriodoMes.crear().
+    // The cut-off day of the user's financial month (#111) defines the period.
+    const perfil = await this.perfilReader.obtener(input.userId);
     const periodoResult = await resolverPeriodo(
       this.ultimoPeriodoReader,
       input.userId,
       input.periodo,
+      perfil.mesFinanciero.diaCorte,
     );
     if (periodoResult.isFail()) {
       return Result.fail(periodoResult.getError());

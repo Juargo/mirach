@@ -2,6 +2,11 @@ import { Bucket } from '../../../domain/value-objects/bucket';
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
 import { aResumenMesDto } from '../../http/dto/resumen-mes.dto';
 import { resumenQuerySchema, resumenResponseSchema } from './resumen.schema';
+import { PeriodoMes } from '../../../domain/value-objects/periodo-mes';
+/** A calendar-month PeriodoMes (cut-off day 1) for the mapper. */
+function periodo(valor: string): PeriodoMes {
+  return PeriodoMes.crear(valor).getValue();
+}
 
 /**
  * `resumenQuerySchema` / `resumenResponseSchema` — Slice 1 of the
@@ -69,14 +74,14 @@ describe('resumenResponseSchema (sync guarantee)', () => {
       deseos: 200_000n,
       ahorro: 300_000n,
     });
-    const dto = aResumenMesDto('2026-07', resumen);
+    const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
     expect(() => resumenResponseSchema.parse(dto)).not.toThrow();
   });
 
   it('parses the real DTO output for the sinIngreso path (all-null bp/estado)', () => {
     const resumen = makeResumen({ totalIngreso: 0n, necesidades: 100_000n });
-    const dto = aResumenMesDto('2026-07', resumen);
+    const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
     expect(() => resumenResponseSchema.parse(dto)).not.toThrow();
   });
@@ -84,7 +89,7 @@ describe('resumenResponseSchema (sync guarantee)', () => {
   it('parses the real DTO output for a BigInt beyond MAX_SAFE_INTEGER', () => {
     const big = 9_007_199_254_740_993n;
     const resumen = makeResumen({ totalIngreso: big, necesidades: big });
-    const dto = aResumenMesDto('2026-07', resumen);
+    const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
     const parsed = resumenResponseSchema.parse(dto);
     expect(parsed.totalIngreso).toBe('9007199254740993');
@@ -92,7 +97,7 @@ describe('resumenResponseSchema (sync guarantee)', () => {
 
   it('accepts every bucket name emitted by the mapper', () => {
     const resumen = makeResumen({ totalIngreso: 1_000_000n });
-    const dto = aResumenMesDto('2026-07', resumen);
+    const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
     const parsed = resumenResponseSchema.parse(dto);
     const bucketNames = parsed.buckets.map((b) => b.bucket);
@@ -133,7 +138,11 @@ describe('resumenResponseSchema (sync guarantee)', () => {
   describe('cantidadSinCategoria removed from the contract (issue #778 tramo 5b PR5)', () => {
     const validPayload = {
       periodo: '2026-07',
+      fechaInicio: '2026-07-01',
+      fechaFin: '2026-07-31',
       totalIngreso: '1500000',
+      fuenteIngreso: 'detectado',
+      ingresoDetectado: '1500000',
       sinIngreso: false,
       buckets: [],
       targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },
@@ -159,7 +168,7 @@ describe('resumenResponseSchema (sync guarantee)', () => {
 describe('resumenResponseSchema — rule 9 fields (issue #113)', () => {
   it('keeps estado, estadoMes and bloquesEstadoMes after parsing', () => {
     const dto = aResumenMesDto(
-      '2026-10',
+      periodo('2026-10'),
       makeResumen({
         totalIngreso: 1_000_000n,
         necesidades: 580_000n,
@@ -173,7 +182,7 @@ describe('resumenResponseSchema — rule 9 fields (issue #113)', () => {
 
   it('rejects an estado outside bien / cerca / sobre', () => {
     const dto = aResumenMesDto(
-      '2026-10',
+      periodo('2026-10'),
       makeResumen({ totalIngreso: 1_000_000n, necesidades: 500_000n }),
     );
 

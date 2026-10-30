@@ -4,6 +4,7 @@ import {
 } from '../../application/ports/resumen-mes.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { filtroFechaPeriodo } from './periodo-filtro';
 import type { PrismaClient } from '@prisma/client';
 import { resolverBucket } from './bucket-ids';
 
@@ -40,7 +41,7 @@ export class PrismaResumenMesRepository implements IResumenMesReader {
     // queries MUST never diverge on user isolation or period bounds.
     const where = {
       account: { userId }, // USER ISOLATION — structural
-      fecha: { gte: periodo.desde, lt: periodo.hasta }, // half-open [desde, hasta)
+      ...filtroFechaPeriodo(periodo), // half-open [desde, hasta), income window (#111)
     };
 
     // Two aggregations: `cargo: { gt: 0n }` is added ONLY to the count

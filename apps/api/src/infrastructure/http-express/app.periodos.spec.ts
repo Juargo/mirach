@@ -6,14 +6,21 @@ import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { periodosResponseSchema } from './schemas/periodos.schema';
 import { API_KEY_INVALIDA } from './auth-error-codes';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 
 /**
  * GET /api/periodos — cadena de auth completa montada en la app real (fake
  * container, sin DB). El `userId` que llega al use case es el de la SESIÓN
  * (RNF-SEC-006).
  */
+const corte25 = DiaCorte.crear(25).getValue();
+
 function fakeContainer(
-  periodos: readonly string[] = ['2026-07', '2026-05'],
+  periodos: readonly PeriodoMes[] = [
+    PeriodoMes.crear('2026-07', corte25).getValue(),
+    PeriodoMes.crear('2026-05', corte25).getValue(),
+  ],
 ): Container {
   return {
     validarSesion: {
@@ -50,7 +57,7 @@ describe('GET /api/periodos', () => {
     expect(res.body.code).toBe('SESION_INVALIDA');
   });
 
-  it('200 { periodos } y el userId de la SESIÓN llega al use case', async () => {
+  it('200 { periodos, rangos } y el userId de la SESIÓN llega al use case', async () => {
     const c = fakeContainer();
     const res = await request(createApp(c, testEnv))
       .get('/api/periodos')
@@ -60,6 +67,18 @@ describe('GET /api/periodos', () => {
     expect(res.status).toBe(200);
     expect(periodosResponseSchema.parse(res.body)).toEqual({
       periodos: ['2026-07', '2026-05'],
+      rangos: [
+        {
+          periodo: '2026-07',
+          fechaInicio: '2026-07-25',
+          fechaFin: '2026-08-24',
+        },
+        {
+          periodo: '2026-05',
+          fechaInicio: '2026-05-25',
+          fechaFin: '2026-06-24',
+        },
+      ],
     });
     expect(c.listarPeriodosConDatos.execute).toHaveBeenCalledWith({
       userId: 'user-de-sesion',
@@ -73,6 +92,6 @@ describe('GET /api/periodos', () => {
       .set('Authorization', 'Bearer token-valido');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ periodos: [] });
+    expect(res.body).toEqual({ periodos: [], rangos: [] });
   });
 });

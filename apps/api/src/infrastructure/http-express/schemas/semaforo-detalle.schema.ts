@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ingresoBaseShape } from './fuente-ingreso.schema';
 
 /**
  * Query contract for `GET /api/resumen/semaforo` (US-049, design §1.6).
@@ -90,10 +91,7 @@ const bucketSemaforoDetalleSchema = z.object({
 export const semaforoDetalleResponseSchema = z
   .object({
     periodo: z.string().describe('Resolved period, format YYYY-MM.'),
-    totalIngreso: z
-      .string()
-      .describe('BigInt-safe decimal string amount (never a JSON number).'),
-    sinIngreso: z.boolean(),
+    ...ingresoBaseShape,
     estadoGlobal: z
       .enum(['verde', 'amarillo', 'rojo'])
       .nullable()

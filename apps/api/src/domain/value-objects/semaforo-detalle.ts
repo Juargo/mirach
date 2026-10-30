@@ -7,6 +7,7 @@ import {
   calcularEstadoBucket,
 } from './estado-semaforo';
 import { type ResumenMes, porcentajeBasisPoints } from './resumen-mes';
+import { type FuenteIngreso } from './base-ingreso';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // US-049: CLP-to-Verde arithmetic (PR2a) + copy and assembly (PR2b). Pure,
@@ -275,7 +276,10 @@ export interface BucketSemaforoDetalle {
 }
 
 export interface SemaforoDetalle {
+  /** Percentage base (rule 1, #111): declared income, or the detected sum. */
   readonly totalIngreso: bigint;
+  readonly fuenteIngreso: FuenteIngreso;
+  readonly ingresoDetectado: bigint;
   readonly sinIngreso: boolean;
   readonly estadoGlobal: EstadoSemaforo | null;
   readonly diagnostico: string;
@@ -312,6 +316,8 @@ export function construirSemaforoDetalle(resumen: ResumenMes): SemaforoDetalle {
 
   return {
     totalIngreso: resumen.totalIngreso,
+    fuenteIngreso: resumen.fuenteIngreso,
+    ingresoDetectado: resumen.ingresoDetectado,
     sinIngreso: resumen.sinIngreso,
     estadoGlobal: resumen.estadoGlobal,
     diagnostico: diagnosticar(resumen),

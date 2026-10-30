@@ -6,6 +6,8 @@ import { PrismaResumenMesRepository } from '../src/infrastructure/persistence/pr
 import { PrismaUltimoPeriodoConDatosReader } from '../src/infrastructure/persistence/prisma-ultimo-periodo-con-datos.repository';
 import { ListarPeriodosConDatosUseCase } from '../src/application/use-cases/listar-periodos-con-datos.use-case';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
+import { DiaCorte } from '../src/domain/value-objects/mes-financiero';
+import { perfilReaderConCorte } from './support/perfil-presupuesto-reader.double';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
 /**
@@ -25,7 +27,13 @@ const USER_C = `user-c-${RUN_ID}`; // sin movimientos
 describe('PrismaPeriodosConDatosReader (integration — real DB)', () => {
   const prisma = createPrismaClient(loadEnv());
   const reader = new PrismaPeriodosConDatosReader(prisma);
-  const useCase = new ListarPeriodosConDatosUseCase(reader);
+  const useCase = new ListarPeriodosConDatosUseCase(
+    reader,
+    perfilReaderConCorte(),
+  );
+  /** The listed labels (`YYYY-MM`) for one user, calendar months (cut-off 1). */
+  const listar = async (userId: string): Promise<string[]> =>
+    (await useCase.execute({ userId })).map((periodo) => periodo.valor);
 
   let accountA: string;
   let accountB: string;
@@ -151,7 +159,7 @@ describe('PrismaPeriodosConDatosReader (integration — real DB)', () => {
   });
 
   it('A ve exactamente sus meses, del más reciente al más antiguo, sin duplicados', async () => {
-    expect(await useCase.execute({ userId: USER_A })).toEqual([
+    expect(await listar(USER_A)).toEqual([
       '2026-06',
       '2026-05',
       '2026-04',
@@ -161,8 +169,8 @@ describe('PrismaPeriodosConDatosReader (integration — real DB)', () => {
   });
 
   it('isolation (RNF-SEC-006): los meses de B nunca aparecen en A, ni al revés', async () => {
-    const a = await useCase.execute({ userId: USER_A });
-    const b = await useCase.execute({ userId: USER_B });
+    const a = await listar(USER_A);
+    const b = await listar(USER_B);
 
     expect(a).not.toContain('2026-03');
     expect(a).not.toContain('2026-08');
@@ -170,27 +178,29 @@ describe('PrismaPeriodosConDatosReader (integration — real DB)', () => {
   });
 
   it('usuario sin movimientos o inexistente → []', async () => {
-    expect(await useCase.execute({ userId: USER_C })).toEqual([]);
+    expect(await listar(USER_C)).toEqual([]);
     expect(await useCase.execute({ userId: `no-existe-${RUN_ID}` })).toEqual(
       [],
     );
   });
 
   it('un mes de solo ingresos y uno de solo categoría interna cuentan', async () => {
-    const a = await useCase.execute({ userId: USER_A });
+    const a = await listar(USER_A);
 
     expect(a).toContain('2026-02');
     expect(a).toContain('2026-04');
   });
 
   it('la frontera UTC coincide con /api/resumen: 23:59:59.999Z del 31 es mayo, 00:00Z del 1 es junio', async () => {
-    const a = await useCase.execute({ userId: USER_A });
+    const a = await listar(USER_A);
     expect(a).toContain('2026-05');
     expect(a).toContain('2026-06');
 
     // Misma derivación que el default de /api/resumen.
     const ultimo = new PrismaUltimoPeriodoConDatosReader(prisma);
-    expect((await ultimo.ultimoPeriodoConDatos(USER_A))?.valor).toBe(a[0]);
+    expect(
+      (await ultimo.ultimoPeriodoConDatos(USER_A, DiaCorte.CALENDARIO))?.valor,
+    ).toBe(a[0]);
 
     // Y cada mes listado produce datos en el reader del resumen (mismo
     // rango [desde, hasta) de PeriodoMes).

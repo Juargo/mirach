@@ -1,6 +1,8 @@
 import { ResumenAnual } from '../../../domain/value-objects/resumen-anual';
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
 import { Bucket } from '../../../domain/value-objects/bucket';
+import { PeriodoAnio } from '../../../domain/value-objects/periodo-anio';
+import { DiaCorte } from '../../../domain/value-objects/mes-financiero';
 import { aResumenAnualDto } from './resumen-anual.dto';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -28,12 +30,17 @@ function mesConIngreso(totalIngreso: bigint, necesidades: bigint): ResumenMes {
   });
 }
 
+/** The 12 financial months of 2026 for the given cut-off day (#111). */
+function meses2026(diaCorte: DiaCorte = DiaCorte.CALENDARIO) {
+  return PeriodoAnio.crear(2026).getValue().meses(diaCorte);
+}
+
 describe('aResumenAnualDto', () => {
   it('anio field matches ResumenAnual.anio', () => {
     const meses = Array.from({ length: 12 }, () => mesVacio());
     const resumenAnual = ResumenAnual.crear(2026, meses).getValue();
 
-    const dto = aResumenAnualDto(resumenAnual);
+    const dto = aResumenAnualDto(resumenAnual, meses2026());
 
     expect(dto.anio).toBe(2026);
   });
@@ -42,7 +49,7 @@ describe('aResumenAnualDto', () => {
     const meses = Array.from({ length: 12 }, () => mesVacio());
     const resumenAnual = ResumenAnual.crear(2026, meses).getValue();
 
-    const dto = aResumenAnualDto(resumenAnual);
+    const dto = aResumenAnualDto(resumenAnual, meses2026());
 
     expect(dto.meses).toHaveLength(12);
   });
@@ -51,11 +58,42 @@ describe('aResumenAnualDto', () => {
     const meses = Array.from({ length: 12 }, () => mesVacio());
     const resumenAnual = ResumenAnual.crear(2026, meses).getValue();
 
-    const dto = aResumenAnualDto(resumenAnual);
+    const dto = aResumenAnualDto(resumenAnual, meses2026());
 
     expect(dto.meses[0].periodo).toBe('2026-01');
     expect(dto.meses[5].periodo).toBe('2026-06');
     expect(dto.meses[11].periodo).toBe('2026-12');
+  });
+
+  it('each mes entry carries the dates of its own financial month (#111)', () => {
+    const meses = Array.from({ length: 12 }, () => mesVacio());
+    const resumenAnual = ResumenAnual.crear(2026, meses).getValue();
+    const corte25 = DiaCorte.crear(25).getValue();
+
+    const dto = aResumenAnualDto(resumenAnual, meses2026(corte25));
+
+    expect(dto.meses[0]).toMatchObject({
+      periodo: '2026-01',
+      fechaInicio: '2026-01-25',
+      fechaFin: '2026-02-24',
+    });
+    expect(dto.meses[11]).toMatchObject({
+      periodo: '2026-12',
+      fechaInicio: '2026-12-25',
+      fechaFin: '2027-01-24',
+    });
+  });
+
+  it('calendar months carry their first and last day', () => {
+    const meses = Array.from({ length: 12 }, () => mesVacio());
+    const resumenAnual = ResumenAnual.crear(2026, meses).getValue();
+
+    const dto = aResumenAnualDto(resumenAnual, meses2026());
+
+    expect(dto.meses[1]).toMatchObject({
+      fechaInicio: '2026-02-01',
+      fechaFin: '2026-02-28',
+    });
   });
 
   it('reuses aResumenMesDto per month — bucket data is preserved', () => {
@@ -65,7 +103,7 @@ describe('aResumenAnualDto', () => {
     ];
     const resumenAnual = ResumenAnual.crear(2026, meses).getValue();
 
-    const dto = aResumenAnualDto(resumenAnual);
+    const dto = aResumenAnualDto(resumenAnual, meses2026());
 
     expect(dto.meses[0].totalIngreso).toBe('1000000');
     expect(dto.meses[0].sinIngreso).toBe(false);

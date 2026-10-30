@@ -4,6 +4,8 @@ import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { ResumenMes } from '../../domain/value-objects/resumen-mes';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import { METAS_POR_DEFECTO } from '../../domain/value-objects/perfil-presupuesto';
 import { resumenResponseSchema } from './schemas/resumen.schema';
 
@@ -19,6 +21,8 @@ import { resumenResponseSchema } from './schemas/resumen.schema';
  */
 const RESUMEN_MES_OK = {
   totalIngreso: 0n,
+  fuenteIngreso: 'detectado',
+  ingresoDetectado: 0n,
   sinIngreso: true,
   buckets: [],
   estadoGlobal: null,
@@ -36,11 +40,13 @@ function fakeContainer(): Container {
         .mockResolvedValue(Result.ok({ userId: 'user-de-sesion' })),
     },
     calcularResumenMes: {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.ok({ periodo: '2026-07', resumen: RESUMEN_MES_OK }),
-        ),
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          periodo: '2026-07',
+          periodoMes: PeriodoMes.crear('2026-07').getValue(),
+          resumen: RESUMEN_MES_OK,
+        }),
+      ),
     },
     calcularResumenAnual: {
       execute: vi
@@ -103,6 +109,7 @@ describe('GET /api/resumen — cadena de auth + aislamiento', () => {
     ).mockResolvedValue(
       Result.ok({
         periodo: '2026-07',
+        periodoMes: PeriodoMes.crear('2026-07').getValue(),
         resumen: ResumenMes.crear({
           totalIngreso: 1_000n,
           necesidades: 1n,
@@ -123,6 +130,31 @@ describe('GET /api/resumen — cadena de auth + aislamiento', () => {
     );
     expect(bp).toEqual([3334, 3333, 3333]);
     expect(bp.reduce((a: number, b: number) => a + b, 0)).toBe(10000);
+  });
+
+  it('el body 200 trae las fechas de inicio y fin del mes financiero (#111)', async () => {
+    const c = fakeContainer();
+    const corte25 = DiaCorte.crear(25).getValue();
+    (
+      c.calcularResumenMes.execute as ReturnType<typeof vi.fn>
+    ).mockResolvedValue(
+      Result.ok({
+        periodo: '2026-10',
+        periodoMes: PeriodoMes.crear('2026-10', corte25).getValue(),
+        resumen: RESUMEN_MES_OK,
+      }),
+    );
+    const res = await request(createApp(c, testEnv))
+      .get('/api/resumen?periodo=2026-10')
+      .set('x-api-key', KEY)
+      .set('Authorization', 'Bearer token-valido');
+
+    expect(res.status).toBe(200);
+    expect(resumenResponseSchema.parse(res.body)).toMatchObject({
+      periodo: '2026-10',
+      fechaInicio: '2026-10-25',
+      fechaFin: '2026-11-24',
+    });
   });
 
   it('health GET / sigue público (sin api-key ni sesión)', async () => {

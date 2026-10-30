@@ -23,6 +23,7 @@
 
 package app.mirachbudget.android.core.api.generated.models
 
+import app.mirachbudget.android.core.api.generated.models.PeriodosResponseRangosInner
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -31,15 +32,20 @@ import kotlinx.serialization.Contextual
 /**
  * GET /api/periodos — months that have movements for the session user (month selector).
  *
- * @param periodos Months (YYYY-MM, UTC) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.
+ * @param periodos Financial months (YYYY-MM, the month each period starts in with the user cut-off day, #111) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.
+ * @param rangos The same periods as `periodos`, in the same order, with the start and end dates of each financial month (#111).
  */
 @Serializable
 
 data class PeriodosResponse (
 
-    /* Months (YYYY-MM, UTC) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements. */
+    /* Financial months (YYYY-MM, the month each period starts in with the user cut-off day, #111) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements. */
     @SerialName(value = "periodos")
-    val periodos: kotlin.collections.List<kotlin.String>
+    val periodos: kotlin.collections.List<kotlin.String>,
+
+    /* The same periods as `periodos`, in the same order, with the start and end dates of each financial month (#111). */
+    @SerialName(value = "rangos")
+    val rangos: kotlin.collections.List<PeriodosResponseRangosInner>
 
 ) {
 

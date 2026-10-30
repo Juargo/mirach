@@ -82,17 +82,19 @@ false`), not just mapper discipline.
 - WHEN the `.strict()` response schema parses it
 - THEN parsing fails with the extra key reported
 
-### Requirement: MID-04 — Absent period defaults to the current month; invalid period is a scrubbed 400 (CA-04)
+### Requirement: MID-04 — Absent period defaults to the latest period with data; invalid period is a scrubbed 400 (CA-04)
 
-WHEN `periodo` is absent, the system MUST resolve the current calendar month, identically to
+WHEN `periodo` is absent, the system MUST resolve the user's latest period with at least one
+transaction, labelled with the user's cut-off day (perfil-presupuesto PPR-07); the period in
+progress is the fallback only when the user has no transaction at all. This is the same rule as
 `resumen-mensual`. WHEN present but invalid per the domain's `YYYY-MM` rule, the system MUST return
 400 (`PeriodoInvalidoError`) with a scrubbed message that never echoes the raw input.
 
-#### Scenario: Absent period defaults to the current month
+#### Scenario: Absent period defaults to the latest period with data
 
-- GIVEN a client calls `GET /api/ingresos/mes` with no `periodo`
-- WHEN the request is processed
-- THEN the response reflects the current calendar month
+- GIVEN a user whose latest transaction falls in period `2026-08`
+- WHEN they call `GET /api/ingresos/mes` with no `periodo`
+- THEN the response reflects period `2026-08`
 
 #### Scenario: Invalid period is rejected with a scrubbed 400
 
@@ -151,3 +153,24 @@ the `.strict()` leaf schema (MID-03) is the wire guarantee. See the `user-data-i
 - WHEN a client logged in as A calls `GET /api/ingresos/mes?periodo=<period>`
 - THEN `total`, `conteo`, and every `transacciones`/`origen` entry reflect only A's rows
 - AND no field reflects B's data, regardless of transport (cookie or Bearer)
+
+### Requirement: MID-07 — The period follows the cut-off day, with the income tolerance (issue #111)
+
+The period MUST be the financial month of perfil-presupuesto PPR-07 and the response MUST carry
+`fechaInicio` and `fechaFin` (`YYYY-MM-DD`, inclusive). The income rows listed and summed are the
+ones inside the income window: with a cut-off day other than 1, from 3 days before `fechaInicio` up
+to 3 days before the end of the period; with cut-off 1, exactly the calendar month. `total` stays the
+detected sum of those rows; it never becomes the declared income (PPR-08).
+
+#### Scenario: Un sueldo abonado antes del corte aparece en el período que empieza
+
+- Dado un corte el día 25 y un sueldo abonado el viernes 23 de octubre
+- Cuando Marcela abre `GET /api/ingresos/mes?periodo=2026-10`
+- Entonces el sueldo aparece en la lista y en `total`
+- Y `fechaInicio` es `2026-10-25` y `fechaFin` es `2026-11-24`
+
+#### Scenario: Cut-off 1 has no tolerance
+
+- GIVEN a user with `diaCorte` 1 and an income credit dated 2026-09-30
+- WHEN they call `GET /api/ingresos/mes?periodo=2026-10`
+- THEN that credit is not listed

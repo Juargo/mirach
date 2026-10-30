@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { fuenteIngresoSchema } from './fuente-ingreso.schema';
+import { fechasPeriodoShape } from './periodo-fechas.schema';
 import { bucketsPathParamsSchema } from './buckets.schema';
 
 /**
@@ -83,6 +85,7 @@ const grupoDetalleMesSchema = z.object({
 export const bucketDetalleMesResponseSchema = z
   .object({
     periodo: z.string().describe('Resolved period, format YYYY-MM.'),
+    ...fechasPeriodoShape,
     bucket: z
       .string()
       .describe(
@@ -104,7 +107,7 @@ export const bucketDetalleMesResponseSchema = z
       .int()
       .nullable()
       .describe(
-        'Basis-point percentage, round-half-up. null when the month has no income (D-05).',
+        'Basis-point percentage, round-half-up, of the income named by `fuenteIngreso` (rule 1). null when there is no income: no declared income and no income credits (D-05).',
       ),
     metaBp: z
       .number()
@@ -113,6 +116,7 @@ export const bucketDetalleMesResponseSchema = z
       .describe(
         "Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).",
       ),
+    fuenteIngreso: fuenteIngresoSchema,
     grupos: z
       .array(grupoDetalleMesSchema)
       .describe(

@@ -26,7 +26,7 @@ struct BucketDetalleAPITests {
         porcentajeBp: String = "3300", metaBp: String = "3000", groups: [String]? = nil
     ) -> String {
         let list = (groups ?? [group(moves: move())]).joined(separator: ",")
-        return #"{"periodo":"\#(periodo)","bucket":"\#(bucket)","total":"\#(total)","totalTransacciones":1,"totalCategorias":1,"porcentajeBp":\#(porcentajeBp),"metaBp":\#(metaBp),"grupos":[\#(list)]}"#
+        return #"{"periodo":"\#(periodo)","fechaInicio":"\#(periodo)-01","fechaFin":"\#(periodo)-28","bucket":"\#(bucket)","total":"\#(total)","totalTransacciones":1,"totalCategorias":1,"porcentajeBp":\#(porcentajeBp),"metaBp":\#(metaBp),"fuenteIngreso":"detectado","grupos":[\#(list)]}"#
     }
 
     @Test func mapsTheHeaderGroupsAndMovementsWithExactMoney() async throws {

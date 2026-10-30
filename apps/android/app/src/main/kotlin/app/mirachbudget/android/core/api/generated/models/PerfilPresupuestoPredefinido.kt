@@ -32,13 +32,23 @@ import kotlinx.serialization.Contextual
  * Predefined profile. 80_10_10 is the «Salir de deudas» profile.
  *
  * @param perfil 
+ * @param diaCorte Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.
+ * @param ingresoDeclarado Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.
  */
 @Serializable
 
 data class PerfilPresupuestoPredefinido (
 
     @SerialName(value = "perfil")
-    val perfil: PerfilPresupuestoPredefinido.Perfil
+    val perfil: PerfilPresupuestoPredefinido.Perfil,
+
+    /* Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged. */
+    @SerialName(value = "diaCorte")
+    val diaCorte: kotlin.Int? = null,
+
+    /* Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged. */
+    @SerialName(value = "ingresoDeclarado")
+    val ingresoDeclarado: kotlin.String? = null
 
 ) {
 

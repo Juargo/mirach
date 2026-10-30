@@ -11,6 +11,8 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { porcentajeBasisPoints } from '../../domain/value-objects/resumen-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
+import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
@@ -195,7 +197,7 @@ describe('ObtenerDetalleBucketMesUseCase', () => {
       expect(result.getValue().periodo).toBe('2026-06');
       expect(
         readers.ultimoPeriodoReader.ultimoPeriodoConDatos,
-      ).toHaveBeenCalledWith('user-a');
+      ).toHaveBeenCalledWith('user-a', DiaCorte.CALENDARIO);
       const periodoRows = vi.mocked(readers.reader.findByPeriodoYBucket).mock
         .calls[0][1];
       const periodoResumen = vi.mocked(readers.resumenReader.sumarPorBucket)
@@ -493,5 +495,74 @@ describe('ObtenerDetalleBucketMesUseCase — budget profile goals (#110)', () =>
 
     expect(obtener).toHaveBeenCalledWith('user-a');
     expect(result.getValue().metaBp).toBe(8000n);
+  });
+});
+
+describe('ObtenerDetalleBucketMesUseCase — mes financiero (#111)', () => {
+  it('el día de corte del perfil llega a ambos readers y a las fechas del resultado', async () => {
+    const readers = makeReaders([], []);
+    const uc = new ObtenerDetalleBucketMesUseCase(
+      readers.reader,
+      readers.resumenReader,
+      readers.ultimoPeriodoReader,
+      new NoOpLogger(),
+      perfilReaderConCorte(25),
+    );
+
+    const result = await uc.execute({
+      userId: 'user-a',
+      bucket: Bucket.Necesidades,
+      periodo: '2026-10',
+    });
+
+    const periodoRows = vi.mocked(readers.reader.findByPeriodoYBucket).mock
+      .calls[0][1];
+    const periodoResumen = vi.mocked(readers.resumenReader.sumarPorBucket).mock
+      .calls[0][1];
+    expect(periodoRows.diaCorte.valor).toBe(25);
+    expect(periodoResumen.diaCorte.valor).toBe(25);
+    expect(result.getValue().fechaInicio).toBe('2026-10-25');
+    expect(result.getValue().fechaFin).toBe('2026-11-24');
+  });
+});
+
+describe('ObtenerDetalleBucketMesUseCase — declared income (#111, rule 1, VIS-10)', () => {
+  const necesidad = makeRow({ cargo: 500_000n });
+
+  function useCaseConIngreso(ingresoDeclarado: bigint | null) {
+    const readers = makeReaders([necesidad], [incomeRow(1_000_000n)]);
+    return new ObtenerDetalleBucketMesUseCase(
+      readers.reader,
+      readers.resumenReader,
+      readers.ultimoPeriodoReader,
+      new NoOpLogger(),
+      perfilReaderConCorte(1, ingresoDeclarado),
+    );
+  }
+
+  it('the header percentage uses the declared income and says so', async () => {
+    const header = (
+      await useCaseConIngreso(2_000_000n).execute({
+        userId: 'user-a',
+        bucket: Bucket.Necesidades,
+        periodo: '2026-07',
+      })
+    ).getValue();
+
+    expect(header.porcentajeBp).toBe(2500n);
+    expect(header.fuenteIngreso).toBe('declarado');
+  });
+
+  it('without a declared income it uses the detected sum (previous behavior)', async () => {
+    const header = (
+      await useCaseConIngreso(null).execute({
+        userId: 'user-a',
+        bucket: Bucket.Necesidades,
+        periodo: '2026-07',
+      })
+    ).getValue();
+
+    expect(header.porcentajeBp).toBe(5000n);
+    expect(header.fuenteIngreso).toBe('detectado');
   });
 });

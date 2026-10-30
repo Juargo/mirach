@@ -1,3 +1,4 @@
+import { FuenteIngreso } from '../../../domain/value-objects/base-ingreso';
 import type { ObtenerDetalleBucketMesResult } from '../../../application/use-cases/obtener-detalle-bucket-mes.use-case';
 
 /**
@@ -21,12 +22,17 @@ import type { ObtenerDetalleBucketMesResult } from '../../../application/use-cas
  */
 export interface DetalleBucketMesDto {
   readonly periodo: string;
+  /** First and last day of the financial month (#111), `YYYY-MM-DD`, inclusive. */
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly bucket: string;
   readonly total: string;
   readonly totalTransacciones: number;
   readonly totalCategorias: number;
   readonly porcentajeBp: number | null;
   readonly metaBp: number | null;
+  /** Base of `porcentajeBp` (#111, rule 1, VIS-10). */
+  readonly fuenteIngreso: FuenteIngreso;
   readonly grupos: ReadonlyArray<{
     readonly categoriaId: string | null;
     readonly nombre: string;
@@ -59,12 +65,15 @@ export function aDetalleBucketMesDto(
 ): DetalleBucketMesDto {
   return {
     periodo: data.periodo,
+    fechaInicio: data.fechaInicio,
+    fechaFin: data.fechaFin,
     bucket: data.bucket,
     total: String(data.total),
     totalTransacciones: data.totalTransacciones,
     totalCategorias: data.totalCategorias,
     porcentajeBp: data.porcentajeBp === null ? null : Number(data.porcentajeBp),
     metaBp: data.metaBp === null ? null : Number(data.metaBp),
+    fuenteIngreso: data.fuenteIngreso,
     grupos: data.grupos.map((grupo) => ({
       categoriaId: grupo.categoriaId,
       nombre: grupo.nombre,

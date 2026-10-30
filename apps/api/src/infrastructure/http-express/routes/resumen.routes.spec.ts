@@ -9,6 +9,7 @@ import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import type { CalcularResumenMesUseCase } from '../../../application/use-cases/calcular-resumen-mes.use-case';
 import type { CalcularResumenAnualUseCase } from '../../../application/use-cases/calcular-resumen-anual.use-case';
 import type { ObtenerSemaforoDetalleUseCase } from '../../../application/use-cases/obtener-semaforo-detalle.use-case';
+import { PeriodoMes } from '../../../domain/value-objects/periodo-mes';
 import { METAS_POR_DEFECTO } from '../../../domain/value-objects/perfil-presupuesto';
 
 /**
@@ -32,6 +33,7 @@ const RESUMEN_MES_OK = {
   cantidadSinCategoria: 0,
 };
 const RESUMEN_ANUAL_OK = { anio: 2026, meses: [] };
+const JULIO = PeriodoMes.crear('2026-07').getValue();
 const SEMAFORO_DETALLE_OK = {
   totalIngreso: 100000n,
   sinIngreso: false,
@@ -70,11 +72,13 @@ describe('registrarResumen', () => {
   describe('GET /api/resumen', () => {
     it('200 con el DTO y llama al use case con userId + periodo', async () => {
       const mes = {
-        execute: vi
-          .fn()
-          .mockResolvedValue(
-            Result.ok({ periodo: '2026-07', resumen: RESUMEN_MES_OK }),
-          ),
+        execute: vi.fn().mockResolvedValue(
+          Result.ok({
+            periodo: '2026-07',
+            periodoMes: JULIO,
+            resumen: RESUMEN_MES_OK,
+          }),
+        ),
       };
       const res = await request(probeApp(mes, { execute: vi.fn() })).get(
         '/api/resumen?periodo=2026-07',
@@ -82,6 +86,8 @@ describe('registrarResumen', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.periodo).toBe('2026-07');
+      expect(res.body.fechaInicio).toBe('2026-07-01');
+      expect(res.body.fechaFin).toBe('2026-07-31');
       expect(mes.execute).toHaveBeenCalledWith({
         userId: 'user-x',
         periodo: '2026-07',
@@ -90,11 +96,13 @@ describe('registrarResumen', () => {
 
     it('sin periodo → llama con periodo undefined', async () => {
       const mes = {
-        execute: vi
-          .fn()
-          .mockResolvedValue(
-            Result.ok({ periodo: '2026-07', resumen: RESUMEN_MES_OK }),
-          ),
+        execute: vi.fn().mockResolvedValue(
+          Result.ok({
+            periodo: '2026-07',
+            periodoMes: JULIO,
+            resumen: RESUMEN_MES_OK,
+          }),
+        ),
       };
       await request(probeApp(mes, { execute: vi.fn() })).get('/api/resumen');
 
@@ -146,7 +154,9 @@ describe('registrarResumen', () => {
       const anual = {
         execute: vi
           .fn()
-          .mockResolvedValue(Result.ok({ resumenAnual: RESUMEN_ANUAL_OK })),
+          .mockResolvedValue(
+            Result.ok({ resumenAnual: RESUMEN_ANUAL_OK, periodos: [] }),
+          ),
       };
       const res = await request(probeApp({ execute: vi.fn() }, anual)).get(
         '/api/resumen/anual?anio=2026',

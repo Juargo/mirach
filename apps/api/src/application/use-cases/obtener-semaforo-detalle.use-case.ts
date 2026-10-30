@@ -43,20 +43,20 @@ export class ObtenerSemaforoDetalleUseCase {
     userId: string;
     periodo: string | undefined;
   }): Promise<Result<ObtenerSemaforoDetalleResult, PeriodoInvalidoError>> {
+    // The cut-off day of the user's financial month (#111) defines the period.
+    const perfil = await this.perfilReader.obtener(input.userId);
     const periodoResult = await resolverPeriodo(
       this.ultimoPeriodoReader,
       input.userId,
       input.periodo,
+      perfil.mesFinanciero.diaCorte,
     );
     if (periodoResult.isFail()) {
       return Result.fail(periodoResult.getError());
     }
     const periodoVO = periodoResult.getValue();
 
-    const [rows, perfil] = await Promise.all([
-      this.reader.sumarPorBucket(input.userId, periodoVO),
-      this.perfilReader.obtener(input.userId),
-    ]);
+    const rows = await this.reader.sumarPorBucket(input.userId, periodoVO);
     // Counts only — never amounts (ADR-013). Row count reflects how many of
     // the up-to-5 bucket-sum rows the reader returned for this period.
     this.logger.debug('obtener-semaforo-detalle: repo fetch', {
@@ -65,7 +65,11 @@ export class ObtenerSemaforoDetalleUseCase {
       rows: rows.length,
     });
 
-    const resumen = construirResumenMesDesdeFilas(rows, perfil.metas);
+    const resumen = construirResumenMesDesdeFilas(
+      rows,
+      perfil.metas,
+      perfil.mesFinanciero.ingresoDeclarado,
+    );
     const detalle = construirSemaforoDetalle(resumen);
     this.logger.debug('obtener-semaforo-detalle: computed', {
       periodo: periodoVO.valor,

@@ -15,6 +15,8 @@ import {
 function makeDetalle(): SemaforoDetalle {
   return {
     totalIngreso: 1_500_000n,
+    fuenteIngreso: 'detectado',
+    ingresoDetectado: 1_500_000n,
     sinIngreso: false,
     estadoGlobal: EstadoSemaforo.Amarillo,
     diagnostico: 'Tu veredicto del mes es Saludable por Necesidades.',

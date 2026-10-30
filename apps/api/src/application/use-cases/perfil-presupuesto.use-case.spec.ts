@@ -2,6 +2,9 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
 import { PerfilNoSuma100Error } from '../../domain/errors/perfil-no-suma-100.error';
 import { MetaPresupuestoInvalidaError } from '../../domain/errors/meta-presupuesto-invalida.error';
+import { MesFinanciero } from '../../domain/value-objects/mes-financiero';
+import { DiaCorteInvalidoError } from '../../domain/errors/dia-corte-invalido.error';
+import { IngresoDeclaradoInvalidoError } from '../../domain/errors/ingreso-declarado-invalido.error';
 import { IPerfilPresupuestoRepository } from '../ports/perfil-presupuesto.port';
 import { NoOpLogger } from '../../../test/support/logger.double';
 import {
@@ -96,6 +99,86 @@ describe('ActualizarPerfilPresupuestoUseCase (#110)', () => {
     });
 
     expect(r.getError()).toBeInstanceOf(MetaPresupuestoInvalidaError);
+    expect(repo.guardar).not.toHaveBeenCalled();
+  });
+});
+
+describe('ActualizarPerfilPresupuestoUseCase — financial month (#111)', () => {
+  const conMes = (dia: number, ingreso: bigint | null) =>
+    PerfilPresupuesto.porDefecto().conMesFinanciero(
+      MesFinanciero.crear(dia, ingreso).getValue(),
+    );
+
+  it('saves the cut-off day and declared income with the profile', async () => {
+    const repo = makeRepo();
+    const uc = new ActualizarPerfilPresupuestoUseCase(repo, new NoOpLogger());
+
+    const r = await uc.execute({
+      userId: 'user-a',
+      perfil: '60_20_20',
+      diaCorte: 25,
+      ingresoDeclarado: 1_500_000n,
+    });
+
+    expect(r.getValue().mesFinanciero.diaCorte.valor).toBe(25);
+    expect(r.getValue().mesFinanciero.ingresoDeclarado).toBe(1_500_000n);
+    const guardado = repo.guardar.mock.calls[0][1] as PerfilPresupuesto;
+    expect(guardado.perfil).toBe('60_20_20');
+    expect(guardado.mesFinanciero.diaCorte.valor).toBe(25);
+    expect(guardado.mesFinanciero.ingresoDeclarado).toBe(1_500_000n);
+  });
+
+  it('a profile change without the new fields keeps the stored cut-off day and income', async () => {
+    const repo = makeRepo(conMes(25, 900_000n));
+    const uc = new ActualizarPerfilPresupuestoUseCase(repo, new NoOpLogger());
+
+    const r = await uc.execute({ userId: 'user-a', perfil: '80_10_10' });
+
+    expect(r.getValue().perfil).toBe('80_10_10');
+    expect(r.getValue().mesFinanciero.diaCorte.valor).toBe(25);
+    expect(r.getValue().mesFinanciero.ingresoDeclarado).toBe(900_000n);
+    expect(repo.obtener).toHaveBeenCalledWith('user-a');
+  });
+
+  it('ingresoDeclarado null clears the declared income and keeps the cut-off day', async () => {
+    const repo = makeRepo(conMes(25, 900_000n));
+    const uc = new ActualizarPerfilPresupuestoUseCase(repo, new NoOpLogger());
+
+    const r = await uc.execute({
+      userId: 'user-a',
+      perfil: '50_30_20',
+      ingresoDeclarado: null,
+    });
+
+    expect(r.getValue().mesFinanciero.ingresoDeclarado).toBeNull();
+    expect(r.getValue().mesFinanciero.diaCorte.valor).toBe(25);
+  });
+
+  it('cut-off day 29 fails with DiaCorteInvalidoError and saves nothing', async () => {
+    const repo = makeRepo();
+    const uc = new ActualizarPerfilPresupuestoUseCase(repo, new NoOpLogger());
+
+    const r = await uc.execute({
+      userId: 'user-a',
+      perfil: '50_30_20',
+      diaCorte: 29,
+    });
+
+    expect(r.getError()).toBeInstanceOf(DiaCorteInvalidoError);
+    expect(repo.guardar).not.toHaveBeenCalled();
+  });
+
+  it('a declared income of 0 fails with IngresoDeclaradoInvalidoError and saves nothing', async () => {
+    const repo = makeRepo();
+    const uc = new ActualizarPerfilPresupuestoUseCase(repo, new NoOpLogger());
+
+    const r = await uc.execute({
+      userId: 'user-a',
+      perfil: '50_30_20',
+      ingresoDeclarado: 0n,
+    });
+
+    expect(r.getError()).toBeInstanceOf(IngresoDeclaradoInvalidoError);
     expect(repo.guardar).not.toHaveBeenCalled();
   });
 });

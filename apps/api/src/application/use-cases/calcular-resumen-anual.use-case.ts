@@ -1,5 +1,6 @@
 import { Result } from '../../shared/result';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { AnioInvalidoError } from '../../domain/errors/anio-invalido.error';
 import { ResumenAnual } from '../../domain/value-objects/resumen-anual';
 import { ResumenAnualInvalidoError } from '../../domain/errors/resumen-anual-invalido.error';
@@ -15,6 +16,8 @@ import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
 export interface CalcularResumenAnualResult {
   readonly anio: number;
   readonly resumenAnual: ResumenAnual;
+  /** The 12 financial months of the year (#111), Jan→Dec like `resumenAnual.meses`. */
+  readonly periodos: ReadonlyArray<PeriodoMes>;
 }
 
 /**
@@ -76,10 +79,14 @@ export class CalcularResumenAnualUseCase {
       anioVO = resultado.getValue();
     }
 
-    const [rows, perfil] = await Promise.all([
-      this.reader.sumarPorBucketAnual(input.userId, anioVO),
-      this.perfilReader.obtener(input.userId),
-    ]);
+    // The cut-off day of the user's financial month (#111) defines the months.
+    const perfil = await this.perfilReader.obtener(input.userId);
+    const diaCorte = perfil.mesFinanciero.diaCorte;
+    const rows = await this.reader.sumarPorBucketAnual(
+      input.userId,
+      anioVO,
+      diaCorte,
+    );
     // Counts only — never amounts (ADR-013). rows spans up to 12 months x 5
     // buckets in a single query.
     this.logger.debug('calcular-resumen-anual: repo fetch', {
@@ -96,14 +103,14 @@ export class CalcularResumenAnualUseCase {
       rowsPorMes.set(row.mes, lista);
     }
 
-    const meses = anioVO
-      .meses()
-      .map((periodoMes) =>
-        construirResumenMesDesdeFilas(
-          rowsPorMes.get(periodoMes.valor) ?? [],
-          perfil.metas,
-        ),
-      );
+    const periodos = anioVO.meses(diaCorte);
+    const meses = periodos.map((periodoMes) =>
+      construirResumenMesDesdeFilas(
+        rowsPorMes.get(periodoMes.valor) ?? [],
+        perfil.metas,
+        perfil.mesFinanciero.ingresoDeclarado,
+      ),
+    );
 
     const resultadoResumenAnual = ResumenAnual.crear(anioVO.anio, meses);
     if (resultadoResumenAnual.isFail()) {
@@ -119,6 +126,7 @@ export class CalcularResumenAnualUseCase {
     return Result.ok({
       anio: anioVO.anio,
       resumenAnual: resultadoResumenAnual.getValue(),
+      periodos,
     });
   }
 }

@@ -8,6 +8,8 @@ import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 const makeRow = (
@@ -43,6 +45,7 @@ describe('ObtenerMovimientosMesUseCase', () => {
       readerMock,
       ultimoPeriodoReaderMock,
       new NoOpLogger(),
+      perfilReaderConCorte(),
     );
   });
 
@@ -185,7 +188,7 @@ describe('ObtenerMovimientosMesUseCase', () => {
       expect(calledPeriodo.valor).toBe('2026-01');
       expect(
         ultimoPeriodoReaderMock.ultimoPeriodoConDatos,
-      ).toHaveBeenCalledWith('user-1');
+      ).toHaveBeenCalledWith('user-1', DiaCorte.CALENDARIO);
     });
 
     it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
@@ -215,6 +218,7 @@ describe('ObtenerMovimientosMesUseCase', () => {
         readerMock,
         ultimoPeriodoReaderMock,
         logger,
+        perfilReaderConCorte(),
       );
 
       await useCaseWithFakeLogger.execute({
@@ -233,5 +237,28 @@ describe('ObtenerMovimientosMesUseCase', () => {
       expect(serializedContexts).not.toContain('12345678');
       expect(serializedContexts).not.toContain('@');
     });
+  });
+});
+
+describe('ObtenerMovimientosMesUseCase — mes financiero (#111)', () => {
+  it('el día de corte del perfil define el período, también el último con datos', async () => {
+    const reader = { findByPeriodo: vi.fn().mockResolvedValue([]) };
+    const ultimoPeriodoReader = {
+      ultimoPeriodoConDatos: vi.fn().mockResolvedValue(null),
+    };
+    const uc = new ObtenerMovimientosMesUseCase(
+      reader,
+      ultimoPeriodoReader,
+      new NoOpLogger(),
+      perfilReaderConCorte(25),
+    );
+
+    await uc.execute({ userId: 'user-1', periodo: undefined });
+
+    const [, diaCorte] =
+      ultimoPeriodoReader.ultimoPeriodoConDatos.mock.calls[0];
+    expect(diaCorte.valor).toBe(25);
+    const periodo = reader.findByPeriodo.mock.calls[0][1];
+    expect(periodo.diaCorte.valor).toBe(25);
   });
 });

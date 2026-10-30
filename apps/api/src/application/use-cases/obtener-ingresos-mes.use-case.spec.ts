@@ -12,6 +12,8 @@ import { ILogger } from '../ports/logger.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
+import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -53,11 +55,13 @@ function makeReaders(
 function makeUseCase(
   readers: ReturnType<typeof makeReaders>,
   logger: ILogger = new NoOpLogger(),
+  perfilReader = perfilReaderConCorte(),
 ): ObtenerIngresosMesUseCase {
   return new ObtenerIngresosMesUseCase(
     readers.reader,
     readers.ultimoPeriodoReader,
     logger,
+    perfilReader,
   );
 }
 
@@ -87,6 +91,8 @@ type EsperadoTransaccion = {
 };
 
 type EsperadoResultado = {
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly total: bigint;
   readonly conteo: number;
   readonly transacciones: ReadonlyArray<EsperadoTransaccion>;
@@ -235,7 +241,7 @@ describe('ObtenerIngresosMesUseCase', () => {
       expect(periodoRecibido.valor).toBe('2026-05');
       expect(
         readers.ultimoPeriodoReader.ultimoPeriodoConDatos,
-      ).toHaveBeenCalledWith('user-a');
+      ).toHaveBeenCalledWith('user-a', DiaCorte.CALENDARIO);
     });
 
     it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
@@ -425,5 +431,29 @@ describe('ObtenerIngresosMesUseCase', () => {
       expect(serializedContexts).not.toContain('Sueldo');
       expect(serializedContexts).not.toContain('12345678');
     });
+  });
+});
+
+describe('ObtenerIngresosMesUseCase — mes financiero (#111)', () => {
+  it('el día de corte del perfil llega al reader y a las fechas del resultado', async () => {
+    const readers = makeReaders([]);
+    const uc = makeUseCase(readers, new NoOpLogger(), perfilReaderConCorte(25));
+
+    const result = await uc.execute({ userId: 'user-a', periodo: '2026-10' });
+
+    const periodo = readers.findByPeriodoYBucket.mock.calls[0][1];
+    expect(periodo.diaCorte.valor).toBe(25);
+    expect(result.getValue().fechaInicio).toBe('2026-10-25');
+    expect(result.getValue().fechaFin).toBe('2026-11-24');
+  });
+
+  it('corte 1: las fechas son el primer y el último día del mes calendario', async () => {
+    const result = await makeUseCase(makeReaders([])).execute({
+      userId: 'user-a',
+      periodo: '2026-02',
+    });
+
+    expect(result.getValue().fechaInicio).toBe('2026-02-01');
+    expect(result.getValue().fechaFin).toBe('2026-02-28');
   });
 });

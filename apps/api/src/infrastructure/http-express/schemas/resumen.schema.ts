@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { fechasPeriodoShape } from './periodo-fechas.schema';
+import { ingresoBaseShape } from './fuente-ingreso.schema';
 
 /**
  * Query contract for `GET /api/resumen` (openapi-contract-express Slice 1).
@@ -75,10 +77,8 @@ const bucketResumenSchema = z.object({
 export const resumenResponseSchema = z
   .object({
     periodo: z.string().describe('Resolved period, format YYYY-MM.'),
-    totalIngreso: z
-      .string()
-      .describe('BigInt-safe decimal string amount (never a JSON number).'),
-    sinIngreso: z.boolean(),
+    ...fechasPeriodoShape,
+    ...ingresoBaseShape,
     buckets: z
       .array(bucketResumenSchema)
       .describe(

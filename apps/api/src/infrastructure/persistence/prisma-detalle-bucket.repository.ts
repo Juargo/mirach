@@ -4,6 +4,7 @@ import {
 } from '../../application/ports/detalle-bucket.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { filtroFechaPeriodo } from './periodo-filtro';
 import type { PrismaClient } from '@prisma/client';
 import { construirFiltroBucket } from './bucket-ids';
 import { foldCategoria } from './fold-categoria';
@@ -76,7 +77,7 @@ export class PrismaDetalleBucketRepository implements IDetalleBucketReader {
     const rows = await this.prisma.transaccion.findMany({
       where: {
         account: { userId }, // USER ISOLATION — structural
-        fecha: { gte: periodo.desde, lt: periodo.hasta }, // half-open [desde, hasta)
+        ...filtroFechaPeriodo(periodo), // half-open [desde, hasta), income window (#111)
         ...bucketFilter,
       },
       select: {

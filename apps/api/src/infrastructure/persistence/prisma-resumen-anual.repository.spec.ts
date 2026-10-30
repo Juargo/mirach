@@ -22,6 +22,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaResumenAnualRepository } from './prisma-resumen-anual.repository';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { BUCKET_IDS } from './bucket-ids';
 
@@ -150,7 +151,11 @@ describe('PrismaResumenAnualRepository (integration)', () => {
       fecha: new Date(Date.UTC(ANIO, 5, 10)), // June
     });
 
-    const rows = await repo.sumarPorBucketAnual(userId, anioVO);
+    const rows = await repo.sumarPorBucketAnual(
+      userId,
+      anioVO,
+      DiaCorte.CALENDARIO,
+    );
     const enero = rows.find(
       (r) => r.mes === `${ANIO}-01` && r.bucket === Bucket.Ingreso,
     );
@@ -194,7 +199,11 @@ describe('PrismaResumenAnualRepository (integration)', () => {
       fecha,
     });
 
-    const rows = await repo.sumarPorBucketAnual(userId, anioVO);
+    const rows = await repo.sumarPorBucketAnual(
+      userId,
+      anioVO,
+      DiaCorte.CALENDARIO,
+    );
     const marzoDeseos = rows.find(
       (r) => r.mes === `${ANIO}-03` && r.bucket === Bucket.Deseos,
     );
@@ -215,7 +224,11 @@ describe('PrismaResumenAnualRepository (integration)', () => {
     if (!ALLOW) return;
 
     const userId = `${RUN_ID}-user-sc05-nonexistent`;
-    const rows = await repo.sumarPorBucketAnual(userId, anioVO);
+    const rows = await repo.sumarPorBucketAnual(
+      userId,
+      anioVO,
+      DiaCorte.CALENDARIO,
+    );
 
     expect(rows).toHaveLength(48); // 12 months × 4 buckets
     for (const row of rows) {
@@ -257,7 +270,11 @@ describe('PrismaResumenAnualRepository (integration)', () => {
       fecha,
     });
 
-    const rows = await repo.sumarPorBucketAnual(userIdA, anioVO);
+    const rows = await repo.sumarPorBucketAnual(
+      userIdA,
+      anioVO,
+      DiaCorte.CALENDARIO,
+    );
     const abril = rows.find(
       (r) => r.mes === `${ANIO}-04` && r.bucket === Bucket.Ingreso,
     );

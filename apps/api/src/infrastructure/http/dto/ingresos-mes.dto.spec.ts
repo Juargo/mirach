@@ -73,6 +73,8 @@ function makeResult(
   overrides: Partial<Omit<ObtenerIngresosMesResult, 'transacciones'>> = {},
 ): ObtenerIngresosMesResult {
   return {
+    fechaInicio: '2026-07-01',
+    fechaFin: '2026-07-31',
     total: TOTAL,
     conteo: 3,
     transacciones: PII.map(recortar),
@@ -100,6 +102,8 @@ type EsperadoTransaccionWire = {
 };
 
 type EsperadoDto = {
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly total: string;
   readonly conteo: number;
   readonly transacciones: ReadonlyArray<EsperadoTransaccionWire>;
@@ -138,11 +142,19 @@ describe('aIngresosMesDto', () => {
     expect(typeof dto.transacciones[0].fecha).toBe('string');
   });
 
-  it('output EXACTAMENTE {total, conteo, transacciones} — sin meta/porcentaje/estado (MID-03) ni PII de cuenta (MID-06) en el wire', () => {
+  it('output EXACTAMENTE {fechaInicio, fechaFin, total, conteo, transacciones} — sin meta/porcentaje/estado (MID-03) ni PII de cuenta (MID-06) en el wire', () => {
     const dto = aIngresosMesDto(makeResult());
 
     // Claves exactas del DTO y de cada transacción wire.
-    expect(Object.keys(dto)).toEqual(['total', 'conteo', 'transacciones']);
+    expect(Object.keys(dto)).toEqual([
+      'fechaInicio',
+      'fechaFin',
+      'total',
+      'conteo',
+      'transacciones',
+    ]);
+    expect(dto.fechaInicio).toBe('2026-07-01');
+    expect(dto.fechaFin).toBe('2026-07-31');
     expect(Object.keys(dto.transacciones[0])).toEqual([
       'id',
       'fecha',

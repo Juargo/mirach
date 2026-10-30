@@ -25,8 +25,33 @@ const metasSchema = z
   .strict()
   .meta({ id: 'PerfilPresupuestoMetas' });
 
+/**
+ * Financial month fields (#111, PER-02, PER-08), optional on both branches:
+ * left out = unchanged, `ingresoDeclarado: null` clears it. "1 to 28" and
+ * "positive" are DOMAIN rules (`DiaCorteInvalidoError`,
+ * `IngresoDeclaradoInvalidoError`); the amount is a decimal string
+ * (BigInt-safe DTOs) of at most 18 digits so it always fits a BIGINT.
+ */
+const mesFinancieroCampos = {
+  diaCorte: z
+    .number()
+    .int()
+    .optional()
+    .describe(
+      'Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.',
+    ),
+  ingresoDeclarado: z
+    .string()
+    .regex(/^\d{1,18}$/)
+    .nullable()
+    .optional()
+    .describe(
+      'Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.',
+    ),
+};
+
 const variantePredefinida = z
-  .object({ perfil: z.enum(PERFILES_PREDEFINIDOS) })
+  .object({ perfil: z.enum(PERFILES_PREDEFINIDOS), ...mesFinancieroCampos })
   .strict()
   .meta({
     id: 'PerfilPresupuestoPredefinido',
@@ -35,7 +60,11 @@ const variantePredefinida = z
   });
 
 const variantePersonalizada = z
-  .object({ perfil: z.literal('personalizado'), metas: metasSchema })
+  .object({
+    perfil: z.literal('personalizado'),
+    metas: metasSchema,
+    ...mesFinancieroCampos,
+  })
   .strict()
   .meta({
     id: 'PerfilPresupuestoPersonalizado',
@@ -80,8 +109,23 @@ export const perfilPresupuestoResponseSchema = z
       .describe(
         'Targets in basis points (5000 = 50%); they sum 10000. The summaries measure every month against them, past ones too.',
       ),
+    diaCorte: z
+      .number()
+      .int()
+      .min(1)
+      .max(28)
+      .describe(
+        'Cut-off day of the financial month (1 = calendar month, the default). Period YYYY-MM starts on this day of that month; changing it recalculates every month.',
+      ),
+    ingresoDeclarado: z
+      .string()
+      .nullable()
+      .describe(
+        'Declared monthly net income in CLP as a decimal string, or null when not declared. When present, the summaries use it as the base of the percentages.',
+      ),
   })
   .meta({
     id: 'PerfilPresupuestoResponse',
-    description: "The user's budget profile (issue #110, PER-03..PER-06).",
+    description:
+      "The user's budget profile (issue #110, PER-03..PER-06) and financial month (issue #111, PER-02, PER-08).",
   });

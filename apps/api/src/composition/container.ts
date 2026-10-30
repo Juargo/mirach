@@ -297,6 +297,7 @@ export function createContainer(
     new PrismaDetalleBucketRepository(prisma, crypto),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
   // US-051, D-10: UNA instancia de PrismaDetalleBucketRepository (misma
   // disciplina que el flat) + UNA de PrismaResumenMesRepository (segunda
@@ -320,14 +321,17 @@ export function createContainer(
     new PrismaDetalleBucketRepository(prisma, crypto),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
   const listarPeriodosConDatos = new ListarPeriodosConDatosUseCase(
     new PrismaPeriodosConDatosReader(prisma),
+    perfilPresupuesto,
   );
   const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
     new PrismaMovimientosMesRepository(prisma, crypto),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     logger,
+    perfilPresupuesto,
   );
   const reclasificarTransaccion = new ReclasificarTransaccionUseCase(
     new PrismaReclasificarCategoriaRepository(prisma),

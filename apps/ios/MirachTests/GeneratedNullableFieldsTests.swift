@@ -10,7 +10,8 @@ struct GeneratedNullableFieldsTests {
         estado: String = "null", estadoMes: String = "null"
     ) -> Data {
         Data("""
-        {"periodo":"2026-09","totalIngreso":"1000000","sinIngreso":false,
+        {"periodo":"2026-09","fechaInicio":"2026-09-01","fechaFin":"2026-09-30","totalIngreso":"1000000",
+         "fuenteIngreso":"detectado","ingresoDetectado":"1000000","sinIngreso":false,
          "buckets":[{"bucket":"Necesidades","total":"500000","porcentajeBp":\(porcentajeBp),
                      "participacionGastoBp":10000,"metaBp":5000,"estadoSemaforo":\(estadoSemaforo),"estado":\(estado)}],
          "targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},

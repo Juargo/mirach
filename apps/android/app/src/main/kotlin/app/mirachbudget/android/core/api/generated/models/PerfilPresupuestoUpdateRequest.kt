@@ -36,6 +36,8 @@ import kotlinx.serialization.Contextual
  *
  * @param perfil 
  * @param metas 
+ * @param diaCorte Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.
+ * @param ingresoDeclarado Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.
  */
 @Serializable
 
@@ -45,7 +47,15 @@ data class PerfilPresupuestoUpdateRequest (
     val perfil: PerfilPresupuestoUpdateRequest.Perfil,
 
     @SerialName(value = "metas")
-    val metas: PerfilPresupuestoMetas
+    val metas: PerfilPresupuestoMetas,
+
+    /* Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged. */
+    @SerialName(value = "diaCorte")
+    val diaCorte: kotlin.Int? = null,
+
+    /* Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged. */
+    @SerialName(value = "ingresoDeclarado")
+    val ingresoDeclarado: kotlin.String? = null
 
 ) {
 

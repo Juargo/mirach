@@ -4,12 +4,20 @@ import {
 } from '../../application/ports/resumen-anual.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import type { PrismaClient } from '@prisma/client';
 import { resolverBucket } from './bucket-ids';
 
-/** "YYYY-MM" label for a UTC date, matching PeriodoMes.valor format. */
-function mesLabel(fecha: Date): string {
-  return `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
+/**
+ * "YYYY-MM" financial month of a row (#111): income credits keep the 3-day
+ * tolerance (`queContieneIngreso`), every other row uses its own date. With
+ * cut-off 1 both are the UTC calendar month of `fecha`.
+ */
+function mesLabel(fecha: Date, bucket: Bucket, diaCorte: DiaCorte): string {
+  return bucket === Bucket.Ingreso
+    ? PeriodoMes.queContieneIngreso(fecha, diaCorte).valor
+    : PeriodoMes.queContiene(fecha, diaCorte).valor;
 }
 
 /**
@@ -41,11 +49,16 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
   async sumarPorBucketAnual(
     userId: string,
     anio: PeriodoAnio,
+    diaCorte: DiaCorte,
   ): Promise<ReadonlyArray<BucketSumRowAnual>> {
+    // The financial year spans the 12 financial months (#111): from the
+    // income window of January to the end of December's period. Rows of the
+    // edges that belong to another year are skipped by the `accum` guard.
+    const meses = anio.meses(diaCorte);
     const transacciones = await this.prisma.transaccion.findMany({
       where: {
         account: { userId }, // USER ISOLATION — structural
-        fecha: { gte: anio.desde, lt: anio.hasta }, // half-open [desde, hasta)
+        fecha: { gte: meses[0].ingresoDesde, lt: meses[11].hasta }, // half-open
       },
       select: { fecha: true, bucketId: true, cargo: true, abono: true },
     });
@@ -76,14 +89,15 @@ export class PrismaResumenAnualRepository implements IResumenAnualReader {
     }
 
     for (const t of transacciones) {
-      const mesStr = mesLabel(t.fecha);
       const bucket: Bucket = resolverBucket(t.bucketId);
+      const mesStr = mesLabel(t.fecha, bucket, diaCorte);
 
       const key = `${mesStr}|${bucket}`;
       const current = accum.get(key);
       if (current === undefined) {
-        // Defensive: transaccion.fecha outside [desde, hasta) should never
-        // reach here given the WHERE clause, but never overwrite silently.
+        // A row of the fetched edges that belongs to the previous or next
+        // financial year (#111) — or, defensively, any fecha outside the
+        // year: skip it, never overwrite silently.
         continue;
       }
 

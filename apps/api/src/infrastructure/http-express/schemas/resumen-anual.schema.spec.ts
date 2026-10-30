@@ -1,5 +1,7 @@
 import { ResumenAnual } from '../../../domain/value-objects/resumen-anual';
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
+import { PeriodoAnio } from '../../../domain/value-objects/periodo-anio';
+import { DiaCorte } from '../../../domain/value-objects/mes-financiero';
 import { aResumenAnualDto } from '../../http/dto/resumen-anual.dto';
 import {
   resumenAnualQuerySchema,
@@ -15,6 +17,11 @@ import {
  * (`AnioInvalidoError`). A malformed-but-string `anio` MUST still pass this
  * schema and reach the existing domain-level scrubbed 400.
  */
+/** The 12 financial months of 2026 for the given cut-off day (#111). */
+function meses2026(diaCorte: DiaCorte = DiaCorte.CALENDARIO) {
+  return PeriodoAnio.crear(2026).getValue().meses(diaCorte);
+}
+
 describe('resumenAnualQuerySchema', () => {
   it('accepts a request with no anio at all', () => {
     const result = resumenAnualQuerySchema.safeParse({});
@@ -64,7 +71,7 @@ describe('resumenAnualResponseSchema (sync guarantee)', () => {
       makeResumen(1_000_000n * BigInt(i + 1), 100_000n),
     );
     const resumenAnual = ResumenAnual.crear(2026, meses).getValue();
-    const dto = aResumenAnualDto(resumenAnual);
+    const dto = aResumenAnualDto(resumenAnual, meses2026());
 
     const parsed = resumenAnualResponseSchema.parse(dto);
     expect(parsed.anio).toBe(2026);

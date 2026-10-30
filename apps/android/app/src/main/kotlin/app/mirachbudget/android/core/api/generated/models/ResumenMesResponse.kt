@@ -37,10 +37,14 @@ import kotlinx.serialization.Contextual
  * @param buckets Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape.
  * @param estadoGlobal Worst traffic-light state across measured buckets, or null.
  * @param estadoMes Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
+ * @param fechaFin Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+ * @param fechaInicio First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+ * @param fuenteIngreso Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+ * @param ingresoDetectado Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).
  * @param periodo Resolved period, format YYYY-MM.
- * @param sinIngreso 
+ * @param sinIngreso true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.
  * @param targets 
- * @param totalIngreso BigInt-safe decimal string amount (never a JSON number).
+ * @param totalIngreso Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.
  */
 @Serializable
 
@@ -62,17 +66,34 @@ data class ResumenMesResponse (
     @SerialName(value = "estadoMes")
     val estadoMes: ResumenMesResponse.EstadoMes?,
 
+    /* Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24). */
+    @SerialName(value = "fechaFin")
+    val fechaFin: kotlin.String,
+
+    /* First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month. */
+    @SerialName(value = "fechaInicio")
+    val fechaInicio: kotlin.String,
+
+    /* Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income. */
+    @SerialName(value = "fuenteIngreso")
+    val fuenteIngreso: ResumenMesResponse.FuenteIngreso,
+
+    /* Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number). */
+    @SerialName(value = "ingresoDetectado")
+    val ingresoDetectado: kotlin.String,
+
     /* Resolved period, format YYYY-MM. */
     @SerialName(value = "periodo")
     val periodo: kotlin.String,
 
+    /* true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages. */
     @SerialName(value = "sinIngreso")
     val sinIngreso: kotlin.Boolean,
 
     @SerialName(value = "targets")
     val targets: ResumenMesResponseTargets,
 
-    /* BigInt-safe decimal string amount (never a JSON number). */
+    /* Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`. */
     @SerialName(value = "totalIngreso")
     val totalIngreso: kotlin.String
 
@@ -99,6 +120,16 @@ data class ResumenMesResponse (
         @SerialName(value = "bien") bien("bien"),
         @SerialName(value = "cerca") cerca("cerca"),
         @SerialName(value = "sobre") sobre("sobre");
+    }
+    /**
+     * Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+     *
+     * Values: declarado,detectado
+     */
+    @Serializable
+    enum class FuenteIngreso(val value: kotlin.String) {
+        @SerialName(value = "declarado") declarado("declarado"),
+        @SerialName(value = "detectado") detectado("detectado");
     }
 
 }

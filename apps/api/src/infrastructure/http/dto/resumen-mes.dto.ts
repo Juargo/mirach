@@ -1,5 +1,7 @@
+import { FuenteIngreso } from '../../../domain/value-objects/base-ingreso';
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
 import { Bucket } from '../../../domain/value-objects/bucket';
+import { PeriodoMes } from '../../../domain/value-objects/periodo-mes';
 import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import { EstadoBloque } from '../../../domain/value-objects/estado-bloque';
 
@@ -32,7 +34,10 @@ export interface BucketResumenDto {
 /**
  * ResumenMesDto — HTTP contract for GET /api/resumen on success.
  *
- * totalIngreso: BigInt as decimal string (SC-06 BigInt-safe).
+ * totalIngreso: BigInt as decimal string (SC-06 BigInt-safe): the percentage
+ *   base, the declared income or the detected sum (#111, rule 1).
+ * fuenteIngreso: 'declarado' | 'detectado' — which base was used (VIS-10).
+ * ingresoDetectado: sum of the month's income credits, decimal string.
  * sinIngreso: true when totalIngreso === "0" (HTTP 200, not an error — SC-04).
  * buckets: always 3 entries (Necesidades, Deseos, Ahorro) — issue #778 tramo
  *   5b PR5 removed `Bucket.SinCategoria`/`cantidadSinCategoria` from the
@@ -52,7 +57,12 @@ export interface BucketResumenDto {
  */
 export interface ResumenMesDto {
   readonly periodo: string;
+  /** First and last day of the financial month (#111), `YYYY-MM-DD`, inclusive. */
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly totalIngreso: string;
+  readonly fuenteIngreso: FuenteIngreso;
+  readonly ingresoDetectado: string;
   readonly sinIngreso: boolean;
   readonly buckets: ReadonlyArray<BucketResumenDto>;
   readonly targets: {
@@ -108,12 +118,16 @@ function aPuntosPorcentuales(bp: bigint): number {
 }
 
 export function aResumenMesDto(
-  periodo: string,
+  periodo: PeriodoMes,
   resumen: ResumenMes,
 ): ResumenMesDto {
   return {
-    periodo,
+    periodo: periodo.valor,
+    fechaInicio: periodo.fechaInicio,
+    fechaFin: periodo.fechaFin,
     totalIngreso: String(resumen.totalIngreso),
+    fuenteIngreso: resumen.fuenteIngreso,
+    ingresoDetectado: String(resumen.ingresoDetectado),
     sinIngreso: resumen.sinIngreso,
     buckets: resumen.buckets.map((slice) => ({
       bucket: slice.bucket,

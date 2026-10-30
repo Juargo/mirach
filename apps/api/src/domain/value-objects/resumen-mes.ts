@@ -11,6 +11,7 @@ import {
   calcularEstadoMes,
 } from './estado-bloque';
 import { METAS_POR_DEFECTO, MetasPresupuesto } from './perfil-presupuesto';
+import { FuenteIngreso, elegirBaseIngreso } from './base-ingreso';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-01: ResumenMes VO + porcentajeBasisPoints helper + TARGETS_503020
@@ -81,6 +82,7 @@ export interface BucketSlice {
 
 /** Input shape for ResumenMes.crear(). */
 export interface ResumenMesInput {
+  /** Detected income: sum of the period's Ingreso-bucket credits. */
   readonly totalIngreso: bigint;
   readonly necesidades: bigint;
   readonly deseos: bigint;
@@ -92,7 +94,10 @@ export interface ResumenMesInput {
  *
  * Immutable; construction via static `crear()` which never fails (base=0n is
  * a valid sinIngreso state, not an error). Holds:
- *   - totalIngreso: sum of Ingreso-bucket abono for the month.
+ *   - totalIngreso: the percentage base (rule 1, #111): the declared monthly
+ *     income, or the sum of Ingreso-bucket abono for the month without one.
+ *   - fuenteIngreso / ingresoDetectado: which base was used and the detected
+ *     sum, so the response can say it (VIS-10).
  *   - sinIngreso: true when totalIngreso === 0n.
  *   - buckets: exactly 3 spend slices (Necesidades, Deseos, Ahorro).
  *     Ingreso is the denominator; it is NOT a slice.
@@ -102,6 +107,10 @@ export interface ResumenMesInput {
  */
 export class ResumenMes {
   readonly totalIngreso: bigint;
+  /** Source of `totalIngreso` (VIS-10): declared in the profile or detected. */
+  readonly fuenteIngreso: FuenteIngreso;
+  /** Sum of the month's income credits, whatever the source of the base. */
+  readonly ingresoDetectado: bigint;
   readonly sinIngreso: boolean;
   readonly buckets: ReadonlyArray<BucketSlice>;
   /** Worst traffic-light estado across Necesidades/Deseos/Ahorro (US-016). null when sinIngreso. */
@@ -115,11 +124,15 @@ export class ResumenMes {
 
   private constructor(
     totalIngreso: bigint,
+    fuenteIngreso: FuenteIngreso,
+    ingresoDetectado: bigint,
     buckets: ReadonlyArray<BucketSlice>,
     estadoGlobal: EstadoSemaforo | null,
     metas: MetasPresupuesto,
   ) {
     this.totalIngreso = totalIngreso;
+    this.fuenteIngreso = fuenteIngreso;
+    this.ingresoDetectado = ingresoDetectado;
     this.metas = metas;
     this.sinIngreso = totalIngreso === 0n;
     this.buckets = buckets;
@@ -131,14 +144,19 @@ export class ResumenMes {
 
   /**
    * Factory method — always returns a ResumenMes (construction cannot fail).
-   * When totalIngreso === 0n, all porcentajeBp will be null.
+   * When the base is 0n, all porcentajeBp will be null.
    * `metas` are the user's budget profile goals (#110); every month uses the
    * current profile (PER-06). Without them the goals are 50/30/20.
+   * `ingresoDeclarado` is the profile's declared monthly income (#111); when
+   * present it is the base for every month (rule 1), otherwise the detected
+   * `input.totalIngreso` is.
    */
   static crear(
     input: ResumenMesInput,
     metas: MetasPresupuesto = METAS_POR_DEFECTO,
+    ingresoDeclarado: bigint | null = null,
   ): ResumenMes {
+    const base = elegirBaseIngreso(ingresoDeclarado, input.totalIngreso);
     const totals: Record<(typeof SPEND_BUCKETS)[number], bigint> = {
       [Bucket.Necesidades]: input.necesidades,
       [Bucket.Deseos]: input.deseos,
@@ -151,7 +169,7 @@ export class ResumenMes {
 
     const buckets: BucketSlice[] = SPEND_BUCKETS.map((bucket, indice) => {
       const total = totals[bucket];
-      const porcentajeBp = porcentajeBasisPoints(total, input.totalIngreso);
+      const porcentajeBp = porcentajeBasisPoints(total, base.monto);
       const metaBp = metas[bucket];
       return {
         bucket,
@@ -168,6 +186,13 @@ export class ResumenMes {
       buckets.map((b) => b.estadoSemaforo),
     );
 
-    return new ResumenMes(input.totalIngreso, buckets, estadoGlobal, metas);
+    return new ResumenMes(
+      base.monto,
+      base.fuente,
+      base.detectado,
+      buckets,
+      estadoGlobal,
+      metas,
+    );
   }
 }

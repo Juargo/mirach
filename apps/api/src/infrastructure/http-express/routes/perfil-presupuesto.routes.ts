@@ -8,6 +8,8 @@ import { Bucket } from '../../../domain/value-objects/bucket';
 import { PerfilPresupuesto } from '../../../domain/value-objects/perfil-presupuesto';
 import { PerfilNoSuma100Error } from '../../../domain/errors/perfil-no-suma-100.error';
 import { MetaPresupuestoInvalidaError } from '../../../domain/errors/meta-presupuesto-invalida.error';
+import { DiaCorteInvalidoError } from '../../../domain/errors/dia-corte-invalido.error';
+import { IngresoDeclaradoInvalidoError } from '../../../domain/errors/ingreso-declarado-invalido.error';
 import { perfilPresupuestoUpdateRequestSchema } from '../schemas/perfil-presupuesto.schema';
 import { responderErrorTraducido } from './responder-error-traducido';
 
@@ -32,6 +34,16 @@ export function aPerfilPresupuestoHttpError(
   if (error instanceof MetaPresupuestoInvalidaError) {
     return { status: 400, code: 'META_INVALIDA', message: error.message };
   }
+  if (error instanceof DiaCorteInvalidoError) {
+    return { status: 400, code: 'DIA_CORTE_INVALIDO', message: error.message };
+  }
+  if (error instanceof IngresoDeclaradoInvalidoError) {
+    return {
+      status: 400,
+      code: 'INGRESO_DECLARADO_INVALIDO',
+      message: error.message,
+    };
+  }
   const _exhaustive: never = error;
   return _exhaustive;
 }
@@ -44,12 +56,17 @@ function aDto(perfil: PerfilPresupuesto) {
       Deseos: Number(perfil.metas[Bucket.Deseos]),
       Ahorro: Number(perfil.metas[Bucket.Ahorro]),
     },
+    diaCorte: perfil.mesFinanciero.diaCorte.valor,
+    ingresoDeclarado:
+      perfil.mesFinanciero.ingresoDeclarado === null
+        ? null
+        : String(perfil.mesFinanciero.ingresoDeclarado),
   };
 }
 
 /**
  * registrarPerfilPresupuesto — `GET/PUT /api/perfil/presupuesto` (#110,
- * ADR-005 §7). `req.userId!` always comes from the session, never from the
+ * #111, ADR-005 §7). `req.userId!` always comes from the session, never from the
  * body (the schema is `.strict()`). A failed parse never echoes the body.
  */
 export function registrarPerfilPresupuesto(
@@ -74,6 +91,13 @@ export function registrarPerfilPresupuesto(
       }
 
       const body = parsed.data;
+      const mesFinanciero = {
+        diaCorte: body.diaCorte,
+        ingresoDeclarado:
+          body.ingresoDeclarado === undefined || body.ingresoDeclarado === null
+            ? body.ingresoDeclarado
+            : BigInt(body.ingresoDeclarado),
+      };
       const result = await graph.actualizar.execute(
         body.perfil === 'personalizado'
           ? {
@@ -84,8 +108,9 @@ export function registrarPerfilPresupuesto(
                 [Bucket.Deseos]: BigInt(body.metas.Deseos),
                 [Bucket.Ahorro]: BigInt(body.metas.Ahorro),
               },
+              ...mesFinanciero,
             }
-          : { userId: req.userId!, perfil: body.perfil },
+          : { userId: req.userId!, perfil: body.perfil, ...mesFinanciero },
       );
 
       if (result.isFail()) {

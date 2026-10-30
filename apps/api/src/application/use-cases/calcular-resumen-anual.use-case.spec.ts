@@ -5,6 +5,8 @@ import {
 } from '../ports/resumen-anual.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { AnioInvalidoError } from '../../domain/errors/anio-invalido.error';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
+import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
@@ -297,11 +299,13 @@ describe('CalcularResumenAnualUseCase', () => {
         1,
         'user-a',
         expect.objectContaining({ anio: 2026 }),
+        DiaCorte.CALENDARIO,
       );
       expect(reader.sumarPorBucketAnual).toHaveBeenNthCalledWith(
         2,
         'user-b',
         expect.objectContaining({ anio: 2026 }),
+        DiaCorte.CALENDARIO,
       );
     });
   });
@@ -356,5 +360,67 @@ describe('CalcularResumenAnualUseCase — budget profile goals (#110, PER-06)', 
     for (const mes of meses) {
       expect(mes.buckets.map((b) => b.metaBp)).toEqual([8000n, 1000n, 1000n]);
     }
+  });
+});
+
+describe('CalcularResumenAnualUseCase — mes financiero (#111)', () => {
+  it('el día de corte del perfil llega al reader y define los 12 meses', async () => {
+    const reader = makeMockReader([]);
+    const uc = new CalcularResumenAnualUseCase(
+      reader,
+      new NoOpLogger(),
+      perfilReaderConCorte(25),
+    );
+
+    const result = await uc.execute({ userId: 'user-a', anio: '2026' });
+
+    const diaCorte = vi.mocked(reader.sumarPorBucketAnual).mock.calls[0][2];
+    expect(diaCorte.valor).toBe(25);
+    const { periodos } = result.getValue();
+    expect(periodos).toHaveLength(12);
+    expect(periodos[0].fechaInicio).toBe('2026-01-25');
+    expect(periodos[11].fechaFin).toBe('2027-01-24');
+  });
+});
+
+describe('CalcularResumenAnualUseCase — declared income (#111, rule 1, PER-06)', () => {
+  it('a month with movements uses the declared income; an empty month stays without income', async () => {
+    const uc = new CalcularResumenAnualUseCase(
+      makeMockReader(rowsFor('2026-03')),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, 2_000_000n),
+    );
+
+    const meses = (
+      await uc.execute({ userId: 'user-a', anio: '2026' })
+    ).getValue().resumenAnual.meses;
+
+    expect(meses[2].totalIngreso).toBe(2_000_000n);
+    expect(meses[2].fuenteIngreso).toBe('declarado');
+    expect(meses[2].sinIngreso).toBe(false);
+    expect(meses[2].ingresoDetectado).toBe(1_000_000n);
+    expect(meses[2].buckets[0].porcentajeBp).toBe(2500n);
+    for (const mes of meses.filter((_, i) => i !== 2)) {
+      expect(mes.sinIngreso).toBe(true);
+      expect(mes.fuenteIngreso).toBe('detectado');
+      expect(mes.totalIngreso).toBe(0n);
+    }
+  });
+
+  it('without a declared income each month uses its detected sum (previous behavior)', async () => {
+    const uc = new CalcularResumenAnualUseCase(
+      makeMockReader(rowsFor('2026-03')),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, null),
+    );
+
+    const meses = (
+      await uc.execute({ userId: 'user-a', anio: '2026' })
+    ).getValue().resumenAnual.meses;
+
+    expect(meses[2].totalIngreso).toBe(1_000_000n);
+    expect(meses[2].fuenteIngreso).toBe('detectado');
+    expect(meses[2].buckets[0].porcentajeBp).toBe(5000n);
+    expect(meses[0].sinIngreso).toBe(true);
   });
 });
