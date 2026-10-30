@@ -2,6 +2,7 @@ import { Bucket } from './bucket';
 import { Result } from '../../shared/result';
 import { PerfilNoSuma100Error } from '../errors/perfil-no-suma-100.error';
 import { MetaPresupuestoInvalidaError } from '../errors/meta-presupuesto-invalida.error';
+import { MesFinanciero } from './mes-financiero';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Issue #110: PerfilPresupuesto — the user's budget profile (PER-03..PER-06,
@@ -63,7 +64,14 @@ export class PerfilPresupuesto {
   private constructor(
     readonly perfil: PerfilPresupuestoId,
     readonly metas: MetasPresupuesto,
+    /** Cut-off day and declared income (#111); calendar month by default. */
+    readonly mesFinanciero: MesFinanciero = MesFinanciero.porDefecto(),
   ) {}
+
+  /** Same goals with another financial month (#111, same resource). */
+  conMesFinanciero(mesFinanciero: MesFinanciero): PerfilPresupuesto {
+    return new PerfilPresupuesto(this.perfil, this.metas, mesFinanciero);
+  }
 
   static predefinido(id: PerfilPredefinidoId): PerfilPresupuesto {
     return new PerfilPresupuesto(id, PERFILES_PREDEFINIDOS[id]);
