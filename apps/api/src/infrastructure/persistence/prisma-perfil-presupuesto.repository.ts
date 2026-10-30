@@ -36,11 +36,11 @@ export class PrismaPerfilPresupuestoRepository implements IPerfilPresupuestoRepo
       [Bucket.Deseos]: BigInt(fila.metaDeseosBp),
       [Bucket.Ahorro]: BigInt(fila.metaAhorroBp),
     });
-    if (perfil.isFail()) return PerfilPresupuesto.porDefecto();
+    const base = perfil.isOk()
+      ? perfil.getValue()
+      : PerfilPresupuesto.porDefecto();
     const mes = MesFinanciero.crear(fila.diaCorte, fila.ingresoDeclarado);
-    return mes.isOk()
-      ? perfil.getValue().conMesFinanciero(mes.getValue())
-      : perfil.getValue();
+    return mes.isOk() ? base.conMesFinanciero(mes.getValue()) : base;
   }
 
   async guardar(userId: string, perfil: PerfilPresupuesto): Promise<void> {
