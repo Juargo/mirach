@@ -65,7 +65,11 @@ export class ObtenerSemaforoDetalleUseCase {
       rows: rows.length,
     });
 
-    const resumen = construirResumenMesDesdeFilas(rows, perfil.metas);
+    const resumen = construirResumenMesDesdeFilas(
+      rows,
+      perfil.metas,
+      perfil.mesFinanciero.ingresoDeclarado,
+    );
     const detalle = construirSemaforoDetalle(resumen);
     this.logger.debug('obtener-semaforo-detalle: computed', {
       periodo: periodoVO.valor,

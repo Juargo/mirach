@@ -7,6 +7,8 @@
  *   - changing the cut-off day from 1 to 25 shows every period from the 25th
  *     to the 24th.
  * Plus isolation (ADR-010 §7): another user keeps calendar months.
+ * Rule 1 (VIS-10): percentages use the declared income when there is one,
+ * and the responses say which income was used.
  */
 import request from 'supertest';
 import type { Express } from 'express';
@@ -24,6 +26,7 @@ import { resumenAnualResponseSchema } from '../src/infrastructure/http-express/s
 import { periodosResponseSchema } from '../src/infrastructure/http-express/schemas/periodos.schema';
 import { ingresosMesResponseSchema } from '../src/infrastructure/http-express/schemas/ingresos-mes.schema';
 import { bucketDetalleMesResponseSchema } from '../src/infrastructure/http-express/schemas/bucket-detalle-mes.schema';
+import { semaforoDetalleResponseSchema } from '../src/infrastructure/http-express/schemas/semaforo-detalle.schema';
 
 const API_KEY = process.env.API_KEY ?? '';
 const RUN_ID = `mes-financiero-e2e-${Date.now()}`;
@@ -42,7 +45,8 @@ describe('Mes financiero (e2e, #111)', () => {
   const sueldo = `${RUN_ID}-sueldo`; // scenario 1
   const corte = `${RUN_ID}-corte`; // scenario 2
   const otro = `${RUN_ID}-otro`; // isolation
-  const usuarios = [sueldo, corte, otro];
+  const declarado = `${RUN_ID}-declarado`; // rule 1 (VIS-10)
+  const usuarios = [sueldo, corte, otro, declarado];
   const auth: Record<string, string> = {};
   let sueldoId: string;
 
@@ -103,6 +107,12 @@ describe('Mes financiero (e2e, #111)', () => {
       .set('x-api-key', API_KEY)
       .set('Authorization', auth[userId])
       .send({ perfil: '50_30_20', diaCorte });
+  const putIngreso = (ingresoDeclarado: string | null, userId: string) =>
+    request(app)
+      .put('/api/perfil/presupuesto')
+      .set('x-api-key', API_KEY)
+      .set('Authorization', auth[userId])
+      .send({ perfil: '50_30_20', ingresoDeclarado });
 
   const rangos = async (userId: string): Promise<Rango[]> => {
     const res = await get('/api/periodos', userId).expect(200);
@@ -152,6 +162,20 @@ describe('Mes financiero (e2e, #111)', () => {
       Bucket.Necesidades,
       500_000n,
       new Date(Date.UTC(2026, 10, 10, 12)), // period 2026-10
+    );
+
+    // Rule 1: May has 1 000 000 of detected income and 500 000 of needs.
+    await seedTx(
+      declarado,
+      Bucket.Ingreso,
+      1_000_000n,
+      new Date(Date.UTC(2026, 4, 5, 12)),
+    );
+    await seedTx(
+      declarado,
+      Bucket.Necesidades,
+      500_000n,
+      new Date(Date.UTC(2026, 4, 10, 12)),
     );
 
     // Scenario 2 and isolation: the same March movements for both users.
@@ -329,5 +353,122 @@ describe('Mes financiero (e2e, #111)', () => {
     expect(
       resumen.buckets.find((b) => b.bucket === Bucket.Necesidades)?.total,
     ).toBe('100000');
+  });
+
+  describe('Regla 1: base de los porcentajes (VIS-10)', () => {
+    const necesidades = <T extends { bucket: string }>(buckets: T[]) =>
+      buckets.find((b) => b.bucket === Bucket.Necesidades);
+
+    async function leerMayo(userId: string) {
+      const resumen = resumenResponseSchema.parse(
+        (await get('/api/resumen?periodo=2026-05', userId).expect(200)).body,
+      );
+      const anual = resumenAnualResponseSchema.parse(
+        (await get('/api/resumen/anual?anio=2026', userId).expect(200)).body,
+      );
+      const semaforo = semaforoDetalleResponseSchema.parse(
+        (await get('/api/resumen/semaforo?periodo=2026-05', userId).expect(200))
+          .body,
+      );
+      const detalle = bucketDetalleMesResponseSchema.parse(
+        (
+          await get(
+            '/api/buckets/Necesidades/detalle?periodo=2026-05',
+            userId,
+          ).expect(200)
+        ).body,
+      );
+      const ingresos = ingresosMesResponseSchema.parse(
+        (await get('/api/ingresos/mes?periodo=2026-05', userId).expect(200))
+          .body,
+      );
+      return { resumen, mayo: anual.meses[4], semaforo, detalle, ingresos };
+    }
+
+    it('with a declared income the percentages use it and the responses say "declarado"', async () => {
+      await putIngreso('2000000', declarado).expect(200);
+
+      const { resumen, mayo, semaforo, detalle, ingresos } =
+        await leerMayo(declarado);
+
+      const base = {
+        totalIngreso: '2000000',
+        fuenteIngreso: 'declarado',
+        ingresoDetectado: '1000000',
+        sinIngreso: false,
+      };
+      expect(resumen).toMatchObject(base);
+      expect(necesidades(resumen.buckets)?.porcentajeBp).toBe(2500);
+      expect(mayo).toMatchObject({ periodo: '2026-05', ...base });
+      expect(necesidades(mayo.buckets)?.porcentajeBp).toBe(2500);
+      expect(semaforo).toMatchObject(base);
+      expect(necesidades(semaforo.buckets)?.porcentajeBp).toBe(2500);
+      expect(detalle).toMatchObject({
+        fuenteIngreso: 'declarado',
+        porcentajeBp: 2500,
+        total: '500000',
+      });
+      // /ingresos/mes lists the income movements: its total stays detected.
+      expect(ingresos.total).toBe('1000000');
+
+      // A month without income credits still has the declared base (PER-06).
+      const anual = resumenAnualResponseSchema.parse(
+        (await get('/api/resumen/anual?anio=2026', declarado).expect(200)).body,
+      );
+      expect(anual.meses[0]).toMatchObject({
+        totalIngreso: '2000000',
+        fuenteIngreso: 'declarado',
+        ingresoDetectado: '0',
+        sinIngreso: false,
+      });
+    });
+
+    it('clearing the declared income with null returns to "detectado"', async () => {
+      await putIngreso('2000000', declarado).expect(200);
+      await putIngreso(null, declarado).expect(200);
+
+      const { resumen, mayo, semaforo, detalle } = await leerMayo(declarado);
+
+      const base = {
+        totalIngreso: '1000000',
+        fuenteIngreso: 'detectado',
+        ingresoDetectado: '1000000',
+        sinIngreso: false,
+      };
+      expect(resumen).toMatchObject(base);
+      expect(necesidades(resumen.buckets)?.porcentajeBp).toBe(5000);
+      expect(mayo).toMatchObject(base);
+      expect(semaforo).toMatchObject(base);
+      expect(detalle).toMatchObject({
+        fuenteIngreso: 'detectado',
+        porcentajeBp: 5000,
+      });
+    });
+
+    it('isolation: another user keeps "detectado" while Marcela declares her income', async () => {
+      await putIngreso('2000000', declarado).expect(200);
+
+      const resumen = resumenResponseSchema.parse(
+        (await get('/api/resumen?periodo=2026-03', otro).expect(200)).body,
+      );
+      expect(resumen).toMatchObject({
+        totalIngreso: '0',
+        fuenteIngreso: 'detectado',
+        ingresoDetectado: '0',
+        sinIngreso: true,
+      });
+      const detalle = bucketDetalleMesResponseSchema.parse(
+        (
+          await get(
+            '/api/buckets/Necesidades/detalle?periodo=2026-03',
+            otro,
+          ).expect(200)
+        ).body,
+      );
+      expect(detalle).toMatchObject({
+        fuenteIngreso: 'detectado',
+        porcentajeBp: null,
+      });
+    });
   });
 });

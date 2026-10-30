@@ -424,3 +424,46 @@ describe('CalcularResumenMesUseCase — mes financiero (#111)', () => {
     expect(result.getValue().periodoMes.fechaFin).toBe('2026-11-24');
   });
 });
+
+describe('CalcularResumenMesUseCase — declared income (#111, rule 1, VIS-10)', () => {
+  const rows = allBucketRows({
+    [Bucket.Ingreso]: { abono: 1_000_000n },
+    [Bucket.Necesidades]: { cargo: 500_000n },
+  });
+
+  it('percentages use the declared income and the result says so', async () => {
+    const uc = new CalcularResumenMesUseCase(
+      makeMockReader(rows),
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, 2_000_000n),
+    );
+
+    const { resumen } = (
+      await uc.execute({ userId: 'user-a', periodo: '2026-07' })
+    ).getValue();
+
+    expect(resumen.totalIngreso).toBe(2_000_000n);
+    expect(resumen.ingresoDetectado).toBe(1_000_000n);
+    expect(resumen.fuenteIngreso).toBe('declarado');
+    expect(resumen.buckets[0].porcentajeBp).toBe(2500n);
+  });
+
+  it('without a declared income it uses the detected sum (previous behavior)', async () => {
+    const uc = new CalcularResumenMesUseCase(
+      makeMockReader(rows),
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, null),
+    );
+
+    const { resumen } = (
+      await uc.execute({ userId: 'user-a', periodo: '2026-07' })
+    ).getValue();
+
+    expect(resumen.totalIngreso).toBe(1_000_000n);
+    expect(resumen.ingresoDetectado).toBe(1_000_000n);
+    expect(resumen.fuenteIngreso).toBe('detectado');
+    expect(resumen.buckets[0].porcentajeBp).toBe(5000n);
+  });
+});

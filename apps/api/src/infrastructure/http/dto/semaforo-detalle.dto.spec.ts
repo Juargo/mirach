@@ -14,6 +14,8 @@ function makeDetalle(
 ): SemaforoDetalle {
   return {
     totalIngreso: 1_500_000n,
+    fuenteIngreso: 'detectado',
+    ingresoDetectado: 1_500_000n,
     sinIngreso: false,
     estadoGlobal: EstadoSemaforo.Amarillo,
     diagnostico: 'Tu veredicto del mes es Saludable por Necesidades.',
@@ -153,5 +155,21 @@ describe('aSemaforoDetalleDto', () => {
     expect(dto.buckets[0]?.consejo?.mensaje).toBe(
       'Para volver a Muy Saludable, reduce {monto} en Necesidades este mes.',
     );
+  });
+});
+
+describe('aSemaforoDetalleDto — income base (#111, rule 1, VIS-10)', () => {
+  it('carries fuenteIngreso and ingresoDetectado as a decimal string', () => {
+    const dto = aSemaforoDetalleDto(
+      '2026-07',
+      makeDetalle({
+        totalIngreso: 2_000_000n,
+        fuenteIngreso: 'declarado',
+        ingresoDetectado: 9_007_199_254_740_993n,
+      }),
+    );
+    expect(dto.totalIngreso).toBe('2000000');
+    expect(dto.fuenteIngreso).toBe('declarado');
+    expect(dto.ingresoDetectado).toBe('9007199254740993');
   });
 });

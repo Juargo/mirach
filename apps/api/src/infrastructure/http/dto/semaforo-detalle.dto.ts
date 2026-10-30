@@ -1,3 +1,4 @@
+import { FuenteIngreso } from '../../../domain/value-objects/base-ingreso';
 import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import type { SemaforoDetalle } from '../../../domain/value-objects/semaforo-detalle';
 
@@ -20,7 +21,10 @@ import type { SemaforoDetalle } from '../../../domain/value-objects/semaforo-det
  */
 export interface SemaforoDetalleDto {
   readonly periodo: string;
+  /** Percentage base (#111, rule 1): declared income or the detected sum. */
   readonly totalIngreso: string;
+  readonly fuenteIngreso: FuenteIngreso;
+  readonly ingresoDetectado: string;
   readonly sinIngreso: boolean;
   readonly estadoGlobal: string | null;
   readonly diagnostico: string;
@@ -73,6 +77,8 @@ export function aSemaforoDetalleDto(
   return {
     periodo,
     totalIngreso: String(detalle.totalIngreso),
+    fuenteIngreso: detalle.fuenteIngreso,
+    ingresoDetectado: String(detalle.ingresoDetectado),
     sinIngreso: detalle.sinIngreso,
     estadoGlobal: aWire(detalle.estadoGlobal),
     diagnostico: detalle.diagnostico,

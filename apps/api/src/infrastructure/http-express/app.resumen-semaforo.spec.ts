@@ -18,6 +18,8 @@ import { semaforoDetalleResponseSchema } from './schemas/semaforo-detalle.schema
  */
 const SEMAFORO_DETALLE_OK: SemaforoDetalle = {
   totalIngreso: 1_500_000n,
+  fuenteIngreso: 'detectado',
+  ingresoDetectado: 1_500_000n,
   sinIngreso: false,
   estadoGlobal: EstadoSemaforo.Verde,
   diagnostico:

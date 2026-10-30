@@ -266,3 +266,45 @@ describe('ObtenerSemaforoDetalleUseCase — mes financiero (#111)', () => {
     expect(periodo.fechaInicio).toBe('2026-10-25');
   });
 });
+
+describe('ObtenerSemaforoDetalleUseCase — declared income (#111, rule 1, VIS-10)', () => {
+  const rows = allBucketRows({
+    [Bucket.Ingreso]: { abono: 1_000_000n },
+    [Bucket.Necesidades]: { cargo: 500_000n },
+  });
+
+  it('measures against the declared income and says so', async () => {
+    const uc = new ObtenerSemaforoDetalleUseCase(
+      makeMockReader(rows),
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, 2_000_000n),
+    );
+
+    const { detalle } = (
+      await uc.execute({ userId: 'user-a', periodo: '2026-07' })
+    ).getValue();
+
+    expect(detalle.totalIngreso).toBe(2_000_000n);
+    expect(detalle.ingresoDetectado).toBe(1_000_000n);
+    expect(detalle.fuenteIngreso).toBe('declarado');
+    expect(detalle.buckets[0].porcentajeBp).toBe(2500n);
+  });
+
+  it('without a declared income it uses the detected sum (previous behavior)', async () => {
+    const uc = new ObtenerSemaforoDetalleUseCase(
+      makeMockReader(rows),
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, null),
+    );
+
+    const { detalle } = (
+      await uc.execute({ userId: 'user-a', periodo: '2026-07' })
+    ).getValue();
+
+    expect(detalle.totalIngreso).toBe(1_000_000n);
+    expect(detalle.fuenteIngreso).toBe('detectado');
+    expect(detalle.buckets[0].porcentajeBp).toBe(5000n);
+  });
+});

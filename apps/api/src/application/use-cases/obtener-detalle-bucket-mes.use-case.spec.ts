@@ -525,3 +525,44 @@ describe('ObtenerDetalleBucketMesUseCase — mes financiero (#111)', () => {
     expect(result.getValue().fechaFin).toBe('2026-11-24');
   });
 });
+
+describe('ObtenerDetalleBucketMesUseCase — declared income (#111, rule 1, VIS-10)', () => {
+  const necesidad = makeRow({ cargo: 500_000n });
+
+  function useCaseConIngreso(ingresoDeclarado: bigint | null) {
+    const readers = makeReaders([necesidad], [incomeRow(1_000_000n)]);
+    return new ObtenerDetalleBucketMesUseCase(
+      readers.reader,
+      readers.resumenReader,
+      readers.ultimoPeriodoReader,
+      new NoOpLogger(),
+      perfilReaderConCorte(1, ingresoDeclarado),
+    );
+  }
+
+  it('the header percentage uses the declared income and says so', async () => {
+    const header = (
+      await useCaseConIngreso(2_000_000n).execute({
+        userId: 'user-a',
+        bucket: Bucket.Necesidades,
+        periodo: '2026-07',
+      })
+    ).getValue();
+
+    expect(header.porcentajeBp).toBe(2500n);
+    expect(header.fuenteIngreso).toBe('declarado');
+  });
+
+  it('without a declared income it uses the detected sum (previous behavior)', async () => {
+    const header = (
+      await useCaseConIngreso(null).execute({
+        userId: 'user-a',
+        bucket: Bucket.Necesidades,
+        periodo: '2026-07',
+      })
+    ).getValue();
+
+    expect(header.porcentajeBp).toBe(5000n);
+    expect(header.fuenteIngreso).toBe('detectado');
+  });
+});

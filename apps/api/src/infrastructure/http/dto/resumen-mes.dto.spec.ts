@@ -441,3 +441,33 @@ describe('aResumenMesDto — financial month dates (#111)', () => {
     expect(dto.fechaFin).toBe('2026-02-28');
   });
 });
+
+describe('aResumenMesDto — income base (#111, rule 1, VIS-10)', () => {
+  it('a declared income: totalIngreso is the base, ingresoDetectado the detected sum', () => {
+    const resumen = ResumenMes.crear(
+      {
+        totalIngreso: 9_007_199_254_740_993n,
+        necesidades: 0n,
+        deseos: 0n,
+        ahorro: 0n,
+      },
+      undefined,
+      2_000_000n,
+    );
+    const dto = aResumenMesDto(periodo('2026-07'), resumen);
+    expect(dto.totalIngreso).toBe('2000000');
+    expect(dto.fuenteIngreso).toBe('declarado');
+    expect(dto.ingresoDetectado).toBe('9007199254740993');
+    expect(dto.sinIngreso).toBe(false);
+  });
+
+  it('without a declared income both amounts are the detected sum', () => {
+    const dto = aResumenMesDto(
+      periodo('2026-07'),
+      makeResumen({ totalIngreso: 1_500_000n }),
+    );
+    expect(dto.totalIngreso).toBe('1500000');
+    expect(dto.fuenteIngreso).toBe('detectado');
+    expect(dto.ingresoDetectado).toBe('1500000');
+  });
+});

@@ -108,6 +108,7 @@ export class CalcularResumenAnualUseCase {
       construirResumenMesDesdeFilas(
         rowsPorMes.get(periodoMes.valor) ?? [],
         perfil.metas,
+        perfil.mesFinanciero.ingresoDeclarado,
       ),
     );
 

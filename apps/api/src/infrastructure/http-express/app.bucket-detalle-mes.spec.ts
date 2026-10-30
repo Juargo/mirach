@@ -30,6 +30,7 @@ const DETALLE_MES_OK: ObtenerDetalleBucketMesResult = {
   totalCategorias: 2,
   porcentajeBp: 1667n,
   metaBp: 5000n,
+  fuenteIngreso: 'detectado',
   grupos: [
     {
       categoriaId: 'cat-comida',

@@ -382,3 +382,43 @@ describe('CalcularResumenAnualUseCase — mes financiero (#111)', () => {
     expect(periodos[11].fechaFin).toBe('2027-01-24');
   });
 });
+
+describe('CalcularResumenAnualUseCase — declared income (#111, rule 1, PER-06)', () => {
+  it('every month uses the declared income as its base', async () => {
+    const uc = new CalcularResumenAnualUseCase(
+      makeMockReader(rowsFor('2026-03')),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, 2_000_000n),
+    );
+
+    const meses = (
+      await uc.execute({ userId: 'user-a', anio: '2026' })
+    ).getValue().resumenAnual.meses;
+
+    for (const mes of meses) {
+      expect(mes.totalIngreso).toBe(2_000_000n);
+      expect(mes.fuenteIngreso).toBe('declarado');
+      expect(mes.sinIngreso).toBe(false);
+    }
+    expect(meses[2].ingresoDetectado).toBe(1_000_000n);
+    expect(meses[2].buckets[0].porcentajeBp).toBe(2500n);
+    expect(meses[0].ingresoDetectado).toBe(0n);
+  });
+
+  it('without a declared income each month uses its detected sum (previous behavior)', async () => {
+    const uc = new CalcularResumenAnualUseCase(
+      makeMockReader(rowsFor('2026-03')),
+      new NoOpLogger(),
+      perfilReaderConCorte(1, null),
+    );
+
+    const meses = (
+      await uc.execute({ userId: 'user-a', anio: '2026' })
+    ).getValue().resumenAnual.meses;
+
+    expect(meses[2].totalIngreso).toBe(1_000_000n);
+    expect(meses[2].fuenteIngreso).toBe('detectado');
+    expect(meses[2].buckets[0].porcentajeBp).toBe(5000n);
+    expect(meses[0].sinIngreso).toBe(true);
+  });
+});

@@ -3,6 +3,10 @@ import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error
 import { Bucket } from '../../domain/value-objects/bucket';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
 import { porcentajeBasisPoints } from '../../domain/value-objects/resumen-mes';
+import {
+  elegirBaseIngreso,
+  FuenteIngreso,
+} from '../../domain/value-objects/base-ingreso';
 import { IDetalleBucketReader } from '../ports/detalle-bucket.port';
 import { IResumenMesReader } from '../ports/resumen-mes.port';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
@@ -13,6 +17,7 @@ import {
   GrupoDetalleCategoria,
 } from '../services/agrupar-detalle-por-categoria';
 import { resolverPeriodo } from './resolver-periodo';
+import { ingresoDetectadoDesdeFilas } from './resumen-mes-assembly';
 
 /** Tipo de retorno del use case en caso de éxito — header + grupos (MBD-01/02). */
 export interface ObtenerDetalleBucketMesResult {
@@ -30,6 +35,8 @@ export interface ObtenerDetalleBucketMesResult {
   readonly porcentajeBp: bigint | null;
   /** Objetivo 50/30/20 desde BANDAS_SEMAFORO; null cuando el bucket no tiene regla (D-05). */
   readonly metaBp: bigint | null;
+  /** Base of `porcentajeBp` (rule 1, #111, VIS-10): declared or detected. */
+  readonly fuenteIngreso: FuenteIngreso;
   /** Grupos por categoría — transacciones ALREADY recortadas sin PII de
    *  cuenta en el borde de aplicación (MBD-08, gate PR1): tipoCuenta/
    *  numeroCuenta no existen en este tipo. `banco` SÍ sobrevive como
@@ -55,7 +62,8 @@ const BUCKETS_DETALLE_MES: ReadonlySet<string> = new Set([
  * Orquesta los DOS readers existentes (D-02 — cero SQL/ports nuevos):
  * `IDetalleBucketReader.findByPeriodoYBucket` (filas del bucket, ya
  * categoria-folded y descifradas) + `IResumenMesReader.sumarPorBucket`
- * (base de ingresos del mes = `Ingreso.totalAbono`), y ensambla el header
+ * (ingreso detectado del mes = `Ingreso.totalAbono`; la base del % es el
+ * ingreso declarado cuando existe, regla 1 de #111), y ensambla el header
  * (MBD-01) + los grupos por categoría (MBD-02) vía el servicio puro
  * `agruparDetallePorCategoria`.
  *
@@ -121,12 +129,12 @@ export class ObtenerDetalleBucketMesUseCase {
       resumenRows: resumenRows.length,
     });
 
-    // 4. Base de ingresos = totalAbono del bucket Ingreso (0n sin ingresos).
-    //    Misma regla que lee construirResumenMesDesdeFilas (D-02 — 2ª
-    //    ocurrencia; extraer en la 3ª).
-    const ingreso =
-      resumenRows.find((row) => row.bucket === Bucket.Ingreso)?.totalAbono ??
-      0n;
+    // 4. Base of the percentage (rule 1, #111): the declared income, or the
+    //    detected one (Ingreso totalAbono, same reader as /resumen).
+    const base = elegirBaseIngreso(
+      perfil.mesFinanciero.ingresoDeclarado,
+      ingresoDetectadoDesdeFilas(resumenRows),
+    );
 
     const grupos = agruparDetallePorCategoria(rows);
     const total = rows.reduce((acumulado, fila) => acumulado + fila.cargo, 0n);
@@ -137,7 +145,7 @@ export class ObtenerDetalleBucketMesUseCase {
     //    The goal comes from the user's budget profile (#110, PER-06).
     const metaBp = perfil.metas[bucket as keyof typeof perfil.metas] ?? null;
     const porcentajeBp =
-      metaBp === null ? null : porcentajeBasisPoints(total, ingreso);
+      metaBp === null ? null : porcentajeBasisPoints(total, base.monto);
 
     this.logger.debug('obtener-detalle-bucket-mes: computed', {
       periodo: periodoVO.valor,
@@ -156,6 +164,7 @@ export class ObtenerDetalleBucketMesUseCase {
       totalCategorias: grupos.length,
       porcentajeBp,
       metaBp,
+      fuenteIngreso: base.fuente,
       grupos,
     });
   }

@@ -79,6 +79,7 @@ function makeResult(
     totalCategorias: 1,
     porcentajeBp: 1667n,
     metaBp: 5000n,
+    fuenteIngreso: 'detectado',
     grupos: [
       {
         categoriaId: 'cat-comida',
@@ -183,4 +184,15 @@ describe('aDetalleBucketMesDto', () => {
 
     expect(dto.grupos[1].icono).toBeNull();
   });
+});
+
+describe('aDetalleBucketMesDto — income base (#111, rule 1, VIS-10)', () => {
+  it.each(['declarado', 'detectado'] as const)(
+    'carries fuenteIngreso %s verbatim',
+    (fuenteIngreso) => {
+      expect(
+        aDetalleBucketMesDto(makeResult({ fuenteIngreso })).fuenteIngreso,
+      ).toBe(fuenteIngreso);
+    },
+  );
 });

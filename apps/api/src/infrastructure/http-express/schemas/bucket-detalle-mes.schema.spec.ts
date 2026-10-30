@@ -68,6 +68,7 @@ function makeResult(
     totalCategorias: 1,
     porcentajeBp: 1667n,
     metaBp: 5000n,
+    fuenteIngreso: 'detectado',
     grupos: [
       {
         categoriaId: 'cat-comida',

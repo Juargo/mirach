@@ -141,6 +141,8 @@ describe('resumenResponseSchema (sync guarantee)', () => {
       fechaInicio: '2026-07-01',
       fechaFin: '2026-07-31',
       totalIngreso: '1500000',
+      fuenteIngreso: 'detectado',
+      ingresoDetectado: '1500000',
       sinIngreso: false,
       buckets: [],
       targets: { Necesidades: 50, Deseos: 30, Ahorro: 20 },

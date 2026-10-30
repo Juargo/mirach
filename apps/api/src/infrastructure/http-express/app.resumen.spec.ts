@@ -21,6 +21,8 @@ import { resumenResponseSchema } from './schemas/resumen.schema';
  */
 const RESUMEN_MES_OK = {
   totalIngreso: 0n,
+  fuenteIngreso: 'detectado',
+  ingresoDetectado: 0n,
   sinIngreso: true,
   buckets: [],
   estadoGlobal: null,

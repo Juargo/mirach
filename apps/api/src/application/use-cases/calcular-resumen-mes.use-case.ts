@@ -68,7 +68,11 @@ export class CalcularResumenMesUseCase {
       rows: rows.length,
     });
 
-    const resumen = construirResumenMesDesdeFilas(rows, perfil.metas);
+    const resumen = construirResumenMesDesdeFilas(
+      rows,
+      perfil.metas,
+      perfil.mesFinanciero.ingresoDeclarado,
+    );
     this.logger.debug('calcular-resumen-mes: computed', {
       periodo: periodoVO.valor,
       estadoGlobal: resumen.estadoGlobal,

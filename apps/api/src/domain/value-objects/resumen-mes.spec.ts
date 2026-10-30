@@ -377,3 +377,48 @@ describe('ResumenMes.crear with profile goals (#110)', () => {
     expect(r.buckets[0].estadoSemaforo).toBe(EstadoSemaforo.Rojo);
   });
 });
+
+describe('ResumenMes.crear with a declared income (#111, rule 1, VIS-10)', () => {
+  // `totalIngreso` in the input is the detected sum of income credits.
+  const input = {
+    totalIngreso: 1_000_000n,
+    necesidades: 500_000n,
+    deseos: 0n,
+    ahorro: 0n,
+  };
+
+  it('measures percentages against the declared income and says so', () => {
+    const r = ResumenMes.crear(input, undefined, 2_000_000n);
+    expect(r.totalIngreso).toBe(2_000_000n);
+    expect(r.ingresoDetectado).toBe(1_000_000n);
+    expect(r.fuenteIngreso).toBe('declarado');
+    expect(r.sinIngreso).toBe(false);
+    expect(r.buckets[0].porcentajeBp).toBe(2500n);
+  });
+
+  it('a declared income gives a base even when nothing was detected', () => {
+    const r = ResumenMes.crear(
+      { ...input, totalIngreso: 0n },
+      undefined,
+      2_000_000n,
+    );
+    expect(r.sinIngreso).toBe(false);
+    expect(r.ingresoDetectado).toBe(0n);
+    expect(r.buckets[0].porcentajeBp).toBe(2500n);
+  });
+
+  it('without a declared income it uses the detected sum (previous behavior)', () => {
+    const r = ResumenMes.crear(input);
+    expect(r.totalIngreso).toBe(1_000_000n);
+    expect(r.ingresoDetectado).toBe(1_000_000n);
+    expect(r.fuenteIngreso).toBe('detectado');
+    expect(r.buckets[0].porcentajeBp).toBe(5000n);
+  });
+
+  it('without declared nor detected income it is sinIngreso', () => {
+    const r = ResumenMes.crear({ ...input, totalIngreso: 0n }, undefined, null);
+    expect(r.sinIngreso).toBe(true);
+    expect(r.fuenteIngreso).toBe('detectado');
+    expect(r.buckets[0].porcentajeBp).toBeNull();
+  });
+});

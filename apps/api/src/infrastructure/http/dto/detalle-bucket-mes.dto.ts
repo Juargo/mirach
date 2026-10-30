@@ -1,3 +1,4 @@
+import { FuenteIngreso } from '../../../domain/value-objects/base-ingreso';
 import type { ObtenerDetalleBucketMesResult } from '../../../application/use-cases/obtener-detalle-bucket-mes.use-case';
 
 /**
@@ -30,6 +31,8 @@ export interface DetalleBucketMesDto {
   readonly totalCategorias: number;
   readonly porcentajeBp: number | null;
   readonly metaBp: number | null;
+  /** Base of `porcentajeBp` (#111, rule 1, VIS-10). */
+  readonly fuenteIngreso: FuenteIngreso;
   readonly grupos: ReadonlyArray<{
     readonly categoriaId: string | null;
     readonly nombre: string;
@@ -70,6 +73,7 @@ export function aDetalleBucketMesDto(
     totalCategorias: data.totalCategorias,
     porcentajeBp: data.porcentajeBp === null ? null : Number(data.porcentajeBp),
     metaBp: data.metaBp === null ? null : Number(data.metaBp),
+    fuenteIngreso: data.fuenteIngreso,
     grupos: data.grupos.map((grupo) => ({
       categoriaId: grupo.categoriaId,
       nombre: grupo.nombre,
