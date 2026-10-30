@@ -242,3 +242,52 @@ describe('marcarDuplicados', () => {
     expect(resultado).toEqual([true, false, true]);
   });
 });
+
+describe('marcarDuplicados — identical rows on the same day (#114, IMP-05)', () => {
+  const copec = {
+    fecha: new Date('2026-10-12'),
+    descripcion: 'COPEC',
+    cargo: 3500n,
+  };
+
+  it('two identical charges with none stored: both are new', () => {
+    expect(marcarDuplicados([], [makeTx(copec), makeTx(copec)])).toEqual([
+      false,
+      false,
+    ]);
+  });
+
+  it('one stored copy and two in the file: the first is a duplicate, the second is new', () => {
+    expect(
+      marcarDuplicados([makeExistente(copec)], [makeTx(copec), makeTx(copec)]),
+    ).toEqual([true, false]);
+  });
+
+  it('two stored copies and the same two in the file: both are duplicates', () => {
+    expect(
+      marcarDuplicados(
+        [makeExistente(copec), makeExistente(copec)],
+        [makeTx(copec), makeTx(copec)],
+      ),
+    ).toEqual([true, true]);
+  });
+
+  it('two stored copies and one in the file: it is a duplicate', () => {
+    expect(
+      marcarDuplicados(
+        [makeExistente(copec), makeExistente(copec)],
+        [makeTx(copec)],
+      ),
+    ).toEqual([true]);
+  });
+
+  it('counts per key: other rows keep their own count', () => {
+    const otra = { ...copec, descripcion: 'LIDER' };
+    expect(
+      marcarDuplicados(
+        [makeExistente(copec), makeExistente(otra)],
+        [makeTx(otra), makeTx(copec), makeTx(copec), makeTx(otra)],
+      ),
+    ).toEqual([true, true, false, false]);
+  });
+});
