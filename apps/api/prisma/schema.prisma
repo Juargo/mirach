@@ -47,6 +47,11 @@ model User {
   metaNecesidadesBp Int    @default(5000)
   metaDeseosBp      Int    @default(3000)
   metaAhorroBp      Int    @default(2000)
+  // Mes financiero (#111, PER-08): día de corte de 1 a 28 (1 = mes
+  // calendario) e ingreso mensual neto declarado en pesos (PER-02), null si
+  // no lo declaró. Rangos con CHECK en la migración add_mes_financiero.
+  diaCorte          Int     @default(1)
+  ingresoDeclarado  BigInt?
   accounts      Account[]
   sessions      Session[]
   // US-004: historial de ingestas — aislamiento directo por userId,

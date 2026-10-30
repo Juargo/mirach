@@ -14,8 +14,8 @@ Delivery: `single-pr` with work-unit commits (same as #110). Test runner: vitest
 
 ## Tasks
 
-- [ ] T1 S1, S2, S3 — domain: cut-off day, period with cut-off and income window, profile carries cut-off day and declared income. Route: inline.
-- [ ] T2 S1 — migration (`User.diaCorte`, `User.ingresoDeclarado`) and repository. Route: inline. Risk: item 1 (migration).
+- [x] T1 S1, S2, S3 — domain: cut-off day, period with cut-off and income window, profile carries cut-off day and declared income. Route: inline. RED observed (missing modules); unit 3283/3283. Commit: 563ba6f (assess: medium, under budget).
+- [x] T2 S1 — migration (`User.diaCorte`, `User.ingresoDeclarado`) and repository. Route: inline. Risk: item 1 (migration). RED observed (int suite against unmigrated DB); integration 242/242 after `migrate deploy` on the local test DB.
 - [ ] T3 S1 — `GET/PUT /api/perfil/presupuesto` with the new fields, e2e. Route: inline.
 - [ ] T4 S2, S3, S4 — use cases and repositories filter by the period (income window for income rows); `/periodos` and `/resumen/anual` follow the cut-off day; responses carry start and end dates. Route: inline.
 - [ ] T5 S5 — percentage base from declared income, source field in the responses. Route: inline.
