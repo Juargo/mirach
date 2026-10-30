@@ -42,6 +42,13 @@ export function construirResumenMesDesdeFilas(
   const deseos = rowMap.get(Bucket.Deseos)?.totalCargo ?? 0n;
   const ahorro = rowMap.get(Bucket.Ahorro)?.totalCargo ?? 0n;
 
+  // A month without any movement has no verdict (#111): the declared income
+  // applies only to a month with data, so an empty month — a future month of
+  // the annual view, say — stays `sinIngreso` instead of showing Ahorro red.
+  const sinMovimientos = rows.every(
+    (row) => row.totalCargo === 0n && row.totalAbono === 0n,
+  );
+
   return ResumenMes.crear(
     {
       totalIngreso: ingresoDetectadoDesdeFilas(rows),
@@ -50,6 +57,6 @@ export function construirResumenMesDesdeFilas(
       ahorro,
     },
     metas,
-    ingresoDeclarado,
+    sinMovimientos ? null : ingresoDeclarado,
   );
 }

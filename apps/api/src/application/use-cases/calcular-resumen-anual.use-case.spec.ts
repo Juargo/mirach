@@ -384,7 +384,7 @@ describe('CalcularResumenAnualUseCase — mes financiero (#111)', () => {
 });
 
 describe('CalcularResumenAnualUseCase — declared income (#111, rule 1, PER-06)', () => {
-  it('every month uses the declared income as its base', async () => {
+  it('a month with movements uses the declared income; an empty month stays without income', async () => {
     const uc = new CalcularResumenAnualUseCase(
       makeMockReader(rowsFor('2026-03')),
       new NoOpLogger(),
@@ -395,14 +395,16 @@ describe('CalcularResumenAnualUseCase — declared income (#111, rule 1, PER-06)
       await uc.execute({ userId: 'user-a', anio: '2026' })
     ).getValue().resumenAnual.meses;
 
-    for (const mes of meses) {
-      expect(mes.totalIngreso).toBe(2_000_000n);
-      expect(mes.fuenteIngreso).toBe('declarado');
-      expect(mes.sinIngreso).toBe(false);
-    }
+    expect(meses[2].totalIngreso).toBe(2_000_000n);
+    expect(meses[2].fuenteIngreso).toBe('declarado');
+    expect(meses[2].sinIngreso).toBe(false);
     expect(meses[2].ingresoDetectado).toBe(1_000_000n);
     expect(meses[2].buckets[0].porcentajeBp).toBe(2500n);
-    expect(meses[0].ingresoDetectado).toBe(0n);
+    for (const mes of meses.filter((_, i) => i !== 2)) {
+      expect(mes.sinIngreso).toBe(true);
+      expect(mes.fuenteIngreso).toBe('detectado');
+      expect(mes.totalIngreso).toBe(0n);
+    }
   });
 
   it('without a declared income each month uses its detected sum (previous behavior)', async () => {

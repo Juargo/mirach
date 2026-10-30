@@ -411,15 +411,15 @@ describe('Mes financiero (e2e, #111)', () => {
       // /ingresos/mes lists the income movements: its total stays detected.
       expect(ingresos.total).toBe('1000000');
 
-      // A month without income credits still has the declared base (PER-06).
+      // A month without any movement has no verdict: no declared base.
       const anual = resumenAnualResponseSchema.parse(
         (await get('/api/resumen/anual?anio=2026', declarado).expect(200)).body,
       );
       expect(anual.meses[0]).toMatchObject({
-        totalIngreso: '2000000',
-        fuenteIngreso: 'declarado',
+        totalIngreso: '0',
+        fuenteIngreso: 'detectado',
         ingresoDetectado: '0',
-        sinIngreso: false,
+        sinIngreso: true,
       });
     });
 
