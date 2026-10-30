@@ -33,6 +33,8 @@ import kotlinx.serialization.Contextual
  * GET /api/ingresos/mes — monthly income list by origin (bank/Manual): header total, count, and ALL transactions (US-052).
  *
  * @param conteo 
+ * @param fechaFin Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+ * @param fechaInicio First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
  * @param total BigInt-safe decimal string amount (never a JSON number).
  * @param transacciones Complete list — never truncated or paged (MID-01).
  */
@@ -42,6 +44,14 @@ data class IngresosMesResponse (
 
     @SerialName(value = "conteo")
     val conteo: kotlin.Int,
+
+    /* Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24). */
+    @SerialName(value = "fechaFin")
+    val fechaFin: kotlin.String,
+
+    /* First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month. */
+    @SerialName(value = "fechaInicio")
+    val fechaInicio: kotlin.String,
 
     /* BigInt-safe decimal string amount (never a JSON number). */
     @SerialName(value = "total")

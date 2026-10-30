@@ -19,7 +19,7 @@ struct IngresosAPITests {
     }
 
     private func body(total: String = "1650000", conteo: Int = 1, items: [String]? = nil) -> String {
-        #"{"total":"\#(total)","conteo":\#(conteo),"transacciones":[\#((items ?? [item()]).joined(separator: ","))]}"#
+        #"{"fechaInicio":"2026-09-01","fechaFin":"2026-09-30","total":"\#(total)","conteo":\#(conteo),"transacciones":[\#((items ?? [item()]).joined(separator: ","))]}"#
     }
 
     @Test func mapsTheHeaderAndEachIncomeWithExactMoney() async throws {

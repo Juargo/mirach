@@ -168,3 +168,47 @@ represented as strings in the response, safe for values exceeding
 - WHEN a client calls `GET /api/resumen?periodo=<period>`
 - THEN the amount is exposed as a string that exactly represents the value,
   with no precision loss
+
+### Requirement: RES-07 — The period follows the cut-off day (issue #111)
+
+`GET /api/resumen` and each month of `GET /api/resumen/anual` MUST use the financial month of
+perfil-presupuesto PPR-07: `periodo=YYYY-MM` is the period that starts on the user's cut-off day of
+that month (decision: the month the period starts in), and the response MUST carry `fechaInicio`
+and `fechaFin` (`YYYY-MM-DD`, inclusive). Income credits use the tolerance window of PPR-07 only when
+the cut-off day is not 1. `GET /api/periodos` MUST list the financial months with data and return
+`rangos: [{ periodo, fechaInicio, fechaFin }]` in the same order as `periodos`. An absent `periodo`
+resolves to the latest period with at least one transaction; the period in progress only when there
+is none.
+
+#### Scenario: todos los períodos se muestran del 25 al 24
+
+- Dado un corte el día 1
+- Cuando Marcela cambia el corte al día 25
+- Entonces `GET /api/resumen?periodo=2026-10` devuelve `fechaInicio` `2026-10-25` y `fechaFin` `2026-11-24`
+- Y cada elemento de `rangos` en `GET /api/periodos` va del 25 al 24
+
+#### Scenario: Cut-off 1 keeps the calendar month
+
+- GIVEN a user with `diaCorte` 1
+- WHEN they call `GET /api/resumen?periodo=2026-02`
+- THEN `fechaInicio` is `2026-02-01` and `fechaFin` is `2026-02-28`
+
+### Requirement: RES-08 — Ingresos is the base of rule 1 (issue #111, VIS-10)
+
+The Ingresos amount (`totalIngreso`) MUST be the base of perfil-presupuesto PPR-08: the declared
+monthly income when the user has one, otherwise the sum of the period's income credits. The response
+MUST carry `fuenteIngreso` (`declarado` | `detectado`) and `ingresoDetectado`. Every percentage of
+RES-03 and RES-06 uses that base. A period without any movement MUST stay `sinIngreso` with
+`totalIngreso` `"0"` and `fuenteIngreso` `detectado`, also in `GET /api/resumen/anual`.
+
+#### Scenario: A declared income replaces the detected one as the base
+
+- GIVEN a user with `ingresoDeclarado` `"2000000"` and income credits of 1000000 in the period
+- WHEN they call `GET /api/resumen?periodo=<period>`
+- THEN `totalIngreso` is `"2000000"`, `fuenteIngreso` is `declarado` and `ingresoDetectado` is `"1000000"`
+
+#### Scenario: An empty month of the year has no verdict
+
+- GIVEN a user with `ingresoDeclarado` `"2000000"` and movements only in March
+- WHEN they call `GET /api/resumen/anual`
+- THEN every month but March has `sinIngreso` true and `fuenteIngreso` `detectado`

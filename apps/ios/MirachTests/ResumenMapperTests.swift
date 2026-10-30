@@ -26,7 +26,7 @@ struct ResumenMapperTests {
         let list = buckets.map { name, total, bp, estado in
             #"{"bucket":"\#(name)","total":"\#(total)","porcentajeBp":\#(bp),"participacionGastoBp":null,"metaBp":5000,"estadoSemaforo":\#(estado),"estado":null}"#
         }.joined(separator: ",")
-        return #"{"periodo":"\#(periodo)","sinIngreso":\#(sinIngreso),"totalIngreso":"\#(ingreso)","estadoGlobal":\#(estadoGlobal),"estadoMes":null,"bloquesEstadoMes":[],"targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},"buckets":[\#(list)]}"#
+        return #"{"periodo":"\#(periodo)","fechaInicio":"\#(periodo)-01","fechaFin":"\#(periodo)-28","sinIngreso":\#(sinIngreso),"totalIngreso":"\#(ingreso)","fuenteIngreso":"detectado","ingresoDetectado":"\#(ingreso)","estadoGlobal":\#(estadoGlobal),"estadoMes":null,"bloquesEstadoMes":[],"targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},"buckets":[\#(list)]}"#
     }
 
     @Test func mapsAMonthWithExactMoneyAndBasisPoints() async throws {
@@ -125,7 +125,7 @@ struct ResumenMapperTests {
     }
 
     @Test func mapsThePeriodsListKeepingTheServerOrder() async throws {
-        let list = try await api(.json(#"{"periodos":["2026-09","2026-07","2025-12"]}"#)).periodos()
+        let list = try await api(.json(#"{"periodos":["2026-09","2026-07","2025-12"],"rangos":[{"periodo":"2026-09","fechaInicio":"2026-09-01","fechaFin":"2026-09-30"},{"periodo":"2026-07","fechaInicio":"2026-07-01","fechaFin":"2026-07-31"},{"periodo":"2025-12","fechaInicio":"2025-12-01","fechaFin":"2025-12-31"}]}"#)).periodos()
 
         #expect(list == [Periodo("2026-09")!, Periodo("2026-07")!, Periodo("2025-12")!])
     }

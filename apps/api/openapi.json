@@ -109,6 +109,24 @@
             "description": "Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).",
             "type": "string"
           },
+          "fechaFin": {
+            "description": "Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+            "type": "string"
+          },
+          "fechaInicio": {
+            "description": "First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+            "type": "string"
+          },
+          "fuenteIngreso": {
+            "description": "Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.",
+            "enum": [
+              "declarado",
+              "detectado"
+            ],
+            "type": "string"
+          },
           "grupos": {
             "description": "One entry per present category, by subtotal descending (ties by name, es-CL), \"Sin categoría\" last. [] for an empty bucket month (MBD-01).",
             "items": {
@@ -194,7 +212,7 @@
             "type": "string"
           },
           "porcentajeBp": {
-            "description": "Basis-point percentage, round-half-up. null when the month has no income (D-05).",
+            "description": "Basis-point percentage, round-half-up, of the income named by `fuenteIngreso` (rule 1). null when there is no income: no declared income and no income credits (D-05).",
             "maximum": 9007199254740991,
             "minimum": -9007199254740991,
             "nullable": true,
@@ -218,12 +236,15 @@
         },
         "required": [
           "periodo",
+          "fechaInicio",
+          "fechaFin",
           "bucket",
           "total",
           "totalTransacciones",
           "totalCategorias",
           "porcentajeBp",
           "metaBp",
+          "fuenteIngreso",
           "grupos"
         ],
         "type": "object"
@@ -767,6 +788,16 @@
             "minimum": 0,
             "type": "integer"
           },
+          "fechaFin": {
+            "description": "Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+            "type": "string"
+          },
+          "fechaInicio": {
+            "description": "First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+            "type": "string"
+          },
           "total": {
             "description": "BigInt-safe decimal string amount (never a JSON number).",
             "type": "string"
@@ -808,6 +839,8 @@
           }
         },
         "required": [
+          "fechaInicio",
+          "fechaFin",
           "total",
           "conteo",
           "transacciones"
@@ -981,6 +1014,18 @@
         "additionalProperties": false,
         "description": "Custom profile: three non-negative targets in basis points that must sum 10000.",
         "properties": {
+          "diaCorte": {
+            "description": "Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "ingresoDeclarado": {
+            "description": "Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.",
+            "nullable": true,
+            "pattern": "^\\d{1,18}$",
+            "type": "string"
+          },
           "metas": {
             "$ref": "#/components/schemas/PerfilPresupuestoMetas"
           },
@@ -1001,6 +1046,18 @@
         "additionalProperties": false,
         "description": "Predefined profile. 80_10_10 is the «Salir de deudas» profile.",
         "properties": {
+          "diaCorte": {
+            "description": "Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "ingresoDeclarado": {
+            "description": "Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.",
+            "nullable": true,
+            "pattern": "^\\d{1,18}$",
+            "type": "string"
+          },
           "perfil": {
             "enum": [
               "50_30_20",
@@ -1018,8 +1075,19 @@
       },
       "PerfilPresupuestoResponse": {
         "additionalProperties": false,
-        "description": "The user's budget profile (issue #110, PER-03..PER-06).",
+        "description": "The user's budget profile (issue #110, PER-03..PER-06) and financial month (issue #111, PER-02, PER-08).",
         "properties": {
+          "diaCorte": {
+            "description": "Cut-off day of the financial month (1 = calendar month, the default). Period YYYY-MM starts on this day of that month; changing it recalculates every month.",
+            "maximum": 28,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "ingresoDeclarado": {
+            "description": "Declared monthly net income in CLP as a decimal string, or null when not declared. When present, the summaries use it as the base of the percentages.",
+            "nullable": true,
+            "type": "string"
+          },
           "metas": {
             "additionalProperties": false,
             "description": "Targets in basis points (5000 = 50%); they sum 10000. The summaries measure every month against them, past ones too.",
@@ -1061,7 +1129,9 @@
         },
         "required": [
           "perfil",
-          "metas"
+          "metas",
+          "diaCorte",
+          "ingresoDeclarado"
         ],
         "type": "object"
       },
@@ -1081,16 +1151,46 @@
         "description": "GET /api/periodos — months that have movements for the session user (month selector).",
         "properties": {
           "periodos": {
-            "description": "Months (YYYY-MM, UTC) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.",
+            "description": "Financial months (YYYY-MM, the month each period starts in with the user cut-off day, #111) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.",
             "items": {
               "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
               "type": "string"
             },
             "type": "array"
+          },
+          "rangos": {
+            "description": "The same periods as `periodos`, in the same order, with the start and end dates of each financial month (#111).",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "fechaFin": {
+                  "description": "Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+                  "type": "string"
+                },
+                "fechaInicio": {
+                  "description": "First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+                  "type": "string"
+                },
+                "periodo": {
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "periodo",
+                "fechaInicio",
+                "fechaFin"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "periodos"
+          "periodos",
+          "rangos"
         ],
         "type": "object"
       },
@@ -1445,11 +1545,34 @@
             "nullable": true,
             "type": "string"
           },
+          "fechaFin": {
+            "description": "Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+            "type": "string"
+          },
+          "fechaInicio": {
+            "description": "First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+            "type": "string"
+          },
+          "fuenteIngreso": {
+            "description": "Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.",
+            "enum": [
+              "declarado",
+              "detectado"
+            ],
+            "type": "string"
+          },
+          "ingresoDetectado": {
+            "description": "Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).",
+            "type": "string"
+          },
           "periodo": {
             "description": "Resolved period, format YYYY-MM.",
             "type": "string"
           },
           "sinIngreso": {
+            "description": "true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.",
             "type": "boolean"
           },
           "targets": {
@@ -1474,13 +1597,17 @@
             "type": "object"
           },
           "totalIngreso": {
-            "description": "BigInt-safe decimal string amount (never a JSON number).",
+            "description": "Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.",
             "type": "string"
           }
         },
         "required": [
           "periodo",
+          "fechaInicio",
+          "fechaFin",
           "totalIngreso",
+          "fuenteIngreso",
+          "ingresoDetectado",
           "sinIngreso",
           "buckets",
           "targets",
@@ -1630,21 +1757,36 @@
             "nullable": true,
             "type": "string"
           },
+          "fuenteIngreso": {
+            "description": "Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.",
+            "enum": [
+              "declarado",
+              "detectado"
+            ],
+            "type": "string"
+          },
+          "ingresoDetectado": {
+            "description": "Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).",
+            "type": "string"
+          },
           "periodo": {
             "description": "Resolved period, format YYYY-MM.",
             "type": "string"
           },
           "sinIngreso": {
+            "description": "true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.",
             "type": "boolean"
           },
           "totalIngreso": {
-            "description": "BigInt-safe decimal string amount (never a JSON number).",
+            "description": "Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.",
             "type": "string"
           }
         },
         "required": [
           "periodo",
           "totalIngreso",
+          "fuenteIngreso",
+          "ingresoDetectado",
           "sinIngreso",
           "estadoGlobal",
           "diagnostico",

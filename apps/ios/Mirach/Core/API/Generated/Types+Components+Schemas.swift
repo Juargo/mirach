@@ -257,6 +257,25 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/bucket`.
             internal var bucket: Swift.String
+            /// Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+            ///
+            /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/fechaFin`.
+            internal var fechaFin: Swift.String
+            /// First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/fechaInicio`.
+            internal var fechaInicio: Swift.String
+            /// Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/fuenteIngreso`.
+            internal enum fuenteIngresoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case declarado = "declarado"
+                case detectado = "detectado"
+            }
+            /// Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///
+            /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/fuenteIngreso`.
+            internal var fuenteIngreso: Components.Schemas.BucketDetalleMesResponse.fuenteIngresoPayload
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/gruposPayload`.
             internal struct gruposPayloadPayload: Codable, Hashable, Sendable {
                 /// null for the synthetic group.
@@ -442,7 +461,7 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/periodo`.
             internal var periodo: Swift.String
-            /// Basis-point percentage, round-half-up. null when the month has no income (D-05).
+            /// Basis-point percentage, round-half-up, of the income named by `fuenteIngreso` (rule 1). null when there is no income: no declared income and no income credits (D-05).
             ///
             /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse/porcentajeBp`.
             internal var porcentajeBp: Swift.Int?
@@ -460,15 +479,21 @@ extension Components {
             ///
             /// - Parameters:
             ///   - bucket: Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).
+            ///   - fechaFin: Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+            ///   - fechaInicio: First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+            ///   - fuenteIngreso: Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
             ///   - grupos: One entry per present category, by subtotal descending (ties by name, es-CL), "Sin categoría" last. [] for an empty bucket month (MBD-01).
             ///   - metaBp: Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).
             ///   - periodo: Resolved period, format YYYY-MM.
-            ///   - porcentajeBp: Basis-point percentage, round-half-up. null when the month has no income (D-05).
+            ///   - porcentajeBp: Basis-point percentage, round-half-up, of the income named by `fuenteIngreso` (rule 1). null when there is no income: no declared income and no income credits (D-05).
             ///   - total: BigInt-safe decimal string amount (never a JSON number).
             ///   - totalCategorias: Includes the synthetic Sin categoría group when present (D-09).
             ///   - totalTransacciones:
             internal init(
                 bucket: Swift.String,
+                fechaFin: Swift.String,
+                fechaInicio: Swift.String,
+                fuenteIngreso: Components.Schemas.BucketDetalleMesResponse.fuenteIngresoPayload,
                 grupos: Components.Schemas.BucketDetalleMesResponse.gruposPayload,
                 metaBp: Swift.Int? = nil,
                 periodo: Swift.String,
@@ -478,6 +503,9 @@ extension Components {
                 totalTransacciones: Swift.Int
             ) {
                 self.bucket = bucket
+                self.fechaFin = fechaFin
+                self.fechaInicio = fechaInicio
+                self.fuenteIngreso = fuenteIngreso
                 self.grupos = grupos
                 self.metaBp = metaBp
                 self.periodo = periodo
@@ -488,6 +516,9 @@ extension Components {
             }
             internal enum CodingKeys: String, CodingKey {
                 case bucket
+                case fechaFin
+                case fechaInicio
+                case fuenteIngreso
                 case grupos
                 case metaBp
                 case periodo
@@ -501,6 +532,18 @@ extension Components {
                 self.bucket = try container.decode(
                     Swift.String.self,
                     forKey: .bucket
+                )
+                self.fechaFin = try container.decode(
+                    Swift.String.self,
+                    forKey: .fechaFin
+                )
+                self.fechaInicio = try container.decode(
+                    Swift.String.self,
+                    forKey: .fechaInicio
+                )
+                self.fuenteIngreso = try container.decode(
+                    Components.Schemas.BucketDetalleMesResponse.fuenteIngresoPayload.self,
+                    forKey: .fuenteIngreso
                 )
                 self.grupos = try container.decode(
                     Components.Schemas.BucketDetalleMesResponse.gruposPayload.self,
@@ -532,6 +575,9 @@ extension Components {
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "bucket",
+                    "fechaFin",
+                    "fechaInicio",
+                    "fuenteIngreso",
                     "grupos",
                     "metaBp",
                     "periodo",
@@ -1807,6 +1853,14 @@ extension Components {
         internal struct IngresosMesResponse: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/IngresosMesResponse/conteo`.
             internal var conteo: Swift.Int
+            /// Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+            ///
+            /// - Remark: Generated from `#/components/schemas/IngresosMesResponse/fechaFin`.
+            internal var fechaFin: Swift.String
+            /// First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+            ///
+            /// - Remark: Generated from `#/components/schemas/IngresosMesResponse/fechaInicio`.
+            internal var fechaInicio: Swift.String
             /// BigInt-safe decimal string amount (never a JSON number).
             ///
             /// - Remark: Generated from `#/components/schemas/IngresosMesResponse/total`.
@@ -1900,19 +1954,27 @@ extension Components {
             ///
             /// - Parameters:
             ///   - conteo:
+            ///   - fechaFin: Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+            ///   - fechaInicio: First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
             ///   - total: BigInt-safe decimal string amount (never a JSON number).
             ///   - transacciones: Complete list — never truncated or paged (MID-01).
             internal init(
                 conteo: Swift.Int,
+                fechaFin: Swift.String,
+                fechaInicio: Swift.String,
                 total: Swift.String,
                 transacciones: Components.Schemas.IngresosMesResponse.transaccionesPayload
             ) {
                 self.conteo = conteo
+                self.fechaFin = fechaFin
+                self.fechaInicio = fechaInicio
                 self.total = total
                 self.transacciones = transacciones
             }
             internal enum CodingKeys: String, CodingKey {
                 case conteo
+                case fechaFin
+                case fechaInicio
                 case total
                 case transacciones
             }
@@ -1921,6 +1983,14 @@ extension Components {
                 self.conteo = try container.decode(
                     Swift.Int.self,
                     forKey: .conteo
+                )
+                self.fechaFin = try container.decode(
+                    Swift.String.self,
+                    forKey: .fechaFin
+                )
+                self.fechaInicio = try container.decode(
+                    Swift.String.self,
+                    forKey: .fechaInicio
                 )
                 self.total = try container.decode(
                     Swift.String.self,
@@ -1932,6 +2002,8 @@ extension Components {
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "conteo",
+                    "fechaFin",
+                    "fechaInicio",
                     "total",
                     "transacciones"
                 ])
@@ -2334,6 +2406,14 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado`.
         internal struct PerfilPresupuestoPersonalizado: Codable, Hashable, Sendable {
+            /// Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado/diaCorte`.
+            internal var diaCorte: Swift.Int?
+            /// Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado/ingresoDeclarado`.
+            internal var ingresoDeclarado: Swift.String?
             /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado/metas`.
             internal var metas: Components.Schemas.PerfilPresupuestoMetas
             /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPersonalizado/perfil`.
@@ -2345,21 +2425,37 @@ extension Components {
             /// Creates a new `PerfilPresupuestoPersonalizado`.
             ///
             /// - Parameters:
+            ///   - diaCorte: Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.
+            ///   - ingresoDeclarado: Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.
             ///   - metas:
             ///   - perfil:
             internal init(
+                diaCorte: Swift.Int? = nil,
+                ingresoDeclarado: Swift.String? = nil,
                 metas: Components.Schemas.PerfilPresupuestoMetas,
                 perfil: Components.Schemas.PerfilPresupuestoPersonalizado.perfilPayload
             ) {
+                self.diaCorte = diaCorte
+                self.ingresoDeclarado = ingresoDeclarado
                 self.metas = metas
                 self.perfil = perfil
             }
             internal enum CodingKeys: String, CodingKey {
+                case diaCorte
+                case ingresoDeclarado
                 case metas
                 case perfil
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.diaCorte = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .diaCorte
+                )
+                self.ingresoDeclarado = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .ingresoDeclarado
+                )
                 self.metas = try container.decode(
                     Components.Schemas.PerfilPresupuestoMetas.self,
                     forKey: .metas
@@ -2369,6 +2465,8 @@ extension Components {
                     forKey: .perfil
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "diaCorte",
+                    "ingresoDeclarado",
                     "metas",
                     "perfil"
                 ])
@@ -2378,6 +2476,14 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido`.
         internal struct PerfilPresupuestoPredefinido: Codable, Hashable, Sendable {
+            /// Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido/diaCorte`.
+            internal var diaCorte: Swift.Int?
+            /// Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido/ingresoDeclarado`.
+            internal var ingresoDeclarado: Swift.String?
             /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido/perfil`.
             internal enum perfilPayload: String, Codable, Hashable, Sendable, CaseIterable {
                 case _50_30_20 = "50_30_20"
@@ -2390,28 +2496,56 @@ extension Components {
             /// Creates a new `PerfilPresupuestoPredefinido`.
             ///
             /// - Parameters:
+            ///   - diaCorte: Cut-off day of the financial month, 1 to 28 (1 = calendar month). Left out = unchanged.
+            ///   - ingresoDeclarado: Declared monthly net income in CLP as a decimal string, positive. null clears it; left out = unchanged.
             ///   - perfil:
-            internal init(perfil: Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload) {
+            internal init(
+                diaCorte: Swift.Int? = nil,
+                ingresoDeclarado: Swift.String? = nil,
+                perfil: Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload
+            ) {
+                self.diaCorte = diaCorte
+                self.ingresoDeclarado = ingresoDeclarado
                 self.perfil = perfil
             }
             internal enum CodingKeys: String, CodingKey {
+                case diaCorte
+                case ingresoDeclarado
                 case perfil
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.diaCorte = try container.decodeIfPresent(
+                    Swift.Int.self,
+                    forKey: .diaCorte
+                )
+                self.ingresoDeclarado = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .ingresoDeclarado
+                )
                 self.perfil = try container.decode(
                     Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload.self,
                     forKey: .perfil
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "diaCorte",
+                    "ingresoDeclarado",
                     "perfil"
                 ])
             }
         }
-        /// The user's budget profile (issue #110, PER-03..PER-06).
+        /// The user's budget profile (issue #110, PER-03..PER-06) and financial month (issue #111, PER-02, PER-08).
         ///
         /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse`.
         internal struct PerfilPresupuestoResponse: Codable, Hashable, Sendable {
+            /// Cut-off day of the financial month (1 = calendar month, the default). Period YYYY-MM starts on this day of that month; changing it recalculates every month.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/diaCorte`.
+            internal var diaCorte: Swift.Int
+            /// Declared monthly net income in CLP as a decimal string, or null when not declared. When present, the summaries use it as the base of the percentages.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/ingresoDeclarado`.
+            internal var ingresoDeclarado: Swift.String?
             /// Targets in basis points (5000 = 50%); they sum 10000. The summaries measure every month against them, past ones too.
             ///
             /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/metas`.
@@ -2484,21 +2618,37 @@ extension Components {
             /// Creates a new `PerfilPresupuestoResponse`.
             ///
             /// - Parameters:
+            ///   - diaCorte: Cut-off day of the financial month (1 = calendar month, the default). Period YYYY-MM starts on this day of that month; changing it recalculates every month.
+            ///   - ingresoDeclarado: Declared monthly net income in CLP as a decimal string, or null when not declared. When present, the summaries use it as the base of the percentages.
             ///   - metas: Targets in basis points (5000 = 50%); they sum 10000. The summaries measure every month against them, past ones too.
             ///   - perfil: Budget profile id. 80_10_10 is shown as «Salir de deudas». 50_30_20 for a user who never chose one.
             internal init(
+                diaCorte: Swift.Int,
+                ingresoDeclarado: Swift.String? = nil,
                 metas: Components.Schemas.PerfilPresupuestoResponse.metasPayload,
                 perfil: Components.Schemas.PerfilPresupuestoResponse.perfilPayload
             ) {
+                self.diaCorte = diaCorte
+                self.ingresoDeclarado = ingresoDeclarado
                 self.metas = metas
                 self.perfil = perfil
             }
             internal enum CodingKeys: String, CodingKey {
+                case diaCorte
+                case ingresoDeclarado
                 case metas
                 case perfil
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.diaCorte = try container.decode(
+                    Swift.Int.self,
+                    forKey: .diaCorte
+                )
+                self.ingresoDeclarado = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .ingresoDeclarado
+                )
                 self.metas = try container.decode(
                     Components.Schemas.PerfilPresupuestoResponse.metasPayload.self,
                     forKey: .metas
@@ -2508,6 +2658,8 @@ extension Components {
                     forKey: .perfil
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "diaCorte",
+                    "ingresoDeclarado",
                     "metas",
                     "perfil"
                 ])
@@ -2564,19 +2716,86 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/PeriodosResponse`.
         internal struct PeriodosResponse: Codable, Hashable, Sendable {
-            /// Months (YYYY-MM, UTC) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.
+            /// Financial months (YYYY-MM, the month each period starts in with the user cut-off day, #111) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.
             ///
             /// - Remark: Generated from `#/components/schemas/PeriodosResponse/periodos`.
             internal var periodos: [Swift.String]
+            /// - Remark: Generated from `#/components/schemas/PeriodosResponse/rangosPayload`.
+            internal struct rangosPayloadPayload: Codable, Hashable, Sendable {
+                /// Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+                ///
+                /// - Remark: Generated from `#/components/schemas/PeriodosResponse/rangosPayload/fechaFin`.
+                internal var fechaFin: Swift.String
+                /// First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+                ///
+                /// - Remark: Generated from `#/components/schemas/PeriodosResponse/rangosPayload/fechaInicio`.
+                internal var fechaInicio: Swift.String
+                /// - Remark: Generated from `#/components/schemas/PeriodosResponse/rangosPayload/periodo`.
+                internal var periodo: Swift.String
+                /// Creates a new `rangosPayloadPayload`.
+                ///
+                /// - Parameters:
+                ///   - fechaFin: Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+                ///   - fechaInicio: First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+                ///   - periodo:
+                internal init(
+                    fechaFin: Swift.String,
+                    fechaInicio: Swift.String,
+                    periodo: Swift.String
+                ) {
+                    self.fechaFin = fechaFin
+                    self.fechaInicio = fechaInicio
+                    self.periodo = periodo
+                }
+                internal enum CodingKeys: String, CodingKey {
+                    case fechaFin
+                    case fechaInicio
+                    case periodo
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.fechaFin = try container.decode(
+                        Swift.String.self,
+                        forKey: .fechaFin
+                    )
+                    self.fechaInicio = try container.decode(
+                        Swift.String.self,
+                        forKey: .fechaInicio
+                    )
+                    self.periodo = try container.decode(
+                        Swift.String.self,
+                        forKey: .periodo
+                    )
+                    try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "fechaFin",
+                        "fechaInicio",
+                        "periodo"
+                    ])
+                }
+            }
+            /// The same periods as `periodos`, in the same order, with the start and end dates of each financial month (#111).
+            ///
+            /// - Remark: Generated from `#/components/schemas/PeriodosResponse/rangos`.
+            internal typealias rangosPayload = [Components.Schemas.PeriodosResponse.rangosPayloadPayload]
+            /// The same periods as `periodos`, in the same order, with the start and end dates of each financial month (#111).
+            ///
+            /// - Remark: Generated from `#/components/schemas/PeriodosResponse/rangos`.
+            internal var rangos: Components.Schemas.PeriodosResponse.rangosPayload
             /// Creates a new `PeriodosResponse`.
             ///
             /// - Parameters:
-            ///   - periodos: Months (YYYY-MM, UTC) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.
-            internal init(periodos: [Swift.String]) {
+            ///   - periodos: Financial months (YYYY-MM, the month each period starts in with the user cut-off day, #111) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.
+            ///   - rangos: The same periods as `periodos`, in the same order, with the start and end dates of each financial month (#111).
+            internal init(
+                periodos: [Swift.String],
+                rangos: Components.Schemas.PeriodosResponse.rangosPayload
+            ) {
                 self.periodos = periodos
+                self.rangos = rangos
             }
             internal enum CodingKeys: String, CodingKey {
                 case periodos
+                case rangos
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -2584,8 +2803,13 @@ extension Components {
                     [Swift.String].self,
                     forKey: .periodos
                 )
+                self.rangos = try container.decode(
+                    Components.Schemas.PeriodosResponse.rangosPayload.self,
+                    forKey: .rangos
+                )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
-                    "periodos"
+                    "periodos",
+                    "rangos"
                 ])
             }
         }
@@ -3354,10 +3578,35 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/estadoMes`.
             internal var estadoMes: Components.Schemas.ResumenMesResponse.estadoMesPayload?
+            /// Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/fechaFin`.
+            internal var fechaFin: Swift.String
+            /// First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/fechaInicio`.
+            internal var fechaInicio: Swift.String
+            /// Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/fuenteIngreso`.
+            internal enum fuenteIngresoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case declarado = "declarado"
+                case detectado = "detectado"
+            }
+            /// Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/fuenteIngreso`.
+            internal var fuenteIngreso: Components.Schemas.ResumenMesResponse.fuenteIngresoPayload
+            /// Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).
+            ///
+            /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/ingresoDetectado`.
+            internal var ingresoDetectado: Swift.String
             /// Resolved period, format YYYY-MM.
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/periodo`.
             internal var periodo: Swift.String
+            /// true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.
+            ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/sinIngreso`.
             internal var sinIngreso: Swift.Bool
             /// Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.
@@ -3415,7 +3664,7 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/targets`.
             internal var targets: Components.Schemas.ResumenMesResponse.targetsPayload
-            /// BigInt-safe decimal string amount (never a JSON number).
+            /// Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.
             ///
             /// - Remark: Generated from `#/components/schemas/ResumenMesResponse/totalIngreso`.
             internal var totalIngreso: Swift.String
@@ -3426,15 +3675,23 @@ extension Components {
             ///   - buckets: Always 3 entries: Necesidades, Deseos, Ahorro. SinCategoria was removed (issue #778 tramo 5b PR5) — this is a BREAKING change from the previous 4-entry shape.
             ///   - estadoGlobal: Worst traffic-light state across measured buckets, or null.
             ///   - estadoMes: Month state (issue #113, VIS-11): the worst `estado` of the 3 buckets. null when sinIngreso=true.
+            ///   - fechaFin: Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+            ///   - fechaInicio: First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+            ///   - fuenteIngreso: Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///   - ingresoDetectado: Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).
             ///   - periodo: Resolved period, format YYYY-MM.
-            ///   - sinIngreso:
+            ///   - sinIngreso: true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.
             ///   - targets: Targets of the user's budget profile in percentage points (issue #110), for example 80/10/10. `buckets[].metaBp` carries the same targets in basis points.
-            ///   - totalIngreso: BigInt-safe decimal string amount (never a JSON number).
+            ///   - totalIngreso: Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.
             internal init(
                 bloquesEstadoMes: [Swift.String],
                 buckets: Components.Schemas.ResumenMesResponse.bucketsPayload,
                 estadoGlobal: Components.Schemas.ResumenMesResponse.estadoGlobalPayload? = nil,
                 estadoMes: Components.Schemas.ResumenMesResponse.estadoMesPayload? = nil,
+                fechaFin: Swift.String,
+                fechaInicio: Swift.String,
+                fuenteIngreso: Components.Schemas.ResumenMesResponse.fuenteIngresoPayload,
+                ingresoDetectado: Swift.String,
                 periodo: Swift.String,
                 sinIngreso: Swift.Bool,
                 targets: Components.Schemas.ResumenMesResponse.targetsPayload,
@@ -3444,6 +3701,10 @@ extension Components {
                 self.buckets = buckets
                 self.estadoGlobal = estadoGlobal
                 self.estadoMes = estadoMes
+                self.fechaFin = fechaFin
+                self.fechaInicio = fechaInicio
+                self.fuenteIngreso = fuenteIngreso
+                self.ingresoDetectado = ingresoDetectado
                 self.periodo = periodo
                 self.sinIngreso = sinIngreso
                 self.targets = targets
@@ -3454,6 +3715,10 @@ extension Components {
                 case buckets
                 case estadoGlobal
                 case estadoMes
+                case fechaFin
+                case fechaInicio
+                case fuenteIngreso
+                case ingresoDetectado
                 case periodo
                 case sinIngreso
                 case targets
@@ -3477,6 +3742,22 @@ extension Components {
                     Components.Schemas.ResumenMesResponse.estadoMesPayload.self,
                     forKey: .estadoMes
                 )
+                self.fechaFin = try container.decode(
+                    Swift.String.self,
+                    forKey: .fechaFin
+                )
+                self.fechaInicio = try container.decode(
+                    Swift.String.self,
+                    forKey: .fechaInicio
+                )
+                self.fuenteIngreso = try container.decode(
+                    Components.Schemas.ResumenMesResponse.fuenteIngresoPayload.self,
+                    forKey: .fuenteIngreso
+                )
+                self.ingresoDetectado = try container.decode(
+                    Swift.String.self,
+                    forKey: .ingresoDetectado
+                )
                 self.periodo = try container.decode(
                     Swift.String.self,
                     forKey: .periodo
@@ -3498,6 +3779,10 @@ extension Components {
                     "buckets",
                     "estadoGlobal",
                     "estadoMes",
+                    "fechaFin",
+                    "fechaInicio",
+                    "fuenteIngreso",
+                    "ingresoDetectado",
                     "periodo",
                     "sinIngreso",
                     "targets",
@@ -3776,13 +4061,30 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/estadoGlobal`.
             internal var estadoGlobal: Components.Schemas.SemaforoDetalleResponse.estadoGlobalPayload?
+            /// Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///
+            /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/fuenteIngreso`.
+            internal enum fuenteIngresoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case declarado = "declarado"
+                case detectado = "detectado"
+            }
+            /// Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///
+            /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/fuenteIngreso`.
+            internal var fuenteIngreso: Components.Schemas.SemaforoDetalleResponse.fuenteIngresoPayload
+            /// Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).
+            ///
+            /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/ingresoDetectado`.
+            internal var ingresoDetectado: Swift.String
             /// Resolved period, format YYYY-MM.
             ///
             /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/periodo`.
             internal var periodo: Swift.String
+            /// true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.
+            ///
             /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/sinIngreso`.
             internal var sinIngreso: Swift.Bool
-            /// BigInt-safe decimal string amount (never a JSON number).
+            /// Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.
             ///
             /// - Remark: Generated from `#/components/schemas/SemaforoDetalleResponse/totalIngreso`.
             internal var totalIngreso: Swift.String
@@ -3793,14 +4095,18 @@ extension Components {
             ///   - bucketsCriticos: Bucket names sharing estadoGlobal severity. [] when Verde or sinIngreso.
             ///   - diagnostico: Backend-generated Spanish sentence naming the driving bucket(s) (SEM-01). Never contains {monto}.
             ///   - estadoGlobal: Worst traffic-light state across the 3 spend buckets, or null.
+            ///   - fuenteIngreso: Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+            ///   - ingresoDetectado: Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).
             ///   - periodo: Resolved period, format YYYY-MM.
-            ///   - sinIngreso:
-            ///   - totalIngreso: BigInt-safe decimal string amount (never a JSON number).
+            ///   - sinIngreso: true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.
+            ///   - totalIngreso: Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.
             internal init(
                 buckets: Components.Schemas.SemaforoDetalleResponse.bucketsPayload,
                 bucketsCriticos: [Swift.String],
                 diagnostico: Swift.String,
                 estadoGlobal: Components.Schemas.SemaforoDetalleResponse.estadoGlobalPayload? = nil,
+                fuenteIngreso: Components.Schemas.SemaforoDetalleResponse.fuenteIngresoPayload,
+                ingresoDetectado: Swift.String,
                 periodo: Swift.String,
                 sinIngreso: Swift.Bool,
                 totalIngreso: Swift.String
@@ -3809,6 +4115,8 @@ extension Components {
                 self.bucketsCriticos = bucketsCriticos
                 self.diagnostico = diagnostico
                 self.estadoGlobal = estadoGlobal
+                self.fuenteIngreso = fuenteIngreso
+                self.ingresoDetectado = ingresoDetectado
                 self.periodo = periodo
                 self.sinIngreso = sinIngreso
                 self.totalIngreso = totalIngreso
@@ -3818,6 +4126,8 @@ extension Components {
                 case bucketsCriticos
                 case diagnostico
                 case estadoGlobal
+                case fuenteIngreso
+                case ingresoDetectado
                 case periodo
                 case sinIngreso
                 case totalIngreso
@@ -3840,6 +4150,14 @@ extension Components {
                     Components.Schemas.SemaforoDetalleResponse.estadoGlobalPayload.self,
                     forKey: .estadoGlobal
                 )
+                self.fuenteIngreso = try container.decode(
+                    Components.Schemas.SemaforoDetalleResponse.fuenteIngresoPayload.self,
+                    forKey: .fuenteIngreso
+                )
+                self.ingresoDetectado = try container.decode(
+                    Swift.String.self,
+                    forKey: .ingresoDetectado
+                )
                 self.periodo = try container.decode(
                     Swift.String.self,
                     forKey: .periodo
@@ -3857,6 +4175,8 @@ extension Components {
                     "bucketsCriticos",
                     "diagnostico",
                     "estadoGlobal",
+                    "fuenteIngreso",
+                    "ingresoDetectado",
                     "periodo",
                     "sinIngreso",
                     "totalIngreso"

@@ -33,10 +33,13 @@ import kotlinx.serialization.Contextual
  * GET /api/buckets/:bucket/detalle — month×bucket detail grouped by category: header totals, % vs meta, and category groups with ALL their transactions (US-051).
  *
  * @param bucket Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08).
+ * @param fechaFin Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24).
+ * @param fechaInicio First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month.
+ * @param fuenteIngreso Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
  * @param grupos One entry per present category, by subtotal descending (ties by name, es-CL), \"Sin categoría\" last. [] for an empty bucket month (MBD-01).
  * @param metaBp Bucket's target in basis points from the user's budget profile (issue #110), the same for every month; null when absent (D-05).
  * @param periodo Resolved period, format YYYY-MM.
- * @param porcentajeBp Basis-point percentage, round-half-up. null when the month has no income (D-05).
+ * @param porcentajeBp Basis-point percentage, round-half-up, of the income named by `fuenteIngreso` (rule 1). null when there is no income: no declared income and no income credits (D-05).
  * @param total BigInt-safe decimal string amount (never a JSON number).
  * @param totalCategorias Includes the synthetic Sin categoría group when present (D-09).
  * @param totalTransacciones 
@@ -48,6 +51,18 @@ data class BucketDetalleMesResponse (
     /* Validated bucket name (echo, not raw input) — one of the 4-bucket allowlist (D-08). */
     @SerialName(value = "bucket")
     val bucket: kotlin.String,
+
+    /* Last day of the financial month, YYYY-MM-DD, inclusive: the day before the next period starts (cut-off 25: 2026-10 ends on 2026-11-24). */
+    @SerialName(value = "fechaFin")
+    val fechaFin: kotlin.String,
+
+    /* First day of the financial month, YYYY-MM-DD, inclusive. It is the user's cut-off day of the month named by `periodo` (cut-off 25: 2026-10 starts on 2026-10-25); with cut-off 1 it is the first day of the calendar month. */
+    @SerialName(value = "fechaInicio")
+    val fechaInicio: kotlin.String,
+
+    /* Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income. */
+    @SerialName(value = "fuenteIngreso")
+    val fuenteIngreso: BucketDetalleMesResponse.FuenteIngreso,
 
     /* One entry per present category, by subtotal descending (ties by name, es-CL), \"Sin categoría\" last. [] for an empty bucket month (MBD-01). */
     @SerialName(value = "grupos")
@@ -61,7 +76,7 @@ data class BucketDetalleMesResponse (
     @SerialName(value = "periodo")
     val periodo: kotlin.String,
 
-    /* Basis-point percentage, round-half-up. null when the month has no income (D-05). */
+    /* Basis-point percentage, round-half-up, of the income named by `fuenteIngreso` (rule 1). null when there is no income: no declared income and no income credits (D-05). */
     @SerialName(value = "porcentajeBp")
     val porcentajeBp: kotlin.Int?,
 
@@ -78,6 +93,16 @@ data class BucketDetalleMesResponse (
 
 ) {
 
+    /**
+     * Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+     *
+     * Values: declarado,detectado
+     */
+    @Serializable
+    enum class FuenteIngreso(val value: kotlin.String) {
+        @SerialName(value = "declarado") declarado("declarado"),
+        @SerialName(value = "detectado") detectado("detectado");
+    }
 
 }
 

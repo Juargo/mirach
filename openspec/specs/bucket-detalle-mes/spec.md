@@ -90,18 +90,26 @@ deterministic order (fecha asc, id asc).
 - THEN that group's `icono` is always `null`, regardless of any category's own icono elsewhere in
   the response
 
-### Requirement: MBD-04 — Absent period defaults to the current month; invalid period is rejected with a scrubbed 400 (CA-04)
+### Requirement: MBD-04 — Absent period defaults to the latest period with data; invalid period is rejected with a scrubbed 400 (CA-04)
 
-WHEN `periodo` is absent, the endpoint MUST resolve the current calendar month, identically to
+WHEN `periodo` is absent, the endpoint MUST resolve the user's latest period with at least one
+transaction, labelled with the user's cut-off day (perfil-presupuesto PPR-07); the period in
+progress is the fallback only when the user has no transaction at all. This is the same rule as
 `resumen-mensual`. WHEN `periodo` is present but invalid per the domain's `YYYY-MM` rule, the
 endpoint MUST return 400 (`PeriodoInvalidoError`) with a scrubbed message that never echoes the raw
 input value.
 
-#### Scenario: Absent period defaults to the current month
+#### Scenario: Absent period defaults to the latest period with data
 
-- GIVEN a client calls `GET /api/buckets/Necesidades/detalle` with no `periodo` param
-- WHEN the request is processed
-- THEN the response reflects the current calendar month
+- GIVEN a user whose latest transaction falls in period `2026-08`
+- WHEN they call `GET /api/buckets/Necesidades/detalle` with no `periodo` param
+- THEN the response reflects period `2026-08`
+
+#### Scenario: Absent period without any transaction is the period in progress
+
+- GIVEN a user with no transaction
+- WHEN they call `GET /api/buckets/Necesidades/detalle` with no `periodo` param
+- THEN the response reflects the period in progress
 
 #### Scenario: Invalid period is rejected with a scrubbed 400
 
@@ -203,3 +211,24 @@ concern, not a backend behavior.
 - WHEN a client calls `GET /api/buckets/Necesidades?periodo=<period>`
 - THEN it responds exactly as its own (unchanged) contract specifies — this spec's MBD-01..08 are
   unaffected
+
+### Requirement: MBD-10 — The period follows the cut-off day and the percentage follows rule 1 (issue #111)
+
+The period MUST be the financial month of perfil-presupuesto PPR-07: `periodo=YYYY-MM` is the period
+that starts on the user's cut-off day of that month, and the response MUST carry `fechaInicio` and
+`fechaFin` (`YYYY-MM-DD`, inclusive). The transactions listed are the bucket's rows dated inside
+that period. `porcentajeBp` MUST be computed over the base of PPR-08 and the response MUST carry
+`fuenteIngreso` (`declarado` | `detectado`).
+
+#### Scenario: Cut-off 25 returns the dates of the financial month
+
+- GIVEN a user with `diaCorte` 25
+- WHEN they call `GET /api/buckets/Necesidades/detalle?periodo=2026-10`
+- THEN `fechaInicio` is `2026-10-25` and `fechaFin` is `2026-11-24`
+- AND a Necesidades expense dated 2026-10-24 is not listed
+
+#### Scenario: The percentage uses the declared income
+
+- GIVEN a user with `ingresoDeclarado` `"2000000"` and a Necesidades spend of 500000 in the period
+- WHEN they call `GET /api/buckets/Necesidades/detalle?periodo=<period>`
+- THEN `porcentajeBp` is 2500 and `fuenteIngreso` is `declarado`

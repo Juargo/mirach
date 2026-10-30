@@ -30,14 +30,24 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Contextual
 
 /**
- * The user's budget profile (issue #110, PER-03..PER-06).
+ * The user's budget profile (issue #110, PER-03..PER-06) and financial month (issue #111, PER-02, PER-08).
  *
+ * @param diaCorte Cut-off day of the financial month (1 = calendar month, the default). Period YYYY-MM starts on this day of that month; changing it recalculates every month.
+ * @param ingresoDeclarado Declared monthly net income in CLP as a decimal string, or null when not declared. When present, the summaries use it as the base of the percentages.
  * @param metas 
  * @param perfil Budget profile id. 80_10_10 is shown as «Salir de deudas». 50_30_20 for a user who never chose one.
  */
 @Serializable
 
 data class PerfilPresupuestoResponse (
+
+    /* Cut-off day of the financial month (1 = calendar month, the default). Period YYYY-MM starts on this day of that month; changing it recalculates every month. */
+    @SerialName(value = "diaCorte")
+    val diaCorte: kotlin.Int,
+
+    /* Declared monthly net income in CLP as a decimal string, or null when not declared. When present, the summaries use it as the base of the percentages. */
+    @SerialName(value = "ingresoDeclarado")
+    val ingresoDeclarado: kotlin.String?,
 
     @SerialName(value = "metas")
     val metas: PerfilPresupuestoResponseMetas,

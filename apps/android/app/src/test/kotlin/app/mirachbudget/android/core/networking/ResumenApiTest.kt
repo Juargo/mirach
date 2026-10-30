@@ -54,7 +54,7 @@ class ResumenApiTest {
         val list = buckets.joinToString(",") {
             """{"bucket":"${it.name}","total":"${it.total}","porcentajeBp":${it.bp},"participacionGastoBp":null,"metaBp":5000,"estadoSemaforo":${it.estado},"estado":null}"""
         }
-        return """{"periodo":"$periodo","sinIngreso":$sinIngreso,"totalIngreso":"$ingreso","estadoGlobal":$estadoGlobal,"estadoMes":null,"bloquesEstadoMes":[],"targets":$targets,"buckets":[$list]}"""
+        return """{"periodo":"$periodo","fechaInicio":"$periodo-01","fechaFin":"$periodo-28","sinIngreso":$sinIngreso,"totalIngreso":"$ingreso","fuenteIngreso":"detectado","ingresoDetectado":"$ingreso","estadoGlobal":$estadoGlobal,"estadoMes":null,"bloquesEstadoMes":[],"targets":$targets,"buckets":[$list]}"""
     }
 
     private fun three(necesidades: String = "null", deseos: String = "null", ahorro: String = "null") = listOf(
@@ -194,9 +194,17 @@ class ResumenApiTest {
         assertEquals("2026-08", request().url.queryParameter("periodo"))
     }
 
+    private fun periodosBody(vararg periodos: String): String {
+        val labels = periodos.joinToString(",") { "\"$it\"" }
+        val rangos = periodos.joinToString(",") {
+            """{"periodo":"$it","fechaInicio":"$it-01","fechaFin":"$it-28"}"""
+        }
+        return """{"periodos":[$labels],"rangos":[$rangos]}"""
+    }
+
     @Test
     fun periodosAreParsedInTheOrderReceived() = runBlocking<Unit> {
-        json(200, """{"periodos":["2026-09","2026-08","2026-06"]}""")
+        json(200, periodosBody("2026-09", "2026-08", "2026-06"))
 
         assertEquals(listOf(Periodo(2026, 9), Periodo(2026, 8), Periodo(2026, 6)), api().periodos())
         assertEquals("/api/periodos", request().url.encodedPath)
@@ -204,10 +212,10 @@ class ResumenApiTest {
 
     @Test
     fun anEmptyPeriodosListIsValidAndAMalformedOneIsNot() = runBlocking<Unit> {
-        json(200, """{"periodos":[]}""")
+        json(200, periodosBody())
         assertEquals(emptyList<Periodo>(), api().periodos())
 
-        json(200, """{"periodos":["2026-09","soon"]}""")
+        json(200, periodosBody("2026-09", "soon"))
         assertThrows(SerializationException::class.java) { runBlocking { api().periodos() } }
     }
 

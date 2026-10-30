@@ -36,9 +36,11 @@ import kotlinx.serialization.Contextual
  * @param bucketsCriticos Bucket names sharing estadoGlobal severity. [] when Verde or sinIngreso.
  * @param diagnostico Backend-generated Spanish sentence naming the driving bucket(s) (SEM-01). Never contains {monto}.
  * @param estadoGlobal Worst traffic-light state across the 3 spend buckets, or null.
+ * @param fuenteIngreso Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+ * @param ingresoDetectado Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number).
  * @param periodo Resolved period, format YYYY-MM.
- * @param sinIngreso 
- * @param totalIngreso BigInt-safe decimal string amount (never a JSON number).
+ * @param sinIngreso true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages.
+ * @param totalIngreso Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`.
  */
 @Serializable
 
@@ -60,14 +62,23 @@ data class SemaforoDetalleResponse (
     @SerialName(value = "estadoGlobal")
     val estadoGlobal: SemaforoDetalleResponse.EstadoGlobal?,
 
+    /* Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income. */
+    @SerialName(value = "fuenteIngreso")
+    val fuenteIngreso: SemaforoDetalleResponse.FuenteIngreso,
+
+    /* Sum of the period's credits classified as income, whatever the source of `totalIngreso`. BigInt-safe decimal string amount (never a JSON number). */
+    @SerialName(value = "ingresoDetectado")
+    val ingresoDetectado: kotlin.String,
+
     /* Resolved period, format YYYY-MM. */
     @SerialName(value = "periodo")
     val periodo: kotlin.String,
 
+    /* true when `totalIngreso` is 0: no declared income and no income credits, so there are no percentages. */
     @SerialName(value = "sinIngreso")
     val sinIngreso: kotlin.Boolean,
 
-    /* BigInt-safe decimal string amount (never a JSON number). */
+    /* Income the percentages are measured against (rule 1): the declared monthly income when there is one, otherwise the sum of the period's income credits. BigInt-safe decimal string amount (never a JSON number). See `fuenteIngreso`. */
     @SerialName(value = "totalIngreso")
     val totalIngreso: kotlin.String
 
@@ -83,6 +94,16 @@ data class SemaforoDetalleResponse (
         @SerialName(value = "verde") verde("verde"),
         @SerialName(value = "amarillo") amarillo("amarillo"),
         @SerialName(value = "rojo") rojo("rojo");
+    }
+    /**
+     * Source of the percentage base (rule 1, VIS-10): `declarado` when the user declared a monthly income in the budget profile (`PUT /api/perfil/presupuesto`), `detectado` when the base is the sum of the period's credits classified as income.
+     *
+     * Values: declarado,detectado
+     */
+    @Serializable
+    enum class FuenteIngreso(val value: kotlin.String) {
+        @SerialName(value = "declarado") declarado("declarado"),
+        @SerialName(value = "detectado") detectado("detectado");
     }
 
 }
