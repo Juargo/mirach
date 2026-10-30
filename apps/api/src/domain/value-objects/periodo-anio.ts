@@ -1,6 +1,7 @@
 import { Result } from '../../shared/result';
 import { AnioInvalidoError } from '../errors/anio-invalido.error';
 import { PeriodoMes } from './periodo-mes';
+import { DiaCorte } from './mes-financiero';
 
 /**
  * PeriodoAnio — value object de dominio.
@@ -57,17 +58,19 @@ export class PeriodoAnio {
   }
 
   /**
-   * Los 12 PeriodoMes del año, Enero→Diciembre.
+   * Los 12 PeriodoMes del año, Enero→Diciembre, con el día de corte del
+   * mes financiero (#111): con corte 25, el año 2026 va del 25 de enero de
+   * 2026 al 24 de enero de 2027.
    *
    * Reutiliza PeriodoMes.crear() (DRY) — siempre tiene éxito porque el rango
    * de PeriodoAnio [2000, 2100] es un subconjunto del rango de PeriodoMes
    * [2000, 2999].
    */
-  meses(): readonly PeriodoMes[] {
+  meses(diaCorte: DiaCorte = DiaCorte.CALENDARIO): readonly PeriodoMes[] {
     const meses: PeriodoMes[] = [];
     for (let mes = 1; mes <= 12; mes++) {
       const valor = `${this.anio}-${String(mes).padStart(2, '0')}`;
-      const resultado = PeriodoMes.crear(valor);
+      const resultado = PeriodoMes.crear(valor, diaCorte);
       // Never fails: this.anio ∈ [2000, 2100] ⊂ PeriodoMes valid range [2000, 2999].
       meses.push(resultado.getValue());
     }

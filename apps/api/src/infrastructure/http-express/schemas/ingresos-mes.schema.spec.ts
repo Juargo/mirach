@@ -61,6 +61,8 @@ const PII: ReadonlyArray<FilaFuente> = [
 
 function makeResult(): ObtenerIngresosMesResult {
   return {
+    fechaInicio: '2026-07-01',
+    fechaFin: '2026-07-31',
     total: 2400000n,
     conteo: 2,
     transacciones: PII.map(recortar),

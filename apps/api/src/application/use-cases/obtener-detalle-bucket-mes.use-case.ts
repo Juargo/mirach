@@ -17,6 +17,9 @@ import { resolverPeriodo } from './resolver-periodo';
 /** Tipo de retorno del use case en caso de éxito — header + grupos (MBD-01/02). */
 export interface ObtenerDetalleBucketMesResult {
   readonly periodo: string;
+  /** First and last day of the financial month (#111), `YYYY-MM-DD`. */
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly bucket: Bucket;
   /** Suma de cargos del bucket en el período — BigInt hasta el DTO (CA-05). */
   readonly total: bigint;
@@ -91,10 +94,13 @@ export class ObtenerDetalleBucketMesUseCase {
 
     // 2. Periodo (MBD-04): ausente → último mes con datos (fallback mes
     //    actual); presente → validar VO.
+    // The cut-off day of the user's financial month (#111) defines the period.
+    const perfil = await this.perfilReader.obtener(input.userId);
     const periodoResult = await resolverPeriodo(
       this.ultimoPeriodoReader,
       input.userId,
       input.periodo,
+      perfil.mesFinanciero.diaCorte,
     );
     if (periodoResult.isFail()) {
       return Result.fail(periodoResult.getError());
@@ -102,10 +108,9 @@ export class ObtenerDetalleBucketMesUseCase {
     const periodoVO = periodoResult.getValue();
 
     // 3. Ambos readers (D-02): filas del bucket + base de ingresos del mes.
-    const [rows, resumenRows, perfil] = await Promise.all([
+    const [rows, resumenRows] = await Promise.all([
       this.reader.findByPeriodoYBucket(input.userId, periodoVO, bucket),
       this.resumenReader.sumarPorBucket(input.userId, periodoVO),
-      this.perfilReader.obtener(input.userId),
     ]);
     // Counts only — never montos/descripcion/numeroCuenta (ADR-013).
     this.logger.debug('obtener-detalle-bucket-mes: repo fetch', {
@@ -143,6 +148,8 @@ export class ObtenerDetalleBucketMesUseCase {
 
     return Result.ok({
       periodo: periodoVO.valor,
+      fechaInicio: periodoVO.fechaInicio,
+      fechaFin: periodoVO.fechaFin,
       bucket,
       total,
       totalTransacciones: rows.length,

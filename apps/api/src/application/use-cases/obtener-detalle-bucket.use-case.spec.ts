@@ -9,6 +9,8 @@ import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { BucketInvalidoError } from '../../domain/errors/bucket-invalido.error';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
+import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 
 const makeRow = (
@@ -44,6 +46,7 @@ describe('ObtenerDetalleBucketUseCase', () => {
       readerMock,
       ultimoPeriodoReaderMock,
       new NoOpLogger(),
+      perfilReaderConCorte(),
     );
   });
 
@@ -179,7 +182,7 @@ describe('ObtenerDetalleBucketUseCase', () => {
       expect(calledPeriodo.valor).toBe('2026-02');
       expect(
         ultimoPeriodoReaderMock.ultimoPeriodoConDatos,
-      ).toHaveBeenCalledWith('user-1');
+      ).toHaveBeenCalledWith('user-1', DiaCorte.CALENDARIO);
     });
 
     it('periodo EXPLÍCITO → se respeta tal cual, el reader de último período NUNCA se toca (issue #747)', async () => {
@@ -210,6 +213,7 @@ describe('ObtenerDetalleBucketUseCase', () => {
         readerMock,
         ultimoPeriodoReaderMock,
         logger,
+        perfilReaderConCorte(),
       );
 
       await useCaseWithFakeLogger.execute({
@@ -229,5 +233,27 @@ describe('ObtenerDetalleBucketUseCase', () => {
       expect(serializedContexts).not.toContain('12345678');
       expect(serializedContexts).not.toContain('@');
     });
+  });
+});
+
+describe('ObtenerDetalleBucketUseCase — mes financiero (#111)', () => {
+  it('el día de corte del perfil define el período que llega al reader', async () => {
+    const reader = { findByPeriodoYBucket: vi.fn().mockResolvedValue([]) };
+    const uc = new ObtenerDetalleBucketUseCase(
+      reader,
+      { ultimoPeriodoConDatos: vi.fn().mockResolvedValue(null) },
+      new NoOpLogger(),
+      perfilReaderConCorte(25),
+    );
+
+    await uc.execute({
+      userId: 'user-1',
+      bucket: Bucket.Necesidades,
+      periodo: '2026-10',
+    });
+
+    const periodo = reader.findByPeriodoYBucket.mock.calls[0][1];
+    expect(periodo.diaCorte.valor).toBe(25);
+    expect(periodo.fechaInicio).toBe('2026-10-25');
   });
 });

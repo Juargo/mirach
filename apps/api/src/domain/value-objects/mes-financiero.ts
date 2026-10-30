@@ -10,6 +10,8 @@ import { IngresoDeclaradoInvalidoError } from '../errors/ingreso-declarado-inval
 
 const DIA_CORTE_MIN = 1;
 const DIA_CORTE_MAX = 28;
+/** Income tolerance (PER-08): days before the cut-off that still count. */
+const DIAS_TOLERANCIA_INGRESO = 3;
 
 /** Cut-off day of the financial month: an integer from 1 to 28. */
 export class DiaCorte {
@@ -33,6 +35,14 @@ export class DiaCorte {
 
   get esCalendario(): boolean {
     return this.valor === DIA_CORTE_MIN;
+  }
+
+  /**
+   * Days before the cut-off on which an income credit already counts in the
+   * period that starts (PER-08). 0 for the calendar month (decision L3).
+   */
+  get toleranciaIngresoDias(): number {
+    return this.esCalendario ? 0 : DIAS_TOLERANCIA_INGRESO;
   }
 }
 

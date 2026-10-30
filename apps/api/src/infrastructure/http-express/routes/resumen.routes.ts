@@ -66,8 +66,8 @@ export function registrarResumen(
         return;
       }
 
-      const { periodo, resumen } = result.getValue();
-      res.status(200).json(aResumenMesDto(periodo, resumen));
+      const { periodoMes, resumen } = result.getValue();
+      res.status(200).json(aResumenMesDto(periodoMes, resumen));
     } catch (err) {
       next(err);
     }
@@ -120,8 +120,8 @@ export function registrarResumen(
         return;
       }
 
-      const { resumenAnual } = result.getValue();
-      res.status(200).json(aResumenAnualDto(resumenAnual));
+      const { resumenAnual, periodos } = result.getValue();
+      res.status(200).json(aResumenAnualDto(resumenAnual, periodos));
     } catch (err) {
       next(err);
     }

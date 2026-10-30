@@ -4,6 +4,8 @@ import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
+import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { PerfilPresupuesto } from '../../domain/value-objects/perfil-presupuesto';
@@ -243,6 +245,7 @@ describe('CalcularResumenMesUseCase', () => {
       expect(result.getValue().periodo).toBe('2026-03');
       expect(ultimoPeriodoReader.ultimoPeriodoConDatos).toHaveBeenCalledWith(
         'user-a',
+        DiaCorte.CALENDARIO,
       );
       expect(reader.sumarPorBucket).toHaveBeenCalledWith(
         'user-a',
@@ -400,5 +403,24 @@ describe('CalcularResumenMesUseCase — budget profile goals (#110)', () => {
     expect(obtener).toHaveBeenCalledWith('user-a');
     const { resumen } = result.getValue();
     expect(resumen.buckets.map((b) => b.metaBp)).toEqual([8000n, 1000n, 1000n]);
+  });
+});
+
+describe('CalcularResumenMesUseCase — mes financiero (#111)', () => {
+  it('el día de corte del perfil define el período que llega al reader', async () => {
+    const reader = makeMockReader(allBucketRows());
+    const uc = new CalcularResumenMesUseCase(
+      reader,
+      makeUltimoPeriodoReader(),
+      new NoOpLogger(),
+      perfilReaderConCorte(25),
+    );
+
+    const result = await uc.execute({ userId: 'user-a', periodo: '2026-10' });
+
+    const periodo = vi.mocked(reader.sumarPorBucket).mock.calls[0][1];
+    expect(periodo.diaCorte.valor).toBe(25);
+    expect(result.getValue().periodoMes.fechaInicio).toBe('2026-10-25');
+    expect(result.getValue().periodoMes.fechaFin).toBe('2026-11-24');
   });
 });

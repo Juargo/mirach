@@ -5,6 +5,7 @@ import {
   DetalleBucketRow,
   IDetalleBucketReader,
 } from '../ports/detalle-bucket.port';
+import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
 import { resolverPeriodo } from './resolver-periodo';
@@ -32,12 +33,16 @@ export interface TransaccionIngresoMes {
 /**
  * ObtenerIngresosMesResult — resultado del use case (D-02/D-03).
  *
- * EXACTAMENTE {total, conteo, transacciones}: sin `meta`/`porcentaje`/`estado`
+ * EXACTAMENTE {fechaInicio, fechaFin, total, conteo, transacciones} (las
+ * fechas del mes financiero, #111): sin `meta`/`porcentaje`/`estado`
  * (MID-03 — los ingresos no participan de 50/30/20 como gasto) y sin echo de
  * `periodo` (MID-01 es autoritativo; un echo rompería el schema `.strict()`
  * del PR2). `total` = Σ abono en BigInt (CA-05).
  */
 export interface ObtenerIngresosMesResult {
+  /** First and last day of the financial month (#111), `YYYY-MM-DD`. */
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly total: bigint;
   readonly conteo: number;
   readonly transacciones: ReadonlyArray<TransaccionIngresoMes>;
@@ -89,6 +94,7 @@ export class ObtenerIngresosMesUseCase {
     private readonly reader: IDetalleBucketReader,
     private readonly ultimoPeriodoReader: IUltimoPeriodoConDatosReader,
     private readonly logger: ILogger,
+    private readonly perfilReader: IPerfilPresupuestoReader,
   ) {}
 
   async execute(input: {
@@ -97,10 +103,13 @@ export class ObtenerIngresosMesUseCase {
   }): Promise<Result<ObtenerIngresosMesResult, PeriodoInvalidoError>> {
     // 1. Periodo (MID-04): ausente → último mes con datos (fallback mes
     //    actual); presente → validar VO.
+    // The cut-off day of the user's financial month (#111) defines the period.
+    const perfil = await this.perfilReader.obtener(input.userId);
     const periodoResult = await resolverPeriodo(
       this.ultimoPeriodoReader,
       input.userId,
       input.periodo,
+      perfil.mesFinanciero.diaCorte,
     );
     if (periodoResult.isFail()) {
       return Result.fail(periodoResult.getError());
@@ -131,6 +140,8 @@ export class ObtenerIngresosMesUseCase {
     });
 
     return Result.ok({
+      fechaInicio: periodoVO.fechaInicio,
+      fechaFin: periodoVO.fechaFin,
       total,
       conteo: transacciones.length,
       transacciones,

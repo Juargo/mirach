@@ -1,5 +1,6 @@
 import { Result } from '../../shared/result';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 
@@ -19,6 +20,10 @@ import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.
  * datos" NUNCA se toca en ese caso (evita una query innecesaria y preserva
  * el comportamiento de validación existente byte a byte).
  *
+ * Mes financiero (#111): `diaCorte` viene del perfil del usuario; el período
+ * `YYYY-MM` es el que empieza ese día de ese mes, y el último con datos se
+ * etiqueta con el mismo corte.
+ *
  * Nunca lanza — Result<PeriodoMes, PeriodoInvalidoError>, mismo contrato de
  * error que `PeriodoMes.crear()`.
  */
@@ -26,14 +31,15 @@ export async function resolverPeriodo(
   reader: IUltimoPeriodoConDatosReader,
   userId: string,
   periodoInput: string | undefined,
+  diaCorte: DiaCorte,
 ): Promise<Result<PeriodoMes, PeriodoInvalidoError>> {
   if (periodoInput !== undefined) {
     // Presente (incluso '') → validar con el VO, sin tocar el reader.
-    return PeriodoMes.crear(periodoInput);
+    return PeriodoMes.crear(periodoInput, diaCorte);
   }
 
   // Ausente → último mes del usuario con datos; sin ninguna transacción,
   // cae a PeriodoMes.actual() (siempre válido, nunca falla).
-  const ultimo = await reader.ultimoPeriodoConDatos(userId);
-  return Result.ok(ultimo ?? PeriodoMes.actual());
+  const ultimo = await reader.ultimoPeriodoConDatos(userId, diaCorte);
+  return Result.ok(ultimo ?? PeriodoMes.actual(diaCorte));
 }

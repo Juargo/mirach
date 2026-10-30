@@ -21,6 +21,9 @@ import type { ObtenerDetalleBucketMesResult } from '../../../application/use-cas
  */
 export interface DetalleBucketMesDto {
   readonly periodo: string;
+  /** First and last day of the financial month (#111), `YYYY-MM-DD`, inclusive. */
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly bucket: string;
   readonly total: string;
   readonly totalTransacciones: number;
@@ -59,6 +62,8 @@ export function aDetalleBucketMesDto(
 ): DetalleBucketMesDto {
   return {
     periodo: data.periodo,
+    fechaInicio: data.fechaInicio,
+    fechaFin: data.fechaFin,
     bucket: data.bucket,
     total: String(data.total),
     totalTransacciones: data.totalTransacciones,

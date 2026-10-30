@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { fechasPeriodoShape } from './periodo-fechas.schema';
 
 /**
  * Response contract for `GET /api/periodos`: the months in which the session
@@ -10,7 +11,19 @@ export const periodosResponseSchema = z
     periodos: z
       .array(z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/))
       .describe(
-        'Months (YYYY-MM, UTC) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.',
+        'Financial months (YYYY-MM, the month each period starts in with the user cut-off day, #111) with at least one movement (expense or income) for this user, MOST RECENT FIRST, no duplicates. Empty when the user has no movements.',
+      ),
+    rangos: z
+      .array(
+        z
+          .object({
+            periodo: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+            ...fechasPeriodoShape,
+          })
+          .strict(),
+      )
+      .describe(
+        'The same periods as `periodos`, in the same order, with the start and end dates of each financial month (#111).',
       ),
   })
   .strict()

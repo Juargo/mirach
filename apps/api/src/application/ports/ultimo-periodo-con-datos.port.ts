@@ -1,4 +1,5 @@
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 
 /**
  * IUltimoPeriodoConDatosReader — narrow port de solo lectura (issue #747).
@@ -19,7 +20,10 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
  * `PeriodoMes.crear`), así que no hace falta `Result`.
  */
 export interface IUltimoPeriodoConDatosReader {
-  ultimoPeriodoConDatos(userId: string): Promise<PeriodoMes | null>;
+  ultimoPeriodoConDatos(
+    userId: string,
+    diaCorte: DiaCorte,
+  ): Promise<PeriodoMes | null>;
 }
 
 /** Injection token — interfaces are erased at runtime. */

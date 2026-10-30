@@ -1,6 +1,7 @@
 import { Result } from '../../shared/result';
 import { PeriodoInvalidoError } from '../../domain/errors/periodo-invalido.error';
 import { ResumenMes } from '../../domain/value-objects/resumen-mes';
+import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { IResumenMesReader } from '../ports/resumen-mes.port';
 import { IUltimoPeriodoConDatosReader } from '../ports/ultimo-periodo-con-datos.port';
 import { ILogger } from '../ports/logger.port';
@@ -11,6 +12,8 @@ import { resolverPeriodo } from './resolver-periodo';
 /** Tipo de retorno del use case en caso de éxito — mirrors US-014 pattern. */
 export interface CalcularResumenMesResult {
   readonly periodo: string;
+  /** The resolved financial month (#111): its start and end dates. */
+  readonly periodoMes: PeriodoMes;
   readonly resumen: ResumenMes;
 }
 
@@ -43,20 +46,20 @@ export class CalcularResumenMesUseCase {
     userId: string;
     periodo: string | undefined;
   }): Promise<Result<CalcularResumenMesResult, PeriodoInvalidoError>> {
+    // The cut-off day of the user's financial month (#111) defines the period.
+    const perfil = await this.perfilReader.obtener(input.userId);
     const periodoResult = await resolverPeriodo(
       this.ultimoPeriodoReader,
       input.userId,
       input.periodo,
+      perfil.mesFinanciero.diaCorte,
     );
     if (periodoResult.isFail()) {
       return Result.fail(periodoResult.getError());
     }
     const periodoVO = periodoResult.getValue();
 
-    const [rows, perfil] = await Promise.all([
-      this.reader.sumarPorBucket(input.userId, periodoVO),
-      this.perfilReader.obtener(input.userId),
-    ]);
+    const rows = await this.reader.sumarPorBucket(input.userId, periodoVO);
     // Counts only — never amounts (ADR-013). Row count reflects how many of
     // the up-to-5 bucket-sum rows the reader returned for this period.
     this.logger.debug('calcular-resumen-mes: repo fetch', {
@@ -74,6 +77,7 @@ export class CalcularResumenMesUseCase {
 
     return Result.ok({
       periodo: periodoVO.valor,
+      periodoMes: periodoVO,
       resumen,
     });
   }

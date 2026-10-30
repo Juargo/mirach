@@ -9,7 +9,8 @@ import type { ObtenerIngresosMesResult } from '../../../application/use-cases/ob
  * - `fecha` ISO-8601 UTC completo vía `toISOString()` (convención bloqueada);
  * - `origen` = nombre del banco verbatim (CA-02/MID-02), `"Manual"` como rama
  *   dead-code del use case — passthrough, sin normalización;
- * - EXACTAMENTE `{total, conteo, transacciones}` — sin `meta`/`porcentaje`/
+ * - EXACTAMENTE `{fechaInicio, fechaFin, total, conteo, transacciones}` (las
+ *   fechas del mes financiero, #111) — sin `meta`/`porcentaje`/
  *   `estado` (MID-03: los ingresos no participan de 50/30/20 como gasto) y sin
  *   echo de `periodo` (MID-01 autoritativo; un echo rompería el schema
  *   `.strict()` del PR2, D-03);
@@ -18,6 +19,9 @@ import type { ObtenerIngresosMesResult } from '../../../application/use-cases/ob
  *   PR1, D-02), este DTO solo serializa la proyección.
  */
 export interface IngresosMesDto {
+  /** First and last day of the financial month (#111), `YYYY-MM-DD`, inclusive. */
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly total: string;
   readonly conteo: number;
   readonly transacciones: ReadonlyArray<{
@@ -39,6 +43,8 @@ export function aIngresosMesDto(
   data: ObtenerIngresosMesResult,
 ): IngresosMesDto {
   return {
+    fechaInicio: data.fechaInicio,
+    fechaFin: data.fechaFin,
     total: String(data.total),
     conteo: data.conteo,
     transacciones: data.transacciones.map((tx) => ({

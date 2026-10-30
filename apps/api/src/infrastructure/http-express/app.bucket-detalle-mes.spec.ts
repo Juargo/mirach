@@ -22,6 +22,8 @@ import { bucketDetalleMesResponseSchema } from './schemas/bucket-detalle-mes.sch
  */
 const DETALLE_MES_OK: ObtenerDetalleBucketMesResult = {
   periodo: '2026-07',
+  fechaInicio: '2026-07-01',
+  fechaFin: '2026-07-31',
   bucket: Bucket.Necesidades,
   total: 250_000n,
   totalTransacciones: 5,

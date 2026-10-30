@@ -1,82 +1,64 @@
 import { PrismaUltimoPeriodoConDatosReader } from './prisma-ultimo-periodo-con-datos.repository';
 import { PrismaClient } from '@prisma/client';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 
 /**
  * Unit tests for PrismaUltimoPeriodoConDatosReader — mocked PrismaClient
- * (issue #747). DB-backed scenarios (real user isolation, real rows) are
- * covered by the deferred int-spec suite
- * (ultimo-periodo-con-datos.int-spec.ts).
+ * (issue #747). The reader labels rows in SQL (`etiquetaPeriodoSql`, #111),
+ * so the date arithmetic and the real user isolation are proven against a
+ * database by ultimo-periodo-con-datos.int-spec.ts and
+ * mes-financiero.int-spec.ts; here only the mapping of the row is covered.
  */
+function readerCon(rows: Array<{ periodo: string }>) {
+  const $queryRaw = vi.fn().mockResolvedValue(rows);
+  const prisma = { $queryRaw } as unknown as PrismaClient;
+  return { $queryRaw, repo: new PrismaUltimoPeriodoConDatosReader(prisma) };
+}
+
 describe('PrismaUltimoPeriodoConDatosReader', () => {
   it('usuario sin ninguna transacción → null', async () => {
-    const findFirst = vi.fn().mockResolvedValue(null);
-    const prisma = { transaccion: { findFirst } } as unknown as PrismaClient;
-    const repo = new PrismaUltimoPeriodoConDatosReader(prisma);
+    const { repo } = readerCon([]);
 
-    const result = await repo.ultimoPeriodoConDatos('user-1');
+    const result = await repo.ultimoPeriodoConDatos(
+      'user-1',
+      DiaCorte.CALENDARIO,
+    );
 
     expect(result).toBeNull();
   });
 
-  it('deriva YYYY-MM UTC de la fecha de la transacción más reciente', async () => {
-    const findFirst = vi
-      .fn()
-      .mockResolvedValue({ fecha: new Date('2026-03-15T23:59:59.999Z') });
-    const prisma = { transaccion: { findFirst } } as unknown as PrismaClient;
-    const repo = new PrismaUltimoPeriodoConDatosReader(prisma);
+  it('corte 1: la fila `periodo` es el mes calendario', async () => {
+    const { repo } = readerCon([{ periodo: '2026-03' }]);
 
-    const result = await repo.ultimoPeriodoConDatos('user-1');
+    const result = await repo.ultimoPeriodoConDatos(
+      'user-1',
+      DiaCorte.CALENDARIO,
+    );
 
     expect(result?.valor).toBe('2026-03');
+    expect(result?.fechaInicio).toBe('2026-03-01');
+    expect(result?.fechaFin).toBe('2026-03-31');
   });
 
-  it('fecha de fin de año UTC deriva el año/mes correctos (sin off-by-one de timezone)', async () => {
-    const findFirst = vi
-      .fn()
-      .mockResolvedValue({ fecha: new Date('2025-12-31T23:59:59.999Z') });
-    const prisma = { transaccion: { findFirst } } as unknown as PrismaClient;
-    const repo = new PrismaUltimoPeriodoConDatosReader(prisma);
+  it('corte 25: el PeriodoMes lleva el día de corte recibido', async () => {
+    const corte25 = DiaCorte.crear(25).getValue();
+    const { repo } = readerCon([{ periodo: '2026-10' }]);
 
-    const result = await repo.ultimoPeriodoConDatos('user-1');
+    const result = await repo.ultimoPeriodoConDatos('user-1', corte25);
 
-    expect(result?.valor).toBe('2025-12');
+    expect(result?.valor).toBe('2026-10');
+    expect(result?.diaCorte.valor).toBe(25);
+    expect(result?.fechaInicio).toBe('2026-10-25');
+    expect(result?.fechaFin).toBe('2026-11-24');
   });
 
-  it('fecha de inicio de año UTC (00:00:00.000Z) deriva el año/mes correctos', async () => {
-    const findFirst = vi
-      .fn()
-      .mockResolvedValue({ fecha: new Date('2026-01-01T00:00:00.000Z') });
-    const prisma = { transaccion: { findFirst } } as unknown as PrismaClient;
-    const repo = new PrismaUltimoPeriodoConDatosReader(prisma);
+  it('user isolation: el userId viaja como parámetro de la query (RNF-SEC-006)', async () => {
+    const { $queryRaw, repo } = readerCon([]);
 
-    const result = await repo.ultimoPeriodoConDatos('user-1');
+    await repo.ultimoPeriodoConDatos('user-abc', DiaCorte.CALENDARIO);
 
-    expect(result?.valor).toBe('2026-01');
-  });
-
-  it('user isolation: filtra estructuralmente por account.userId (RNF-SEC-006)', async () => {
-    const findFirst = vi.fn().mockResolvedValue(null);
-    const prisma = { transaccion: { findFirst } } as unknown as PrismaClient;
-    const repo = new PrismaUltimoPeriodoConDatosReader(prisma);
-
-    await repo.ultimoPeriodoConDatos('user-abc');
-
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { account: { userId: 'user-abc' } },
-      }),
-    );
-  });
-
-  it('ordena por fecha desc para obtener la transacción más reciente', async () => {
-    const findFirst = vi.fn().mockResolvedValue(null);
-    const prisma = { transaccion: { findFirst } } as unknown as PrismaClient;
-    const repo = new PrismaUltimoPeriodoConDatosReader(prisma);
-
-    await repo.ultimoPeriodoConDatos('user-1');
-
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { fecha: 'desc' } }),
-    );
+    expect($queryRaw).toHaveBeenCalledTimes(1);
+    const [, ...valores] = $queryRaw.mock.calls[0] as unknown[];
+    expect(valores).toContain('user-abc');
   });
 });

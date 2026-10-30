@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { DiaCorte } from '../src/domain/value-objects/mes-financiero';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
 import { PrismaUltimoPeriodoConDatosReader } from '../src/infrastructure/persistence/prisma-ultimo-periodo-con-datos.repository';
@@ -141,7 +142,10 @@ describe('PrismaUltimoPeriodoConDatosReader (integration — real dev DB)', () =
   });
 
   it('resuelve el ÚLTIMO mes del usuario con datos (2026-03, no 2026-01)', async () => {
-    const result = await repo.ultimoPeriodoConDatos(TEST_USER_ID_A);
+    const result = await repo.ultimoPeriodoConDatos(
+      TEST_USER_ID_A,
+      DiaCorte.CALENDARIO,
+    );
 
     expect(result?.valor).toBe('2026-03');
   });
@@ -150,15 +154,24 @@ describe('PrismaUltimoPeriodoConDatosReader (integration — real dev DB)', () =
     // Usuario B tiene datos en 2026-08 — un mes POSTERIOR al de A. Si el
     // filtro de userId se rompiera (p. ej. quedara sin scoping estructural),
     // A "vería" el mes de B y este assert fallaría.
-    const resultA = await repo.ultimoPeriodoConDatos(TEST_USER_ID_A);
-    const resultB = await repo.ultimoPeriodoConDatos(TEST_USER_ID_B);
+    const resultA = await repo.ultimoPeriodoConDatos(
+      TEST_USER_ID_A,
+      DiaCorte.CALENDARIO,
+    );
+    const resultB = await repo.ultimoPeriodoConDatos(
+      TEST_USER_ID_B,
+      DiaCorte.CALENDARIO,
+    );
 
     expect(resultA?.valor).toBe('2026-03');
     expect(resultB?.valor).toBe('2026-08');
   });
 
   it('usuario sin ninguna transacción → null', async () => {
-    const result = await repo.ultimoPeriodoConDatos(TEST_USER_ID_C);
+    const result = await repo.ultimoPeriodoConDatos(
+      TEST_USER_ID_C,
+      DiaCorte.CALENDARIO,
+    );
 
     expect(result).toBeNull();
   });
@@ -166,6 +179,7 @@ describe('PrismaUltimoPeriodoConDatosReader (integration — real dev DB)', () =
   it('usuario inexistente → null (sin lanzar)', async () => {
     const result = await repo.ultimoPeriodoConDatos(
       `usuario-que-no-existe-${RUN_ID}`,
+      DiaCorte.CALENDARIO,
     );
 
     expect(result).toBeNull();

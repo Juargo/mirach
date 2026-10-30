@@ -1,6 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 import { IPeriodosConDatosReader } from '../../application/ports/periodos-con-datos.port';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
+import { etiquetaPeriodoSql } from './periodo-filtro';
 
 /**
  * PrismaPeriodosConDatosReader — implementation of IPeriodosConDatosReader.
@@ -11,7 +13,9 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
  * `PrismaUltimoPeriodoConDatosReader` derives with `getUTCFullYear()` /
  * `getUTCMonth()` and the same one `PeriodoMes` uses for its half-open
  * `[desde, hasta)` range. (Do NOT add `AT TIME ZONE`: on a `timestamp`
- * column it would reinterpret the value in the session time zone.)
+ * column it would reinterpret the value in the session time zone.) With a
+ * cut-off day (#111) the label is the financial month instead, through
+ * `etiquetaPeriodoSql` (income rows keep the 3-day tolerance).
  *
  * Isolation is structural: the join through `Account` filters
  * `a."userId" = $1` in the WHERE (RNF-SEC-006), with a bound parameter.
@@ -25,9 +29,12 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 export class PrismaPeriodosConDatosReader implements IPeriodosConDatosReader {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async periodosConDatos(userId: string): Promise<ReadonlyArray<PeriodoMes>> {
+  async periodosConDatos(
+    userId: string,
+    diaCorte: DiaCorte,
+  ): Promise<ReadonlyArray<PeriodoMes>> {
     const rows = await this.prisma.$queryRaw<Array<{ periodo: string }>>`
-      SELECT to_char(t."fecha", 'YYYY-MM') AS periodo
+      SELECT ${etiquetaPeriodoSql(diaCorte)} AS periodo
       FROM "Transaccion" t
       JOIN "Account" a ON a."id" = t."accountId"
       WHERE a."userId" = ${userId}
@@ -37,7 +44,7 @@ export class PrismaPeriodosConDatosReader implements IPeriodosConDatosReader {
 
     const periodos: PeriodoMes[] = [];
     for (const row of rows) {
-      const resultado = PeriodoMes.crear(row.periodo);
+      const resultado = PeriodoMes.crear(row.periodo, diaCorte);
       if (resultado.isOk()) {
         periodos.push(resultado.getValue());
       }

@@ -15,7 +15,8 @@
  *   - sin periodo → 200 con filas del mes UTC actual; seed en mes actual +
  *     mes anterior, solo aparecen las del actual (MID-04)
  *   - ?periodo=not-a-date → 400, body scrubbed (MID-04)
- *   - DTO shape — exactamente {total, conteo, transacciones} y cada tx
+ *   - DTO shape — exactamente {fechaInicio, fechaFin, total, conteo,
+ *     transacciones} (#111) y cada tx
  *     {id, fecha, descripcion, origen, monto} con `origen` = banco del account
  *     seed, sin paginación (MID-01/02)
  *   - mes vacío → "0"/0/[] (MID-01)
@@ -369,7 +370,7 @@ describe('IngresosMes (e2e) — GET /api/ingresos/mes', () => {
 
   // ── MID-01/02: DTO shape — shape exacta, origen = banco, sin paginación ─
 
-  it('DTO shape — exactamente {total, conteo, transacciones}, cada tx {id, fecha, descripcion, origen, monto}, sin paginación ni PII (MID-01/02)', async () => {
+  it('DTO shape — exactamente {fechaInicio, fechaFin, total, conteo, transacciones}, cada tx {id, fecha, descripcion, origen, monto}, sin paginación ni PII (MID-01/02)', async () => {
     if (!ALLOW) return;
     const password = 'shape-password-123';
     const { userId } = await seedUserWithCredentials('shape', password);
@@ -406,13 +407,23 @@ describe('IngresosMes (e2e) — GET /api/ingresos/mes', () => {
       .set('Cookie', cookie)
       .expect(200);
 
-    // MID-01/03: EXACTAMENTE {total, conteo, transacciones} — sin
+    // MID-01/03: EXACTAMENTE {fechaInicio, fechaFin, total, conteo,
+    // transacciones} (fechas del mes financiero, #111) — sin
     // meta/porcentaje/estado/periodo en NINGÚN nivel.
     expect(Object.keys(res.body).sort()).toEqual([
       'conteo',
+      'fechaFin',
+      'fechaInicio',
       'total',
       'transacciones',
     ]);
+    // Corte 1 por defecto: el mes calendario completo.
+    expect(res.body.fechaInicio).toBe(`${CURRENT_PERIODO}-01`);
+    expect(res.body.fechaFin).toBe(
+      new Date(Date.UTC(CURRENT_YEAR, CURRENT_MONTH + 1, 0))
+        .toISOString()
+        .slice(0, 10),
+    );
     expect(typeof res.body.total).toBe('string');
     expect(res.body.total).toBe('300000');
     expect(res.body.conteo).toBe(3);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { fechasPeriodoShape } from './periodo-fechas.schema';
 
 /**
  * Query contract for `GET /api/ingresos/mes` — mirrors
@@ -41,8 +42,9 @@ const transaccionIngresoMesSchema = z
   .strict();
 
 /**
- * Response contract for `GET /api/ingresos/mes` (D-03/D-05): EXACTLY `{total,
- * conteo, transacciones}` — sin `meta`/`porcentaje`/`estado` (MID-03: los
+ * Response contract for `GET /api/ingresos/mes` (D-03/D-05): EXACTLY
+ * `{fechaInicio, fechaFin, total, conteo, transacciones}` (financial month
+ * dates, #111) — sin `meta`/`porcentaje`/`estado` (MID-03: los
  * ingresos no participan de 50/30/20 como gasto) y sin echo de `periodo`
  * (MID-01 autoritativo). `.strict()` top-level = additionalProperties: false;
  * el leaf `.strict()` es la garantía wire de MID-06. Sync guarantee: checked
@@ -50,6 +52,7 @@ const transaccionIngresoMesSchema = z
  */
 export const ingresosMesResponseSchema = z
   .object({
+    ...fechasPeriodoShape,
     total: z
       .string()
       .describe('BigInt-safe decimal string amount (never a JSON number).'),

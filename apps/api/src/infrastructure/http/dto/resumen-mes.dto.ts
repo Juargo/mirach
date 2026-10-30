@@ -1,5 +1,6 @@
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
 import { Bucket } from '../../../domain/value-objects/bucket';
+import { PeriodoMes } from '../../../domain/value-objects/periodo-mes';
 import { EstadoSemaforo } from '../../../domain/value-objects/estado-semaforo';
 import { EstadoBloque } from '../../../domain/value-objects/estado-bloque';
 
@@ -52,6 +53,9 @@ export interface BucketResumenDto {
  */
 export interface ResumenMesDto {
   readonly periodo: string;
+  /** First and last day of the financial month (#111), `YYYY-MM-DD`, inclusive. */
+  readonly fechaInicio: string;
+  readonly fechaFin: string;
   readonly totalIngreso: string;
   readonly sinIngreso: boolean;
   readonly buckets: ReadonlyArray<BucketResumenDto>;
@@ -108,11 +112,13 @@ function aPuntosPorcentuales(bp: bigint): number {
 }
 
 export function aResumenMesDto(
-  periodo: string,
+  periodo: PeriodoMes,
   resumen: ResumenMes,
 ): ResumenMesDto {
   return {
-    periodo,
+    periodo: periodo.valor,
+    fechaInicio: periodo.fechaInicio,
+    fechaFin: periodo.fechaFin,
     totalIngreso: String(resumen.totalIngreso),
     sinIngreso: resumen.sinIngreso,
     buckets: resumen.buckets.map((slice) => ({

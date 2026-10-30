@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { fechasPeriodoShape } from './periodo-fechas.schema';
 import { bucketsPathParamsSchema } from './buckets.schema';
 
 /**
@@ -83,6 +84,7 @@ const grupoDetalleMesSchema = z.object({
 export const bucketDetalleMesResponseSchema = z
   .object({
     periodo: z.string().describe('Resolved period, format YYYY-MM.'),
+    ...fechasPeriodoShape,
     bucket: z
       .string()
       .describe(

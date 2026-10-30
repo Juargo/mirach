@@ -2,8 +2,6 @@ import { Result } from '../../shared/result';
 import { PeriodoInvalidoError } from '../errors/periodo-invalido.error';
 import { DiaCorte } from './mes-financiero';
 
-/** Income tolerance (PER-08): days before the cut-off that still count. */
-const DIAS_TOLERANCIA_INGRESO = 3;
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
 
 const sumarDias = (fecha: Date, dias: number): Date =>
@@ -45,9 +43,8 @@ export class PeriodoMes {
     readonly hasta: Date, // primer instante del período siguiente, UTC (exclusive)
     readonly diaCorte: DiaCorte,
   ) {
-    const tolerancia = diaCorte.esCalendario ? 0 : DIAS_TOLERANCIA_INGRESO;
-    this.ingresoDesde = sumarDias(desde, -tolerancia);
-    this.ingresoHasta = sumarDias(hasta, -tolerancia);
+    this.ingresoDesde = sumarDias(desde, -diaCorte.toleranciaIngresoDias);
+    this.ingresoHasta = sumarDias(hasta, -diaCorte.toleranciaIngresoDias);
   }
 
   /** First day of the period, `YYYY-MM-DD`. */
@@ -115,8 +112,10 @@ export class PeriodoMes {
 
   /** The period an income credit on `fecha` counts in (PER-08 tolerance). */
   static queContieneIngreso(fecha: Date, diaCorte: DiaCorte): PeriodoMes {
-    const tolerancia = diaCorte.esCalendario ? 0 : DIAS_TOLERANCIA_INGRESO;
-    return PeriodoMes.queContiene(sumarDias(fecha, tolerancia), diaCorte);
+    return PeriodoMes.queContiene(
+      sumarDias(fecha, diaCorte.toleranciaIngresoDias),
+      diaCorte,
+    );
   }
 
   /**

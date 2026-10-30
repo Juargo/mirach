@@ -1,6 +1,12 @@
 import { ResumenMes } from '../../../domain/value-objects/resumen-mes';
 import { Bucket } from '../../../domain/value-objects/bucket';
 import { aResumenMesDto } from './resumen-mes.dto';
+import { PeriodoMes } from '../../../domain/value-objects/periodo-mes';
+import { DiaCorte } from '../../../domain/value-objects/mes-financiero';
+/** A calendar-month PeriodoMes (cut-off day 1) for the mapper. */
+function periodo(valor: string): PeriodoMes {
+  return PeriodoMes.crear(valor).getValue();
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // T-09: Unit tests — ResumenMesDto BigInt safety + shape
@@ -27,7 +33,7 @@ describe('aResumenMesDto', () => {
     it('totalIngreso as exact decimal string when > Number.MAX_SAFE_INTEGER', () => {
       const big = 9_007_199_254_740_993n; // MAX_SAFE_INTEGER + 1
       const resumen = makeResumen({ totalIngreso: big, necesidades: big });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       expect(dto.totalIngreso).toBe('9007199254740993');
       expect(typeof dto.totalIngreso).toBe('string');
@@ -36,7 +42,7 @@ describe('aResumenMesDto', () => {
     it('bucket total as exact decimal string when > Number.MAX_SAFE_INTEGER', () => {
       const big = 9_007_199_254_740_993n;
       const resumen = makeResumen({ totalIngreso: big, necesidades: big });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.total).toBe('9007199254740993');
@@ -45,7 +51,7 @@ describe('aResumenMesDto', () => {
     it('porcentajeBp is 10000 (number) when total === base for large BigInt', () => {
       const big = 9_007_199_254_740_993n;
       const resumen = makeResumen({ totalIngreso: big, necesidades: big });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.porcentajeBp).toBe(10000);
@@ -59,7 +65,7 @@ describe('aResumenMesDto', () => {
         totalIngreso: 1_500_000n,
         necesidades: 750_000n,
       });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(typeof nec?.porcentajeBp).toBe('number');
@@ -68,7 +74,7 @@ describe('aResumenMesDto', () => {
 
     it('porcentajeBp is null when sinIngreso=true (all buckets)', () => {
       const resumen = makeResumen({ totalIngreso: 0n, necesidades: 100_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       for (const bucket of dto.buckets) {
         expect(bucket.porcentajeBp).toBeNull();
@@ -79,7 +85,7 @@ describe('aResumenMesDto', () => {
   describe('sinIngreso shape', () => {
     it('sinIngreso=true in DTO when income=0, HTTP 200 (not an error)', () => {
       const resumen = makeResumen({ totalIngreso: 0n, necesidades: 50_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       expect(dto.sinIngreso).toBe(true);
       expect(dto.totalIngreso).toBe('0');
@@ -87,7 +93,7 @@ describe('aResumenMesDto', () => {
 
     it('totalIngreso string is present even when sinIngreso=true', () => {
       const resumen = makeResumen({ totalIngreso: 0n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       expect(dto.totalIngreso).toBe('0');
     });
@@ -102,7 +108,7 @@ describe('aResumenMesDto', () => {
         totalIngreso: 1_500_000n,
         necesidades: 500_000n,
       });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.estadoSemaforo).toBe('verde');
       expect(nec?.estadoSemaforo).not.toBe('Verde');
@@ -114,7 +120,7 @@ describe('aResumenMesDto', () => {
         totalIngreso: 1_500_000n,
         necesidades: 840_000n,
       });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.estadoSemaforo).toBe('amarillo');
     });
@@ -125,14 +131,14 @@ describe('aResumenMesDto', () => {
         totalIngreso: 1_500_000n,
         necesidades: 960_000n,
       });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       const nec = dto.buckets.find((b) => b.bucket === Bucket.Necesidades);
       expect(nec?.estadoSemaforo).toBe('rojo');
     });
 
     it('SC-W-04: null estadoSemaforo passes through as JSON null (not omitted)', () => {
       const resumen = makeResumen({ totalIngreso: 0n, necesidades: 100_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       for (const bucket of dto.buckets) {
         expect('estadoSemaforo' in bucket).toBe(true);
         expect(bucket.estadoSemaforo).toBeNull();
@@ -151,7 +157,7 @@ describe('aResumenMesDto', () => {
         deseos: 200_000n,
         ahorro: 300_000n,
       });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       expect(dto.estadoGlobal).toBe('verde');
     });
 
@@ -161,19 +167,19 @@ describe('aResumenMesDto', () => {
         totalIngreso: 1_500_000n,
         necesidades: 960_000n,
       });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       expect(dto.estadoGlobal).toBe('rojo');
     });
 
     it('estadoGlobal is null when sinIngreso=true', () => {
       const resumen = makeResumen({ totalIngreso: 0n, necesidades: 50_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       expect(dto.estadoGlobal).toBeNull();
     });
 
     it('estadoGlobal field is always present (key exists even when null)', () => {
       const resumen = makeResumen({ totalIngreso: 0n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
       expect('estadoGlobal' in dto).toBe(true);
     });
   });
@@ -181,28 +187,28 @@ describe('aResumenMesDto', () => {
   describe('DTO shape invariants', () => {
     it('buckets always has exactly 3 entries (issue #778 tramo 5b PR5: SinCategoria removed)', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       expect(dto.buckets).toHaveLength(3);
     });
 
     it('targets shape is { Necesidades: 50, Deseos: 30, Ahorro: 20 }', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       expect(dto.targets).toEqual({ Necesidades: 50, Deseos: 30, Ahorro: 20 });
     });
 
     it('periodo field matches the input string', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       expect(dto.periodo).toBe('2026-07');
     });
 
     it('bucket names in DTO match Bucket enum values', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       const bucketNames = dto.buckets.map((b) => b.bucket);
       expect(bucketNames).toContain(Bucket.Necesidades);
@@ -219,7 +225,7 @@ describe('aResumenMesDto', () => {
         necesidades: 500_000n,
         deseos: 100_000n,
       });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       for (const bucket of dto.buckets) {
         expect(typeof bucket.total).toBe('string');
@@ -233,14 +239,14 @@ describe('aResumenMesDto', () => {
   describe('cantidadSinCategoria removed from the wire contract (issue #778 tramo 5b PR5)', () => {
     it('ResumenMesDto no longer has a cantidadSinCategoria key', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       expect('cantidadSinCategoria' in dto).toBe(false);
     });
 
     it('BucketResumenDto entries have exactly the known keys (ISP boundary, D-02; estado added by #113, metaBp by #110)', () => {
       const resumen = makeResumen({ totalIngreso: 1_000_000n });
-      const dto = aResumenMesDto('2026-07', resumen);
+      const dto = aResumenMesDto(periodo('2026-07'), resumen);
 
       for (const bucket of dto.buckets) {
         expect(Object.keys(bucket).sort()).toEqual(
@@ -262,7 +268,7 @@ describe('aResumenMesDto', () => {
 describe('aResumenMesDto — participacionGastoBp', () => {
   it('is each spend bucket share of total spend (not of income), summing to 10000', () => {
     const dto = aResumenMesDto(
-      '2026-07',
+      periodo('2026-07'),
       makeResumen({
         totalIngreso: 1_000_000n,
         necesidades: 1n,
@@ -285,7 +291,7 @@ describe('aResumenMesDto — participacionGastoBp', () => {
   it('is a JS number (not string/bigint) and exact beyond MAX_SAFE_INTEGER', () => {
     const big = 9_007_199_254_740_993n;
     const dto = aResumenMesDto(
-      '2026-07',
+      periodo('2026-07'),
       makeResumen({ totalIngreso: big, necesidades: big, deseos: big }),
     );
     expect(dto.buckets.map((b) => b.participacionGastoBp)).toEqual([
@@ -295,7 +301,10 @@ describe('aResumenMesDto — participacionGastoBp', () => {
   });
 
   it('is null for every bucket when there is no spend, even with income', () => {
-    const dto = aResumenMesDto('2026-07', makeResumen({ totalIngreso: 500n }));
+    const dto = aResumenMesDto(
+      periodo('2026-07'),
+      makeResumen({ totalIngreso: 500n }),
+    );
     expect(dto.buckets.map((b) => b.participacionGastoBp)).toEqual([
       null,
       null,
@@ -305,7 +314,7 @@ describe('aResumenMesDto — participacionGastoBp', () => {
 
   it('is still computed when sinIngreso (spend without income)', () => {
     const dto = aResumenMesDto(
-      '2026-07',
+      periodo('2026-07'),
       makeResumen({ totalIngreso: 0n, necesidades: 3n, deseos: 1n }),
     );
     expect(dto.sinIngreso).toBe(true);
@@ -320,7 +329,7 @@ describe('aResumenMesDto — participacionGastoBp', () => {
 describe('aResumenMesDto — rule 9 states (issue #113)', () => {
   it('serializes estado per bucket, estadoMes and bloquesEstadoMes in lowercase / bucket ids', () => {
     const dto = aResumenMesDto(
-      '2026-10',
+      periodo('2026-10'),
       makeResumen({
         totalIngreso: 1_000_000n,
         necesidades: 580_000n,
@@ -340,7 +349,7 @@ describe('aResumenMesDto — rule 9 states (issue #113)', () => {
 
   it('keeps the legacy estadoSemaforo / estadoGlobal values', () => {
     const dto = aResumenMesDto(
-      '2026-10',
+      periodo('2026-10'),
       makeResumen({
         totalIngreso: 1_000_000n,
         necesidades: 580_000n,
@@ -358,7 +367,10 @@ describe('aResumenMesDto — rule 9 states (issue #113)', () => {
   });
 
   it('sinIngreso → null states and no defining block', () => {
-    const dto = aResumenMesDto('2026-10', makeResumen({ totalIngreso: 0n }));
+    const dto = aResumenMesDto(
+      periodo('2026-10'),
+      makeResumen({ totalIngreso: 0n }),
+    );
 
     expect(dto.buckets.map((b) => b.estado)).toEqual([null, null, null]);
     expect(dto.estadoMes).toBeNull();
@@ -377,7 +389,7 @@ describe('aResumenMesDto — budget profile goals (#110)', () => {
   );
 
   it('targets follow the profile in percentage points', () => {
-    expect(aResumenMesDto('2026-10', resumen).targets).toEqual({
+    expect(aResumenMesDto(periodo('2026-10'), resumen).targets).toEqual({
       Necesidades: 80,
       Deseos: 10,
       Ahorro: 10,
@@ -386,7 +398,7 @@ describe('aResumenMesDto — budget profile goals (#110)', () => {
 
   it('each bucket carries its metaBp', () => {
     expect(
-      aResumenMesDto('2026-10', resumen).buckets.map((b) => b.metaBp),
+      aResumenMesDto(periodo('2026-10'), resumen).buckets.map((b) => b.metaBp),
     ).toEqual([8000, 1000, 1000]);
   });
 
@@ -399,10 +411,33 @@ describe('aResumenMesDto — budget profile goals (#110)', () => {
         [Bucket.Ahorro]: 3325n,
       },
     );
-    expect(aResumenMesDto('2026-10', custom).targets).toEqual({
+    expect(aResumenMesDto(periodo('2026-10'), custom).targets).toEqual({
       Necesidades: 33.5,
       Deseos: 33.25,
       Ahorro: 33.25,
     });
+  });
+});
+
+describe('aResumenMesDto — financial month dates (#111)', () => {
+  it('carries the label and the start and end dates of the period', () => {
+    const corte25 = DiaCorte.crear(25).getValue();
+    const octubre = PeriodoMes.crear('2026-10', corte25).getValue();
+
+    const dto = aResumenMesDto(octubre, makeResumen({ totalIngreso: 0n }));
+
+    expect(dto.periodo).toBe('2026-10');
+    expect(dto.fechaInicio).toBe('2026-10-25');
+    expect(dto.fechaFin).toBe('2026-11-24');
+  });
+
+  it('a calendar month goes from its first to its last day', () => {
+    const dto = aResumenMesDto(
+      periodo('2026-02'),
+      makeResumen({ totalIngreso: 0n }),
+    );
+
+    expect(dto.fechaInicio).toBe('2026-02-01');
+    expect(dto.fechaFin).toBe('2026-02-28');
   });
 });

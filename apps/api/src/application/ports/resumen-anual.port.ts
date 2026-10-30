@@ -1,5 +1,6 @@
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
+import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 
 /**
  * BucketSumRowAnual — aggregated sums per budget bucket for a single calendar
@@ -38,6 +39,7 @@ export interface IResumenAnualReader {
   sumarPorBucketAnual(
     userId: string,
     anio: PeriodoAnio,
+    diaCorte: DiaCorte,
   ): Promise<ReadonlyArray<BucketSumRowAnual>>;
 }
 

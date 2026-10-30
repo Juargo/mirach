@@ -60,6 +60,8 @@ function makeResult(
 ): ObtenerDetalleBucketMesResult {
   return {
     periodo: '2026-07',
+    fechaInicio: '2026-07-01',
+    fechaFin: '2026-07-31',
     bucket: Bucket.Necesidades,
     total: 150000n,
     totalTransacciones: 2,

@@ -4,6 +4,7 @@ import {
 } from '../../application/ports/movimientos-mes.port';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { filtroFechaPeriodo } from './periodo-filtro';
 import type { PrismaClient } from '@prisma/client';
 import { resolverBucket } from './bucket-ids';
 import { foldCategoria } from './fold-categoria';
@@ -60,7 +61,7 @@ export class PrismaMovimientosMesRepository implements IMovimientosMesReader {
     const rows = await this.prisma.transaccion.findMany({
       where: {
         account: { userId },
-        fecha: { gte: periodo.desde, lt: periodo.hasta },
+        ...filtroFechaPeriodo(periodo), // income window (#111)
       },
       select: {
         id: true,
