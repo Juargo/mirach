@@ -6,6 +6,7 @@ import { getClientIp } from '../../http/auth/client-ip';
 import { appLogger } from '../../logging/app-logger';
 import { CREDENCIALES_INVALIDAS } from '../auth-error-codes';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
+import { versionDe } from '../schemas/consentimientos.schema';
 
 /**
  * Cuerpo genérico 401 — byte-idéntico al de `/auth/login` (AUTH-21). NO
@@ -27,16 +28,6 @@ const GENERIC_401_BODY = {
 const RATE_LIMITED_BODY = {
   message: 'Demasiadas solicitudes. Intenta más tarde.',
 };
-
-/**
- * A value that is not text must not read as "no version": it becomes one that
- * fails validation, so a signup rejects it and an existing user is unaffected.
- */
-function versionDe(raw: unknown): string | null | undefined {
-  return raw === undefined || raw === null || typeof raw === 'string'
-    ? raw
-    : '';
-}
 
 /** Dependencias de `POST /api/auth/google/token` — mismo shape que `GoogleAuthMobileGraph` (composition, design §7). */
 export interface AuthGoogleTokenDeps {

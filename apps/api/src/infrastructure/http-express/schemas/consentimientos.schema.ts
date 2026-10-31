@@ -6,6 +6,16 @@ const VERSION_DESCRIPCION =
   '1 to 32 letters, digits, dots, hyphens or underscores.';
 
 /**
+ * A value that is not text must not read as "no version", and must not reject
+ * the body of an existing user either: it becomes one that fails at signup.
+ */
+export function versionDe(raw: unknown): string | null | undefined {
+  return raw === undefined || raw === null || typeof raw === 'string'
+    ? raw
+    : '';
+}
+
+/**
  * Optional fields of the Apple and Google token endpoints (AUTH-03, ADR-006 §4).
  * Their format is checked by the domain and only at signup, so a value here can
  * never affect the login of an existing user.

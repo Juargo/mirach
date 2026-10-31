@@ -147,6 +147,22 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
     );
   });
 
+  it('una versión que no es texto no rechaza el login: la decide el alta (#112)', async () => {
+    const d = deps();
+
+    const res = await request(tokenApp(d))
+      .post('/api/auth/apple/token')
+      .send({ ...BODY, versionTerminos: 7 });
+
+    expect(res.status).toBe(200);
+    expect(d.loginConApple.execute).toHaveBeenCalledWith(
+      IDENTIDAD,
+      undefined,
+      undefined,
+      { terminos: '', privacidad: undefined },
+    );
+  });
+
   it('un alta sin términos toma el 401 genérico (#112)', async () => {
     const d = deps({
       loginConApple: {
