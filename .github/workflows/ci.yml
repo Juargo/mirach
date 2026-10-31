@@ -256,6 +256,64 @@ jobs:
       # Integration/e2e run in the dedicated `integration` job below, against an
       # ephemeral Postgres service container — NOT here (this job has no DB).
 
+  # ADR-005 §4.6, ADR-008 §3 (#117): an installed app cannot be updated at will,
+  # so an incompatible change of `apps/api/openapi.json` fails here. The default
+  # checkout is the PR merge commit, so a branch that is behind `main` is not
+  # blamed for what landed there. Only PRs: on `main` there is nothing to compare.
+  # An intentional break takes the `contrato-incompatible` label and a re-run of
+  # this job (see apps/api/README.md). The binary is pinned by version and SHA-256,
+  # same supply-chain posture as the SHA-pinned actions, and past the 7-day
+  # quarantine of `.npmrc`.
+  contract-compatibility:
+    name: Contract compatibility (oasdiff)
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    # `gh pr view` needs pull-requests: read; contents: read stays for checkout.
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      OASDIFF_VERSION: 1.34.1
+      OASDIFF_SHA256: 75775f65b0adebd26a8e013af51a799342dfdc6262d89efa9e3b7bdf89657d90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install oasdiff
+        run: |
+          archivo="oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archivo" \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/$archivo"
+          echo "$OASDIFF_SHA256  $RUNNER_TEMP/$archivo" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archivo" -C "$RUNNER_TEMP" oasdiff
+
+      # Runs outside the checkout: oasdiff reads `.oasdiff.*` from the working
+      # directory, and a PR must not be able to configure its own check. Labels
+      # are read live, not from the event: a re-run replays the original payload,
+      # so it would never see a label added afterwards.
+      - name: Compare the contract with the base branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git show "HEAD^1:apps/api/openapi.json" > "$RUNNER_TEMP/base.json"
+          cp apps/api/openapi.json "$RUNNER_TEMP/head.json"
+          cd "$RUNNER_TEMP"
+          estado=0
+          ./oasdiff breaking base.json head.json --fail-on ERR || estado=$?
+          # 1 is "breaking changes found"; 100 and above are oasdiff itself
+          # failing, which the label must never hide.
+          if [ "$estado" -eq 1 ]; then
+            etiquetas=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name')
+            if printf '%s\n' "$etiquetas" | grep -qx 'contrato-incompatible'; then
+              echo "::warning::Incompatible contract change accepted by the contrato-incompatible label"
+              exit 0
+            fi
+          fi
+          exit "$estado"
+
   # ADR-028/029 — integration + e2e against an EPHEMERAL Postgres. These specs
   # mutate a real DB (gated by ALLOW_DESTRUCTIVE_DB; db-safety blocks prod/
   # Supabase URLs), so they used to be a manual/local-only gate. A throwaway
@@ -1015,7 +1073,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, integration, dast, sast, landing, security, ios-checks, ios, android]
+    needs: [changes, commitlint, release-please-config-check, openspec-artifacts, api, contract-compatibility, integration, dast, sast, landing, security, ios-checks, ios, android]
     runs-on: ubuntu-latest
     steps:
       - name: Verify no required job failed

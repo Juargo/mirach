@@ -27,3 +27,15 @@ pnpm api test              # unit (sin BD)
 pnpm api test:integration  # integración contra BD real de dev
 pnpm api test:e2e          # e2e HTTP contra BD real de dev
 ```
+
+## Contrato
+
+`openapi.json` es el contrato de las apps. Una versión instalada no se actualiza a voluntad, así que dentro de `/api` solo se hacen cambios aditivos (ADR-005 §4).
+
+En cada PR que toca `apps/api`, el job `Contract compatibility (oasdiff)` compara `openapi.json` con el de la rama base y falla ante un cambio incompatible. Para revisarlo en local:
+
+```bash
+oasdiff breaking <openapi-de-main.json> apps/api/openapi.json --fail-on ERR
+```
+
+Si el cambio incompatible es intencional, agrega el label `contrato-incompatible` al PR y vuelve a correr ese job: agregar un label no lo dispara solo. El job deja una advertencia y pasa. Úsalo solo si ninguna versión soportada depende de lo que cambia, y explica en el PR por qué.
