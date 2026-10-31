@@ -164,6 +164,7 @@ describe('PrismaIdentidadAppleRepository', () => {
     }
 
     const DATOS = {
+      aceptacion: null,
       email: Email.crear('Ana.Perez@Gmail.com').getValue(),
       appleSub: 'apple-sub-nuevo',
       nombre: 'Ana Pérez',

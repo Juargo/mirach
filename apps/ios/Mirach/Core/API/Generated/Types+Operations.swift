@@ -13,7 +13,7 @@ import struct Foundation.Date
 internal enum Operations {
     /// Authenticate with a native Apple identity token (mobile)
     ///
-    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, a lost creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers a generic 500, not this 401.
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, a lost creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers a generic 500, not this 401. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
     ///
     /// - Remark: HTTP `POST /api/auth/apple/token`.
     /// - Remark: Generated from `#/paths//api/auth/apple/token/post`.
@@ -52,6 +52,14 @@ internal enum Operations {
                     ///
                     /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/requestBody/json/nonce`.
                     internal var nonce: Swift.String
+                    /// Version of the privacy policy the person accepted before signing in; see `versionTerminos`.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/requestBody/json/versionPrivacidad`.
+                    internal var versionPrivacidad: Swift.String?
+                    /// Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/requestBody/json/versionTerminos`.
+                    internal var versionTerminos: Swift.String?
                     /// Creates a new `jsonPayload`.
                     ///
                     /// - Parameters:
@@ -59,22 +67,30 @@ internal enum Operations {
                     ///   - identityToken: Apple identity token (JWT) from the native authorization.
                     ///   - nombre: Full name, only available on the FIRST authorization (Apple never puts it in the token). Omit or null afterwards.
                     ///   - nonce: Raw nonce generated by the app. The app passes its SHA-256 (hex) to Apple; the server hashes this value and compares it with the token nonce claim.
+                    ///   - versionPrivacidad: Version of the privacy policy the person accepted before signing in; see `versionTerminos`.
+                    ///   - versionTerminos: Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401.
                     internal init(
                         authorizationCode: Swift.String? = nil,
                         identityToken: Swift.String,
                         nombre: Swift.String? = nil,
-                        nonce: Swift.String
+                        nonce: Swift.String,
+                        versionPrivacidad: Swift.String? = nil,
+                        versionTerminos: Swift.String? = nil
                     ) {
                         self.authorizationCode = authorizationCode
                         self.identityToken = identityToken
                         self.nombre = nombre
                         self.nonce = nonce
+                        self.versionPrivacidad = versionPrivacidad
+                        self.versionTerminos = versionTerminos
                     }
                     internal enum CodingKeys: String, CodingKey {
                         case authorizationCode
                         case identityToken
                         case nombre
                         case nonce
+                        case versionPrivacidad
+                        case versionTerminos
                     }
                 }
                 /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/requestBody/content/application\/json`.
@@ -993,7 +1009,7 @@ internal enum Operations {
     }
     /// Authenticate with a native Google id_token (mobile)
     ///
-    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, a lost account-creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's activation gate.
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, a lost account-creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's activation gate. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
     ///
     /// - Remark: HTTP `POST /api/auth/google/token`.
     /// - Remark: Generated from `#/paths//api/auth/google/token/post`.
@@ -1018,15 +1034,33 @@ internal enum Operations {
                 internal struct jsonPayload: Codable, Hashable, Sendable {
                     /// - Remark: Generated from `#/paths/api/auth/google/token/POST/requestBody/json/idToken`.
                     internal var idToken: Swift.String
+                    /// Version of the privacy policy the person accepted before signing in; see `versionTerminos`.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/auth/google/token/POST/requestBody/json/versionPrivacidad`.
+                    internal var versionPrivacidad: Swift.String?
+                    /// Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/auth/google/token/POST/requestBody/json/versionTerminos`.
+                    internal var versionTerminos: Swift.String?
                     /// Creates a new `jsonPayload`.
                     ///
                     /// - Parameters:
                     ///   - idToken:
-                    internal init(idToken: Swift.String) {
+                    ///   - versionPrivacidad: Version of the privacy policy the person accepted before signing in; see `versionTerminos`.
+                    ///   - versionTerminos: Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401.
+                    internal init(
+                        idToken: Swift.String,
+                        versionPrivacidad: Swift.String? = nil,
+                        versionTerminos: Swift.String? = nil
+                    ) {
                         self.idToken = idToken
+                        self.versionPrivacidad = versionPrivacidad
+                        self.versionTerminos = versionTerminos
                     }
                     internal enum CodingKeys: String, CodingKey {
                         case idToken
+                        case versionPrivacidad
+                        case versionTerminos
                     }
                 }
                 /// - Remark: Generated from `#/paths/api/auth/google/token/POST/requestBody/content/application\/json`.
@@ -3692,6 +3726,841 @@ internal enum Operations {
             }
         }
     }
+    /// List the current user's consents
+    ///
+    /// Authenticated endpoint that returns the caller's consents (issue #112, AUTH-03, PRI-02, PRI-06): terms, privacy and statement processing, each with its version and dates. A row with `revocadoEn` null is in force. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/consentimientos`.
+    /// - Remark: Generated from `#/paths//api/consentimientos/get`.
+    internal enum get_sol_api_sol_consentimientos {
+        internal static let id: Swift.String = "get/api/consentimientos"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/consentimientos/GET/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_consentimientos.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_consentimientos.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.get_sol_api_sol_consentimientos.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            internal init(headers: Operations.get_sol_api_sol_consentimientos.Input.Headers = .init()) {
+                self.headers = headers
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json`.
+                    internal struct jsonPayload: Codable, Hashable, Sendable {
+                        /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientosPayload`.
+                        internal struct consentimientosPayloadPayload: Codable, Hashable, Sendable {
+                            /// ISO-8601 UTC timestamp.
+                            ///
+                            /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientosPayload/aceptadoEn`.
+                            internal var aceptadoEn: Swift.String
+                            /// ISO-8601 UTC timestamp; null while the consent is in force.
+                            ///
+                            /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientosPayload/revocadoEn`.
+                            internal var revocadoEn: Swift.String?
+                            /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientosPayload/tipo`.
+                            internal enum tipoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                                case terminos = "terminos"
+                                case privacidad = "privacidad"
+                                case cartolas = "cartolas"
+                            }
+                            /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientosPayload/tipo`.
+                            internal var tipo: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.consentimientosPayloadPayload.tipoPayload
+                            /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientosPayload/version`.
+                            internal var version: Swift.String
+                            /// Creates a new `consentimientosPayloadPayload`.
+                            ///
+                            /// - Parameters:
+                            ///   - aceptadoEn: ISO-8601 UTC timestamp.
+                            ///   - revocadoEn: ISO-8601 UTC timestamp; null while the consent is in force.
+                            ///   - tipo:
+                            ///   - version:
+                            internal init(
+                                aceptadoEn: Swift.String,
+                                revocadoEn: Swift.String? = nil,
+                                tipo: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.consentimientosPayloadPayload.tipoPayload,
+                                version: Swift.String
+                            ) {
+                                self.aceptadoEn = aceptadoEn
+                                self.revocadoEn = revocadoEn
+                                self.tipo = tipo
+                                self.version = version
+                            }
+                            internal enum CodingKeys: String, CodingKey {
+                                case aceptadoEn
+                                case revocadoEn
+                                case tipo
+                                case version
+                            }
+                            internal init(from decoder: any Swift.Decoder) throws {
+                                let container = try decoder.container(keyedBy: CodingKeys.self)
+                                self.aceptadoEn = try container.decode(
+                                    Swift.String.self,
+                                    forKey: .aceptadoEn
+                                )
+                                self.revocadoEn = try container.decodeIfPresent(
+                                    Swift.String.self,
+                                    forKey: .revocadoEn
+                                )
+                                self.tipo = try container.decode(
+                                    Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.consentimientosPayloadPayload.tipoPayload.self,
+                                    forKey: .tipo
+                                )
+                                self.version = try container.decode(
+                                    Swift.String.self,
+                                    forKey: .version
+                                )
+                                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                                    "aceptadoEn",
+                                    "revocadoEn",
+                                    "tipo",
+                                    "version"
+                                ])
+                            }
+                        }
+                        /// Every consent of the session user, newest first. Revoked ones stay as history.
+                        ///
+                        /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientos`.
+                        internal typealias consentimientosPayload = [Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.consentimientosPayloadPayload]
+                        /// Every consent of the session user, newest first. Revoked ones stay as history.
+                        ///
+                        /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/json/consentimientos`.
+                        internal var consentimientos: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.consentimientosPayload
+                        /// Creates a new `jsonPayload`.
+                        ///
+                        /// - Parameters:
+                        ///   - consentimientos: Every consent of the session user, newest first. Revoked ones stay as history.
+                        internal init(consentimientos: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.consentimientosPayload) {
+                            self.consentimientos = consentimientos
+                        }
+                        internal enum CodingKeys: String, CodingKey {
+                            case consentimientos
+                        }
+                        internal init(from decoder: any Swift.Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            self.consentimientos = try container.decode(
+                                Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.consentimientosPayload.self,
+                                forKey: .consentimientos
+                            )
+                            try decoder.ensureNoAdditionalProperties(knownKeys: [
+                                "consentimientos"
+                            ])
+                        }
+                    }
+                    /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/200/content/application\/json`.
+                    case json(Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// The caller's consents.
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/get/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.get_sol_api_sol_consentimientos.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.get_sol_api_sol_consentimientos.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/consentimientos/GET/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_consentimientos.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_consentimientos.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/get/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.get_sol_api_sol_consentimientos.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.get_sol_api_sol_consentimientos.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Accept a consent
+    ///
+    /// Authenticated endpoint that records an acceptance (issue #112, PRI-02). Accepting the version already in force changes nothing and returns that row; another version revokes it and adds a new one, so the history is kept. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `POST /api/consentimientos`.
+    /// - Remark: Generated from `#/paths//api/consentimientos/post`.
+    internal enum post_sol_api_sol_consentimientos {
+        internal static let id: Swift.String = "post/api/consentimientos"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/consentimientos/POST/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_consentimientos.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_consentimientos.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.post_sol_api_sol_consentimientos.Input.Headers
+            /// - Remark: Generated from `#/paths/api/consentimientos/POST/requestBody`.
+            internal enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/POST/requestBody/json`.
+                internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// What the person accepted.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/consentimientos/POST/requestBody/json/tipo`.
+                    internal enum tipoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                        case terminos = "terminos"
+                        case privacidad = "privacidad"
+                        case cartolas = "cartolas"
+                    }
+                    /// What the person accepted.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/consentimientos/POST/requestBody/json/tipo`.
+                    internal var tipo: Operations.post_sol_api_sol_consentimientos.Input.Body.jsonPayload.tipoPayload
+                    /// Version of the accepted document. 1 to 32 letters, digits, dots, hyphens or underscores.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/consentimientos/POST/requestBody/json/version`.
+                    internal var version: Swift.String
+                    /// Creates a new `jsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - tipo: What the person accepted.
+                    ///   - version: Version of the accepted document. 1 to 32 letters, digits, dots, hyphens or underscores.
+                    internal init(
+                        tipo: Operations.post_sol_api_sol_consentimientos.Input.Body.jsonPayload.tipoPayload,
+                        version: Swift.String
+                    ) {
+                        self.tipo = tipo
+                        self.version = version
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case tipo
+                        case version
+                    }
+                    internal init(from decoder: any Swift.Decoder) throws {
+                        let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.tipo = try container.decode(
+                            Operations.post_sol_api_sol_consentimientos.Input.Body.jsonPayload.tipoPayload.self,
+                            forKey: .tipo
+                        )
+                        self.version = try container.decode(
+                            Swift.String.self,
+                            forKey: .version
+                        )
+                        try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "tipo",
+                            "version"
+                        ])
+                    }
+                }
+                /// - Remark: Generated from `#/paths/api/consentimientos/POST/requestBody/content/application\/json`.
+                case json(Operations.post_sol_api_sol_consentimientos.Input.Body.jsonPayload)
+            }
+            internal var body: Operations.post_sol_api_sol_consentimientos.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            internal init(
+                headers: Operations.post_sol_api_sol_consentimientos.Input.Headers = .init(),
+                body: Operations.post_sol_api_sol_consentimientos.Input.Body? = nil
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Created: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content/json`.
+                    internal struct jsonPayload: Codable, Hashable, Sendable {
+                        /// ISO-8601 UTC timestamp.
+                        ///
+                        /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content/json/aceptadoEn`.
+                        internal var aceptadoEn: Swift.String
+                        /// ISO-8601 UTC timestamp; null while the consent is in force.
+                        ///
+                        /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content/json/revocadoEn`.
+                        internal var revocadoEn: Swift.String?
+                        /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content/json/tipo`.
+                        internal enum tipoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                            case terminos = "terminos"
+                            case privacidad = "privacidad"
+                            case cartolas = "cartolas"
+                        }
+                        /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content/json/tipo`.
+                        internal var tipo: Operations.post_sol_api_sol_consentimientos.Output.Created.Body.jsonPayload.tipoPayload
+                        /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content/json/version`.
+                        internal var version: Swift.String
+                        /// Creates a new `jsonPayload`.
+                        ///
+                        /// - Parameters:
+                        ///   - aceptadoEn: ISO-8601 UTC timestamp.
+                        ///   - revocadoEn: ISO-8601 UTC timestamp; null while the consent is in force.
+                        ///   - tipo:
+                        ///   - version:
+                        internal init(
+                            aceptadoEn: Swift.String,
+                            revocadoEn: Swift.String? = nil,
+                            tipo: Operations.post_sol_api_sol_consentimientos.Output.Created.Body.jsonPayload.tipoPayload,
+                            version: Swift.String
+                        ) {
+                            self.aceptadoEn = aceptadoEn
+                            self.revocadoEn = revocadoEn
+                            self.tipo = tipo
+                            self.version = version
+                        }
+                        internal enum CodingKeys: String, CodingKey {
+                            case aceptadoEn
+                            case revocadoEn
+                            case tipo
+                            case version
+                        }
+                        internal init(from decoder: any Swift.Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            self.aceptadoEn = try container.decode(
+                                Swift.String.self,
+                                forKey: .aceptadoEn
+                            )
+                            self.revocadoEn = try container.decodeIfPresent(
+                                Swift.String.self,
+                                forKey: .revocadoEn
+                            )
+                            self.tipo = try container.decode(
+                                Operations.post_sol_api_sol_consentimientos.Output.Created.Body.jsonPayload.tipoPayload.self,
+                                forKey: .tipo
+                            )
+                            self.version = try container.decode(
+                                Swift.String.self,
+                                forKey: .version
+                            )
+                            try decoder.ensureNoAdditionalProperties(knownKeys: [
+                                "aceptadoEn",
+                                "revocadoEn",
+                                "tipo",
+                                "version"
+                            ])
+                        }
+                    }
+                    /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/201/content/application\/json`.
+                    case json(Operations.post_sol_api_sol_consentimientos.Output.Created.Body.jsonPayload)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Operations.post_sol_api_sol_consentimientos.Output.Created.Body.jsonPayload {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_consentimientos.Output.Created.Body
+                /// Creates a new `Created`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_consentimientos.Output.Created.Body) {
+                    self.body = body
+                }
+            }
+            /// The consent in force.
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/post/responses/201`.
+            ///
+            /// HTTP response code: `201 created`.
+            case created(Operations.post_sol_api_sol_consentimientos.Output.Created)
+            /// The associated value of the enum case if `self` is `.created`.
+            ///
+            /// - Throws: An error if `self` is not `.created`.
+            /// - SeeAlso: `.created`.
+            internal var created: Operations.post_sol_api_sol_consentimientos.Output.Created {
+                get throws {
+                    switch self {
+                    case let .created(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "created",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.PerfilErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PerfilErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_consentimientos.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_consentimientos.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Malformed body (BODY_INVALIDO) or a version with an invalid format (VERSION_CONSENTIMIENTO_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_consentimientos.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_consentimientos.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/consentimientos/POST/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_consentimientos.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_consentimientos.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/post/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.post_sol_api_sol_consentimientos.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.post_sol_api_sol_consentimientos.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Revoke a consent
+    ///
+    /// Authenticated endpoint that revokes the consent in force of a type (issue #112, PRI-06); the row stays as history. Revoking `cartolas` blocks new imports when CONSENTS_REQUIRED is on. Idempotent: with nothing in force it still returns 204. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `DELETE /api/consentimientos/{tipo}`.
+    /// - Remark: Generated from `#/paths//api/consentimientos/{tipo}/delete`.
+    internal enum delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_ {
+        internal static let id: Swift.String = "delete/api/consentimientos/{tipo}"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/path`.
+            internal struct Path: Sendable, Hashable {
+                /// What is being revoked.
+                ///
+                /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/path/tipo`.
+                internal enum tipoPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                    case terminos = "terminos"
+                    case privacidad = "privacidad"
+                    case cartolas = "cartolas"
+                }
+                /// What is being revoked.
+                ///
+                /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/path/tipo`.
+                internal var tipo: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Input.Path.tipoPayload
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - tipo: What is being revoked.
+                internal init(tipo: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Input.Path.tipoPayload) {
+                    self.tipo = tipo
+                }
+            }
+            internal var path: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Input.Path
+            /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - headers:
+            internal init(
+                path: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Input.Path,
+                headers: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.headers = headers
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct NoContent: Sendable, Hashable {
+                /// Creates a new `NoContent`.
+                internal init() {}
+            }
+            /// Revoked. No body.
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/{tipo}/delete/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            case noContent(Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.NoContent)
+            /// Revoked. No body.
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/{tipo}/delete/responses/204`.
+            ///
+            /// HTTP response code: `204 noContent`.
+            internal static var noContent: Self {
+                .noContent(.init())
+            }
+            /// The associated value of the enum case if `self` is `.noContent`.
+            ///
+            /// - Throws: An error if `self` is not `.noContent`.
+            /// - SeeAlso: `.noContent`.
+            internal var noContent: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.NoContent {
+                get throws {
+                    switch self {
+                    case let .noContent(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "noContent",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/responses/400/content/application\/json`.
+                    case json(Components.Schemas.PerfilErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PerfilErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Unknown type (TIPO_CONSENTIMIENTO_INVALIDO).
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/{tipo}/delete/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/consentimientos/{tipo}/DELETE/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/consentimientos/{tipo}/delete/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Delete the current account and all its data
     ///
     /// Authenticated endpoint that permanently deletes the CALLER's account in one transaction: every session (all devices), transaction, ingestion, classification pattern, category, bank account and the user itself. Requires x-api-key + a valid session and the explicit body confirmation "ELIMINAR" (a valid session alone is not enough). Irreversible. External identity tokens are revoked best-effort first; a revocation failure never blocks the deletion. The session cookie is cleared on success; a repeated call with the now-deleted session answers 401.
@@ -4329,7 +5198,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The category catalog is available but incomplete (CatalogoIncompletoError): the default "Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help.
+            /// The category catalog is available but incomplete (CatalogoIncompletoError): the default "Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help. Or, when CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.
             ///
             /// - Remark: Generated from `#/paths//api/ingestas/post/responses/409`.
             ///
@@ -4949,7 +5818,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The category catalog is available but incomplete (CatalogoIncompletoError): the default "Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help.
+            /// The category catalog is available but incomplete (CatalogoIncompletoError): the default "Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help. Or, when CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.
             ///
             /// - Remark: Generated from `#/paths//api/ingestas/commit/post/responses/409`.
             ///
@@ -5355,7 +6224,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The category catalog is available but incomplete (CatalogoIncompletoError): the default "Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help.
+            /// The category catalog is available but incomplete (CatalogoIncompletoError): the default "Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help. Or, when CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.
             ///
             /// - Remark: Generated from `#/paths//api/ingestas/preview/post/responses/409`.
             ///

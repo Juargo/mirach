@@ -5,6 +5,8 @@
  * - 'email-ausente': una cuenta NUEVA llegó sin email. Apple lo entrega en la
  *   primera autorización solo si la app pidió el scope `email`; sin él no se
  *   puede crear la cuenta (el email es obligatorio) y falla cerrado.
+ * - 'terminos-no-aceptados': una cuenta NUEVA llegó sin las versiones de
+ *   términos y privacidad, o con versiones inválidas (AUTH-03).
  */
 export type MotivoFalloApple =
   | 'email-ausente'
@@ -12,7 +14,8 @@ export type MotivoFalloApple =
   | 'email-invalido'
   | 'ya-vinculado-a-otra-identidad'
   | 'link-perdio-la-carrera'
-  | 'creacion-perdio-la-carrera';
+  | 'creacion-perdio-la-carrera'
+  | 'terminos-no-aceptados';
 
 /**
  * LoginConAppleFallidoError — el único error de `LoginConAppleUseCase` para

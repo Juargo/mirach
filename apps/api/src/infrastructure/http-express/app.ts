@@ -45,6 +45,7 @@ import { registrarPatrones } from './routes/patrones.routes';
 import { registrarCuenta } from './routes/cuenta.routes';
 import { registrarPerfil } from './routes/perfil.routes';
 import { registrarPerfilPresupuesto } from './routes/perfil-presupuesto.routes';
+import { registrarConsentimientos } from './routes/consentimientos.routes';
 import {
   registrarPerfilGoogleVincular,
   registrarPerfilGoogleVincularDeshabilitado,
@@ -226,12 +227,14 @@ export function createApp(container: Container, env: Env): Express {
     listarIngestas: container.listarIngestas,
     previewIngesta: container.previewIngesta,
     commitIngesta: container.commitIngesta,
+    verificarConsentimientoCartolas: container.verificarConsentimientoCartolas,
   });
   registrarAuthMe(protectedApi, container.obtenerIdentidad);
   registrarCategorias(protectedApi, container.catalogo);
   registrarPatrones(protectedApi, container.catalogo);
   registrarPerfil(protectedApi, container.perfil);
   registrarPerfilPresupuesto(protectedApi, container.perfilPresupuesto);
+  registrarConsentimientos(protectedApi, container.consentimientos);
   registrarCuenta(protectedApi, {
     eliminarCuenta: container.eliminarCuenta,
     cookieSecure,

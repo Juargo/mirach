@@ -110,11 +110,62 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
     // TAL CUAL a `loginConGoogle.execute` (mismo `LoginConGoogleUseCase` del
     // flujo web, AUTH-20 — post-ADR-041 ya no es find-only) — sin
     // transformación intermedia.
-    expect(d.loginConGoogle.execute).toHaveBeenCalledWith({
-      sub: 'sub-1',
-      email: 'a@b.cl',
-      emailVerificado: true,
+    expect(d.loginConGoogle.execute).toHaveBeenCalledWith(
+      {
+        sub: 'sub-1',
+        email: 'a@b.cl',
+        emailVerificado: true,
+      },
+      {},
+    );
+  });
+
+  it('pasa las versiones aceptadas al use case (#112)', async () => {
+    const d = deps();
+
+    await request(tokenApp(d)).post('/api/auth/google/token').send({
+      idToken: 'valid-token',
+      versionTerminos: '2026-10',
+      versionPrivacidad: '1',
     });
+
+    expect(d.loginConGoogle.execute).toHaveBeenCalledWith(expect.anything(), {
+      terminos: '2026-10',
+      privacidad: '1',
+    });
+  });
+
+  it('una versión que no es texto nunca cuenta como ausente (#112)', async () => {
+    const d = deps();
+
+    await request(tokenApp(d))
+      .post('/api/auth/google/token')
+      .send({ idToken: 'valid-token', versionTerminos: 7 });
+
+    expect(d.loginConGoogle.execute).toHaveBeenCalledWith(expect.anything(), {
+      terminos: '',
+    });
+  });
+
+  it('un alta sin términos toma el 401 genérico (#112)', async () => {
+    const d = deps({
+      loginConGoogle: {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(
+              new LoginConGoogleFallidoError('terminos-no-aceptados'),
+            ),
+          ),
+      } as never,
+    });
+
+    const res = await request(tokenApp(d))
+      .post('/api/auth/google/token')
+      .send({ idToken: 'valid-token' });
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual(GENERIC_401_BODY);
   });
 
   it('successful login of a PRE-EXISTING user releases the rate-limit slot (esNuevoUsuario: false → reset called with the request IP)', async () => {

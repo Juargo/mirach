@@ -31,6 +31,7 @@ const IDENTIDAD_BASE: IdentidadApple = {
 function makeUseCase(
   identidades: IIdentidadAppleRepository,
   logger: ILogger = new NoOpLogger(),
+  exigirTerminos = false,
 ) {
   const sessions: ISessionRepository = {
     crear: vi.fn().mockResolvedValue(undefined),
@@ -50,6 +51,11 @@ function makeUseCase(
     tokens,
     { ahora: () => AHORA },
     logger,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    exigirTerminos,
   );
   return { uc, sessions };
 }
@@ -179,6 +185,95 @@ describe('LoginConAppleUseCase', () => {
     });
   });
 
+  describe('términos aceptados (AUTH-03, #112)', () => {
+    const VERSIONES = { terminos: '2026-10', privacidad: '2026-09' };
+    const logger = new NoOpLogger();
+
+    it('exigidos y sin versiones: no crea la cuenta ni emite sesión', async () => {
+      const identidades = makeMockIdentidades();
+      const { uc, sessions } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getError().motivo).toBe('terminos-no-aceptados');
+      expect(identidades.crearDesdeApple).not.toHaveBeenCalled();
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+
+    it('exigidos y con versiones: crea la cuenta con la aceptación', async () => {
+      const identidades = makeMockIdentidades();
+      const { uc } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(
+        IDENTIDAD_BASE,
+        null,
+        undefined,
+        VERSIONES,
+      );
+
+      expect(result.getValue().esNuevoUsuario).toBe(true);
+      expect(identidades.crearDesdeApple).toHaveBeenCalledWith(
+        expect.objectContaining({
+          aceptacion: {
+            terminos: expect.objectContaining({ valor: '2026-10' }),
+            privacidad: expect.objectContaining({ valor: '2026-09' }),
+          },
+        }),
+      );
+    });
+
+    it('no exigidos y con versiones: también guarda la aceptación', async () => {
+      const identidades = makeMockIdentidades();
+      const { uc } = makeUseCase(identidades);
+
+      await uc.execute(IDENTIDAD_BASE, null, undefined, VERSIONES);
+
+      expect(identidades.crearDesdeApple).toHaveBeenCalledWith(
+        expect.objectContaining({
+          aceptacion: expect.objectContaining({
+            terminos: expect.objectContaining({ valor: '2026-10' }),
+          }),
+        }),
+      );
+    });
+
+    it('no exigidos y malformadas: no crea la cuenta', async () => {
+      const identidades = makeMockIdentidades();
+      const { uc } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE, null, undefined, {
+        terminos: 'con espacio',
+        privacidad: '1',
+      });
+
+      expect(result.getError().motivo).toBe('terminos-no-aceptados');
+      expect(identidades.crearDesdeApple).not.toHaveBeenCalled();
+    });
+
+    it('un usuario conocido por appleSub no los necesita', async () => {
+      const identidades = makeMockIdentidades({
+        porAppleSub: { userId: 'user-1', appleSub: 'apple-sub-abc' },
+      });
+      const { uc } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getValue().userId).toBe('user-1');
+    });
+
+    it('un usuario que se enlaza por email no los necesita', async () => {
+      const identidades = makeMockIdentidades({
+        porEmail: { userId: 'user-1', appleSub: null },
+      });
+      const { uc } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getValue().userId).toBe('user-1');
+      expect(identidades.crearDesdeApple).not.toHaveBeenCalled();
+    });
+  });
+
   describe('cuenta nueva', () => {
     it('con nombre de la primera autorización: lo usa (recortado)', async () => {
       const identidades = makeMockIdentidades({ crear: 'user-nuevo' });
@@ -194,6 +289,7 @@ describe('LoginConAppleUseCase', () => {
         email: expect.objectContaining({ valor: 'jorge@example.com' }),
         appleSub: 'apple-sub-abc',
         nombre: 'Jorge Retamal',
+        aceptacion: null,
       });
       expect(sessions.crear).toHaveBeenCalledTimes(1);
     });

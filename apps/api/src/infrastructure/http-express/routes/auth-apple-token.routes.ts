@@ -7,6 +7,7 @@ import { appLogger } from '../../logging/app-logger';
 import { CREDENCIALES_INVALIDAS } from '../auth-error-codes';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
 import { authAppleTokenRequestSchema } from '../schemas/auth-apple-token.schema';
+import { versionDe } from '../schemas/consentimientos.schema';
 
 /**
  * Cuerpo 401 genérico — derivado de `CredencialesInvalidasError`, la misma
@@ -67,7 +68,12 @@ export function registrarAuthAppleToken(
       }
       appleTokenRateLimiter.recordFailure(ip);
 
-      const body = authAppleTokenRequestSchema.safeParse(req.body);
+      const crudo = req.body as Record<string, unknown> | undefined;
+      const body = authAppleTokenRequestSchema.safeParse({
+        ...crudo,
+        versionTerminos: versionDe(crudo?.versionTerminos),
+        versionPrivacidad: versionDe(crudo?.versionPrivacidad),
+      });
 
       if (!body.success) {
         appLogger.warn('Apple token rechazado (body inválido)', {
@@ -77,7 +83,14 @@ export function registrarAuthAppleToken(
         return;
       }
 
-      const { identityToken, nonce, nombre, authorizationCode } = body.data;
+      const {
+        identityToken,
+        nonce,
+        nombre,
+        authorizationCode,
+        versionTerminos,
+        versionPrivacidad,
+      } = body.data;
 
       const verificacion = await verificadorIdToken.verificarIdToken(
         identityToken,
@@ -97,6 +110,7 @@ export function registrarAuthAppleToken(
         verificacion.getValue(),
         nombre,
         authorizationCode,
+        { terminos: versionTerminos, privacidad: versionPrivacidad },
       );
 
       if (resultado.isFail()) {

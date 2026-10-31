@@ -44,7 +44,7 @@ export interface AppleAuthGraph {
  */
 export function crearAuthApple(
   prisma: PrismaClient,
-  env: Pick<Env, 'APPLE_BUNDLE_ID'>,
+  env: Pick<Env, 'APPLE_BUNDLE_ID' | 'CONSENTS_REQUIRED'>,
   blindIndex: IBlindIndexService,
   crypto: ICryptoService,
   logger: ILogger,
@@ -69,6 +69,7 @@ export function crearAuthApple(
       clienteApple && new PrismaRefreshTokenAppleRepository(prisma, crypto),
       verificador,
       tareas,
+      env.CONSENTS_REQUIRED,
     ),
     appleTokenRateLimiter: new IpRateLimiter(
       APPLE_TOKEN_RATE_LIMIT_KEY_PREFIX,

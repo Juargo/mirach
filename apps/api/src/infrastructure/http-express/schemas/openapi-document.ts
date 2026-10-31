@@ -61,6 +61,12 @@ import { authAppleTokenRequestSchema } from './auth-apple-token.schema';
 import { authCapabilitiesResponseSchema } from './auth-capabilities.schema';
 import { configHeadersSchema, configResponseSchema } from './config.schema';
 import {
+  consentimientoParamsSchema,
+  consentimientoRequestSchema,
+  consentimientoResponseSchema,
+  consentimientosResponseSchema,
+} from './consentimientos.schema';
+import {
   transaccionesCategoriaPathParamsSchema,
   transaccionesCategoriaRequestSchema,
   transaccionesCategoriaResponseSchema,
@@ -300,7 +306,9 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
       description:
         'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
         '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
-        'file is fine, the account state is not; retrying the same request does not help.',
+        'file is fine, the account state is not; retrying the same request does not help. Or, when ' +
+        'CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` ' +
+        'CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.',
       content: {
         'application/json': {
           schema: ingestaCatalogoIncompletoResponseSchema,
@@ -361,7 +369,9 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
       description:
         'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
         '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
-        'file is fine, the account state is not; retrying the same request does not help.',
+        'file is fine, the account state is not; retrying the same request does not help. Or, when ' +
+        'CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` ' +
+        'CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.',
       content: {
         'application/json': {
           schema: ingestaCatalogoIncompletoResponseSchema,
@@ -437,7 +447,9 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
       description:
         'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
         '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
-        'file is fine, the account state is not; retrying the same request does not help.',
+        'file is fine, the account state is not; retrying the same request does not help. Or, when ' +
+        'CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` ' +
+        'CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.',
       content: {
         'application/json': {
           schema: ingestaCatalogoIncompletoResponseSchema,
@@ -702,7 +714,7 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     "endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 " +
     'Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when ' +
     "neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's " +
-    'activation gate.',
+    'activation gate. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.',
   requestBody: {
     content: {
       'application/json': { schema: authGoogleTokenRequestSchema },
@@ -754,7 +766,8 @@ const authAppleTokenOperation: ZodOpenApiOperationObject = {
     'No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases ' +
     "this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID " +
     'is not configured. A syntactically malformed JSON body never reaches the handler: the shared body ' +
-    'parser rejects it and the shared error handler answers a generic 500, not this 401.',
+    'parser rejects it and the shared error handler answers a generic 500, not this 401. ' +
+    'A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.',
   requestBody: {
     content: {
       'application/json': { schema: authAppleTokenRequestSchema },
@@ -1712,6 +1725,74 @@ const eliminarMovimientoManualOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `GET /api/consentimientos` (#112, ADR-005 §7) — the caller's consents.
+ */
+const consentimientosGetOperation: ZodOpenApiOperationObject = {
+  summary: "List the current user's consents",
+  description:
+    "Authenticated endpoint that returns the caller's consents (issue #112, AUTH-03, PRI-02, PRI-06): " +
+    'terms, privacy and statement processing, each with its version and dates. A row with ' +
+    '`revocadoEn` null is in force. Requires x-api-key + a valid session.',
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: "The caller's consents.",
+      content: {
+        'application/json': { schema: consentimientosResponseSchema },
+      },
+    },
+  },
+};
+
+/**
+ * `POST /api/consentimientos` (#112, ADR-005 §7) — records an acceptance.
+ */
+const consentimientosPostOperation: ZodOpenApiOperationObject = {
+  summary: 'Accept a consent',
+  description:
+    'Authenticated endpoint that records an acceptance (issue #112, PRI-02). Accepting the version ' +
+    'already in force changes nothing and returns that row; another version revokes it and adds a ' +
+    'new one, so the history is kept. Requires x-api-key + a valid session.',
+  requestBody: {
+    content: { 'application/json': { schema: consentimientoRequestSchema } },
+  },
+  responses: {
+    '401': respuesta401Protegida,
+    '201': {
+      description: 'The consent in force.',
+      content: {
+        'application/json': { schema: consentimientoResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Malformed body (BODY_INVALIDO) or a version with an invalid format (VERSION_CONSENTIMIENTO_INVALIDA).',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+  },
+};
+
+/**
+ * `DELETE /api/consentimientos/{tipo}` (#112, PRI-06) — revokes a consent.
+ */
+const consentimientosDeleteOperation: ZodOpenApiOperationObject = {
+  summary: 'Revoke a consent',
+  description:
+    'Authenticated endpoint that revokes the consent in force of a type (issue #112, PRI-06); the ' +
+    'row stays as history. Revoking `cartolas` blocks new imports when CONSENTS_REQUIRED is on. ' +
+    'Idempotent: with nothing in force it still returns 204. Requires x-api-key + a valid session.',
+  requestParams: { path: consentimientoParamsSchema },
+  responses: {
+    '401': respuesta401Protegida,
+    '204': { description: 'Revoked. No body.' },
+    '400': {
+      description: 'Unknown type (TIPO_CONSENTIMIENTO_INVALIDO).',
+      content: { 'application/json': { schema: perfilErrorResponseSchema } },
+    },
+  },
+};
+
+/**
  * `GET /api/config` (ADR-005 §4.5, #116) — session-public, api-key required.
  * The optional `X-App-*` headers only feed `actualizacionRequerida`; an
  * invalid or missing value yields `null`, never a 400.
@@ -1800,6 +1881,11 @@ const paths: ZodOpenApiPathsObject = {
   '/api/ingestas/commit': { post: ingestaCommitOperation },
   '/api/transacciones/reevaluar': { post: reevaluarCategoriasOperation },
   '/api/config': { get: configOperation },
+  '/api/consentimientos': {
+    get: consentimientosGetOperation,
+    post: consentimientosPostOperation,
+  },
+  '/api/consentimientos/{tipo}': { delete: consentimientosDeleteOperation },
 };
 
 /**

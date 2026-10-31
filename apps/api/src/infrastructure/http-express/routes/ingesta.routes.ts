@@ -36,6 +36,7 @@ import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuer
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { IngestaNoEncontradaError } from '../../../domain/errors/ingesta-no-encontrada.error';
 import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
+import { VerificarConsentimientoCartolasUseCase } from '../../../application/use-cases/consentimientos.use-case';
 import { responderErrorTraducido } from './responder-error-traducido';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -86,6 +87,8 @@ export interface IngestaRoutesDeps {
   previewIngesta: PreviewIngestaUseCase;
   /** Commit use case — the ONLY writer in the preview→commit split (US-057). */
   commitIngesta: CommitIngestaUseCase;
+  /** Gate ahead of every route that reads a statement (#112, PRI-02). */
+  verificarConsentimientoCartolas: VerificarConsentimientoCartolasUseCase;
 }
 
 /**
@@ -113,38 +116,69 @@ export interface IngestaRoutesDeps {
  * pasa por `responderErrorTraducido` (issue #507), incluido el branch de
  * DELETE que resuelve el error con `instanceof` en vez de un traductor
  * `aXHttpError` dedicado.
+ *
+ * Consentimiento de cartolas (#112): `exigirConsentimiento` corre ANTES de
+ * multer en las tres rutas que importan, así que sin consentimiento vigente el
+ * archivo no se lee (409 CONSENTIMIENTO_CARTOLAS_REQUERIDO). Un fallo de la
+ * consulta va a `next` y termina en 500: nunca deja pasar la importación.
  */
 export function registrarIngestas(
   router: Router,
   deps: IngestaRoutesDeps,
 ): void {
-  router.post('/ingestas', subirArchivo(), async (req, res, next) => {
+  const exigirConsentimiento: RequestHandler = async (req, res, next) => {
     try {
-      const file = req.file;
-      if (!file) {
-        res.status(400).json({
-          message:
-            'No se recibió ningún archivo. Envía el archivo en el campo "file".',
-        });
-        return;
-      }
-
-      const fileReader = new MulterFileReaderAdapter(file);
-      const result = await deps.processIngesta.execute({
-        fileReader,
+      const result = await deps.verificarConsentimientoCartolas.execute({
         userId: req.userId!,
       });
 
       if (result.isFail()) {
-        responderErrorTraducido(res, aHttpError(result.getError()));
+        responderErrorTraducido(res, {
+          status: 409,
+          code: 'CONSENTIMIENTO_CARTOLAS_REQUERIDO',
+          message: result.getError().message,
+        });
         return;
       }
 
-      res.status(200).json(aIngestaResponseDto(result.getValue()));
+      next();
     } catch (err) {
       next(err);
     }
-  });
+  };
+
+  router.post(
+    '/ingestas',
+    exigirConsentimiento,
+    subirArchivo(),
+    async (req, res, next) => {
+      try {
+        const file = req.file;
+        if (!file) {
+          res.status(400).json({
+            message:
+              'No se recibió ningún archivo. Envía el archivo en el campo "file".',
+          });
+          return;
+        }
+
+        const fileReader = new MulterFileReaderAdapter(file);
+        const result = await deps.processIngesta.execute({
+          fileReader,
+          userId: req.userId!,
+        });
+
+        if (result.isFail()) {
+          responderErrorTraducido(res, aHttpError(result.getError()));
+          return;
+        }
+
+        res.status(200).json(aIngestaResponseDto(result.getValue()));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   // POST /api/ingestas/preview (US-003, design.md §8, D1): sub-path distinto
   // (no un flag ?dryRun) — reusa el mismo gate multipart (`subirArchivo`) y el
@@ -152,58 +186,64 @@ export function registrarIngestas(
   // dedup y las sugerencias del catálogo son per-usuario, así que forwarda
   // `userId` (deriva de sessionMiddleware, req.userId). Esto reemplaza la nota
   // §3.3 previa ("no forwarda userId") que quedó obsoleta con la extensión.
-  router.post('/ingestas/preview', subirArchivo(), async (req, res, next) => {
-    try {
-      const file = req.file;
-      if (!file) {
-        res.status(400).json({
-          message:
-            'No se recibió ningún archivo. Envía el archivo en el campo "file".',
+  router.post(
+    '/ingestas/preview',
+    exigirConsentimiento,
+    subirArchivo(),
+    async (req, res, next) => {
+      try {
+        const file = req.file;
+        if (!file) {
+          res.status(400).json({
+            message:
+              'No se recibió ningún archivo. Envía el archivo en el campo "file".',
+          });
+          return;
+        }
+
+        // Password opcional para desbloquear un PDF cifrado (design.md D-08).
+        // Leído igual que `edits` en el commit handler — multer ya lo parsea a
+        // req.body porque es un campo de texto plano en el mismo multipart.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const rawPassword: unknown = req.body?.password;
+        if (
+          typeof rawPassword === 'string' &&
+          rawPassword.length > MAX_PASSWORD_LENGTH
+        ) {
+          res.status(400).json({
+            message: 'La clave excede la longitud máxima permitida.',
+          });
+          return;
+        }
+        const password =
+          typeof rawPassword === 'string' ? rawPassword : undefined;
+
+        const fileReader = new MulterFileReaderAdapter(file);
+        // US-057 PR2: PreviewIngestaInput now requires userId for per-row dedup scoping (D-06).
+        const result = await deps.previewIngesta.execute({
+          fileReader,
+          userId: req.userId!,
+          password,
         });
-        return;
+
+        if (result.isFail()) {
+          responderErrorTraducido(res, aHttpError(result.getError()));
+          return;
+        }
+
+        res.status(200).json(aPreviewIngestaDto(result.getValue()));
+      } catch (err) {
+        next(err);
       }
-
-      // Password opcional para desbloquear un PDF cifrado (design.md D-08).
-      // Leído igual que `edits` en el commit handler — multer ya lo parsea a
-      // req.body porque es un campo de texto plano en el mismo multipart.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const rawPassword: unknown = req.body?.password;
-      if (
-        typeof rawPassword === 'string' &&
-        rawPassword.length > MAX_PASSWORD_LENGTH
-      ) {
-        res.status(400).json({
-          message: 'La clave excede la longitud máxima permitida.',
-        });
-        return;
-      }
-      const password =
-        typeof rawPassword === 'string' ? rawPassword : undefined;
-
-      const fileReader = new MulterFileReaderAdapter(file);
-      // US-057 PR2: PreviewIngestaInput now requires userId for per-row dedup scoping (D-06).
-      const result = await deps.previewIngesta.execute({
-        fileReader,
-        userId: req.userId!,
-        password,
-      });
-
-      if (result.isFail()) {
-        responderErrorTraducido(res, aHttpError(result.getError()));
-        return;
-      }
-
-      res.status(200).json(aPreviewIngestaDto(result.getValue()));
-    } catch (err) {
-      next(err);
-    }
-  });
+    },
+  );
 
   // POST /api/ingestas/commit (US-057, design §1/D-02/D-03/D-13/D-18):
   // uses subirArchivoConEdits() — own multer instance with fieldSize: 256 KB (D-02).
   // Handler: parseEdits → 400 on fail; commitIngesta.execute → 201 with CommitIngestaResponseDto.
   router.post(
     '/ingestas/commit',
+    exigirConsentimiento,
     subirArchivoConEdits(),
     async (req, res, next) => {
       try {

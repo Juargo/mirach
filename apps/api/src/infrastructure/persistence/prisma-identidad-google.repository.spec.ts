@@ -328,6 +328,7 @@ describe('crearDesdeGoogle (ADR-041 signup-on-first-login)', () => {
       email: Email.crear('Ana.Perez@Gmail.com').getValue(),
       googleSub: 'google-sub-nuevo',
       nombre: 'ana.perez',
+      aceptacion: null,
     });
 
     expect(userId).toBe('user-nuevo-1');
@@ -376,6 +377,7 @@ describe('crearDesdeGoogle (ADR-041 signup-on-first-login)', () => {
         email: Email.crear('ana@example.com').getValue(),
         googleSub: 'google-sub-nuevo',
         nombre: 'ana',
+        aceptacion: null,
       });
     }
 
@@ -472,6 +474,7 @@ describe('crearDesdeGoogle (ADR-041 signup-on-first-login)', () => {
         email: Email.crear('ana@example.com').getValue(),
         googleSub: 'google-sub-nuevo',
         nombre: 'ana',
+        aceptacion: null,
       }),
     ).rejects.toThrow('conexion caida');
   });

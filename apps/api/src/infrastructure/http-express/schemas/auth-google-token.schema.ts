@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { versionesAceptadasSchema } from './consentimientos.schema';
+
 /**
  * Request contract for `POST /api/auth/google/token` (AUTH-19, ADR-035 M1).
  *
@@ -18,4 +20,5 @@ import { z } from 'zod';
  */
 export const authGoogleTokenRequestSchema = z.object({
   idToken: z.string(),
+  ...versionesAceptadasSchema,
 });

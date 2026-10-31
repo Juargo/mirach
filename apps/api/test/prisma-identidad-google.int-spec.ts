@@ -301,8 +301,18 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
       const googleSub = `sub-race-crear-dup-${RUN_ID}`;
 
       const [a, b] = await Promise.all([
-        repo.crearDesdeGoogle({ email, googleSub, nombre: 'race-full-dup' }),
-        repo.crearDesdeGoogle({ email, googleSub, nombre: 'race-full-dup' }),
+        repo.crearDesdeGoogle({
+          email,
+          googleSub,
+          nombre: 'race-full-dup',
+          aceptacion: null,
+        }),
+        repo.crearDesdeGoogle({
+          email,
+          googleSub,
+          nombre: 'race-full-dup',
+          aceptacion: null,
+        }),
       ]);
 
       const ganadores = [a, b].filter((id): id is string => id !== null);
@@ -336,11 +346,13 @@ describe('PrismaIdentidadGoogleRepository (real dev DB)', () => {
           email,
           googleSub: `sub-race-crear-a-${RUN_ID}`,
           nombre: 'race-email-only-a',
+          aceptacion: null,
         }),
         repo.crearDesdeGoogle({
           email,
           googleSub: `sub-race-crear-b-${RUN_ID}`,
           nombre: 'race-email-only-b',
+          aceptacion: null,
         }),
       ]);
 

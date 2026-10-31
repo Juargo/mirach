@@ -32,13 +32,23 @@ import kotlinx.serialization.Contextual
  * 
  *
  * @param idToken 
+ * @param versionPrivacidad Version of the privacy policy the person accepted before signing in; see `versionTerminos`.
+ * @param versionTerminos Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401.
  */
 @Serializable
 
 data class ApiAuthGoogleTokenPostRequest (
 
     @SerialName(value = "idToken")
-    val idToken: kotlin.String
+    val idToken: kotlin.String,
+
+    /* Version of the privacy policy the person accepted before signing in; see `versionTerminos`. */
+    @SerialName(value = "versionPrivacidad")
+    val versionPrivacidad: kotlin.String? = null,
+
+    /* Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401. */
+    @SerialName(value = "versionTerminos")
+    val versionTerminos: kotlin.String? = null
 
 ) {
 

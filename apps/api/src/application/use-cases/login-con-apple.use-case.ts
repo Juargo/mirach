@@ -1,4 +1,8 @@
 import { Result } from '../../shared/result';
+import {
+  aceptacionTerminos,
+  VersionesAceptadas,
+} from '../../domain/value-objects/consentimiento';
 import { Email } from '../../domain/value-objects/email';
 import { calcularExpiracion } from '../../domain/value-objects/duracion-sesion';
 import { LoginConAppleFallidoError } from '../../domain/errors/login-con-apple-fallido.error';
@@ -73,6 +77,10 @@ const NOMBRE_POR_DEFECTO = 'Usuario';
  * si el proceso muere antes de terminar, el efecto es el mismo que un canje
  * fallido (sin token hasta un login posterior con code). Nunca se loguea el code ni el
  * refresh token.
+ *
+ * Términos (AUTH-03, #112): `versiones` solo importa en el alta, un usuario que
+ * ya existe nunca los necesita. Con `exigirTerminos`, un alta sin versiones no
+ * crea la cuenta. Fallar acá colapsa al mismo 401 genérico, como el resto.
  */
 export class LoginConAppleUseCase {
   constructor(
@@ -85,14 +93,20 @@ export class LoginConAppleUseCase {
     private readonly refreshTokens?: IRefreshTokenAppleRepository,
     private readonly verificadorCanje?: IVerificadorSubCanjeApple,
     private readonly tareas?: ITareasEnSegundoPlano,
+    private readonly exigirTerminos: boolean = false,
   ) {}
 
   async execute(
     identidad: IdentidadApple,
     nombre?: string | null,
     authorizationCode?: string | null,
+    versiones: VersionesAceptadas = {},
   ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {
-    const resultado = await this.resolverIdentidad(identidad, nombre);
+    const resultado = await this.resolverIdentidad(
+      identidad,
+      nombre,
+      versiones,
+    );
 
     if (resultado.isOk()) {
       const { userId } = resultado.getValue();
@@ -211,7 +225,8 @@ export class LoginConAppleUseCase {
 
   private async resolverIdentidad(
     identidad: IdentidadApple,
-    nombre?: string | null,
+    nombre: string | null | undefined,
+    versiones: VersionesAceptadas,
   ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {
     const porSub = await this.identidades.buscarPorAppleSub(identidad.sub);
     this.logger.debug('login-con-apple: appleSub lookup', {
@@ -242,7 +257,7 @@ export class LoginConAppleUseCase {
     const email = emailResult.getValue();
 
     if (identidad.emailPrivado) {
-      return this.crearCuenta(identidad, email, nombre);
+      return this.crearCuenta(identidad, email, nombre, versiones);
     }
 
     const porEmail = await this.identidades.buscarPorEmail(email);
@@ -251,7 +266,7 @@ export class LoginConAppleUseCase {
     });
 
     if (porEmail === null) {
-      return this.crearCuenta(identidad, email, nombre);
+      return this.crearCuenta(identidad, email, nombre, versiones);
     }
 
     return this.resolverFilaPorEmail(identidad, porEmail, false);
@@ -311,11 +326,21 @@ export class LoginConAppleUseCase {
     identidad: IdentidadApple,
     email: Email,
     nombre: string | null | undefined,
+    versiones: VersionesAceptadas,
   ): Promise<Result<LoginConAppleResult, LoginConAppleFallidoError>> {
+    const aceptacion = aceptacionTerminos(versiones, this.exigirTerminos);
+
+    if (aceptacion.isFail()) {
+      return Result.fail(
+        new LoginConAppleFallidoError('terminos-no-aceptados'),
+      );
+    }
+
     const nuevoUserId = await this.identidades.crearDesdeApple({
       email,
       appleSub: identidad.sub,
       nombre: resolverNombre(nombre, email, identidad.emailPrivado),
+      aceptacion: aceptacion.getValue(),
     });
 
     if (nuevoUserId !== null) {

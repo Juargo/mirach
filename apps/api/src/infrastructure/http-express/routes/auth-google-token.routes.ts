@@ -6,6 +6,7 @@ import { getClientIp } from '../../http/auth/client-ip';
 import { appLogger } from '../../logging/app-logger';
 import { CREDENCIALES_INVALIDAS } from '../auth-error-codes';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
+import { versionDe } from '../schemas/consentimientos.schema';
 
 /**
  * Cuerpo genérico 401 — byte-idéntico al de `/auth/login` (AUTH-21). NO
@@ -93,7 +94,13 @@ export function registrarAuthGoogleToken(
       }
       googleTokenRateLimiter.recordFailure(ip);
 
-      const body = req.body as { idToken?: unknown } | undefined;
+      const body = req.body as
+        | {
+            idToken?: unknown;
+            versionTerminos?: unknown;
+            versionPrivacidad?: unknown;
+          }
+        | undefined;
       const idToken = typeof body?.idToken === 'string' ? body.idToken : '';
 
       const verificacion = await verificadorIdToken.verificarIdToken(idToken);
@@ -110,7 +117,10 @@ export function registrarAuthGoogleToken(
         return;
       }
 
-      const resultado = await loginConGoogle.execute(verificacion.getValue());
+      const resultado = await loginConGoogle.execute(verificacion.getValue(), {
+        terminos: versionDe(body?.versionTerminos),
+        privacidad: versionDe(body?.versionPrivacidad),
+      });
 
       if (resultado.isFail()) {
         appLogger.warn(

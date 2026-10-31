@@ -112,6 +112,7 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
       IDENTIDAD,
       'Jorge Retamal',
       undefined,
+      {},
     );
   });
 
@@ -127,7 +128,58 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
       IDENTIDAD,
       undefined,
       'c-apple-1',
+      {},
     );
+  });
+
+  it('pasa las versiones aceptadas al use case (#112)', async () => {
+    const d = deps();
+
+    await request(tokenApp(d))
+      .post('/api/auth/apple/token')
+      .send({ ...BODY, versionTerminos: '2026-10', versionPrivacidad: '1' });
+
+    expect(d.loginConApple.execute).toHaveBeenCalledWith(
+      IDENTIDAD,
+      undefined,
+      undefined,
+      { terminos: '2026-10', privacidad: '1' },
+    );
+  });
+
+  it('una versión que no es texto no rechaza el login: la decide el alta (#112)', async () => {
+    const d = deps();
+
+    const res = await request(tokenApp(d))
+      .post('/api/auth/apple/token')
+      .send({ ...BODY, versionTerminos: 7 });
+
+    expect(res.status).toBe(200);
+    expect(d.loginConApple.execute).toHaveBeenCalledWith(
+      IDENTIDAD,
+      undefined,
+      undefined,
+      { terminos: '', privacidad: undefined },
+    );
+  });
+
+  it('un alta sin términos toma el 401 genérico (#112)', async () => {
+    const d = deps({
+      loginConApple: {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(new LoginConAppleFallidoError('terminos-no-aceptados')),
+          ),
+      } as never,
+    });
+
+    const res = await request(tokenApp(d))
+      .post('/api/auth/apple/token')
+      .send(BODY);
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual(GENERIC_401_BODY);
   });
 
   it('el authorizationCode nunca aparece en el body 200', async () => {

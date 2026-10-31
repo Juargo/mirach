@@ -29,7 +29,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Contextual
 
 /**
- * 409 body: the category catalog is available but incomplete (the default \"Desconocido\" category of a bucket is missing). Permanent until the account's catalog is repaired — retrying the same request does not help.
+ * 409 body. CATALOGO_INCOMPLETO: the category catalog is available but incomplete (the default \"Desconocido\" category of a bucket is missing); permanent until the catalog is repaired, so retrying the same request does not help. CONSENTIMIENTO_CARTOLAS_REQUERIDO: the user has no statement consent in force; the file was not read. Accept it in POST /api/consentimientos and retry.
  *
  * @param code 
  * @param message 
@@ -49,11 +49,12 @@ data class IngestaCatalogoIncompletoResponse (
     /**
      * 
      *
-     * Values: CATALOGO_INCOMPLETO
+     * Values: CATALOGO_INCOMPLETO,CONSENTIMIENTO_CARTOLAS_REQUERIDO
      */
     @Serializable
     enum class Code(val value: kotlin.String) {
-        @SerialName(value = "CATALOGO_INCOMPLETO") CATALOGO_INCOMPLETO("CATALOGO_INCOMPLETO");
+        @SerialName(value = "CATALOGO_INCOMPLETO") CATALOGO_INCOMPLETO("CATALOGO_INCOMPLETO"),
+        @SerialName(value = "CONSENTIMIENTO_CARTOLAS_REQUERIDO") CONSENTIMIENTO_CARTOLAS_REQUERIDO("CONSENTIMIENTO_CARTOLAS_REQUERIDO");
     }
 
 }

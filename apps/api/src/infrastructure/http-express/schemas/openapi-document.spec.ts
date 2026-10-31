@@ -655,7 +655,10 @@ describe('buildOpenApiDocument', () => {
         const op = document().paths?.[ruta]?.[metodo];
         const c409 = componente(schemaRef(op, '409'));
         const c503 = componente(schemaRef(op, '503'));
-        expect(c409.properties.code?.enum).toEqual(['CATALOGO_INCOMPLETO']);
+        expect(c409.properties.code?.enum).toEqual([
+          'CATALOGO_INCOMPLETO',
+          'CONSENTIMIENTO_CARTOLAS_REQUERIDO',
+        ]);
         expect(c409.required).toContain('code');
         expect(c503.properties.code?.enum).toEqual(['CATALOGO_NO_DISPONIBLE']);
         expect(c503.required).toContain('code');

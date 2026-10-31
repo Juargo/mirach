@@ -54,6 +54,7 @@ const IDENTIDAD_BASE: IdentidadExterna = {
 function makeUseCase(
   identidades: IIdentidadGoogleRepository,
   logger: ILogger = new NoOpLogger(),
+  exigirTerminos = false,
 ) {
   const sessions = makeMockSessions();
   const tokens = makeMockTokens(TOKEN_GENERADO);
@@ -64,11 +65,81 @@ function makeUseCase(
     tokens,
     reloj,
     logger,
+    exigirTerminos,
   );
   return { uc, sessions, tokens, reloj, logger };
 }
 
 describe('LoginConGoogleUseCase', () => {
+  describe('términos aceptados (AUTH-03, #112)', () => {
+    const VERSIONES = { terminos: '2026-10', privacidad: '2026-09' };
+    const logger = new NoOpLogger();
+
+    it('exigidos y sin versiones: no crea la cuenta ni emite sesión', async () => {
+      const identidades = makeMockIdentidades();
+      const { uc, sessions } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getError().motivo).toBe('terminos-no-aceptados');
+      expect(identidades.crearDesdeGoogle).not.toHaveBeenCalled();
+      expect(sessions.crear).not.toHaveBeenCalled();
+    });
+
+    it('exigidos y con versiones: crea la cuenta con la aceptación', async () => {
+      const identidades = makeMockIdentidades();
+      const { uc } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(IDENTIDAD_BASE, VERSIONES);
+
+      expect(result.getValue().esNuevoUsuario).toBe(true);
+      expect(identidades.crearDesdeGoogle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          aceptacion: {
+            terminos: expect.objectContaining({ valor: '2026-10' }),
+            privacidad: expect.objectContaining({ valor: '2026-09' }),
+          },
+        }),
+      );
+    });
+
+    it('no exigidos y malformadas: no crea la cuenta', async () => {
+      const identidades = makeMockIdentidades();
+      const { uc } = makeUseCase(identidades);
+
+      const result = await uc.execute(IDENTIDAD_BASE, {
+        terminos: '1',
+        privacidad: 'con espacio',
+      });
+
+      expect(result.getError().motivo).toBe('terminos-no-aceptados');
+      expect(identidades.crearDesdeGoogle).not.toHaveBeenCalled();
+    });
+
+    it('un usuario conocido por googleSub no los necesita', async () => {
+      const identidades = makeMockIdentidades({
+        porGoogleSub: { userId: 'user-1', googleSub: 'google-sub-abc' },
+      });
+      const { uc } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getValue().userId).toBe('user-1');
+    });
+
+    it('un usuario que se enlaza por email no los necesita', async () => {
+      const identidades = makeMockIdentidades({
+        porEmail: { userId: 'user-1', googleSub: null },
+      });
+      const { uc } = makeUseCase(identidades, logger, true);
+
+      const result = await uc.execute(IDENTIDAD_BASE);
+
+      expect(result.getValue().userId).toBe('user-1');
+      expect(identidades.crearDesdeGoogle).not.toHaveBeenCalled();
+    });
+  });
+
   describe('existing googleSub match, non-demo', () => {
     it('issues a session and never looks up by email', async () => {
       const usuario: UsuarioVinculable = {
@@ -165,6 +236,7 @@ describe('LoginConGoogleUseCase', () => {
         email: expect.objectContaining({ valor: 'jorge@example.com' }),
         googleSub: 'google-sub-abc',
         nombre: 'jorge',
+        aceptacion: null,
       });
       expect(identidades.vincularGoogleSub).not.toHaveBeenCalled();
       expect(sessions.crear).toHaveBeenCalledWith(

@@ -40,14 +40,16 @@ export const ingestaErrorResponseSchema = z
 export const ingestaCatalogoIncompletoResponseSchema = z
   .object({
     message: z.string(),
-    code: z.literal('CATALOGO_INCOMPLETO'),
+    code: z.enum(['CATALOGO_INCOMPLETO', 'CONSENTIMIENTO_CARTOLAS_REQUERIDO']),
   })
   .meta({
     id: 'IngestaCatalogoIncompletoResponse',
     description:
-      '409 body: the category catalog is available but incomplete (the default "Desconocido" ' +
-      "category of a bucket is missing). Permanent until the account's catalog is repaired — " +
-      'retrying the same request does not help.',
+      '409 body. CATALOGO_INCOMPLETO: the category catalog is available but incomplete (the default ' +
+      '"Desconocido" category of a bucket is missing); permanent until the catalog is repaired, so ' +
+      'retrying the same request does not help. CONSENTIMIENTO_CARTOLAS_REQUERIDO: the user has no ' +
+      'statement consent in force; the file was not read. Accept it in POST /api/consentimientos ' +
+      'and retry.',
   });
 
 export const ingestaCatalogoNoDisponibleResponseSchema = z

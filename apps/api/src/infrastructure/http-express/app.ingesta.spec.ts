@@ -39,6 +39,9 @@ function fakeContainer(): Container {
     obtenerDetalleBucket: { execute: vi.fn() },
     obtenerMovimientosMes: { execute: vi.fn() },
     reclasificarTransaccion: { execute: vi.fn() },
+    verificarConsentimientoCartolas: {
+      execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    },
     processIngesta: {
       execute: vi.fn().mockResolvedValue(Result.ok(INGESTA_OK)),
     },
