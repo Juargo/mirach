@@ -674,14 +674,16 @@
       },
       "IngestaErrorResponse": {
         "additionalProperties": false,
-        "description": "400 body of the upload endpoints. `code` is present only for PDF_PROTEGIDO, PDF_PASSWORD_INCORRECTA and SIN_MOVIMIENTOS.",
+        "description": "400 body of the upload endpoints. `code` is present only for PDF_PROTEGIDO, PDF_PASSWORD_INCORRECTA, SIN_MOVIMIENTOS, PDF_ESCANEADO and BANCO_NO_RECONOCIDO.",
         "properties": {
           "code": {
-            "description": "PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent — ask the user for it. PDF_PASSWORD_INCORRECTA: the `password` sent does not unlock the PDF — ask again. SIN_MOVIMIENTOS: the file is valid but holds zero movements. Absent for every other 400 cause.",
+            "description": "PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent — ask the user for it. PDF_PASSWORD_INCORRECTA: the `password` sent does not unlock the PDF — ask again. SIN_MOVIMIENTOS: the file is valid but holds zero movements. PDF_ESCANEADO: the PDF has no text layer (a scan or an image). BANCO_NO_RECONOCIDO: the file does not match any supported bank. Absent for every other 400 cause.",
             "enum": [
               "PDF_PROTEGIDO",
               "PDF_PASSWORD_INCORRECTA",
-              "SIN_MOVIMIENTOS"
+              "SIN_MOVIMIENTOS",
+              "PDF_ESCANEADO",
+              "BANCO_NO_RECONOCIDO"
             ],
             "type": "string"
           },
@@ -3085,7 +3087,7 @@
                 }
               }
             },
-            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`."
+            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`."
           },
           "401": {
             "content": {
@@ -3218,7 +3220,7 @@
                 }
               }
             },
-            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013)."
+            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013)."
           },
           "401": {
             "content": {
@@ -3311,7 +3313,7 @@
                 }
               }
             },
-            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only)."
+            "description": "Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only)."
           },
           "401": {
             "content": {

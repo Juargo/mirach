@@ -5,6 +5,8 @@ import type { Mock } from 'vitest';
 import { registrarIngestas } from './ingesta.routes';
 import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
+import { BancoNoReconocidoError } from '../../../domain/errors/banco-no-reconocido.error';
+import { PdfSinTextoError } from '../../../domain/errors/pdf-sin-texto.error';
 import {
   CODIGOS_INGESTA_400,
   ingestaCatalogoIncompletoResponseSchema,
@@ -120,6 +122,20 @@ describe.each(ENDPOINTS)(
         400,
         ingestaErrorResponseSchema,
         { code: 'SIN_MOVIMIENTOS' },
+      ],
+      [
+        'PDF_ESCANEADO',
+        falla(new PdfSinTextoError('c.pdf')),
+        400,
+        ingestaErrorResponseSchema,
+        { code: 'PDF_ESCANEADO' },
+      ],
+      [
+        'BANCO_NO_RECONOCIDO',
+        falla(new BancoNoReconocidoError('c.xlsx')),
+        400,
+        ingestaErrorResponseSchema,
+        { code: 'BANCO_NO_RECONOCIDO' },
       ],
       [
         'a file validation error carries no code',
@@ -264,7 +280,13 @@ describe('upload error bodies — request-level 400s with a code-less body', () 
 describe('upload error bodies — the 400 code enum', () => {
   it('lists exactly the codes the 400 mappers can emit', () => {
     expect([...CODIGOS_INGESTA_400].sort()).toEqual(
-      ['PDF_PASSWORD_INCORRECTA', 'PDF_PROTEGIDO', 'SIN_MOVIMIENTOS'].sort(),
+      [
+        'BANCO_NO_RECONOCIDO',
+        'PDF_ESCANEADO',
+        'PDF_PASSWORD_INCORRECTA',
+        'PDF_PROTEGIDO',
+        'SIN_MOVIMIENTOS',
+      ].sort(),
     );
   });
 });
