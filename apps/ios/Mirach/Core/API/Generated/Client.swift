@@ -1423,6 +1423,100 @@ internal struct Client: APIProtocol {
             }
         )
     }
+    /// Remote app configuration (minimum version, free plan, flags)
+    ///
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed). Returns the minimum supported app version per platform, the free plan limits and the feature flags, all taken from the API configuration so they change without shipping a new app. When X-App-Platform and X-App-Version are valid, actualizacionRequerida says whether the installed version is below the minimum (the app then asks the user to update); otherwise it is null.
+    ///
+    /// - Remark: HTTP `GET /api/config`.
+    /// - Remark: Generated from `#/paths//api/config/get`.
+    internal func get_sol_api_sol_config(_ input: Operations.get_sol_api_sol_config.Input) async throws -> Operations.get_sol_api_sol_config.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.get_sol_api_sol_config.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/api/config",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-app-version",
+                    value: input.headers.x_hyphen_app_hyphen_version
+                )
+                try converter.setHeaderFieldAsURI(
+                    in: &request.headerFields,
+                    name: "x-app-platform",
+                    value: input.headers.x_hyphen_app_hyphen_platform
+                )
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.get_sol_api_sol_config.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ConfigResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.get_sol_api_sol_config.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ApiKeyUnauthorizedResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Delete the current account and all its data
     ///
     /// Authenticated endpoint that permanently deletes the CALLER's account in one transaction: every session (all devices), transaction, ingestion, classification pattern, category, bank account and the user itself. Requires x-api-key + a valid session and the explicit body confirmation "ELIMINAR" (a valid session alone is not enough). Irreversible. External identity tokens are revoked best-effort first; a revocation failure never blocks the deletion. The session cookie is cleared on success; a repeated call with the now-deleted session answers 401.

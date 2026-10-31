@@ -1040,6 +1040,184 @@ extension Components {
                 ])
             }
         }
+        /// GET /api/config — remote app configuration: minimum version per platform, free plan limits and flags (ADR-005 §4.5).
+        ///
+        /// - Remark: Generated from `#/components/schemas/ConfigResponse`.
+        internal struct ConfigResponse: Codable, Hashable, Sendable {
+            /// true when X-App-Version is lower than the minimum for X-App-Platform: the app must ask the user to update. false when it is equal or higher. null when either header is missing or invalid.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfigResponse/actualizacionRequerida`.
+            internal var actualizacionRequerida: Swift.Bool?
+            /// Feature flags turned on, as { name: true }. A flag missing from the object is off.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfigResponse/flags`.
+            internal struct flagsPayload: Codable, Hashable, Sendable {
+                /// A container of undocumented properties.
+                internal var additionalProperties: [String: Swift.Bool]
+                /// Creates a new `flagsPayload`.
+                ///
+                /// - Parameters:
+                ///   - additionalProperties: A container of undocumented properties.
+                internal init(additionalProperties: [String: Swift.Bool] = .init()) {
+                    self.additionalProperties = additionalProperties
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    additionalProperties = try decoder.decodeAdditionalProperties(knownKeys: [])
+                }
+                internal func encode(to encoder: any Swift.Encoder) throws {
+                    try encoder.encodeAdditionalProperties(additionalProperties)
+                }
+            }
+            /// Feature flags turned on, as { name: true }. A flag missing from the object is off.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfigResponse/flags`.
+            internal var flags: Components.Schemas.ConfigResponse.flagsPayload
+            /// Free plan limits.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfigResponse/planGratis`.
+            internal struct planGratisPayload: Codable, Hashable, Sendable {
+                /// Maximum number of banks on the free plan (PLA-01).
+                ///
+                /// - Remark: Generated from `#/components/schemas/ConfigResponse/planGratis/bancosMaximos`.
+                internal var bancosMaximos: Swift.Int
+                /// true when the free plan only covers the current month (PLA-01).
+                ///
+                /// - Remark: Generated from `#/components/schemas/ConfigResponse/planGratis/soloMesActual`.
+                internal var soloMesActual: Swift.Bool
+                /// Creates a new `planGratisPayload`.
+                ///
+                /// - Parameters:
+                ///   - bancosMaximos: Maximum number of banks on the free plan (PLA-01).
+                ///   - soloMesActual: true when the free plan only covers the current month (PLA-01).
+                internal init(
+                    bancosMaximos: Swift.Int,
+                    soloMesActual: Swift.Bool
+                ) {
+                    self.bancosMaximos = bancosMaximos
+                    self.soloMesActual = soloMesActual
+                }
+                internal enum CodingKeys: String, CodingKey {
+                    case bancosMaximos
+                    case soloMesActual
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.bancosMaximos = try container.decode(
+                        Swift.Int.self,
+                        forKey: .bancosMaximos
+                    )
+                    self.soloMesActual = try container.decode(
+                        Swift.Bool.self,
+                        forKey: .soloMesActual
+                    )
+                    try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "bancosMaximos",
+                        "soloMesActual"
+                    ])
+                }
+            }
+            /// Free plan limits.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfigResponse/planGratis`.
+            internal var planGratis: Components.Schemas.ConfigResponse.planGratisPayload
+            /// Minimum supported app version per platform.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfigResponse/versionMinima`.
+            internal struct versionMinimaPayload: Codable, Hashable, Sendable {
+                /// Minimum supported Android app version (MAJOR.MINOR.PATCH).
+                ///
+                /// - Remark: Generated from `#/components/schemas/ConfigResponse/versionMinima/android`.
+                internal var android: Swift.String
+                /// Minimum supported iOS app version (MAJOR.MINOR.PATCH).
+                ///
+                /// - Remark: Generated from `#/components/schemas/ConfigResponse/versionMinima/ios`.
+                internal var ios: Swift.String
+                /// Creates a new `versionMinimaPayload`.
+                ///
+                /// - Parameters:
+                ///   - android: Minimum supported Android app version (MAJOR.MINOR.PATCH).
+                ///   - ios: Minimum supported iOS app version (MAJOR.MINOR.PATCH).
+                internal init(
+                    android: Swift.String,
+                    ios: Swift.String
+                ) {
+                    self.android = android
+                    self.ios = ios
+                }
+                internal enum CodingKeys: String, CodingKey {
+                    case android
+                    case ios
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.android = try container.decode(
+                        Swift.String.self,
+                        forKey: .android
+                    )
+                    self.ios = try container.decode(
+                        Swift.String.self,
+                        forKey: .ios
+                    )
+                    try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "android",
+                        "ios"
+                    ])
+                }
+            }
+            /// Minimum supported app version per platform.
+            ///
+            /// - Remark: Generated from `#/components/schemas/ConfigResponse/versionMinima`.
+            internal var versionMinima: Components.Schemas.ConfigResponse.versionMinimaPayload
+            /// Creates a new `ConfigResponse`.
+            ///
+            /// - Parameters:
+            ///   - actualizacionRequerida: true when X-App-Version is lower than the minimum for X-App-Platform: the app must ask the user to update. false when it is equal or higher. null when either header is missing or invalid.
+            ///   - flags: Feature flags turned on, as { name: true }. A flag missing from the object is off.
+            ///   - planGratis: Free plan limits.
+            ///   - versionMinima: Minimum supported app version per platform.
+            internal init(
+                actualizacionRequerida: Swift.Bool? = nil,
+                flags: Components.Schemas.ConfigResponse.flagsPayload,
+                planGratis: Components.Schemas.ConfigResponse.planGratisPayload,
+                versionMinima: Components.Schemas.ConfigResponse.versionMinimaPayload
+            ) {
+                self.actualizacionRequerida = actualizacionRequerida
+                self.flags = flags
+                self.planGratis = planGratis
+                self.versionMinima = versionMinima
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case actualizacionRequerida
+                case flags
+                case planGratis
+                case versionMinima
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.actualizacionRequerida = try container.decodeIfPresent(
+                    Swift.Bool.self,
+                    forKey: .actualizacionRequerida
+                )
+                self.flags = try container.decode(
+                    Components.Schemas.ConfigResponse.flagsPayload.self,
+                    forKey: .flags
+                )
+                self.planGratis = try container.decode(
+                    Components.Schemas.ConfigResponse.planGratisPayload.self,
+                    forKey: .planGratis
+                )
+                self.versionMinima = try container.decode(
+                    Components.Schemas.ConfigResponse.versionMinimaPayload.self,
+                    forKey: .versionMinima
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "actualizacionRequerida",
+                    "flags",
+                    "planGratis",
+                    "versionMinima"
+                ])
+            }
+        }
         /// 401 body of the sign-in endpoints.
         ///
         /// - Remark: Generated from `#/components/schemas/CredentialsUnauthorizedResponse`.

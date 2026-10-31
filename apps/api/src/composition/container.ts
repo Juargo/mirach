@@ -7,6 +7,8 @@ import { ValidarSesionUseCase } from '../application/use-cases/validar-sesion.us
 import { LoginUseCase } from '../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identidad.use-case';
+import { ObtenerConfiguracionAppUseCase } from '../application/use-cases/obtener-configuracion-app.use-case';
+import { VersionApp } from '../domain/value-objects/version-app';
 import { CalcularResumenMesUseCase } from '../application/use-cases/calcular-resumen-mes.use-case';
 import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-resumen-anual.use-case';
 import { ObtenerSemaforoDetalleUseCase } from '../application/use-cases/obtener-semaforo-detalle.use-case';
@@ -155,6 +157,8 @@ export interface Container {
   readonly logout: LogoutUseCase;
   /** Identidad del usuario autenticado — GET /api/auth/me. */
   readonly obtenerIdentidad: ObtenerIdentidadUseCase;
+  /** Configuración remota de las apps (ADR-005 §4.5) — `GET /api/config`. */
+  readonly obtenerConfiguracionApp: ObtenerConfiguracionAppUseCase;
   /** Login con Google (AUTH-11..18) — `undefined` cuando el feature está
    * apagado (GOOGLE_CLIENT_ID/SECRET ausentes, design §4.3/§4.4). El TIPO
    * de este campo es el seam de activación: `googleAuth !== undefined` es
@@ -430,6 +434,19 @@ export function createContainer(
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
+    obtenerConfiguracionApp: new ObtenerConfiguracionAppUseCase({
+      // `getValue()` cannot throw: env.ts already validated both versions with
+      // this same value object, and an invalid one fails the boot.
+      versionMinima: {
+        ios: VersionApp.crear(env.APP_MIN_VERSION_IOS).getValue(),
+        android: VersionApp.crear(env.APP_MIN_VERSION_ANDROID).getValue(),
+      },
+      planGratis: {
+        bancosMaximos: env.FREE_PLAN_MAX_BANKS,
+        soloMesActual: env.FREE_PLAN_CURRENT_MONTH_ONLY,
+      },
+      flagsActivos: env.APP_FLAGS,
+    }),
     googleAuth,
     googleAuthMobile,
     appleAuth,

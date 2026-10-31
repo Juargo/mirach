@@ -3513,6 +3513,185 @@ internal enum Operations {
             }
         }
     }
+    /// Remote app configuration (minimum version, free plan, flags)
+    ///
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed). Returns the minimum supported app version per platform, the free plan limits and the feature flags, all taken from the API configuration so they change without shipping a new app. When X-App-Platform and X-App-Version are valid, actualizacionRequerida says whether the installed version is below the minimum (the app then asks the user to update); otherwise it is null.
+    ///
+    /// - Remark: HTTP `GET /api/config`.
+    /// - Remark: Generated from `#/paths//api/config/get`.
+    internal enum get_sol_api_sol_config {
+        internal static let id: Swift.String = "get/api/config"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/config/GET/header`.
+            internal struct Headers: Sendable, Hashable {
+                /// Installed app version, MAJOR.MINOR.PATCH (compared numerically: 1.10.0 > 1.9.0).
+                ///
+                /// - Remark: Generated from `#/paths/api/config/GET/header/x-app-version`.
+                internal var x_hyphen_app_hyphen_version: Swift.String?
+                /// Platform of the calling app: ios or android, case-insensitive. Any other value is ignored.
+                ///
+                /// - Remark: Generated from `#/paths/api/config/GET/header/x-app-platform`.
+                internal var x_hyphen_app_hyphen_platform: Swift.String?
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_config.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - x_hyphen_app_hyphen_version: Installed app version, MAJOR.MINOR.PATCH (compared numerically: 1.10.0 > 1.9.0).
+                ///   - x_hyphen_app_hyphen_platform: Platform of the calling app: ios or android, case-insensitive. Any other value is ignored.
+                ///   - accept:
+                internal init(
+                    x_hyphen_app_hyphen_version: Swift.String? = nil,
+                    x_hyphen_app_hyphen_platform: Swift.String? = nil,
+                    accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_config.AcceptableContentType>] = .defaultValues()
+                ) {
+                    self.x_hyphen_app_hyphen_version = x_hyphen_app_hyphen_version
+                    self.x_hyphen_app_hyphen_platform = x_hyphen_app_hyphen_platform
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.get_sol_api_sol_config.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            internal init(headers: Operations.get_sol_api_sol_config.Input.Headers = .init()) {
+                self.headers = headers
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/config/GET/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/config/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.ConfigResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ConfigResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_config.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_config.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Current remote configuration.
+            ///
+            /// - Remark: Generated from `#/paths//api/config/get/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.get_sol_api_sol_config.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.get_sol_api_sol_config.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/config/GET/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/config/GET/responses/401/content/application\/json`.
+                    case json(Components.Schemas.ApiKeyUnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ApiKeyUnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_config.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_config.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/config/get/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.get_sol_api_sol_config.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.get_sol_api_sol_config.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Delete the current account and all its data
     ///
     /// Authenticated endpoint that permanently deletes the CALLER's account in one transaction: every session (all devices), transaction, ingestion, classification pattern, category, bank account and the user itself. Requires x-api-key + a valid session and the explicit body confirmation "ELIMINAR" (a valid session alone is not enough). Irreversible. External identity tokens are revoked best-effort first; a revocation failure never blocks the deletion. The session cookie is cleared on success; a repeated call with the now-deleted session answers 401.

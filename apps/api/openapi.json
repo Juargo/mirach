@@ -440,6 +440,73 @@
         ],
         "type": "object"
       },
+      "ConfigResponse": {
+        "additionalProperties": false,
+        "description": "GET /api/config — remote app configuration: minimum version per platform, free plan limits and flags (ADR-005 §4.5).",
+        "properties": {
+          "actualizacionRequerida": {
+            "description": "true when X-App-Version is lower than the minimum for X-App-Platform: the app must ask the user to update. false when it is equal or higher. null when either header is missing or invalid.",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "flags": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Feature flags turned on, as { name: true }. A flag missing from the object is off.",
+            "type": "object"
+          },
+          "planGratis": {
+            "additionalProperties": false,
+            "description": "Free plan limits.",
+            "properties": {
+              "bancosMaximos": {
+                "description": "Maximum number of banks on the free plan (PLA-01).",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "soloMesActual": {
+                "description": "true when the free plan only covers the current month (PLA-01).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "bancosMaximos",
+              "soloMesActual"
+            ],
+            "type": "object"
+          },
+          "versionMinima": {
+            "additionalProperties": false,
+            "description": "Minimum supported app version per platform.",
+            "properties": {
+              "android": {
+                "description": "Minimum supported Android app version (MAJOR.MINOR.PATCH).",
+                "example": "1.10.0",
+                "type": "string"
+              },
+              "ios": {
+                "description": "Minimum supported iOS app version (MAJOR.MINOR.PATCH).",
+                "example": "1.10.0",
+                "type": "string"
+              }
+            },
+            "required": [
+              "ios",
+              "android"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "versionMinima",
+          "planGratis",
+          "flags",
+          "actualizacionRequerida"
+        ],
+        "type": "object"
+      },
       "CredentialsUnauthorizedResponse": {
         "additionalProperties": false,
         "description": "401 body of the sign-in endpoints.",
@@ -2616,6 +2683,56 @@
           }
         },
         "summary": "Rename and/or re-bucket a category"
+      }
+    },
+    "/api/config": {
+      "get": {
+        "description": "Public endpoint (requires x-api-key only, session-public — no prior session needed). Returns the minimum supported app version per platform, the free plan limits and the feature flags, all taken from the API configuration so they change without shipping a new app. When X-App-Platform and X-App-Version are valid, actualizacionRequerida says whether the installed version is below the minimum (the app then asks the user to update); otherwise it is null.",
+        "parameters": [
+          {
+            "description": "Installed app version, MAJOR.MINOR.PATCH (compared numerically: 1.10.0 > 1.9.0).",
+            "in": "header",
+            "name": "x-app-version",
+            "schema": {
+              "description": "Installed app version, MAJOR.MINOR.PATCH (compared numerically: 1.10.0 > 1.9.0).",
+              "example": "1.10.0",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Platform of the calling app: ios or android, case-insensitive. Any other value is ignored.",
+            "in": "header",
+            "name": "x-app-platform",
+            "schema": {
+              "description": "Platform of the calling app: ios or android, case-insensitive. Any other value is ignored.",
+              "example": "ios",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResponse"
+                }
+              }
+            },
+            "description": "Current remote configuration."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyUnauthorizedResponse"
+                }
+              }
+            },
+            "description": "Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA)."
+          }
+        },
+        "summary": "Remote app configuration (minimum version, free plan, flags)"
       }
     },
     "/api/cuenta": {

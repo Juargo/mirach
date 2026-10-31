@@ -120,3 +120,62 @@ describe('createRequestLoggerMiddleware — redacción de query params sensibles
     expect(linea).toContain('2026-07');
   });
 });
+
+/**
+ * #116 / ADR-011: every request line carries the app version and platform when
+ * the app sends them — validated only. The raw headers never reach the line.
+ */
+describe('createRequestLoggerMiddleware — X-App-Version / X-App-Platform (#116)', () => {
+  type Line = {
+    appVersion?: string;
+    appPlatform?: string;
+    req?: { headers?: Record<string, string> };
+    res?: unknown;
+  };
+
+  async function requestLine(
+    headers: Record<string, string>,
+  ): Promise<{ line: Line; raw: string }> {
+    const { raw, output } = captureLogger();
+    const req = request(probeApp(raw)).get('/probe');
+    for (const [name, value] of Object.entries(headers)) req.set(name, value);
+    await req;
+    const line = output()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as Line)
+      .find((entry) => entry.res !== undefined);
+    return { line: line!, raw: output() };
+  }
+
+  it('logs the validated version and the normalized platform', async () => {
+    const { line } = await requestLine({
+      'X-App-Version': '1.10.0',
+      'X-App-Platform': 'iOS',
+    });
+
+    expect(line.appVersion).toBe('1.10.0');
+    expect(line.appPlatform).toBe('ios');
+  });
+
+  it('omits both fields when the headers are missing', async () => {
+    const { line } = await requestLine({});
+
+    expect(line).not.toHaveProperty('appVersion');
+    expect(line).not.toHaveProperty('appPlatform');
+  });
+
+  it('never logs arbitrary header text: invalid values are omitted and the raw headers stripped', async () => {
+    const { line, raw } = await requestLine({
+      'X-App-Version': '1.0.0-evil-payload',
+      'X-App-Platform': 'evil-platform',
+    });
+
+    expect(line).not.toHaveProperty('appVersion');
+    expect(line).not.toHaveProperty('appPlatform');
+    expect(line.req?.headers).not.toHaveProperty('x-app-version');
+    expect(line.req?.headers).not.toHaveProperty('x-app-platform');
+    expect(raw).not.toContain('evil');
+  });
+});
