@@ -5,7 +5,7 @@ import { z } from 'zod';
  * `POST /api/ingestas/preview`, `POST /api/ingestas/commit`). Every body is
  * `{ message, code? }` (`responderErrorTraducido`). `code` is present only for
  * the causes a client must tell apart; the other 400 causes (disallowed
- * extension, unrecognized bank, invalid structure, oversized file, ...) carry
+ * extension, invalid structure, oversized file, ...) carry
  * `message` alone and clients show it as-is.
  *
  * The 400 `code` enum is closed: it mirrors `aHttpError`/`aCommitHttpError` in
@@ -16,6 +16,8 @@ export const CODIGOS_INGESTA_400 = [
   'PDF_PROTEGIDO',
   'PDF_PASSWORD_INCORRECTA',
   'SIN_MOVIMIENTOS',
+  'PDF_ESCANEADO',
+  'BANCO_NO_RECONOCIDO',
 ] as const;
 
 export const ingestaErrorResponseSchema = z
@@ -27,14 +29,16 @@ export const ingestaErrorResponseSchema = z
       .describe(
         'PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent — ask the user for it. ' +
           'PDF_PASSWORD_INCORRECTA: the `password` sent does not unlock the PDF — ask again. ' +
-          'SIN_MOVIMIENTOS: the file is valid but holds zero movements. Absent for every other 400 cause.',
+          'SIN_MOVIMIENTOS: the file is valid but holds zero movements. ' +
+          'PDF_ESCANEADO: the PDF has no text layer (a scan or an image). ' +
+          'BANCO_NO_RECONOCIDO: the file does not match any supported bank. Absent for every other 400 cause.',
       ),
   })
   .meta({
     id: 'IngestaErrorResponse',
     description:
       '400 body of the upload endpoints. `code` is present only for PDF_PROTEGIDO, ' +
-      'PDF_PASSWORD_INCORRECTA and SIN_MOVIMIENTOS.',
+      'PDF_PASSWORD_INCORRECTA, SIN_MOVIMIENTOS, PDF_ESCANEADO and BANCO_NO_RECONOCIDO.',
   });
 
 export const ingestaCatalogoIncompletoResponseSchema = z
