@@ -91,15 +91,27 @@ Duplicate detection MUST complete in under 3 seconds for files of up to 10,000 r
 - THEN detection completes in under 3 seconds
 - AND no existing transaction row is altered or deleted
 
-### Requirement: Accepted limitation — same-day identical transactions
+### Requirement: Identical same-day transactions are counted (#114, IMP-05)
 
-The system MAY treat two genuinely distinct transactions that share identical `accountId + fecha + descripcion + cargo + abono` as a single duplicate, dropping one. This is a documented, stakeholder-accepted MVP limitation, not a defect.
+The system SHALL treat identical rows (same `accountId + fecha + descripcion + cargo + abono`) as separate movements and count them. When E copies of a key are already stored and the incoming batch carries n rows with that key, the first min(E, n) rows in file order SHALL be duplicates and the remaining rows SHALL be new. The same rule applies to the preview mask and to the commit/process partition. The running balance (saldo) is not part of the key: no parser extracts it today (decision of 2026-10-30).
 
-#### Scenario: Two legitimately identical same-day transactions
+#### Scenario: Dos compras idénticas el mismo día no se pierden
 
-- GIVEN a user made two real, separate purchases on the same day at the same merchant for the same exact amount, with identical description text
-- WHEN both rows are included in an incoming batch matching an already-persisted row, or one duplicates the other within the same batch
-- THEN only one of the two is persisted and the other is counted as a duplicate (accepted limitation, no cancellation or merge behavior implied)
+- GIVEN a cartola with two $3.500 charges at "COPEC" on 12-10-2026, in different rows, and none stored
+- WHEN the user confirms the cartola
+- THEN both movements are persisted
+
+#### Scenario: An overlapping file keeps the second identical charge
+
+- GIVEN one $3.500 "COPEC" charge on 12-10-2026 is already stored
+- WHEN an incoming batch carries two identical rows for it
+- THEN the first row is a duplicate and the second one is persisted
+
+#### Scenario: Subir dos veces la misma cartola no duplica
+
+- GIVEN the user confirmed a cartola with 42 movements
+- WHEN the same file is uploaded and confirmed again
+- THEN the preview reports 42 duplicates and the month still has 42 movements
 
 ## Out of Scope
 

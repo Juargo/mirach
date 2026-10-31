@@ -72,7 +72,7 @@ recibe el `userId` de la sesión y lo incluye en el `where` (RNF-SEC-002). Una F
 
 | Regla | Cómo se garantiza |
 |-------|-------------------|
-| Un movimiento no se repite (IMP-05) | Clave de duplicado en el dominio (`clave-duplicado.ts`): cuenta, fecha, descripción, cargo y abono. **Brecha:** dos compras idénticas el mismo día se tratan como duplicado y la segunda se pierde. Decisión del product owner (2026-10-24): antes del lanzamiento la clave suma el saldo (si el archivo lo trae) y el orden dentro del archivo, como propone IMP-05 |
+| Un movimiento no se repite (IMP-05) | Clave de duplicado en el dominio (`clave-duplicado.ts`): cuenta, fecha, descripción, cargo y abono. Las filas idénticas se cuentan (#114): si hay E copias guardadas y el archivo trae n, las primeras min(E, n) en el orden del archivo son duplicadas y el resto se guarda, así dos compras idénticas el mismo día no se pierden. Decisión del product owner (2026-10-24, ajustada el 2026-10-30): el orden dentro del archivo, como propone IMP-05; el saldo queda fuera de la clave porque ningún parser lo extrae y los movimientos guardados no lo tienen |
 | Categoría única por bloque (CLA-10) | Índice único `(userId, bucketId, nombre)` |
 | Una identidad de proveedor, una cuenta | `googleSub` y `appleSub` únicos |
 | Email único sin guardarlo en claro | Índice ciego `emailBlindIndex` único (HMAC, ADR-009) |

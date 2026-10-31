@@ -36,17 +36,22 @@ export function rangoFechas(
 
 /**
  * marcarDuplicados — construye una máscara booleana por fila: `true` cuando
- * la transacción en esa posición ya existe en el set de existentes (clave
+ * la transacción en esa posición ya existe entre las existentes (clave
  * natural coincide), `false` cuando es nueva.
  *
- * Es una función pura y stateless. El caller (tipicamente `PreviewIngestaUseCase`)
- * es responsable de:
- *   1. Obtener `existentes` via `ITransaccionExistenteReader.buscarPorCuentaYRango`.
- *   2. Pasar los resultados acá.
+ * Cuenta copias (#114, IMP-05, ADR-004 §5): dos movimientos idénticos el
+ * mismo día son dos movimientos. Si hay E copias guardadas de una clave y
+ * el archivo trae n, las primeras min(E, n) en el orden del archivo son
+ * duplicadas y el resto son nuevas. Así una segunda compra idéntica no se
+ * pierde, y volver a subir el mismo archivo (o uno que se solapa) no
+ * duplica.
  *
- * La comparación usa `construirClaveDuplicado` — la misma función que usa
- * `DetectarDuplicadosUseCase` — para garantizar fuente única de la clave
- * natural (DRY, D-07).
+ * Es una función pura y stateless. El caller (`PreviewIngestaUseCase`,
+ * `DetectarDuplicadosUseCase`) es responsable de obtener `existentes` via
+ * `ITransaccionExistenteReader.buscarPorCuentaYRango`.
+ *
+ * La comparación usa `construirClaveDuplicado` para garantizar fuente única
+ * de la clave natural (DRY, D-07).
  *
  * Preserva el orden: `resultado[i]` corresponde a `transacciones[i]`.
  */
@@ -56,18 +61,17 @@ export function marcarDuplicados(
 ): boolean[] {
   if (transacciones.length === 0) return [];
 
-  // Construye el Set<clave> sobre las filas existentes (misma lógica que
-  // DetectarDuplicadosUseCase.execute — fuente única de la clave, D-07).
-  const clavesExistentes = new Set(
-    existentes.map((row) =>
-      construirClaveDuplicado({
-        fecha: row.fecha,
-        descripcion: row.descripcion,
-        cargo: row.cargo.toString(),
-        abono: row.abono.toString(),
-      }),
-    ),
-  );
+  // Copias guardadas por clave, consumidas a medida que el archivo las repite.
+  const copiasRestantes = new Map<string, number>();
+  for (const row of existentes) {
+    const clave = construirClaveDuplicado({
+      fecha: row.fecha,
+      descripcion: row.descripcion,
+      cargo: row.cargo.toString(),
+      abono: row.abono.toString(),
+    });
+    copiasRestantes.set(clave, (copiasRestantes.get(clave) ?? 0) + 1);
+  }
 
   return transacciones.map((tx) => {
     const clave = construirClaveDuplicado({
@@ -76,6 +80,9 @@ export function marcarDuplicados(
       cargo: String(tx.cargo),
       abono: String(tx.abono),
     });
-    return clavesExistentes.has(clave);
+    const restantes = copiasRestantes.get(clave) ?? 0;
+    if (restantes === 0) return false;
+    copiasRestantes.set(clave, restantes - 1);
+    return true;
   });
 }

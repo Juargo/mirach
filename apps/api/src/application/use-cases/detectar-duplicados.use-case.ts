@@ -1,10 +1,9 @@
 import { Result } from '../../shared/result';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
 import { Transaccion } from '../../domain/value-objects/transaccion';
-import { construirClaveDuplicado } from '../../domain/value-objects/clave-duplicado';
 import { ITransaccionExistenteReader } from '../ports/transaccion-existente-reader.port';
 import { ILogger } from '../ports/logger.port';
-import { rangoFechas } from './marcar-duplicados.helper';
+import { marcarDuplicados, rangoFechas } from './marcar-duplicados.helper';
 
 /** Datos mínimos para detectar duplicados en un batch entrante (US-005). */
 export interface DetectarDuplicadosInput {
@@ -72,32 +71,14 @@ export class DetectarDuplicadosUseCase {
       return Result.fail(existentesResult.getError());
     }
 
-    const clavesExistentes = new Set(
-      existentesResult.getValue().map((row) =>
-        construirClaveDuplicado({
-          fecha: row.fecha,
-          descripcion: row.descripcion,
-          cargo: row.cargo.toString(),
-          abono: row.abono.toString(),
-        }),
-      ),
+    // Same counted rule as the preview (#114): identical rows are counted,
+    // never collapsed.
+    const esDuplicada = marcarDuplicados(
+      existentesResult.getValue(),
+      transacciones,
     );
-
-    const nuevas: Transaccion[] = [];
-    let duplicadas = 0;
-    for (const tx of transacciones) {
-      const clave = construirClaveDuplicado({
-        fecha: tx.fecha,
-        descripcion: tx.descripcion,
-        cargo: String(tx.cargo),
-        abono: String(tx.abono),
-      });
-      if (clavesExistentes.has(clave)) {
-        duplicadas += 1;
-      } else {
-        nuevas.push(tx);
-      }
-    }
+    const nuevas = transacciones.filter((_, i) => !esDuplicada[i]);
+    const duplicadas = transacciones.length - nuevas.length;
 
     // Solo conteos + accountId (ID interno) — nunca fecha/descripción/montos
     // de las transacciones (ADR-013).

@@ -227,3 +227,24 @@ describe('DetectarDuplicadosUseCase — debug logging (ADR-033 slice B, ADR-013)
     expect(serializedContexts).not.toContain('5000');
   });
 });
+
+describe('DetectarDuplicadosUseCase — identical rows on the same day (#114, IMP-05)', () => {
+  it('one stored copy and two identical rows in the file: keeps the second one', async () => {
+    const copec = { descripcion: 'COPEC', cargo: 3500n };
+    const reader = new FakeTransaccionExistenteReader(
+      Result.ok([makeExistente(copec)]),
+    );
+    const useCase = new DetectarDuplicadosUseCase(reader, new NoOpLogger());
+    const primera = makeTx(copec);
+    const segunda = makeTx(copec);
+
+    const result = await useCase.execute({
+      accountId: 'A1',
+      transacciones: [primera, segunda],
+    });
+
+    expect(result.getValue().nuevas).toHaveLength(1);
+    expect(result.getValue().nuevas[0]).toBe(segunda);
+    expect(result.getValue().duplicadas).toBe(1);
+  });
+});
