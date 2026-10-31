@@ -77,7 +77,14 @@ export function registrarAuthAppleToken(
         return;
       }
 
-      const { identityToken, nonce, nombre, authorizationCode } = body.data;
+      const {
+        identityToken,
+        nonce,
+        nombre,
+        authorizationCode,
+        versionTerminos,
+        versionPrivacidad,
+      } = body.data;
 
       const verificacion = await verificadorIdToken.verificarIdToken(
         identityToken,
@@ -97,6 +104,7 @@ export function registrarAuthAppleToken(
         verificacion.getValue(),
         nombre,
         authorizationCode,
+        { terminos: versionTerminos, privacidad: versionPrivacidad },
       );
 
       if (resultado.isFail()) {

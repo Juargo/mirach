@@ -1,10 +1,17 @@
 import 'dotenv/config';
 import { createPrismaClient } from '../src/infrastructure/persistence/create-prisma-client';
 import { loadEnv } from '../src/config/env';
+import { deriveBlindIndexKey } from '../src/composition/derive-blind-index-key';
+import { Email } from '../src/domain/value-objects/email';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { HmacBlindIndexService } from '../src/infrastructure/persistence/hmac-blind-index.service';
 
 import { PrismaConsentimientoRepository } from '../src/infrastructure/persistence/prisma-consentimiento.repository';
+import { PrismaIdentidadAppleRepository } from '../src/infrastructure/persistence/prisma-identidad-apple.repository';
+import { PrismaIdentidadGoogleRepository } from '../src/infrastructure/persistence/prisma-identidad-google.repository';
 import { PrismaCuentaRepository } from '../src/infrastructure/persistence/prisma-cuenta.repository';
 import {
+  aceptacionTerminos,
   TipoConsentimiento,
   VersionConsentimiento,
 } from '../src/domain/value-objects/consentimiento';
@@ -12,7 +19,8 @@ import {
 const version = (raw: string) => VersionConsentimiento.crear(raw).getValue();
 
 describe('PrismaConsentimientoRepository (integración)', () => {
-  const prisma = createPrismaClient(loadEnv());
+  const env = loadEnv();
+  const prisma = createPrismaClient(env);
   const repo = new PrismaConsentimientoRepository(prisma);
   const emails = ['consent-a@test.local', 'consent-b@test.local'];
   let userA: string;
@@ -137,6 +145,77 @@ describe('PrismaConsentimientoRepository (integración)', () => {
     expect(await repo.tieneVigente(userA, TipoConsentimiento.Cartolas)).toBe(
       true,
     );
+  });
+
+  describe('alta con términos aceptados (AUTH-03)', () => {
+    const crypto = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
+    const blindIndex = new HmacBlindIndexService(
+      deriveBlindIndexKey(Buffer.from(env.ENCRYPTION_KEY, 'base64')),
+    );
+    const aceptacion = aceptacionTerminos({
+      terminos: '2026-10',
+      privacidad: '2026-09',
+    }).getValue();
+    const email = Email.crear('consent-alta@test.local').getValue();
+    const SUB = 'consent-alta-sub';
+
+    const borrarAltas = async () => {
+      const altas = await prisma.user.findMany({
+        where: { OR: [{ appleSub: SUB }, { googleSub: SUB }] },
+        select: { id: true },
+      });
+      const cuentas = new PrismaCuentaRepository(prisma);
+      await Promise.all(altas.map((u) => cuentas.eliminar(u.id)));
+    };
+
+    beforeEach(borrarAltas);
+    afterAll(borrarAltas);
+
+    const tiposDe = async (userId: string) =>
+      (await repo.listar(userId)).map((c) => `${c.tipo}:${c.version}`).sort();
+
+    it('Apple guarda términos y privacidad con la cuenta', async () => {
+      const userId = await new PrismaIdentidadAppleRepository(
+        prisma,
+        blindIndex,
+        crypto,
+      ).crearDesdeApple({ email, appleSub: SUB, nombre: 'Ana', aceptacion });
+
+      expect(await tiposDe(userId!)).toEqual([
+        'privacidad:2026-09',
+        'terminos:2026-10',
+      ]);
+    });
+
+    it('Google guarda términos y privacidad con la cuenta', async () => {
+      const userId = await new PrismaIdentidadGoogleRepository(
+        prisma,
+        blindIndex,
+        crypto,
+      ).crearDesdeGoogle({ email, googleSub: SUB, nombre: 'Ana', aceptacion });
+
+      expect(await tiposDe(userId!)).toEqual([
+        'privacidad:2026-09',
+        'terminos:2026-10',
+      ]);
+    });
+
+    it('sin aceptación crea la cuenta sin registros', async () => {
+      const userId = await new PrismaIdentidadGoogleRepository(
+        prisma,
+        blindIndex,
+        crypto,
+      ).crearDesdeGoogle({
+        email,
+        googleSub: SUB,
+        nombre: 'Ana',
+        aceptacion: null,
+      });
+
+      expect(await repo.listar(userId!)).toEqual([]);
+    });
   });
 
   it('borrar la cuenta borra sus consentimientos y no los de otro', async () => {

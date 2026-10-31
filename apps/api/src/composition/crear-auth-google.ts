@@ -106,7 +106,10 @@ export function crearAuthGoogle(
   prisma: PrismaClient,
   env: Pick<
     Env,
-    'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET' | 'GOOGLE_REDIRECT_URI'
+    | 'GOOGLE_CLIENT_ID'
+    | 'GOOGLE_CLIENT_SECRET'
+    | 'GOOGLE_REDIRECT_URI'
+    | 'CONSENTS_REQUIRED'
   >,
   crypto: ICryptoService,
   blindIndex: IBlindIndexService,
@@ -151,6 +154,7 @@ export function crearAuthGoogle(
       tokens,
       reloj,
       logger,
+      env.CONSENTS_REQUIRED,
     ),
     googleRateLimiter: new IpRateLimiter(
       GOOGLE_RATE_LIMIT_KEY_PREFIX,

@@ -74,7 +74,7 @@ export function audienciasGoogleMobile(env: EnvGoogleMobile): string[] {
  */
 export function crearAuthGoogleMobile(
   prisma: PrismaClient,
-  env: EnvGoogleMobile,
+  env: EnvGoogleMobile & Pick<Env, 'CONSENTS_REQUIRED'>,
   blindIndex: IBlindIndexService,
   crypto: ICryptoService,
   logger: ILogger,
@@ -102,6 +102,7 @@ export function crearAuthGoogleMobile(
       tokens,
       reloj,
       logger,
+      env.CONSENTS_REQUIRED,
     ),
     googleTokenRateLimiter: new IpRateLimiter(
       GOOGLE_TOKEN_RATE_LIMIT_KEY_PREFIX,

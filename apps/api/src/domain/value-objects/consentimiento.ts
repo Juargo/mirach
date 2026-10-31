@@ -54,17 +54,20 @@ export interface VersionesAceptadas {
 }
 
 /**
- * aceptacionTerminos — sin ninguna versión devuelve `null`: la persona no
- * aceptó nada, y decidir si eso impide el alta le toca al caso de uso. Una
- * aceptación a medias o malformada nunca es una aceptación: es un error.
+ * aceptacionTerminos — sin ninguna versión la persona no aceptó nada: devuelve
+ * `null`, o un error si la aceptación es `exigida`. Una aceptación a medias o
+ * malformada nunca cuenta: es un error aunque no sea exigida.
  */
 export function aceptacionTerminos(
   versiones: VersionesAceptadas,
+  exigida = false,
 ): Result<AceptacionTerminos | null, VersionConsentimientoInvalidaError> {
   const { terminos, privacidad } = versiones;
 
   if ((terminos ?? null) === null && (privacidad ?? null) === null) {
-    return Result.ok(null);
+    return exigida
+      ? Result.fail(new VersionConsentimientoInvalidaError())
+      : Result.ok(null);
   }
 
   if (typeof terminos !== 'string' || typeof privacidad !== 'string') {

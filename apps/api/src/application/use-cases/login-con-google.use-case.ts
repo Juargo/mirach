@@ -1,4 +1,8 @@
 import { Result } from '../../shared/result';
+import {
+  aceptacionTerminos,
+  VersionesAceptadas,
+} from '../../domain/value-objects/consentimiento';
 import { Email } from '../../domain/value-objects/email';
 import { calcularExpiracion } from '../../domain/value-objects/duracion-sesion';
 import { LoginConGoogleFallidoError } from '../../domain/errors/login-con-google-fallido.error';
@@ -46,6 +50,10 @@ export interface LoginConGoogleResult extends LoginUseCaseResult {
  * `Email.crear` primero por legibilidad): `buscarPorGoogleSub` corre
  * SIEMPRE primero — antes del gate de `emailVerificado` y antes de
  * `buscarPorEmail` (ver design §5.6, tabla de conteo de queries).
+ *
+ * Términos (AUTH-03, #112): `versiones` solo importa en el alta, un usuario que
+ * ya existe nunca los necesita. Con `exigirTerminos`, un alta sin versiones no
+ * crea la cuenta; así queda también el callback web, que nunca las envía.
  */
 export class LoginConGoogleUseCase {
   constructor(
@@ -54,10 +62,12 @@ export class LoginConGoogleUseCase {
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
     private readonly logger: ILogger,
+    private readonly exigirTerminos: boolean = false,
   ) {}
 
   async execute(
     identidad: IdentidadExterna,
+    versiones: VersionesAceptadas = {},
   ): Promise<Result<LoginConGoogleResult, LoginConGoogleFallidoError>> {
     const porGoogleSub = await this.identidades.buscarPorGoogleSub(
       identidad.sub,
@@ -98,7 +108,7 @@ export class LoginConGoogleUseCase {
     });
 
     if (porEmail === null) {
-      return this.crearCuenta(identidad, emailResult.getValue());
+      return this.crearCuenta(identidad, emailResult.getValue(), versiones);
     }
 
     // Misma identidad: el ganador de una carrera de alta concurrente
@@ -167,11 +177,21 @@ export class LoginConGoogleUseCase {
   private async crearCuenta(
     identidad: IdentidadExterna,
     email: Email,
+    versiones: VersionesAceptadas,
   ): Promise<Result<LoginConGoogleResult, LoginConGoogleFallidoError>> {
+    const aceptacion = aceptacionTerminos(versiones, this.exigirTerminos);
+
+    if (aceptacion.isFail()) {
+      return Result.fail(
+        new LoginConGoogleFallidoError('terminos-no-aceptados'),
+      );
+    }
+
     const nuevoUserId = await this.identidades.crearDesdeGoogle({
       email,
       googleSub: identidad.sub,
       nombre: email.valor.split('@')[0],
+      aceptacion: aceptacion.getValue(),
     });
 
     if (nuevoUserId !== null) {

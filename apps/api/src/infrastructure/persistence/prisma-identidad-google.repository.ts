@@ -9,6 +9,7 @@ import { Email } from '../../domain/value-objects/email';
 import type { IBlindIndexService } from '../../application/ports/blind-index-service.port';
 import type { ICryptoService } from '../../application/ports/crypto-service.port';
 import { copiarCatalogoTemplate } from './catalogo-template';
+import { registrarAceptacionTerminos } from './prisma-consentimiento.repository';
 import { esCarreraDeCreacionUser } from './user-creation-race';
 
 const COLUMNAS_CARRERA = ['emailBlindIndex', 'googleSub'] as const;
@@ -80,6 +81,7 @@ export class PrismaIdentidadGoogleRepository implements IIdentidadGoogleReposito
         });
 
         await copiarCatalogoTemplate(tx, user.id);
+        await registrarAceptacionTerminos(tx, user.id, datos.aceptacion);
 
         return user.id;
       });

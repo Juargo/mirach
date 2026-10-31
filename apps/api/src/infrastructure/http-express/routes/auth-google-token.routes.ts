@@ -28,6 +28,16 @@ const RATE_LIMITED_BODY = {
   message: 'Demasiadas solicitudes. Intenta más tarde.',
 };
 
+/**
+ * A value that is not text must not read as "no version": it becomes one that
+ * fails validation, so a signup rejects it and an existing user is unaffected.
+ */
+function versionDe(raw: unknown): string | null | undefined {
+  return raw === undefined || raw === null || typeof raw === 'string'
+    ? raw
+    : '';
+}
+
 /** Dependencias de `POST /api/auth/google/token` — mismo shape que `GoogleAuthMobileGraph` (composition, design §7). */
 export interface AuthGoogleTokenDeps {
   readonly verificadorIdToken: IVerificadorIdTokenExterno;
@@ -93,7 +103,13 @@ export function registrarAuthGoogleToken(
       }
       googleTokenRateLimiter.recordFailure(ip);
 
-      const body = req.body as { idToken?: unknown } | undefined;
+      const body = req.body as
+        | {
+            idToken?: unknown;
+            versionTerminos?: unknown;
+            versionPrivacidad?: unknown;
+          }
+        | undefined;
       const idToken = typeof body?.idToken === 'string' ? body.idToken : '';
 
       const verificacion = await verificadorIdToken.verificarIdToken(idToken);
@@ -110,7 +126,10 @@ export function registrarAuthGoogleToken(
         return;
       }
 
-      const resultado = await loginConGoogle.execute(verificacion.getValue());
+      const resultado = await loginConGoogle.execute(verificacion.getValue(), {
+        terminos: versionDe(body?.versionTerminos),
+        privacidad: versionDe(body?.versionPrivacidad),
+      });
 
       if (resultado.isFail()) {
         appLogger.warn(

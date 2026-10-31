@@ -1,3 +1,4 @@
+import { AceptacionTerminos } from '../../domain/value-objects/consentimiento';
 import { Email } from '../../domain/value-objects/email';
 
 /**
@@ -18,6 +19,8 @@ export interface NuevoUsuarioGoogle {
   readonly email: Email;
   readonly googleSub: string;
   readonly nombre: string;
+  /** Se guarda en la transacción del alta; `null` si no se aceptó nada. */
+  readonly aceptacion: AceptacionTerminos | null;
 }
 
 /**

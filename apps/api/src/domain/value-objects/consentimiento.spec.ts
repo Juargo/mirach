@@ -37,6 +37,21 @@ describe('aceptacionTerminos', () => {
     expect(aceptacion?.privacidad.valor).toBe('2026-09');
   });
 
+  it('sin versiones es un error cuando la aceptación es exigida', () => {
+    expect(aceptacionTerminos({}, true).getError()).toBeInstanceOf(
+      VersionConsentimientoInvalidaError,
+    );
+  });
+
+  it('con ambas versiones basta cuando la aceptación es exigida', () => {
+    const aceptacion = aceptacionTerminos(
+      { terminos: '1', privacidad: '1' },
+      true,
+    );
+
+    expect(aceptacion.isOk()).toBe(true);
+  });
+
   it.each([
     [{ terminos: '1' }],
     [{ privacidad: '1' }],

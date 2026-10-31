@@ -6,13 +6,17 @@
  * ADR-041: 'sin-match' se RETIRA de la unión — el no-match ahora CREA la
  * cuenta (signup-on-first-login). Su reemplazo en la rama de carrera de
  * creación perdida e irresoluble es 'creacion-perdio-la-carrera'.
+ *
+ * 'terminos-no-aceptados': una cuenta NUEVA llegó sin las versiones de términos
+ * y privacidad, o con versiones inválidas (AUTH-03).
  */
 export type MotivoFalloGoogle =
   | 'email-no-verificado'
   | 'ya-vinculado-a-otra-identidad'
   | 'link-perdio-la-carrera'
   | 'creacion-perdio-la-carrera'
-  | 'email-invalido';
+  | 'email-invalido'
+  | 'terminos-no-aceptados';
 
 /**
  * LoginConGoogleFallidoError — error de dominio.

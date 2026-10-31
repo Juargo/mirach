@@ -237,6 +237,13 @@ export const EnvObjectSchema = z.object({
   APP_MIN_VERSION_ANDROID: appVersionSchema.describe(
     'Versión mínima soportada de la app Android (MAJOR.MINOR.PATCH); ver APP_MIN_VERSION_IOS.',
   ),
+  CONSENTS_REQUIRED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true')
+    .describe(
+      'Exige los consentimientos (#112): una cuenta nueva necesita las versiones de términos y privacidad, e importar una cartola necesita el consentimiento de cartolas vigente. Apagado mientras las apps instaladas no tengan esas pantallas (#134). Encender solo cuando esa versión sea la mínima (APP_MIN_VERSION_*). Enum de strings ("true"/"false"), igual que COOKIE_SECURE.',
+    ),
   FREE_PLAN_MAX_BANKS: z.coerce
     .number()
     .int()
