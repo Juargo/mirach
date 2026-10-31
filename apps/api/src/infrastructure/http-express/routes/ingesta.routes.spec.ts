@@ -1,5 +1,7 @@
 import express, { type Express } from 'express';
 import request from 'supertest';
+import { ConsentimientoCartolasRequeridoError } from '../../../domain/errors/consentimiento-cartolas-requerido.error';
+import type { VerificarConsentimientoCartolasUseCase } from '../../../application/use-cases/consentimientos.use-case';
 import { registrarIngestas } from './ingesta.routes';
 import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
@@ -59,6 +61,7 @@ function probeApp(deps: {
   listarIngestas?: ListarDoble;
   previewIngesta?: PreviewDoble;
   commitIngesta?: CommitDoble;
+  verificarConsentimientoCartolas?: { execute: ReturnType<typeof vi.fn> };
 }): Express {
   const app = express();
   app.use(express.json());
@@ -83,11 +86,67 @@ function probeApp(deps: {
     commitIngesta: (deps.commitIngesta ?? {
       execute: vi.fn(),
     }) as CommitIngestaUseCase,
+    verificarConsentimientoCartolas: (deps.verificarConsentimientoCartolas ?? {
+      execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    }) as unknown as VerificarConsentimientoCartolasUseCase,
   });
   app.use('/api', router);
   app.use(errorMiddleware);
   return app;
 }
+
+describe('registrarIngestas — consentimiento de cartolas (#112)', () => {
+  const RUTAS = [
+    '/api/ingestas',
+    '/api/ingestas/preview',
+    '/api/ingestas/commit',
+  ];
+
+  it.each(RUTAS)('%s responde 409 sin llegar al caso de uso', async (ruta) => {
+    const verificar = {
+      execute: vi
+        .fn()
+        .mockResolvedValue(
+          Result.fail(new ConsentimientoCartolasRequeridoError()),
+        ),
+    };
+    const uc = { execute: vi.fn() };
+
+    const res = await request(
+      probeApp({
+        verificarConsentimientoCartolas: verificar,
+        processIngesta: uc,
+        previewIngesta: uc,
+        commitIngesta: uc,
+      }),
+    )
+      .post(ruta)
+      .attach('file', Buffer.from('x'), 'cartola.xlsx');
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('CONSENTIMIENTO_CARTOLAS_REQUERIDO');
+    expect(verificar.execute).toHaveBeenCalledWith({ userId: 'user-x' });
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('si la verificación se cae, responde 500 y no importa', async () => {
+    const uc = { execute: vi.fn() };
+
+    const res = await request(
+      probeApp({
+        verificarConsentimientoCartolas: {
+          execute: vi.fn().mockRejectedValue(new Error('bd caída')),
+        },
+        previewIngesta: uc,
+      }),
+    )
+      .post('/api/ingestas/preview')
+      .attach('file', Buffer.from('x'), 'cartola.xlsx');
+
+    expect(res.status).toBe(500);
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+});
 
 describe('registrarIngestas — POST /api/ingestas', () => {
   it('200 con el DTO; llama al pipeline con el fileReader y el userId', async () => {

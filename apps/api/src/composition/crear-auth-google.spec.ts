@@ -63,6 +63,30 @@ describe('crearAuthGoogle (design §4.3)', () => {
     expect(graph).toBeUndefined();
   });
 
+  it('CONSENTS_REQUIRED llega al caso de uso: el callback web no crea cuentas (#112)', async () => {
+    const graph = crearAuthGoogle(
+      fakePrisma(),
+      buildTestEnv({
+        GOOGLE_CLIENT_ID: 'client-id',
+        GOOGLE_CLIENT_SECRET: 'client-secret',
+        GOOGLE_REDIRECT_URI: 'http://localhost:5173/api/auth/google/callback',
+        CONSENTS_REQUIRED: true,
+      }),
+      fakeCrypto(),
+      { compute: vi.fn().mockReturnValue('blind') },
+      LINK_INTENT_KEY,
+      new NoOpLogger(),
+    );
+
+    const result = await graph!.loginConGoogle.execute({
+      sub: 'google-sub',
+      email: 'ana@example.com',
+      emailVerificado: true,
+    });
+
+    expect(result.getError().motivo).toBe('terminos-no-aceptados');
+  });
+
   it('retorna undefined cuando falta GOOGLE_CLIENT_SECRET', () => {
     const env = buildTestEnv({
       GOOGLE_CLIENT_ID: 'client-id',

@@ -33,6 +33,14 @@ import {
   type GoogleAuthMobileGraph,
 } from './crear-auth-google-mobile';
 import { crearAuthApple, type AppleAuthGraph } from './crear-auth-apple';
+import type { ConsentimientosGraph } from '../infrastructure/http-express/routes/consentimientos.routes';
+import { PrismaConsentimientoRepository } from '../infrastructure/persistence/prisma-consentimiento.repository';
+import {
+  AceptarConsentimientoUseCase,
+  ListarConsentimientosUseCase,
+  RevocarConsentimientoUseCase,
+  VerificarConsentimientoCartolasUseCase,
+} from '../application/use-cases/consentimientos.use-case';
 import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
 import { crearClienteAppleAuth } from './crear-cliente-apple-auth';
 import { crearProcessIngesta } from './crear-process-ingesta';
@@ -151,6 +159,8 @@ export interface Container {
   readonly perfil: PerfilGraph;
   /** Perfil de presupuesto (#110) — `GET/PUT /api/perfil/presupuesto`. */
   readonly perfilPresupuesto: PerfilPresupuestoGraph;
+  readonly consentimientos: ConsentimientosGraph;
+  readonly verificarConsentimientoCartolas: VerificarConsentimientoCartolasUseCase;
   /** Login por credenciales — POST /api/auth/login. */
   readonly login: LoginUseCase;
   /** Revocar sesión — POST /api/auth/logout. */
@@ -400,6 +410,12 @@ export function createContainer(
   // US-040: reusa las MISMAS instancias crypto/blindIndex derivadas arriba —
   // nunca una re-derivación (mismo carry-forward que googleAuth/googleAuthMobile).
   const perfil = crearPerfil(prisma, crypto, blindIndex, logger);
+  const consentimientos = new PrismaConsentimientoRepository(prisma);
+  const consentimientosGraph: ConsentimientosGraph = {
+    listar: new ListarConsentimientosUseCase(consentimientos),
+    aceptar: new AceptarConsentimientoUseCase(consentimientos),
+    revocar: new RevocarConsentimientoUseCase(consentimientos),
+  };
   const perfilPresupuestoGraph: PerfilPresupuestoGraph = {
     obtener: new ObtenerPerfilPresupuestoUseCase(perfilPresupuesto),
     actualizar: new ActualizarPerfilPresupuestoUseCase(
@@ -431,6 +447,11 @@ export function createContainer(
     eliminarCuenta,
     perfil,
     perfilPresupuesto: perfilPresupuestoGraph,
+    consentimientos: consentimientosGraph,
+    verificarConsentimientoCartolas: new VerificarConsentimientoCartolasUseCase(
+      consentimientos,
+      env.CONSENTS_REQUIRED,
+    ),
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,

@@ -59,6 +59,27 @@ describe('crearAuthGoogleMobile (design §7)', () => {
     expect(graph).toBeUndefined();
   });
 
+  it('CONSENTS_REQUIRED llega al caso de uso: un alta sin términos no crea la cuenta (#112)', async () => {
+    const graph = crearAuthGoogleMobile(
+      fakePrisma(),
+      buildTestEnv({
+        GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,
+        CONSENTS_REQUIRED: true,
+      }),
+      { compute: vi.fn().mockReturnValue('blind') },
+      makeCryptoDouble(),
+      new NoOpLogger(),
+    );
+
+    const result = await graph!.loginConGoogle.execute({
+      sub: 'google-sub',
+      email: 'ana@example.com',
+      emailVerificado: true,
+    });
+
+    expect(result.getError().motivo).toBe('terminos-no-aceptados');
+  });
+
   it('retorna un GoogleAuthMobileGraph (verificadorIdToken, loginConGoogle, googleTokenRateLimiter) cuando GOOGLE_CLIENT_ID_ANDROID está presente', () => {
     const env = buildTestEnv({
       GOOGLE_CLIENT_ID_ANDROID: VALID_ANDROID_CLIENT_ID,

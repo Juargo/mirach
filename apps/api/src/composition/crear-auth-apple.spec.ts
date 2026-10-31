@@ -50,6 +50,36 @@ describe('crearAuthApple', () => {
     expect(graph?.appleTokenRateLimiter).toBeInstanceOf(IpRateLimiter);
   });
 
+  it('CONSENTS_REQUIRED llega al caso de uso: un alta sin términos no crea la cuenta (#112)', async () => {
+    const create = vi.fn();
+    const prismaFake = {
+      user: { findUnique: vi.fn().mockResolvedValue(null), create },
+      $transaction: vi.fn(),
+    } as unknown as PrismaClient;
+
+    const graph = crearAuthApple(
+      prismaFake,
+      buildTestEnv({
+        APPLE_BUNDLE_ID: 'cl.mirach.app',
+        CONSENTS_REQUIRED: true,
+      }),
+      blindIndex,
+      crypto,
+      new NoOpLogger(),
+      undefined,
+      new TareasSincronas(),
+    );
+
+    const result = await graph!.loginConApple.execute({
+      sub: 'apple-sub',
+      email: 'ana@example.com',
+      emailVerificado: true,
+      emailPrivado: false,
+    });
+
+    expect(result.getError().motivo).toBe('terminos-no-aceptados');
+  });
+
   it('con cliente de Apple REST: un id_token del canje que no verifica NO se guarda y el token se revoca (T4)', async () => {
     const env = buildTestEnv({ APPLE_BUNDLE_ID: 'cl.mirach.app' });
     const intercambiarCodigo = vi

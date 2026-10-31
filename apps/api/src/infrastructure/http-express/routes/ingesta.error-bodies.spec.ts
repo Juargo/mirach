@@ -70,6 +70,9 @@ function appWith(nombre: Endpoint, execute: Execute): Express {
     commitIngesta: doubles.commitIngesta as unknown as CommitIngestaUseCase,
     eliminarIngesta: doubles.eliminarIngesta as never,
     listarIngestas: doubles.listarIngestas as never,
+    verificarConsentimientoCartolas: {
+      execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    } as never,
   });
   app.use('/api', router);
   app.use(errorMiddleware);
