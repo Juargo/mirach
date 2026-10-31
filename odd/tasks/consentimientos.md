@@ -24,11 +24,11 @@ Assumptions, decided by the parent:
 
 ## Tasks
 
-- [ ] T1 (S1, S5) domain, migration with RLS, repository, account deletion. Route: inline.
-- [ ] T2 (S2, S7) signup with terms on both token endpoints. Route: inline.
-- [ ] T3 (S3) `GET/POST/DELETE /api/consentimientos`. Route: inline.
-- [ ] T4 (S4, S6, S7) import gate before the file is read. Route: inline.
-- [ ] T5 (S8) contract, clients, docs. Route: inline.
+- [x] T1 (S1, S5) domain, migration with RLS, repository, account deletion. Route: inline. Commit: 7c25a04.
+- [x] T2 (S2, S7) signup with terms on both token endpoints. Route: inline. Commit: e75f61a.
+- [x] T3 (S3) `GET/POST/DELETE /api/consentimientos`. Route: inline. Commit: d47d633.
+- [x] T4 (S4, S6, S7) import gate before the file is read. Route: inline. Commit: d47d633.
+- [x] T5 (S8) contract, clients, docs. Route: inline.
 
 Route evidence: no Writer trigger. The units depend on each other, so they are not parallel.
 
@@ -37,3 +37,5 @@ Route evidence: no Writer trigger. The units depend on each other, so they are n
 - L1 (2026-10-30, user): "continuemos el sprint". Next critical-path issue: #112.
 - L2 (2026-10-30, user): picked "Con flag (Recomendado)": the requirement stays behind an environment variable, off in production, until #134 is published and is the minimum version.
 - L3: Risk items 2 (auth signup) and 3 (contract of token endpoints). Independent verifier at the end. Migration must be applied to production before merge (root `CLAUDE.md`).
+- L4: T3 and T4 share one commit: the e2e spec and the wiring cover both. The 409 keeps the `IngestaCatalogoIncompletoResponse` schema and widens its `code` enum, because a `oneOf` response is harder on the Kotlin generator. Mutations caught: gate removed from commit, `userId` removed from `revocar`.
+- L5: `.env.test` is absent locally and `.env*` writes are restricted; local test variables are exported from a scratchpad file. Exporting them breaks `seed-catalog.spec.ts` in the unit run, so the unit suite runs without them.

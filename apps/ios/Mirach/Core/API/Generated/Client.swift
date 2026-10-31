@@ -40,7 +40,7 @@ internal struct Client: APIProtocol {
     }
     /// Authenticate with a native Apple identity token (mobile)
     ///
-    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, a lost creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers a generic 500, not this 401.
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, a lost creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers a generic 500, not this 401. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
     ///
     /// - Remark: HTTP `POST /api/auth/apple/token`.
     /// - Remark: Generated from `#/paths//api/auth/apple/token/post`.
@@ -373,7 +373,7 @@ internal struct Client: APIProtocol {
     }
     /// Authenticate with a native Google id_token (mobile)
     ///
-    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, a lost account-creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's activation gate.
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, a lost account-creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's activation gate. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
     ///
     /// - Remark: HTTP `POST /api/auth/google/token`.
     /// - Remark: Generated from `#/paths//api/auth/google/token/post`.
@@ -1496,6 +1496,295 @@ internal struct Client: APIProtocol {
                     case "application/json":
                         body = try await converter.getResponseBodyAsJSON(
                             Components.Schemas.ApiKeyUnauthorizedResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// List the current user's consents
+    ///
+    /// Authenticated endpoint that returns the caller's consents (issue #112, AUTH-03, PRI-02, PRI-06): terms, privacy and statement processing, each with its version and dates. A row with `revocadoEn` null is in force. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/consentimientos`.
+    /// - Remark: Generated from `#/paths//api/consentimientos/get`.
+    internal func get_sol_api_sol_consentimientos(_ input: Operations.get_sol_api_sol_consentimientos.Input) async throws -> Operations.get_sol_api_sol_consentimientos.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.get_sol_api_sol_consentimientos.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/api/consentimientos",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .get
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.get_sol_api_sol_consentimientos.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Operations.get_sol_api_sol_consentimientos.Output.Ok.Body.jsonPayload.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.get_sol_api_sol_consentimientos.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UnauthorizedResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Accept a consent
+    ///
+    /// Authenticated endpoint that records an acceptance (issue #112, PRI-02). Accepting the version already in force changes nothing and returns that row; another version revokes it and adds a new one, so the history is kept. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `POST /api/consentimientos`.
+    /// - Remark: Generated from `#/paths//api/consentimientos/post`.
+    internal func post_sol_api_sol_consentimientos(_ input: Operations.post_sol_api_sol_consentimientos.Input) async throws -> Operations.post_sol_api_sol_consentimientos.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.post_sol_api_sol_consentimientos.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/api/consentimientos",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case .none:
+                    body = nil
+                case let .json(value):
+                    body = try converter.setOptionalRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 201:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_consentimientos.Output.Created.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Operations.post_sol_api_sol_consentimientos.Output.Created.Body.jsonPayload.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .created(.init(body: body))
+                case 400:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_consentimientos.Output.BadRequest.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.PerfilErrorResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .badRequest(.init(body: body))
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_consentimientos.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UnauthorizedResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
+    /// Revoke a consent
+    ///
+    /// Authenticated endpoint that revokes the consent in force of a type (issue #112, PRI-06); the row stays as history. Revoking `cartolas` blocks new imports when CONSENTS_REQUIRED is on. Idempotent: with nothing in force it still returns 204. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `DELETE /api/consentimientos/{tipo}`.
+    /// - Remark: Generated from `#/paths//api/consentimientos/{tipo}/delete`.
+    internal func delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_(_ input: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Input) async throws -> Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/api/consentimientos/{}",
+                    parameters: [
+                        input.path.tipo
+                    ]
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .delete
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                return (request, nil)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 204:
+                    return .noContent(.init())
+                case 400:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.BadRequest.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.PerfilErrorResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .badRequest(.init(body: body))
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UnauthorizedResponse.self,
                             from: responseBody,
                             transforming: { value in
                                 .json(value)

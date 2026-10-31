@@ -12,6 +12,9 @@ import app.mirachbudget.android.core.api.generated.models.ApiAuthGoogleTokenPost
 import app.mirachbudget.android.core.api.generated.models.ApiAuthLoginPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCategoriasIdPatchRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCategoriasPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet200Response
+import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet200ResponseConsentimientosInner
+import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCuentaDeleteRequest
 import app.mirachbudget.android.core.api.generated.models.ApiKeyUnauthorizedResponse
 import app.mirachbudget.android.core.api.generated.models.ApiMovimientosPostRequest
@@ -64,7 +67,7 @@ interface DefaultApi {
     /**
      * POST api/auth/apple/token
      * Authenticate with a native Apple identity token (mobile)
-     * Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple&#39;s JWKS, iss, aud &#x3D; the app&#39;s bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token&#39;s nonce claim. The identity is the token&#39;s &#x60;sub&#x60;, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in &#x60;nombre&#x60; (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, a lost creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint&#39;s own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers a generic 500, not this 401.
+     * Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple&#39;s JWKS, iss, aud &#x3D; the app&#39;s bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token&#39;s nonce claim. The identity is the token&#39;s &#x60;sub&#x60;, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in &#x60;nombre&#x60; (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, a lost creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint&#39;s own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers a generic 500, not this 401. A signup with malformed or incomplete &#x60;versionTerminos&#x60;/&#x60;versionPrivacidad&#x60;, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
      * Responses:
      *  - 200: Authentication succeeded — identical shape to POST /api/auth/login.
      *  - 401: Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA), or the credential check failed (`code` CREDENCIALES_INVALIDAS — one generic code for every cause, never echoes the credential).
@@ -125,7 +128,7 @@ interface DefaultApi {
     /**
      * POST api/auth/google/token
      * Authenticate with a native Google id_token (mobile)
-     * Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, a lost account-creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint&#39;s own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google&#39;s activation gate.
+     * Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, a lost account-creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint&#39;s own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google&#39;s activation gate. A signup with malformed or incomplete &#x60;versionTerminos&#x60;/&#x60;versionPrivacidad&#x60;, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
      * Responses:
      *  - 200: Authentication succeeded — identical shape to POST /api/auth/login.
      *  - 401: Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA), or the credential check failed (`code` CREDENCIALES_INVALIDAS — one generic code for every cause, never echoes the credential).
@@ -291,6 +294,60 @@ interface DefaultApi {
     suspend fun apiConfigGet(@Header("x-app-version") xAppVersion: kotlin.String? = null, @Header("x-app-platform") xAppPlatform: kotlin.String? = null): Response<ConfigResponse>
 
     /**
+     * GET api/consentimientos
+     * List the current user&#39;s consents
+     * Authenticated endpoint that returns the caller&#39;s consents (issue #112, AUTH-03, PRI-02, PRI-06): terms, privacy and statement processing, each with its version and dates. A row with &#x60;revocadoEn&#x60; null is in force. Requires x-api-key + a valid session.
+     * Responses:
+     *  - 200: The caller's consents.
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *
+     * @return [ApiConsentimientosGet200Response]
+     */
+    @GET("api/consentimientos")
+    suspend fun apiConsentimientosGet(): Response<ApiConsentimientosGet200Response>
+
+    /**
+     * POST api/consentimientos
+     * Accept a consent
+     * Authenticated endpoint that records an acceptance (issue #112, PRI-02). Accepting the version already in force changes nothing and returns that row; another version revokes it and adds a new one, so the history is kept. Requires x-api-key + a valid session.
+     * Responses:
+     *  - 201: The consent in force.
+     *  - 400: Malformed body (BODY_INVALIDO) or a version with an invalid format (VERSION_CONSENTIMIENTO_INVALIDA).
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *
+     * @param apiConsentimientosPostRequest  (optional)
+     * @return [ApiConsentimientosGet200ResponseConsentimientosInner]
+     */
+    @POST("api/consentimientos")
+    suspend fun apiConsentimientosPost(@Body apiConsentimientosPostRequest: ApiConsentimientosPostRequest? = null): Response<ApiConsentimientosGet200ResponseConsentimientosInner>
+
+
+    /**
+    * enum for parameter tipo
+    */
+    @Serializable
+    enum class TipoApiConsentimientosTipoDelete(val value: kotlin.String) {
+        @SerialName(value = "terminos") terminos("terminos"),
+        @SerialName(value = "privacidad") privacidad("privacidad"),
+        @SerialName(value = "cartolas") cartolas("cartolas")
+    }
+
+    /**
+     * DELETE api/consentimientos/{tipo}
+     * Revoke a consent
+     * Authenticated endpoint that revokes the consent in force of a type (issue #112, PRI-06); the row stays as history. Revoking &#x60;cartolas&#x60; blocks new imports when CONSENTS_REQUIRED is on. Idempotent: with nothing in force it still returns 204. Requires x-api-key + a valid session.
+     * Responses:
+     *  - 204: Revoked. No body.
+     *  - 400: Unknown type (TIPO_CONSENTIMIENTO_INVALIDO).
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *
+     * @param tipo What is being revoked.
+     * @return [Unit]
+     */
+    @DELETE("api/consentimientos/{tipo}")
+    suspend fun apiConsentimientosTipoDelete(@Path("tipo") tipo: kotlin.String): Response<Unit>
+
+    /**
      * DELETE api/cuenta
      * Delete the current account and all its data
      * Authenticated endpoint that permanently deletes the CALLER&#39;s account in one transaction: every session (all devices), transaction, ingestion, classification pattern, category, bank account and the user itself. Requires x-api-key + a valid session and the explicit body confirmation \&quot;ELIMINAR\&quot; (a valid session alone is not enough). Irreversible. External identity tokens are revoked best-effort first; a revocation failure never blocks the deletion. The session cookie is cleared on success; a repeated call with the now-deleted session answers 401.
@@ -313,7 +370,7 @@ interface DefaultApi {
      *  - 201: Import committed and persisted. Response carries per-row bucket + categoriaId.
      *  - 400: Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 409: The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help.
+     *  - 409: The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help. Or, when CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.
      *  - 500: Infrastructure fault (DB) — ensure, dedup or persist failure (PersistenciaFallidaError). Body is `{ message }` without `code`. Retryable.
      *  - 503: The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient, distinct from the permanent 409. Fail-closed: nothing is persisted (D-10); retrying later may succeed.
      *
@@ -362,7 +419,7 @@ interface DefaultApi {
      *  - 200: Upload processed and persisted.
      *  - 400: Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 409: The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help.
+     *  - 409: The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help. Or, when CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.
      *  - 500: Persistence failure (PersistenciaFallidaError) — infrastructure fault, not the uploaded file. Body is `{ message }` without `code`.
      *  - 503: Classification is unavailable (`code` CATALOGO_NO_DISPONIBLE): the classification catalog is unreachable (issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (slice 5a-bis). Transient and distinct from the permanent 409. Nothing remains persisted; retrying later may succeed.
      *
@@ -382,7 +439,7 @@ interface DefaultApi {
      *  - 200: Preview sample computed (not persisted).
      *  - 400: Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 409: The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help.
+     *  - 409: The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help. Or, when CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.
      *  - 500: Defensive: PersistenciaFallidaError while reading the history for dedup — infrastructure fault. Body is `{ message }` without `code`.
      *  - 503: The classification catalog is unreachable (`code` CATALOGO_NO_DISPONIBLE, issue #778 slice 5a) — transient. Preview rejects rather than showing a degraded suggestion set the commit could never honor.
      *

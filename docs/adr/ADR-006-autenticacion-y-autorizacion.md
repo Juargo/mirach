@@ -45,7 +45,10 @@ todos los dispositivos, los derechos por plan y el modelo de soporte son **nuevo
 4. **Alta en el primer inicio de sesión (ajuste).** La cuenta se crea al primer login, con
    el catálogo copiado de la plantilla, en la misma transacción. **Nuevo:** la app muestra
    términos y privacidad antes del login y envía la versión aceptada; el API guarda el
-   consentimiento en la misma transacción y no crea la cuenta sin él (AUTH-03).
+   consentimiento en la misma transacción y no crea la cuenta sin él (AUTH-03). La
+   exigencia queda apagada (`CONSENTS_REQUIRED=false`) hasta que esa versión de la app
+   sea la mínima (#112, #134): mientras tanto, si la app envía la versión se guarda, y
+   las cuentas creadas sin ella no tienen registro y deben aceptar más adelante.
 5. **Sesión opaca (vigente).** El API emite un token aleatorio de 256 bits. En la base se
    guarda solo su SHA-256. La app lo envía como `Authorization: Bearer` y lo guarda en el
    Keychain (iOS, accesible solo en este dispositivo tras el primer desbloqueo) o cifrado
