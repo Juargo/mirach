@@ -54,6 +54,7 @@ model User {
   ingresoDeclarado  BigInt?
   accounts      Account[]
   sessions      Session[]
+  consentimientos Consentimiento[]
   // US-004: historial de ingestas — aislamiento directo por userId,
   // independiente de accountId (que ahora puede ser null en fallas
   // tempranas, ver Ingesta más abajo).
@@ -74,6 +75,22 @@ model Session {
   tokenHash String   @unique
   expiresAt DateTime
   creadoEn  DateTime @default(now())
+
+  @@index([userId])
+}
+
+// #112 (AUTH-03, PRI-02, PRI-06, ADR-004 §8): `tipo` is limited by a CHECK and
+// `Consentimiento_vigente_key` (partial unique on `userId, tipo` where
+// `revocadoEn IS NULL`) allows one row in force; both live in the migration
+// because Prisma does not model them. Revoked rows stay as history.
+model Consentimiento {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  tipo       String
+  version    String
+  aceptadoEn DateTime  @default(now())
+  revocadoEn DateTime?
 
   @@index([userId])
 }

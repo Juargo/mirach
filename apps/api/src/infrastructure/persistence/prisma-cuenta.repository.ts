@@ -6,9 +6,9 @@ import { ICuentaRepository } from '../../application/ports/cuenta-repository.por
  * (forma array). Ninguna relación de `User` hace cascade, así que el orden
  * respeta las FKs (el mismo que usó la limpieza demo ya retirada):
  *
- * Session → Transaccion (vía `Account.userId`) → Ingesta (`Transaccion.ingesta`
- * y `Ingesta.account` son Restrict) → PatronClasificacion (FK compuesta a
- * Categoria) → Categoria → Account → User.
+ * Session → Consentimiento → Transaccion (vía `Account.userId`) → Ingesta
+ * (`Transaccion.ingesta` y `Ingesta.account` son Restrict) →
+ * PatronClasificacion (FK compuesta a Categoria) → Categoria → Account → User.
  *
  * `BucketPresupuesto` es catálogo global (sin dueño): no se toca. Todo
  * `deleteMany` está acotado por `userId` (RNF-SEC-006) y `deleteMany` no
@@ -22,6 +22,7 @@ export class PrismaCuentaRepository implements ICuentaRepository {
   async eliminar(userId: string): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.session.deleteMany({ where: { userId } }),
+      this.prisma.consentimiento.deleteMany({ where: { userId } }),
       this.prisma.transaccion.deleteMany({
         where: { account: { userId } },
       }),
