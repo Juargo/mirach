@@ -249,6 +249,50 @@ extension Components {
                 ])
             }
         }
+        /// 400 body of a syntactically malformed JSON request.
+        ///
+        /// - Remark: Generated from `#/components/schemas/BodyInvalidoResponse`.
+        internal struct BodyInvalidoResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/BodyInvalidoResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case BODY_INVALIDO = "BODY_INVALIDO"
+            }
+            /// - Remark: Generated from `#/components/schemas/BodyInvalidoResponse/code`.
+            internal var code: Components.Schemas.BodyInvalidoResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/BodyInvalidoResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `BodyInvalidoResponse`.
+            ///
+            /// - Parameters:
+            ///   - code:
+            ///   - message:
+            internal init(
+                code: Components.Schemas.BodyInvalidoResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.BodyInvalidoResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
+                    "message"
+                ])
+            }
+        }
         /// GET /api/buckets/:bucket/detalle — month×bucket detail grouped by category: header totals, % vs meta, and category groups with ALL their transactions (US-051).
         ///
         /// - Remark: Generated from `#/components/schemas/BucketDetalleMesResponse`.
@@ -4385,6 +4429,50 @@ extension Components {
                     forKey: .message
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "message"
+                ])
+            }
+        }
+        /// 503 body of the sign-in endpoints.
+        ///
+        /// - Remark: Generated from `#/components/schemas/ServicioNoDisponibleResponse`.
+        internal struct ServicioNoDisponibleResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/ServicioNoDisponibleResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case SERVICIO_NO_DISPONIBLE = "SERVICIO_NO_DISPONIBLE"
+            }
+            /// - Remark: Generated from `#/components/schemas/ServicioNoDisponibleResponse/code`.
+            internal var code: Components.Schemas.ServicioNoDisponibleResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/ServicioNoDisponibleResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `ServicioNoDisponibleResponse`.
+            ///
+            /// - Parameters:
+            ///   - code:
+            ///   - message:
+            internal init(
+                code: Components.Schemas.ServicioNoDisponibleResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.ServicioNoDisponibleResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
                     "message"
                 ])
             }

@@ -85,8 +85,9 @@ grande, IMP-10):
   traduce el código a un mensaje simple (IMP-06) sin depender del texto.
 - Validación en el borde con Zod: `400` con todos los problemas en una pasada (IMP-15).
 - Recursos de otro usuario responden `404`, no `403` (ADR-006).
-- Pendientes heredados: JSON mal formado responde `500` en vez de `400`, y las rutas de
-  token nativo responden `401` ante una caída de infraestructura en vez de `5xx`.
+- JSON mal formado responde `400 BODY_INVALIDO`. Las rutas de token nativo responden
+  `503 SERVICIO_NO_DISPONIBLE` ante una caída de infraestructura: no es una credencial
+  inválida, y como no depende de la cuenta tampoco revela nada sobre ella (#115).
 
 ### 6. Idempotencia
 

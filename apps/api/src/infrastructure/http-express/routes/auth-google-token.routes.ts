@@ -4,7 +4,10 @@ import type { LoginConGoogleUseCase } from '../../../application/use-cases/login
 import type { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 import { getClientIp } from '../../http/auth/client-ip';
 import { appLogger } from '../../logging/app-logger';
-import { CREDENCIALES_INVALIDAS } from '../auth-error-codes';
+import {
+  CREDENCIALES_INVALIDAS,
+  SERVICIO_NO_DISPONIBLE_BODY,
+} from '../auth-error-codes';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
 import { versionDe } from '../schemas/consentimientos.schema';
 
@@ -60,7 +63,7 @@ export interface AuthGoogleTokenDeps {
  * NUNCA 400 — todo JSON bien formado con forma inválida toma el mismo camino
  * 401 genérico (AUTH-21, una salida externamente distinguible menos). Un JSON
  * sintácticamente malformado no llega al handler: lo rechaza `express.json()`
- * y responde el `errorMiddleware` compartido (500 genérico). El caso `''`
+ * y responde el `errorMiddleware` compartido (400 BODY_INVALIDO). El caso `''`
  * corta en el adapter sin llamada de red (design §5.2).
  *
  * Sin `Set-Cookie` (mobile es Bearer + SecureStore, MOB-02). Sin guard
@@ -68,10 +71,10 @@ export interface AuthGoogleTokenDeps {
  * body JSON desde un cliente nativo sin headers `Sec-Fetch-*`, el guard
  * fallaría abierto).
  *
- * Todo throw inesperado de un colaborador (verificador/loginConGoogle) se
- * atrapa acá mismo y produce el MISMO 401 genérico — nunca un 500 vía
- * `errorMiddleware` (design §6.2, "unexpected throw" está en la lista de
- * causas indistinguibles de AUTH-21). El nivel de log SÍ distingue:
+ * Si Google no responde o un colaborador (verificador/loginConGoogle) lanza,
+ * responde 503 con su propio body: una caída de infraestructura no es una
+ * credencial inválida y no depende de la cuenta (#115, ADR-005 §5). El nivel
+ * de log distingue:
  * `.warn` + `motivo` para fallos modelados (`Result.fail`), `.error` +
  * `errorName` para excepciones no modeladas — nunca el `idToken`, el email,
  * `googleSub`, ni el token de sesión (ADR-033/AUTH-18, design §6.5).
@@ -106,13 +109,15 @@ export function registrarAuthGoogleToken(
       const verificacion = await verificadorIdToken.verificarIdToken(idToken);
 
       if (verificacion.isFail()) {
+        const { motivo, proveedorCaido } = verificacion.getError();
         appLogger.warn(
           'Google token rechazado (verificación de id_token falló)',
-          {
-            path: req.path,
-            motivo: verificacion.getError().motivo,
-          },
+          { path: req.path, motivo },
         );
+        if (proveedorCaido) {
+          res.status(503).json(SERVICIO_NO_DISPONIBLE_BODY);
+          return;
+        }
         res.status(401).json(GENERIC_401_BODY);
         return;
       }
@@ -161,7 +166,7 @@ export function registrarAuthGoogleToken(
         path: req.path,
         errorName: err instanceof Error ? err.name : 'UnknownError',
       });
-      res.status(401).json(GENERIC_401_BODY);
+      res.status(503).json(SERVICIO_NO_DISPONIBLE_BODY);
     }
   });
 }
