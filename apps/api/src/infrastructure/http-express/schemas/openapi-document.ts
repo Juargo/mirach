@@ -58,6 +58,10 @@ import {
 } from './auth-login.schema';
 import { authGoogleTokenRequestSchema } from './auth-google-token.schema';
 import { authAppleTokenRequestSchema } from './auth-apple-token.schema';
+import {
+  bodyInvalidoResponseSchema,
+  servicioNoDisponibleResponseSchema,
+} from './auth-error.schema';
 import { authCapabilitiesResponseSchema } from './auth-capabilities.schema';
 import { configHeadersSchema, configResponseSchema } from './config.schema';
 import {
@@ -706,10 +710,10 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
     'identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never ' +
     'reveals whether the account is pre-existing or just-created. Every failure cause — invalid/' +
     'expired/wrong-audience token, unverified email, an email already linked to a ' +
-    'different googleSub, a lost account-creation race, or a JWKS/network failure — produces the ' +
+    'different googleSub, or a lost account-creation race — produces the ' +
     'identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with ' +
     'an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler ' +
-    '(the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: ' +
+    '(the shared body parser rejects it and the shared error handler answers 400 BODY_INVALIDO). If Google cannot be reached or an internal dependency fails, the answer is 503 SERVICIO_NO_DISPONIBLE: that says nothing about the credential and is retryable. No Set-Cookie: ' +
     'mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this ' +
     "endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 " +
     'Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when ' +
@@ -738,6 +742,19 @@ const authGoogleTokenOperation: ZodOpenApiOperationObject = {
         'Rate-limited: too many attempts from this IP (own budget, distinct from /auth/login and ' +
         'GET /api/auth/google, design §6.4).',
     },
+    '400': {
+      description: 'Syntactically malformed JSON (BODY_INVALIDO).',
+      content: {
+        'application/json': { schema: bodyInvalidoResponseSchema },
+      },
+    },
+    '503': {
+      description:
+        'The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.',
+      content: {
+        'application/json': { schema: servicioNoDisponibleResponseSchema },
+      },
+    },
   },
 };
 
@@ -761,12 +778,14 @@ const authAppleTokenOperation: ZodOpenApiOperationObject = {
     'the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without ' +
     'an email is rejected. The 200 body is identical for login and signup and never reveals which one ' +
     'happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, ' +
-    'unverified or missing email, an email linked to a different appleSub, a lost creation race, or a ' +
-    'JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). ' +
+    'unverified or missing email, an email linked to a different appleSub, or a lost creation race — ' +
+    'produces the identical 401 body used by POST /api/auth/login (anti-enumeration). ' +
     'No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases ' +
     "this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID " +
     'is not configured. A syntactically malformed JSON body never reaches the handler: the shared body ' +
-    'parser rejects it and the shared error handler answers a generic 500, not this 401. ' +
+    'parser rejects it and the shared error handler answers 400 BODY_INVALIDO, not this 401. If Apple ' +
+    'cannot be reached or an internal dependency fails, the answer is 503 SERVICIO_NO_DISPONIBLE: that ' +
+    'says nothing about the credential and is retryable. ' +
     'A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.',
   requestBody: {
     content: {
@@ -789,6 +808,19 @@ const authAppleTokenOperation: ZodOpenApiOperationObject = {
     '429': {
       description:
         'Rate-limited: too many attempts from this IP (own budget, distinct from the other auth endpoints).',
+    },
+    '400': {
+      description: 'Syntactically malformed JSON (BODY_INVALIDO).',
+      content: {
+        'application/json': { schema: bodyInvalidoResponseSchema },
+      },
+    },
+    '503': {
+      description:
+        'The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.',
+      content: {
+        'application/json': { schema: servicioNoDisponibleResponseSchema },
+      },
     },
   },
 };

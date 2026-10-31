@@ -43,10 +43,21 @@ function codigoSeguro(err: unknown): string | undefined {
  * Nunca se loguea `err.message`: ahí es donde un error de librería SÍ puede
  * traer interpolado el valor que causó la falla.
  *
+ * Un JSON mal formado no es una falla del servidor: `express.json()` lo marca
+ * con `type: 'entity.parse.failed'` y responde 400 sin reflejar el cuerpo (#115).
+ *
  * Debe registrarse ÚLTIMO y con los 4 argumentos: Express identifica un
  * error-handler por su aridad.
  */
 export const errorMiddleware: ErrorRequestHandler = (err, _req, res, _next) => {
+  if ((err as { type?: unknown } | null)?.type === 'entity.parse.failed') {
+    res.status(400).json({
+      message: 'Cuerpo de la petición inválido.',
+      code: 'BODY_INVALIDO',
+    });
+    return;
+  }
+
   const errorCode = codigoSeguro(err);
 
   appLogger.error('Error inesperado en la API', {

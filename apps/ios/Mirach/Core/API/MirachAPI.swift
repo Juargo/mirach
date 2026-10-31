@@ -76,7 +76,7 @@ protocol MirachAPI: Sendable {
 }
 
 enum APIError: Error, Equatable {
-    /// The server answered with a status the spec does not document (e.g. 503).
+    /// The server answered with a status the app has no specific handling for (e.g. 503).
     case badStatus(Int)
     /// 401 `SESION_INVALIDA` on an authenticated call: the session is gone, sign in again.
     case sessionExpired
@@ -172,6 +172,10 @@ struct OpenAPIMirachAPI: MirachAPI {
                 throw APIError.appleSignInUnavailable
             case .tooManyRequests:
                 throw APIError.rateLimited
+            case .badRequest:
+                throw APIError.badStatus(400)
+            case .serviceUnavailable:
+                throw APIError.badStatus(503)
             case .undocumented(let statusCode, _):
                 throw APIError.badStatus(statusCode)
             }

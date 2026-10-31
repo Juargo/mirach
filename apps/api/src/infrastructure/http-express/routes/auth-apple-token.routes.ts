@@ -4,7 +4,10 @@ import type { LoginConAppleUseCase } from '../../../application/use-cases/login-
 import type { IpRateLimiter } from '../../http/auth/ip-rate-limiter';
 import { getClientIp } from '../../http/auth/client-ip';
 import { appLogger } from '../../logging/app-logger';
-import { CREDENCIALES_INVALIDAS } from '../auth-error-codes';
+import {
+  CREDENCIALES_INVALIDAS,
+  SERVICIO_NO_DISPONIBLE_BODY,
+} from '../auth-error-codes';
 import { CredencialesInvalidasError } from '../../../domain/errors/credenciales-invalidas.error';
 import { authAppleTokenRequestSchema } from '../schemas/auth-apple-token.schema';
 import { versionDe } from '../schemas/consentimientos.schema';
@@ -45,7 +48,8 @@ export interface AuthAppleTokenDeps {
  * Un body JSON bien formado pero inválido NO es 400: toma el 401 genérico,
  * igual que un fallo de verificación. Un JSON sintácticamente malformado no
  * llega al handler: lo rechaza `express.json()` y responde el
- * `errorMiddleware` compartido (500 genérico). Todo throw inesperado de un colaborador también. El
+ * `errorMiddleware` compartido (400 BODY_INVALIDO). Si Apple no responde o un
+ * colaborador lanza, responde 503: no es una credencial inválida (#115). El
  * log distingue la causa (`.warn` + `motivo` para fallos modelados, `.error` +
  * `errorName` para excepciones) pero nunca incluye el token, el nonce, el
  * authorizationCode, el nombre, el email ni el `sub`.
@@ -98,10 +102,15 @@ export function registrarAuthAppleToken(
       );
 
       if (verificacion.isFail()) {
+        const { motivo, proveedorCaido } = verificacion.getError();
         appLogger.warn(
           'Apple token rechazado (verificación del identity token falló)',
-          { path: req.path, motivo: verificacion.getError().motivo },
+          { path: req.path, motivo },
         );
+        if (proveedorCaido) {
+          res.status(503).json(SERVICIO_NO_DISPONIBLE_BODY);
+          return;
+        }
         res.status(401).json(GENERIC_401_BODY);
         return;
       }
@@ -136,7 +145,7 @@ export function registrarAuthAppleToken(
         path: req.path,
         errorName: err instanceof Error ? err.name : 'UnknownError',
       });
-      res.status(401).json(GENERIC_401_BODY);
+      res.status(503).json(SERVICIO_NO_DISPONIBLE_BODY);
     }
   });
 }
