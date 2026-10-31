@@ -1,5 +1,6 @@
 package app.mirachbudget.android.core.networking
 
+import app.mirachbudget.android.BuildConfig
 import app.mirachbudget.android.core.api.generated.apis.DefaultApi
 import app.mirachbudget.android.core.api.generated.infrastructure.ApiClient
 import app.mirachbudget.android.core.api.generated.infrastructure.Serializer
@@ -28,13 +29,15 @@ object MirachApiFactory {
         timeoutMillis: Long = TIMEOUT_MILLIS,
         /** Called with the rejected token when an authenticated call gets 401 `SESION_INVALIDA`. */
         onSessionExpired: (String) -> Unit = {},
+        /** Sent as `X-App-Version` on every request. */
+        appVersion: String = BuildConfig.VERSION_NAME,
     ): MirachApi {
         // Our own builder replaces the generator's default one, which logs request bodies.
         val client = OkHttpClient.Builder()
             .connectTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
             .readTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
             .writeTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
-            .addInterceptor(ApiAuthInterceptor(apiKey, tokenProvider))
+            .addInterceptor(ApiAuthInterceptor(apiKey, tokenProvider, appVersion))
         val apiClient = ApiClient(baseUrl = baseUrl, okHttpClientBuilder = client)
         return GeneratedMirachApi(
             api = apiClient.createService(DefaultApi::class.java),

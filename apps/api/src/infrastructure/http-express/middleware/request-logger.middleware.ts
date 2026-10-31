@@ -6,6 +6,11 @@ import {
   redactSensitiveQueryParams,
   redactSensitiveQueryObject,
 } from './redact-sensitive-query-params';
+import {
+  APP_PLATFORM_HEADER,
+  APP_VERSION_HEADER,
+  appClientLogProps,
+} from './app-client-headers';
 
 /**
  * Shape que `pino-http` le pasa a un `serializers.req` custom — NO el
@@ -43,6 +48,11 @@ type SerializedRequest = ReturnType<StdSerializers['req']>;
  * segundo tiene claves dinámicas por request. Se envuelve el serializer
  * estándar de `pino-http` y se redactan ambos campos ANTES de que la línea
  * salga.
+ *
+ * `X-App-Version`/`X-App-Platform` (#116, ADR-011): se loguean como
+ * `appVersion`/`appPlatform` SOLO validados (`appClientLogProps`), y sus
+ * headers crudos se quitan de `req.headers` — así un valor arbitrario nunca
+ * llega a la línea.
  */
 export function createRequestLoggerMiddleware(
   logger: pino.Logger,
@@ -58,9 +68,11 @@ export function createRequestLoggerMiddleware(
       res.setHeader('X-Request-Id', id);
       return id;
     },
+    customProps: (req) => ({ ...appClientLogProps(req.headers) }),
     serializers: {
       req: (req: SerializedRequest) => ({
         ...req,
+        headers: withoutAppClientHeaders(req.headers),
         url: redactSensitiveQueryParams(req.url),
         query:
           req.query !== undefined && typeof req.query === 'object'
@@ -69,4 +81,16 @@ export function createRequestLoggerMiddleware(
       }),
     },
   });
+}
+
+function withoutAppClientHeaders(
+  headers: SerializedRequest['headers'],
+): SerializedRequest['headers'] {
+  if (headers === undefined || headers === null) return headers;
+  const {
+    [APP_VERSION_HEADER]: _version,
+    [APP_PLATFORM_HEADER]: _platform,
+    ...rest
+  } = headers;
+  return rest;
 }

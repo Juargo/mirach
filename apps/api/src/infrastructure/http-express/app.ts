@@ -39,6 +39,7 @@ import {
 } from './routes/auth-apple-token.routes';
 import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
 import { registrarVersion } from './routes/version.routes';
+import { registrarConfig } from './routes/config.routes';
 import { registrarCategorias } from './routes/categorias.routes';
 import { registrarPatrones } from './routes/patrones.routes';
 import { registrarCuenta } from './routes/cuenta.routes';
@@ -142,6 +143,9 @@ export function createApp(container: Container, env: Env): Express {
     appleAuth: container.appleAuth,
     passwordLoginEnabled: env.REVIEW_LOGIN_EMAIL !== undefined,
   });
+  // Remote app configuration (ADR-005 §4.5): api-key only, no session, so an
+  // outdated app can learn it must update before anything else.
+  registrarConfig(authPublicApi, container.obtenerConfiguracionApp);
   app.use('/api', authPublicApi);
 
   // Login con Google (AUTH-16, design §4.4): SIEMPRE se monta un router acá

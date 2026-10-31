@@ -59,6 +59,7 @@ import {
 import { authGoogleTokenRequestSchema } from './auth-google-token.schema';
 import { authAppleTokenRequestSchema } from './auth-apple-token.schema';
 import { authCapabilitiesResponseSchema } from './auth-capabilities.schema';
+import { configHeadersSchema, configResponseSchema } from './config.schema';
 import {
   transaccionesCategoriaPathParamsSchema,
   transaccionesCategoriaRequestSchema,
@@ -1711,6 +1712,33 @@ const eliminarMovimientoManualOperation: ZodOpenApiOperationObject = {
 };
 
 /**
+ * `GET /api/config` (ADR-005 §4.5, #116) — session-public, api-key required.
+ * The optional `X-App-*` headers only feed `actualizacionRequerida`; an
+ * invalid or missing value yields `null`, never a 400.
+ */
+const configOperation: ZodOpenApiOperationObject = {
+  summary: 'Remote app configuration (minimum version, free plan, flags)',
+  description:
+    'Public endpoint (requires x-api-key only, session-public — no prior session needed). Returns the ' +
+    'minimum supported app version per platform, the free plan limits and the feature flags, all taken ' +
+    'from the API configuration so they change without shipping a new app. When X-App-Platform and ' +
+    'X-App-Version are valid, actualizacionRequerida says whether the installed version is below the ' +
+    'minimum (the app then asks the user to update); otherwise it is null.',
+  requestParams: {
+    header: configHeadersSchema,
+  },
+  responses: {
+    '401': respuesta401SoloApiKey,
+    '200': {
+      description: 'Current remote configuration.',
+      content: {
+        'application/json': { schema: configResponseSchema },
+      },
+    },
+  },
+};
+
+/**
  * Explicit, FIXED-ORDER registration — one entry per endpoint. This order is
  * part of the determinism contract (openapi-contract-express design):
  * appending future endpoints (Slice 1+) must append here, never reorder
@@ -1771,6 +1799,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/periodos': { get: periodosOperation },
   '/api/ingestas/commit': { post: ingestaCommitOperation },
   '/api/transacciones/reevaluar': { post: reevaluarCategoriasOperation },
+  '/api/config': { get: configOperation },
 };
 
 /**

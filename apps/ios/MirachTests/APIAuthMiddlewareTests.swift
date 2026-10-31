@@ -7,14 +7,17 @@ import Testing
 struct APIAuthMiddlewareTests {
     private let baseURL = URL(string: "https://example.test")!
     private let apiKeyName = HTTPField.Name("x-api-key")!
+    private let appVersionName = HTTPField.Name("X-App-Version")!
+    private let appPlatformName = HTTPField.Name("X-App-Platform")!
 
     /// Runs the middleware against `path` and returns the request that reached the transport.
     private func send(
         path: String,
         apiKey: String,
-        session: String?
+        session: String?,
+        appVersion: String = "1.10.0"
     ) async throws -> HTTPRequest {
-        let middleware = APIAuthMiddleware(apiKey: apiKey, sessionToken: { session })
+        let middleware = APIAuthMiddleware(apiKey: apiKey, appVersion: appVersion, sessionToken: { session })
         let request = HTTPRequest(method: .get, scheme: nil, authority: nil, path: path)
         let captured = Captured()
         _ = try await middleware.intercept(
@@ -46,6 +49,21 @@ struct APIAuthMiddlewareTests {
             #expect(request.headerFields[apiKeyName] == "k")
             #expect(request.headerFields[.authorization] == nil)
         }
+    }
+
+    @Test func sendsAppVersionAndPlatformOnEveryRequest() async throws {
+        for path in ["/api/config", "/api/resumen", "/version"] {
+            let request = try await send(path: path, apiKey: "k", session: nil)
+            #expect(request.headerFields[appVersionName] == "1.10.0")
+            #expect(request.headerFields[appPlatformName] == "ios")
+        }
+    }
+
+    @Test func skipsEmptyAppVersion() async throws {
+        let request = try await send(path: "/api/config", apiKey: "k", session: nil, appVersion: "")
+
+        #expect(request.headerFields[appVersionName] == nil)
+        #expect(request.headerFields[appPlatformName] == "ios")
     }
 
     @Test func neverTouchesNonApiPaths() async throws {

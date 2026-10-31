@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { VersionApp } from '../domain/value-objects/version-app';
 import { SUPABASE_HOST_PATTERN } from '../infrastructure/persistence/db-safety';
 
 /**
@@ -51,6 +52,21 @@ export function isValid32ByteBase64Key(value: string): boolean {
   }
   return Buffer.from(value, 'base64').length === 32;
 }
+
+/**
+ * Versión mínima de app (ADR-005 §4.5): validada con el MISMO value object que
+ * compara la versión instalada, así el formato aceptado en boot y por request
+ * no puede divergir. Un valor inválido hace fallar el boot.
+ */
+const appVersionSchema = z
+  .string()
+  .default('0.0.0')
+  .refine((value) => VersionApp.crear(value).isOk(), {
+    message: 'Debe ser una versión MAJOR.MINOR.PATCH numérica (p. ej. 1.10.0).',
+  });
+
+/** Nombre de un flag de APP_FLAGS: camelCase acotado, nunca texto libre. */
+const APP_FLAG_FORMAT = /^[a-z][a-zA-Z0-9]{0,63}$/;
 
 export const EnvObjectSchema = z.object({
   NODE_ENV: z
@@ -214,6 +230,47 @@ export const EnvObjectSchema = z.object({
     .default('info')
     .describe(
       'Nivel mínimo de log emitido por el singleton Pino (ADR-033 slice A). Default "info" — subir a "debug" en un ambiente puntual (nunca en producción de forma permanente) para ver el detalle paso a paso del pipeline de auth. No pasa por superRefine: es un knob de observabilidad, no una regla de negocio condicionada por NODE_ENV.',
+    ),
+  APP_MIN_VERSION_IOS: appVersionSchema.describe(
+    'Versión mínima soportada de la app iOS (MAJOR.MINOR.PATCH), servida por GET /api/config (ADR-005 §4.5). Una app instalada con una versión menor recibe actualizacionRequerida=true y pide actualizar. Default 0.0.0 = no se fuerza a nadie. Se cambia en el panel de Render, sin publicar una versión nueva (PLA-08).',
+  ),
+  APP_MIN_VERSION_ANDROID: appVersionSchema.describe(
+    'Versión mínima soportada de la app Android (MAJOR.MINOR.PATCH); ver APP_MIN_VERSION_IOS.',
+  ),
+  FREE_PLAN_MAX_BANKS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(2)
+    .describe(
+      'Máximo de bancos del plan gratis (PLA-01), informado a las apps por GET /api/config.',
+    ),
+  FREE_PLAN_CURRENT_MONTH_ONLY: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true')
+    .describe(
+      'Si el plan gratis se limita al mes actual (PLA-01), informado por GET /api/config. Enum de strings ("true"/"false"), igual que COOKIE_SECURE.',
+    ),
+  APP_FLAGS: z
+    .string()
+    .default('')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((flag) => flag.trim())
+        .filter((flag) => flag.length > 0),
+    )
+    .pipe(
+      z.array(
+        z.string().regex(APP_FLAG_FORMAT, {
+          message:
+            'Cada flag de APP_FLAGS debe ser un identificador camelCase (letra minúscula inicial, solo letras y dígitos, máx. 64).',
+        }),
+      ),
+    )
+    .describe(
+      'Flags encendidos para las apps, separados por coma (p. ej. "nuevoResumen,importarPdf"). GET /api/config los devuelve como { nombre: true }; un flag ausente está apagado. Default vacío = ningún flag.',
     ),
 });
 

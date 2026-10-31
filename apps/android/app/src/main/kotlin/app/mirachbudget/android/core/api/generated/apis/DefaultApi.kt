@@ -30,6 +30,7 @@ import app.mirachbudget.android.core.api.generated.models.CatalogoResponse
 import app.mirachbudget.android.core.api.generated.models.CategoriaInternaErrorResponse
 import app.mirachbudget.android.core.api.generated.models.CategoriaResponse
 import app.mirachbudget.android.core.api.generated.models.CommitIngestaResponse
+import app.mirachbudget.android.core.api.generated.models.ConfigResponse
 import app.mirachbudget.android.core.api.generated.models.CredentialsUnauthorizedResponse
 import app.mirachbudget.android.core.api.generated.models.CuentaErrorResponse
 import app.mirachbudget.android.core.api.generated.models.DetalleBucketResponse
@@ -273,6 +274,21 @@ interface DefaultApi {
      */
     @POST("api/categorias")
     suspend fun apiCategoriasPost(@Body apiCategoriasPostRequest: ApiCategoriasPostRequest? = null): Response<CategoriaResponse>
+
+    /**
+     * GET api/config
+     * Remote app configuration (minimum version, free plan, flags)
+     * Public endpoint (requires x-api-key only, session-public — no prior session needed). Returns the minimum supported app version per platform, the free plan limits and the feature flags, all taken from the API configuration so they change without shipping a new app. When X-App-Platform and X-App-Version are valid, actualizacionRequerida says whether the installed version is below the minimum (the app then asks the user to update); otherwise it is null.
+     * Responses:
+     *  - 200: Current remote configuration.
+     *  - 401: Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA).
+     *
+     * @param xAppVersion Installed app version, MAJOR.MINOR.PATCH (compared numerically: 1.10.0 &gt; 1.9.0). (optional)
+     * @param xAppPlatform Platform of the calling app: ios or android, case-insensitive. Any other value is ignored. (optional)
+     * @return [ConfigResponse]
+     */
+    @GET("api/config")
+    suspend fun apiConfigGet(@Header("x-app-version") xAppVersion: kotlin.String? = null, @Header("x-app-platform") xAppPlatform: kotlin.String? = null): Response<ConfigResponse>
 
     /**
      * DELETE api/cuenta

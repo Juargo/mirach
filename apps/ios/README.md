@@ -75,7 +75,7 @@ Text(total).mirachFigures()
 
 ## Clave de la API y sesión
 
-Toda llamada a `/api` necesita el header `x-api-key` (clave pública del cliente, ADR-047) y, después de iniciar sesión, `Authorization: Bearer <sesión>`. Lo agrega `APIAuthMiddleware` (`Mirach/Core/API/`), que **nunca** toca rutas fuera de `/api` (como `/version`) y no envía un header vacío.
+Toda llamada a `/api` necesita el header `x-api-key` (clave pública del cliente, ADR-047) y, después de iniciar sesión, `Authorization: Bearer <sesión>`. Lo agrega `APIAuthMiddleware` (`Mirach/Core/API/`), que **nunca** toca rutas fuera de `/api` (como `/version`) y no envía un header vacío. Además, **toda** petición (también `/version`) lleva `X-App-Platform: ios` y `X-App-Version` (el `CFBundleShortVersionString`), que el API registra en los logs y usa en `GET /api/config` para pedir que se actualice una versión vieja (ADR-005 §4).
 
 La clave **no está en el repo**. Para configurarla:
 

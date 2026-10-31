@@ -71,6 +71,9 @@ grande, IMP-10):
 5. `GET /api/config` (público, solo con `x-api-key`) devuelve la versión mínima soportada
    por plataforma, los límites del plan gratis y flags. Si la versión instalada es menor,
    la app pide actualizar. Sirve también para PLA-08 (límites configurables sin publicar).
+   La comparación la hace el API: la respuesta trae `actualizacionRequerida` calculado desde
+   las dos cabeceras del punto anterior (`null` si faltan o no son válidas). Los valores son
+   variables de entorno del API (`openspec/specs/config-remota/spec.md`).
 6. En CI, `oasdiff` compara el contrato del PR con el de `main` y falla ante un cambio
    incompatible no marcado (ADR-008).
 

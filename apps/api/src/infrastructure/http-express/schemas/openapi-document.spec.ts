@@ -480,6 +480,34 @@ describe('buildOpenApiDocument', () => {
     expect(responseSchema?.required).toContain('transaccionesActualizadas');
   });
 
+  it('registers GET /api/config: optional X-App-* headers and ConfigResponse (ADR-005 §4.5)', () => {
+    const document = buildOpenApiDocument();
+    const operation = document.paths?.['/api/config']?.get as
+      | {
+          parameters?: { in: string; name: string; required?: boolean }[];
+          responses?: Record<string, unknown>;
+        }
+      | undefined;
+
+    expect(operation?.responses?.['200']).toBeDefined();
+    expect(
+      operation?.parameters?.map((p) => [p.in, p.name, p.required ?? false]),
+    ).toEqual([
+      ['header', 'x-app-version', false],
+      ['header', 'x-app-platform', false],
+    ]);
+    const components = document.components as
+      Record<string, Record<string, { required?: string[] }>> | undefined;
+    expect(components?.schemas?.['ConfigResponse']?.required).toEqual(
+      expect.arrayContaining([
+        'versionMinima',
+        'planGratis',
+        'flags',
+        'actualizacionRequerida',
+      ]),
+    );
+  });
+
   describe('401 responses', () => {
     const METODOS = ['get', 'post', 'patch', 'delete'] as const;
     const FAMILIA_SOLO_API_KEY = [
@@ -487,6 +515,7 @@ describe('buildOpenApiDocument', () => {
       'GET /api/auth/capabilities',
       'GET /api/auth/google',
       'GET /api/auth/google/callback',
+      'GET /api/config',
     ];
     const FAMILIA_CREDENCIALES = [
       'POST /api/auth/login',

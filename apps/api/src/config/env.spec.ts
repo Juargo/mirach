@@ -808,3 +808,44 @@ describe('loadEnv — REVIEW_LOGIN_EMAIL (App Review account, ADR-051)', () => {
     },
   );
 });
+
+describe('loadEnv — configuración remota de las apps (GET /api/config, ADR-005 §4.5)', () => {
+  it('aplica los defaults: nadie forzado a actualizar, plan gratis PLA-01, sin flags', () => {
+    const env = loadEnv(baseDevSource);
+
+    expect(env.APP_MIN_VERSION_IOS).toBe('0.0.0');
+    expect(env.APP_MIN_VERSION_ANDROID).toBe('0.0.0');
+    expect(env.FREE_PLAN_MAX_BANKS).toBe(2);
+    expect(env.FREE_PLAN_CURRENT_MONTH_ONLY).toBe(true);
+    expect(env.APP_FLAGS).toEqual([]);
+  });
+
+  it('parsea overrides válidos', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      APP_MIN_VERSION_IOS: '1.10.0',
+      APP_MIN_VERSION_ANDROID: '2.0.3',
+      FREE_PLAN_MAX_BANKS: '3',
+      FREE_PLAN_CURRENT_MONTH_ONLY: 'false',
+      APP_FLAGS: ' nuevoResumen , importarPdf,, ',
+    });
+
+    expect(env.APP_MIN_VERSION_IOS).toBe('1.10.0');
+    expect(env.APP_MIN_VERSION_ANDROID).toBe('2.0.3');
+    expect(env.FREE_PLAN_MAX_BANKS).toBe(3);
+    expect(env.FREE_PLAN_CURRENT_MONTH_ONLY).toBe(false);
+    expect(env.APP_FLAGS).toEqual(['nuevoResumen', 'importarPdf']);
+  });
+
+  it.each([
+    ['APP_MIN_VERSION_IOS', '1.2'],
+    ['APP_MIN_VERSION_ANDROID', 'v2.0.0'],
+    ['FREE_PLAN_MAX_BANKS', '0'],
+    ['FREE_PLAN_MAX_BANKS', 'dos'],
+    ['FREE_PLAN_CURRENT_MONTH_ONLY', 'yes'],
+    ['APP_FLAGS', 'nuevo-resumen'],
+    ['APP_FLAGS', 'ok,Mayuscula'],
+  ])('%s=%j hace fallar el boot', (key, value) => {
+    expect(() => loadEnv({ ...baseDevSource, [key]: value })).toThrow(key);
+  });
+});
