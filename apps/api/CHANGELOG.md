@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.13.0](https://github.com/Juargo/mirach/compare/api-v0.12.0...api-v0.13.0) (2026-10-31)
+
+
+### Features
+
+* **api:** add budget profile domain and goal-based traffic-light bands ([2635535](https://github.com/Juargo/mirach/commit/2635535220e7a61748d2e981eb2603b4e6c9b428)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **api:** add consent endpoints and require statement consent to import ([d47d633](https://github.com/Juargo/mirach/commit/d47d633249615802bd9b284217343d253b0d9508)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** add GET/PUT /api/perfil/presupuesto ([47f37ca](https://github.com/Juargo/mirach/commit/47f37cacd669ded8d76ac5553fa2f1392c5adfb8)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **api:** add rule 9 block states, month state and Gustos label ([5132a8f](https://github.com/Juargo/mirach/commit/5132a8facc9285c66567733df02f83a0d1dbd997))
+* **api:** add rule 9 block states, month state and Gustos label ([c23ba82](https://github.com/Juargo/mirach/commit/c23ba82bddb3dc30f56a8c2669910db156b0498f))
+* **api:** add versioned consent model and repository ([7c25a04](https://github.com/Juargo/mirach/commit/7c25a04d495511d4c0318f8e60935cb2d5c4cfe3)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** budget profile and summary goals from the profile ([3a7d066](https://github.com/Juargo/mirach/commit/3a7d06620ca697efc4eba2ca92b423a7993d6847))
+* **api:** expose the cut-off day and declared income in the budget profile ([2b6bad6](https://github.com/Juargo/mirach/commit/2b6bad69956b476753fa14696409744eefbc2a68))
+* **api:** financial month cut-off day and declared income ([9e4f365](https://github.com/Juargo/mirach/commit/9e4f365e128795890ae97faefeb5418e8c22aa04))
+* **api:** model the financial month in the domain ([563ba6f](https://github.com/Juargo/mirach/commit/563ba6f7d5c5deccdd7db8921e35663de1384d02))
+* **api:** persist the cut-off day and declared income ([9db0d59](https://github.com/Juargo/mirach/commit/9db0d597f4e6729e37eafcd5f7d37c84dec2b526))
+* **api:** read summary goals from the user's budget profile ([235c3cb](https://github.com/Juargo/mirach/commit/235c3cb6812ecafef6793f764adfc52d5faad27d)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **api:** remote config with minimum app version per platform ([94087d4](https://github.com/Juargo/mirach/commit/94087d4f234a6e1d51e2ceaca7ca37912375bac1))
+* **api:** remote config with minimum app version per platform ([8a93955](https://github.com/Juargo/mirach/commit/8a9395546cef064f00de31f9cce4cd18583a6f6b))
+* **api:** resolve every monthly read by the financial month ([965a5e1](https://github.com/Juargo/mirach/commit/965a5e106630595e91acb620d92628efb129f07a))
+* **api:** store accepted terms at signup behind CONSENTS_REQUIRED ([e75f61a](https://github.com/Juargo/mirach/commit/e75f61a28e7941c7ee53f1b746d2c65cccaba873)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** use the declared income as the base of the percentages ([c6031be](https://github.com/Juargo/mirach/commit/c6031be7ca2577e52c16a1ce7c7e09469794c470))
+* **api:** versioned consents and terms at signup ([cb7e377](https://github.com/Juargo/mirach/commit/cb7e37780939e91c478feaae15de6268b1451424))
+* **apps:** regenerate clients for the budget profile contract ([61ea865](https://github.com/Juargo/mirach/commit/61ea865eb3cf7529f62c45b18d15afe16f7e2dc1)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **apps:** regenerate clients for the financial month contract ([fefa29e](https://github.com/Juargo/mirach/commit/fefa29ed29990cee45b77b25fbd1d891280c3f1d))
+
+
+### Bug Fixes
+
+* **api:** count identical same-day movements instead of collapsing them ([87a8766](https://github.com/Juargo/mirach/commit/87a87665cccf0802a8ac4f188020058c2b2bde90))
+* **api:** count identical same-day movements instead of collapsing them ([1faf43a](https://github.com/Juargo/mirach/commit/1faf43a9857d341bc1d42df0eb82f049b09bc569))
+* **api:** enable RLS on every public table ([4461004](https://github.com/Juargo/mirach/commit/446100406bd7f77c36c4678beaa0e7c8299b2e59))
+* **api:** enable RLS on every public table ([c7fae2a](https://github.com/Juargo/mirach/commit/c7fae2a2a495dadebb1bc2075a85fcdfce166980))
+* **api:** keep a malformed consent version from rejecting Apple logins ([212e6f7](https://github.com/Juargo/mirach/commit/212e6f767385b586c4cc3969b6a6f461213e77b2)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** keep a month without movements free of a verdict ([d0f8e38](https://github.com/Juargo/mirach/commit/d0f8e38a4443975958bbb22a09bade3f97c98f43))
+* **api:** restore typescript 6 specifier reverted by release 0.12.0 ([5d9194e](https://github.com/Juargo/mirach/commit/5d9194e6761e00d583ec44ab4608ab7c91125d19))
+* **api:** restore typescript 6 specifier reverted by release 0.12.0 ([8e0a1dc](https://github.com/Juargo/mirach/commit/8e0a1dc2a1da1bc9488fdb927bed654d2874499b))
+* **deps:** patch body-parser and multer advisories after quarantine ([d0baf33](https://github.com/Juargo/mirach/commit/d0baf330dc386efe1975a8a748b708c7d6a533c3))
+* **deps:** patch body-parser and multer advisories after quarantine ([e8c5cde](https://github.com/Juargo/mirach/commit/e8c5cdef88e55154df6ae869191feb722e6e871f)), closes [#127](https://github.com/Juargo/mirach/issues/127)
+* **deps:** patch high advisories in zod, vite and undici ([1f20ec1](https://github.com/Juargo/mirach/commit/1f20ec1c49c3b8504694ef7fdf324c674ada00ad))
+* **deps:** patch high advisories in zod, vite and undici ([a61133a](https://github.com/Juargo/mirach/commit/a61133a307913fcc09208f397f1aa677a946dda3))
+
+
+### Documentation
+
+* align requirements, ADRs and CLAUDE.md with the product decisions of 2026-10-25 ([1ab4cdf](https://github.com/Juargo/mirach/commit/1ab4cdf0688a4a454389989e58d94db86e1de747))
+* **claude:** trim derivable content and move API-only commands to apps/api ([841514b](https://github.com/Juargo/mirach/commit/841514bcd5c95d7f298e258a0c37d2133e484519))
+* restore dropped API categorization notes and fix review findings ([3d820ac](https://github.com/Juargo/mirach/commit/3d820acbd90ac7ea4d35e6f808ec58746c34d0fa))
+
 ## [0.12.0](https://github.com/Juargo/mirach/compare/api-v0.11.0...api-v0.12.0) (2026-10-24)
 
 
