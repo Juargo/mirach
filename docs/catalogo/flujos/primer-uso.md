@@ -51,11 +51,6 @@ Visibilidad de los botones: «Continuar con Apple» si `appleLoginEnabled`, solo
 - Entrada: arranque sin sesión o con sesión rechazada por `GET /api/auth/me`; cualquier 401 `SESION_INVALIDA`; cerrar sesión o eliminar la cuenta.
 - Salida: onboarding (01 → 02 → [subir cartola](subir-cartola.md) o saltar) → [Inicio](inicio-y-movimientos.md).
 
-## Pendiente en el API
-
-- Brecha 11 (#110, #111): ingreso declarado y perfil de presupuesto.
-- Brecha 12 (#112): aceptación versionada de términos y política al crear la cuenta (AUTH-03).
-
 ## Notas por plataforma
 
 - iPhone: «Iniciar sesión con Apple» usa `AuthenticationServices`. Apple entrega el nombre solo la primera vez: hay que enviarlo en ese primer `POST`; si ese intento falla antes de llegar al API, el nombre se pierde y la persona lo corrige después. El correo puede ser un reenvío privado de Apple. El `nonce` se genera por intento. Los botones de Apple y Google tienen igual jerarquía visual.

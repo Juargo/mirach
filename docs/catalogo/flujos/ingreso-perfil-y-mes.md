@@ -44,10 +44,6 @@ El correo llega de Apple o Google y no se edita (PER-09); puede ser `null` en el
 - Entrada: pestaña Ajustes.
 - Salida: volver a Ajustes; el Inicio se recarga al volver.
 
-## Pendiente en el API
-
-- Brecha 11 (#110, #111): perfil de presupuesto, ingreso declarado y día de inicio del mes.
-
 ## Notas por plataforma
 
 - El día de inicio se elige con un selector de 1 a 28, y cada período se muestra con sus fechas («25 sep – 24 oct»), que entrega el API.

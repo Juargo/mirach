@@ -69,8 +69,6 @@ Reglas de contrato:
 
 ## Pendiente en el API
 
-- Brecha 10 (#113): estados Bien, Cerca y Sobre, estado del mes y el bloque que lo define.
-- Brecha 11 (#110, #111): metas según el perfil e ingreso declarado o detectado (VIS-10).
 - Brecha 14 (#142): sobregiros marcados y fuera del cálculo (pantalla 47).
 - Brecha 15 (#136): «Datos hasta el …», frase del mes, «sin gastar» y cantidad en Desconocido.
 - Brecha 16 (#140): aplicar una reclasificación a movimientos parecidos sin tocar los cambiados a mano.
