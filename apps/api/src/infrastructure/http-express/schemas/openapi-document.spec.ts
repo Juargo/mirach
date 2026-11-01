@@ -636,7 +636,7 @@ describe('buildOpenApiDocument', () => {
     ] as const;
 
     it.each(UPLOADS)(
-      '%s %s declares a typed 400 whose optional code enum is PDF_PROTEGIDO | PDF_PASSWORD_INCORRECTA | SIN_MOVIMIENTOS',
+      '%s %s declares a typed 400 whose optional code enum is PDF_PROTEGIDO | PDF_PASSWORD_INCORRECTA | SIN_MOVIMIENTOS | PDF_ESCANEADO | BANCO_NO_RECONOCIDO',
       (_m, ruta, metodo) => {
         const op = document().paths?.[ruta]?.[metodo];
         const schema = componente(schemaRef(op, '400'));
@@ -644,6 +644,8 @@ describe('buildOpenApiDocument', () => {
           'PDF_PROTEGIDO',
           'PDF_PASSWORD_INCORRECTA',
           'SIN_MOVIMIENTOS',
+          'PDF_ESCANEADO',
+          'BANCO_NO_RECONOCIDO',
         ]);
         expect(schema.required).not.toContain('code');
       },

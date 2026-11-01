@@ -297,7 +297,7 @@ const ingestaUploadOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`.',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`.',
       content: {
         'application/json': { schema: ingestaErrorResponseSchema },
       },
@@ -360,7 +360,7 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only).',
       content: {
         'application/json': { schema: ingestaErrorResponseSchema },
       },
@@ -438,7 +438,7 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     },
     '400': {
       description:
-        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements. Every other cause (missing `file` field, disallowed extension, unrecognized bank, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
+        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).',
       content: {
         'application/json': { schema: ingestaErrorResponseSchema },
       },

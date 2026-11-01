@@ -466,6 +466,17 @@ function aCommitHttpError(error: CommitIngestaError): {
   if (error instanceof SinMovimientosError) {
     return { status: 400, message: error.message, code: 'SIN_MOVIMIENTOS' };
   }
+  // IMP-06: la app distingue estas causas por `code`, no por el texto.
+  if (error instanceof PdfSinTextoError) {
+    return { status: 400, message: error.message, code: 'PDF_ESCANEADO' };
+  }
+  if (error instanceof BancoNoReconocidoError) {
+    return {
+      status: 400,
+      message: error.message,
+      code: 'BANCO_NO_RECONOCIDO',
+    };
+  }
   // Catálogo DISPONIBLE pero INCOMPLETO (#778 tramo 3/5) → 409, no 400: el
   // archivo del cliente está bien, lo que está mal es el ESTADO de la cuenta
   // (falta la categoría Desconocido del bucket por defecto) — y reintentar
@@ -478,11 +489,9 @@ function aCommitHttpError(error: CommitIngestaError): {
   // Client errors (file + overlay validation) → 400
   if (
     error instanceof ExtensionNoPermitidaError ||
-    error instanceof BancoNoReconocidoError ||
     error instanceof EstructuraInvalidaError ||
     error instanceof NormalizacionInvalidaError ||
     error instanceof PdfInvalidoError ||
-    error instanceof PdfSinTextoError ||
     error instanceof EstructuraPdfInvalidaError ||
     error instanceof RangoFechasInvalidoError ||
     error instanceof EdicionesInvalidasError ||
@@ -541,6 +550,17 @@ function aHttpError(error: ProcessIngestaError): {
   if (error instanceof SinMovimientosError) {
     return { status: 400, message: error.message, code: 'SIN_MOVIMIENTOS' };
   }
+  // IMP-06: la app distingue estas causas por `code`, no por el texto.
+  if (error instanceof PdfSinTextoError) {
+    return { status: 400, message: error.message, code: 'PDF_ESCANEADO' };
+  }
+  if (error instanceof BancoNoReconocidoError) {
+    return {
+      status: 400,
+      message: error.message,
+      code: 'BANCO_NO_RECONOCIDO',
+    };
+  }
   // Catálogo DISPONIBLE pero INCOMPLETO (#778 tramo 3/5) → 409, no 400: mismo
   // razonamiento que `aCommitHttpError` arriba — el archivo está bien, el
   // estado de la cuenta no, y reintentar el mismo request no arregla nada.
@@ -551,11 +571,9 @@ function aHttpError(error: ProcessIngestaError): {
   }
   if (
     error instanceof ExtensionNoPermitidaError ||
-    error instanceof BancoNoReconocidoError ||
     error instanceof EstructuraInvalidaError ||
     error instanceof NormalizacionInvalidaError ||
     error instanceof PdfInvalidoError ||
-    error instanceof PdfSinTextoError ||
     error instanceof EstructuraPdfInvalidaError ||
     error instanceof RangoFechasInvalidoError
   ) {
