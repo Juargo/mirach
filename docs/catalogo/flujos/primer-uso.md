@@ -27,8 +27,8 @@ El tercer paso del onboarding (primera cartola, se puede saltar) es el flujo [Su
 
 | Acción | Endpoint | Cuerpo | Éxito | Fallo |
 |---|---|---|---|---|
-| Continuar con Apple | `POST /api/auth/apple/token` | `identityToken` (JWT de la autorización nativa), `nonce` (valor crudo; a Apple se le entrega su SHA-256 en hexadecimal), `nombre` (solo en la **primera** autorización; omitir o `null` después), `versionTerminos` y `versionPrivacidad` (lo que se acepta al continuar, AUTH-03) | 200 `{token, userId, expiresAt}`: guardar la sesión; cuenta nueva → onboarding, cuenta existente → Inicio | 401 opaco: pantalla 31; 404 Apple no está activo: ocultar el botón y reconsultar capacidades; 429 «Demasiados intentos, intenta más tarde» |
-| Continuar con Google | `POST /api/auth/google/token` | `idToken` (Google Sign-In nativo o Credential Manager), `versionTerminos` y `versionPrivacidad` | 200 igual que Apple | 401, 404 y 429 igual que Apple |
+| Continuar con Apple | `POST /api/auth/apple/token` | `identityToken` (JWT de la autorización nativa), `nonce` (valor crudo; a Apple se le entrega su SHA-256 en hexadecimal), `nombre` (solo en la **primera** autorización; omitir o `null` después), `versionTerminos` y `versionPrivacidad` (lo que se acepta al continuar, AUTH-03) | 200 `{token, userId, expiresAt}`: guardar la sesión; cuenta nueva → onboarding, cuenta existente → Inicio | 401 opaco: «No se pudo iniciar sesión»; red, 400 o 503: pantalla 31; 404 Apple no está activo: ocultar el botón y reconsultar capacidades; 429 «Demasiados intentos, intenta más tarde» |
+| Continuar con Google | `POST /api/auth/google/token` | `idToken` (Google Sign-In nativo o Credential Manager), `versionTerminos` y `versionPrivacidad` | 200 igual que Apple | Igual que Apple |
 | Cancelar la hoja del proveedor | Ninguno | — | Vuelve a la bienvenida sin mensaje (AUTH-01, AUTH-02) | — |
 | Reintentar capacidades | `GET /api/auth/capabilities` | Solo `x-api-key` | Muestra los botones activos | Error de red: «Reintentar» |
 | Declarar ingreso o saltar | Pendiente (#111) | — | Pasa a elegir perfil | — |
@@ -41,7 +41,7 @@ Visibilidad de los botones: «Continuar con Apple» si `appleLoginEnabled`, solo
 - **Cargando capacidades**: los botones no se muestran todavía.
 - **Sin proveedores activos** (banderas en `false`): «El inicio de sesión no está disponible por ahora» con «Reintentar».
 - **Autenticando**: botones deshabilitados con progreso; evita envíos dobles.
-- **Error de inicio de sesión** (pantalla 31): solo ante una falla real (red o proveedor), confirma que no se creó ninguna cuenta. La línea «prueba con Google» aparece cuando la otra opción existe en esa plataforma.
+- **Error de inicio de sesión** (pantalla 31): solo ante una falla real (red o proveedor), confirma que no se creó ninguna cuenta. La línea «prueba con Google» de Figma se agrega cuando iPhone ofrezca Google.
 - **Inicio vacío** (pantalla 11): sin datos, invita a subir la primera cartola y no muestra porcentajes vacíos.
 
 ## Navegación

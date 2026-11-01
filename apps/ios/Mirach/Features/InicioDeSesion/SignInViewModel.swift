@@ -31,7 +31,7 @@ final class SignInViewModel {
     }
 
     private(set) var state: State = .loadingProviders
-    /// The last attempt's error, shown under the button. `nil` when there is none.
+    /// The last attempt's error, shown above the button. `nil` when there is none.
     private(set) var errorMessage: String?
     /// Second line of a real provider failure (screen 31). `nil` for every other error.
     private(set) var errorDetail: String?

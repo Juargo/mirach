@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.update
 /** What the sign-in screen draws (catalog: `inicio-de-sesion.md`). */
 data class SignInUiState(
     val phase: SignInViewModel.Phase = SignInViewModel.Phase.LoadingProviders,
-    /** The last attempt's error, shown under the buttons. Null when there is none. */
+    /** The last attempt's error, shown above the buttons. Null when there is none. */
     val errorMessage: String? = null,
     /** Second line of a real provider failure (screen 31). Null for every other error. */
     val errorDetail: String? = null,
