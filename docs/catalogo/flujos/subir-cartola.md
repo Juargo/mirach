@@ -97,8 +97,7 @@ Ambos endpoints aceptan el campo multipart **`password`**, opcional; ausente o v
 
 ## Pendiente en el API
 
-- Brecha 12 (#112): consentimiento versionado para procesar cartolas.
-- Brecha 13 (#115): rechazo de estados de cuenta de tarjeta (pantalla 37).
+- Brecha 13 (#176): rechazo de estados de cuenta de tarjeta (pantalla 37).
 - Brecha 14 (#142): confirmación de traspasos propios (pantalla 25).
 - Brecha 20 (#129): coincidencia sin tildes.
 

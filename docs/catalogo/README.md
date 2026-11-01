@@ -114,22 +114,17 @@ Lo que las pantallas necesitan y el contrato o el servidor aún no ofrecen. Ning
 
 | # | Brecha | Flujo | Issue |
 |---|---|---|---|
-| 5 | Textos del servidor con «Deseos» (`semaforo-detalle.ts`, `catalogo-incompleto.error.ts`). La app usa copia propia. | Subir cartola (409), Inicio | #113 |
 | 7 | Mensajes del servidor con voseo o jerga (por ejemplo `CONFIRMACION_INVALIDA`, `BUCKET_NO_ASIGNABLE`). La app usa copia propia para esos `code`. | Categorías, Cuenta | — |
 | 9 | Orden de las listas sin documentar: `GET /api/ingestas` entrega la más reciente primero y `GET /api/categorias` ordena por nombre. | Importaciones, Categorías | — |
-| 10 | Estados Bien, Cerca y Sobre, estado del mes y el bloque que lo define (hoy el API entrega el semáforo heredado `verde`/`amarillo`/`rojo`). | Inicio | #113 |
-| 11 | Perfil de presupuesto, metas del resumen según el perfil, ingreso declarado y día de inicio del mes. | Primer uso, Ingreso y perfil, Inicio | #110, #111 |
-| 12 | Consentimientos versionados (términos al crear la cuenta, permiso para procesar cartolas). | Primer uso, Subir cartola | #112 |
-| 13 | Rechazo de estados de cuenta de tarjeta con código propio. | Subir cartola | #115 |
+| 13 | Rechazo de estados de cuenta de tarjeta con código propio. | Subir cartola | #176 |
 | 14 | Confirmación de traspasos propios, devoluciones y sobregiros. | Subir cartola, Movimientos | #142 |
 | 15 | Datos del Inicio sin campo en el contrato: «Datos hasta el …» (VIS-04), frase del mes (VIS-03, VIS-17), lo que queda «sin gastar» y la cantidad de movimientos en Desconocido (MOV-05). | Inicio | #136 (por desglosar en el API) |
 | 16 | Vista previa de un patrón y «aplicar a parecidos»: con cuántos movimientos coincide y moverlos sin tocar los reclasificados a mano (CLA-03, CLA-15, CLA-16). `POST /api/transacciones/reevaluar` no sirve: reevalúa todos los movimientos y sobrescribe también los cambiados a mano. | Categorías, Movimientos | #140 |
 | 17 | Exportar los datos en Excel o CSV (PRI-04). | Cuenta | #144 |
 | 18 | Cerrar sesión en todos los dispositivos (AUTH-06). | Cuenta | #146 |
-| 19 | Configuración remota y versión mínima por plataforma (`GET /api/config`). | Todos | #116 |
 | 20 | Coincidencia de patrones sin distinguir tildes y desempate por largo (CLA-12, CLA-14). | Categorías, Subir cartola | #129 |
 | 21 | El 400 de `POST /api/movimientos` responde solo `{message}`, sin `code`; los motivos (`FECHA_FUTURA`, `MONTO_INVALIDO`…) existen en el dominio pero no salen en la respuesta. | Registrar a mano | #157 |
 | 22 | Marcar un movimiento como ignorado: no cuenta en los porcentajes pero sigue visible (MOV-04). No hay soporte en el API. | Movimientos | #158 |
 | 23 | La allowlist de íconos del API (25 valores, `icono-categoria.ts`) no coincide con el set de 24 íconos de CLA-11 (decidido el 23-10-2026): CLA-11 pide Bolsa, Paquete, Taza, Libro y Flechas, que el API no tiene, y el API tiene `fuel`, `wifi`, `graduation-cap`, `shield`, `bike` y `gamepad-2`, que CLA-11 no lista. | Categorías | #159 |
 
-Cerradas: 1 (códigos de la subida documentados en `openapi.json`), 2 (`403 CATEGORIA_INTERNA`), 3 (`esInterna` en `CategoriaResponse`), 4 (el gráfico del Inicio usa `porcentajeBp` frente a la meta, sin un «% del gasto» propio), 6 (revocación de Sign in with Apple al eliminar la cuenta) y 8 (el 401 distingue `API_KEY_INVALIDA` de `SESION_INVALIDA`).
+Cerradas: 1 (códigos de la subida documentados en `openapi.json`), 2 (`403 CATEGORIA_INTERNA`), 3 (`esInterna` en `CategoriaResponse`), 4 (el gráfico del Inicio usa `porcentajeBp` frente a la meta, sin un «% del gasto» propio), 6 (revocación de Sign in with Apple al eliminar la cuenta), 8 (el 401 distingue `API_KEY_INVALIDA` de `SESION_INVALIDA`), 5 (textos del servidor con «Gustos», #113), 10 (estados Bien, Cerca y Sobre, #113), 11 (perfil, ingreso declarado y día de inicio del mes, #110 y #111), 12 (consentimientos versionados, #112) y 19 (`GET /api/config`, #116).
