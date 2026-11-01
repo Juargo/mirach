@@ -17,7 +17,7 @@ import {
 export const APPLE_ISSUER = 'https://appleid.apple.com';
 export const APPLE_JWKS_URL = new URL('https://appleid.apple.com/auth/keys');
 
-/** Deadline del fetch del JWKS: una caída de Apple debe ser un 401, no una request colgada. */
+/** Deadline del fetch del JWKS: una caída de Apple debe ser un 503, no una request colgada. */
 export const APPLE_JWKS_TIMEOUT_MS = 5_000;
 
 /** Dominio de los emails "Ocultar mi correo" de Apple. */
@@ -42,8 +42,10 @@ const DOMINIO_RELAY_PRIVADO = '@privaterelay.appleid.com';
  *
  * `email_verified` e `is_private_email` pueden llegar como boolean o como
  * string ("true"/"false"). Nada de la librería JWT cruza el puerto (ADR-005):
- * toda falla es `Result.fail`, indistinguible hacia afuera; el `motivo` lleva
- * solo el código de error de jose, nunca el token ni valores de claims.
+ * toda falla es `Result.fail`, y las del token son indistinguibles hacia
+ * afuera; solo no poder obtener las claves se marca con `proveedorCaido`
+ * (#115). El `motivo` lleva solo el código de error de jose, nunca el token ni
+ * valores de claims.
  */
 export class AppleIdTokenVerifier
   implements IVerificadorIdTokenApple, IVerificadorSubCanjeApple
@@ -94,11 +96,7 @@ export class AppleIdTokenVerifier
           (email?.toLowerCase().endsWith(DOMINIO_RELAY_PRIVADO) ?? false),
       });
     } catch (error) {
-      return fallo(
-        error instanceof errors.JOSEError
-          ? `jwt-${error.code}`
-          : 'verificacion-id-token-fallo',
-      );
+      return falloDeVerificacion(error);
     }
   }
   /**
@@ -124,19 +122,33 @@ export class AppleIdTokenVerifier
         ? Result.ok(payload.sub)
         : fallo('payload-invalido');
     } catch (error) {
-      return fallo(
-        error instanceof errors.JOSEError
-          ? `jwt-${error.code}`
-          : 'verificacion-id-token-fallo',
-      );
+      return falloDeVerificacion(error);
     }
   }
 }
 
+/** Códigos de `jose` al no poder obtener las claves de Apple (#115). */
+const CODIGOS_JWKS_NO_DISPONIBLE = new Set([
+  errors.JOSEError.code, // respuesta distinta de 200, o que no es JSON
+  errors.JWKSTimeout.code,
+  errors.JWKSInvalid.code,
+]);
+
+function falloDeVerificacion(
+  error: unknown,
+): Result<never, VerificacionIdentidadFallidaError> {
+  return error instanceof errors.JOSEError
+    ? fallo(`jwt-${error.code}`, CODIGOS_JWKS_NO_DISPONIBLE.has(error.code))
+    : fallo('verificacion-id-token-fallo', true);
+}
+
 function fallo(
   motivo: string,
+  proveedorCaido = false,
 ): Result<never, VerificacionIdentidadFallidaError> {
-  return Result.fail(new VerificacionIdentidadFallidaError(motivo));
+  return Result.fail(
+    new VerificacionIdentidadFallidaError(motivo, proveedorCaido),
+  );
 }
 
 /** Apple serializa los flags como boolean o como string "true"/"false". */

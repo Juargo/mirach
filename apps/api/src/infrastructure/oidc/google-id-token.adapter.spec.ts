@@ -242,3 +242,37 @@ describe('GoogleIdTokenVerifier.verificarIdToken', () => {
     ]);
   });
 });
+
+describe('GoogleIdTokenVerifier — proveedor caído (#115)', () => {
+  it('no poder bajar los certificados se marca como proveedor caído', async () => {
+    const adapter = new GoogleIdTokenVerifier(
+      AUDIENCIAS,
+      makeCliente({
+        verifyIdToken: vi
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              'Failed to retrieve verification certificates: socket hang up',
+            ),
+          ),
+      }),
+    );
+
+    const result = await adapter.verificarIdToken('a-token');
+
+    expect(result.getError().proveedorCaido).toBe(true);
+  });
+
+  it('un token inválido no es una caída del proveedor', async () => {
+    const adapter = new GoogleIdTokenVerifier(
+      AUDIENCIAS,
+      makeCliente({
+        verifyIdToken: vi.fn().mockRejectedValue(new Error('Wrong recipient')),
+      }),
+    );
+
+    const result = await adapter.verificarIdToken('a-token');
+
+    expect(result.getError().proveedorCaido).toBe(false);
+  });
+});

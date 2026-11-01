@@ -26,3 +26,15 @@ export const CODIGOS_401 = [
 ] as const;
 
 export type Codigo401 = (typeof CODIGOS_401)[number];
+
+/**
+ * 503 of the token endpoints (#115): the identity could not be checked, which
+ * says nothing about the credential, so it is not a 401. It does not depend on
+ * who is signing in, so it reveals nothing about any account.
+ */
+export const SERVICIO_NO_DISPONIBLE = 'SERVICIO_NO_DISPONIBLE';
+
+export const SERVICIO_NO_DISPONIBLE_BODY = {
+  message: 'No pudimos verificar tu inicio de sesión. Intenta más tarde.',
+  code: SERVICIO_NO_DISPONIBLE,
+};

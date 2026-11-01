@@ -12,7 +12,7 @@ import {
  * solo ata un `AbortSignal.timeout` si `timeout` viene explícito — sin esto,
  * el fetch del JWKS de Google no tiene deadline y una caída de Google deja
  * la request colgada hasta que el LB la corte (504 opaco, cero logs), en vez
- * del 401 genérico que promete AUTH-21 (misma clase de bug que el 4R
+ * del 503 de las rutas de token (misma clase de bug que el 4R
  * CRITICAL C2 del adapter web — ver `OIDC_TIMEOUT_SECONDS` en
  * `openid-client-google.adapter.ts`; misma convención: 10s, bien por debajo
  * del timeout del proxy/LB de Render).
@@ -39,9 +39,9 @@ export interface ClienteVerificadorIdToken {
  * Ninguna excepción de `google-auth-library` cruza el puerto (ADR-005): toda
  * falla — firma inválida, `aud`/`iss` incorrectos, token expirado, o un fallo
  * de red al resolver el JWKS de Google — se envuelve en
- * `Result.fail(new VerificacionIdentidadFallidaError(...))`, indistinguible
- * entre sí (design §5.3, AUTH-21) — la distinción vive solo en el nivel de
- * log, nunca en la respuesta.
+ * `Result.fail(new VerificacionIdentidadFallidaError(...))`. Toda falla del
+ * token es indistinguible hacia afuera (design §5.3, AUTH-21); solo no poder
+ * bajar los certificados se marca con `proveedorCaido` (#115).
  *
  * Un `idToken` vacío/en blanco falla ANTES de invocar el cliente: evita un
  * fetch de JWKS inútil para una request trivialmente inválida.
@@ -85,10 +85,24 @@ export class GoogleIdTokenVerifier implements IVerificadorIdTokenExterno {
         email: payload.email ?? null,
         emailVerificado: payload.email_verified === true,
       });
-    } catch {
+    } catch (error) {
       return Result.fail(
-        new VerificacionIdentidadFallidaError('verificacion-id-token-fallo'),
+        new VerificacionIdentidadFallidaError(
+          'verificacion-id-token-fallo',
+          esFalloDeCertificados(error),
+        ),
       );
     }
   }
+}
+
+/**
+ * `google-auth-library` lanza `Error` tanto por un token inválido como por no
+ * poder bajar los certificados; solo el prefijo del mensaje los separa (#115).
+ */
+function esFalloDeCertificados(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.startsWith('Failed to retrieve verification certificates')
+  );
 }

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   SignJWT,
   createLocalJWKSet,
+  errors,
   exportJWK,
   generateKeyPair,
   type CryptoKey,
@@ -216,6 +217,38 @@ describe('AppleIdTokenVerifier', () => {
       const r = await v.verificarIdToken(await firmar(par), NONCE_CRUDO);
 
       expect(r.isFail()).toBe(true);
+    });
+
+    it.each([
+      ['error de red', new Error('ECONNRESET')],
+      ['timeout del JWKS', new errors.JWKSTimeout()],
+      ['JWKS con status distinto de 200', new errors.JOSEError('Expected 200')],
+      ['JWKS malformado', new errors.JWKSInvalid()],
+    ])('%s se marca como proveedor caído (#115)', async (_n, causa) => {
+      const v = new AppleIdTokenVerifier(
+        BUNDLE_ID,
+        () => Promise.reject(causa),
+        () => AHORA,
+      );
+
+      const r = await v.verificarIdToken(await firmar(par), NONCE_CRUDO);
+
+      expect(r.getError().proveedorCaido).toBe(true);
+    });
+
+    it.each([
+      ['firma inválida', new errors.JWSSignatureVerificationFailed()],
+      ['sin clave que coincida', new errors.JWKSNoMatchingKey()],
+    ])('%s no es una caída del proveedor (#115)', async (_n, causa) => {
+      const v = new AppleIdTokenVerifier(
+        BUNDLE_ID,
+        () => Promise.reject(causa),
+        () => AHORA,
+      );
+
+      const r = await v.verificarIdToken(await firmar(par), NONCE_CRUDO);
+
+      expect(r.getError().proveedorCaido).toBe(false);
     });
 
     it('el mensaje de la falla no filtra la causa ni el token', async () => {

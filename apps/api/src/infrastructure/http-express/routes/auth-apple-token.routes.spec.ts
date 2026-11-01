@@ -21,6 +21,16 @@ const GENERIC_401_BODY = {
   code: 'CREDENCIALES_INVALIDAS',
 };
 
+const SERVICIO_NO_DISPONIBLE_BODY = {
+  message: 'No pudimos verificar tu inicio de sesión. Intenta más tarde.',
+  code: 'SERVICIO_NO_DISPONIBLE',
+};
+
+const BODY_INVALIDO = {
+  message: 'Cuerpo de la petición inválido.',
+  code: 'BODY_INVALIDO',
+};
+
 const IDENTIDAD = {
   sub: 'apple-sub-1',
   email: 'a@b.cl',
@@ -271,24 +281,6 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
           } as never,
         }),
     ],
-    [
-      'el verificador lanza una excepción inesperada',
-      () =>
-        deps({
-          verificadorIdToken: {
-            verificarIdToken: vi.fn().mockRejectedValue(new Error('boom')),
-          },
-        }),
-    ],
-    [
-      'el use case lanza una excepción inesperada',
-      () =>
-        deps({
-          loginConApple: {
-            execute: vi.fn().mockRejectedValue(new Error('db caída')),
-          } as never,
-        }),
-    ],
   ])('401 con el MISMO body genérico cuando %s', async (_n, make) => {
     const res = await request(tokenApp(make()))
       .post('/api/auth/apple/token')
@@ -343,7 +335,7 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
     expect(estados).toEqual([401, 401, 429, 429]);
   });
 
-  it('ningún log de un 401 contiene el identityToken, el nonce ni el nombre', async () => {
+  it('ningún log de un rechazo contiene el identityToken, el nonce ni el nombre', async () => {
     const spies = (['debug', 'info', 'warn', 'error'] as const).map((nivel) =>
       vi.spyOn(appLogger, nivel).mockImplementation(() => {}),
     );
@@ -378,7 +370,7 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
           nonce: secretos[1],
           nombre: secretos[2],
         });
-      expect(res.status).toBe(401);
+      expect([401, 503]).toContain(res.status);
     }
 
     const llamadas = spies.flatMap((spy) => spy.mock.calls);
@@ -390,15 +382,59 @@ describe('registrarAuthAppleToken — POST /api/auth/apple/token', () => {
     spies.forEach((spy) => spy.mockRestore());
   });
 
-  it('JSON malformado → lo rechaza el parser compartido con el 500 del errorMiddleware, no el 401 genérico', async () => {
+  it.each([
+    [
+      'Apple no responde al pedir las claves',
+      () =>
+        deps({
+          verificadorIdToken: {
+            verificarIdToken: vi
+              .fn()
+              .mockResolvedValue(
+                Result.fail(
+                  new VerificacionIdentidadFallidaError('jwt-timeout', true),
+                ),
+              ),
+          },
+        }),
+    ],
+    [
+      'el verificador lanza una excepción inesperada',
+      () =>
+        deps({
+          verificadorIdToken: {
+            verificarIdToken: vi.fn().mockRejectedValue(new Error('boom')),
+          },
+        }),
+    ],
+    [
+      'el use case lanza una excepción inesperada',
+      () =>
+        deps({
+          loginConApple: {
+            execute: vi.fn().mockRejectedValue(new Error('db caída')),
+          } as never,
+        }),
+    ],
+  ])('503, no 401, cuando %s (#115)', async (_n, make) => {
+    const res = await request(tokenApp(make()))
+      .post('/api/auth/apple/token')
+      .send(BODY);
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual(SERVICIO_NO_DISPONIBLE_BODY);
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('JSON malformado → lo rechaza el parser compartido con el 400 del errorMiddleware, no el 401 genérico', async () => {
     const res = await request(tokenApp(deps()))
       .post('/api/auth/apple/token')
       .set('Content-Type', 'application/json')
       .send('{"identityToken": ');
 
-    // `express.json()` falla antes del handler y `errorMiddleware` responde 500.
-    expect(res.status).toBe(500);
-    expect(res.body).not.toEqual(GENERIC_401_BODY);
+    // `express.json()` falla antes del handler y `errorMiddleware` responde 400.
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual(BODY_INVALIDO);
   });
 });
 

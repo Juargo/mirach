@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   API_KEY_INVALIDA,
   CREDENCIALES_INVALIDAS,
+  SERVICIO_NO_DISPONIBLE,
   SESION_INVALIDA,
 } from '../auth-error-codes';
 
@@ -64,4 +65,24 @@ export const credentialsUnauthorizedResponseSchema = z
   .meta({
     id: 'CredentialsUnauthorizedResponse',
     description: '401 body of the sign-in endpoints.',
+  });
+
+export const bodyInvalidoResponseSchema = z
+  .object({
+    message,
+    code: z.literal('BODY_INVALIDO'),
+  })
+  .meta({
+    id: 'BodyInvalidoResponse',
+    description: '400 body of a syntactically malformed JSON request.',
+  });
+
+export const servicioNoDisponibleResponseSchema = z
+  .object({
+    message,
+    code: z.literal(SERVICIO_NO_DISPONIBLE),
+  })
+  .meta({
+    id: 'ServicioNoDisponibleResponse',
+    description: '503 body of the sign-in endpoints.',
   });

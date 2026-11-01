@@ -190,3 +190,38 @@ describe('errorMiddleware — loguea el code de máquina para diagnóstico', () 
     expect(JSON.stringify(res.headers)).not.toContain('P2022');
   });
 });
+
+describe('errorMiddleware — JSON mal formado (#115)', () => {
+  function jsonApp(): Express {
+    const app = express();
+    app.use(express.json());
+    app.post('/probe', (_req, res) => {
+      res.status(200).end();
+    });
+    app.use(errorMiddleware);
+    return app;
+  }
+
+  it('responde 400 BODY_INVALIDO y no refleja el cuerpo', async () => {
+    const res = await request(jsonApp())
+      .post('/probe')
+      .set('Content-Type', 'application/json')
+      .send('{"secreto": ');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      message: 'Cuerpo de la petición inválido.',
+      code: 'BODY_INVALIDO',
+    });
+    expect(res.text).not.toContain('secreto');
+  });
+
+  it('un cuerpo que excede el límite sigue en el 500 genérico', async () => {
+    const res = await request(jsonApp())
+      .post('/probe')
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ a: 'x'.repeat(200 * 1024) }));
+
+    expect(res.status).toBe(500);
+  });
+});

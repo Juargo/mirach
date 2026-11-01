@@ -13,7 +13,7 @@ import struct Foundation.Date
 internal enum Operations {
     /// Authenticate with a native Apple identity token (mobile)
     ///
-    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, a lost creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers a generic 500, not this 401. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, or a lost creation race — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers 400 BODY_INVALIDO, not this 401. If Apple cannot be reached or an internal dependency fails, the answer is 503 SERVICIO_NO_DISPONIBLE: that says nothing about the credential and is retryable. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
     ///
     /// - Remark: HTTP `POST /api/auth/apple/token`.
     /// - Remark: Generated from `#/paths//api/auth/apple/token/post`.
@@ -162,6 +162,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.BodyInvalidoResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.BodyInvalidoResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Syntactically malformed JSON (BODY_INVALIDO).
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/apple/token/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
             internal struct Unauthorized: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/responses/401/content`.
                 internal enum Body: Sendable, Hashable {
@@ -278,6 +329,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/apple/token/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.ServicioNoDisponibleResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ServicioNoDisponibleResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/apple/token/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_auth_sol_apple_sol_token.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
                             response: self
                         )
                     }
@@ -1009,7 +1111,7 @@ internal enum Operations {
     }
     /// Authenticate with a native Google id_token (mobile)
     ///
-    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, a lost account-creation race, or a JWKS/network failure — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers a generic 500). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's activation gate. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies a device-obtained Google id_token (AUTH-19) and resolves the identity — matching an existing user by googleSub or email, or CREATING a new passwordless account on first verified login (signup-on-first-login, ADR-041, same use case as the web callback) — issuing a session identical in shape to POST /api/auth/login (AUTH-20) for BOTH outcomes; the response never reveals whether the account is pre-existing or just-created. Every failure cause — invalid/expired/wrong-audience token, unverified email, an email already linked to a different googleSub, or a lost account-creation race — produces the identical 401 body used by POST /api/auth/login (AUTH-21, anti-enumeration); a well-formed JSON body with an invalid shape takes that same 401, while a syntactically malformed JSON body never reaches the handler (the shared body parser rejects it and the shared error handler answers 400 BODY_INVALIDO). If Google cannot be reached or an internal dependency fails, the answer is 503 SERVICIO_NO_DISPONIBLE: that says nothing about the credential and is retryable. No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful SIGNUP never does (mass-signup defense, ADR-041 Consecuencias) — the budget still caps the rate of new accounts from a single IP. 404 when neither GOOGLE_CLIENT_ID_ANDROID nor GOOGLE_CLIENT_ID_IOS is configured (AUTH-22) — independent of GET /api/auth/google's activation gate. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
     ///
     /// - Remark: HTTP `POST /api/auth/google/token`.
     /// - Remark: Generated from `#/paths//api/auth/google/token/post`.
@@ -1132,6 +1234,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/google/token/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/google/token/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.BodyInvalidoResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.BodyInvalidoResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Syntactically malformed JSON (BODY_INVALIDO).
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/google/token/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
             internal struct Unauthorized: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/auth/google/token/POST/responses/401/content`.
                 internal enum Body: Sendable, Hashable {
@@ -1248,6 +1401,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/google/token/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/google/token/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.ServicioNoDisponibleResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ServicioNoDisponibleResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/google/token/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_auth_sol_google_sol_token.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
                             response: self
                         )
                     }

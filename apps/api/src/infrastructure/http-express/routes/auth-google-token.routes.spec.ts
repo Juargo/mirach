@@ -307,15 +307,68 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
     );
   });
 
-  it('JSON malformado → lo rechaza el parser compartido con el 500 del errorMiddleware, no el 401 genérico', async () => {
+  it.each([
+    [
+      'Google no responde al pedir los certificados',
+      () =>
+        deps({
+          verificadorIdToken: {
+            verificarIdToken: vi
+              .fn()
+              .mockResolvedValue(
+                Result.fail(
+                  new VerificacionIdentidadFallidaError(
+                    'verificacion-id-token-fallo',
+                    true,
+                  ),
+                ),
+              ),
+          },
+        }),
+    ],
+    [
+      'throw inesperado del verificador',
+      () =>
+        deps({
+          verificadorIdToken: {
+            verificarIdToken: vi.fn().mockRejectedValue(new Error('boom')),
+          },
+        }),
+    ],
+    [
+      'throw inesperado de loginConGoogle',
+      () =>
+        deps({
+          loginConGoogle: {
+            execute: vi.fn().mockRejectedValue(new Error('DB caída')),
+          } as never,
+        }),
+    ],
+  ] as const)('503, no 401, cuando %s (#115)', async (_n, make) => {
+    const res = await request(tokenApp(make()))
+      .post('/api/auth/google/token')
+      .send({ idToken: 'a-token' });
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({
+      message: 'No pudimos verificar tu inicio de sesión. Intenta más tarde.',
+      code: 'SERVICIO_NO_DISPONIBLE',
+    });
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('JSON malformado → lo rechaza el parser compartido con el 400 del errorMiddleware, no el 401 genérico', async () => {
     const res = await request(tokenApp(deps()))
       .post('/api/auth/google/token')
       .set('Content-Type', 'application/json')
       .send('{"idToken": ');
 
-    // `express.json()` falla antes del handler y `errorMiddleware` responde 500.
-    expect(res.status).toBe(500);
-    expect(res.body).not.toEqual(GENERIC_401_BODY);
+    // `express.json()` falla antes del handler y `errorMiddleware` responde 400.
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      message: 'Cuerpo de la petición inválido.',
+      code: 'BODY_INVALIDO',
+    });
   });
 
   it('AUTH-23: un nonce inesperado en el body es ignorado, no rechazado — happy path procede igual', async () => {
@@ -401,24 +454,6 @@ describe('registrarAuthGoogleToken — POST /api/auth/google/token', () => {
                   ),
                 ),
               ),
-          } as never,
-        }),
-    ],
-    [
-      'throw inesperado del verificador',
-      () =>
-        deps({
-          verificadorIdToken: {
-            verificarIdToken: vi.fn().mockRejectedValue(new Error('boom')),
-          },
-        }),
-    ],
-    [
-      'throw inesperado de loginConGoogle',
-      () =>
-        deps({
-          loginConGoogle: {
-            execute: vi.fn().mockRejectedValue(new Error('DB caída')),
           } as never,
         }),
     ],
