@@ -4,10 +4,6 @@ import { EdicionesInvalidasError } from '../../../domain/errors/ediciones-invali
 import { Bucket } from '../../../domain/value-objects/bucket';
 import type { CommitIngestaResult } from '../../../application/use-cases/commit-ingesta.use-case';
 // Regression guard: one-shot DTOs untouched (D-13)
-import {
-  aIngestaResponseDto,
-  TransaccionResponseDto,
-} from './ingesta-response.dto';
 
 // ---------------------------------------------------------------------------
 // parseEdits — infra boundary parser (D-02/D-03)
@@ -237,28 +233,5 @@ describe('aCommitIngestaResponseDto', () => {
       makeResult({ transacciones: [], totalTransacciones: 0 }),
     );
     expect(dto.transacciones).toEqual([]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Regression guard: one-shot DTOs untouched (D-13)
-// ---------------------------------------------------------------------------
-
-describe('one-shot DTO regression guard (D-13)', () => {
-  it('aIngestaResponseDto and TransaccionResponseDto are still importable and unchanged', () => {
-    // TransaccionResponseDto has only: fecha, descripcion, cargo, abono — NO bucket/categoriaId
-    const dto: TransaccionResponseDto = {
-      fecha: BASE_DATE.toISOString(),
-      descripcion: 'TX',
-      cargo: '1000',
-      abono: '0',
-    };
-    // @ts-expect-error — bucket does not exist on one-shot TransaccionResponseDto
-    const _: undefined = dto.bucket;
-    void _;
-
-    // aIngestaResponseDto should still map correctly (smoke test)
-    // We can't call it without a real ProcessIngestaResult, so just verify it's importable
-    expect(typeof aIngestaResponseDto).toBe('function');
   });
 });

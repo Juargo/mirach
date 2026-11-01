@@ -32,7 +32,6 @@ function fakeContainer(
     obtenerDetalleBucket: stub,
     obtenerMovimientosMes: stub,
     reclasificarTransaccion: stub,
-    processIngesta: stub,
     previewIngesta: stub,
     eliminarIngesta: stub,
     listarIngestas: stub,

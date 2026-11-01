@@ -222,7 +222,6 @@ export function createApp(container: Container, env: Env): Express {
   registrarTransacciones(protectedApi, container.reclasificarTransaccion);
   registrarReevaluarCategorias(protectedApi, container.reevaluarCategorias);
   registrarIngestas(protectedApi, {
-    processIngesta: container.processIngesta,
     eliminarIngesta: container.eliminarIngesta,
     listarIngestas: container.listarIngestas,
     previewIngesta: container.previewIngesta,

@@ -15,7 +15,6 @@ import { PdfProtegidoError } from '../../../domain/errors/pdf-protegido.error';
 import { SinMovimientosError } from '../../../domain/errors/sin-movimientos.error';
 import { CatalogoIncompletoError } from '../../../domain/errors/catalogo-incompleto.error';
 import { Bucket } from '../../../domain/value-objects/bucket';
-import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
 import type { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
 import type { ListarIngestasUseCase } from '../../../application/use-cases/listar-ingestas.use-case';
 import type { PreviewIngestaUseCase } from '../../../application/use-cases/preview-ingesta.use-case';
@@ -25,38 +24,18 @@ import { TipoCuentaConocido } from '../../../domain/value-objects/tipo-cuenta';
 
 /**
  * Port del IngestaController: upload multipart (multer) → MulterFileReaderAdapter
- * → ProcessIngestaUseCase (el mismo pipeline del CLI) → Result→HTTP.
+ * → caso de uso → Result→HTTP.
  * Errores de validación del archivo → 400; fallo de infra (persistencia) → 500.
  *
  * US-018 (T1.11): `registrarIngestas` ahora toma un deps object con 3 use
- * cases (design.md §6.1) — este spec cubre POST (sin cambios de
- * comportamiento) + los nuevos GET/DELETE.
+ * cases (design.md §6.1) — este spec cubre preview, commit, GET y DELETE.
  */
-type ProcessDoble = Pick<ProcessIngestaUseCase, 'execute'>;
 type EliminarDoble = Pick<EliminarIngestaUseCase, 'execute'>;
 type ListarDoble = Pick<ListarIngestasUseCase, 'execute'>;
 type PreviewDoble = Pick<PreviewIngestaUseCase, 'execute'>;
 type CommitDoble = Pick<CommitIngestaUseCase, 'execute'>;
 
-const INGESTA_OK = {
-  ingestaId: 'ing-1',
-  banco: {
-    banco: 'BancoEstado',
-    tipoCuenta: 'CuentaRUT',
-    numeroCuenta: '****',
-  },
-  archivo: {
-    originalName: 'cartola.xlsx',
-    extension: '.xlsx',
-    sizeInBytes: 1234,
-  },
-  total: 10,
-  duplicadosOmitidos: 2,
-  transacciones: [],
-};
-
 function probeApp(deps: {
-  processIngesta?: ProcessDoble;
   eliminarIngesta?: EliminarDoble;
   listarIngestas?: ListarDoble;
   previewIngesta?: PreviewDoble;
@@ -71,9 +50,6 @@ function probeApp(deps: {
     next();
   });
   registrarIngestas(router, {
-    processIngesta: (deps.processIngesta ?? {
-      execute: vi.fn(),
-    }) as ProcessIngestaUseCase,
     eliminarIngesta: (deps.eliminarIngesta ?? {
       execute: vi.fn(),
     }) as EliminarIngestaUseCase,
@@ -96,11 +72,7 @@ function probeApp(deps: {
 }
 
 describe('registrarIngestas — consentimiento de cartolas (#112)', () => {
-  const RUTAS = [
-    '/api/ingestas',
-    '/api/ingestas/preview',
-    '/api/ingestas/commit',
-  ];
+  const RUTAS = ['/api/ingestas/preview', '/api/ingestas/commit'];
 
   it.each(RUTAS)('%s responde 409 sin llegar al caso de uso', async (ruta) => {
     const verificar = {
@@ -115,7 +87,6 @@ describe('registrarIngestas — consentimiento de cartolas (#112)', () => {
     const res = await request(
       probeApp({
         verificarConsentimientoCartolas: verificar,
-        processIngesta: uc,
         previewIngesta: uc,
         commitIngesta: uc,
       }),
@@ -148,155 +119,18 @@ describe('registrarIngestas — consentimiento de cartolas (#112)', () => {
   });
 });
 
-describe('registrarIngestas — POST /api/ingestas', () => {
-  it('200 con el DTO; llama al pipeline con el fileReader y el userId', async () => {
-    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(INGESTA_OK)) };
-    const res = await request(probeApp({ processIngesta: uc }))
+describe('registrarIngestas — POST /api/ingestas (retired, #115)', () => {
+  it('404: the one-step upload is gone and no pipeline runs', async () => {
+    const uc = { execute: vi.fn() };
+
+    const res = await request(
+      probeApp({ previewIngesta: uc, commitIngesta: uc }),
+    )
       .post('/api/ingestas')
       .attach('file', Buffer.from('contenido'), 'cartola.xlsx');
 
-    expect(res.status).toBe(200);
-    expect(res.body.ingestaId).toBe('ing-1');
-    expect(uc.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-x',
-        fileReader: expect.anything(),
-      }),
-    );
-  });
-
-  it('400 si no se envía archivo', async () => {
-    const uc = { execute: vi.fn() };
-    const res = await request(probeApp({ processIngesta: uc })).post(
-      '/api/ingestas',
-    );
-
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
     expect(uc.execute).not.toHaveBeenCalled();
-  });
-
-  it('400 ante error de validación del archivo (ExtensionNoPermitidaError)', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.fail(new ExtensionNoPermitidaError('.txt', ['.xlsx', '.pdf'])),
-        ),
-    };
-    const res = await request(probeApp({ processIngesta: uc }))
-      .post('/api/ingestas')
-      .attach('file', Buffer.from('x'), 'malo.txt');
-
-    expect(res.status).toBe(400);
-  });
-
-  it('500 ante fallo de infraestructura (PersistenciaFallidaError)', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.fail(new PersistenciaFallidaError('DB caída')),
-        ),
-    };
-    const res = await request(probeApp({ processIngesta: uc }))
-      .post('/api/ingestas')
-      .attach('file', Buffer.from('x'), 'cartola.xlsx');
-
-    expect(res.status).toBe(500);
-  });
-
-  // D-09/D-11, tasks.md Phase 21.1 — MERGE-BLOCKING (Trap 3): sin la rama de
-  // mapeo en aHttpError, este assert cae al 500 genérico con `code`
-  // undefined, aunque tsc siga compilando limpio.
-  it('D-08/D-09: 400 + code SIN_MOVIMIENTOS cuando el pipeline normaliza a 0 movimientos', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.fail(new SinMovimientosError('cartola.xlsx', 'BCI')),
-        ),
-    };
-    const res = await request(probeApp({ processIngesta: uc }))
-      .post('/api/ingestas')
-      .attach('file', Buffer.from('x'), 'cartola.xlsx');
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('SIN_MOVIMIENTOS');
-  });
-
-  it('400 + code PDF_PROTEGIDO en el one-shot cuando el PDF requiere password', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.fail(
-            new PdfProtegidoError('cartola.pdf', 'requiere-password'),
-          ),
-        ),
-    };
-    const res = await request(probeApp({ processIngesta: uc }))
-      .post('/api/ingestas')
-      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('PDF_PROTEGIDO');
-  });
-
-  it('400 + code PDF_PASSWORD_INCORRECTA en el one-shot cuando la password es incorrecta', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.fail(
-            new PdfProtegidoError('cartola.pdf', 'password-incorrecta'),
-          ),
-        ),
-    };
-    const res = await request(probeApp({ processIngesta: uc }))
-      .post('/api/ingestas')
-      .attach('file', Buffer.from('%PDF-1.4'), 'cartola.pdf');
-
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('PDF_PASSWORD_INCORRECTA');
-  });
-
-  // #778 tramo 3/5 — 409 (no 400): el archivo está bien, el ESTADO de la
-  // cuenta (catálogo incompleto) es lo que bloquea, y reintentar el mismo
-  // request no sirve hasta que el usuario arregle su catálogo.
-  it('#778 tramo 3/5: 409 + code CATALOGO_INCOMPLETO cuando el catálogo está disponible pero incompleto', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.fail(new CatalogoIncompletoError(Bucket.Deseos)),
-        ),
-    };
-    const res = await request(probeApp({ processIngesta: uc }))
-      .post('/api/ingestas')
-      .attach('file', Buffer.from('x'), 'cartola.xlsx');
-
-    expect(res.status).toBe(409);
-    expect(res.body.code).toBe('CATALOGO_INCOMPLETO');
-    expect(res.body.message).toContain('Gustos');
-  });
-
-  // issue #778 tramo 5a — catálogo CAÍDO (infra transitoria): 503, no 500 ni
-  // 409. Distinto de CATALOGO_INCOMPLETO (permanente, arriba).
-  it('#778 tramo 5a: 503 + code CATALOGO_NO_DISPONIBLE cuando el catálogo está caído (findAll falla)', async () => {
-    const uc = {
-      execute: vi
-        .fn()
-        .mockResolvedValue(
-          Result.fail(new CategorizacionFallidaError('db caída')),
-        ),
-    };
-    const res = await request(probeApp({ processIngesta: uc }))
-      .post('/api/ingestas')
-      .attach('file', Buffer.from('x'), 'cartola.xlsx');
-
-    expect(res.status).toBe(503);
-    expect(res.body.code).toBe('CATALOGO_NO_DISPONIBLE');
-    expect(res.body.message).not.toContain('db caída');
   });
 });
 

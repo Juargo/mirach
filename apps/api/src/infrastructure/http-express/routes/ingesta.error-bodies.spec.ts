@@ -25,7 +25,6 @@ import { CatalogoIncompletoError } from '../../../domain/errors/catalogo-incompl
 import { RowIndexFueraDeRangoError } from '../../../domain/errors/row-index-fuera-de-rango.error';
 import { CategoriaFueraDeCatalogoError } from '../../../domain/errors/categoria-fuera-de-catalogo.error';
 import { EdicionesInvalidasError } from '../../../domain/errors/ediciones-invalidas.error';
-import type { ProcessIngestaUseCase } from '../../../application/use-cases/process-ingesta.use-case';
 import type { PreviewIngestaUseCase } from '../../../application/use-cases/preview-ingesta.use-case';
 import type { CommitIngestaUseCase } from '../../../application/use-cases/commit-ingesta.use-case';
 
@@ -36,9 +35,8 @@ import type { CommitIngestaUseCase } from '../../../application/use-cases/commit
  * is validated here against the same schema, with `additionalProperties:
  * false` (a drift between emitter and spec fails the test).
  */
-type Endpoint = 'ingestas' | 'preview' | 'commit';
+type Endpoint = 'preview' | 'commit';
 const ENDPOINTS: ReadonlyArray<{ nombre: Endpoint; ruta: string }> = [
-  { nombre: 'ingestas', ruta: '/api/ingestas' },
   { nombre: 'preview', ruta: '/api/ingestas/preview' },
   { nombre: 'commit', ruta: '/api/ingestas/commit' },
 ];
@@ -49,13 +47,11 @@ const doble = () => vi.fn<(...args: unknown[]) => Promise<unknown>>();
 function appWith(nombre: Endpoint, execute: Execute): Express {
   const fallback = { execute: doble() };
   const doubles = {
-    processIngesta: fallback,
     previewIngesta: fallback,
     commitIngesta: fallback,
     eliminarIngesta: fallback,
     listarIngestas: fallback,
   };
-  if (nombre === 'ingestas') doubles.processIngesta = { execute };
   if (nombre === 'preview') doubles.previewIngesta = { execute };
   if (nombre === 'commit') doubles.commitIngesta = { execute };
 
@@ -67,7 +63,6 @@ function appWith(nombre: Endpoint, execute: Execute): Express {
     next();
   });
   registrarIngestas(router, {
-    processIngesta: doubles.processIngesta as unknown as ProcessIngestaUseCase,
     previewIngesta: doubles.previewIngesta as unknown as PreviewIngestaUseCase,
     commitIngesta: doubles.commitIngesta as unknown as CommitIngestaUseCase,
     eliminarIngesta: doubles.eliminarIngesta as never,

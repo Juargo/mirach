@@ -12,17 +12,17 @@ const RUN_ID = `e2e-pdf-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
 
 /**
- * E2E de POST /api/ingestas para archivos `.pdf` (Sprint 4, sprint4-pdf-ingesta,
+ * E2E de POST /api/ingestas/commit para archivos `.pdf` (Sprint 4, sprint4-pdf-ingesta,
  * Phase 6/PR5, spec.md PDF-04) — mirror de `test/ingesta.e2e-spec.ts` (US-011,
  * PR4), separado en su propio archivo porque cubre el trio PDF (no el Excel).
  *
- * Corre el pipeline HTTP completo vía ProcessIngestaUseCase — el mismo
+ * Corre el pipeline HTTP completo — el mismo
  * orquestador que usa el CLI —, así que estos tests PERSISTEN filas reales.
  * Requiere ALLOW_DESTRUCTIVE_DB=1 (gate compartido con test:integration, ver
  * test/integration.setup.ts); `pnpm api test:e2e` ya lo exporta. Cada test
  * limpia sus propias filas (Ingesta/Transaccion) en afterAll.
  */
-describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
+describe('IngestaController (e2e) — POST /api/ingestas/commit con .pdf', () => {
   let app: Express;
   let prisma: PrismaClient;
   let sesion: Sesion;
@@ -58,15 +58,15 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
     await cleanupPrisma.$disconnect();
   });
 
-  it('acepta un archivo .pdf bancario válido, lo persiste vía ProcessIngestaUseCase y retorna el contrato HTTP completo (PDF-04 escenario 1)', async () => {
+  it('acepta un archivo .pdf bancario válido, lo persiste y retorna el contrato HTTP completo (PDF-04 escenario 1)', async () => {
     const nombreArchivo = `cartola-${RUN_ID}-ok.pdf`;
 
     const response = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
       .attach('file', pdfFixture, nombreArchivo)
-      .expect(200);
+      .expect(201);
 
     // Registrar ANTES de cualquier expect(): un assertion fallido más abajo
     // no debe dejar la fila huérfana en la BD compartida de desarrollo.
@@ -74,12 +74,6 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
 
     expect(typeof response.body.ingestaId).toBe('string');
     expect(response.body.ingestaId.length).toBeGreaterThan(0);
-    expect(response.body.banco).toBe('Santander');
-    expect(response.body.archivo).toEqual({
-      nombre: nombreArchivo,
-      extension: '.pdf',
-      tamanoBytes: expect.any(Number),
-    });
     expect(response.body.totalTransacciones).toBe(
       response.body.transacciones.length,
     );
@@ -99,6 +93,11 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
     });
     expect(ingesta?.estado).toBe('PROCESADA');
     expect(ingesta?.accountId).toBeTruthy();
+    expect(ingesta?.nombreArchivo).toBe(nombreArchivo);
+    const cuenta = await prisma.account.findUnique({
+      where: { id: ingesta!.accountId! },
+    });
+    expect(cuenta?.banco).toBe('Santander');
 
     const filas = await prisma.transaccion.findMany({
       where: { ingestaId: response.body.ingestaId },
@@ -113,7 +112,7 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
     const buffer = Buffer.alloc(10 * 1024 * 1024 + 1, 0);
 
     const response = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
       .attach('file', buffer, 'cartola-gigante.pdf')
@@ -126,7 +125,7 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
     const nombreArchivo = `no-banco-${RUN_ID}.pdf`;
 
     const response = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
       .attach('file', noBancoPdfFixture, nombreArchivo)
@@ -151,7 +150,7 @@ describe('IngestaController (e2e) — POST /api/ingestas con .pdf', () => {
     const nombreArchivo = `no-banco-${RUN_ID}-2.pdf`;
 
     const response = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
       .attach('file', noBancoPdfFixture, nombreArchivo)

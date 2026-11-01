@@ -6,9 +6,7 @@ import {
 /**
  * PreviewTransaccionDto — HTTP form of a single preview row (US-057 PR2).
  *
- * cargo/abono travel as STRING (BigInt-safe), same contract as
- * `TransaccionResponseDto` (ingesta-response.dto.ts) — deliberately NOT
- * shared (D7: trivial duplication is preferable to coupling two features).
+ * cargo/abono travel as STRING (BigInt-safe).
  *
  * US-057 PR2: extended with dedup status and classification suggestion.
  * The `sugerido` field is `| null` by contract, but in practice is always
@@ -40,8 +38,7 @@ export interface PreviewResumenDto {
  *
  * @deprecated Compat shim (product decision 2026-08-21). Kept so shipped
  * clients (deployed mobile APK, web/mobile before their migration) keep
- * working. Physical removal is tracked by US-061 alongside the one-shot
- * endpoint. New consumers MUST read `filas`.
+ * working. Physical removal is tracked by US-061. New consumers MUST read `filas`.
  */
 export interface PreviewTransaccionLegacyDto {
   fecha: string;

@@ -13,10 +13,9 @@ const RUN_ID = `e2e-${Date.now()}`;
 const API_KEY = process.env.API_KEY ?? '';
 
 /**
- * E2E de POST /api/ingestas contra una BD real de desarrollo (US-011, PR4).
+ * E2E de POST /api/ingestas/commit contra una BD real de desarrollo.
  *
- * Corre el pipeline HTTP completo vía ProcessIngestaUseCase — el mismo
- * orquestador que usa el CLI —, así que estos tests PERSISTEN filas reales.
+ * Corre el pipeline HTTP completo, así que estos tests PERSISTEN filas reales.
  * Requiere ALLOW_DESTRUCTIVE_DB=1 (gate compartido con test:integration, ver
  * test/integration.setup.ts); `pnpm api test:e2e` ya lo exporta. Cada test
  * limpia sus propias filas (Ingesta/Transaccion) en afterAll — la cuenta
@@ -26,7 +25,7 @@ const API_KEY = process.env.API_KEY ?? '';
  * para poder correlacionar su propia Ingesta en la BD compartida sin
  * ambigüedad (en vez de "la más reciente con este nombre").
  */
-describe('IngestaController (e2e) — POST /api/ingestas', () => {
+describe('IngestaController (e2e) — POST /api/ingestas/commit', () => {
   let app: Express;
   let prisma: PrismaClient;
   let sesion: Sesion;
@@ -63,15 +62,15 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     await cleanupPrisma.$disconnect();
   });
 
-  it('acepta un archivo .xlsx válido, lo persiste vía ProcessIngestaUseCase y retorna el contrato HTTP completo', async () => {
+  it('acepta un archivo .xlsx válido, lo persiste y retorna el contrato HTTP completo', async () => {
     const nombreArchivo = `movimientos-${RUN_ID}-ok.xlsx`;
 
     const response = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
       .attach('file', xlsxFixture, nombreArchivo)
-      .expect(200);
+      .expect(201);
 
     // Registrar ANTES de cualquier expect(): un assertion fallido más abajo
     // no debe dejar la fila huérfana en la BD compartida de desarrollo.
@@ -79,13 +78,6 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
 
     expect(typeof response.body.ingestaId).toBe('string');
     expect(response.body.ingestaId.length).toBeGreaterThan(0);
-    expect(response.body.banco).toBe('BCI');
-    expect(response.body.tipoCuenta).toBe('Cuenta Corriente');
-    expect(response.body.archivo).toEqual({
-      nombre: nombreArchivo,
-      extension: '.xlsx',
-      tamanoBytes: expect.any(Number),
-    });
     expect(response.body.totalTransacciones).toBe(
       response.body.transacciones.length,
     );
@@ -103,6 +95,12 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
       where: { id: response.body.ingestaId },
     });
     expect(ingesta?.estado).toBe('PROCESADA');
+    expect(ingesta?.nombreArchivo).toBe(nombreArchivo);
+    const cuenta = await prisma.account.findUnique({
+      where: { id: ingesta!.accountId! },
+    });
+    expect(cuenta?.banco).toBe('BCI');
+    expect(cuenta?.tipoCuenta).toBe('Cuenta Corriente');
 
     // Equivalencia con lo REALMENTE persistido (ADR-015, énfasis en dinero):
     // la respuesta HTTP viene del output de normalize (antes del mapper
@@ -147,7 +145,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     const nombreArchivo = `cartola-${RUN_ID}-rechazo.xls`;
 
     const response = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
       .attach('file', xlsFixture, nombreArchivo)
@@ -174,7 +172,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
 
   it('retorna 400 cuando no se envía archivo', async () => {
     const response = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', sesion.cookie)
       .expect(400);
@@ -182,20 +180,13 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
     expect(response.body.message).toMatch(/archivo/i);
   });
 
-  it('si falla la escritura atómica en persistencia, retorna 500 con mensaje descriptivo y la Ingesta queda FALLIDA', async () => {
+  it('si falla la escritura atómica en persistencia, retorna 500 con mensaje descriptivo y no guarda nada', async () => {
     const nombreArchivo = `movimientos-${RUN_ID}-fail.xlsx`;
 
-    // El persist-path collapse (US-004, §7.1) dejó un ÚNICO escritor de
-    // PROCESADA: un solo `ingesta.create` con `transacciones.createMany`
-    // anidado (ya no hay un `ingesta.update` separado que interceptar, como
-    // en la técnica pre-US-004). Se fuerza la MISMA falla atómica que la
-    // CHECK-violation de `historial-ingestas.int-spec.ts` prueba a nivel de
-    // repositorio, pero acá vía spy en la única llamada de escritura — el
-    // efecto observable es idéntico: `persistirProcesada` cae al catch y
-    // retorna `Result.fail(PersistenciaFallidaError)`. La llamada real de
-    // `registrarFallo` (un SEGUNDO `ingesta.create`, con `estado: FALLIDA`,
-    // fuera de este mock de una sola vez) NO está mockeada, así que sí marca
-    // FALLIDA.
+    // Único escritor de PROCESADA: un solo `ingesta.create` con
+    // `transacciones.createMany` anidado. El commit propaga el error del
+    // repositorio sin registrar una fila FALLIDA: solo un fallo del pipeline o
+    // una excepción inesperada la registran.
     const spy = vi
       .spyOn(prisma.ingesta, 'create')
       .mockImplementationOnce(() => {
@@ -204,21 +195,13 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
 
     try {
       const response = await request(app)
-        .post('/api/ingestas')
+        .post('/api/ingestas/commit')
         .set('x-api-key', API_KEY)
         .set('Cookie', sesion.cookie)
         .attach('file', xlsxFixture, nombreArchivo)
         .expect(500);
 
-      // Correlación por nombre de archivo ÚNICO de esta corrida (no por "la
-      // más reciente FALLIDA con ese nombre" — ambiguo en una BD compartida).
-      const fallida = await prisma.ingesta.findFirst({
-        where: { nombreArchivo, estado: 'FALLIDA' },
-      });
-
-      // Registrar ANTES de cualquier expect(): un assertion fallido más abajo
-      // no debe dejar la fila huérfana.
-      if (fallida) createdIngestaIds.push(fallida.id);
+      const filas = await prisma.ingesta.count({ where: { nombreArchivo } });
 
       // Mensaje fijo y genérico: nunca interpola montos ni datos crudos.
       // Coincide con PrismaIngestaRepository.persistirProcesada's catch
@@ -228,8 +211,7 @@ describe('IngestaController (e2e) — POST /api/ingestas', () => {
         'Persistencia fallida: falló la escritura atómica de la ingesta',
       );
       expect(response.body.message).not.toMatch(/\d/);
-      expect(fallida).not.toBeNull();
-      expect(fallida?.motivoFallo).toBeTruthy();
+      expect(filas).toBe(0);
     } finally {
       spy.mockRestore();
     }

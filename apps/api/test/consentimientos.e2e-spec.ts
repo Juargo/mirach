@@ -213,11 +213,7 @@ describe('/api/consentimientos and the import gate (e2e, #112)', () => {
   });
 
   describe('import gate', () => {
-    const RUTAS = [
-      '/api/ingestas',
-      '/api/ingestas/preview',
-      '/api/ingestas/commit',
-    ];
+    const RUTAS = ['/api/ingestas/preview', '/api/ingestas/commit'];
 
     it.each(RUTAS)(
       'required, no consent: %s answers 409 and imports nothing',

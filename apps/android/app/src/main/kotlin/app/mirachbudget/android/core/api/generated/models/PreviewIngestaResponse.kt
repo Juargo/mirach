@@ -23,9 +23,9 @@
 
 package app.mirachbudget.android.core.api.generated.models
 
-import app.mirachbudget.android.core.api.generated.models.IngestaUploadResponseTransaccionesInner
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponseEstructura
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponseFilasInner
+import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponseMuestraInner
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponseResumen
 
 import kotlinx.serialization.Serializable
@@ -55,7 +55,7 @@ data class PreviewIngestaResponse (
 
     /* DEPRECATED (US-061): legacy first-50-rows sample in the old 4-field shape. Use filas. */
     @SerialName(value = "muestra")
-    val muestra: kotlin.collections.List<IngestaUploadResponseTransaccionesInner>,
+    val muestra: kotlin.collections.List<PreviewIngestaResponseMuestraInner>,
 
     @SerialName(value = "numeroCuenta")
     val numeroCuenta: kotlin.String,

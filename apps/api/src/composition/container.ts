@@ -20,7 +20,6 @@ import { ObtenerMovimientosMesUseCase } from '../application/use-cases/obtener-m
 import { ReclasificarTransaccionUseCase } from '../application/use-cases/reclasificar-transaccion.use-case';
 import { ReevaluarCategoriasUseCase } from '../application/use-cases/reevaluar-categorias.use-case';
 import { CategorizarTransaccionUseCase } from '../application/use-cases/categorizar-transaccion.use-case';
-import { ProcessIngestaUseCase } from '../application/use-cases/process-ingesta.use-case';
 import { EliminarIngestaUseCase } from '../application/use-cases/eliminar-ingesta.use-case';
 import { EliminarCuentaUseCase } from '../application/use-cases/eliminar-cuenta.use-case';
 import { EliminarMovimientoManualUseCase } from '../application/use-cases/eliminar-movimiento-manual.use-case';
@@ -43,7 +42,6 @@ import {
 } from '../application/use-cases/consentimientos.use-case';
 import { TareasEnSegundoPlano } from '../infrastructure/jobs/tareas-en-segundo-plano';
 import { crearClienteAppleAuth } from './crear-cliente-apple-auth';
-import { crearProcessIngesta } from './crear-process-ingesta';
 import { crearPreviewIngesta } from './crear-preview-ingesta';
 import { crearCommitIngesta } from './crear-commit-ingesta';
 import { crearRegistrarMovimientoManual } from './crear-registrar-movimiento-manual';
@@ -127,7 +125,6 @@ export interface Container {
    * usuario sobre TODAS sus transacciones persistidas. */
   readonly reevaluarCategorias: ReevaluarCategoriasUseCase;
   /** Pipeline de ingesta xlsx/pdf — POST /api/ingestas. */
-  readonly processIngesta: ProcessIngestaUseCase;
   /** Seam de solo-lectura (US-003, US-057 D-12) — POST /api/ingestas/preview.
    * Recibe prisma/crypto/blindIndex pero cablea SOLO adapters de lectura
    * (PrismaAccountReader — sin upsert; PrismaTransaccionExistenteReader —
@@ -200,7 +197,7 @@ export function createContainer(
   // Cifrado (ADR-013): UNA única instancia para todo el composition root,
   // decodificada de env.ENCRYPTION_KEY (ya validada como base64 de 32 bytes
   // por loadEnv) — se inyecta tanto en estos readers como en el pipeline de
-  // ingesta (crearProcessIngesta) para que el ciphertext que escribe la
+  // ingesta (crearCommitIngesta) para que el ciphertext que escribe la
   // ingesta descifre con la misma clave. Construida ANTES de crearAuth
   // porque PrismaUserCredentialRepository (US-035) también la necesita.
   const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
@@ -209,7 +206,7 @@ export function createContainer(
   // ENCRYPTION_KEY (ver derive-blind-index-key.ts) — no hay env var nuevo.
   // Slice 1: habilita `buscarPorEmail` (login) a buscar por
   // `WHERE emailBlindIndex = ...` en vez de por email en claro. Slice 2:
-  // MISMA instancia reutilizada por `crearProcessIngesta` para que
+  // MISMA instancia reutilizada por `crearCommitIngesta` para que
   // `PrismaAccountRepository.ensure` busque/cree la cuenta por
   // `numeroCuentaBlindIndex` — ninguno de los dos es posible contra
   // ciphertext no-determinístico.
@@ -230,7 +227,7 @@ export function createContainer(
   // (ya validado por `loadEnv`, default 'info') — construida ANTES de
   // `crearAuth`/`crearAuthGoogle`/`crearAuthGoogleMobile` porque los 6 use
   // cases de auth ahora la reciben inyectada (mismo patrón que
-  // `crearProcessIngesta`).
+  // `crearCommitIngesta`).
   const logger = createPinoLogger({
     pretty: env.NODE_ENV === 'development',
     level: env.LOG_LEVEL,
@@ -353,19 +350,13 @@ export function createContainer(
   // POST /api/transacciones/reevaluar: instancia PROPIA de
   // PrismaCatalogoClasificacionRepository (mismo patrón un-`new`-por-use-case
   // que PrismaResumenMesRepository arriba — stateless, sin costo) en vez de
-  // reusar la que crearProcessIngesta arma internamente para el pipeline de
+  // reusar la que crearCommitIngesta arma internamente para el pipeline de
   // ingesta (encapsulada, no expuesta por el Container).
   const reevaluarCategorias = new ReevaluarCategoriasUseCase(
     new PrismaCatalogoClasificacionRepository(prisma),
     new PrismaReevaluarCategoriasReader(prisma, crypto),
     new PrismaReevaluarCategoriasWriter(prisma),
     new CategorizarTransaccionUseCase(logger),
-    logger,
-  );
-  const processIngesta = crearProcessIngesta(
-    prisma,
-    crypto,
-    blindIndex,
     logger,
   );
   const previewIngesta = crearPreviewIngesta(
@@ -436,7 +427,6 @@ export function createContainer(
     obtenerMovimientosMes,
     reclasificarTransaccion,
     reevaluarCategorias,
-    processIngesta,
     previewIngesta,
     commitIngesta,
     registrarMovimientoManual,

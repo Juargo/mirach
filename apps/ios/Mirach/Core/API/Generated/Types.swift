@@ -151,14 +151,6 @@ internal protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /api/ingestas`.
     /// - Remark: Generated from `#/paths//api/ingestas/get`.
     func get_sol_api_sol_ingestas(_ input: Operations.get_sol_api_sol_ingestas.Input) async throws -> Operations.get_sol_api_sol_ingestas.Output
-    /// Upload a bank statement (deprecated — use POST /api/ingestas/commit)
-    ///
-    /// Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.
-    ///
-    /// - Remark: HTTP `POST /api/ingestas`.
-    /// - Remark: Generated from `#/paths//api/ingestas/post`.
-    @available(*, deprecated)
-    func post_sol_api_sol_ingestas(_ input: Operations.post_sol_api_sol_ingestas.Input) async throws -> Operations.post_sol_api_sol_ingestas.Output
     /// Delete an ingesta
     ///
     /// Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
@@ -168,14 +160,14 @@ internal protocol APIProtocol: Sendable {
     func delete_sol_api_sol_ingestas_sol__lcub_id_rcub_(_ input: Operations.delete_sol_api_sol_ingestas_sol__lcub_id_rcub_.Input) async throws -> Operations.delete_sol_api_sol_ingestas_sol__lcub_id_rcub_.Output
     /// Commit a bank statement import with optional edits overlay (US-057)
     ///
-    /// Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
+    /// Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
     ///
     /// - Remark: HTTP `POST /api/ingestas/commit`.
     /// - Remark: Generated from `#/paths//api/ingestas/commit/post`.
     func post_sol_api_sol_ingestas_sol_commit(_ input: Operations.post_sol_api_sol_ingestas_sol_commit.Input) async throws -> Operations.post_sol_api_sol_ingestas_sol_commit.Output
     /// Preview a bank statement (dry run, US-057)
     ///
-    /// Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` (ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): `estructura` (mirror of `resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
+    /// Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` (ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). DEPRECATED fields (removal tracked by US-061): `estructura` (mirror of `resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
     ///
     /// - Remark: HTTP `POST /api/ingestas/preview`.
     /// - Remark: Generated from `#/paths//api/ingestas/preview/post`.
@@ -576,22 +568,6 @@ extension APIProtocol {
     internal func get_sol_api_sol_ingestas(headers: Operations.get_sol_api_sol_ingestas.Input.Headers = .init()) async throws -> Operations.get_sol_api_sol_ingestas.Output {
         try await get_sol_api_sol_ingestas(Operations.get_sol_api_sol_ingestas.Input(headers: headers))
     }
-    /// Upload a bank statement (deprecated — use POST /api/ingestas/commit)
-    ///
-    /// Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.
-    ///
-    /// - Remark: HTTP `POST /api/ingestas`.
-    /// - Remark: Generated from `#/paths//api/ingestas/post`.
-    @available(*, deprecated)
-    internal func post_sol_api_sol_ingestas(
-        headers: Operations.post_sol_api_sol_ingestas.Input.Headers = .init(),
-        body: Operations.post_sol_api_sol_ingestas.Input.Body
-    ) async throws -> Operations.post_sol_api_sol_ingestas.Output {
-        try await post_sol_api_sol_ingestas(Operations.post_sol_api_sol_ingestas.Input(
-            headers: headers,
-            body: body
-        ))
-    }
     /// Delete an ingesta
     ///
     /// Authenticated endpoint that cascade-deletes an ingesta and its transactions (US-018, ING-01/ING-02). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
@@ -609,7 +585,7 @@ extension APIProtocol {
     }
     /// Commit a bank statement import with optional edits overlay (US-057)
     ///
-    /// Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
+    /// Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user's history, applies the optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). Absent/empty `edits` ⇒ pure auto-classify. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
     ///
     /// - Remark: HTTP `POST /api/ingestas/commit`.
     /// - Remark: Generated from `#/paths//api/ingestas/commit/post`.
@@ -624,7 +600,7 @@ extension APIProtocol {
     }
     /// Preview a bank statement (dry run, US-057)
     ///
-    /// Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` (ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): `estructura` (mirror of `resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
+    /// Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` (ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). DEPRECATED fields (removal tracked by US-061): `estructura` (mirror of `resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
     ///
     /// - Remark: HTTP `POST /api/ingestas/preview`.
     /// - Remark: Generated from `#/paths//api/ingestas/preview/post`.
