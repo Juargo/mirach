@@ -180,6 +180,12 @@ struct OpenAPIMirachAPI: MirachAPI {
                 throw APIError.badStatus(statusCode)
             }
         } catch let error as ClientError {
+            // 400 and 503 have a documented body, but a proxy in front of the API can answer
+            // them with its own. The app only needs the status, so a body it cannot decode
+            // must not hide it.
+            if let status = error.response?.status.code, status == 400 || status == 503 {
+                throw APIError.badStatus(status)
+            }
             throw error.underlyingError
         }
     }

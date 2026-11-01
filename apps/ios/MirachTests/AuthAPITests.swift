@@ -91,7 +91,11 @@ struct AuthAPITests {
             (.unauthorized, unauthorized("API_KEY_INVALIDA"), .apiKeyRejected),
             (.notFound, "", .appleSignInUnavailable),
             (.tooManyRequests, "", .rateLimited),
+            (.badRequest, #"{"code":"BODY_INVALIDO","error":"x"}"#, .badStatus(400)),
+            (.badRequest, "{}", .badStatus(400)),
+            (.serviceUnavailable, #"{"code":"SERVICIO_NO_DISPONIBLE","error":"x"}"#, .badStatus(503)),
             (.serviceUnavailable, "{}", .badStatus(503)),
+            (.serviceUnavailable, "<html>Bad gateway</html>", .badStatus(503)),
         ]
         for (status, body, expected) in cases {
             let counter = ExpiryCounter()
