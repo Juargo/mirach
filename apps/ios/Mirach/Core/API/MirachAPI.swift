@@ -152,7 +152,8 @@ struct OpenAPIMirachAPI: MirachAPI {
     ) async throws -> Session {
         do {
             let body = Operations.post_sol_api_sol_auth_sol_apple_sol_token.Input.Body.jsonPayload(
-                authorizationCode: authorizationCode, identityToken: identityToken, nombre: nombre, nonce: nonce
+                authorizationCode: authorizationCode, identityToken: identityToken, nombre: nombre, nonce: nonce,
+                versionPrivacidad: LegalDocuments.version, versionTerminos: LegalDocuments.version
             )
             switch try await client.post_sol_api_sol_auth_sol_apple_sol_token(body: .json(body)) {
             case .ok(let ok):

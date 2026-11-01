@@ -75,6 +75,18 @@ struct AuthAPITests {
         #expect(try sentJSON(transport)["authorizationCode"] as? String == "one-time-code")
     }
 
+    @Test func signInWithAppleSendsTheAcceptedLegalVersions() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        _ = try await makeAPI(transport).signInWithApple(
+            identityToken: "jwt", nonce: "n", nombre: nil, authorizationCode: nil
+        )
+
+        let body = try sentJSON(transport)
+        #expect(body["versionTerminos"] as? String == LegalDocuments.version)
+        #expect(body["versionPrivacidad"] as? String == LegalDocuments.version)
+    }
+
     @Test func signInWithAppleOmitsTheAuthorizationCodeWhenThereIsNone() async throws {
         let transport = FakeTransport.json(loginBody)
 

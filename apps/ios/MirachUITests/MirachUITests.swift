@@ -31,6 +31,16 @@ final class MirachUITests: XCTestCase {
     }
 
     @MainActor
+    func testWelcomeShowsWhatContinuingAccepts() {
+        let app = launch()
+
+        let legal = element(app, "signin.legal")
+        XCTAssertTrue(legal.waitForExistence(timeout: 10))
+        XCTAssertTrue(legal.label.contains("Política de privacidad"))
+        XCTAssertTrue(legal.label.contains("No pedimos claves de tu banco"))
+    }
+
+    @MainActor
     func testPasswordFormIsHiddenUnlessTheServerEnablesIt() {
         let app = launch()
 

@@ -34,11 +34,13 @@ struct SignInView: View {
     private var column: some View {
             VStack(spacing: 24) {
                 Spacer()
-                VStack(spacing: 8) {
+                VStack(spacing: 16) {
+                    BrandRing()
                     Text("Mirach")
                         .font(.mirach(.largeTitle).bold())
                         .foregroundStyle(Color.Mirach.Base.foreground)
-                    Text("Inicia sesión para ver tus finanzas.")
+                    Text("¿Estoy gastando bien? Te lo mostramos en un vistazo: necesidades, gustos y ahorro.")
+                        .multilineTextAlignment(.center)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
                 if let notice {
@@ -51,8 +53,8 @@ struct SignInView: View {
                         .accessibilityLabel(notice.message)
                         .accessibilityIdentifier("signin.notice")
                 }
-                content
                 Spacer()
+                content
             }
             .padding()
             .frame(maxWidth: .infinity)
@@ -65,24 +67,55 @@ struct SignInView: View {
             ProgressView("Cargando…")
         case .ready, .authenticating:
             VStack(spacing: 16) {
-                if viewModel.appleLoginAvailable { appleButton }
-                if viewModel.passwordLoginAvailable { PasswordSignInForm(viewModel: viewModel) }
+                if let message = viewModel.errorMessage {
+                    errorBlock(message, detail: viewModel.errorDetail)
+                }
                 if viewModel.state == .authenticating {
                     ProgressView("Iniciando sesión…")
                 }
-                if let message = viewModel.errorMessage {
-                    // Never color alone: the icon and the text carry the meaning too.
-                    Label(message, systemImage: "exclamationmark.circle")
-                        .foregroundStyle(Color.Mirach.Feedback.errorText)
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("signin.error")
-                }
+                if viewModel.appleLoginAvailable { appleButton }
+                if viewModel.passwordLoginAvailable { PasswordSignInForm(viewModel: viewModel) }
+                legalNotice
             }
         case .noProviders:
             retryBlock("El inicio de sesión no está disponible por ahora")
         case .providersFailed(let message):
             retryBlock(message)
         }
+    }
+
+    @ViewBuilder
+    private func errorBlock(_ message: String, detail: String?) -> some View {
+        if let detail {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(message).font(.mirach(.subheadline).weight(.medium))
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                Text(detail).font(.mirach(.subheadline))
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color.Mirach.Base.card)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("signin.error")
+        } else {
+            // Never color alone: the icon and the text carry the meaning too.
+            Label(message, systemImage: "exclamationmark.circle")
+                .foregroundStyle(Color.Mirach.Feedback.errorText)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("signin.error")
+        }
+    }
+
+    private var legalNotice: some View {
+        let text = "Al continuar aceptas los [Términos](\(LegalDocuments.terminosURL)) "
+            + "y la [Política de privacidad](\(LegalDocuments.privacidadURL)). No pedimos claves de tu banco."
+        return Text(.init(text))
+            .font(.mirach(.caption))
+            .multilineTextAlignment(.center)
+            .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            .tint(Color.Mirach.Base.foreground)
+            .accessibilityIdentifier("signin.legal")
     }
 
     private var appleButton: some View {
@@ -114,5 +147,29 @@ struct SignInView: View {
         from result: Result<ASAuthorization, any Error>
     ) -> Result<AppleCredential, any Error> {
         Result { try AppleCredential(authorization: result.get()) }
+    }
+}
+
+/// The 50/30/20 mark of the welcome screen. Decorative: the text next to it carries the meaning.
+private struct BrandRing: View {
+    private let segments: [(from: CGFloat, to: CGFloat, color: Color)] = [
+        (0, 0.5, Color.Mirach.Bucket.necesidades),
+        (0.5, 0.8, Color.Mirach.Bucket.gustos),
+        (0.8, 1, Color.Mirach.Bucket.ahorro),
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(segments.indices, id: \.self) { index in
+                let segment = segments[index]
+                Circle()
+                    .trim(from: segment.from + 0.004, to: segment.to - 0.004)
+                    .stroke(segment.color, lineWidth: 20)
+            }
+        }
+        .rotationEffect(.degrees(-90))
+        .frame(width: 124, height: 124)
+        .padding(10)
+        .accessibilityHidden(true)
     }
 }
