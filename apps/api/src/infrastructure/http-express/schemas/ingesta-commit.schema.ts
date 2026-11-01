@@ -5,7 +5,7 @@ import { z } from 'zod';
  *
  * Multipart/form-data with:
  *   - `file`:  the bank statement to commit (.xlsx or .pdf), same validation
- *              rules as the one-shot upload (domain: ExtensionNoPermitidaError,
+ *              rules as preview (domain: ExtensionNoPermitidaError,
  *              BancoNoReconocidoError) — NEVER .safeParse()'d at the route;
  *              multer (`subirArchivoConEdits()`) handles the actual upload.
  *   - `edits`: optional JSON text field (≤256 KB, enforced by multer
@@ -77,8 +77,7 @@ const commitTransaccionResponseSchema = z.object({
  * Response contract for `POST /api/ingestas/commit` (US-057, CMT-05).
  *
  * Mirrors `CommitIngestaResponseDto` (`infrastructure/http/dto/commit-ingesta.dto.ts`).
- * Distinct from `IngestaUploadResponse` — commit rows carry `bucket` + `categoriaId`
- * (D-13: independent mapper, does NOT delegate to `aIngestaResponseDto`).
+ * Commit rows carry `bucket` + `categoriaId` (D-13).
  *
  * The `aCommitIngestaResponseDto()` mapper is the sync guarantee this schema
  * is checked against — see `ingesta-commit.schema.spec.ts`.

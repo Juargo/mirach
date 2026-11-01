@@ -2,10 +2,7 @@ import { z } from 'zod';
 
 /**
  * Request contract for `POST /api/ingestas/preview` (openapi-contract-express
- * rollout, Phase 10.2c). Multipart/form-data, one `file` field — same shape
- * as `ingesta-upload.schema.ts`'s request, kept as its own small schema
- * (D7-style: trivial duplication is preferable to coupling two independent
- * features). NEVER `.safeParse()`'d at the route — multer handles the file,
+ * rollout, Phase 10.2c). Multipart/form-data, one `file` field. NEVER `.safeParse()`'d at the route — multer handles the file,
  * this only documents the shape for the OpenAPI doc.
  */
 export const previewIngestaRequestSchema = z.object({

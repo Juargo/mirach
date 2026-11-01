@@ -27,7 +27,6 @@ function fakeContainer(): Container {
     obtenerDetalleBucket: stub,
     obtenerMovimientosMes: stub,
     reclasificarTransaccion: stub,
-    processIngesta: stub,
     login: {
       execute: vi
         .fn()

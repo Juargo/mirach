@@ -1,9 +1,6 @@
 import type { Router, RequestHandler } from 'express';
 import multer from 'multer';
-import {
-  ProcessIngestaUseCase,
-  ProcessIngestaError,
-} from '../../../application/use-cases/process-ingesta.use-case';
+import type { ProcessIngestaError } from '../../../application/use-cases/process-ingesta.use-case';
 import { EliminarIngestaUseCase } from '../../../application/use-cases/eliminar-ingesta.use-case';
 import { ListarIngestasUseCase } from '../../../application/use-cases/listar-ingestas.use-case';
 import { PreviewIngestaUseCase } from '../../../application/use-cases/preview-ingesta.use-case';
@@ -12,7 +9,6 @@ import {
   CommitIngestaError,
 } from '../../../application/use-cases/commit-ingesta.use-case';
 import { MulterFileReaderAdapter } from '../../http/multer-file-reader.adapter';
-import { aIngestaResponseDto } from '../../http/dto/ingesta-response.dto';
 import { aIngestaListItemDto } from '../../http/dto/ingesta-list.dto';
 import { aPreviewIngestaDto } from '../../http/dto/preview-ingesta.dto';
 import {
@@ -43,16 +39,13 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 /**
  * MAX_PASSWORD_LENGTH — cap de caracteres para el campo `password` opcional
- * (design.md D-08). `subirArchivo()` (usado por preview y por el one-shot
- * deprecado) NO tiene mapeo `LIMIT_FIELD_VALUE`→400 como `subirArchivoConEdits()`
+ * (design.md D-08). `subirArchivo()` (usado por preview) NO tiene mapeo `LIMIT_FIELD_VALUE`→400 como `subirArchivoConEdits()`
  * — un campo de texto que supere el default de busboy (1 MiB) dispararía un
  * 500 vía el error middleware genérico. Este cap MITIGA el caso común (una
  * password real nunca se acerca a este límite) validando ANTES de usar el
  * valor; no cierra el caso extremo (>1 MiB) porque ese falla en el parseo de
  * multer, antes de que el handler alcance a correr — cerrarlo del todo
- * exigiría copiar el bloque `LIMIT_FIELD_VALUE` a `subirArchivo()`, lo que
- * D-02 prohíbe explícitamente (cambiaría el comportamiento del endpoint
- * one-shot, que comparte esa misma función).
+ * exigiría copiar el bloque `LIMIT_FIELD_VALUE` a `subirArchivo()`.
  */
 const MAX_PASSWORD_LENGTH = 500;
 
@@ -63,7 +56,7 @@ const MAX_PASSWORD_LENGTH = 500;
  *     `buscarCategoriaPorDefecto` de `ICatalogoClasificacion` fallan por un
  *     problema de infraestructura ANTES de persistir nada.
  *   - WRITER de buckets fallando DESPUÉS de persistir (issue #778 tramo
- *     5a-bis, solo alcanzable en el one-shot POST /ingestas): la ingesta se
+ *     5a-bis, solo alcanzable en el pipeline del CLI): la ingesta se
  *     revierte (`ProcessIngestaUseCase.revertirYRechazar`) y responde con
  *     este mismo error.
  * A diferencia de `CatalogoIncompletoError` (409, error de configuración,
@@ -81,7 +74,6 @@ const MENSAJE_CATALOGO_NO_DISPONIBLE =
 /** Deps de `registrarIngestas` (US-018, design.md §6.1; +previewIngesta
  * US-003; +commitIngesta US-057 PR4). */
 export interface IngestaRoutesDeps {
-  processIngesta: ProcessIngestaUseCase;
   eliminarIngesta: EliminarIngestaUseCase;
   listarIngestas: ListarIngestasUseCase;
   previewIngesta: PreviewIngestaUseCase;
@@ -94,9 +86,8 @@ export interface IngestaRoutesDeps {
 /**
  * registrarIngestas — port del IngestaController (ADR-028).
  *
- * POST /api/ingestas (multipart, campo `file`) → detectar → validar →
- * normalizar → persistir → categorizar (el mismo ProcessIngestaUseCase que usa
- * el CLI). `MulterFileReaderAdapter` (framework-agnóstico, reusado de http/)
+ * POST /api/ingestas/preview y POST /api/ingestas/commit (multipart, campo
+ * `file`): `MulterFileReaderAdapter` (framework-agnóstico, reusado de http/)
  * traduce el `Express.Multer.File` al port `IFileReader`.
  *
  * GET /api/ingestas → lista las ingestas del usuario autenticado (US-018,
@@ -112,7 +103,7 @@ export interface IngestaRoutesDeps {
  * Todos los mensajes son seguros (nunca interpolan montos ni datos crudos).
  * El userId viene del session middleware.
  *
- * Toda respuesta de error de mutación (POST one-shot, POST /commit, DELETE)
+ * Toda respuesta de error de mutación (POST /commit, DELETE)
  * pasa por `responderErrorTraducido` (issue #507), incluido el branch de
  * DELETE que resuelve el error con `instanceof` en vez de un traductor
  * `aXHttpError` dedicado.
@@ -146,39 +137,6 @@ export function registrarIngestas(
       next(err);
     }
   };
-
-  router.post(
-    '/ingestas',
-    exigirConsentimiento,
-    subirArchivo(),
-    async (req, res, next) => {
-      try {
-        const file = req.file;
-        if (!file) {
-          res.status(400).json({
-            message:
-              'No se recibió ningún archivo. Envía el archivo en el campo "file".',
-          });
-          return;
-        }
-
-        const fileReader = new MulterFileReaderAdapter(file);
-        const result = await deps.processIngesta.execute({
-          fileReader,
-          userId: req.userId!,
-        });
-
-        if (result.isFail()) {
-          responderErrorTraducido(res, aHttpError(result.getError()));
-          return;
-        }
-
-        res.status(200).json(aIngestaResponseDto(result.getValue()));
-      } catch (err) {
-        next(err);
-      }
-    },
-  );
 
   // POST /api/ingestas/preview (US-003, design.md §8, D1): sub-path distinto
   // (no un flag ?dryRun) — reusa el mismo gate multipart (`subirArchivo`) y el
@@ -375,7 +333,7 @@ function subirArchivo(): RequestHandler {
  *
  * Distinct from subirArchivo() — adds fieldSize: 256 KB for the `edits` text
  * field (≈ 4000 edit entries at ~64 B each). The shared subirArchivo() is NOT
- * modified; it keeps only fileSize and is used by the one-shot and preview routes.
+ * modified; it keeps only fileSize and is used by the preview route.
  */
 function subirArchivoConEdits(): RequestHandler {
   const upload = multer({
@@ -522,9 +480,7 @@ function aHttpError(error: ProcessIngestaError): {
   // Catálogo de clasificación CAÍDO (issue #778 tramo 5a) → 503, no 500 —
   // mismo mapeo y mismo razonamiento que `aCommitHttpError` arriba: esta
   // caída es transitoria (reintentar puede funcionar), a diferencia de un
-  // `CatalogoIncompletoError` (409, permanente) más abajo. Aplica tanto al
-  // one-shot (POST /ingestas) como al preview (POST /ingestas/preview),
-  // que comparten esta función.
+  // `CatalogoIncompletoError` (409, permanente) más abajo.
   if (error instanceof CategorizacionFallidaError) {
     return {
       status: 503,
@@ -545,8 +501,7 @@ function aHttpError(error: ProcessIngestaError): {
     };
   }
   // Zero-movement guard (design.md D-07/D-08/D-09) — mismo mapeo que
-  // aCommitHttpError arriba; esta función mapea tanto el one-shot como
-  // preview (:125, :178).
+  // aCommitHttpError arriba.
   if (error instanceof SinMovimientosError) {
     return { status: 400, message: error.message, code: 'SIN_MOVIMIENTOS' };
   }

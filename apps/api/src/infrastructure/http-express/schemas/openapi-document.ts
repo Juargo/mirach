@@ -38,10 +38,6 @@ import {
 import { periodosResponseSchema } from './periodos.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
 import {
-  ingestaUploadRequestSchema,
-  ingestaUploadResponseSchema,
-} from './ingesta-upload.schema';
-import {
   previewIngestaRequestSchema,
   previewIngestaResponseSchema,
 } from './ingesta-preview.schema';
@@ -274,77 +270,13 @@ const ingestasOperation: ZodOpenApiOperationObject = {
   },
 };
 
-const ingestaUploadOperation: ZodOpenApiOperationObject = {
-  deprecated: true,
-  summary:
-    'Upload a bank statement (deprecated — use POST /api/ingestas/commit)',
-  description:
-    'Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and ' +
-    'categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session ' +
-    '(RNF-SEC-006, per-user isolation). ' +
-    'DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step ' +
-    'POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by ' +
-    'US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.',
-  requestBody: {
-    required: true,
-    content: {
-      'multipart/form-data': { schema: ingestaUploadRequestSchema },
-    },
-  },
-  responses: {
-    '401': respuesta401Protegida,
-    '200': {
-      description: 'Upload processed and persisted.',
-      content: {
-        'application/json': { schema: ingestaUploadResponseSchema },
-      },
-    },
-    '400': {
-      description:
-        'Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`.',
-      content: {
-        'application/json': { schema: ingestaErrorResponseSchema },
-      },
-    },
-    '409': {
-      description:
-        'The category catalog is available but incomplete (CatalogoIncompletoError): the default ' +
-        '"Desconocido" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the ' +
-        'file is fine, the account state is not; retrying the same request does not help. Or, when ' +
-        'CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` ' +
-        'CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.',
-      content: {
-        'application/json': {
-          schema: ingestaCatalogoIncompletoResponseSchema,
-        },
-      },
-    },
-    '500': {
-      description:
-        'Persistence failure (PersistenciaFallidaError) — infrastructure fault, not the uploaded file. Body is `{ message }` without `code`.',
-      content: {
-        'application/json': { schema: serverErrorResponseSchema },
-      },
-    },
-    '503': {
-      description:
-        'Classification is unavailable (`code` CATALOGO_NO_DISPONIBLE): the classification catalog is unreachable (issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (slice 5a-bis). Transient and distinct from the permanent 409. Nothing remains persisted; retrying later may succeed.',
-      content: {
-        'application/json': {
-          schema: ingestaCatalogoNoDisponibleResponseSchema,
-        },
-      },
-    },
-  },
-};
-
 const ingestaPreviewOperation: ZodOpenApiOperationObject = {
   summary: 'Preview a bank statement (dry run, US-057)',
   description:
     'Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies ' +
     'a bank statement WITHOUT persisting anything (US-057). CANONICAL response: `resumen` + `filas` ' +
     '(ALL rows, no sample cap, with per-row dedup status `esDuplicado` and classification `sugerido`). ' +
-    'DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): `estructura` (mirror of ' +
+    'DEPRECATED fields (removal tracked by US-061): `estructura` (mirror of ' +
     '`resumen.totalFilas`) and `muestra` (first 50 rows in the old 4-field shape) — kept for shipped ' +
     'clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; ' +
     'dedup is scoped to the calling user (RNF-SEC-006).',
@@ -406,8 +338,7 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
  * edits overlay. The client re-sends the previewed file plus an optional JSON
  * `edits` overlay; the server re-parses, deduplicates, applies the overlay
  * over auto-classification, and persists atomically. Absent/empty edits ⇒
- * pure auto-classify (same result as the deprecated one-shot, without the file
- * metadata response fields). Never persists on overlay-validation errors
+ * pure auto-classify. Never persists on overlay-validation errors
  * (D-03/D-04/D-10 — fail-closed).
  *
  * Supersedes `POST /api/ingestas` (deprecated at US-057, D-14/CA-05).
@@ -421,8 +352,7 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     'optional classification overlay (`edits` JSON text field, ≤256 KB), auto-classifies ' +
     'remaining rows, and persists atomically. New duplicates found at commit time are omitted and ' +
     'counted in `duplicadosOmitidos` (commit never aborts on duplicates, CA-03). ' +
-    'Absent/empty `edits` ⇒ pure auto-classify (equivalent to the deprecated one-shot for the ' +
-    'transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
+    'Absent/empty `edits` ⇒ pure auto-classify. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). ' +
     'Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 ' +
     'and persist nothing (D-03/D-04/D-10).',
   requestBody: {
@@ -1868,7 +1798,7 @@ const paths: ZodOpenApiPathsObject = {
   },
   '/api/movimientos/{id}': { delete: eliminarMovimientoManualOperation },
   '/api/buckets/{bucket}': { get: bucketsOperation },
-  '/api/ingestas': { get: ingestasOperation, post: ingestaUploadOperation },
+  '/api/ingestas': { get: ingestasOperation },
   '/api/auth/me': { get: authMeOperation },
   '/api/ingestas/preview': { post: ingestaPreviewOperation },
   '/api/ingestas/{id}': { delete: ingestaDeleteOperation },

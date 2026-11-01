@@ -85,16 +85,10 @@ describe('buildOpenApiDocument', () => {
     expect(ingestasPath?.get?.responses?.['200']).toBeDefined();
   });
 
-  it('registers POST /api/ingestas with a multipart/form-data requestBody and a response schema', () => {
+  it('does not document the retired one-step POST /api/ingestas (#115)', () => {
     const document = buildOpenApiDocument();
 
-    const ingestasPath = document.paths?.['/api/ingestas'];
-    expect(ingestasPath).toBeDefined();
-    expect(ingestasPath?.post).toBeDefined();
-    const requestBody = ingestasPath?.post?.requestBody as
-      { content?: Record<string, unknown> } | undefined;
-    expect(requestBody?.content?.['multipart/form-data']).toBeDefined();
-    expect(ingestasPath?.post?.responses?.['200']).toBeDefined();
+    expect(document.paths?.['/api/ingestas']?.post).toBeUndefined();
   });
 
   it('registers POST /api/ingestas/preview with a multipart/form-data requestBody and a response schema', () => {
@@ -324,16 +318,6 @@ describe('buildOpenApiDocument', () => {
     expect(commitPath?.post?.responses?.['201']).toBeDefined();
     expect(commitPath?.post?.responses?.['400']).toBeDefined();
     expect(commitPath?.post?.responses?.['500']).toBeDefined();
-  });
-
-  it('marks POST /api/ingestas (one-shot upload) as deprecated (US-057 CA-05)', () => {
-    const document = buildOpenApiDocument();
-
-    const ingestasPath = document.paths?.['/api/ingestas'];
-    // The one-shot POST must carry deprecated: true (D-14) — behavior unchanged.
-    expect(
-      (ingestasPath?.post as { deprecated?: boolean } | undefined)?.deprecated,
-    ).toBe(true);
   });
 
   it('preview operation description mentions full rows (not a sample) after US-057 PR5 update', () => {
@@ -630,7 +614,6 @@ describe('buildOpenApiDocument', () => {
     }
 
     const UPLOADS = [
-      ['POST', '/api/ingestas', 'post'],
       ['POST', '/api/ingestas/preview', 'post'],
       ['POST', '/api/ingestas/commit', 'post'],
     ] as const;

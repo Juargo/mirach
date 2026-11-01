@@ -41,7 +41,6 @@ import app.mirachbudget.android.core.api.generated.models.DetalleBucketResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaCatalogoIncompletoResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaCatalogoNoDisponibleResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaErrorResponse
-import app.mirachbudget.android.core.api.generated.models.IngestaUploadResponse
 import app.mirachbudget.android.core.api.generated.models.IngestasListResponse
 import app.mirachbudget.android.core.api.generated.models.IngresosMesResponse
 import app.mirachbudget.android.core.api.generated.models.MovimientosMesResponse
@@ -371,7 +370,7 @@ interface DefaultApi {
     /**
      * POST api/ingestas/commit
      * Commit a bank statement import with optional edits overlay (US-057)
-     * Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user&#39;s history, applies the optional classification overlay (&#x60;edits&#x60; JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in &#x60;duplicadosOmitidos&#x60; (commit never aborts on duplicates, CA-03). Absent/empty &#x60;edits&#x60; ⇒ pure auto-classify (equivalent to the deprecated one-shot for the transacciones payload). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
+     * Authenticated endpoint — the second step of the preview → commit flow. Re-parses the same file, deduplicates against the calling user&#39;s history, applies the optional classification overlay (&#x60;edits&#x60; JSON text field, ≤256 KB), auto-classifies remaining rows, and persists atomically. New duplicates found at commit time are omitted and counted in &#x60;duplicadosOmitidos&#x60; (commit never aborts on duplicates, CA-03). Absent/empty &#x60;edits&#x60; ⇒ pure auto-classify. Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Overlay errors (malformed edits, out-of-range rowIndex, cross-tenant categoriaId) return 400 and persist nothing (D-03/D-04/D-10).
      * Responses:
      *  - 201: Import committed and persisted. Response carries per-row bucket + categoriaId.
      *  - 400: Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also the overlay errors, `message` only: malformed `edits` (EdicionesInvalidasError), out-of-range `rowIndex` (RowIndexFueraDeRangoError), cross-tenant `categoriaId` (CategoriaFueraDeCatalogoError), `edits` over 256 KB. Nothing is persisted. Amounts are scrubbed from every error message (ADR-013).
@@ -418,29 +417,9 @@ interface DefaultApi {
     suspend fun apiIngestasIdDelete(@Path("id") id: kotlin.String): Response<Unit>
 
     /**
-     * POST api/ingestas
-     * Upload a bank statement (deprecated — use POST /api/ingestas/commit)
-     * Authenticated endpoint that detects the bank, validates structure, normalizes, persists, and categorizes a bank statement file (US-004/US-005/US-011). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). DEPRECATED at US-057 (D-14/CA-05): this one-shot endpoint is superseded by the two-step POST /api/ingestas/preview → POST /api/ingestas/commit flow. Physical removal is tracked by US-061. Behavior is UNCHANGED — existing callers (mobile, ADR-026) continue to work.
-     * Responses:
-     *  - 200: Upload processed and persisted.
-     *  - 400: Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`.
-     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 409: The category catalog is available but incomplete (CatalogoIncompletoError): the default \"Desconocido\" category of a bucket is missing. `code` CATALOGO_INCOMPLETO. Permanent — the file is fine, the account state is not; retrying the same request does not help. Or, when CONSENTS_REQUIRED is on, the user has no statement consent in force: `code` CONSENTIMIENTO_CARTOLAS_REQUERIDO, and the file was not read.
-     *  - 500: Persistence failure (PersistenciaFallidaError) — infrastructure fault, not the uploaded file. Body is `{ message }` without `code`.
-     *  - 503: Classification is unavailable (`code` CATALOGO_NO_DISPONIBLE): the classification catalog is unreachable (issue #778 slice 5a), OR the post-persist bucket-classification write failed and the import was rolled back (slice 5a-bis). Transient and distinct from the permanent 409. Nothing remains persisted; retrying later may succeed.
-     *
-     * @param file Bank statement file (.xlsx or .pdf). Extension/bank-format validation is a domain rule (ExtensionNoPermitidaError / BancoNoReconocidoError), not this schema.
-     * @return [IngestaUploadResponse]
-     */
-    @Deprecated("This api was deprecated")
-    @Multipart
-    @POST("api/ingestas")
-    suspend fun apiIngestasPost(@Part file: MultipartBody.Part): Response<IngestaUploadResponse>
-
-    /**
      * POST api/ingestas/preview
      * Preview a bank statement (dry run, US-057)
-     * Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: &#x60;resumen&#x60; + &#x60;filas&#x60; (ALL rows, no sample cap, with per-row dedup status &#x60;esDuplicado&#x60; and classification &#x60;sugerido&#x60;). DEPRECATED fields (removed by US-061 alongside the one-shot endpoint): &#x60;estructura&#x60; (mirror of &#x60;resumen.totalFilas&#x60;) and &#x60;muestra&#x60; (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
+     * Authenticated endpoint that detects the bank, validates structure, deduplicates and auto-classifies a bank statement WITHOUT persisting anything (US-057). CANONICAL response: &#x60;resumen&#x60; + &#x60;filas&#x60; (ALL rows, no sample cap, with per-row dedup status &#x60;esDuplicado&#x60; and classification &#x60;sugerido&#x60;). DEPRECATED fields (removal tracked by US-061): &#x60;estructura&#x60; (mirror of &#x60;resumen.totalFilas&#x60;) and &#x60;muestra&#x60; (first 50 rows in the old 4-field shape) — kept for shipped clients (deployed mobile APK) and clients pending migration. Requires x-api-key + a valid session; dedup is scoped to the calling user (RNF-SEC-006).
      * Responses:
      *  - 200: Preview sample computed (not persisted).
      *  - 400: Invalid request or file. `code` PDF_PROTEGIDO: the PDF is encrypted and no `password` was sent; PDF_PASSWORD_INCORRECTA: the `password` does not unlock it; SIN_MOVIMIENTOS: the file is valid but holds zero movements; PDF_ESCANEADO: the PDF has no text layer; BANCO_NO_RECONOCIDO: the file does not match any supported bank. Every other cause (missing `file` field, disallowed extension, invalid structure/normalization, unreadable PDF, invalid date range, file over 10 MB) carries `message` only, no `code`. Also: a `password` longer than 500 characters (`message` only).

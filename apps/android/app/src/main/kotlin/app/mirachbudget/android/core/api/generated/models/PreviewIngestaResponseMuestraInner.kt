@@ -31,22 +31,29 @@ import kotlinx.serialization.Contextual
 /**
  * 
  *
- * @param extension 
- * @param nombre 
- * @param tamanoBytes 
+ * @param abono BigInt-safe decimal string amount (never a JSON number).
+ * @param cargo BigInt-safe decimal string amount (never a JSON number).
+ * @param descripcion 
+ * @param fecha ISO-8601 UTC timestamp.
  */
 @Serializable
 
-data class IngestaUploadResponseArchivo (
+data class PreviewIngestaResponseMuestraInner (
 
-    @SerialName(value = "extension")
-    val extension: kotlin.String,
+    /* BigInt-safe decimal string amount (never a JSON number). */
+    @SerialName(value = "abono")
+    val abono: kotlin.String,
 
-    @SerialName(value = "nombre")
-    val nombre: kotlin.String,
+    /* BigInt-safe decimal string amount (never a JSON number). */
+    @SerialName(value = "cargo")
+    val cargo: kotlin.String,
 
-    @SerialName(value = "tamanoBytes")
-    val tamanoBytes: kotlin.Int
+    @SerialName(value = "descripcion")
+    val descripcion: kotlin.String,
+
+    /* ISO-8601 UTC timestamp. */
+    @SerialName(value = "fecha")
+    val fecha: kotlin.String
 
 ) {
 

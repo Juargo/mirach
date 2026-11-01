@@ -36,7 +36,7 @@ para la v1 son **nuevas**.
 - Subida de cartolas con `multipart/form-data`, límite de 10 MB, archivo en memoria.
 - La ingesta es de dos pasos: `POST /api/ingestas/preview` (lee y muestra, no guarda) y
   `POST /api/ingestas/commit` (guarda lo revisado). El endpoint de un solo paso
-  `POST /api/ingestas` está deprecado y se elimina antes del lanzamiento.
+  `POST /api/ingestas` se eliminó antes del lanzamiento.
 
 ### 2. Contrato OpenAPI como artefacto versionado (vigente)
 
@@ -119,7 +119,6 @@ Cada una se especifica e implementa por separado.
 | Sesión renovable | Ver ADR-006 | AUTH-04 |
 | Eventos de producto desde las apps | `POST /api/eventos` | ADR-011 |
 | "Deseos" pasa a llamarse "Gustos" | Solo textos y tokens; el id del bloque no cambia | Requisitos v1 |
-| Eliminar el endpoint de ingesta de un paso | `POST /api/ingestas` | — |
 
 Las piezas web del API (sesión por cookie, CORS, OAuth web de Google) siguen dormidas y
 apagadas en producción.

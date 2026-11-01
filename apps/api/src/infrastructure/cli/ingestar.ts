@@ -7,9 +7,8 @@
  *   pnpm cli -- ./cartola.pdf
  *
  * Ejecuta el pipeline completo vía ProcessIngestaUseCase (detectar → asegurar
- * cuenta → validar → normalizar → persistir) — el mismo orquestador que usa el
- * endpoint HTTP. Desde ADR-028, CLI y HTTP comparten LITERALMENTE el mismo
- * composition root: `createPrismaClient` + `crearProcessIngesta`.
+ * cuenta → validar → normalizar → persistir). La API HTTP importa con preview y
+ * commit; este caso de uso ya solo lo usa el CLI.
  */
 
 import 'dotenv/config';

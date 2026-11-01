@@ -94,15 +94,13 @@ export function parseEdits(
 // ---------------------------------------------------------------------------
 // CommitIngestaResponseDto — NEW DTO independent of IngestaResponseDto (D-13)
 //
-// The one-shot IngestaResponseDto / TransaccionResponseDto / aIngestaResponseDto
-// are NOT modified. This is a parallel, fully-owned DTO for the commit endpoint.
+// Fully-owned DTO for the commit endpoint.
 // ---------------------------------------------------------------------------
 
 /**
  * CommitTransaccionResponseDto — HTTP form of a persisted commit transaction.
  *
- * Superset of TransaccionResponseDto: carries `bucket` and `categoriaId`
- * (required by spec CMT-05 — one-shot's TransaccionResponseDto has neither).
+ * Carries `bucket` and `categoriaId` (required by spec CMT-05).
  * cargo/abono travel as STRING (BigInt-safe), same contract as the rest.
  * bucket is the serialized Bucket enum string value (D-09/bucket.ts).
  */
@@ -124,8 +122,7 @@ export interface CommitTransaccionResponseDto {
 /**
  * CommitIngestaResponseDto — HTTP contract for POST /api/ingestas/commit (NEW).
  *
- * Distinct from IngestaResponseDto (D-13 — different field set; commit requires
- * bucket+categoriaId per row). The one-shot response shape is NOT changed.
+ * Commit requires bucket+categoriaId per row (D-13).
  */
 export interface CommitIngestaResponseDto {
   ingestaId: string;
@@ -138,7 +135,6 @@ export interface CommitIngestaResponseDto {
 /**
  * aCommitIngestaResponseDto — maps CommitIngestaResult to the HTTP contract.
  *
- * Fully independent mapper — does NOT delegate to aIngestaResponseDto (D-13).
  * Maps: BigInt cargo/abono → string; Bucket domain enum → string (enum value
  * is the wire token — D-09). Commit resolves classification pre-persist, so
  * `bucket` is always a concrete enum value here (design §5.2).

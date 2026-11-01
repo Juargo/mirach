@@ -392,37 +392,32 @@ describe('Cross-user isolation (integration) — auth-rewired data endpoints (IS
     expect(descripciones.some((d) => d.includes(`B ${RUN_ID}`))).toBe(false);
   });
 
-  it("POST /api/ingestas (cookie): the created Account is scoped to A's userId, never a fixed/default user (ISO-01/02)", async () => {
+  it("POST /api/ingestas/commit (cookie): the created Account is scoped to A's userId, never a fixed/default user (ISO-01/02)", async () => {
     if (!ALLOW) return;
 
     const res = await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .set('Cookie', cookieA)
       .attach('file', xlsxFixture, `iso-${RUN_ID}.xlsx`)
-      .expect(200);
+      .expect(201);
 
-    // US-035 Slice 2: numeroCuenta ya no es filtrable en claro (columna
-    // cifrada, IV aleatorio) — se filtra por banco/tipoCuenta/userId y se
-    // verifica numeroCuenta DESCIFRÁNDOLO, en vez de un WHERE exacto.
-    const cuenta = await prisma.account.findFirst({
-      where: {
-        banco: res.body.banco,
-        tipoCuenta: res.body.tipoCuenta,
-        userId: userIdA,
-      },
+    const ingesta = await prisma.ingesta.findUniqueOrThrow({
+      where: { id: res.body.ingestaId },
+    });
+    const cuenta = await prisma.account.findUnique({
+      where: { id: ingesta.accountId! },
     });
     expect(cuenta).not.toBeNull();
     expect(cuenta?.userId).toBe(userIdA);
-    expect(crypto.decrypt(cuenta!.numeroCuenta)).toBe(res.body.numeroCuenta);
     ingestedAccountIdForA = cuenta!.id;
   });
 
-  it('POST /api/ingestas: valid x-api-key but NO session → 401, upload never processed (ISO-01)', async () => {
+  it('POST /api/ingestas/commit: valid x-api-key but NO session → 401, upload never processed (ISO-01)', async () => {
     if (!ALLOW) return;
 
     await request(app)
-      .post('/api/ingestas')
+      .post('/api/ingestas/commit')
       .set('x-api-key', API_KEY)
       .attach('file', xlsxFixture, `iso-noauth-${RUN_ID}.xlsx`)
       .expect(401);
