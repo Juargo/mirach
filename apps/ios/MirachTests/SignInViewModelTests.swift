@@ -256,7 +256,8 @@ struct SignInViewModelTests {
         await h.viewModel.completeAppleSignIn(.failure(ASAuthorizationError(.failed)))
 
         #expect(h.viewModel.state == .ready)
-        #expect(h.viewModel.errorMessage == SignInViewModel.Message.appleFailed)
+        #expect(h.viewModel.errorMessage == "No pudimos iniciar sesión con Apple")
+        #expect(h.viewModel.errorDetail == "Revisa tu conexión a internet e inténtalo de nuevo.")
         #expect(h.api.signInCalls.isEmpty)
     }
 
@@ -283,15 +284,39 @@ struct SignInViewModelTests {
         #expect(h.viewModel.errorMessage == "Demasiados intentos, intenta más tarde")
     }
 
-    @Test func connectionFailureShowsTheConnectionMessage() async {
+    @Test func connectionFailureShowsTheProviderFailure() async {
         let h = makeHarness(api: FakeMirachAPI(signInResult: .failure(URLError(.timedOut))))
         await h.viewModel.loadProviders()
         _ = h.viewModel.prepareAppleRequest()
 
         await h.viewModel.completeAppleSignIn(.success(credential))
 
-        #expect(h.viewModel.errorMessage == SignInViewModel.Message.connection)
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.appleFailed)
+        #expect(h.viewModel.errorDetail == SignInViewModel.Message.checkConnection)
         #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func aRejectedCredentialIsNotReportedAsAProviderFailure() async {
+        let h = makeHarness(api: FakeMirachAPI(signInResult: .failure(APIError.invalidCredentials)))
+        await h.viewModel.loadProviders()
+        _ = h.viewModel.prepareAppleRequest()
+
+        await h.viewModel.completeAppleSignIn(.success(credential))
+
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.invalidCredentials)
+        #expect(h.viewModel.errorDetail == nil)
+    }
+
+    @Test func aNewAttemptClearsTheProviderFailure() async {
+        let h = makeHarness()
+        await h.viewModel.loadProviders()
+        _ = h.viewModel.prepareAppleRequest()
+        await h.viewModel.completeAppleSignIn(.failure(ASAuthorizationError(.failed)))
+
+        _ = h.viewModel.prepareAppleRequest()
+
+        #expect(h.viewModel.errorMessage == nil)
+        #expect(h.viewModel.errorDetail == nil)
     }
 
     @Test func appleSwitchedOffOnTheServerReloadsTheProviders() async {

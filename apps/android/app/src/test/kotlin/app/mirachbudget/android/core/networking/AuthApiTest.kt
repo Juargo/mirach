@@ -69,7 +69,10 @@ class AuthApiTest {
         val r = request()
         assertEquals("POST", r.method)
         assertEquals("/api/auth/google/token", r.url.encodedPath)
-        assertEquals("""{"idToken":"id-token-1"}""", r.body?.utf8())
+        assertEquals(
+            """{"idToken":"id-token-1","versionPrivacidad":"${LegalDocuments.VERSION}","versionTerminos":"${LegalDocuments.VERSION}"}""",
+            r.body?.utf8(),
+        )
     }
 
     @Test

@@ -16,8 +16,10 @@ import kotlinx.coroutines.flow.update
 /** What the sign-in screen draws (catalog: `inicio-de-sesion.md`). */
 data class SignInUiState(
     val phase: SignInViewModel.Phase = SignInViewModel.Phase.LoadingProviders,
-    /** The last attempt's error, shown under the buttons. Null when there is none. */
+    /** The last attempt's error, shown above the buttons. Null when there is none. */
     val errorMessage: String? = null,
+    /** Second line of a real provider failure (screen 31). Null for every other error. */
+    val errorDetail: String? = null,
     val googleAvailable: Boolean = false,
     val passwordAvailable: Boolean = false,
 )
@@ -53,7 +55,8 @@ class SignInViewModel(
         const val INVALID_CREDENTIALS = "No se pudo iniciar sesión"
         const val PASSWORD_REJECTED = "Correo o contraseña incorrectos"
         const val RATE_LIMITED = "Demasiados intentos, intenta más tarde"
-        const val GOOGLE_FAILED = "No se pudo completar el inicio de sesión con Google. Inténtalo de nuevo."
+        const val GOOGLE_FAILED = "No pudimos iniciar sesión con Google"
+        const val CHECK_CONNECTION = "Revisa tu conexión a internet e inténtalo de nuevo."
         const val SAVE_FAILED = "No pudimos guardar tu sesión en este dispositivo. Inténtalo de nuevo."
     }
 
@@ -98,11 +101,13 @@ class SignInViewModel(
     suspend fun signInWithGoogle(launcher: GoogleSignInLauncher) {
         val current = _state.value
         if (current.phase != Phase.Ready || !current.googleAvailable) return
-        _state.update { it.copy(errorMessage = null, phase = Phase.Authenticating) }
+        _state.update { it.copy(errorMessage = null, errorDetail = null, phase = Phase.Authenticating) }
         when (val result = launcher.requestIdToken()) {
             GoogleSignInResult.Cancelled -> _state.update { it.copy(phase = Phase.Ready) }
-            GoogleSignInResult.Failed -> _state.update { it.copy(phase = Phase.Ready, errorMessage = Message.GOOGLE_FAILED) }
-            is GoogleSignInResult.Success -> attempt(rejected = Message.INVALID_CREDENTIALS) { api.signInWithGoogle(result.idToken) }
+            GoogleSignInResult.Failed -> showProviderFailure()
+            is GoogleSignInResult.Success -> attempt(rejected = Message.INVALID_CREDENTIALS, isProviderAttempt = true) {
+                api.signInWithGoogle(result.idToken)
+            }
         }
     }
 
@@ -111,18 +116,18 @@ class SignInViewModel(
         val trimmed = email.trim()
         val current = _state.value
         if (current.phase != Phase.Ready || !current.passwordAvailable || trimmed.isEmpty() || password.isEmpty()) return
-        _state.update { it.copy(errorMessage = null, phase = Phase.Authenticating) }
+        _state.update { it.copy(errorMessage = null, errorDetail = null, phase = Phase.Authenticating) }
         attempt(rejected = Message.PASSWORD_REJECTED) { api.signInWithPassword(trimmed, password) }
     }
 
-    private suspend fun attempt(rejected: String, call: suspend () -> Session) {
+    private suspend fun attempt(rejected: String, isProviderAttempt: Boolean = false, call: suspend () -> Session) {
         val newSession = try {
             call()
         } catch (cancelled: CancellationException) {
             _state.update { it.copy(phase = Phase.Ready) }
             throw cancelled
         } catch (e: Exception) {
-            handleFailure(e, rejected)
+            handleFailure(e, rejected, isProviderAttempt)
             return
         }
         try {
@@ -133,7 +138,7 @@ class SignInViewModel(
         }
     }
 
-    private suspend fun handleFailure(error: Exception, rejected: String) {
+    private suspend fun handleFailure(error: Exception, rejected: String, isProviderAttempt: Boolean) {
         _state.update { it.copy(phase = Phase.Ready) }
         when (error) {
             is InvalidCredentialsException -> showError(rejected)
@@ -141,8 +146,12 @@ class SignInViewModel(
             is ApiKeyRejectedException -> showError(Message.MISCONFIGURED)
             // Google was switched off on the server: ask again so the button disappears.
             is SignInUnavailableException -> loadProviders()
-            else -> showError(Message.CONNECTION)
+            else -> if (isProviderAttempt) showProviderFailure() else showError(Message.CONNECTION)
         }
+    }
+
+    private fun showProviderFailure() = _state.update {
+        it.copy(phase = Phase.Ready, errorMessage = Message.GOOGLE_FAILED, errorDetail = Message.CHECK_CONNECTION)
     }
 
     private fun showError(message: String) = _state.update { it.copy(errorMessage = message) }

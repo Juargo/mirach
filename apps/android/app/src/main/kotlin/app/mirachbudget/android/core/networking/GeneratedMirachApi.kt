@@ -47,7 +47,16 @@ class GeneratedMirachApi(
     }
 
     override suspend fun signInWithGoogle(idToken: String): Session =
-        toSession(api.apiAuthGoogleTokenPost(ApiAuthGoogleTokenPostRequest(idToken = idToken)), providerSwitchedOff404 = true)
+        toSession(
+            api.apiAuthGoogleTokenPost(
+                ApiAuthGoogleTokenPostRequest(
+                    idToken = idToken,
+                    versionPrivacidad = LegalDocuments.VERSION,
+                    versionTerminos = LegalDocuments.VERSION,
+                ),
+            ),
+            providerSwitchedOff404 = true,
+        )
 
     override suspend fun signInWithPassword(email: String, password: String): Session =
         toSession(api.apiAuthLoginPost(ApiAuthLoginPostRequest(email = email, password = password)), providerSwitchedOff404 = false)

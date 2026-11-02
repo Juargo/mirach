@@ -174,8 +174,42 @@ class SignInViewModelTest {
 
         vm.signInWithGoogle(FakeLauncher(GoogleSignInResult.Failed))
 
-        assertEquals(Message.GOOGLE_FAILED, vm.state.value.errorMessage)
+        assertEquals("No pudimos iniciar sesión con Google", vm.state.value.errorMessage)
+        assertEquals("Revisa tu conexión a internet e inténtalo de nuevo.", vm.state.value.errorDetail)
         assertEquals(emptyList<String>(), api.googleTokens)
+    }
+
+    @Test
+    fun aConnectionFailureDuringGoogleSignInShowsTheProviderFailure() = runTest {
+        val vm = loaded()
+        api.onGoogle = { throw java.io.IOException("offline") }
+
+        vm.signInWithGoogle(FakeLauncher(GoogleSignInResult.Success("token")))
+
+        assertEquals(Message.GOOGLE_FAILED, vm.state.value.errorMessage)
+        assertEquals(Message.CHECK_CONNECTION, vm.state.value.errorDetail)
+    }
+
+    @Test
+    fun aRejectedGoogleCredentialIsNotAProviderFailure() = runTest {
+        val vm = loaded()
+        api.onGoogle = { throw InvalidCredentialsException() }
+
+        vm.signInWithGoogle(FakeLauncher(GoogleSignInResult.Success("token")))
+
+        assertEquals(Message.INVALID_CREDENTIALS, vm.state.value.errorMessage)
+        assertNull(vm.state.value.errorDetail)
+    }
+
+    @Test
+    fun aNewAttemptClearsTheProviderFailure() = runTest {
+        val vm = loaded()
+        vm.signInWithGoogle(FakeLauncher(GoogleSignInResult.Failed))
+
+        vm.signInWithGoogle(FakeLauncher(GoogleSignInResult.Cancelled))
+
+        assertNull(vm.state.value.errorMessage)
+        assertNull(vm.state.value.errorDetail)
     }
 
     @Test

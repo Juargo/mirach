@@ -25,13 +25,16 @@ final class SignInViewModel {
         static let invalidCredentials = "No se pudo iniciar sesión"
         static let passwordRejected = "Correo o contraseña incorrectos"
         static let rateLimited = "Demasiados intentos, intenta más tarde"
-        static let appleFailed = "No se pudo completar el inicio de sesión con Apple. Inténtalo de nuevo."
+        static let appleFailed = "No pudimos iniciar sesión con Apple"
+        static let checkConnection = "Revisa tu conexión a internet e inténtalo de nuevo."
         static let saveFailed = "No pudimos guardar tu sesión en este dispositivo. Inténtalo de nuevo."
     }
 
     private(set) var state: State = .loadingProviders
-    /// The last attempt's error, shown under the button. `nil` when there is none.
+    /// The last attempt's error, shown above the button. `nil` when there is none.
     private(set) var errorMessage: String?
+    /// Second line of a real provider failure (screen 31). `nil` for every other error.
+    private(set) var errorDetail: String?
     /// What the server enabled; only meaningful once `state` is `.ready`.
     private(set) var appleLoginAvailable = false
     private(set) var passwordLoginAvailable = false
@@ -73,7 +76,7 @@ final class SignInViewModel {
     func prepareAppleRequest() -> String {
         let raw = makeNonce()
         pendingNonce = raw
-        errorMessage = nil
+        clearError()
         return AppleNonce.sha256Hex(raw)
     }
 
@@ -87,7 +90,7 @@ final class SignInViewModel {
         case .failure(let error):
             // Closing the sheet is not an error: no message, no API call.
             if (error as? ASAuthorizationError)?.code == .canceled { return }
-            errorMessage = Message.appleFailed
+            showProviderFailure()
         case .success(let credential):
             await signIn(with: credential, nonce: nonce)
         }
@@ -102,7 +105,7 @@ final class SignInViewModel {
                 authorizationCode: credential.authorizationCode
             )
         } catch {
-            await handleSignInFailure(error)
+            await handleSignInFailure(error, isProviderAttempt: true)
             return
         }
         store(newSession)
@@ -124,7 +127,7 @@ final class SignInViewModel {
         let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
         // One attempt at a time, and only when the server offers the form.
         guard state == .ready, passwordLoginAvailable, !email.isEmpty, !password.isEmpty else { return }
-        errorMessage = nil
+        clearError()
         state = .authenticating
         let newSession: Session
         do {
@@ -136,7 +139,11 @@ final class SignInViewModel {
         store(newSession)
     }
 
-    private func handleSignInFailure(_ error: any Error, rejected: String = Message.invalidCredentials) async {
+    private func handleSignInFailure(
+        _ error: any Error,
+        rejected: String = Message.invalidCredentials,
+        isProviderAttempt: Bool = false
+    ) async {
         state = .ready
         switch error {
         case is CancellationError:
@@ -153,7 +160,21 @@ final class SignInViewModel {
             // Apple was switched off on the server: ask again so the button disappears.
             await loadProviders()
         default:
-            errorMessage = Message.connection
+            if isProviderAttempt {
+                showProviderFailure()
+            } else {
+                errorMessage = Message.connection
+            }
         }
+    }
+
+    private func showProviderFailure() {
+        errorMessage = Message.appleFailed
+        errorDetail = Message.checkConnection
+    }
+
+    private func clearError() {
+        errorMessage = nil
+        errorDetail = nil
     }
 }

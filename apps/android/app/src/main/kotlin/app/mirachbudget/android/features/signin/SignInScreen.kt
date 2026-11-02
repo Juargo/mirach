@@ -1,11 +1,16 @@
 package app.mirachbudget.android.features.signin
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -23,14 +28,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import app.mirachbudget.android.core.design.MirachTheme
+import app.mirachbudget.android.core.networking.LegalDocuments
 
 /** Stateless sign-in screen (catalog: `inicio-de-sesion.md`); copy identical to the iPhone app. */
 @Composable
@@ -43,50 +59,116 @@ fun SignInScreen(
     onPassword: (email: String, password: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Mirach", style = MaterialTheme.typography.headlineLarge, color = MirachTheme.colors.base.foreground)
-        Text(
-            "Inicia sesión para ver tus finanzas.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MirachTheme.colors.base.mutedForeground,
-        )
-        notice?.let {
-            Text(
-                it,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MirachTheme.colors.feedback.successText,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
-        }
-        when (val phase = state.phase) {
-            SignInViewModel.Phase.LoadingProviders -> Loading("Cargando…")
-            SignInViewModel.Phase.NoProviders -> RetryBlock("El inicio de sesión no está disponible por ahora", onRetry)
-            is SignInViewModel.Phase.ProvidersFailed -> RetryBlock(phase.message, onRetry)
-            SignInViewModel.Phase.Ready, SignInViewModel.Phase.Authenticating -> {
-                val busy = phase == SignInViewModel.Phase.Authenticating
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (state.googleAvailable) {
-                        Button(onClick = onGoogle, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Text("Continuar con Google")
+    // The form plus the keyboard can exceed a small screen: scroll, and keep the buttons at the bottom otherwise.
+    BoxWithConstraints(modifier = modifier.fillMaxSize().imePadding()) {
+        val screenHeight = maxHeight
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = screenHeight).padding(24.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(
+                modifier = Modifier.padding(top = 96.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                BrandRing()
+                Text("Mirach", style = MaterialTheme.typography.headlineLarge, color = MirachTheme.colors.base.foreground)
+                Text(
+                    "¿Estoy gastando bien? Te lo mostramos en un vistazo: necesidades, gustos y ahorro.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MirachTheme.colors.base.mutedForeground,
+                    textAlign = TextAlign.Center,
+                )
+                notice?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MirachTheme.colors.feedback.successText,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+            }
+            when (val phase = state.phase) {
+                SignInViewModel.Phase.LoadingProviders -> Loading("Cargando…")
+                SignInViewModel.Phase.NoProviders -> RetryBlock("El inicio de sesión no está disponible por ahora", onRetry)
+                is SignInViewModel.Phase.ProvidersFailed -> RetryBlock(phase.message, onRetry)
+                SignInViewModel.Phase.Ready, SignInViewModel.Phase.Authenticating -> {
+                    val busy = phase == SignInViewModel.Phase.Authenticating
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        state.errorMessage?.let { ErrorBlock(it, state.errorDetail) }
+                        if (busy) Loading("Iniciando sesión…")
+                        if (state.googleAvailable) {
+                            OutlinedButton(onClick = onGoogle, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                Text("Continuar con Google")
+                            }
                         }
-                    }
-                    if (state.passwordAvailable) PasswordSignInForm(busy = busy, onSubmit = onPassword)
-                    if (busy) Loading("Iniciando sesión…")
-                    state.errorMessage?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MirachTheme.colors.feedback.errorText,
-                            textAlign = TextAlign.Center,
-                        )
+                        if (state.passwordAvailable) PasswordSignInForm(busy = busy, onSubmit = onPassword)
+                        LegalNotice()
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ErrorBlock(message: String, detail: String?) {
+    if (detail == null) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MirachTheme.colors.feedback.errorText,
+            textAlign = TextAlign.Center,
+        )
+        return
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MirachTheme.colors.base.card)
+            .padding(16.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(message, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MirachTheme.colors.base.foreground)
+        Text(detail, style = MaterialTheme.typography.bodyMedium, color = MirachTheme.colors.base.mutedForeground)
+    }
+}
+
+@Composable
+private fun LegalNotice() {
+    val linkStyle = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))
+    Text(
+        buildAnnotatedString {
+            append("Al continuar aceptas los ")
+            withLink(LinkAnnotation.Url(LegalDocuments.TERMINOS_URL, linkStyle)) { append("Términos") }
+            append(" y la ")
+            withLink(LinkAnnotation.Url(LegalDocuments.PRIVACIDAD_URL, linkStyle)) { append("Política de privacidad") }
+            append(". No pedimos claves de tu banco.")
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MirachTheme.colors.base.mutedForeground,
+        textAlign = TextAlign.Center,
+    )
+}
+
+/** The 50/30/20 mark of the welcome screen. Decorative: the text next to it carries the meaning. */
+@Composable
+private fun BrandRing() {
+    val bucket = MirachTheme.colors.bucket
+    val segments = listOf(
+        Triple(-90f, 180f, bucket.necesidades),
+        Triple(90f, 108f, bucket.gustos),
+        Triple(198f, 72f, bucket.ahorro),
+    )
+    Canvas(modifier = Modifier.size(144.dp)) {
+        val width = 20.dp.toPx()
+        val inset = Offset(width / 2, width / 2)
+        val arcSize = Size(size.width - width, size.height - width)
+        segments.forEach { (start, sweep, color) ->
+            drawArc(color, start + 1.5f, sweep - 3f, useCenter = false, topLeft = inset, size = arcSize, style = Stroke(width))
         }
     }
 }
