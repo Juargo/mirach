@@ -122,6 +122,44 @@ struct AuthAPITests {
         }
     }
 
+    // MARK: sign in with Google
+
+    @Test func signInWithGoogleSendsTheIdTokenAndLegalVersionsAndMapsTheSession() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        let session = try await makeAPI(transport).signInWithGoogle(idToken: "google-jwt")
+
+        #expect(session.token == "tok-abc")
+        #expect(session.userId == "u-1")
+        #expect(transport.requests.first?.path == "/api/auth/google/token")
+        let sent = try sentJSON(transport)
+        #expect(sent["idToken"] as? String == "google-jwt")
+        #expect(sent["versionTerminos"] as? String == LegalDocuments.version)
+        #expect(sent["versionPrivacidad"] as? String == LegalDocuments.version)
+    }
+
+    @Test func signInWithGoogleMapsEveryDocumentedFailure() async {
+        let cases: [(HTTPResponse.Status, String, APIError)] = [
+            (.unauthorized, unauthorized("CREDENCIALES_INVALIDAS"), .invalidCredentials),
+            (.unauthorized, unauthorized("API_KEY_INVALIDA"), .apiKeyRejected),
+            (.notFound, "", .googleSignInUnavailable),
+            (.tooManyRequests, "", .rateLimited),
+            (.badRequest, #"{"code":"BODY_INVALIDO","message":"x"}"#, .badStatus(400)),
+            (.badRequest, "{}", .badStatus(400)),
+            (.serviceUnavailable, #"{"code":"SERVICIO_NO_DISPONIBLE","message":"x"}"#, .badStatus(503)),
+            (.serviceUnavailable, "<html>Bad gateway</html>", .badStatus(503)),
+        ]
+        for (status, body, expected) in cases {
+            let counter = ExpiryCounter()
+            let transport = FakeTransport.json(body, status: status)
+
+            await #expect(throws: expected) {
+                _ = try await makeAPI(transport, expiry: counter).signInWithGoogle(idToken: "google-jwt")
+            }
+            #expect(counter.count == 0, "a failed sign-in is not an expired session")
+        }
+    }
+
     // MARK: sign in with email and password
 
     @Test func signInWithPasswordSendsTheCredentialsAndMapsTheSession() async throws {
@@ -228,6 +266,18 @@ struct AuthAPITests {
 
         #expect(enabled == AuthCapabilities(appleLoginEnabled: false, passwordLoginEnabled: true))
         #expect(disabled.passwordLoginEnabled == false)
+    }
+
+    @Test func capabilitiesMapTheGoogleMobileFlagAndIgnoreTheWebOne() async throws {
+        let mobile = FakeTransport.json(
+            #"{"appleLoginEnabled":true,"googleLoginEnabled":false,"googleLoginMobileEnabled":true,"passwordLoginEnabled":false}"#
+        )
+        let webOnly = FakeTransport.json(
+            #"{"appleLoginEnabled":true,"googleLoginEnabled":true,"googleLoginMobileEnabled":false,"passwordLoginEnabled":false}"#
+        )
+
+        #expect(try await makeAPI(mobile).authCapabilities().googleLoginEnabled)
+        #expect(try await makeAPI(webOnly).authCapabilities().googleLoginEnabled == false)
     }
 
     @Test func capabilitiesRejectedKeyIsReported() async {

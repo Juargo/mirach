@@ -26,7 +26,10 @@ struct RootView: View {
                 StatusView(message: "Verificando tu sesión… la primera vez puede tardar hasta un minuto.")
             case .signedOut:
                 SignInView(
-                    viewModel: SignInViewModel(api: environment.api, session: environment.session),
+                    viewModel: SignInViewModel(
+                        api: environment.api, session: environment.session,
+                        googleSignIn: environment.googleSignIn
+                    ),
                     notice: environment.session.signedOutNotice
                 )
             case .signedIn:

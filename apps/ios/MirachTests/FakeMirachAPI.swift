@@ -50,6 +50,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
 
     private let lock = NSLock()
     private var _signInCalls: [SignInCall] = []
+    private var _googleSignInCalls: [String] = []
     private var _passwordSignInCalls: [PasswordSignInCall] = []
     private var passwordSignInGate: Gate?
     private var _currentUserCalls = 0
@@ -58,6 +59,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private let versionResult: Result<VersionInfo, any Error>
     private var capabilitiesResult: Result<AuthCapabilities, any Error>
     private let signInResult: Result<Session, any Error>
+    private let googleSignInResult: Result<Session, any Error>
     private let passwordSignInResult: Result<Session, any Error>
     private var currentUserResult: Result<CurrentUser, any Error>
     private var resumenResult: Result<ResumenMes, any Error>
@@ -132,6 +134,9 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         passwordSignInResult: Result<Session, any Error> = .success(
             Session(token: "tok-pw", userId: "u-1", expiresAt: Date(timeIntervalSince1970: 1_800_000_000))
         ),
+        googleSignInResult: Result<Session, any Error> = .success(
+            Session(token: "tok", userId: "u-1", expiresAt: Date(timeIntervalSince1970: 1_800_000_000))
+        ),
         currentUserResult: Result<CurrentUser, any Error> = .success(CurrentUser(userId: "u-1", nombre: "Ana")),
         resumenResult: Result<ResumenMes, any Error> = .success(SampleData.septiembre),
         periodosResult: Result<[Periodo], any Error> = .success([])
@@ -142,10 +147,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         self.capabilitiesResult = capabilitiesResult
         self.signInResult = signInResult
         self.passwordSignInResult = passwordSignInResult
+        self.googleSignInResult = googleSignInResult
         self.currentUserResult = currentUserResult
     }
 
     var signInCalls: [SignInCall] { lock.withLock { _signInCalls } }
+    /// The ID tokens sent to `signInWithGoogle`, in order.
+    var googleSignInCalls: [String] { lock.withLock { _googleSignInCalls } }
     var passwordSignInCalls: [PasswordSignInCall] { lock.withLock { _passwordSignInCalls } }
 
     /// Holds `signInWithPassword` until the test opens the gate, to observe the in-flight state.
@@ -553,6 +561,11 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
                 identityToken: identityToken, nonce: nonce, nombre: nombre, authorizationCode: authorizationCode
             )) }
         return try signInResult.get()
+    }
+
+    func signInWithGoogle(idToken: String) async throws -> Session {
+        lock.withLock { _googleSignInCalls.append(idToken) }
+        return try googleSignInResult.get()
     }
 
     func signInWithPassword(email: String, password: String) async throws -> Session {

@@ -33,6 +33,8 @@ enum AppEnvironment {
         let subir: SubirCartolaViewModel
         /// Non-nil when the build cannot work; the root view then shows an error screen.
         let configurationProblem: ConfigurationCheck.Problem?
+        /// Google's sheet; `nil` hides "Continuar con Google" (no client ID in this build, or UI tests).
+        var googleSignIn: (any GoogleSignInLauncher)? = nil
     }
 
     /// `transport` and `store` exist so tests can wire the real middleware and adapter
@@ -92,7 +94,8 @@ enum AppEnvironment {
         return Dependencies(
             api: api, store: store, session: session, expiryRelay: relay,
             staging: staging, subir: subir,
-            configurationProblem: problem
+            configurationProblem: problem,
+            googleSignIn: GoogleSDKSignIn.fromBundle()
         )
     }
 
@@ -161,6 +164,11 @@ struct StubMirachAPI: MirachAPI {
         identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
     ) async throws -> Session {
         // Sign in with Apple cannot be automated, so UI tests never reach this.
+        throw APIError.invalidCredentials
+    }
+
+    func signInWithGoogle(idToken: String) async throws -> Session {
+        // The stub offers no Google button, so UI tests never reach this.
         throw APIError.invalidCredentials
     }
 

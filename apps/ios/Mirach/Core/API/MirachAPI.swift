@@ -16,6 +16,8 @@ protocol MirachAPI: Sendable {
     func signInWithApple(
         identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
     ) async throws -> Session
+    /// `POST /api/auth/google/token` with the ID token from Google's sheet. Never log it.
+    func signInWithGoogle(idToken: String) async throws -> Session
     /// `POST /api/auth/login`: only the App Review account can use it (ADR-051). The server never
     /// says why a sign-in failed. Never log the password.
     func signInWithPassword(email: String, password: String) async throws -> Session
@@ -87,6 +89,8 @@ enum APIError: Error, Equatable {
     case invalidCredentials
     /// 404 on the Apple token endpoint: Sign in with Apple is switched off on the server.
     case appleSignInUnavailable
+    /// 404 on the Google token endpoint: Google sign-in for the apps is switched off on the server.
+    case googleSignInUnavailable
     /// 429: too many attempts.
     case rateLimited
 }
@@ -135,7 +139,9 @@ struct OpenAPIMirachAPI: MirachAPI {
             case .ok(let ok):
                 let body = try ok.body.json
                 return AuthCapabilities(
-                    appleLoginEnabled: body.appleLoginEnabled, passwordLoginEnabled: body.passwordLoginEnabled
+                    appleLoginEnabled: body.appleLoginEnabled,
+                    googleLoginEnabled: body.googleLoginMobileEnabled,
+                    passwordLoginEnabled: body.passwordLoginEnabled
                 )
             case .unauthorized:
                 throw APIError.apiKeyRejected
@@ -184,6 +190,44 @@ struct OpenAPIMirachAPI: MirachAPI {
             // 400 and 503 have a documented body, but a proxy in front of the API can answer
             // them with its own. The app only needs the status, so a body it cannot decode
             // must not hide it.
+            if let status = error.response?.status.code, status == 400 || status == 503 {
+                throw APIError.badStatus(status)
+            }
+            throw error.underlyingError
+        }
+    }
+
+    func signInWithGoogle(idToken: String) async throws -> Session {
+        do {
+            let body = Operations.post_sol_api_sol_auth_sol_google_sol_token.Input.Body.jsonPayload(
+                idToken: idToken,
+                versionPrivacidad: LegalDocuments.version, versionTerminos: LegalDocuments.version
+            )
+            switch try await client.post_sol_api_sol_auth_sol_google_sol_token(body: .json(body)) {
+            case .ok(let ok):
+                let login = try ok.body.json
+                return Session(
+                    token: login.token, userId: login.userId, expiresAt: try Self.parseExpiry(login.expiresAt)
+                )
+            case .unauthorized(let unauthorized):
+                // A failed sign-in is never "session expired": there is no session yet.
+                switch try unauthorized.body.json.code {
+                case .API_KEY_INVALIDA: throw APIError.apiKeyRejected
+                case .CREDENCIALES_INVALIDAS: throw APIError.invalidCredentials
+                }
+            case .notFound:
+                throw APIError.googleSignInUnavailable
+            case .tooManyRequests:
+                throw APIError.rateLimited
+            case .badRequest:
+                throw APIError.badStatus(400)
+            case .serviceUnavailable:
+                throw APIError.badStatus(503)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            // Same as Apple: a proxy's own 400 or 503 body must not hide the status.
             if let status = error.response?.status.code, status == 400 || status == 503 {
                 throw APIError.badStatus(status)
             }

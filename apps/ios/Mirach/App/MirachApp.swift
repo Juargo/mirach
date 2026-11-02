@@ -1,3 +1,4 @@
+import GoogleSignIn
 import SwiftUI
 
 @main
@@ -16,6 +17,8 @@ struct MirachApp: App {
                 .tint(Color.Mirach.Base.primary)
                 // Inter for every text that does not set its own font (decision D2).
                 .font(.mirach(.body))
+                // Google's sheet returns through the reversed client ID scheme.
+                .onOpenURL { GIDSignIn.sharedInstance.handle($0) }
         }
     }
 }

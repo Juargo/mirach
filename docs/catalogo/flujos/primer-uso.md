@@ -41,7 +41,7 @@ Visibilidad de los botones: «Continuar con Apple» si `appleLoginEnabled`, solo
 - **Cargando capacidades**: los botones no se muestran todavía.
 - **Sin proveedores activos** (banderas en `false`): «El inicio de sesión no está disponible por ahora» con «Reintentar».
 - **Autenticando**: botones deshabilitados con progreso; evita envíos dobles.
-- **Error de inicio de sesión** (pantalla 31): solo ante una falla real (red o proveedor), pide revisar la conexión e intentar de nuevo. No afirma que no se creó una cuenta, como sí hace Figma, porque tras un timeout la app no puede saberlo. La línea «prueba con Google» de Figma se agrega cuando iPhone ofrezca Google.
+- **Error de inicio de sesión** (pantalla 31): solo ante una falla real (red o proveedor), pide revisar la conexión e intentar de nuevo. No afirma que no se creó una cuenta, como sí hace Figma, porque tras un timeout la app no puede saberlo. Si falla Apple y Google está disponible, agrega «Si sigue sin funcionar, prueba con Google.», como Figma. Una falla de Google no sugiere Apple: Figma no lo define.
 - **Inicio vacío** (pantalla 11): sin datos, invita a subir la primera cartola y no muestra porcentajes vacíos.
 
 ## Navegación
@@ -51,5 +51,5 @@ Visibilidad de los botones: «Continuar con Apple» si `appleLoginEnabled`, solo
 
 ## Notas por plataforma
 
-- iPhone: «Iniciar sesión con Apple» usa `AuthenticationServices`. Apple entrega el nombre solo la primera vez: hay que enviarlo en ese primer `POST`; si ese intento falla antes de llegar al API, el nombre se pierde y la persona lo corrige después. El correo puede ser un reenvío privado de Apple. El `nonce` se genera por intento. Los botones de Apple y Google tienen igual jerarquía visual.
+- iPhone: «Iniciar sesión con Apple» usa `AuthenticationServices`. Apple entrega el nombre solo la primera vez: hay que enviarlo en ese primer `POST`; si ese intento falla antes de llegar al API, el nombre se pierde y la persona lo corrige después. El correo puede ser un reenvío privado de Apple. El `nonce` se genera por intento. «Continuar con Google» usa Google Sign-In con el cliente OAuth iOS (`GIDClientID` en `project.yml`, el mismo valor que `GOOGLE_CLIENT_ID_IOS` en el API); la app cierra la sesión de Google apenas obtiene el `idToken`. Los botones de Apple y Google tienen igual jerarquía visual.
 - Android: Google con Credential Manager; no se ofrece Apple (ADR-006).
