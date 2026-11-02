@@ -142,17 +142,21 @@ struct SignInView: View {
     }
 
     /// Same size and weight as Apple's button (catalog: equal hierarchy); outlined, as in Figma.
+    /// Google's "G" sits before the text, as its branding guidelines require.
     private var googleButton: some View {
         Button {
             Task { await viewModel.signInWithGoogle() }
         } label: {
-            Text("Continuar con Google")
-                .font(.mirach(.body).weight(.medium))
-                .foregroundStyle(Color.Mirach.Base.foreground)
-                .frame(maxWidth: .infinity, minHeight: 50)
-                .background(Color.Mirach.Base.background)
-                .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
-                .contentShape(Rectangle())
+            HStack(spacing: 10) {
+                GoogleLogo()
+                Text("Continuar con Google")
+                    .font(.mirach(.body).weight(.medium))
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+            }
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(Color.Mirach.Base.background)
+            .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(viewModel.state == .authenticating)
