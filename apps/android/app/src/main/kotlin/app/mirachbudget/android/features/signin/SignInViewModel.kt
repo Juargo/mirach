@@ -56,7 +56,7 @@ class SignInViewModel(
         const val PASSWORD_REJECTED = "Correo o contraseña incorrectos"
         const val RATE_LIMITED = "Demasiados intentos, intenta más tarde"
         const val GOOGLE_FAILED = "No pudimos iniciar sesión con Google"
-        const val NO_ACCOUNT_CREATED = "Revisa tu conexión a internet e intenta de nuevo. No se creó ninguna cuenta."
+        const val CHECK_CONNECTION = "Revisa tu conexión a internet e inténtalo de nuevo."
         const val SAVE_FAILED = "No pudimos guardar tu sesión en este dispositivo. Inténtalo de nuevo."
     }
 
@@ -151,7 +151,7 @@ class SignInViewModel(
     }
 
     private fun showProviderFailure() = _state.update {
-        it.copy(phase = Phase.Ready, errorMessage = Message.GOOGLE_FAILED, errorDetail = Message.NO_ACCOUNT_CREATED)
+        it.copy(phase = Phase.Ready, errorMessage = Message.GOOGLE_FAILED, errorDetail = Message.CHECK_CONNECTION)
     }
 
     private fun showError(message: String) = _state.update { it.copy(errorMessage = message) }

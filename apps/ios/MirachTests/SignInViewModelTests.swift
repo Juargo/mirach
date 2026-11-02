@@ -257,7 +257,7 @@ struct SignInViewModelTests {
 
         #expect(h.viewModel.state == .ready)
         #expect(h.viewModel.errorMessage == "No pudimos iniciar sesión con Apple")
-        #expect(h.viewModel.errorDetail == "Revisa tu conexión a internet e intenta de nuevo. No se creó ninguna cuenta.")
+        #expect(h.viewModel.errorDetail == "Revisa tu conexión a internet e inténtalo de nuevo.")
         #expect(h.api.signInCalls.isEmpty)
     }
 
@@ -292,7 +292,7 @@ struct SignInViewModelTests {
         await h.viewModel.completeAppleSignIn(.success(credential))
 
         #expect(h.viewModel.errorMessage == SignInViewModel.Message.appleFailed)
-        #expect(h.viewModel.errorDetail == SignInViewModel.Message.noAccountCreated)
+        #expect(h.viewModel.errorDetail == SignInViewModel.Message.checkConnection)
         #expect(h.viewModel.state == .ready)
     }
 

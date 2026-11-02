@@ -41,7 +41,7 @@ Visibilidad de los botones: «Continuar con Apple» si `appleLoginEnabled`, solo
 - **Cargando capacidades**: los botones no se muestran todavía.
 - **Sin proveedores activos** (banderas en `false`): «El inicio de sesión no está disponible por ahora» con «Reintentar».
 - **Autenticando**: botones deshabilitados con progreso; evita envíos dobles.
-- **Error de inicio de sesión** (pantalla 31): solo ante una falla real (red o proveedor), confirma que no se creó ninguna cuenta. La línea «prueba con Google» de Figma se agrega cuando iPhone ofrezca Google.
+- **Error de inicio de sesión** (pantalla 31): solo ante una falla real (red o proveedor), pide revisar la conexión e intentar de nuevo. No afirma que no se creó una cuenta, como sí hace Figma, porque tras un timeout la app no puede saberlo. La línea «prueba con Google» de Figma se agrega cuando iPhone ofrezca Google.
 - **Inicio vacío** (pantalla 11): sin datos, invita a subir la primera cartola y no muestra porcentajes vacíos.
 
 ## Navegación

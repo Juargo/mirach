@@ -175,10 +175,7 @@ class SignInViewModelTest {
         vm.signInWithGoogle(FakeLauncher(GoogleSignInResult.Failed))
 
         assertEquals("No pudimos iniciar sesión con Google", vm.state.value.errorMessage)
-        assertEquals(
-            "Revisa tu conexión a internet e intenta de nuevo. No se creó ninguna cuenta.",
-            vm.state.value.errorDetail,
-        )
+        assertEquals("Revisa tu conexión a internet e inténtalo de nuevo.", vm.state.value.errorDetail)
         assertEquals(emptyList<String>(), api.googleTokens)
     }
 
@@ -190,7 +187,7 @@ class SignInViewModelTest {
         vm.signInWithGoogle(FakeLauncher(GoogleSignInResult.Success("token")))
 
         assertEquals(Message.GOOGLE_FAILED, vm.state.value.errorMessage)
-        assertEquals(Message.NO_ACCOUNT_CREATED, vm.state.value.errorDetail)
+        assertEquals(Message.CHECK_CONNECTION, vm.state.value.errorDetail)
     }
 
     @Test

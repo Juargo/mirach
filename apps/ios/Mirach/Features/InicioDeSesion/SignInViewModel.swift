@@ -26,7 +26,7 @@ final class SignInViewModel {
         static let passwordRejected = "Correo o contraseña incorrectos"
         static let rateLimited = "Demasiados intentos, intenta más tarde"
         static let appleFailed = "No pudimos iniciar sesión con Apple"
-        static let noAccountCreated = "Revisa tu conexión a internet e intenta de nuevo. No se creó ninguna cuenta."
+        static let checkConnection = "Revisa tu conexión a internet e inténtalo de nuevo."
         static let saveFailed = "No pudimos guardar tu sesión en este dispositivo. Inténtalo de nuevo."
     }
 
@@ -170,7 +170,7 @@ final class SignInViewModel {
 
     private func showProviderFailure() {
         errorMessage = Message.appleFailed
-        errorDetail = Message.noAccountCreated
+        errorDetail = Message.checkConnection
     }
 
     private func clearError() {
