@@ -39,6 +39,11 @@ export const PRIVACY = {
   label: 'Política de privacidad',
 } as const;
 
+export const TERMS = {
+  url: '/terminos',
+  label: 'Términos y condiciones',
+} as const;
+
 export const SUPPORT = {
   url: '/soporte',
   label: 'Soporte',

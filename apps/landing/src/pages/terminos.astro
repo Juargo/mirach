@@ -1,0 +1,140 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE, CONTACT, PRIVACY, ACCOUNT_DELETION } from '../config';
+
+const linkClass =
+  'font-semibold text-primary underline underline-offset-2 hover:text-on-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
+---
+
+<Layout title={`Términos y condiciones — ${SITE.title}`}>
+  <Header />
+  <main id="main" class="scroll-mt-20 px-6 py-16 sm:py-24">
+    <div class="mx-auto max-w-2xl">
+      <h1
+        class="font-display text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
+      >
+        Términos y condiciones
+      </h1>
+      <p class="mt-4 text-body-sm text-on-surface-variant">
+        Última actualización: 3 de noviembre de 2026
+      </p>
+
+      <div class="mt-10 space-y-8 text-body-sm leading-relaxed text-on-surface-variant">
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Qué es Mirach y quién lo ofrece
+          </h2>
+          <p class="mt-2">
+            Mirach es una aplicación de finanzas personales para iPhone y Android que clasifica los movimientos de las cartolas bancarias que subes y te muestra tu presupuesto según la regla 50/30/20. La ofrece el equipo que desarrolla Mirach. Para cualquier consulta escríbenos a <a href={`mailto:${CONTACT.email}`} class={linkClass}>{CONTACT.email}</a>.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Aceptación
+          </h2>
+          <p class="mt-2">
+            Al continuar desde la pantalla de bienvenida aceptas estos términos y la <a href={PRIVACY.url} class={linkClass}>{PRIVACY.label}</a>. Guardamos con tu cuenta la versión que aceptaste y la fecha. Si no estás de acuerdo, no uses la aplicación.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Tu cuenta
+          </h2>
+          <p class="mt-2">
+            Inicias sesión con Apple o con Google; no creas una contraseña en Mirach. Eres responsable de lo que ocurre con tu cuenta desde tus dispositivos, así que protege el acceso a ellos. Si crees que alguien entró a tu cuenta sin permiso, escríbenos.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Uso aceptable
+          </h2>
+          <p class="mt-2">Al usar Mirach te comprometes a:</p>
+          <ul class="mt-2 list-disc space-y-1 pl-5">
+            <li>subir solo cartolas tuyas o que tengas permiso para usar;</li>
+            <li>no intentar acceder a datos de otras personas ni a partes del servicio que no te corresponden;</li>
+            <li>no interferir con el funcionamiento del servicio, por ejemplo con envíos automatizados masivos o archivos dañinos.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Tus datos
+          </h2>
+          <p class="mt-2">
+            Los movimientos, categorías y patrones que cargas o creas siguen siendo tuyos. Los usamos solo para prestarte el servicio, como explica la <a href={PRIVACY.url} class={linkClass}>{PRIVACY.label}</a>. Puedes eliminar una importación o tu cuenta completa en cualquier momento.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Información, no asesoría financiera
+          </h2>
+          <p class="mt-2">
+            Mirach te muestra cómo se distribuyen tus gastos. La clasificación es automática y puede equivocarse; puedes corregirla. Los resúmenes, el semáforo y la regla 50/30/20 son información para que tomes tus propias decisiones: no son asesoría financiera, tributaria ni de inversión. Las decisiones sobre tu dinero son tuyas.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Precio
+          </h2>
+          <p class="mt-2">
+            Durante el lanzamiento, Mirach se puede usar sin costo, con todas sus funciones. Si más adelante ofrecemos planes de pago, te informaremos antes sus precios y condiciones, y no se te cobrará nada que no hayas aceptado.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Estado beta y disponibilidad
+          </h2>
+          <p class="mt-2">
+            Mirach está en fase beta. Hacemos lo posible por que funcione bien y esté disponible, pero puede tener errores o interrupciones, y algunas funciones pueden cambiar. Guarda tus propias copias de tus cartolas: Mirach no reemplaza los registros de tu banco.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Responsabilidad
+          </h2>
+          <p class="mt-2">
+            En la medida que lo permita la ley chilena, incluidas las normas de protección de los derechos de los consumidores, no somos responsables de las decisiones que tomes con la información que te muestra Mirach, de errores en las cartolas que entrega tu banco ni de interrupciones del servicio. Nada en estos términos limita los derechos que la ley te reconoce y que no se pueden renunciar.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Término de la cuenta
+          </h2>
+          <p class="mt-2">
+            Puedes eliminar tu cuenta cuando quieras desde la aplicación o desde la página <a href={ACCOUNT_DELETION.url} class={linkClass}>{ACCOUNT_DELETION.label}</a>. Podemos suspender o cerrar una cuenta que no cumpla estos términos; cuando sea posible, te avisaremos antes y te explicaremos el motivo.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Cambios a estos términos
+          </h2>
+          <p class="mt-2">
+            Podemos actualizar estos términos a medida que el producto evoluciona. La versión vigente está siempre en esta página, con la fecha de su última actualización. Si un cambio es importante, te avisaremos antes de que se aplique.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="font-display text-title-md font-bold text-on-surface">
+            Ley aplicable
+          </h2>
+          <p class="mt-2">
+            Estos términos se rigen por las leyes de la República de Chile.
+          </p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>
