@@ -9,3 +9,9 @@ fi
 
 cd "$(dirname "$0")/.."
 xcodegen generate
+
+# The generated project is git-ignored, so the committed Package.resolved pins
+# every Swift package, transitive ones included, and is copied into it here.
+resolved_dir=Mirach.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+mkdir -p "$resolved_dir"
+cp Package.resolved "$resolved_dir/Package.resolved"
