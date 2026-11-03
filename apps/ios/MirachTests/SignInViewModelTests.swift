@@ -502,6 +502,18 @@ struct SignInViewModelTests {
         #expect(h.viewModel.errorDetail == nil)
     }
 
+    @Test func aNewAttemptClearsTheHintLeftByAnAppleFailure() async {
+        let google = FakeGoogleSignIn(result: .cancelled)
+        let h = await googleHarness(google)
+        _ = h.viewModel.prepareAppleRequest()
+        await h.viewModel.completeAppleSignIn(.failure(ASAuthorizationError(.failed)))
+        #expect(h.viewModel.errorHint != nil)
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.errorHint == nil)
+    }
+
     // MARK: Apple name
 
     @Test func displayNameJoinsGivenAndFamilyNameAndOmitsEmpties() {
