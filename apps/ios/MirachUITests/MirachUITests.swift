@@ -235,7 +235,8 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(delete.waitForExistence(timeout: 10))
 
         // It may start under the tab bar; scrolling must bring it clear of it.
-        for _ in 0..<5 where !delete.isHittable { app.swipeUp() }
+        var scrolls = 0
+        while !delete.isHittable && scrolls < 5 { app.swipeUp(); scrolls += 1 }
 
         XCTAssertTrue(delete.isHittable)
     }
@@ -300,7 +301,8 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(rest.exists && susc.exists)
         XCTAssertTrue(rest.label.hasPrefix("Restaurantes. 2 movimientos"), rest.label)
         XCTAssertLessThan(rest.frame.minY, susc.frame.minY)
-        for _ in 0..<4 where !none.exists { app.swipeUp() }
+        var scrolls = 0
+        while !none.exists && scrolls < 4 { app.swipeUp(); scrolls += 1 }
         XCTAssertTrue(none.exists, "«Sin categoría» group missing")
         XCTAssertTrue(element(app, "detalle.row.t-d5").exists)
         // The traffic light is hidden in v1: no state label here either.
@@ -403,7 +405,8 @@ final class MirachUITests: XCTestCase {
         let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         let row = element(app, "resumen.bucket.Deseos")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        var scrolls = 0
+        while !row.isHittable && scrolls < 6 { app.swipeUp(); scrolls += 1 }
         row.tap()
         XCTAssertTrue(element(app, "detalle.header").waitForExistence(timeout: 10))
 
@@ -470,7 +473,8 @@ final class MirachUITests: XCTestCase {
         let app = launch([savedSession, "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         let card = element(app, "resumen.ingreso")
         XCTAssertTrue(card.waitForExistence(timeout: 10))
-        for _ in 0..<6 where !card.isHittable { app.swipeUp() }
+        var scrolls = 0
+        while !card.isHittable && scrolls < 6 { app.swipeUp(); scrolls += 1 }
         card.tap()
         XCTAssertTrue(element(app, "ingresos.header").waitForExistence(timeout: 10))
 
