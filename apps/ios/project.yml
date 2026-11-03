@@ -27,6 +27,10 @@ packages:
   swift-openapi-urlsession:
     url: https://github.com/apple/swift-openapi-urlsession
     exactVersion: 1.3.2
+  # Google's sign-in sheet for "Continuar con Google" (iOS OAuth client, GIDClientID below).
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    exactVersion: 10.1.0
 
 targets:
   Mirach:
@@ -39,6 +43,8 @@ targets:
         product: OpenAPIRuntime
       - package: swift-openapi-urlsession
         product: OpenAPIURLSession
+      - package: GoogleSignIn
+        product: GoogleSignIn
     # Base.xcconfig defines MIRACH_API_KEY (empty) and optionally includes the
     # git-ignored Secrets.xcconfig with the real value.
     configFiles:
@@ -66,6 +72,11 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         MIRACH_API_KEY: $(MIRACH_API_KEY)   # public client gate (ADR-047), read by AppConfiguration
+        # Google's iOS OAuth client (not a secret). The API accepts it as GOOGLE_CLIENT_ID_IOS.
+        GIDClientID: 594467823750-resv9e9thchsh9aicg8562r5aiopkjq5.apps.googleusercontent.com
+        CFBundleURLTypes:                   # Google's sheet returns to the reversed client ID
+          - CFBundleURLSchemes:
+              - com.googleusercontent.apps.594467823750-resv9e9thchsh9aicg8562r5aiopkjq5
         ITSAppUsesNonExemptEncryption: false  # only exempt HTTPS/TLS and system crypto (export compliance)
         UILaunchScreen: {}                  # empty = default launch screen
         UIAppFonts:                         # Inter 4.1, the only family (D2); files in Mirach/Resources/Fonts

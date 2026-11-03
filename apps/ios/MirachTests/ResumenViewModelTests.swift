@@ -250,6 +250,9 @@ private final class SlowAPI: MirachAPI, @unchecked Sendable {
     ) async throws -> Session {
         throw APIError.invalidCredentials
     }
+    func signInWithGoogle(idToken: String) async throws -> Session {
+        throw APIError.invalidCredentials
+    }
     func signInWithPassword(email: String, password: String) async throws -> Session {
         throw APIError.invalidCredentials
     }

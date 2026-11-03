@@ -68,12 +68,13 @@ struct SignInView: View {
         case .ready, .authenticating:
             VStack(spacing: 16) {
                 if let message = viewModel.errorMessage {
-                    errorBlock(message, detail: viewModel.errorDetail)
+                    errorBlock(message, detail: viewModel.errorDetail, hint: viewModel.errorHint)
                 }
                 if viewModel.state == .authenticating {
                     ProgressView("Iniciando sesión…")
                 }
                 if viewModel.appleLoginAvailable { appleButton }
+                if viewModel.googleLoginAvailable { googleButton }
                 if viewModel.passwordLoginAvailable { PasswordSignInForm(viewModel: viewModel) }
                 legalNotice
             }
@@ -85,13 +86,18 @@ struct SignInView: View {
     }
 
     @ViewBuilder
-    private func errorBlock(_ message: String, detail: String?) -> some View {
+    private func errorBlock(_ message: String, detail: String?, hint: String?) -> some View {
         if let detail {
             VStack(alignment: .leading, spacing: 4) {
                 Text(message).font(.mirach(.subheadline).weight(.medium))
                     .foregroundStyle(Color.Mirach.Base.foreground)
                 Text(detail).font(.mirach(.subheadline))
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                if let hint {
+                    Text(hint).font(.mirach(.subheadline))
+                        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                        .padding(.top, 4)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
@@ -133,6 +139,28 @@ struct SignInView: View {
         .frame(height: 50)
         .disabled(viewModel.state == .authenticating)
         .accessibilityIdentifier("signin.apple")
+    }
+
+    /// Same size and weight as Apple's button (catalog: equal hierarchy); outlined, as in Figma.
+    /// Google's "G" sits before the text, as its branding guidelines require.
+    private var googleButton: some View {
+        Button {
+            Task { await viewModel.signInWithGoogle() }
+        } label: {
+            HStack(spacing: 10) {
+                GoogleLogo()
+                Text("Continuar con Google")
+                    .font(.mirach(.body).weight(.medium))
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+            }
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(Color.Mirach.Base.background)
+            .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.state == .authenticating)
+        .accessibilityIdentifier("signin.google")
     }
 
     private func retryBlock(_ message: String) -> some View {

@@ -1,14 +1,17 @@
 import Foundation
 
 /// Which sign-in methods the server has switched on (`GET /api/auth/capabilities`).
-/// Google joins when its iOS client exists.
 struct AuthCapabilities: Equatable, Sendable {
     let appleLoginEnabled: Bool
+    /// The server's `googleLoginMobileEnabled`. `googleLoginEnabled` there is the web flow and
+    /// is never read.
+    let googleLoginEnabled: Bool
     /// The App Review email and password form (ADR-051); off for everyone else.
     let passwordLoginEnabled: Bool
 
-    init(appleLoginEnabled: Bool, passwordLoginEnabled: Bool = false) {
+    init(appleLoginEnabled: Bool, googleLoginEnabled: Bool = false, passwordLoginEnabled: Bool = false) {
         self.appleLoginEnabled = appleLoginEnabled
+        self.googleLoginEnabled = googleLoginEnabled
         self.passwordLoginEnabled = passwordLoginEnabled
     }
 }

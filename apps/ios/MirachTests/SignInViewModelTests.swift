@@ -17,12 +17,13 @@ struct SignInViewModelTests {
     private func makeHarness(
         api: FakeMirachAPI = FakeMirachAPI(),
         store: (any SessionStore)? = nil,
-        nonce: @escaping @Sendable () -> String = AppleNonce.random
+        nonce: @escaping @Sendable () -> String = AppleNonce.random,
+        google: FakeGoogleSignIn? = nil
     ) -> Harness {
         let memory = InMemorySessionStore()
         let session = SessionController(api: api, store: store ?? memory)
         return Harness(
-            viewModel: SignInViewModel(api: api, session: session, makeNonce: nonce),
+            viewModel: SignInViewModel(api: api, session: session, makeNonce: nonce, googleSignIn: google),
             api: api, store: memory, session: session
         )
     }
@@ -355,6 +356,152 @@ struct SignInViewModelTests {
         #expect(h.api.signInCalls.count == 1, "a nonce is single-use")
     }
 
+    // MARK: Google
+
+    private let bothProviders = AuthCapabilities(appleLoginEnabled: true, googleLoginEnabled: true)
+
+    private func googleHarness(
+        _ google: FakeGoogleSignIn = FakeGoogleSignIn(),
+        api: FakeMirachAPI = FakeMirachAPI()
+    ) async -> Harness {
+        api.setCapabilitiesResult(.success(bothProviders))
+        let h = makeHarness(api: api, google: google)
+        await h.viewModel.loadProviders()
+        return h
+    }
+
+    @Test func googleNeedsTheServerFlagAndAClientConfiguredInTheApp() async {
+        let offered = await googleHarness()
+        #expect(offered.viewModel.googleLoginAvailable)
+
+        let noClient = makeHarness(api: FakeMirachAPI(capabilitiesResult: .success(bothProviders)))
+        await noClient.viewModel.loadProviders()
+        #expect(!noClient.viewModel.googleLoginAvailable)
+
+        let switchedOff = makeHarness(google: FakeGoogleSignIn())
+        await switchedOff.viewModel.loadProviders()
+        #expect(!switchedOff.viewModel.googleLoginAvailable)
+    }
+
+    @Test func googleOnlyIsNotTheEmptyState() async {
+        let api = FakeMirachAPI(capabilitiesResult: .success(AuthCapabilities(appleLoginEnabled: false, googleLoginEnabled: true)))
+        let h = makeHarness(api: api, google: FakeGoogleSignIn())
+        await h.viewModel.loadProviders()
+        #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func googleSuccessSendsTheIdTokenAndSavesTheSession() async {
+        let h = await googleHarness(FakeGoogleSignIn(result: .success(idToken: "google-jwt")))
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.api.googleSignInCalls == ["google-jwt"])
+        #expect(h.store.load()?.token == "tok")
+        #expect(h.session.phase == .signedIn(userId: "u-1"))
+        #expect(h.viewModel.errorMessage == nil)
+    }
+
+    @Test func cancellingGoogleIsNotAnError() async {
+        let h = await googleHarness(FakeGoogleSignIn(result: .cancelled))
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.state == .ready)
+        #expect(h.viewModel.errorMessage == nil)
+        #expect(h.api.googleSignInCalls.isEmpty, "a cancelled sheet never reaches the API")
+    }
+
+    @Test func aGoogleSheetFailureShowsTheGoogleFailureWithoutCallingTheAPI() async {
+        let h = await googleHarness(FakeGoogleSignIn(result: .failed))
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.state == .ready)
+        #expect(h.viewModel.errorMessage == "No pudimos iniciar sesión con Google")
+        #expect(h.viewModel.errorDetail == "Revisa tu conexión a internet e inténtalo de nuevo.")
+        #expect(h.api.googleSignInCalls.isEmpty)
+    }
+
+    @Test func aGoogleConnectionFailureShowsTheGoogleFailure() async {
+        let h = await googleHarness(api: FakeMirachAPI(googleSignInResult: .failure(URLError(.timedOut))))
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.googleFailed)
+        #expect(h.viewModel.errorDetail == SignInViewModel.Message.checkConnection)
+        #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func aRejectedGoogleTokenShowsTheOpaqueMessageAndSavesNothing() async {
+        let h = await googleHarness(api: FakeMirachAPI(googleSignInResult: .failure(APIError.invalidCredentials)))
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.invalidCredentials)
+        #expect(h.viewModel.errorDetail == nil)
+        #expect(h.store.load() == nil)
+    }
+
+    @Test func googleSwitchedOffOnTheServerReloadsTheProviders() async {
+        let api = FakeMirachAPI(googleSignInResult: .failure(APIError.googleSignInUnavailable))
+        let h = await googleHarness(api: api)
+        api.setCapabilitiesResult(.success(AuthCapabilities(appleLoginEnabled: true)))
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(api.capabilitiesCalls == 2)
+        #expect(!h.viewModel.googleLoginAvailable)
+        #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func aSecondGoogleTapWhileTheFirstIsInFlightIsIgnored() async {
+        let gate = Gate()
+        let google = FakeGoogleSignIn(result: .success(idToken: "google-jwt"), gate: gate)
+        let h = await googleHarness(google)
+
+        let attempt = Task { await h.viewModel.signInWithGoogle() }
+        while h.viewModel.state != .authenticating { await Task.yield() }
+        await h.viewModel.signInWithGoogle()
+        await gate.open()
+        await attempt.value
+
+        #expect(google.calls == 1)
+        #expect(h.api.googleSignInCalls.count == 1)
+    }
+
+    @Test func anAppleFailureSuggestsGoogleOnlyWhenItIsOffered() async {
+        let withGoogle = await googleHarness()
+        _ = withGoogle.viewModel.prepareAppleRequest()
+        await withGoogle.viewModel.completeAppleSignIn(.failure(ASAuthorizationError(.failed)))
+        #expect(withGoogle.viewModel.errorHint == "Si sigue sin funcionar, prueba con Google.")
+
+        let appleOnly = makeHarness()
+        await appleOnly.viewModel.loadProviders()
+        _ = appleOnly.viewModel.prepareAppleRequest()
+        await appleOnly.viewModel.completeAppleSignIn(.failure(ASAuthorizationError(.failed)))
+        #expect(appleOnly.viewModel.errorHint == nil)
+    }
+
+    @Test func aGoogleFailureDoesNotSuggestGoogle() async {
+        let h = await googleHarness(FakeGoogleSignIn(result: .failed))
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.errorHint == nil)
+    }
+
+    @Test func aNewGoogleAttemptClearsThePreviousFailure() async {
+        let google = FakeGoogleSignIn(result: .failed)
+        let h = await googleHarness(google)
+        await h.viewModel.signInWithGoogle()
+
+        google.result = .cancelled
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.errorMessage == nil)
+        #expect(h.viewModel.errorDetail == nil)
+    }
+
     // MARK: Apple name
 
     @Test func displayNameJoinsGivenAndFamilyNameAndOmitsEmpties() {
@@ -364,5 +511,24 @@ struct SignInViewModelTests {
         #expect(AppleCredential.displayName(from: name) == "Ana Pérez")
         #expect(AppleCredential.displayName(from: nil) == nil)
         #expect(AppleCredential.displayName(from: PersonNameComponents()) == nil)
+    }
+}
+
+/// Stands in for Google's sheet: answers `result`, optionally after `gate` opens.
+@MainActor
+final class FakeGoogleSignIn: GoogleSignInLauncher {
+    var result: GoogleSignInResult
+    private let gate: Gate?
+    private(set) var calls = 0
+
+    init(result: GoogleSignInResult = .success(idToken: "google-jwt"), gate: Gate? = nil) {
+        self.result = result
+        self.gate = gate
+    }
+
+    func requestIdToken() async -> GoogleSignInResult {
+        calls += 1
+        if let gate { await gate.wait() }
+        return result
     }
 }
