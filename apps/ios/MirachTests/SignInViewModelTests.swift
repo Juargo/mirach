@@ -358,7 +358,7 @@ struct SignInViewModelTests {
 
     // MARK: Google
 
-    private let bothProviders = AuthCapabilities(appleLoginEnabled: true, googleLoginEnabled: true)
+    private let bothProviders = AuthCapabilities(appleLoginEnabled: true, googleLoginMobileEnabled: true)
 
     private func googleHarness(
         _ google: FakeGoogleSignIn = FakeGoogleSignIn(),
@@ -384,7 +384,7 @@ struct SignInViewModelTests {
     }
 
     @Test func googleOnlyIsNotTheEmptyState() async {
-        let api = FakeMirachAPI(capabilitiesResult: .success(AuthCapabilities(appleLoginEnabled: false, googleLoginEnabled: true)))
+        let api = FakeMirachAPI(capabilitiesResult: .success(AuthCapabilities(appleLoginEnabled: false, googleLoginMobileEnabled: true)))
         let h = makeHarness(api: api, google: FakeGoogleSignIn())
         await h.viewModel.loadProviders()
         #expect(h.viewModel.state == .ready)
@@ -500,6 +500,18 @@ struct SignInViewModelTests {
 
         #expect(h.viewModel.errorMessage == nil)
         #expect(h.viewModel.errorDetail == nil)
+    }
+
+    @Test func aNewAttemptClearsTheHintLeftByAnAppleFailure() async {
+        let google = FakeGoogleSignIn(result: .cancelled)
+        let h = await googleHarness(google)
+        _ = h.viewModel.prepareAppleRequest()
+        await h.viewModel.completeAppleSignIn(.failure(ASAuthorizationError(.failed)))
+        #expect(h.viewModel.errorHint != nil)
+
+        await h.viewModel.signInWithGoogle()
+
+        #expect(h.viewModel.errorHint == nil)
     }
 
     // MARK: Apple name

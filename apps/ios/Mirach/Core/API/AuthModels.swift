@@ -3,15 +3,15 @@ import Foundation
 /// Which sign-in methods the server has switched on (`GET /api/auth/capabilities`).
 struct AuthCapabilities: Equatable, Sendable {
     let appleLoginEnabled: Bool
-    /// The server's `googleLoginMobileEnabled`. `googleLoginEnabled` there is the web flow and
+    /// Google sign-in from the native app. The server's `googleLoginEnabled` is the web flow and
     /// is never read.
-    let googleLoginEnabled: Bool
+    let googleLoginMobileEnabled: Bool
     /// The App Review email and password form (ADR-051); off for everyone else.
     let passwordLoginEnabled: Bool
 
-    init(appleLoginEnabled: Bool, googleLoginEnabled: Bool = false, passwordLoginEnabled: Bool = false) {
+    init(appleLoginEnabled: Bool, googleLoginMobileEnabled: Bool = false, passwordLoginEnabled: Bool = false) {
         self.appleLoginEnabled = appleLoginEnabled
-        self.googleLoginEnabled = googleLoginEnabled
+        self.googleLoginMobileEnabled = googleLoginMobileEnabled
         self.passwordLoginEnabled = passwordLoginEnabled
     }
 }

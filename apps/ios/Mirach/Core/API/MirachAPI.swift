@@ -140,7 +140,7 @@ struct OpenAPIMirachAPI: MirachAPI {
                 let body = try ok.body.json
                 return AuthCapabilities(
                     appleLoginEnabled: body.appleLoginEnabled,
-                    googleLoginEnabled: body.googleLoginMobileEnabled,
+                    googleLoginMobileEnabled: body.googleLoginMobileEnabled,
                     passwordLoginEnabled: body.passwordLoginEnabled
                 )
             case .unauthorized:
