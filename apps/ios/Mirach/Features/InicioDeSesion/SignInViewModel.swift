@@ -70,7 +70,7 @@ final class SignInViewModel {
         do {
             let capabilities = try await api.authCapabilities()
             appleLoginAvailable = capabilities.appleLoginEnabled
-            googleLoginAvailable = capabilities.googleLoginEnabled && googleSignIn != nil
+            googleLoginAvailable = capabilities.googleLoginMobileEnabled && googleSignIn != nil
             passwordLoginAvailable = capabilities.passwordLoginEnabled
             let anyProvider = appleLoginAvailable || googleLoginAvailable || passwordLoginAvailable
             state = anyProvider ? .ready : .noProviders

@@ -276,8 +276,8 @@ struct AuthAPITests {
             #"{"appleLoginEnabled":true,"googleLoginEnabled":true,"googleLoginMobileEnabled":false,"passwordLoginEnabled":false}"#
         )
 
-        #expect(try await makeAPI(mobile).authCapabilities().googleLoginEnabled)
-        #expect(try await makeAPI(webOnly).authCapabilities().googleLoginEnabled == false)
+        #expect(try await makeAPI(mobile).authCapabilities().googleLoginMobileEnabled)
+        #expect(try await makeAPI(webOnly).authCapabilities().googleLoginMobileEnabled == false)
     }
 
     @Test func capabilitiesRejectedKeyIsReported() async {
