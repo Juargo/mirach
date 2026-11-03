@@ -6,7 +6,7 @@ object LegalDocuments {
      * Both documents are versioned together. Sent with the sign-in; the server stores it with a
      * new account. Bump it when either text changes.
      */
-    const val VERSION = "2026-11-01"
+    const val VERSION = "2026-11-03"
     const val TERMINOS_URL = "https://mirachbudget.app/terminos"
     const val PRIVACIDAD_URL = "https://mirachbudget.app/privacidad"
 }
