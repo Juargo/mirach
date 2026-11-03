@@ -46,6 +46,7 @@ cd apps/ios
 
 - **Cuándo regenerar:** cada vez que cambie `apps/api/openapi.json` (el CI falla si el cliente commiteado quedó desactualizado).
 - **Determinismo:** la versión del generador está fijada en `scripts/openapi-generator/Package.swift` (1.13.1) y la configuración en `scripts/openapi-generator-config.yaml` (tipos y cliente, acceso `internal`). La primera ejecución compila el generador (unos minutos); las siguientes son rápidas. El runtime (`swift-openapi-runtime` 1.12.2) y el transporte (`swift-openapi-urlsession` 1.3.2) se fijan en `project.yml`.
+- **Versiones de paquetes:** `project.yml` fija los paquetes directos y `Package.resolved` (commiteado) fija todos, incluidas las dependencias transitivas del SDK de Google. `generate.sh` lo copia dentro del `.xcodeproj` generado, y el CI compila con `-onlyUsePackageVersionsFromResolvedFile`, así que falla si el archivo no coincide con `project.yml`. Al agregar o cambiar un paquete: edita `project.yml`, corre `./scripts/generate.sh`, resuelve (`xcodebuild -resolvePackageDependencies -project Mirach.xcodeproj -scheme Mirach`) y copia `Mirach.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` a `apps/ios/Package.resolved`.
 - **Las pantallas no usan los tipos generados:** dependen del protocolo `MirachAPI` (`Mirach/Core/API/MirachAPI.swift`), cuya implementación `OpenAPIMirachAPI` envuelve el cliente generado, traduce sus errores y expone solo lo que las pantallas necesitan. Para sumar un endpoint: agrega el método al protocolo y a la implementación, con su prueba.
 - **Forma de OpenAPI que necesita el generador:** `apps/api/openapi.json` se emite como OpenAPI **3.0.3**, no 3.1. El generador (1.13.1) no soporta las propiedades anulables escritas en 3.1 como `anyOf: [T, {type: "null"}]`: avisa `Schema "null" is not supported` y las omite del tipo generado (27 propiedades, p. ej. `estadoGlobal`, `estadoSemaforo`, `porcentajeBp`). En 3.0 zod-openapi las escribe como `nullable: true`, que sí soporta. Además exige `required: true` en los cuerpos `multipart/form-data` (`/api/ingestas*`); el contrato ya lo declara. Si la API vuelve a 3.1, `GeneratedNullableFieldsTests` falla al compilar o decodificar. Un aviso nuevo del generador (`warning:` en la salida de `generate-api.sh`) significa que se está omitiendo algo del contrato: no lo ignores.
 
@@ -186,6 +187,7 @@ El job `ios` de `.github/workflows/ci.yml` corre en `macos-26` (imagen estable c
 ```
 apps/ios/
   project.yml            fuente de verdad del proyecto (XcodeGen)
+  Package.resolved       versiones exactas de todos los paquetes Swift, transitivos incluidos
   scripts/generate.sh    genera el .xcodeproj
   scripts/generate-api.sh  regenera el cliente de la API desde openapi.json
   scripts/generate-tokens.sh  regenera los tokens de diseño desde design/tokens.json

@@ -929,6 +929,7 @@ jobs:
           test -n "$udid" && test "$udid" != null
           xcodebuild test \
             -project Mirach.xcodeproj -scheme Mirach \
+            -onlyUsePackageVersionsFromResolvedFile \
             -destination "platform=iOS Simulator,id=${udid}" \
             -only-testing:MirachTests \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
@@ -987,6 +988,7 @@ jobs:
           echo "Running ${#only[@]} UI tests on shard $SHARD"
           xcodebuild test \
             -project Mirach.xcodeproj -scheme Mirach \
+            -onlyUsePackageVersionsFromResolvedFile \
             -destination "platform=iOS Simulator,id=${udid}" \
             -resultBundlePath "${RUNNER_TEMP}/ios-shard-${SHARD}.xcresult" \
             "${only[@]}" \
