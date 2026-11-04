@@ -1,5 +1,7 @@
 package app.mirachbudget.android
 
+import app.mirachbudget.android.core.staging.CartolaStaging
+import java.io.File
 import android.content.Context
 import android.util.Log
 import app.mirachbudget.android.core.config.AppConfiguration
@@ -22,6 +24,8 @@ object AppEnvironment {
         val googleWebClientId: String,
         /** Non-null when the build cannot work; the root then shows an error screen. */
         val configurationProblem: ConfigurationCheck.Problem?,
+        /** Private copies of the statements being uploaded; emptied at launch and on sign-out. */
+        val staging: CartolaStaging,
     )
 
     fun make(
@@ -51,6 +55,8 @@ object AppEnvironment {
         )
         val session = SessionController(api, store)
         relay.connect(session::sessionExpired)
-        return Dependencies(api, session, googleWebClientId, problem)
+        // A copy left by a previous run (process killed mid-upload) is never reused.
+        val staging = CartolaStaging(File(context.cacheDir, "cartolas")).also { it.purgeAll() }
+        return Dependencies(api, session, googleWebClientId, problem, staging)
     }
 }

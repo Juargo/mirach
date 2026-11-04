@@ -1,5 +1,8 @@
 package app.mirachbudget.android
 
+import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel
+import app.mirachbudget.android.features.subircartola.SubirCartolaRoute
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,7 +44,13 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
     // Counts the sessions that ended, so a ViewModel never outlives its session: the same person
     // signing in again gets a fresh Perfil (no stale lock, no stale deletion suspicion).
     var sessionsEnded by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(phase == Phase.SignedOut) { if (phase == Phase.SignedOut) sessionsEnded++ }
+    // Signing out also deletes any statement copy still staged for upload.
+    LaunchedEffect(phase == Phase.SignedOut) {
+        if (phase == Phase.SignedOut) {
+            sessionsEnded++
+            dependencies.staging.purgeAll()
+        }
+    }
     // Both calls are no-ops unless the phase asks for them, so recreating the activity
     // (rotation, theme) never re-validates; "Reintentar" bumps the counter to call session.retry().
     LaunchedEffect(Unit) { session.start() }
@@ -75,13 +84,32 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                 key = "perfil-${(phase as Phase.SignedIn).userId}-$sessionsEnded",
                 factory = viewModelFactory { initializer { PerfilViewModel(dependencies.api, session) } },
             )
+            val subirViewModel = viewModel<SubirCartolaViewModel>(
+                key = "subir-${(phase as Phase.SignedIn).userId}-$sessionsEnded",
+                factory = viewModelFactory { initializer { SubirCartolaViewModel(dependencies.api, dependencies.staging) } },
+            )
+            // A finished import changes the months with data: reload Resumen even while its tab is hidden.
+            val subirState by subirViewModel.state.collectAsStateWithLifecycle()
+            LaunchedEffect(subirState.importsCompleted) {
+                if (subirState.importsCompleted > 0) resumenViewModel.load()
+            }
+            var selectedTab by rememberSaveable { mutableStateOf("resumen") }
             SignedInShell(
-                listOf(
+                tabs = listOf(
                     ShellTab("resumen", "Resumen") {
-                        ResumenRoute(viewModel = resumenViewModel, version = (version as? ApiVersionState.Loaded)?.info)
+                        ResumenRoute(
+                            viewModel = resumenViewModel,
+                            version = (version as? ApiVersionState.Loaded)?.info,
+                            onUploadStatement = { selectedTab = "subir" },
+                        )
+                    },
+                    ShellTab("subir", "Subir") {
+                        SubirCartolaRoute(subirViewModel, onShowResumen = { selectedTab = "resumen" })
                     },
                     ShellTab("perfil", "Perfil") { PerfilRoute(perfilViewModel) },
                 ),
+                selectedId = selectedTab,
+                onSelect = { selectedTab = it },
             )
         }
         Phase.ConnectionFailed -> ConnectionFailedScreen(onRetry = { retry++ })

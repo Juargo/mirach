@@ -1,6 +1,8 @@
 package app.mirachbudget.android.core.formatting
 
 import app.mirachbudget.android.core.networking.Periodo
+import java.time.Instant
+import java.time.ZoneOffset
 
 /**
  * Display rules of the catalog (`docs/catalogo/README.md`, "Reglas globales"). The app only
@@ -54,6 +56,19 @@ object Format {
 
     /** `Septiembre de 2026`, for a title. */
     fun monthTitle(periodo: Periodo): String = month(periodo).replaceFirstChar { it.uppercase() }
+
+    private val shortMonthNames = listOf(
+        "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic",
+    )
+
+    /**
+     * `3 oct`, read in UTC: the API sends the statement's day as midnight UTC, and the local time
+     * zone would move it to the previous evening west of Greenwich.
+     */
+    fun shortDate(instant: Instant): String {
+        val date = instant.atOffset(ZoneOffset.UTC)
+        return "${date.dayOfMonth} ${shortMonthNames[date.monthValue - 1]}"
+    }
 
     private fun signed(amount: Long, positiveSign: String, negativeSign: String): String = when {
         amount == 0L -> "$0"
