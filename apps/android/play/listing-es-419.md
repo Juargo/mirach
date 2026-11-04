@@ -13,7 +13,7 @@ Tu presupuesto 50/30/20 a partir de tus cartolas bancarias.
 
 ## Full description
 
-Mirach te ayuda a entender en qué se va tu dinero. Toma los movimientos de tus cartolas de Banco de Chile, BancoEstado, BCI y Santander, los clasifica y te muestra cómo va cada mes frente a la regla 50/30/20: Necesidades, Deseos y Ahorro.
+Mirach te ayuda a entender en qué se va tu dinero. Toma los movimientos de tus cartolas de Banco de Chile, BancoEstado, BCI y Santander, los clasifica y te muestra cómo va cada mes frente a la regla 50/30/20: Necesidades, Gustos y Ahorro.
 
 • Resumen de cada mes: lo que gastaste en cada grupo frente a su meta.
 • Navega entre meses para ver cómo cambian tus gastos.
