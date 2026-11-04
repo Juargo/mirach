@@ -1,16 +1,29 @@
 package app.mirachbudget.android.core.networking
 
+import app.mirachbudget.android.core.staging.CartolaFile
 import app.mirachbudget.android.core.api.generated.apis.DefaultApi
 import app.mirachbudget.android.core.api.generated.models.ApiAuthGoogleTokenPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiAuthLoginPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiCategoriasPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiCategoriasPostRequestPatronesInner
+import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet200ResponseConsentimientosInner
+import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCuentaDeleteRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPerfilPatchRequest
 import app.mirachbudget.android.core.api.generated.models.AuthLoginResponse
 import app.mirachbudget.android.core.session.Session
+import java.io.IOException
 import java.time.Instant
 import java.time.format.DateTimeParseException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
 
 /**
@@ -112,6 +125,128 @@ class GeneratedMirachApi(
         return response.bodyOrThrow("GET /api/periodos").periodos.map(ResumenMapper::periodo)
     }
 
+    override suspend fun previewIngesta(file: CartolaFile, password: String?): CartolaPreview {
+        val sentToken = tokenProvider.token()
+        val part = filePart(file)
+        val response = api.apiIngestasPreviewPost(part, password = password?.takeIf { it.isNotEmpty() })
+        ingestaFailure(response, sentToken)?.let { throw it }
+        return IngestaMapper.preview(response.bodyOrThrow("POST /api/ingestas/preview"))
+    }
+
+    override suspend fun commitIngesta(file: CartolaFile, password: String?, edits: List<CartolaEdit>): CartolaCommitResult {
+        val sentToken = tokenProvider.token()
+        val part = filePart(file)
+        val response = api.apiIngestasCommitPost(
+            part,
+            edits = IngestaMapper.editsJson(edits),
+            password = password?.takeIf { it.isNotEmpty() },
+        )
+        ingestaFailure(response, sentToken)?.let { throw it }
+        val result = response.bodyOrThrow("POST /api/ingestas/commit")
+        return CartolaCommitResult(
+            ingestaId = result.ingestaId,
+            totalTransacciones = result.totalTransacciones,
+            duplicadosOmitidos = result.duplicadosOmitidos,
+        )
+    }
+
+    override suspend fun categorias(): CatalogoCategorias {
+        val sentToken = tokenProvider.token()
+        val response = api.apiCategoriasGet()
+        if (response.code() == 401) throw rejection(response, sentToken)
+        return IngestaMapper.catalog(response.bodyOrThrow("GET /api/categorias"))
+    }
+
+    override suspend fun crearCategoria(nueva: NuevaCategoria): CategoriaCatalogo {
+        val sentToken = tokenProvider.token()
+        val patron = nueva.patron?.trim().orEmpty()
+        val response = api.apiCategoriasPost(
+            ApiCategoriasPostRequest(
+                bucket = nueva.bucket.apiName,
+                nombre = nueva.nombre,
+                icono = nueva.icono,
+                // The simplest match type; the form never sends a priority.
+                patrones = if (patron.isEmpty()) null else listOf(ApiCategoriasPostRequestPatronesInner("CONTAINS", patron)),
+            ),
+        )
+        when (response.code()) {
+            400, 409 -> throw categoriaFailure(response)
+            401 -> throw rejection(response, sentToken)
+        }
+        val created = response.bodyOrThrow("POST /api/categorias")
+        return IngestaMapper.category(created) ?: throw IngestaMapper.malformed("bucket ${created.bucket}")
+    }
+
+    override suspend fun consentimientos(): Consentimientos {
+        val sentToken = tokenProvider.token()
+        val response = api.apiConsentimientosGet()
+        if (response.code() == 401) throw rejection(response, sentToken)
+        val list = response.bodyOrThrow("GET /api/consentimientos").consentimientos
+        return Consentimientos(
+            cartolasVigente = list.any {
+                it.tipo == ApiConsentimientosGet200ResponseConsentimientosInner.Tipo.cartolas && it.revocadoEn == null
+            },
+        )
+    }
+
+    override suspend fun aceptarConsentimientoCartolas() {
+        val sentToken = tokenProvider.token()
+        val response = api.apiConsentimientosPost(
+            ApiConsentimientosPostRequest(tipo = ApiConsentimientosPostRequest.Tipo.cartolas, version = LegalDocuments.VERSION),
+        )
+        if (response.code() == 401) throw rejection(response, sentToken)
+        if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
+    /**
+     * The staged copy is ours alone: if it cannot be read it is gone, and only choosing the file
+     * again helps, so this must not look like a retryable network error.
+     */
+    private fun filePart(file: CartolaFile): MultipartBody.Part {
+        val bytes = try {
+            file.file.readBytes()
+        } catch (_: IOException) {
+            throw IngestaException.FileUnreadable()
+        }
+        return MultipartBody.Part.createFormData("file", file.filename, bytes.toRequestBody(octetStream))
+    }
+
+    /** Both upload endpoints answer the same errors. `null` when the response is a success. */
+    private fun ingestaFailure(response: Response<*>, sentToken: String?): Exception? {
+        if (response.isSuccessful) return null
+        if (response.code() == 401) return rejection(response, sentToken)
+        val error = errorBody(response)
+        return when (response.code()) {
+            400 -> when (error?.code) {
+                "PDF_PROTEGIDO" -> IngestaException.PasswordRequired()
+                "PDF_PASSWORD_INCORRECTA" -> IngestaException.PasswordIncorrect()
+                "SIN_MOVIMIENTOS" -> IngestaException.NoMovements()
+                else -> IngestaException.Rejected(error?.message?.takeIf { it.isNotEmpty() })
+            }
+            409 -> if (error?.code == "CONSENTIMIENTO_CARTOLAS_REQUERIDO") IngestaException.ConsentRequired() else IngestaException.CatalogIncomplete()
+            500 -> IngestaException.ServerFailure()
+            503 -> IngestaException.CatalogUnavailable()
+            else -> ApiException(response.code())
+        }
+    }
+
+    /** One case per `code` of `CatalogoErrorResponse`; anything else keeps the server's message. */
+    private fun categoriaFailure(response: Response<*>): Exception {
+        val error = errorBody(response)
+        val code = error?.code ?: return ApiException(response.code())
+        return when (code) {
+            "NOMBRE_INVALIDO" -> CategoriaException.InvalidName()
+            "BUCKET_NO_ASIGNABLE" -> CategoriaException.BucketNotAssignable()
+            "ICONO_INVALIDO" -> CategoriaException.InvalidIcon()
+            "PATRON_INVALIDO" -> CategoriaException.InvalidPattern(error.indice)
+            "MATCH_TYPE_INVALIDO" -> CategoriaException.InvalidMatchType(error.indice)
+            "REGEX_INVALIDA" -> CategoriaException.InvalidRegex(error.indice)
+            "NOMBRE_DUPLICADO" -> CategoriaException.DuplicateName()
+            "PATRON_DUPLICADO" -> CategoriaException.DuplicatePattern(error.indice)
+            else -> CategoriaException.Rejected(error.message.orEmpty())
+        }
+    }
+
     /**
      * Every authenticated endpoint funnels its 401 through here, so the expired-session
      * notification lives in exactly one place.
@@ -153,18 +288,29 @@ class GeneratedMirachApi(
         return body() ?: throw SerializationException("Empty body for $what")
     }
 
-    private fun errorCode(response: Response<*>): String? = try {
-        response.errorBody()?.string()?.let { errorJson.decodeFromString<ErrorBody>(it).code }
-    } catch (_: SerializationException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
+    private fun errorCode(response: Response<*>): String? = errorBody(response)?.code
+
+    /**
+     * The fields of an error body the app reads. Each one is read on its own, so an unexpected
+     * shape in one never hides another. The body can be read once per response.
+     */
+    private fun errorBody(response: Response<*>): ErrorBody? {
+        val obj = try {
+            response.errorBody()?.string()?.let { errorJson.parseToJsonElement(it).jsonObject }
+        } catch (_: SerializationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        } ?: return null
+        return ErrorBody(code = obj.text("code"), message = obj.text("message"), indice = (obj["indice"] as? JsonPrimitive)?.intOrNull)
     }
 
-    @kotlinx.serialization.Serializable
-    private class ErrorBody(val code: String? = null)
+    private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+    private class ErrorBody(val code: String?, val message: String?, val indice: Int?)
 
     private companion object {
         val errorJson = Json { ignoreUnknownKeys = true }
+        val octetStream = "application/octet-stream".toMediaType()
     }
 }

@@ -60,6 +60,15 @@ class PerfilApiTest {
     }
 
     @Test
+    fun theCodeIsReadWhateverShapeTheOtherErrorFieldsHave() {
+        // The error reader also serves the upload endpoints, which read `message` and `indice`:
+        // a field it does not expect must not hide the `code` from the older callers.
+        json(400, """{"code":"NOMBRE_INVALIDO","message":{"nested":true},"indice":"x"}""")
+
+        assertThrows(InvalidNameException::class.java) { runBlocking { api().updateNombre("") } }
+    }
+
+    @Test
     fun anyOther400WhileSavingIsAPlainApiException() {
         json(400, """{"code":"OTRO","error":"x"}""")
 

@@ -1,8 +1,16 @@
 package app.mirachbudget.android.testing
 
+import app.mirachbudget.android.core.staging.CartolaFile
 import app.mirachbudget.android.core.networking.AuthCapabilities
+import app.mirachbudget.android.core.networking.CartolaCommitResult
+import app.mirachbudget.android.core.networking.CartolaEdit
+import app.mirachbudget.android.core.networking.CartolaPreview
+import app.mirachbudget.android.core.networking.CatalogoCategorias
+import app.mirachbudget.android.core.networking.CategoriaCatalogo
+import app.mirachbudget.android.core.networking.Consentimientos
 import app.mirachbudget.android.core.networking.CurrentUser
 import app.mirachbudget.android.core.networking.MirachApi
+import app.mirachbudget.android.core.networking.NuevaCategoria
 import app.mirachbudget.android.core.networking.Periodo
 import app.mirachbudget.android.core.networking.ResumenMes
 import app.mirachbudget.android.core.networking.VersionInfo
@@ -23,6 +31,14 @@ class FakeMirachApi : MirachApi {
     var onLogout: suspend () -> Unit = {}
     var onDeleteAccount: suspend (String) -> Unit = {}
 
+    var onPreviewIngesta: suspend (CartolaFile, String?) -> CartolaPreview = { _, _ -> error("previewIngesta() not scripted") }
+    var onCommitIngesta: suspend (CartolaFile, String?, List<CartolaEdit>) -> CartolaCommitResult =
+        { _, _, _ -> error("commitIngesta() not scripted") }
+    var onCategorias: suspend () -> CatalogoCategorias = { error("categorias() not scripted") }
+    var onCrearCategoria: suspend (NuevaCategoria) -> CategoriaCatalogo = { error("crearCategoria() not scripted") }
+    var onConsentimientos: suspend () -> Consentimientos = { error("consentimientos() not scripted") }
+    var onAceptarConsentimientoCartolas: suspend () -> Unit = {}
+
     val googleTokens = mutableListOf<String>()
     val passwordAttempts = mutableListOf<Pair<String, String>>()
     var currentUserCalls = 0
@@ -31,6 +47,14 @@ class FakeMirachApi : MirachApi {
     val updateNombreCalls = mutableListOf<String>()
     var logoutCalls = 0
     val deleteCalls = mutableListOf<String>()
+    val previewCalls = mutableListOf<Pair<CartolaFile, String?>>()
+
+    /** One entry per commit: the file, the password and the edits, as sent. */
+    val commitCalls = mutableListOf<Triple<CartolaFile, String?, List<CartolaEdit>>>()
+    var categoriasCalls = 0
+    val crearCategoriaCalls = mutableListOf<NuevaCategoria>()
+    var consentimientosCalls = 0
+    var aceptarConsentimientoCalls = 0
 
     override suspend fun version() = onVersion()
     override suspend fun capabilities() = onCapabilities()
@@ -72,5 +96,35 @@ class FakeMirachApi : MirachApi {
     override suspend fun periodos(): List<Periodo> {
         periodosCalls++
         return onPeriodos()
+    }
+
+    override suspend fun previewIngesta(file: CartolaFile, password: String?): CartolaPreview {
+        previewCalls += file to password
+        return onPreviewIngesta(file, password)
+    }
+
+    override suspend fun commitIngesta(file: CartolaFile, password: String?, edits: List<CartolaEdit>): CartolaCommitResult {
+        commitCalls += Triple(file, password, edits)
+        return onCommitIngesta(file, password, edits)
+    }
+
+    override suspend fun categorias(): CatalogoCategorias {
+        categoriasCalls++
+        return onCategorias()
+    }
+
+    override suspend fun crearCategoria(nueva: NuevaCategoria): CategoriaCatalogo {
+        crearCategoriaCalls += nueva
+        return onCrearCategoria(nueva)
+    }
+
+    override suspend fun consentimientos(): Consentimientos {
+        consentimientosCalls++
+        return onConsentimientos()
+    }
+
+    override suspend fun aceptarConsentimientoCartolas() {
+        aceptarConsentimientoCalls++
+        onAceptarConsentimientoCartolas()
     }
 }
