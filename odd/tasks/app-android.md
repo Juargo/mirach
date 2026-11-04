@@ -43,7 +43,7 @@ ADR-046 D8: Android second, after the iPhone app. The 14-day clock is the longes
 - [x] **T4b — Resumen del mes.**
 - [x] **T5a — First closed-test release, repo side:** release signing (upload key outside the repo, `create-upload-key.sh`), versioning, R8 rules, signed AAB, runtime check of the release APK on an emulator, owner runbook `apps/android/docs/publicar-en-play.md`.
 - [ ] **T5b — First closed-test release, owner side:** Play Console app, Play App Signing, OAuth clients (Web + Android upload SHA-1 + Play signing SHA-1), Render `GOOGLE_CLIENT_ID_ANDROID`, `GOOGLE_WEB_CLIENT_ID` in `secrets.properties`, landing deployed with an updated privacy page and an account-deletion section, internal smoke test, closed track with 15+ testers. **Starts the 14-day clock.**
-- [ ] **T6 — Subir cartola** (preview, protected PDF, review and edit, create category from a row).
+- [x] **T6 — Subir cartola** (preview, protected PDF, review and edit, create category from a row). Tracked in `odd/tasks/android-subir-cartola.md` (branch `feat/android-subir-cartola`); adds the statement consent (PRI-02).
 - [x] **T7 — Perfil** (name edit, logout, delete account with `ELIMINAR`).
 - [ ] **T8 — Detalle de bucket.**
 - [ ] **T9 — Ingresos del mes.**
