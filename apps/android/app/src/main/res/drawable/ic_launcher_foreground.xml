@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Isotype "Concepto A · Proporción" (Figma Mirach-UI, node 99:101): a square split 50/30/20.
+    It spans 37.5dp of the 108dp canvas, the same share of the visible 72dp as on the iOS icon,
+    and stays inside the 66dp safe zone.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#3C5A80" android:pathData="M35.25,35.25H54V72.75H35.25Z" />
+    <path android:fillColor="#7B61A8" android:pathData="M54,35.25H65.25V72.75H54Z" />
+    <path android:fillColor="#009B7D" android:pathData="M65.25,35.25H72.75V72.75H65.25Z" />
+</vector>
