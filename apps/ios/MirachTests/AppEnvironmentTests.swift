@@ -64,6 +64,7 @@ struct AppEnvironmentTests {
                 arguments: [AppEnvironment.stubbedClientArgument, AppEnvironment.savedSessionArgument],
                 staging: staging
             )
+            await live.subir.start()
             await live.subir.chooseFile(URL(fileURLWithPath: "/tmp/cartola.xlsx"))
             #expect(staging.discarded.isEmpty)
 

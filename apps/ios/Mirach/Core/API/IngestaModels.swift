@@ -113,6 +113,12 @@ struct CartolaCommitResult: Equatable, Sendable {
     let duplicadosOmitidos: Int
 }
 
+/// Result of `GET /api/consentimientos`, reduced to what the upload flow needs.
+struct Consentimientos: Equatable, Sendable {
+    /// A `cartolas` consent exists and was not revoked (PRI-02).
+    let cartolasVigente: Bool
+}
+
 /// What the upload endpoints can answer besides success. 401 is not here: it goes through
 /// the single session-expiry relay (`APIError.sessionExpired`).
 enum IngestaError: Error, Equatable {
@@ -124,8 +130,11 @@ enum IngestaError: Error, Equatable {
     case noMovements
     /// Any other 400 (file, unknown bank, structure...): the server's own `message`.
     case rejected(message: String)
-    /// 409 `CATALOGO_INCOMPLETO`: permanent, a problem of the account.
+    /// 409 `CATALOGO_INCOMPLETO` (or any other 409): permanent, a problem of the account.
     case catalogIncomplete
+    /// 409 `CONSENTIMIENTO_CARTOLAS_REQUERIDO`: the person has not accepted the processing of
+    /// statements (PRI-02). Accepting it and sending the same file again fixes it.
+    case consentRequired
     /// 503 `CATALOGO_NO_DISPONIBLE`: transient, nothing was saved.
     case catalogUnavailable
     /// The staged copy cannot be read any more (deleted or unreadable): trying again cannot help,

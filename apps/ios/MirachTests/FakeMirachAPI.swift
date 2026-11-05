@@ -124,6 +124,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _catalogWriteGate: Gate?
     private var _previewCalls: [UploadCall] = []
     private var _commitCalls: [UploadCall] = []
+    private var consentimientosResults: [Result<Consentimientos, any Error>] = [
+        .success(Consentimientos(cartolasVigente: true)),
+    ]
+    private var _consentimientosCalls = 0
+    private var aceptarResults: [Result<Void, any Error>] = [.success(())]
+    private var _aceptarCalls = 0
+    private var _aceptarGate: Gate?
 
     init(
         versionResult: Result<VersionInfo, any Error> = .success(VersionInfo(version: "0", commit: "0")),
@@ -460,6 +467,45 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
             return reclasificarResults.count > 1 ? reclasificarResults.removeFirst() : reclasificarResults[0]
         }
         return try result.get()
+    }
+
+    // MARK: consent (PRI-02)
+
+    /// Answers for the next `consentimientos()` calls, in order; the last one repeats. In force by default.
+    func setConsentimientosResults(_ results: [Result<Consentimientos, any Error>]) {
+        lock.withLock { consentimientosResults = results }
+    }
+
+    var consentimientosCalls: Int { lock.withLock { _consentimientosCalls } }
+
+    func consentimientos() async throws -> Consentimientos {
+        let result = lock.withLock {
+            _consentimientosCalls += 1
+            return consentimientosResults.count > 1 ? consentimientosResults.removeFirst() : consentimientosResults[0]
+        }
+        return try result.get()
+    }
+
+    /// Answers for the next `aceptarConsentimientoCartolas()` calls, in order; the last one repeats.
+    func setAceptarResults(_ results: [Result<Void, any Error>]) {
+        lock.withLock { aceptarResults = results }
+    }
+
+    var aceptarCalls: Int { lock.withLock { _aceptarCalls } }
+
+    /// When set, `aceptarConsentimientoCartolas` waits at the gate before delivering its answer.
+    var aceptarGate: Gate? {
+        get { lock.withLock { _aceptarGate } }
+        set { lock.withLock { _aceptarGate = newValue } }
+    }
+
+    func aceptarConsentimientoCartolas() async throws {
+        let (result, gate) = lock.withLock {
+            _aceptarCalls += 1
+            return (aceptarResults.count > 1 ? aceptarResults.removeFirst() : aceptarResults[0], _aceptarGate)
+        }
+        await gate?.wait()
+        try result.get()
     }
 
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult {

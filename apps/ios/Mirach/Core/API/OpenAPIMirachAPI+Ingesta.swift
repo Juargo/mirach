@@ -25,8 +25,8 @@ extension OpenAPIMirachAPI {
                 throw Self.rejection(of: bad.body)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
-            case .conflict:
-                throw IngestaError.catalogIncomplete
+            case .conflict(let conflict):
+                throw Self.map409(code: (try? conflict.body.json)?.code.rawValue)
             case .internalServerError:
                 throw IngestaError.serverFailure
             case .serviceUnavailable:
@@ -76,8 +76,8 @@ extension OpenAPIMirachAPI {
                 throw Self.rejection(of: bad.body)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
-            case .conflict:
-                throw IngestaError.catalogIncomplete
+            case .conflict(let conflict):
+                throw Self.map409(code: (try? conflict.body.json)?.code.rawValue)
             case .internalServerError:
                 throw IngestaError.serverFailure
             case .serviceUnavailable:
@@ -106,7 +106,7 @@ extension OpenAPIMirachAPI {
             if (json?["code"] as? String) == "API_KEY_INVALIDA" { return APIError.apiKeyRejected }
             if let sentToken { onSessionExpired(sentToken) }
             return APIError.sessionExpired
-        case 409: return IngestaError.catalogIncomplete
+        case 409: return Self.map409(code: json?["code"] as? String)
         case 500: return IngestaError.serverFailure
         case 503: return IngestaError.catalogUnavailable
         default: return error.underlyingError
@@ -147,6 +147,12 @@ extension OpenAPIMirachAPI {
     ) -> IngestaError {
         guard let payload = try? body.json else { return .rejected(message: genericRejection) }
         return map400(code: payload.code?.rawValue, message: payload.message)
+    }
+
+    /// 409 on either endpoint. Only the consent code has its own meaning; `CATALOGO_INCOMPLETO`,
+    /// an unknown code or an unreadable body are a problem of the account.
+    private static func map409(code: String?) -> IngestaError {
+        code == "CONSENTIMIENTO_CARTOLAS_REQUERIDO" ? .consentRequired : .catalogIncomplete
     }
 
     private static func map400(code: String?, message: String) -> IngestaError {

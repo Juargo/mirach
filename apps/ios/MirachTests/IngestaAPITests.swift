@@ -454,6 +454,56 @@ struct IngestaAPITests {
         }
     }
 
+    // MARK: 409: consent vs catalog
+
+    private static let consentConflict =
+        #"{"message":"Debes aceptar el tratamiento de cartolas","code":"CONSENTIMIENTO_CARTOLAS_REQUERIDO"}"#
+
+    @Test func a409WithoutTheCartolasConsentIsConsentRequiredOnPreviewAndCommit() async throws {
+        let file = try stagedFile()
+
+        await #expect(throws: IngestaError.consentRequired) {
+            _ = try await makeAPI(FakeTransport.json(Self.consentConflict, status: .conflict))
+                .previewIngesta(file: file, password: nil)
+        }
+        await #expect(throws: IngestaError.consentRequired) {
+            _ = try await makeAPI(FakeTransport.json(Self.consentConflict, status: .conflict))
+                .commitIngesta(file: file, password: nil, edits: [])
+        }
+    }
+
+    @Test func a409ConsentCodeIsRecognisedEvenWhenTheBodyDoesNotDecode() async throws {
+        // No `message`: the generated type refuses it, the raw body still names the code.
+        let body = #"{"code":"CONSENTIMIENTO_CARTOLAS_REQUERIDO"}"#
+        let file = try stagedFile()
+
+        await #expect(throws: IngestaError.consentRequired) {
+            _ = try await makeAPI(FakeTransport.json(body, status: .conflict)).previewIngesta(file: file, password: nil)
+        }
+    }
+
+    @Test func a409CatalogIncompleteStillMapsToCatalogIncompleteOnPreview() async throws {
+        let body = #"{"message":"texto del servidor","code":"CATALOGO_INCOMPLETO"}"#
+        let file = try stagedFile()
+
+        await #expect(throws: IngestaError.catalogIncomplete) {
+            _ = try await makeAPI(FakeTransport.json(body, status: .conflict)).previewIngesta(file: file, password: nil)
+        }
+    }
+
+    @Test func anUnreadableOrUnknown409StaysCatalogIncomplete() async throws {
+        let file = try stagedFile()
+        for body in ["not json", #"{"message":"x","code":"OTRO_NUEVO"}"#] {
+            await #expect(throws: IngestaError.catalogIncomplete) {
+                _ = try await makeAPI(FakeTransport.json(body, status: .conflict)).previewIngesta(file: file, password: nil)
+            }
+            await #expect(throws: IngestaError.catalogIncomplete) {
+                _ = try await makeAPI(FakeTransport.json(body, status: .conflict))
+                    .commitIngesta(file: file, password: nil, edits: [])
+            }
+        }
+    }
+
     @Test func commitSendsAnExpiredSessionThroughTheSingleRelay() async throws {
         let transport = FakeTransport.json(#"{"message":"x","code":"SESION_INVALIDA"}"#, status: .unauthorized)
         let file = try stagedFile()

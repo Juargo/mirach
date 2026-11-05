@@ -32,7 +32,7 @@ struct SubirCartolaCategoriaTests {
 
     private func reviewing(_ api: FakeMirachAPI = FakeMirachAPI()) async -> (SubirCartolaViewModel, FakeMirachAPI, FakeCartolaStaging) {
         let staging = FakeCartolaStaging()
-        let viewModel = SubirCartolaViewModel(api: api, staging: staging)
+        let viewModel = await SubirCartolaViewModel.opened(api: api, staging: staging)
         await viewModel.chooseFile(xlsx)
         viewModel.startReview()
         return (viewModel, api, staging)
@@ -46,7 +46,7 @@ struct SubirCartolaCategoriaTests {
         api.setCrearCategoriaResults([.success(created)])
         api.setCategoriasResults([.success(SampleData.catalog), .success(catalogWithNew)])
         let staging = FakeCartolaStaging()
-        let viewModel = SubirCartolaViewModel(api: api, staging: staging)
+        let viewModel = await SubirCartolaViewModel.opened(api: api, staging: staging)
         await viewModel.chooseFile(pdf)
         await viewModel.submitPassword("buena")
         viewModel.startReview()
