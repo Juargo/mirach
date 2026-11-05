@@ -14,7 +14,7 @@ struct CatalogChangeTests {
     }
 
     private func reviewing(_ api: FakeMirachAPI) async -> SubirCartolaViewModel {
-        let viewModel = SubirCartolaViewModel(api: api, staging: FakeCartolaStaging())
+        let viewModel = await SubirCartolaViewModel.opened(api: api, staging: FakeCartolaStaging())
         await viewModel.chooseFile(xlsx)
         viewModel.startReview()
         return viewModel
@@ -60,7 +60,7 @@ struct CatalogChangeTests {
 
     @Test func withNoStatementInProgressTheCatalogIsNotRead() async {
         let api = FakeMirachAPI()
-        let viewModel = SubirCartolaViewModel(api: api, staging: FakeCartolaStaging())
+        let viewModel = await SubirCartolaViewModel.opened(api: api, staging: FakeCartolaStaging())
 
         await viewModel.catalogDidChange()
 

@@ -59,6 +59,8 @@ struct SubirCartolaView: View {
                 Text("Se perderá la revisión. Nada se ha guardado.")
             }
             .onChange(of: viewModel.state) { messageFocused = hasMessage }
+            // The consent (PRI-02) is checked when the flow opens; once open this does nothing.
+            .task { await viewModel.start() }
         }
     }
 
@@ -69,6 +71,23 @@ struct SubirCartolaView: View {
     @ViewBuilder
     private var content: some View {
         switch viewModel.state {
+        case .preparando:
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.top, 48)
+                .accessibilityIdentifier("subir.preparing")
+        case .consentimiento(let failed):
+            consent(failed: failed, isAccepting: false)
+        case .aceptandoConsentimiento:
+            consent(failed: false, isAccepting: true)
+        case .consentimientoPospuesto:
+            StatusMessage(text: SubirCartolaViewModel.consentDismissedMessage, isError: false)
+                .accessibilityFocused($messageFocused)
+            Button { viewModel.showConsent() } label: {
+                Text(SubirCartolaViewModel.consentReopen).frame(maxWidth: .infinity)
+            }
+            .prominentButton().controlSize(.large)
+            .accessibilityIdentifier("subir.consent.reopen")
         case .inicial(let message):
             if let message { StatusMessage(text: message, isError: true).accessibilityFocused($messageFocused) }
             initial
@@ -123,6 +142,8 @@ struct SubirCartolaView: View {
     private var hasMessage: Bool {
         switch viewModel.state {
         case .inicial(let message): message != nil
+        case .consentimiento(let failed): failed
+        case .consentimientoPospuesto: true
         case .protegido, .errorPrevia, .errorImportacion, .exito: true
         default: false
         }
@@ -142,6 +163,12 @@ struct SubirCartolaView: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("subir.instructions")
 
+            // PRI-03: no bank passwords, the file is deleted after reading it.
+            Text(SubirCartolaViewModel.initialPrivacyMessage)
+                .font(.mirach(.subheadline))
+                .foregroundStyle(Color.Mirach.Base.foreground)
+                .accessibilityIdentifier("subir.privacy")
+
             Button { isPickingFile = true } label: {
                 Label("Elegir archivo", systemImage: "doc.badge.plus").frame(maxWidth: .infinity)
             }
@@ -155,6 +182,61 @@ struct SubirCartolaView: View {
                     .buttonStyle(.bordered).controlSize(.large)
                     .accessibilityIdentifier("subir.fixture")
             }
+        }
+    }
+
+    /// The PRI-02 consent (Figma 16, node 114:442), shown before the first upload.
+    private func consent(failed: Bool, isAccepting: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(spacing: 12) {
+                Text(SubirCartolaViewModel.consentTitle)
+                    .font(.mirach(.title3).bold())
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                    .accessibilityAddTraits(.isHeader)
+                Text(SubirCartolaViewModel.consentBody)
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("subir.consent")
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(SubirCartolaViewModel.consentListHeader)
+                    .font(.mirach(.headline))
+                    .foregroundStyle(Color.Mirach.Base.cardForeground)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(SubirCartolaViewModel.consentItems, id: \.self) { item in
+                    Text(item)
+                        .font(.mirach(.subheadline))
+                        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.Mirach.Base.card)
+            .overlay(Rectangle().stroke(Color.Mirach.Base.border))
+            .accessibilityIdentifier("subir.consent.list")
+
+            if failed {
+                StatusMessage(text: SubirCartolaViewModel.consentAcceptFailedMessage, isError: true)
+                    .accessibilityFocused($messageFocused)
+            }
+            Button { Task { await viewModel.acceptConsent() } } label: {
+                Group {
+                    if isAccepting { ProgressView() } else { Text(SubirCartolaViewModel.consentAccept) }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .prominentButton().controlSize(.large)
+            .disabled(isAccepting)
+            .accessibilityLabel(SubirCartolaViewModel.consentAccept)
+            .accessibilityIdentifier("subir.consent.accept")
+            Button { viewModel.declineConsent() } label: {
+                Text(SubirCartolaViewModel.consentDecline).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered).controlSize(.large)
+            .disabled(isAccepting)
+            .accessibilityIdentifier("subir.consent.decline")
         }
     }
 

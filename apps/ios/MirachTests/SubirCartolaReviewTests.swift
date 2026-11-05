@@ -11,15 +11,15 @@ struct SubirCartolaReviewTests {
 
     private func make(
         _ api: FakeMirachAPI = FakeMirachAPI(), _ staging: FakeCartolaStaging = FakeCartolaStaging()
-    ) -> (SubirCartolaViewModel, FakeMirachAPI, FakeCartolaStaging) {
-        (SubirCartolaViewModel(api: api, staging: staging), api, staging)
+    ) async -> (SubirCartolaViewModel, FakeMirachAPI, FakeCartolaStaging) {
+        (await SubirCartolaViewModel.opened(api: api, staging: staging), api, staging)
     }
 
     /// A view model already in `revisando`.
     private func reviewing(
         _ api: FakeMirachAPI = FakeMirachAPI(), _ staging: FakeCartolaStaging = FakeCartolaStaging()
     ) async -> (SubirCartolaViewModel, FakeMirachAPI, FakeCartolaStaging) {
-        let made = make(api, staging)
+        let made = await make(api, staging)
         await made.0.chooseFile(xlsx)
         made.0.startReview()
         return made
@@ -28,7 +28,7 @@ struct SubirCartolaReviewTests {
     // MARK: catalog
 
     @Test func reachingDecidiendoLoadsTheCatalog() async {
-        let (viewModel, api, _) = make()
+        let (viewModel, api, _) = await make()
 
         await viewModel.chooseFile(xlsx)
 
@@ -40,7 +40,7 @@ struct SubirCartolaReviewTests {
     @Test func aFailedCatalogBlocksTheReviewButNotUploadingAsIs() async {
         let api = FakeMirachAPI()
         api.setCategoriasResults([.failure(IngestaError.serverFailure)])
-        let (viewModel, _, _) = make(api)
+        let (viewModel, _, _) = await make(api)
 
         await viewModel.chooseFile(xlsx)
         viewModel.startReview()
@@ -56,7 +56,7 @@ struct SubirCartolaReviewTests {
     @Test func retryingTheCatalogEnablesTheReview() async {
         let api = FakeMirachAPI()
         api.setCategoriasResults([.failure(URLError(.notConnectedToInternet)), .success(SampleData.catalog)])
-        let (viewModel, _, _) = make(api)
+        let (viewModel, _, _) = await make(api)
         await viewModel.chooseFile(xlsx)
         #expect(viewModel.catalog == .failed)
 
@@ -70,7 +70,7 @@ struct SubirCartolaReviewTests {
     @Test func anExpiredSessionWhileLoadingTheCatalogClearsTheFlow() async {
         let api = FakeMirachAPI()
         api.setCategoriasResults([.failure(APIError.sessionExpired)])
-        let (viewModel, _, staging) = make(api)
+        let (viewModel, _, staging) = await make(api)
 
         await viewModel.chooseFile(xlsx)
 
@@ -79,7 +79,7 @@ struct SubirCartolaReviewTests {
     }
 
     @Test func reviewingStartsFromTheDecisionOnly() async {
-        let (viewModel, _, _) = make()
+        let (viewModel, _, _) = await make()
 
         viewModel.startReview()
         #expect(viewModel.state == .inicial(message: nil))
@@ -144,7 +144,7 @@ struct SubirCartolaReviewTests {
     }
 
     @Test func editsAreIgnoredOutsideTheReview() async {
-        let (viewModel, _, _) = make()
+        let (viewModel, _, _) = await make()
         await viewModel.chooseFile(xlsx)
 
         viewModel.choose(SampleData.Cat.fondo, forRow: 1)
@@ -209,7 +209,7 @@ struct SubirCartolaReviewTests {
     @Test func confirmingResendsThePasswordAndTheStagedFile() async {
         let api = FakeMirachAPI()
         api.setPreviewResults([.failure(IngestaError.passwordRequired), .success(SampleData.preview)])
-        let (viewModel, _, _) = make(api)
+        let (viewModel, _, _) = await make(api)
         await viewModel.chooseFile(pdf)
         await viewModel.submitPassword("buena")
         viewModel.startReview()
@@ -222,7 +222,7 @@ struct SubirCartolaReviewTests {
     }
 
     @Test func confirmIsIgnoredOutsideTheReviewOrWhileTheCatalogIsNotLoaded() async {
-        let (viewModel, api, _) = make()
+        let (viewModel, api, _) = await make()
         await viewModel.chooseFile(xlsx)
 
         await viewModel.confirm()
@@ -278,7 +278,7 @@ struct SubirCartolaReviewTests {
         api.setPreviewResults([.failure(IngestaError.passwordRequired), .success(SampleData.preview)])
         api.setCommitResults([.failure(IngestaError.rejected(message: "Archivo inválido"))])
         let staging = FakeCartolaStaging()
-        let (viewModel, _, _) = make(api, staging)
+        let (viewModel, _, _) = await make(api, staging)
         await viewModel.chooseFile(pdf)
         await viewModel.submitPassword("buena")
         viewModel.startReview()
@@ -356,7 +356,7 @@ struct SubirCartolaReviewTests {
     @Test func anUploadAsIsErrorOffersNoWayBackToTheReview() async {
         let api = FakeMirachAPI()
         api.setCommitResults([.failure(IngestaError.serverFailure)])
-        let (viewModel, _, _) = make(api)
+        let (viewModel, _, _) = await make(api)
         await viewModel.chooseFile(xlsx)
         await viewModel.uploadAsIs()
 
@@ -368,7 +368,7 @@ struct SubirCartolaReviewTests {
     @Test func aRetryAfterAnUploadAsIsErrorResendsNoEdits() async {
         let api = FakeMirachAPI()
         api.setCommitResults([.failure(IngestaError.serverFailure), .success(SampleData.commit)])
-        let (viewModel, _, _) = make(api)
+        let (viewModel, _, _) = await make(api)
         await viewModel.chooseFile(xlsx)
         await viewModel.uploadAsIs()
 
@@ -383,7 +383,7 @@ struct SubirCartolaReviewTests {
         let api = FakeMirachAPI()
         api.setPreviewResults([.failure(IngestaError.passwordRequired), .success(SampleData.preview)])
         let staging = FakeCartolaStaging()
-        let (viewModel, _, _) = make(api, staging)
+        let (viewModel, _, _) = await make(api, staging)
         await viewModel.chooseFile(pdf)
         await viewModel.submitPassword("buena")
         viewModel.startReview()
@@ -409,7 +409,7 @@ struct SubirCartolaReviewTests {
         let api = FakeMirachAPI()
         let gate = Gate()
         api.categoriasGate = gate
-        let (viewModel, _, _) = make(api)
+        let (viewModel, _, _) = await make(api)
 
         let choosing = Task { await viewModel.chooseFile(xlsx) }
         await gate.waitUntilWaiting()

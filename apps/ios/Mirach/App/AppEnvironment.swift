@@ -14,6 +14,8 @@ enum AppEnvironment {
     static let missingAPIKeyArgument = "-uiTestMissingAPIKey"
     /// With the stub: the server enables the App Review password form (ADR-051).
     static let passwordLoginArgument = "-uiTestPasswordLogin"
+    /// With the stub: the person has not accepted the statement-processing consent (PRI-02) yet.
+    static let noCartolasConsentArgument = "-uiTestNoCartolasConsent"
     /// Debug builds only: `-uiTestFixturePath <file>` makes the Subir screen offer a button that
     /// picks that file, because XCUITest cannot drive the system document picker.
     static let fixturePathArgument = "-uiTestFixturePath"
@@ -56,10 +58,13 @@ enum AppEnvironment {
             let stubStore = InMemorySessionStore(
                 session: arguments.contains(savedSessionArgument) ? StubMirachAPI.savedSession : nil
             )
-            let api = StubMirachAPI(passwordLoginEnabled: arguments.contains(passwordLoginArgument))
+            let api = StubMirachAPI(
+                passwordLoginEnabled: arguments.contains(passwordLoginArgument),
+                consent: StubConsent(inForce: !arguments.contains(noCartolasConsentArgument))
+            )
             let subir = SubirCartolaViewModel(api: api, staging: staging)
             let session = SessionController(api: api, store: stubStore)
-            session.onSessionEnded = { subir.discard() }
+            session.onSessionEnded = { subir.endSession() }
             return Dependencies(
                 api: api,
                 store: stubStore,
@@ -90,7 +95,7 @@ enum AppEnvironment {
         let subir = SubirCartolaViewModel(api: api, staging: staging)
         // The file copy and the PDF password belong to the person: they go with the session
         // (sign-out, 401, account deletion), not only when a view happens to disappear.
-        session.onSessionEnded = { subir.discard() }
+        session.onSessionEnded = { subir.endSession() }
         return Dependencies(
             api: api, store: store, session: session, expiryRelay: relay,
             staging: staging, subir: subir,
@@ -144,6 +149,17 @@ struct StubMirachAPI: MirachAPI {
 
     /// `-uiTestPasswordLogin` turns the review password form on.
     var passwordLoginEnabled = false
+
+    /// Whether the `cartolas` consent is in force; `-uiTestNoCartolasConsent` starts without it.
+    var consent = StubConsent(inForce: true)
+
+    func consentimientos() async throws -> Consentimientos {
+        Consentimientos(cartolasVigente: consent.inForce)
+    }
+
+    func aceptarConsentimientoCartolas() async throws {
+        consent.accept()
+    }
 
     /// The only credentials the stub accepts.
     static let reviewEmail = "revisor@example.com"
@@ -330,4 +346,15 @@ struct StubMirachAPI: MirachAPI {
             )
         }
     }
+}
+
+/// The stub's `cartolas` consent: accepting it lasts for the rest of the launch.
+final class StubConsent: @unchecked Sendable {
+    private let lock = NSLock()
+    private var accepted: Bool
+
+    init(inForce: Bool) { accepted = inForce }
+
+    var inForce: Bool { lock.withLock { accepted } }
+    func accept() { lock.withLock { accepted = true } }
 }

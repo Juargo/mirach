@@ -29,6 +29,34 @@ extension SubirCartolaViewModel {
     }
 }
 
+/// Copy of the consent (PRI-02, Figma 16 node 114:442), identical to Android `SubirCartolaMessages`.
+extension SubirCartolaViewModel {
+    nonisolated static let consentTitle = "Antes de tu primera cartola"
+    nonisolated static let consentBody =
+        "Para mostrarte tu 50/30/20 necesitamos leer los movimientos de tu cartola. Esto es lo que hacemos con ella."
+    nonisolated static let consentListHeader = "Qué hacemos con tu archivo"
+    nonisolated static let consentItems = [
+        "1. Leemos la fecha, la descripción y el monto de cada movimiento.",
+        "2. Borramos el archivo apenas terminamos de leerlo.",
+        "3. Encriptamos los detalles de tus movimientos.",
+        "4. No pedimos tu clave del banco ni nos conectamos a él.",
+    ]
+    nonisolated static let consentAccept = "Acepto y continúo"
+    nonisolated static let consentDecline = "Ahora no"
+    /// Assumption (not in Figma): the acceptance did not reach the server.
+    nonisolated static let consentAcceptFailedMessage = "No pudimos guardar tu aceptación. Inténtalo de nuevo."
+    /// Assumption (not in Figma): what the screen says after «Ahora no».
+    nonisolated static let consentDismissedMessage =
+        "Para subir una cartola necesitas aceptar cómo tratamos tu archivo."
+    /// Assumption (not in Figma): reopens the consent after «Ahora no».
+    nonisolated static let consentReopen = "Ver el permiso"
+
+    /// PRI-03 on the initial screen (assumption on the wording): no bank passwords, the file is
+    /// deleted after reading it.
+    nonisolated static let initialPrivacyMessage =
+        "No pedimos claves de tu banco. Borramos el archivo apenas terminamos de leerlo."
+}
+
 extension SubirCartolaViewModel.PreviewFailure {
     var message: String {
         switch self {

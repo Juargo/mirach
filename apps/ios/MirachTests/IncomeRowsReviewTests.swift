@@ -10,7 +10,7 @@ struct IncomeRowsReviewTests {
     private let catalog: CatalogoCategorias? = SampleData.catalog
 
     private func reviewing(_ api: FakeMirachAPI = FakeMirachAPI()) async -> (SubirCartolaViewModel, FakeMirachAPI) {
-        let viewModel = SubirCartolaViewModel(api: api, staging: FakeCartolaStaging())
+        let viewModel = await SubirCartolaViewModel.opened(api: api, staging: FakeCartolaStaging())
         await viewModel.chooseFile(xlsx)
         viewModel.startReview()
         return (viewModel, api)

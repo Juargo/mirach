@@ -72,6 +72,10 @@ protocol MirachAPI: Sendable {
     /// `DELETE /api/ingestas/{id}`: removes the import and its movements. Throws
     /// `EliminarCartolaError.notFound` for the 404.
     func eliminarCartola(id: String) async throws
+    /// `GET /api/consentimientos`: whether the statement-processing consent (PRI-02) is in force.
+    func consentimientos() async throws -> Consentimientos
+    /// `POST /api/consentimientos` with `{"tipo":"cartolas","version":LegalDocuments.version}`.
+    func aceptarConsentimientoCartolas() async throws
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult

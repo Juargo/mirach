@@ -7,6 +7,7 @@ final class MirachUITests: XCTestCase {
     private let savedSession = "-uiTestSavedSession"     // start as if already signed in
     private let missingAPIKey = "-uiTestMissingAPIKey"   // pretend the client key is empty
     private let passwordLogin = "-uiTestPasswordLogin"   // the server enables the review password form
+    private let noCartolasConsent = "-uiTestNoCartolasConsent" // the statement consent is not accepted yet
 
     override func setUp() {
         continueAfterFailure = false
@@ -507,6 +508,23 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(instructions.exists)
         XCTAssertTrue(instructions.label.contains(".xlsx"))
         XCTAssertTrue(instructions.label.contains("10 MB"))
+    }
+
+    @MainActor
+    func testWithoutTheConsentSubirAsksForItAndAcceptingOpensTheUpload() {
+        let app = launch([savedSession, noCartolasConsent])
+        openSubirTab(app)
+
+        XCTAssertTrue(app.buttons["subir.consent.accept"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Antes de tu primera cartola"].exists)
+        XCTAssertTrue(app.buttons["subir.consent.decline"].exists)
+        XCTAssertFalse(app.buttons["subir.chooseFile"].exists)
+
+        app.buttons["subir.consent.accept"].tap()
+
+        XCTAssertTrue(app.buttons["subir.chooseFile"].waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "subir.privacy").exists)
+        XCTAssertFalse(app.buttons["subir.consent.accept"].exists)
     }
 
     @MainActor

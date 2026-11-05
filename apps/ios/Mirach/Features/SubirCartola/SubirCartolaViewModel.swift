@@ -9,6 +9,14 @@ import Observation
 @Observable
 final class SubirCartolaViewModel {
     enum State: Equatable {
+        /// Checking the consent: nothing to show yet. Also where the end of a session leaves the flow.
+        case preparando
+        /// The PRI-02 consent screen. `failed`: the last acceptance did not reach the server.
+        case consentimiento(failed: Bool)
+        /// «Acepto y continúo» is on its way to the server.
+        case aceptandoConsentimiento
+        /// «Ahora no» was tapped: no upload until the person reopens and accepts the consent.
+        case consentimientoPospuesto
         /// Nothing chosen. `message` explains a refused file or a rejected upload.
         case inicial(message: String?)
         case previsualizando
@@ -57,7 +65,7 @@ final class SubirCartolaViewModel {
         case failed
     }
 
-    private(set) var state: State = .inicial(message: nil)
+    private(set) var state: State = .preparando
     /// Grows by one with every finished import: lets the signed-in shell reload the Resumen.
     private(set) var importsCompleted = 0
 
@@ -225,6 +233,56 @@ final class SubirCartolaViewModel {
         // staged copy. Leftovers of a killed run are purged once at launch (`AppEnvironment`).
     }
 
+    // MARK: consent (PRI-02)
+
+    /// The flow opens: shows the consent first unless it is in force. A failed check lets the API
+    /// decide (a 409 brings the consent back). Does nothing once the flow is open.
+    func start() async {
+        guard state == .preparando else { return }
+        let mine = generation
+        let inForce = (try? await api.consentimientos())?.cartolasVigente ?? true
+        guard mine == generation, state == .preparando else { return }
+        state = inForce ? .inicial(message: nil) : .consentimiento(failed: false)
+    }
+
+    /// «Acepto y continúo». A file waiting for the consent is previewed again with its password.
+    func acceptConsent() async {
+        guard case .consentimiento = state else { return }
+        state = .aceptandoConsentimiento
+        let mine = generation
+        do {
+            try await api.aceptarConsentimientoCartolas()
+        } catch {
+            guard mine == generation else { return }
+            // An expired session has no message here: the relay is already moving to sign-in.
+            if case APIError.sessionExpired = error {
+                state = .consentimiento(failed: false)
+            } else {
+                state = .consentimiento(failed: true)
+            }
+            return
+        }
+        guard mine == generation else { return }
+        if file != nil {
+            await runPreview(generation: mine)
+        } else {
+            state = .inicial(message: nil)
+        }
+    }
+
+    /// «Ahora no»: no upload until accepted. A file waiting for the consent is deleted.
+    func declineConsent() {
+        guard case .consentimiento = state else { return }
+        clear()
+        state = .consentimientoPospuesto
+    }
+
+    /// Reopens the consent after «Ahora no».
+    func showConsent() {
+        guard state == .consentimientoPospuesto else { return }
+        state = .consentimiento(failed: false)
+    }
+
     // MARK: actions
 
     /// Picked from the document picker (or from the UI-test hook). Validates and stages the
@@ -343,12 +401,18 @@ final class SubirCartolaViewModel {
         state = .revisando(preview)
     }
 
-    /// Discard, "Subir otra cartola", "Empezar de nuevo" and sign-out all end here: back to
-    /// the start with the file copy and the password gone. The confirmation dialog belongs to
-    /// the view.
+    /// Discard, "Subir otra cartola" and "Empezar de nuevo" end here: back to the start with
+    /// the file copy and the password gone. The confirmation dialog belongs to the view.
     func discard() {
         clear()
         state = .inicial(message: nil)
+    }
+
+    /// Sign-out, a 401 or account deletion: like `discard()`, and the next person's consent is
+    /// checked again when the flow opens.
+    func endSession() {
+        clear()
+        state = .preparando
     }
 
     // MARK: internals
@@ -443,6 +507,8 @@ final class SubirCartolaViewModel {
         case IngestaError.rejected(let message): state = .errorPrevia(.rejected(message: message))
         case IngestaError.catalogUnavailable: state = .errorPrevia(.temporarilyUnavailable)
         case IngestaError.catalogIncomplete: state = .errorPrevia(.accountProblem)
+        // The file and password stay: once accepted, the same preview runs again.
+        case IngestaError.consentRequired: state = .consentimiento(failed: false)
         case is URLError, is CancellationError: state = .errorPrevia(.connection)
         default: state = .errorPrevia(.server)
         }
@@ -478,6 +544,8 @@ final class SubirCartolaViewModel {
             clear()
             state = .inicial(message: Self.unreadableCopyMessage)
         case IngestaError.catalogIncomplete: state = .errorImportacion(.accountProblem)
+        // The file and password stay: once accepted, the preview runs again before any commit.
+        case IngestaError.consentRequired: state = .consentimiento(failed: false)
         case IngestaError.catalogUnavailable: state = .errorImportacion(.temporarilyUnavailable)
         // A cancelled request (the app went to the background) is safe to retry: a failed
         // commit saves nothing.
