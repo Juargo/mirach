@@ -271,6 +271,17 @@ describe('BciPdfStrategy', () => {
       ).toBe(false);
     });
 
+    it('ignora la fila del rango del período, completa o partida en dos líneas, pero no un movimiento real', () => {
+      const ignora = (texto: string) =>
+        estructura.filasIgnoradas.some((r) => r.test(texto));
+      expect(ignora('20-08-2026 al 29-09-2026 0 3.000.000 3.100.000')).toBe(
+        true,
+      );
+      expect(ignora('20-08-2026 al 29-   ')).toBe(true);
+      expect(ignora('20-08-2026 ALMACEN AL PASO 12.000')).toBe(false);
+      expect(ignora('29/09/2026 COMPRA COMERCIO 9.897')).toBe(false);
+    });
+
     it('el ancla de período extrae ambas fechas del mismo token de valor (separador "-"), sin dos puntos (V1)', () => {
       const texto = 'PERIODO 01-04-2026 al 30-04-2026';
       expect(texto.match(estructura.anclasPeriodo.desde)?.[1]).toBe(

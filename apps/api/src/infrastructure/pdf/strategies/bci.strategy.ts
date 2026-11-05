@@ -232,10 +232,14 @@ export class BciPdfStrategy {
         // RANGO del período ("DD-MM-YYYY al DD-MM-YYYY"), no una fecha de
         // movimiento. Inerte hasta que el parser aceptó el separador "-"
         // (D-04); desde entonces parsea como fila fechada y, al traer cargo Y
-        // abono, tumbaría la cartola completa. Ancla exacta: ninguna fila de
-        // movimiento real trae dos fechas completas separadas por " al " en
-        // esa columna.
-        /^\d{2}[/-]\d{2}[/-]\d{4}\s+al\s+\d{2}[/-]\d{2}[/-]\d{4}\b/,
+        // abono, tumbaría la cartola completa. Ancla: una fecha completa
+        // seguida de " al " al inicio de la fila; ninguna fila de movimiento
+        // real trae eso en esa columna. La fecha final NO se exige: en
+        // algunas cartolas el rango se parte en dos líneas físicas
+        // ("20-08-2026 al 29-" / "09-2026", con la fila de montos entre
+        // ambas), y la primera línea quedaba sola como fila fechada sin
+        // montos (bug 2026-11-04, `pdf-normalization.spec.ts`).
+        /^\d{2}[/-]\d{2}[/-]\d{4}\s+al\b/,
       ],
       fusionarContinuaciones: true,
       omitirFilasMontoCero: true,
