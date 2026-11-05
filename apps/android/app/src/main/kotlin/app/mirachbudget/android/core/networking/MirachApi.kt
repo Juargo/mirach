@@ -1,5 +1,6 @@
 package app.mirachbudget.android.core.networking
 
+import app.mirachbudget.android.core.staging.CartolaFile
 import app.mirachbudget.android.core.session.Session
 
 /** What the first screen shows from the public `GET /version` endpoint. */
@@ -52,6 +53,31 @@ interface MirachApi {
 
     /** `GET /api/periodos`: months with movements, most recent first. */
     suspend fun periodos(): List<Periodo>
+
+    /**
+     * `POST /api/ingestas/preview`: reads the statement and saves nothing. [password] only for a
+     * protected PDF (an empty one is not sent). Throws [IngestaException] for the answers the
+     * catalog names and [SessionExpiredException] on 401.
+     */
+    suspend fun previewIngesta(file: CartolaFile, password: String?): CartolaPreview
+
+    /**
+     * `POST /api/ingestas/commit`: the API keeps no preview, so the same file and password go again.
+     * [edits] holds only the rows the person reclassified. Same errors as [previewIngesta].
+     */
+    suspend fun commitIngesta(file: CartolaFile, password: String?, edits: List<CartolaEdit>): CartolaCommitResult
+
+    /** `GET /api/categorias`: the user's categories, for naming and changing a row's classification. */
+    suspend fun categorias(): CatalogoCategorias
+
+    /** `POST /api/categorias` with at most one «contains» pattern. Throws [CategoriaException] for the 400 and 409 the catalog names. */
+    suspend fun crearCategoria(nueva: NuevaCategoria): CategoriaCatalogo
+
+    /** `GET /api/consentimientos`: whether the statement-processing consent is in force. */
+    suspend fun consentimientos(): Consentimientos
+
+    /** `POST /api/consentimientos` `{tipo: "cartolas", version: LegalDocuments.VERSION}` (PRI-02). */
+    suspend fun aceptarConsentimientoCartolas()
 }
 
 /** The server answered with a non-2xx status. */
