@@ -710,6 +710,57 @@ describe('normalizarTransaccionesPdf', () => {
     });
   });
 
+  describe('BCI — rango del período partido en dos líneas en la sección de totales (bug 2026-11-04)', () => {
+    // Geometría medida contra una cartola real de 3 páginas (montos
+    // inventados): la columna `fecha` de la fila de valores trae el RANGO
+    // del período, pero aquí el rango se parte en dos líneas físicas
+    // ("20-08-2026 al 29-" en y≈573.8 y "09-2026" en y≈565.5) con la fila de
+    // montos (y≈570) entre ambas. La línea de arriba quedaba sola, parseaba
+    // como fila fechada sin montos y tumbaba la cartola completa.
+    const estructuraBci = new BciPdfStrategy().getEstructura();
+
+    it('ignora la primera línea del rango aunque la fecha final quede en la línea siguiente', () => {
+      const tokens = [
+        tok('29/09/2026', 43.2, 620.3, 3),
+        tok('UGCA AUT', 99.6, 620.3, 3),
+        tok('COMPRA COMERCIO', 151.8, 620.3, 3),
+        tok('9.897', 400.6, 620.3, 3),
+        tok('157.062', 553.0, 620.3, 3), // Saldo — fuera de rangosX
+        tok('Resumen del Periodo', 44.8, 606.8, 3),
+        tok('Total Cargos y', 364.1, 594.0, 3),
+        tok('Total Abonos y', 435.0, 594.0, 3),
+        tok('Saldo Contable Final', 504.8, 594.0, 3),
+        tok('Periodo', 49.2, 590.3, 3),
+        tok('Saldo Anterior', 300.1, 590.3, 3),
+        tok('Cheques', 373.1, 585.8, 3),
+        tok('Depositos', 442.7, 585.8, 3),
+        tok('del Periodo', 520.6, 585.8, 3),
+        tok('20-08-2026 al 29-', 32.6, 573.8, 3),
+        tok('0', 321.5, 570.0, 3),
+        tok('-', 358.6, 570.0, 3),
+        tok('3.000.000', 386.0, 570.0, 3),
+        tok('+', 431.6, 570.0, 3),
+        tok('3.100.000', 461.3, 570.0, 3),
+        tok('=', 509.8, 570.0, 3),
+        tok('100.000', 552.6, 570.0, 3),
+        tok('09-2026', 48.4, 565.5, 3),
+      ];
+
+      const resultado = ok(
+        normalizarTransaccionesPdf(tokens, estructuraBci, undefined),
+      );
+
+      expect(resultado).toEqual([
+        Transaccion.crear({
+          fecha: new Date(Date.UTC(2026, 8, 29)),
+          descripcion: 'COMPRA COMERCIO',
+          cargo: 9897n,
+          abono: 0n,
+        }).getValue(),
+      ]);
+    });
+  });
+
   describe('recalibración BCI 2026-08-30 — geometría real de 15 cartolas (bug "monto fuera de las columnas configuradas")', () => {
     // Estos specs usan la estructura REAL de BciPdfStrategy (no bandas
     // sintéticas) con tokens en las coordenadas X medidas contra las
