@@ -44,10 +44,10 @@ import app.mirachbudget.android.core.networking.ResumenMes
 private const val LARGE_TEXT_SCALE = 1.3f
 
 @Composable
-private fun isLargeText() = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
+internal fun isLargeText() = LocalDensity.current.fontScale >= LARGE_TEXT_SCALE
 
 @Composable
-private fun Modifier.card() = this
+internal fun Modifier.card() = this
     .fillMaxWidth()
     .background(MirachTheme.colors.base.card)
     .border(1.dp, MirachTheme.colors.base.border)
@@ -84,20 +84,28 @@ fun ErrorBlock(failure: ResumenViewModel.Failure, onRetry: () -> Unit, modifier:
     }
 }
 
-/** The "Subir cartola" action arrives with the Subir tab (T6); until then the message stands alone. */
+/** A month without income: the message plus "Subir cartola", which opens the Subir tab (as on iOS). */
 @Composable
-fun EmptyMonth(modifier: Modifier = Modifier) {
+fun EmptyMonth(onUpload: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(top = 32.dp).semantics(mergeDescendants = true) {},
+        modifier = modifier.fillMaxWidth().padding(top = 32.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Todavía no hay datos este mes", style = MaterialTheme.typography.titleMedium, color = MirachTheme.colors.base.foreground)
-        Text(
-            "Cuando subas una cartola, aquí verás cómo se repartió tu mes.",
-            color = MirachTheme.colors.base.mutedForeground,
-            textAlign = TextAlign.Center,
-        )
+        // The two texts read as one element; the button stays its own element so it remains reachable.
+        Column(
+            modifier = Modifier.semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Todavía no hay datos este mes", style = MaterialTheme.typography.titleMedium, color = MirachTheme.colors.base.foreground)
+            Text(
+                "Cuando subas una cartola, aquí verás cómo se repartió tu mes.",
+                color = MirachTheme.colors.base.mutedForeground,
+                textAlign = TextAlign.Center,
+            )
+        }
+        Button(onClick = onUpload, modifier = Modifier.padding(top = 8.dp)) { Text("Subir cartola") }
     }
 }
 

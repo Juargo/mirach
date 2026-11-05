@@ -30,10 +30,11 @@ import kotlinx.coroutines.launch
 
 /**
  * The Resumen del mes tab. "Cerrar sesión" lives in Perfil. `/version` stays as a discreet footnote.
+ * [onUploadStatement] is the empty month's "Subir cartola" (it opens the Subir tab).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ResumenRoute(viewModel: ResumenViewModel, version: VersionInfo?, modifier: Modifier = Modifier) {
+fun ResumenRoute(viewModel: ResumenViewModel, version: VersionInfo?, onUploadStatement: () -> Unit, modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val periodos by viewModel.periodos.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
@@ -70,6 +71,7 @@ fun ResumenRoute(viewModel: ResumenViewModel, version: VersionInfo?, modifier: M
                     siguiente = viewModel.siguiente.takeIf { periodos.isNotEmpty() },
                     onSelect = { scope.launch { viewModel.select(it) } },
                     onRetry = { scope.launch { viewModel.retry() } },
+                    onUploadStatement = onUploadStatement,
                 )
                 version?.let { VersionFootnote(it) }
             }
@@ -84,13 +86,14 @@ fun ResumenScreen(
     siguiente: Periodo?,
     onSelect: (Periodo) -> Unit,
     onRetry: () -> Unit,
+    onUploadStatement: () -> Unit,
 ) {
     when (state) {
         ResumenViewModel.State.Loading -> LoadingBlock()
         is ResumenViewModel.State.Failed -> ErrorBlock(state.failure, onRetry)
         is ResumenViewModel.State.Loaded -> {
             MonthSelector(state.mes.periodo, anterior, siguiente, onSelect)
-            if (state.mes.sinIngreso) EmptyMonth() else ResumenContent(state.mes)
+            if (state.mes.sinIngreso) EmptyMonth(onUpload = onUploadStatement) else ResumenContent(state.mes)
         }
     }
 }

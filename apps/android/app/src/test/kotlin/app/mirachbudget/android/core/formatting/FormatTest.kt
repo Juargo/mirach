@@ -1,6 +1,7 @@
 package app.mirachbudget.android.core.formatting
 
 import app.mirachbudget.android.core.networking.Periodo
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -71,5 +72,19 @@ class FormatTest {
         assertEquals("Septiembre de 2026", Format.monthTitle(Periodo(2026, 9)))
         assertEquals("Enero de 2027", Format.monthTitle(Periodo(2027, 1)))
         assertEquals("diciembre de 2026", Format.month(Periodo(2026, 12)))
+    }
+
+    @Test
+    fun shortDateIsDayAndSpanishMonthAbbreviation() {
+        assertEquals("5 ene", Format.shortDate(Instant.parse("2026-01-05T00:00:00Z")))
+        assertEquals("31 dic", Format.shortDate(Instant.parse("2026-12-31T12:00:00Z")))
+        assertEquals("3 oct", Format.shortDate(Instant.parse("2026-10-03T00:00:00Z")))
+    }
+
+    @Test
+    fun shortDateReadsTheDayInUtcSoMidnightIsNotThePreviousEvening() {
+        // The API sends the statement's day as midnight UTC; Chile's local time would be the day before.
+        assertEquals("1 sep", Format.shortDate(Instant.parse("2026-09-01T00:00:00Z")))
+        assertEquals("1 sep", Format.shortDate(Instant.parse("2026-09-01T23:59:59Z")))
     }
 }
