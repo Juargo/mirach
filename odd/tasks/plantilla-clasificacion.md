@@ -1,0 +1,42 @@
+# Classification template coverage (step 2)
+
+Objective: raise the template's coverage, measured against the user's real BCI statement, with three new categories and CONTAINS patterns. Branch `feat/api-plantilla-clasificacion`. Delivery: one PR, plus a supervised per-user backfill after merge. Test runner: `npx vitest run` in `apps/api`.
+
+## Specs
+
+- **S1 — Measure.** Measure the template against the user's real statements, "locally only, never committed".
+  - Baseline on `Bci Personas.pdf`: 101 movements. 12 are income, 34 are classified correctly, and 55 of the 89 expenses fall to «Desconocido».
+- **S2 — New categories.** User decision (L2): "agrega las tres categorías nuevas".
+  - **Suscripciones** (Gustos/Deseos), **Seguros** (Necesidades), **Comisiones bancarias** (Necesidades).
+  - Icons from the existing allowlist: `smartphone`, `shield`, `credit-card`. The allowlist and the clients do not change.
+- **S3 — New CONTAINS patterns, without tildes, based on the measured glosas:**
+  - Transporte: `cabify`, `uber`. `uber eats` stays Delivery because it is longer.
+  - Deuda: `pago credito`, `hipotec`, `pac tarjeta de credito`.
+  - Ahorro: `alcancia`.
+  - Seguros: `seguro`, `metlife`.
+  - Comisiones bancarias: `comision`. `sobregiro` is longer, so overdraft commissions stay Deuda.
+  - Suscripciones: `apple.com`, `google play`, `patreon`, `anthropic`, `openai`.
+  - Streaming: `youtube`.
+  - *Assumption:* glosas that do not name the merchant stay «Desconocido»: «COMPRA TARJETA DEBITO», transfers to third parties, and MercadoPago without a merchant.
+- **S4 — Legacy pattern types (step 1 L5):**
+  - `afp ` STARTS_WITH becomes `afp` CONTAINS.
+  - `^transf(?:erencia)?.*ahorro` REGEX becomes `ahorro` CONTAINS.
+  - *Assumption:* `\bwom\b` stays REGEX. A CONTAINS `wom` would classify Women'secret (a clothing store in Chilean malls) as telefonía.
+  - Existing glosa pins must keep their category.
+- **S5 — Existing users.** New users get the template on signup. Existing users need `prisma/backfill-catalogo-faltante.ts --user <id>`, run supervised against production after the deploy. It also re-adds template patterns the user deleted, so each run needs the user's go-ahead.
+
+## Tasks
+
+- [x] T1 — S2-S4 — inline — commit: the feature commit. RED: 15 new glosa pins failed. GREEN: unit 3458/3458, integration 265/265, e2e 145/145.
+- [x] T2 — S1 — inline — re-measured: «Desconocido» down from 55 to 16 of 89 expenses (L4).
+- [ ] T3 — S5 — pending the user's decision after merge
+
+## Log
+
+- L1 (2026-11-06): "sí, paso 2" (step 2: measure the template against the real statements and replace REGEX and STARTS_WITH entries).
+- L2 (2026-11-06): after the measurement and the question about categories: "agrega las tres categorías nuevas".
+- L3: The measurement script lives in the scratchpad and reads `~/Downloads/Bci Personas.pdf`. No real glosa goes into the repo; the test glosas are generic merchant names.
+- L4: Re-measure on `Bci Personas.pdf` after T1:
+  - 73 expenses matched, all to the right category, against 34 before.
+  - 16 stay «Desconocido». None names a merchant the template could know: debit card purchases without a merchant, transfers to third parties, MercadoPago without a merchant, and unknown local shops.
+- L5: Template sizes: 19 categories (was 16) and 54 patterns (was 39). Seed ids were added for every new category and pattern. The ids of `afp` and `ahorro` keep their historical values (`pat-afp`, `pat-transferencia-ahorro`).

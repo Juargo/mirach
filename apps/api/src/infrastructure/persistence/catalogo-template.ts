@@ -62,6 +62,16 @@ export const CATEGORIA_TEMPLATE = [
     bucket: Bucket.Necesidades,
     icono: 'wifi',
   },
+  // ── Step 2 of the classification plan (2026-11-06): measured on a real
+  // statement, these three groups were the largest share left in
+  // «Desconocido». Icons reuse the allowlist, so no client changes.
+  { nombre: 'Suscripciones', bucket: Bucket.Deseos, icono: 'smartphone' },
+  { nombre: 'Seguros', bucket: Bucket.Necesidades, icono: 'shield' },
+  {
+    nombre: 'Comisiones bancarias',
+    bucket: Bucket.Necesidades,
+    icono: 'credit-card',
+  },
   // ── Comida / Ropa (issue #746) — DELIBERADAMENTE sin PATRON_TEMPLATE:
   // los nombres de locales chilenos de comida fuera de casa y de vestuario
   // son ambiguos, y un patrón malo clasificaría en silencio. Se decidirá
@@ -357,19 +367,27 @@ export const PATRON_TEMPLATE = [
     categoria: 'Ahorro:Ahorro',
     prioridad: 20,
   },
-  // AFP abreviada en cartola: "AFP ..." — STARTS_WITH para anclar y evitar false positives
+  // CLA-14: CONTAINS is the only pattern type the apps offer. "afp" was a
+  // STARTS_WITH "afp " and "ahorro" was the REGEX `^transf(?:erencia)?.*ahorro`.
+  // "ahorro" also covers "cta de ahorro", which "cuenta ahorro" missed.
   {
-    patron: 'afp ',
-    matchType: 'STARTS_WITH',
+    patron: 'afp',
+    matchType: 'CONTAINS',
     categoria: 'Ahorro:Ahorro',
     prioridad: 15,
   },
-  // Transferencia a cuenta propia o de ahorro: REGEX acotado
   {
-    patron: '^transf(?:erencia)?.*ahorro',
-    matchType: 'REGEX',
+    patron: 'ahorro',
+    matchType: 'CONTAINS',
     categoria: 'Ahorro:Ahorro',
     prioridad: 25,
+  },
+  // BCI's automatic savings ("CARGO ALCANCIA").
+  {
+    patron: 'alcancia',
+    matchType: 'CONTAINS',
+    categoria: 'Ahorro:Ahorro',
+    prioridad: 15,
   },
 
   // ── Cuentas: servicios básicos (luz, agua, gas) — issue #746 ──
@@ -487,6 +505,101 @@ export const PATRON_TEMPLATE = [
     matchType: 'REGEX',
     categoria: 'Necesidades:Internet y telefonía',
     prioridad: 10,
+  },
+  // ── Step 2 (2026-11-06): measured on a real statement. All CONTAINS and
+  // accent-free (CLA-14). The longest pattern wins (CLA-12), so "uber eats"
+  // stays Delivery and "sobregiro" keeps overdraft commissions in Deuda.
+  // `wom` above stays a word-bounded REGEX: a CONTAINS "wom" would match
+  // "WOMEN SECRET", a clothing store.
+  // Transporte
+  {
+    patron: 'cabify',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Transporte',
+    prioridad: 15,
+  },
+  {
+    patron: 'uber',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Transporte',
+    prioridad: 15,
+  },
+  // Deuda: consumer credit, mortgage dividend and the card payment by PAC.
+  {
+    patron: 'pago credito',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Deuda',
+    prioridad: 15,
+  },
+  {
+    patron: 'hipotec',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Deuda',
+    prioridad: 15,
+  },
+  {
+    patron: 'pac tarjeta de credito',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Deuda',
+    prioridad: 15,
+  },
+  // Seguros
+  {
+    patron: 'seguro',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Seguros',
+    prioridad: 15,
+  },
+  {
+    patron: 'metlife',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Seguros',
+    prioridad: 15,
+  },
+  // Comisiones bancarias
+  {
+    patron: 'comision',
+    matchType: 'CONTAINS',
+    categoria: 'Necesidades:Comisiones bancarias',
+    prioridad: 15,
+  },
+  // Suscripciones
+  {
+    patron: 'apple.com',
+    matchType: 'CONTAINS',
+    categoria: 'Deseos:Suscripciones',
+    prioridad: 15,
+  },
+  {
+    patron: 'google play',
+    matchType: 'CONTAINS',
+    categoria: 'Deseos:Suscripciones',
+    prioridad: 15,
+  },
+  {
+    patron: 'patreon',
+    matchType: 'CONTAINS',
+    categoria: 'Deseos:Suscripciones',
+    prioridad: 15,
+  },
+  {
+    patron: 'anthropic',
+    matchType: 'CONTAINS',
+    categoria: 'Deseos:Suscripciones',
+    prioridad: 15,
+  },
+  {
+    patron: 'openai',
+    matchType: 'CONTAINS',
+    categoria: 'Deseos:Suscripciones',
+    prioridad: 15,
+  },
+  // Streaming
+  {
+    patron: 'youtube',
+    matchType: 'CONTAINS',
+    categoria: 'Deseos:Streaming',
+    prioridad: 15,
   },
 ] as const satisfies ReadonlyArray<{
   patron: string;

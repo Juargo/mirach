@@ -224,8 +224,88 @@ const CASOS: ReadonlyArray<{
     bucket: Bucket.Necesidades,
   },
 
+  // ── Step 2: glosas measured on a real statement (merchant names only) ──
+  {
+    glosa: 'MERPAGO*CABIFY',
+    categoria: 'Transporte',
+    bucket: Bucket.Necesidades,
+  },
+  { glosa: 'UBER TRIP', categoria: 'Transporte', bucket: Bucket.Necesidades },
+  // The longest pattern wins (CLA-12): "uber eats" over "uber".
+  { glosa: 'PAYU *UBER EATS', categoria: 'Delivery', bucket: Bucket.Deseos },
+  {
+    glosa: 'PAGO CREDITO CONSUMO',
+    categoria: 'Deuda',
+    bucket: Bucket.Necesidades,
+  },
+  {
+    glosa: 'PAG.DIV. CRED.HIPOTEC',
+    categoria: 'Deuda',
+    bucket: Bucket.Necesidades,
+  },
+  {
+    glosa: 'PAC TARJETA DE CREDITO VISA',
+    categoria: 'Deuda',
+    bucket: Bucket.Necesidades,
+  },
+  // Accent folding (CLA-14): the pattern has no tilde.
+  { glosa: 'CARGO ALCANCÍA', categoria: 'Ahorro', bucket: Bucket.Ahorro },
+  // Formerly the `^transf…ahorro` REGEX, now CONTAINS "ahorro".
+  {
+    glosa: 'TRANSFERENCIA A CTA DE AHORRO',
+    categoria: 'Ahorro',
+    bucket: Bucket.Ahorro,
+  },
+  {
+    glosa: 'PAC BCI SEGUROS VIDA',
+    categoria: 'Seguros',
+    bucket: Bucket.Necesidades,
+  },
+  {
+    glosa: 'PAC METLIFE CHILE',
+    categoria: 'Seguros',
+    bucket: Bucket.Necesidades,
+  },
+  {
+    glosa: 'COMISIÓN POR COMPRA INTERNACIONAL',
+    categoria: 'Comisiones bancarias',
+    bucket: Bucket.Necesidades,
+  },
+  // "sobregiro" is longer than "comision": overdraft charges stay Deuda.
+  {
+    glosa: 'COMISION LINEA DE SOBREGIRO',
+    categoria: 'Deuda',
+    bucket: Bucket.Necesidades,
+  },
+  {
+    glosa: 'APPLE.COM/BILL',
+    categoria: 'Suscripciones',
+    bucket: Bucket.Deseos,
+  },
+  { glosa: 'GOOGLE PLAY', categoria: 'Suscripciones', bucket: Bucket.Deseos },
+  {
+    glosa: 'PATREON* MEMBERSHIP',
+    categoria: 'Suscripciones',
+    bucket: Bucket.Deseos,
+  },
+  {
+    glosa: 'ANTHROPIC* CLAUDE',
+    categoria: 'Suscripciones',
+    bucket: Bucket.Deseos,
+  },
+  {
+    glosa: 'OPENAI *CHATGPT SUBSCR',
+    categoria: 'Suscripciones',
+    bucket: Bucket.Deseos,
+  },
+  { glosa: 'DL*GOOGLE YOUTUBE', categoria: 'Streaming', bucket: Bucket.Deseos },
+  // No merchant in the glosa: nothing to classify by.
+  { glosa: 'COMPRA TARJETA DEBITO', categoria: null, bucket: SIN_MATCH },
+
   // ── Negativos: los tokens endurecidos NO deben matchear como substring ──
   { glosa: 'ESTA CLARO QUE SI', categoria: null, bucket: SIN_MATCH },
+  // Why "wom" stays a word-bounded REGEX: a clothing store.
+  { glosa: 'WOMEN SECRET COSTANERA', categoria: null, bucket: SIN_MATCH },
   {
     glosa: 'PAGO ANTEWOM SERVICIOS',
     categoria: null,
