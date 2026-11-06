@@ -4,8 +4,9 @@ import {
   patronCreateRequestSchema,
   patronUpdateRequestSchema,
   patronIdPathParamsSchema,
+  patronVistaPreviaRequestSchema,
 } from '../schemas/patrones.schema';
-import { aPatronDto } from '../../http/dto/patron.dto';
+import { aPatronDto, aPatronVistaPreviaDto } from '../../http/dto/patron.dto';
 import { aCatalogoHttpError } from './catalogo-http-error';
 import { responderErrorTraducido } from './responder-error-traducido';
 
@@ -49,6 +50,34 @@ export function registrarPatrones(
       }
 
       res.status(201).json(aPatronDto(result.getValue()));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // CLA-15: read only. Registered before `/patrones/:id` for readability;
+  // methods differ, so the order does not change routing.
+  router.post('/patrones/vista-previa', async (req, res, next) => {
+    try {
+      const parsed = patronVistaPreviaRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json(BODY_INVALIDO);
+        return;
+      }
+
+      const result = await catalogo.vistaPreviaPatron.execute({
+        userId: req.userId!,
+        categoriaId: parsed.data.categoriaId,
+        patron: parsed.data.patron,
+        periodo: parsed.data.periodo,
+      });
+
+      if (result.isFail()) {
+        responderErrorTraducido(res, aCatalogoHttpError(result.getError()));
+        return;
+      }
+
+      res.status(200).json(aPatronVistaPreviaDto(result.getValue()));
     } catch (err) {
       next(err);
     }

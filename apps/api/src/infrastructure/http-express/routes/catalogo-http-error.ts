@@ -11,6 +11,9 @@ import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encont
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
 import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
+import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
+import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
+import { VistaPreviaPatronError } from '../../../application/use-cases/vista-previa-patron.use-case';
 import { CrearCategoriaError } from '../../../application/use-cases/crear-categoria.use-case';
 import { ActualizarCategoriaError } from '../../../application/use-cases/actualizar-categoria.use-case';
 import { EliminarCategoriaError } from '../../../application/use-cases/eliminar-categoria.use-case';
@@ -24,7 +27,13 @@ export type CatalogoError =
   | EliminarCategoriaError
   | CrearPatronError
   | ActualizarPatronError
-  | EliminarPatronError;
+  | EliminarPatronError
+  | VistaPreviaPatronError;
+
+/** Fixed end-user message: `CategorizacionFallidaError.message` carries an
+ * internal motive and is never sent. */
+const MENSAJE_CATALOGO_NO_DISPONIBLE =
+  'Tuvimos un problema temporal de nuestro lado. Intenta de nuevo en unos minutos.';
 
 /**
  * aCatalogoHttpError — ÚNICO traductor de errores para `registrarCategorias`
@@ -112,6 +121,18 @@ export function aCatalogoHttpError(error: CatalogoError): {
   }
   if (error instanceof PatronDuplicadoError) {
     return { status: 409, code: 'PATRON_DUPLICADO', message: error.message };
+  }
+  if (error instanceof PeriodoInvalidoError) {
+    // The message is fixed and never echoes the raw input.
+    return { status: 400, code: 'PERIODO_INVALIDO', message: error.message };
+  }
+  // Transient: the catalog could not be read (same code as the ingestion).
+  if (error instanceof CategorizacionFallidaError) {
+    return {
+      status: 503,
+      code: 'CATALOGO_NO_DISPONIBLE',
+      message: MENSAJE_CATALOGO_NO_DISPONIBLE,
+    };
   }
   const _exhaustive: never = error;
   return _exhaustive;

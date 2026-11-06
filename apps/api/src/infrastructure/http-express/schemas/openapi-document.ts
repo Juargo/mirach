@@ -82,6 +82,8 @@ import {
   patronCreateRequestSchema,
   patronUpdateRequestSchema,
   patronIdPathParamsSchema,
+  patronVistaPreviaRequestSchema,
+  patronVistaPreviaResponseSchema,
   patronResponseSchema,
 } from './patrones.schema';
 import {
@@ -1068,6 +1070,59 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const patronesVistaPreviaOperation: ZodOpenApiOperationObject = {
+  summary: 'Preview a classification pattern',
+  description:
+    'Authenticated, read-only endpoint (CLA-15): for a candidate CONTAINS text, a target category and a ' +
+    'financial month, lists the movements the pattern would move — the engine (longest wins, then oldest; ' +
+    'accent-insensitive) would pick it — and the pattern that already holds the text, if any (CLA-17). ' +
+    'Incomes, movements changed by hand and movements already in the category are excluded. Nothing is written. ' +
+    'Requires x-api-key + a valid session.',
+  requestBody: {
+    content: {
+      'application/json': { schema: patronVistaPreviaRequestSchema },
+    },
+  },
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: 'Preview of the candidate pattern for the resolved periodo.',
+      content: {
+        'application/json': { schema: patronVistaPreviaResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Invalid patron (`PATRON_INVALIDO`), invalid periodo (`PERIODO_INVALIDO`) or a malformed body ' +
+        '(`BODY_INVALIDO`).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '403': {
+      description:
+        'The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
+    '404': {
+      description:
+        'Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '503': {
+      description:
+        'The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+  },
+};
+
 const patronesUpdateOperation: ZodOpenApiOperationObject = {
   summary: 'Update a classification pattern',
   description:
@@ -1829,6 +1884,7 @@ const paths: ZodOpenApiPathsObject = {
     delete: categoriasDeleteOperation,
   },
   '/api/patrones': { post: patronesCreateOperation },
+  '/api/patrones/vista-previa': { post: patronesVistaPreviaOperation },
   '/api/patrones/{id}': {
     patch: patronesUpdateOperation,
     delete: patronesDeleteOperation,

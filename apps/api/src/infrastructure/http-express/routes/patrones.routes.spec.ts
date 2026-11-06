@@ -7,6 +7,7 @@ import { Result } from '../../../shared/result';
 import { CategoriaNoEncontradaError } from '../../../domain/errors/categoria-no-encontrada.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
+import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 
 const PATRON_OK = {
@@ -15,6 +16,28 @@ const PATRON_OK = {
   patron: 'netflix',
   matchType: 'CONTAINS' as const,
   prioridad: 100,
+};
+
+const VISTA_PREVIA_OK = {
+  periodo: '2026-07',
+  patron: 'cabify',
+  coincidencias: [
+    {
+      id: 'tx-1',
+      fecha: new Date('2026-07-10T00:00:00.000Z'),
+      descripcion: 'MERPAGO*CABIFY 123',
+      cargo: 4500n,
+      abono: 0n,
+      categoriaIdActual: 'cat-otra',
+      clasificacionManual: false,
+    },
+  ],
+  existente: {
+    patronId: 'pat-9',
+    categoriaId: 'cat-auto',
+    categoria: 'Auto',
+    bucket: 'Necesidades',
+  },
 };
 
 function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
@@ -29,6 +52,9 @@ function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
     },
     eliminarPatron: {
       execute: vi.fn().mockResolvedValue(Result.ok(undefined)),
+    },
+    vistaPreviaPatron: {
+      execute: vi.fn().mockResolvedValue(Result.ok(VISTA_PREVIA_OK)),
     },
     ...overrides,
   } as unknown as CatalogoGraph;
@@ -149,6 +175,90 @@ describe('registrarPatrones', () => {
 
       expect(res.status).toBe(409);
       expect(res.body.code).toBe('PATRON_DUPLICADO');
+    });
+  });
+
+  describe('POST /api/patrones/vista-previa (CLA-15, S3)', () => {
+    it('200 with periodo, normalized patron, total, coincidencias and existente', async () => {
+      const catalogo = makeCatalogo();
+      const res = await request(probeApp(catalogo))
+        .post('/api/patrones/vista-previa')
+        .send({ categoriaId: 'cat-1', patron: 'Cabify', periodo: '2026-07' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        periodo: '2026-07',
+        patron: 'cabify',
+        total: 1,
+        coincidencias: [
+          {
+            id: 'tx-1',
+            descripcion: 'MERPAGO*CABIFY 123',
+            fecha: '2026-07-10T00:00:00.000Z',
+            monto: '4500',
+          },
+        ],
+        existente: {
+          patronId: 'pat-9',
+          categoriaId: 'cat-auto',
+          categoria: 'Auto',
+          bucket: 'Necesidades',
+        },
+      });
+      expect(catalogo.vistaPreviaPatron.execute).toHaveBeenCalledWith({
+        userId: 'user-x',
+        categoriaId: 'cat-1',
+        patron: 'Cabify',
+        periodo: '2026-07',
+      });
+    });
+
+    it('400 BODY_INVALIDO on an unknown field, without calling the use case', async () => {
+      const catalogo = makeCatalogo();
+      const res = await request(probeApp(catalogo))
+        .post('/api/patrones/vista-previa')
+        .send({ categoriaId: 'cat-1', patron: 'cabify', matchType: 'REGEX' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('BODY_INVALIDO');
+      expect(catalogo.vistaPreviaPatron.execute).not.toHaveBeenCalled();
+    });
+
+    it('404 CATEGORIA_NO_ENCONTRADA, like creating a pattern', async () => {
+      const catalogo = makeCatalogo({
+        vistaPreviaPatron: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new CategoriaNoEncontradaError('cat-x')),
+            ),
+        } as unknown as CatalogoGraph['vistaPreviaPatron'],
+      });
+      const res = await request(probeApp(catalogo))
+        .post('/api/patrones/vista-previa')
+        .send({ categoriaId: 'cat-x', patron: 'cabify' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('CATEGORIA_NO_ENCONTRADA');
+    });
+
+    it('400 PERIODO_INVALIDO on a malformed periodo', async () => {
+      const catalogo = makeCatalogo({
+        vistaPreviaPatron: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(new PeriodoInvalidoError('2026-13')),
+            ),
+        } as unknown as CatalogoGraph['vistaPreviaPatron'],
+      });
+      const res = await request(probeApp(catalogo))
+        .post('/api/patrones/vista-previa')
+        .send({ categoriaId: 'cat-1', patron: 'cabify', periodo: '2026-13' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('PERIODO_INVALIDO');
+      expect(JSON.stringify(res.body)).not.toContain('2026-13');
     });
   });
 

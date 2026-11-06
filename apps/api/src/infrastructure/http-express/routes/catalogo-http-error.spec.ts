@@ -11,7 +11,28 @@ import { PrioridadInvalidaError } from '../../../domain/errors/prioridad-invalid
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
+import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
+import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
+
+describe('aCatalogoHttpError — learning flows (CLA-15)', () => {
+  it('PeriodoInvalidoError -> 400 PERIODO_INVALIDO', () => {
+    const result = aCatalogoHttpError(new PeriodoInvalidoError('2026-13'));
+    expect(result).toMatchObject({ status: 400, code: 'PERIODO_INVALIDO' });
+    expect(result.message).not.toContain('2026-13');
+  });
+
+  it('CategorizacionFallidaError -> 503 CATALOGO_NO_DISPONIBLE, without the internal motive', () => {
+    const result = aCatalogoHttpError(
+      new CategorizacionFallidaError('motivo interno secreto'),
+    );
+    expect(result).toMatchObject({
+      status: 503,
+      code: 'CATALOGO_NO_DISPONIBLE',
+    });
+    expect(result.message).not.toContain('secreto');
+  });
+});
 
 describe('aCatalogoHttpError — one class, exactly one status + code', () => {
   it.each([
