@@ -25,13 +25,32 @@
  *                     caído en un hueco de configuración en vez de perderse
  *                     en silencio (hardening PR4b). No transporta el valor
  *                     crudo del token.
+ *   MovimientoInvalido → una fila reconocida como transacción cuyos montos
+ *                     sí se leyeron, pero el VO `Transaccion` la rechaza
+ *                     (`motivo`: sin montos, cargo y abono a la vez, o un
+ *                     negativo). `fila` usa la misma numeración que los
+ *                     demás problemas. No transporta los montos crudos.
  */
+import type { MotivoTransaccionInvalida } from './transaccion-invalida.error';
+
 export type ProblemaEstructuraPdf =
   | { tipo: 'AnclaFaltante'; ancla: string }
   | { tipo: 'PeriodoFaltante' }
   | { tipo: 'PdfIlegible' }
   | { tipo: 'MontoIleeible'; fila: number; columna: 'cargo' | 'abono' }
-  | { tipo: 'TokenSinAsignarSospechoso'; fila: number };
+  | { tipo: 'TokenSinAsignarSospechoso'; fila: number }
+  | {
+      tipo: 'MovimientoInvalido';
+      fila: number;
+      motivo: MotivoTransaccionInvalida;
+    };
+
+const DETALLE_MOVIMIENTO_INVALIDO: Record<MotivoTransaccionInvalida, string> = {
+  SIN_MONTOS:
+    'el movimiento tiene fecha pero no trae monto en cargo ni en abono.',
+  CARGO_Y_ABONO: 'el movimiento trae monto en cargo y en abono a la vez.',
+  MONTO_NEGATIVO: 'el movimiento trae un monto negativo.',
+};
 
 /**
  * Error de dominio: la estructura del PDF no cumple lo esperado para el banco.
@@ -70,6 +89,8 @@ export class EstructuraPdfInvalidaError extends Error {
           return `Fila ${p.fila}, columna "${p.columna}": el monto no se pudo interpretar.`;
         case 'TokenSinAsignarSospechoso':
           return `Fila ${p.fila}: se encontró un valor con forma de monto fuera de las columnas configuradas.`;
+        case 'MovimientoInvalido':
+          return `Fila ${p.fila}: ${DETALLE_MOVIMIENTO_INVALIDO[p.motivo]}`;
       }
     });
     return `Estructura PDF inválida para ${banco}:\n  - ${partes.join('\n  - ')}`;

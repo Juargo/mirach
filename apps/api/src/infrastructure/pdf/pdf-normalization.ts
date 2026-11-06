@@ -102,6 +102,8 @@ function parsearFechaFila(
 }
 
 interface FilaCandidata extends FechaFilaParseada {
+  /** Número de fila fechada (1-based), el mismo que usan los problemas. */
+  readonly fila: number;
   readonly descripcion: string;
   readonly cargo: number;
   readonly abono: number;
@@ -330,6 +332,7 @@ export function normalizarTransaccionesPdf(
 
     candidatas.push({
       ...fechaParseada,
+      fila: filaIndex,
       descripcion: descripcionFinal,
       cargo,
       abono,
@@ -348,8 +351,9 @@ export function normalizarTransaccionesPdf(
   for (let i = 0; i < candidatas.length; i++) {
     const c = candidatas[i];
     // El VO Transaccion protege el invariante en un único lugar (cargo XOR
-    // abono, montos enteros ≥ 0). Un fail aquí implica una fila con montos en
-    // AMBAS columnas o un negativo residual → estructura del PDF inválida.
+    // abono, montos enteros ≥ 0). Un fail aquí implica una fila sin montos,
+    // con montos en AMBAS columnas o con un negativo residual: se reporta con
+    // su número de fila real y el motivo del VO, no como monto ilegible.
     const tx = Transaccion.crear({
       fecha: new Date(Date.UTC(anios[i], c.mes - 1, c.dia)),
       descripcion: c.descripcion,
@@ -357,13 +361,20 @@ export function normalizarTransaccionesPdf(
       abono: BigInt(c.abono),
     });
     if (tx.isFail()) {
-      return Result.fail(
-        new EstructuraPdfInvalidaError(estructura.banco, [
-          { tipo: 'MontoIleeible', fila: i, columna: 'cargo' },
-        ]),
-      );
+      problemas.push({
+        tipo: 'MovimientoInvalido',
+        fila: c.fila,
+        motivo: tx.getError().motivo,
+      });
+      continue;
     }
     transacciones.push(tx.getValue());
+  }
+
+  if (problemas.length > 0) {
+    return Result.fail(
+      new EstructuraPdfInvalidaError(estructura.banco, problemas),
+    );
   }
 
   return Result.ok(transacciones);
