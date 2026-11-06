@@ -52,4 +52,8 @@ Objective: finish the remaining Android statement-upload pieces that have a read
   - PR B: view model (a4a6f101, about 820 lines, of which 585 are tests; no cohesive split exists).
   - PR C: screen and link (dcbbf1c4).
   - PR D: receiving a shared file.
-- L6: Not verified: any manual check on a device or emulator (the share sheet, Cartolas subidas UI). The module has no Compose UI tests.
+- L6: Emulator check, 2026-11-06, debug build against production, the user's account:
+  - Mirach shows up in the Files share sheet. Sharing a PDF opens Subir and shows the preview.
+  - Sharing again during the preview: the snackbar did not show. Bug: the notice was dismissed before it was shown. Fixed in a follow-up commit on #207 and checked again: the snackbar shows.
+  - Cartolas subidas lists the real statements. Delete opens «¿Eliminar esta cartola?» with the right message, and Cancelar keeps the row. A real deletion was not tried, so no real data was deleted.
+  - Back returns to Subir.
