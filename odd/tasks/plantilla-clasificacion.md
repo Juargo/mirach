@@ -32,7 +32,7 @@ Objective: raise the template's coverage, measured against the user's real BCI s
 - [x] T4 — S3 (L6) — inline — Cabify → Transporte in Deseos. RED: the Cabify pin failed. Unit 3458/3458, integration 265/265, e2e 145/145.
 - [x] T5 — S3 (L7) — inline — Uber → Transporte in Deseos. RED: the Uber pin failed.
 - [x] T2 — S1 — inline — re-measured: «Desconocido» down from 55 to 16 of 89 expenses (L4).
-- [ ] T3 — S5 — pending the user's decision after merge
+- [x] T3 — S5 — inline — production backfill through the Supabase connector (L8). All 7 accounts have 20 categories and 56 patterns.
 
 ## Log
 
@@ -48,3 +48,8 @@ Objective: raise the template's coverage, measured against the user's real BCI s
   - Two icon tests looked icons up by name only, so they were keyed by bucket and name.
   - The T4.8a integration test used to create that homonym by hand. It now uses the seeded row.
 - L7 (2026-11-06): "Uber también en transporte de gustos".
+- L8 (2026-11-06): "puedes hacerlo tu", then "ok" after re-adding the execute_sql allow rule.
+  - Dry run (read only): 7 accounts, each with its 39 original patterns intact, so no deleted pattern was revived. Each one was missing the same 4 categories and 17 patterns.
+  - One transaction inserted only the missing rows. Existing rows were not changed.
+  - Check: each new pattern points to the expected category and bucket in all 7 accounts. The old `afp ` STARTS_WITH and `transf…ahorro` REGEX rows remain next to the new `afp` and `ahorro`.
+  - Imported movements are not reclassified until a reevaluation runs. Reevaluation skips manual classifications (CLA-16).
