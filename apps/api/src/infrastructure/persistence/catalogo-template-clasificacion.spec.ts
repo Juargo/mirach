@@ -227,8 +227,10 @@ const CASOS: ReadonlyArray<{
   // ── Step 2: glosas measured on a real statement (merchant names only) ──
   {
     glosa: 'MERPAGO*CABIFY',
+    // Ride-hailing is a gusto by default (user decision, 2026-11-06): moving
+    // it to Transporte in Necesidades is the person's explicit choice.
     categoria: 'Transporte',
-    bucket: Bucket.Necesidades,
+    bucket: Bucket.Deseos,
   },
   { glosa: 'UBER TRIP', categoria: 'Transporte', bucket: Bucket.Necesidades },
   // The longest pattern wins (CLA-12): "uber eats" over "uber".

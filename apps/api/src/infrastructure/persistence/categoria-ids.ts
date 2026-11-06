@@ -35,6 +35,7 @@ export const CATEGORIA_IDS: Record<CategoriaTemplateClave, string> = {
   'Necesidades:Cuentas': 'categoria-cuentas',
   'Necesidades:Internet y telefonía': 'categoria-internet-telefonia',
   'Deseos:Suscripciones': 'categoria-suscripciones',
+  'Deseos:Transporte': 'categoria-transporte-deseos',
   'Necesidades:Seguros': 'categoria-seguros',
   'Necesidades:Comisiones bancarias': 'categoria-comisiones-bancarias',
   'Deseos:Comida': 'categoria-comida',

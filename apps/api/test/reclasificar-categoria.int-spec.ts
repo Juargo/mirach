@@ -687,14 +687,15 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
       bucket: Bucket.Necesidades,
       nombre: 'Transporte',
     });
-    // ADR-042: the same user CAN now hold "Transporte" in a second bucket.
-    const transporteDeseos = await prisma.categoria.create({
-      data: {
+    // ADR-042: the same user holds "Transporte" in a second bucket. Since
+    // step 2 of the classification plan the template itself seeds it.
+    const transporteDeseos = {
+      id: await categoriaIdDe(prisma, {
         userId: TEST_USER_ID_A,
+        bucket: Bucket.Deseos,
         nombre: 'Transporte',
-        bucketId: BUCKET_IDS[Bucket.Deseos],
-      },
-    });
+      }),
+    };
 
     const tx = await createTx(
       accountIdA,
@@ -730,8 +731,8 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
     expect(updated.categoriaId).not.toBe(transporteNecesidadesId);
     expect(updated.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
 
+    // The Deseos row belongs to the template now: only the transaction goes.
     await prisma.transaccion.deleteMany({ where: { id: tx.id } });
-    await prisma.categoria.deleteMany({ where: { id: transporteDeseos.id } });
   });
 
   it("T4.8b (companion, RNF-SEC-006): with the same colliding-name fixture, reasignar using user B's categoriaId fails CategoriaDesconocidaError and user A's transaction is unchanged", async () => {
