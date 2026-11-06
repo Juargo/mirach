@@ -35,7 +35,7 @@ export interface PatronValidado {
  * 1..999). NO valida ownership de categoría (404) ni unicidad (409) — esas
  * reglas necesitan I/O y quedan en los callers (`CrearPatronUseCase` para
  * su propio 404; `CrearCategoriaUseCase` para el chequeo dentro-del-lote +
- * `existePatron` de cada patrón anidado, design.md D-02/D-03). Nunca lanza.
+ * `buscarPorTexto` de cada patrón anidado, design.md D-02/D-03). Nunca lanza.
  */
 export function validarPatron(input: {
   patron: string;

@@ -27,7 +27,7 @@ type CausaPatronEnLote =
  * `POST /api/categorias` (US-038, CAT038-10/11) falla su validación de
  * forma o resulta duplicado — sea contra otro patrón del MISMO lote
  * (Set en memoria, case-insensitive) o contra un patrón que el usuario ya
- * posee (`existePatron`). `indice` es la posición CERO-based dentro del
+ * posee (`buscarPorTexto`). `indice` es la posición CERO-based dentro del
  * array `patrones` enviado, para que el cliente pueda señalar la fila
  * ofensora exacta.
  *

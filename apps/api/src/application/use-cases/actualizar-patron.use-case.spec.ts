@@ -7,6 +7,14 @@ import { RegexInvalidaError } from '../../domain/errors/regex-invalida.error';
 import { PrioridadInvalidaError } from '../../domain/errors/prioridad-invalida.error';
 import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error';
 
+/** CLA-17: the pattern that already holds the text, with its category. */
+const EXISTENTE = {
+  patronId: 'patron-existente',
+  categoriaId: 'cat-otra',
+  categoria: 'Otra',
+  bucket: 'Deseos' as never,
+};
+
 const PATRON_ACTUAL = {
   id: 'patron-1',
   categoriaId: 'cat-1',
@@ -20,7 +28,7 @@ function makeRepo(
 ): IPatronRepository {
   return {
     buscarPorId: vi.fn().mockResolvedValue(PATRON_ACTUAL),
-    existePatron: vi.fn().mockResolvedValue(false),
+    buscarPorTexto: vi.fn().mockResolvedValue(null),
     crear: vi.fn(),
     actualizar: vi
       .fn()
@@ -102,7 +110,7 @@ describe('ActualizarPatronUseCase', () => {
       patron: 'netflix renombrado',
     });
 
-    expect(repo.existePatron).toHaveBeenCalledWith(
+    expect(repo.buscarPorTexto).toHaveBeenCalledWith(
       'user-1',
       'netflix renombrado',
       'patron-1',
@@ -111,7 +119,7 @@ describe('ActualizarPatronUseCase', () => {
 
   it('rechaza una colisión de patron con otro del mismo usuario (409)', async () => {
     const repo = makeRepo({
-      existePatron: vi.fn().mockResolvedValue(true),
+      buscarPorTexto: vi.fn().mockResolvedValue(EXISTENTE),
     });
     const useCase = new ActualizarPatronUseCase(repo);
 
@@ -123,6 +131,9 @@ describe('ActualizarPatronUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(PatronDuplicadoError);
+    expect((result.getError() as PatronDuplicadoError).existente).toEqual(
+      EXISTENTE,
+    );
     expect(repo.actualizar).not.toHaveBeenCalled();
   });
 

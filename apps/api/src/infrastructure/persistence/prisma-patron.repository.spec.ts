@@ -7,6 +7,7 @@ const USER_ID = 'user-owner-of-this-catalog';
 function makePrismaMock() {
   const patronClasificacion = {
     findFirst: vi.fn().mockResolvedValue(null),
+    findMany: vi.fn().mockResolvedValue([]),
     create: vi.fn(),
     update: vi.fn(),
     deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -62,36 +63,54 @@ describe('PrismaPatronRepository', () => {
     });
   });
 
-  describe('existePatron()', () => {
-    it('filters by userId + case-insensitive patron in the SQL WHERE', async () => {
+  describe('buscarPorTexto()', () => {
+    const fila = (id: string, patron: string) => ({
+      id,
+      patron,
+      categoria: {
+        id: 'cat-cafes',
+        nombre: 'Cafés',
+        bucket: { nombre: 'Deseos' },
+      },
+    });
+
+    it("reads only the caller's patterns: userId in the SQL WHERE (RNF-SEC-006)", async () => {
       const prisma = makePrismaMock();
       const repo = new PrismaPatronRepository(prisma);
 
-      await repo.existePatron(USER_ID, 'netflix');
+      await repo.buscarPorTexto(USER_ID, 'netflix');
 
-      expect(prisma.patronClasificacion.findFirst).toHaveBeenCalledWith({
-        where: {
-          userId: USER_ID,
-          patron: { equals: 'netflix', mode: 'insensitive' },
-        },
-        select: { id: true },
+      expect(prisma.patronClasificacion.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: USER_ID } }),
+      );
+    });
+
+    it('folds case and accents (CLA-17): "cafe" finds "Café" with its category', async () => {
+      const prisma = makePrismaMock();
+      (prisma.patronClasificacion.findMany as Mock).mockResolvedValue([
+        fila('pat-1', 'netflix'),
+        fila('pat-2', 'Café'),
+      ]);
+      const repo = new PrismaPatronRepository(prisma);
+
+      await expect(repo.buscarPorTexto(USER_ID, 'cafe')).resolves.toEqual({
+        patronId: 'pat-2',
+        categoriaId: 'cat-cafes',
+        categoria: 'Cafés',
+        bucket: 'Deseos',
       });
     });
 
     it('excludes the given id (PATCH self-exclusion)', async () => {
       const prisma = makePrismaMock();
+      (prisma.patronClasificacion.findMany as Mock).mockResolvedValue([
+        fila('pat-2', 'café'),
+      ]);
       const repo = new PrismaPatronRepository(prisma);
 
-      await repo.existePatron(USER_ID, 'netflix', 'pat-1');
-
-      expect(prisma.patronClasificacion.findFirst).toHaveBeenCalledWith({
-        where: {
-          userId: USER_ID,
-          patron: { equals: 'netflix', mode: 'insensitive' },
-          id: { not: 'pat-1' },
-        },
-        select: { id: true },
-      });
+      await expect(
+        repo.buscarPorTexto(USER_ID, 'cafe', 'pat-2'),
+      ).resolves.toBeNull();
     });
   });
 

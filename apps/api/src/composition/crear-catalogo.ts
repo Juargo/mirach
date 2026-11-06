@@ -33,7 +33,7 @@ export interface CatalogoGraph {
  * cases que los necesitan (`CrearPatronUseCase` necesita ambos —
  * `categoriaRepository` para el 404 de ownership, `patronRepository` para
  * el resto; `CrearCategoriaUseCase` también necesita ambos desde
- * CAT038-10/11 — `patronRepository.existePatron` para el chequeo de
+ * CAT038-10/11 — `patronRepository.buscarPorTexto` para el chequeo de
  * duplicado contra el catálogo existente de cada patrón anidado).
  */
 export function crearCatalogo(prisma: PrismaClient): CatalogoGraph {

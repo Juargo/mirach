@@ -10,6 +10,14 @@ import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error
 import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 
+/** CLA-17: the pattern that already holds the text, with its category. */
+const EXISTENTE = {
+  patronId: 'patron-existente',
+  categoriaId: 'cat-otra',
+  categoria: 'Otra',
+  bucket: 'Deseos' as never,
+};
+
 const CATEGORIA = {
   id: 'cat-1',
   nombre: 'Streaming',
@@ -37,7 +45,7 @@ function makePatronRepo(
 ): IPatronRepository {
   return {
     buscarPorId: vi.fn(),
-    existePatron: vi.fn().mockResolvedValue(false),
+    buscarPorTexto: vi.fn().mockResolvedValue(null),
     crear: vi.fn().mockResolvedValue({
       id: 'patron-1',
       categoriaId: 'cat-1',
@@ -96,7 +104,7 @@ describe('CrearPatronUseCase', () => {
     expect(error.message).toBe(
       'Esta categoría es interna del sistema: no acepta patrones.',
     );
-    expect(patronRepo.existePatron).not.toHaveBeenCalled();
+    expect(patronRepo.buscarPorTexto).not.toHaveBeenCalled();
     expect(patronRepo.crear).not.toHaveBeenCalled();
   });
 
@@ -208,7 +216,7 @@ describe('CrearPatronUseCase', () => {
   it('rechaza un patrón duplicado, case-insensitive, por usuario (409)', async () => {
     const categoriaRepo = makeCategoriaRepo();
     const patronRepo = makePatronRepo({
-      existePatron: vi.fn().mockResolvedValue(true),
+      buscarPorTexto: vi.fn().mockResolvedValue(EXISTENTE),
     });
     const useCase = new CrearPatronUseCase(categoriaRepo, patronRepo);
 
@@ -221,7 +229,11 @@ describe('CrearPatronUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(PatronDuplicadoError);
-    expect(patronRepo.existePatron).toHaveBeenCalledWith('user-1', 'Netflix');
+    expect(patronRepo.buscarPorTexto).toHaveBeenCalledWith('user-1', 'Netflix');
+    // CLA-17: the 409 names the pattern that already holds the text.
+    expect((result.getError() as PatronDuplicadoError).existente).toEqual(
+      EXISTENTE,
+    );
     expect(patronRepo.crear).not.toHaveBeenCalled();
   });
 });

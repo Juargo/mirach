@@ -1,4 +1,9 @@
 import { MatchType } from '../../domain/value-objects/patron-clasificacion';
+import { Bucket } from '../../domain/value-objects/bucket';
+import {
+  PatronExistente,
+  buscarPatronPorTexto,
+} from '../../domain/value-objects/patron-existente';
 import {
   IPatronRepository,
   Patron,
@@ -44,20 +49,40 @@ export class PrismaPatronRepository implements IPatronRepository {
     return row === null ? null : aPatron(row);
   }
 
-  async existePatron(
+  /**
+   * CLA-17: folds case AND accents. SQL `mode: 'insensitive'` folds only
+   * case, so the person's patterns are read (`userId` in the WHERE,
+   * RNF-SEC-006) and compared in memory with `buscarPatronPorTexto` — the
+   * same fold `coincide()` uses. A person holds tens of patterns, not
+   * thousands.
+   */
+  async buscarPorTexto(
     userId: string,
     patron: string,
     excluirId?: string,
-  ): Promise<boolean> {
-    const row = await this.prisma.patronClasificacion.findFirst({
-      where: {
-        userId,
-        patron: { equals: patron, mode: 'insensitive' },
-        ...(excluirId !== undefined ? { id: { not: excluirId } } : {}),
+  ): Promise<PatronExistente | null> {
+    const rows = await this.prisma.patronClasificacion.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        patron: true,
+        categoria: {
+          select: {
+            id: true,
+            nombre: true,
+            bucket: { select: { nombre: true } },
+          },
+        },
       },
-      select: { id: true },
     });
-    return row !== null;
+    const row = buscarPatronPorTexto(rows, patron, excluirId);
+    if (row === undefined) return null;
+    return {
+      patronId: row.id,
+      categoriaId: row.categoria.id,
+      categoria: row.categoria.nombre,
+      bucket: row.categoria.bucket.nombre as Bucket,
+    };
   }
 
   async crear(
