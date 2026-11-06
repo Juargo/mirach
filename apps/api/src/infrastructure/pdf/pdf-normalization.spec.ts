@@ -648,6 +648,80 @@ describe('normalizarTransaccionesPdf', () => {
     });
   });
 
+  describe('movimiento que el VO Transaccion rechaza — fila real y motivo real (bug 2026-11-04)', () => {
+    it('una fila con cargo Y abono reporta MovimientoInvalido CARGO_Y_ABONO con su número de fila, no MontoIleeible en "cargo"', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 200),
+        tok('Compra buena', 100, 200),
+        tok('1.000', 400, 200),
+        tok('06/03 OPER.', 30, 100),
+        tok('Fila ambigua', 100, 100),
+        tok('2.000', 400, 100),
+        tok('3.000', 500, 100),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase(),
+        periodoMarzo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'MovimientoInvalido', fila: 2, motivo: 'CARGO_Y_ABONO' },
+      ]);
+    });
+
+    it('cuenta las filas fechadas omitidas (0/0 en BCI) para que el número coincida con el de los otros problemas', () => {
+      const estructura = estructuraBase({ omitirFilasMontoCero: true });
+      const tokens = [
+        tok('05/03 OPER.', 30, 200),
+        tok('Verificacion', 100, 200),
+        tok('0', 400, 200),
+        tok('06/03 OPER.', 30, 100),
+        tok('Fila ambigua', 100, 100),
+        tok('2.000', 400, 100),
+        tok('3.000', 500, 100),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructura,
+        periodoMarzo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'MovimientoInvalido', fila: 2, motivo: 'CARGO_Y_ABONO' },
+      ]);
+    });
+
+    it('reporta TODAS las filas inválidas en una pasada, no solo la primera', () => {
+      const tokens = [
+        tok('05/03 OPER.', 30, 200),
+        tok('Ambigua uno', 100, 200),
+        tok('1.000', 400, 200),
+        tok('1.000', 500, 200),
+        tok('06/03 OPER.', 30, 100),
+        tok('Ambigua dos', 100, 100),
+        tok('2.000', 400, 100),
+        tok('3.000', 500, 100),
+      ];
+
+      const resultado = normalizarTransaccionesPdf(
+        tokens,
+        estructuraBase(),
+        periodoMarzo2026,
+      );
+
+      expect(resultado.isFail()).toBe(true);
+      expect(resultado.getError().problemas).toEqual([
+        { tipo: 'MovimientoInvalido', fila: 1, motivo: 'CARGO_Y_ABONO' },
+        { tipo: 'MovimientoInvalido', fila: 2, motivo: 'CARGO_Y_ABONO' },
+      ]);
+    });
+  });
+
   describe('hardening PR4b — tokensSinAsignar money-safe (deriva geométrica)', () => {
     it('fila reconocida como transacción con cargo y abono AMBOS vacíos, pero con un token con forma de monto fuera de rangosX → Result.fail con TokenSinAsignarSospechoso (no se pierde en silencio)', () => {
       const tokens = [
@@ -869,7 +943,7 @@ describe('normalizarTransaccionesPdf', () => {
 
       expect(resultado.isFail()).toBe(true);
       expect(resultado.getError().problemas).toEqual([
-        { tipo: 'MontoIleeible', fila: 0, columna: 'cargo' },
+        { tipo: 'MovimientoInvalido', fila: 1, motivo: 'SIN_MONTOS' },
       ]);
     });
 
@@ -888,7 +962,7 @@ describe('normalizarTransaccionesPdf', () => {
 
       expect(resultado.isFail()).toBe(true);
       expect(resultado.getError().problemas).toEqual([
-        { tipo: 'MontoIleeible', fila: 0, columna: 'cargo' },
+        { tipo: 'MovimientoInvalido', fila: 1, motivo: 'SIN_MONTOS' },
       ]);
     });
 
