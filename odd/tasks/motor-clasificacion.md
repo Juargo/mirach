@@ -30,10 +30,12 @@ Requirement text quoted verbatim from `docs/requisitos/requisitos-funcionales-v1
 
 ## Tasks
 
-- [ ] P1 — S1 — inline — commit: pending
-- [ ] P2 — S2 — inline — commit: pending (migration)
-- [ ] P3 — S3 — inline — commit: pending
-- [ ] P4 — S4 — inline — commit: pending (migration, high risk item 1, own commit)
+- [x] P1 — S1 — inline — 53e74e3d. RED: 4 tests. GREEN: domain, application and persistence tests pass.
+- [x] P2 — S2 — inline — 3b0e6109. Migration `20261106000000_add_patron_creado_en`. RED: 3. Mapping checked by mutation.
+- [x] P3 — S3 — inline — 08bbe72f. 403 documented. iOS and Android clients regenerated; iOS maps the 403 (17/17 CategoriasAPITests).
+- [x] P4 — S4 (PATCH and reevaluate) — inline — d08347f2. Migration `20261106010000_add_transaccion_clasificacion_manual`. Integration test checked by mutation: it fails only when both guards are removed.
+- [x] P5 — S4 (review overlay and manual movement) — inline — 80a12959.
+- [ ] V — independent verifier over P4 and P5 (high risk item 1) — pending
 
 ## Log
 
@@ -49,3 +51,8 @@ Requirement text quoted verbatim from `docs/requisitos/requisitos-funcionales-v1
   - The template's REGEX entries are deliberate. `\bwom\b` and `^transf…ahorro` block false positives, and `catalogo-template-clasificacion.spec.ts:22` pins them.
   - Converting them to CONTAINS without measured data would bring those false positives back.
   - Their replacement moves to step 2, which measures against the user's real statements.
+- L6: Checks on 80a12959:
+  - Unit: 3438/3438.
+  - Integration: 265/265 and e2e: 145/145, both against local Postgres with the new migrations.
+  - `openapi:check` is clean.
+- L7: P4 was split into P4 and P5 to keep each slice reviewable. The overlay and manual-movement paths went through the persistence mapper separately.
