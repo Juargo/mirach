@@ -117,8 +117,9 @@ const PATRON_ID_FIJO: Record<PatronTemplateTexto, string> = {
   rappi: 'pat-rappi',
   fintual: 'pat-fintual',
   'cuenta ahorro': 'pat-bci-ahorro',
-  'afp ': 'pat-afp',
-  '^transf(?:erencia)?.*ahorro': 'pat-transferencia-ahorro',
+  afp: 'pat-afp',
+  ahorro: 'pat-transferencia-ahorro',
+  alcancia: 'pat-alcancia',
   'pago deuda tarjeta': 'pat-pago-deuda-tarjeta',
   sobregiro: 'pat-sobregiro',
   // ── Cuentas / Internet y telefonía — issue #746 ──
@@ -139,6 +140,21 @@ const PATRON_ID_FIJO: Record<PatronTemplateTexto, string> = {
   gtd: 'pat-gtd',
   'claro chile': 'pat-claro-chile',
   '\\bwom\\b': 'pat-wom',
+  // ── Step 2 of the classification plan (2026-11-06) ──
+  cabify: 'pat-cabify',
+  uber: 'pat-uber',
+  'pago credito': 'pat-pago-credito',
+  hipotec: 'pat-hipotec',
+  'pac tarjeta de credito': 'pat-pac-tarjeta-credito',
+  seguro: 'pat-seguro',
+  metlife: 'pat-metlife',
+  comision: 'pat-comision',
+  'apple.com': 'pat-apple',
+  'google play': 'pat-google-play',
+  patreon: 'pat-patreon',
+  anthropic: 'pat-anthropic',
+  openai: 'pat-openai',
+  youtube: 'pat-youtube',
 };
 
 // ── US-012/US-013 S2 / US-037 D-07: Catálogo de patrones chilenos del

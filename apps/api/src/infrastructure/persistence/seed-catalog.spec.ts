@@ -11,7 +11,6 @@ import {
   CATEGORIA_TEMPLATE_SIZE,
   claveCategoria,
   type CategoriaTemplateClave,
-  type CategoriaTemplateNombre,
 } from './catalogo-template';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 
@@ -29,10 +28,14 @@ import { buildTestEnv } from '../../../test/support/env.fixture';
  * D-06/D-09) — usado para verificar que el seed escribió el `icono`
  * esperado sin re-hardcodear la lista en el test.
  */
-const ICONO_DE_TEMPLATE: Record<CategoriaTemplateNombre, string> =
-  Object.fromEntries(
-    CATEGORIA_TEMPLATE.map((entry) => [entry.nombre, entry.icono]),
-  ) as Record<CategoriaTemplateNombre, string>;
+// Keyed by bucketId|nombre: the same name can repeat across buckets with a
+// different icon (ADR-042), e.g. Transporte in Necesidades and in Deseos.
+const ICONO_DE_TEMPLATE = new Map<string, string>(
+  CATEGORIA_TEMPLATE.map((entry) => [
+    `${BUCKET_IDS[entry.bucket]}|${entry.nombre}`,
+    entry.icono,
+  ]),
+);
 
 function makeUpsertableStore<T extends { id: string }>() {
   const rows = new Map<string, T>();
@@ -186,8 +189,9 @@ describe('seed — catálogo de Categoria (CAT-01, CAT-04, unit, sin BD)', () =>
 
     expect(stores.categoria.rows.size).toBe(CATEGORIA_CATALOG_SIZE);
     for (const row of stores.categoria.rows.values()) {
-      const nombre = row.nombre as CategoriaTemplateNombre;
-      expect(row.icono).toBe(ICONO_DE_TEMPLATE[nombre]);
+      expect(row.icono).toBe(
+        ICONO_DE_TEMPLATE.get(`${row.bucketId}|${row.nombre}`),
+      );
     }
   });
 
