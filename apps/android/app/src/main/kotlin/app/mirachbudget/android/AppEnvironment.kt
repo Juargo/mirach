@@ -12,6 +12,7 @@ import app.mirachbudget.android.core.networking.SessionExpiryRelay
 import app.mirachbudget.android.core.session.AndroidSessionStorage
 import app.mirachbudget.android.core.session.SessionController
 import app.mirachbudget.android.core.session.SessionStore
+import app.mirachbudget.android.core.share.SharedCartolaInbox
 
 /** Composition root: decides which concrete dependencies the app uses. */
 object AppEnvironment {
@@ -26,6 +27,8 @@ object AppEnvironment {
         val configurationProblem: ConfigurationCheck.Problem?,
         /** Private copies of the statements being uploaded; emptied at launch and on sign-out. */
         val staging: CartolaStaging,
+        /** A statement shared from another app, waiting for sign-in or the upload flow (S2). */
+        val sharedCartola: SharedCartolaInbox = SharedCartolaInbox(),
     )
 
     fun make(

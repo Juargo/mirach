@@ -62,6 +62,15 @@ class SubirCartolaViewModel(
 
     data class ImportSummary(val banco: String, val totalTransacciones: Int, val duplicadosOmitidos: Int)
 
+    /** What [receiveSharedFile] did with a shared file: the caller removes it from the inbox only when consumed. */
+    enum class SharedFileReceipt {
+        /** Taken: staged, refused with a message, or ignored with [State.sharedFileNotice]. */
+        CONSUMED,
+
+        /** The flow cannot take it yet (consent check or acceptance running): offer it again later. */
+        PENDING,
+    }
+
     sealed interface Step {
         /** Checking the consent: nothing to show yet. Also where sign-out leaves the flow. */
         data object Preparando : Step
@@ -138,6 +147,11 @@ class SubirCartolaViewModel(
         val importsCompleted: Int = 0,
         /** The staged copy, for the "file chosen" line. `null` when nothing is staged. */
         val stagedFile: CartolaFile? = null,
+        /**
+         * One-shot message about a file shared from another app (S2): ignored because the flow is
+         * busy, or refused while the consent is shown. Cleared with [dismissSharedFileNotice].
+         */
+        val sharedFileNotice: String? = null,
     ) {
         val loadedCatalog: CatalogoCategorias? get() = (catalog as? CatalogState.Loaded)?.catalog
     }
@@ -239,6 +253,39 @@ class SubirCartolaViewModel(
             }
         }
     }
+
+    /**
+     * A `.pdf` or `.xlsx` shared from another app (S2). Idle steps and [Step.Exito] treat it like a
+     * picked file; the consent keeps it waiting; a busy flow ignores it with [State.sharedFileNotice].
+     * [onConsumed] runs before any staging starts, so the caller can drop the inbox entry at once.
+     */
+    suspend fun receiveSharedFile(source: CartolaSource, onConsumed: () -> Unit = {}): SharedFileReceipt {
+        when (val current = step) {
+            Step.Preparando -> return SharedFileReceipt.PENDING
+            is Step.Consentimiento -> {
+                if (current.isAccepting) return SharedFileReceipt.PENDING
+                onConsumed()
+                stageForConsent(source)
+            }
+            is Step.Inicial, is Step.Protegido, is Step.ErrorPrevia -> {
+                onConsumed()
+                chooseFile(source)
+            }
+            is Step.Exito -> {
+                onConsumed()
+                discard()
+                chooseFile(source)
+            }
+            Step.Previsualizando, is Step.Decidiendo, is Step.Revisando, Step.Subiendo, is Step.ErrorImportacion -> {
+                onConsumed()
+                _state.update { it.copy(sharedFileNotice = SubirCartolaMessages.SHARED_FILE_BUSY) }
+            }
+        }
+        return SharedFileReceipt.CONSUMED
+    }
+
+    /** The screen showed [State.sharedFileNotice]. */
+    fun dismissSharedFileNotice() = _state.update { it.copy(sharedFileNotice = null) }
 
     /** «Reintentar» with a password from [Step.Protegido]. */
     suspend fun submitPassword(text: String) {
@@ -425,6 +472,36 @@ class SubirCartolaViewModel(
         setStep(Step.Decidiendo(result))
         // The catalog arrives after the decision shows: «Subir tal cual» never waits for it.
         loadCatalog(mine)
+    }
+
+    /**
+     * Stages a shared file while the consent is shown. It replaces a file waiting after a 409, and
+     * reopens the consent after «Ahora no» so the person can accept it for this file.
+     */
+    private suspend fun stageForConsent(source: CartolaSource) {
+        clear()
+        val mine = generation
+        val result = withContext(io) { staging.stage(source) }
+        if (mine != generation) {
+            if (result is StageResult.Staged) staging.discard(result.file)
+            return
+        }
+        when (result) {
+            is StageResult.Rejected ->
+                _state.update { it.copy(sharedFileNotice = SubirCartolaMessages.fileProblem(result.problem)) }
+            is StageResult.Staged -> when (val current = step) {
+                // An acceptance that is running previews the file once it lands.
+                is Step.Consentimiento -> _state.update {
+                    it.copy(stagedFile = result.file, step = if (current.isAccepting) current else current.copy(dismissed = false))
+                }
+                // Accepted while the copy was being made: preview it as a picked file.
+                is Step.Inicial -> {
+                    _state.update { it.copy(stagedFile = result.file) }
+                    runPreview(mine)
+                }
+                else -> staging.discard(result.file)
+            }
+        }
     }
 
     private fun failPreview(error: Exception, filename: String) {
