@@ -31,6 +31,12 @@ export interface PatronClasificacionProps {
   readonly matchType: MatchType;
   readonly categoria: CategoriaDePatron;
   readonly prioridad: number;
+  /**
+   * Fecha de creación, para el desempate de CLA-12 ("si miden igual, gana el
+   * más antiguo"). Sin fecha cuenta como la más antigua posible (época Unix),
+   * así el orden sigue siendo total y determinístico.
+   */
+  readonly creadoEn?: Date;
 }
 
 /**
@@ -55,7 +61,9 @@ export class PatronClasificacion {
   readonly patron: string;
   readonly matchType: MatchType;
   readonly categoria: CategoriaDePatron;
+  /** Prioridad numérica heredada. Ya no decide el orden (CLA-12). */
   readonly prioridad: number;
+  readonly creadoEn: Date;
 
   constructor(props: PatronClasificacionProps) {
     this.id = props.id;
@@ -63,6 +71,7 @@ export class PatronClasificacion {
     this.matchType = props.matchType;
     this.categoria = props.categoria;
     this.prioridad = props.prioridad;
+    this.creadoEn = props.creadoEn ?? new Date(0);
   }
 
   /** Bucket PROYECTADO de la categoría anidada — nunca almacenado independientemente. */

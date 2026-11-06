@@ -56,6 +56,7 @@ export class PrismaCatalogoClasificacionRepository implements ICatalogoClasifica
               bucket: row.categoria.bucket.nombre as Bucket,
             },
             prioridad: row.prioridad,
+            creadoEn: row.creadoEn,
           }),
       );
 

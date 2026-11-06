@@ -45,7 +45,10 @@ function makeDbRow(
   };
 }
 
-function makePrismaMock(rows: ReturnType<typeof makeDbRow>[], throws?: Error) {
+function makePrismaMock(
+  rows: Array<ReturnType<typeof makeDbRow> & { creadoEn?: Date }>,
+  throws?: Error,
+) {
   return {
     patronClasificacion: {
       findMany: vi.fn(async () => {
@@ -85,6 +88,16 @@ describe('PrismaCatalogoClasificacionRepository', () => {
       });
       expect(patrones[0].bucket).toBe(Bucket.Necesidades);
       expect(patrones[0].id).toBe('pat-1');
+    });
+
+    it('maps creadoEn so the CLA-12 tie-break can prefer the oldest pattern', async () => {
+      const creadoEn = new Date('2026-03-04T05:06:07Z');
+      const prisma = makePrismaMock([{ ...makeDbRow(), creadoEn }]);
+      const repo = new PrismaCatalogoClasificacionRepository(prisma);
+
+      const result = await repo.findAll('user-1');
+
+      expect(result.getValue()[0].creadoEn).toEqual(creadoEn);
     });
 
     it('maps a STARTS_WITH row correctly', async () => {

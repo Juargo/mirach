@@ -38,6 +38,7 @@ function makePatron(
   categoria: { id: string; nombre: string; bucket: Bucket },
   prioridad: number,
   id = `p-${patron}-${prioridad}`,
+  creadoEn?: Date,
 ): PatronClasificacion {
   return new PatronClasificacion({
     id,
@@ -45,6 +46,7 @@ function makePatron(
     matchType,
     categoria,
     prioridad,
+    creadoEn,
   });
 }
 
@@ -220,22 +222,85 @@ describe('CategorizarTransaccionUseCase — coincidencia y prioridad', () => {
     expect(value.bucket).toBe(Bucket.Necesidades);
   });
 
-  it('SC-10: menor prioridad (número más bajo) gana — primer match wins (persiste la categoría de ESE patrón)', () => {
-    const patrones = [
-      makePatron('JUMBO', 'CONTAINS', CAT_SUPERMERCADO, 5, 'p1'),
-      makePatron('JUMBO', 'CONTAINS', CAT_STREAMING, 20, 'p2'),
-    ];
-    const result = useCase.execute(
-      { descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n },
-      patrones,
-      null,
+  it('CLA-12: gana el patrón más largo — "uber eats" gana sobre "uber", en ambos órdenes y aunque "uber" tenga mejor prioridad', () => {
+    const uber = makePatron('uber', 'CONTAINS', CAT_SUPERMERCADO, 1, 'p1');
+    const uberEats = makePatron(
+      'uber eats',
+      'CONTAINS',
+      CAT_STREAMING,
+      50,
+      'p2',
     );
-    const value = comoClasificada(result);
+    for (const patrones of [
+      [uber, uberEats],
+      [uberEats, uber],
+    ]) {
+      const value = comoClasificada(
+        useCase.execute(
+          { descripcion: 'UBER EATS SANTIAGO', abono: 0n, cargo: 9000n },
+          patrones,
+          null,
+        ),
+      );
+      expect(value.categoria).toEqual({
+        id: CAT_STREAMING.id,
+        nombre: CAT_STREAMING.nombre,
+      });
+      expect(value.bucket).toBe(Bucket.Deseos);
+    }
+  });
+
+  it('CLA-12: si miden igual, gana el más antiguo, aunque el nuevo tenga mejor prioridad', () => {
+    const antiguo = makePatron(
+      'jumbo',
+      'CONTAINS',
+      CAT_SUPERMERCADO,
+      50,
+      'p2',
+      new Date('2026-01-01T00:00:00Z'),
+    );
+    const nuevo = makePatron(
+      'jumbo',
+      'CONTAINS',
+      CAT_STREAMING,
+      1,
+      'p1',
+      new Date('2026-06-01T00:00:00Z'),
+    );
+    const value = comoClasificada(
+      useCase.execute(
+        { descripcion: 'COMPRA JUMBO', abono: 0n, cargo: 40000n },
+        [nuevo, antiguo],
+        null,
+      ),
+    );
     expect(value.categoria).toEqual({
       id: CAT_SUPERMERCADO.id,
       nombre: CAT_SUPERMERCADO.nombre,
     });
-    expect(value.bucket).toBe(Bucket.Necesidades);
+  });
+
+  it('CLA-12: el largo se mide sin espacios en los bordes ni tildes, igual que la coincidencia', () => {
+    // "  cafe  " mide 4 una vez normalizado: no gana a "café x" (6).
+    const conEspacios = makePatron(
+      '  cafe  ',
+      'CONTAINS',
+      CAT_SUPERMERCADO,
+      1,
+      'p1',
+    );
+    const masLargo = makePatron('café x', 'CONTAINS', CAT_STREAMING, 50, 'p2');
+    const value = comoClasificada(
+      useCase.execute(
+        { descripcion: 'CAFE X PROVIDENCIA', abono: 0n, cargo: 3000n },
+        [conEspacios, masLargo],
+        null,
+      ),
+    );
+    expect(value.categoria).toEqual({
+      id: CAT_STREAMING.id,
+      nombre: CAT_STREAMING.nombre,
+    });
   });
 
   // GUARDRAIL (ADR-036 precondition 2 / D-08, us-038 §9 constraint 4): el

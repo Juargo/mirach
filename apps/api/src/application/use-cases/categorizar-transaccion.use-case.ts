@@ -1,6 +1,9 @@
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
-import { PatronClasificacion } from '../../domain/value-objects/patron-clasificacion';
+import {
+  PatronClasificacion,
+  normalizarTextoPatron,
+} from '../../domain/value-objects/patron-clasificacion';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { ILogger } from '../ports/logger.port';
 import {
@@ -60,13 +63,13 @@ export type CategorizarTransaccionResult =
  *   1. Ingreso rule: abono > 0 AND cargo === 0 →
  *      { tipo: 'clasificada', categoria: null, bucket: Ingreso } (sin
  *      consultar patrones).
- *   2. Ordenar patrones por prioridad asc, luego patron (texto) asc, luego id asc
- *      (tiebreak determinístico — design.md D-08, US-037). `id` YA NO es el
- *      primer desempate: bajo copias per-user los ids son cuid()s generados,
- *      así que dos usuarios con catálogos idénticos podrían resolver una
- *      colisión de igual prioridad de forma distinta si el orden dependiera
- *      del id. `patron` es estable y user-independiente; `id` se conserva
- *      solo como desempate final para garantizar un orden total.
+ *   2. Ordenar patrones (CLA-12, decidido el 25-10-2026): gana el patrón
+ *      más largo, por ser el más específico ("uber eats" gana sobre "uber");
+ *      si miden igual, gana el más antiguo. El largo se mide sobre el texto
+ *      normalizado (`normalizarTextoPatron`), el mismo que compara
+ *      `coincide()`. Después, `patron` (texto) asc e `id` asc solo para que
+ *      el orden sea total: dos usuarios con el mismo catálogo obtienen la
+ *      misma clasificación. La `prioridad` numérica heredada ya NO participa.
  *   3. Primera coincidencia (PatronClasificacion.coincide) →
  *      { tipo: 'clasificada', categoria: patron.categoria, bucket: patron.bucket }
  *      (bucket derivado, nunca aceptado independientemente).
@@ -130,10 +133,16 @@ export class CategorizarTransaccionUseCase {
       return Result.ok(resultado);
     }
 
-    // 2. Ordenar por prioridad asc, luego patron (texto) asc, luego id asc
-    //    como tiebreak final (D-08 — ver docblock de la clase).
+    // 2. Más largo primero, luego más antiguo, luego texto e id (CLA-12 —
+    //    ver docblock de la clase).
+    const largo = new Map(
+      patrones.map((p) => [p, normalizarTextoPatron(p.patron).length]),
+    );
     const ordenados = [...patrones].sort((a, b) => {
-      if (a.prioridad !== b.prioridad) return a.prioridad - b.prioridad;
+      const porLargo = largo.get(b)! - largo.get(a)!;
+      if (porLargo !== 0) return porLargo;
+      const porAntiguedad = a.creadoEn.getTime() - b.creadoEn.getTime();
+      if (porAntiguedad !== 0) return porAntiguedad;
       if (a.patron !== b.patron) return a.patron < b.patron ? -1 : 1;
       return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
     });
