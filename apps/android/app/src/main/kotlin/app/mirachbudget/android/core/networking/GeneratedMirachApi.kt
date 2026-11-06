@@ -198,6 +198,23 @@ class GeneratedMirachApi(
         if (!response.isSuccessful) throw ApiException(response.code())
     }
 
+    override suspend fun cartolasSubidas(): List<CartolaSubida> {
+        val sentToken = tokenProvider.token()
+        val response = api.apiIngestasGet()
+        if (response.code() == 401) throw rejection(response, sentToken)
+        return CartolasSubidasMapper.map(response.bodyOrThrow("GET /api/ingestas"))
+    }
+
+    override suspend fun eliminarCartola(id: String) {
+        val sentToken = tokenProvider.token()
+        val response = api.apiIngestasIdDelete(id)
+        when (response.code()) {
+            401 -> throw rejection(response, sentToken)
+            404 -> throw CartolaNotFoundException()
+        }
+        if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
     /**
      * The staged copy is ours alone: if it cannot be read it is gone, and only choosing the file
      * again helps, so this must not look like a retryable network error.

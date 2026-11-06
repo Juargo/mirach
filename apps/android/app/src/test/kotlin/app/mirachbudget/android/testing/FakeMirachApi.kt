@@ -5,6 +5,7 @@ import app.mirachbudget.android.core.networking.AuthCapabilities
 import app.mirachbudget.android.core.networking.CartolaCommitResult
 import app.mirachbudget.android.core.networking.CartolaEdit
 import app.mirachbudget.android.core.networking.CartolaPreview
+import app.mirachbudget.android.core.networking.CartolaSubida
 import app.mirachbudget.android.core.networking.CatalogoCategorias
 import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.networking.Consentimientos
@@ -38,6 +39,8 @@ class FakeMirachApi : MirachApi {
     var onCrearCategoria: suspend (NuevaCategoria) -> CategoriaCatalogo = { error("crearCategoria() not scripted") }
     var onConsentimientos: suspend () -> Consentimientos = { error("consentimientos() not scripted") }
     var onAceptarConsentimientoCartolas: suspend () -> Unit = {}
+    var onCartolasSubidas: suspend () -> List<CartolaSubida> = { error("cartolasSubidas() not scripted") }
+    var onEliminarCartola: suspend (String) -> Unit = {}
 
     val googleTokens = mutableListOf<String>()
     val passwordAttempts = mutableListOf<Pair<String, String>>()
@@ -55,6 +58,8 @@ class FakeMirachApi : MirachApi {
     val crearCategoriaCalls = mutableListOf<NuevaCategoria>()
     var consentimientosCalls = 0
     var aceptarConsentimientoCalls = 0
+    var cartolasSubidasCalls = 0
+    val eliminarCartolaCalls = mutableListOf<String>()
 
     override suspend fun version() = onVersion()
     override suspend fun capabilities() = onCapabilities()
@@ -126,5 +131,15 @@ class FakeMirachApi : MirachApi {
     override suspend fun aceptarConsentimientoCartolas() {
         aceptarConsentimientoCalls++
         onAceptarConsentimientoCartolas()
+    }
+
+    override suspend fun cartolasSubidas(): List<CartolaSubida> {
+        cartolasSubidasCalls++
+        return onCartolasSubidas()
+    }
+
+    override suspend fun eliminarCartola(id: String) {
+        eliminarCartolaCalls += id
+        onEliminarCartola(id)
     }
 }

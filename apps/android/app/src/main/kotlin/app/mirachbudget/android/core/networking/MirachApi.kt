@@ -78,6 +78,15 @@ interface MirachApi {
 
     /** `POST /api/consentimientos` `{tipo: "cartolas", version: LegalDocuments.VERSION}` (PRI-02). */
     suspend fun aceptarConsentimientoCartolas()
+
+    /** `GET /api/ingestas`: the user's imports, newest first (the server's order is kept). */
+    suspend fun cartolasSubidas(): List<CartolaSubida>
+
+    /**
+     * `DELETE /api/ingestas/{id}`: deletes the import and its movements. Throws
+     * [CartolaNotFoundException] on 404 and [SessionExpiredException] on 401.
+     */
+    suspend fun eliminarCartola(id: String)
 }
 
 /** The server answered with a non-2xx status. */
