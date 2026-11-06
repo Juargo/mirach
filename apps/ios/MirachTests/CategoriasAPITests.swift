@@ -182,6 +182,15 @@ struct CategoriasAPITests {
         }
     }
 
+    @Test func creatingAPatternOnAnInternalCategoryKeepsTheServerMessage() async {
+        let message = "Esta categoría es interna del sistema: no acepta patrones."
+        let transport = FakeTransport.json(#"{"message":"\#(message)","code":"CATEGORIA_INTERNA"}"#, status: .forbidden)
+
+        await #expect(throws: PatronError.rejected(message: message)) {
+            _ = try await makeAPI(transport).crearPatron(categoriaId: "c-d", patron: "x", matchType: .contains)
+        }
+    }
+
     @Test func deletingAMissingPatternIsNotFound() async {
         let transport = FakeTransport.json(#"{"message":"x","code":"PATRON_NO_ENCONTRADO"}"#, status: .notFound)
 

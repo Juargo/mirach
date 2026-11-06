@@ -7,6 +7,7 @@ import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.
 import { RegexInvalidaError } from '../../domain/errors/regex-invalida.error';
 import { PrioridadInvalidaError } from '../../domain/errors/prioridad-invalida.error';
 import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error';
+import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
 import { Bucket } from '../../domain/value-objects/bucket';
 
 const CATEGORIA = {
@@ -67,6 +68,35 @@ describe('CrearPatronUseCase', () => {
 
     expect(result.isFail()).toBe(true);
     expect(result.getError()).toBeInstanceOf(CategoriaNoEncontradaError);
+    expect(patronRepo.crear).not.toHaveBeenCalled();
+  });
+
+  it('CLA-18: rechaza un patrón en una categoría interna ("Desconocido") y no lo crea', async () => {
+    const categoriaRepo = makeCategoriaRepo({
+      buscarPorId: vi.fn().mockResolvedValue({
+        ...CATEGORIA,
+        id: 'cat-desconocido',
+        nombre: 'Desconocido',
+        esInterna: true,
+      }),
+    });
+    const patronRepo = makePatronRepo();
+    const useCase = new CrearPatronUseCase(categoriaRepo, patronRepo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      categoriaId: 'cat-desconocido',
+      patron: 'netflix',
+      matchType: 'CONTAINS',
+    });
+
+    expect(result.isFail()).toBe(true);
+    const error = result.getError();
+    expect(error).toBeInstanceOf(CategoriaInternaProtegidaError);
+    expect(error.message).toBe(
+      'Esta categoría es interna del sistema: no acepta patrones.',
+    );
+    expect(patronRepo.existePatron).not.toHaveBeenCalled();
     expect(patronRepo.crear).not.toHaveBeenCalled();
   });
 

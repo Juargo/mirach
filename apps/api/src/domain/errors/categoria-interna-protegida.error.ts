@@ -24,9 +24,17 @@ export class CategoriaInternaProtegidaError extends Error {
   /** The categoria id, for server-side logging only. */
   readonly categoriaId: string;
 
-  constructor(categoriaId: string) {
+  /**
+   * `accion` elige el mensaje: `'mutar'` (borrar o editar la categoría) o
+   * `'patron'` (agregarle un patrón — CLA-18: "Desconocido" no acepta
+   * patrones, porque recibe lo que no coincide con ninguno). Mismo hecho de
+   * dominio, mismo status y code.
+   */
+  constructor(categoriaId: string, accion: 'mutar' | 'patron' = 'mutar') {
     super(
-      'Esta categoría es interna del sistema: no se puede editar ni eliminar.',
+      accion === 'patron'
+        ? 'Esta categoría es interna del sistema: no acepta patrones.'
+        : 'Esta categoría es interna del sistema: no se puede editar ni eliminar.',
     );
     this.name = 'CategoriaInternaProtegidaError';
     this.categoriaId = categoriaId;

@@ -538,6 +538,7 @@ interface DefaultApi {
      *  - 201: Pattern created.
      *  - 400: Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a malformed request body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"), which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.
      *  - 409: A pattern with that text already exists for this user (case-insensitive).
      *
