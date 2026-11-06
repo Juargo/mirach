@@ -1,5 +1,6 @@
 package app.mirachbudget.android
 
+import app.mirachbudget.android.features.cartolassubidas.CartolasSubidasViewModel
 import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel
 import app.mirachbudget.android.features.subircartola.SubirCartolaRoute
 import androidx.compose.runtime.mutableStateOf
@@ -93,6 +94,11 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
             LaunchedEffect(subirState.importsCompleted) {
                 if (subirState.importsCompleted > 0) resumenViewModel.load()
             }
+            // Deleting an uploaded statement also changes the months with data.
+            var cartolasDeleted by rememberSaveable { mutableIntStateOf(0) }
+            LaunchedEffect(cartolasDeleted) {
+                if (cartolasDeleted > 0) resumenViewModel.load()
+            }
             var selectedTab by rememberSaveable { mutableStateOf("resumen") }
             SignedInShell(
                 tabs = listOf(
@@ -104,7 +110,12 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                         )
                     },
                     ShellTab("subir", "Subir") {
-                        SubirCartolaRoute(subirViewModel, onShowResumen = { selectedTab = "resumen" })
+                        SubirCartolaRoute(
+                            subirViewModel,
+                            onShowResumen = { selectedTab = "resumen" },
+                            cartolasSubidasViewModel = { onChange -> CartolasSubidasViewModel(dependencies.api, onChange) },
+                            onCartolaDeleted = { cartolasDeleted++ },
+                        )
                     },
                     ShellTab("perfil", "Perfil") { PerfilRoute(perfilViewModel) },
                 ),
