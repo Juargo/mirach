@@ -237,7 +237,10 @@ model PatronClasificacion {
   // relaciones Prisma a la vez, el único construct genuinamente riesgoso.
   userId      String
   categoria   Categoria @relation(fields: [categoriaId, userId], references: [id, userId])
+  // Legacy: no longer decides the ordering (CLA-12, longest then oldest).
   prioridad   Int
+  // CLA-12 tie-break: among patterns of equal length, the oldest wins.
+  creadoEn    DateTime  @default(now())
 
   @@index([userId])
 }

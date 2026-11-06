@@ -48,6 +48,33 @@ describe('PatronClasificacion — CONTAINS', () => {
   });
 });
 
+describe('PatronClasificacion — ignora tildes (CLA-14)', () => {
+  it('CONTAINS: un patrón sin tilde encuentra una descripción con tilde', () => {
+    const p = makePatron('farmacia', 'CONTAINS');
+    expect(p.coincide('COMPRA FÁRMACIA AHUMADA')).toBe(true);
+  });
+
+  it('CONTAINS: un patrón con tilde encuentra una descripción sin tilde', () => {
+    const p = makePatron('café', 'CONTAINS');
+    expect(p.coincide('STARBUCKS CAFE PROVIDENCIA')).toBe(true);
+  });
+
+  it('CONTAINS: la ñ se compara como n, igual que las vocales con tilde', () => {
+    const p = makePatron('nunoa', 'CONTAINS');
+    expect(p.coincide('LIDER ÑUÑOA')).toBe(true);
+  });
+
+  it('STARTS_WITH: también ignora tildes', () => {
+    const p = makePatron('afp ', 'STARTS_WITH');
+    expect(p.coincide('ÁFP HABITAT')).toBe(true);
+  });
+
+  it('REGEX: sigue comparando sin quitar tildes (las regex heredadas no cambian)', () => {
+    const p = makePatron('^cafe', 'REGEX');
+    expect(p.coincide('CAFÉ ALTO')).toBe(false);
+  });
+});
+
 describe('PatronClasificacion — STARTS_WITH', () => {
   it('devuelve true cuando la descripción empieza con el patrón', () => {
     const p = makePatron('COPEC', 'STARTS_WITH');

@@ -4,6 +4,16 @@ import { Bucket } from './bucket';
 export type MatchType = 'CONTAINS' | 'STARTS_WITH' | 'REGEX';
 
 /**
+ * Forma canónica de un texto para comparar patrones (CLA-14): sin espacios en
+ * los bordes, en minúsculas y sin tildes ni diacríticos ("Ñuñoa" → "nunoa").
+ * La usan `coincide()` y el desempate por largo (CLA-12), para que ambos
+ * midan el mismo texto.
+ */
+export function normalizarTextoPatron(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase();
+}
+
+/**
  * Proyección mínima de la categoría propietaria de este patrón. Desde
  * ADR-037, `Categoria` ya no es un miembro de un enum cerrado — es una fila
  * propiedad del usuario; el patrón anida los tres campos que necesita para
@@ -21,6 +31,12 @@ export interface PatronClasificacionProps {
   readonly matchType: MatchType;
   readonly categoria: CategoriaDePatron;
   readonly prioridad: number;
+  /**
+   * Fecha de creación, para el desempate de CLA-12 ("si miden igual, gana el
+   * más antiguo"). Sin fecha cuenta como la más antigua posible (época Unix),
+   * así el orden sigue siendo total y determinístico.
+   */
+  readonly creadoEn?: Date;
 }
 
 /**
@@ -35,7 +51,8 @@ export interface PatronClasificacionProps {
  * sostiene por construcción (ver design.md D-03).
  *
  * Garantías:
- *   - CONTAINS / STARTS_WITH: normalización a minúsculas + trim en ambos lados.
+ *   - CONTAINS / STARTS_WITH: `normalizarTextoPatron` en ambos lados (trim,
+ *     minúsculas y sin tildes — CLA-14).
  *   - REGEX: flag `i`; malformed regex o fallo de ejecución → retorna false (NUNCA lanza).
  *   - Nunca lanza excepciones en ninguna ruta (invariante exigida por Result<T,E>).
  */
@@ -44,7 +61,9 @@ export class PatronClasificacion {
   readonly patron: string;
   readonly matchType: MatchType;
   readonly categoria: CategoriaDePatron;
+  /** Prioridad numérica heredada. Ya no decide el orden (CLA-12). */
   readonly prioridad: number;
+  readonly creadoEn: Date;
 
   constructor(props: PatronClasificacionProps) {
     this.id = props.id;
@@ -52,6 +71,7 @@ export class PatronClasificacion {
     this.matchType = props.matchType;
     this.categoria = props.categoria;
     this.prioridad = props.prioridad;
+    this.creadoEn = props.creadoEn ?? new Date(0);
   }
 
   /** Bucket PROYECTADO de la categoría anidada — nunca almacenado independientemente. */
@@ -64,22 +84,26 @@ export class PatronClasificacion {
    * Nunca lanza — errores de regex se capturan y retornan false.
    */
   coincide(descripcion: string): boolean {
-    const desc = descripcion.trim().toLowerCase();
-    const pat = this.patron.trim().toLowerCase();
-
     switch (this.matchType) {
       case 'CONTAINS':
-        return desc.includes(pat);
+        return normalizarTextoPatron(descripcion).includes(
+          normalizarTextoPatron(this.patron),
+        );
 
       case 'STARTS_WITH':
-        return desc.startsWith(pat);
+        return normalizarTextoPatron(descripcion).startsWith(
+          normalizarTextoPatron(this.patron),
+        );
 
       case 'REGEX':
         // Se usa `this.patron` crudo (no `pat`): normalizar el source de una regex
         // corrompería metacaracteres sensibles a mayúsculas (\S \D \W \B → \s \d \w \b)
         // y el whitespace intencional. La case-insensitivity la aporta el flag `i`.
+        // La descripción conserva sus tildes: una regex heredada puede nombrarlas.
         try {
-          return new RegExp(this.patron, 'i').test(desc);
+          return new RegExp(this.patron, 'i').test(
+            descripcion.trim().toLowerCase(),
+          );
         } catch {
           return false;
         }
