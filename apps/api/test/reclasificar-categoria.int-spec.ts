@@ -15,6 +15,12 @@ import { CategoriaDesconocidaError } from '../src/domain/errors/categoria-descon
 import { BUCKET_IDS } from '../src/infrastructure/persistence/bucket-ids';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 import { categoriaIdDe } from './helpers/categoria-fixture';
+import { AesGcmCryptoService } from '../src/infrastructure/persistence/aes-gcm-crypto.service';
+import { PrismaCatalogoClasificacionRepository } from '../src/infrastructure/persistence/prisma-catalogo-clasificacion.repository';
+import { PrismaReevaluarCategoriasReader } from '../src/infrastructure/persistence/prisma-reevaluar-categorias.reader';
+import { PrismaReevaluarCategoriasWriter } from '../src/infrastructure/persistence/prisma-reevaluar-categorias.writer';
+import { ReevaluarCategoriasUseCase } from '../src/application/use-cases/reevaluar-categorias.use-case';
+import { CategorizarTransaccionUseCase } from '../src/application/use-cases/categorizar-transaccion.use-case';
 
 /**
  * Integration tests for PrismaReclasificarCategoriaRepository (US-013 S4,
@@ -162,6 +168,67 @@ describe('PrismaReclasificarCategoriaRepository (integration — real dev DB)', 
   // -------------------------------------------------------------------------
   // CATAPI-01 — userId isolation
   // -------------------------------------------------------------------------
+  it('CLA-16: a manual reclassification survives a reevaluation even when a pattern matches it', async () => {
+    const env = loadEnv();
+    const crypto = new AesGcmCryptoService(
+      Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+    );
+    const deliveryA = await categoriaIdDe(prisma, {
+      userId: TEST_USER_ID_A,
+      bucket: Bucket.Deseos,
+      nombre: 'Delivery',
+    });
+    // "lider" is a template pattern for Supermercado (Necesidades).
+    const manual = await createTx(
+      accountIdA,
+      ingestaIdA,
+      12000n,
+      0n,
+      null,
+      null,
+      crypto.encrypt('COMPRA LIDER EXPRESS'),
+    );
+    const automatica = await createTx(
+      accountIdA,
+      ingestaIdA,
+      8000n,
+      0n,
+      null,
+      null,
+      crypto.encrypt('COMPRA LIDER EXPRESS'),
+    );
+
+    const reclasificada = await repo.reasignar(
+      TEST_USER_ID_A,
+      manual.id,
+      deliveryA,
+    );
+    expect(reclasificada.isOk()).toBe(true);
+
+    const reevaluar = new ReevaluarCategoriasUseCase(
+      new PrismaCatalogoClasificacionRepository(prisma),
+      new PrismaReevaluarCategoriasReader(prisma, crypto),
+      new PrismaReevaluarCategoriasWriter(prisma),
+      new CategorizarTransaccionUseCase(new NoOpLogger()),
+      new NoOpLogger(),
+    );
+    const resultado = await reevaluar.execute({ userId: TEST_USER_ID_A });
+    expect(resultado.isOk()).toBe(true);
+
+    const filaManual = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: manual.id },
+    });
+    expect(filaManual.clasificacionManual).toBe(true);
+    expect(filaManual.categoriaId).toBe(deliveryA);
+    expect(filaManual.bucketId).toBe(BUCKET_IDS[Bucket.Deseos]);
+
+    const filaAutomatica = await prisma.transaccion.findUniqueOrThrow({
+      where: { id: automatica.id },
+    });
+    expect(filaAutomatica.clasificacionManual).toBe(false);
+    expect(filaAutomatica.bucketId).toBe(BUCKET_IDS[Bucket.Necesidades]);
+  });
+
   it('T4.4a: user A cannot reclassify user B transaction — count===0 → TransaccionNoEncontradaError, row unchanged', async () => {
     const deliveryIdDeUserB = await categoriaIdDe(prisma, {
       userId: TEST_USER_ID_B,

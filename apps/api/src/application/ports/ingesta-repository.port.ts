@@ -24,6 +24,11 @@ export interface TransaccionAPersistir {
   bucket: Bucket | null;
   /** Id de categoría propio del usuario. `null` = sin categoría asignada. */
   categoriaId: string | null;
+  /**
+   * CLA-16: la persona eligió esta categoría a mano (en la revisión de la
+   * importación). Un patrón nunca la mueve después. Ausente = `false`.
+   */
+  clasificacionManual?: boolean;
 }
 
 /**

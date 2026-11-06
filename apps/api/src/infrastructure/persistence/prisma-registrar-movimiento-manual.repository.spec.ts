@@ -248,6 +248,8 @@ describe('PrismaRegistrarMovimientoManualRepository', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             bucketId: BUCKET_IDS[Bucket.Deseos],
+            // CLA-16: the person chose the category by hand.
+            clasificacionManual: true,
           }),
         }),
       );

@@ -23,6 +23,8 @@ export interface TransaccionParaReevaluar {
    * resuelve a `Bucket.Deseos` (mismo fold que `resolverBucket`, infra;
    * issue #778 tramo 5b). */
   readonly bucketActual: Bucket;
+  /** CLA-16: the person chose this category by hand; a pattern never moves it. */
+  readonly clasificacionManual: boolean;
 }
 
 /**

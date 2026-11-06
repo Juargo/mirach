@@ -270,6 +270,9 @@ model Transaccion {
   // La invariante (ingestaId IS NULL) ↔ (origen = 'Manual') se aplica via CHECK
   // en la migración (raw SQL — Prisma no modela CHECK, house pattern).
   origen      String?
+  // CLA-16: true once the person chose the category by hand (MOV-03). A
+  // pattern never moves such a row (POST /api/transacciones/reevaluar).
+  clasificacionManual Boolean    @default(false)
   creadoEn    DateTime           @default(now())
 
   // US-005: acota la lectura de detección de duplicados por (accountId,

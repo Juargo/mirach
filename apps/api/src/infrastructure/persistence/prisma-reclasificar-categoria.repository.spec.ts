@@ -64,6 +64,8 @@ describe('PrismaReclasificarCategoriaRepository', () => {
         data: {
           categoriaId: 'cat-row-owned-by-a',
           bucketId: 'bucket-necesidades-id',
+          // CLA-16: a manual reclassification is never moved by a pattern.
+          clasificacionManual: true,
         },
       });
       expect(result.isOk()).toBe(true);
@@ -178,6 +180,7 @@ describe('PrismaReclasificarCategoriaRepository', () => {
         data: {
           categoriaId: 'cat-row',
           bucketId: 'bucket-ahorro-id',
+          clasificacionManual: true,
         },
       });
     });

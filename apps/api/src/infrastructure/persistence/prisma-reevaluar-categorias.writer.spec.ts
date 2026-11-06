@@ -64,7 +64,11 @@ describe('PrismaReevaluarCategoriasWriter', () => {
       (call) => call[0].data.categoriaId === 'cat-supermercado',
     );
     expect(supermercadoCall![0]).toEqual({
-      where: { id: { in: ['tx-1', 'tx-2'] }, account: { userId: USER_ID } },
+      where: {
+        id: { in: ['tx-1', 'tx-2'] },
+        account: { userId: USER_ID },
+        clasificacionManual: false,
+      },
       data: {
         categoriaId: 'cat-supermercado',
         bucketId: BUCKET_IDS[Bucket.Necesidades],
@@ -75,7 +79,11 @@ describe('PrismaReevaluarCategoriasWriter', () => {
       (call) => call[0].data.categoriaId === null,
     );
     expect(ingresoCall![0]).toEqual({
-      where: { id: { in: ['tx-3'] }, account: { userId: USER_ID } },
+      where: {
+        id: { in: ['tx-3'] },
+        account: { userId: USER_ID },
+        clasificacionManual: false,
+      },
       data: { categoriaId: null, bucketId: BUCKET_IDS[Bucket.Ingreso] },
     });
   });

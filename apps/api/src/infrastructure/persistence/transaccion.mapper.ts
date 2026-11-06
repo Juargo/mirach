@@ -30,6 +30,8 @@ export interface TransaccionPersistencia {
   abono: bigint;
   bucketId: string | null;
   categoriaId: string | null;
+  /** CLA-16. Optional so read models that do not select it still type-check. */
+  clasificacionManual?: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export function aPersistencia(
     abono: tx.abono,
     bucketId: bucket !== null ? BUCKET_IDS[bucket] : null,
     categoriaId,
+    clasificacionManual: entry.clasificacionManual ?? false,
   };
 }
 

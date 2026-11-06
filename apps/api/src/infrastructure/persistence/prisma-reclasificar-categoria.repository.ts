@@ -79,6 +79,8 @@ export class PrismaReclasificarCategoriaRepository implements IReclasificarCateg
       data: {
         categoriaId: categoriaRow.id,
         bucketId: categoriaRow.bucketId,
+        // CLA-16: a manual reclassification is never moved by a pattern.
+        clasificacionManual: true,
       },
     });
 
