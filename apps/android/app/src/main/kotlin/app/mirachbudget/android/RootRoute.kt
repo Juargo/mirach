@@ -1,5 +1,7 @@
 package app.mirachbudget.android
 
+import android.net.Uri
+import app.mirachbudget.android.core.staging.ContentResolverCartolaSource
 import app.mirachbudget.android.features.cartolassubidas.CartolasSubidasViewModel
 import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel
 import app.mirachbudget.android.features.subircartola.SubirCartolaRoute
@@ -9,11 +11,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import app.mirachbudget.android.core.session.SessionController.Phase
@@ -100,6 +104,23 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                 if (cartolasDeleted > 0) resumenViewModel.load()
             }
             var selectedTab by rememberSaveable { mutableStateOf("resumen") }
+            // A file shared from another app opens Subir. It is retried whenever the step changes,
+            // because it waits while Subir is still preparing or accepting the consent. The call runs
+            // in a scope the step change does not cancel, so a running preview is never interrupted.
+            val sharedUri by dependencies.sharedCartola.pending.collectAsStateWithLifecycle()
+            val resolver = LocalContext.current.contentResolver
+            val shareScope = rememberCoroutineScope()
+            LaunchedEffect(sharedUri) { if (sharedUri != null) selectedTab = "subir" }
+            LaunchedEffect(sharedUri, subirState.step) {
+                val uri = sharedUri ?: return@LaunchedEffect
+                shareScope.launch {
+                    // An earlier launch for the same share may have taken it already.
+                    if (dependencies.sharedCartola.pending.value != uri) return@launch
+                    subirViewModel.receiveSharedFile(ContentResolverCartolaSource(resolver, Uri.parse(uri))) {
+                        dependencies.sharedCartola.consume(uri)
+                    }
+                }
+            }
             SignedInShell(
                 tabs = listOf(
                     ShellTab("resumen", "Resumen") {

@@ -50,6 +50,9 @@ object SubirCartolaMessages {
     const val INITIAL_PRIVACY = "No pedimos claves de tu banco. Borramos el archivo apenas terminamos de leerlo."
     const val CHOOSE_FILE = "Elegir archivo"
 
+    /** Assumption (not in Figma, S2): a file shared from another app while an upload is in progress. */
+    const val SHARED_FILE_BUSY = "Termina o descarta la cartola en curso para subir la que compartiste."
+
     fun fileProblem(problem: CartolaFileProblem): String = when (problem) {
         CartolaFileProblem.UNSUPPORTED_EXTENSION -> "Elige un archivo .xlsx o .pdf."
         CartolaFileProblem.TOO_LARGE -> "El archivo pesa más de 10 MB. Elige uno más pequeño."

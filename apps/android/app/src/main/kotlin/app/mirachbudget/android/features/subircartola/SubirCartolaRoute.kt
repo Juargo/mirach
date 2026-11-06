@@ -17,6 +17,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -24,6 +26,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -98,6 +101,15 @@ fun SubirCartolaRoute(
         return
     }
     val openCartolas = cartolasSubidasViewModel?.let { { cartolasOpening = UUID.randomUUID().toString() } }
+    // A file shared while another statement is in progress (or refused during the consent) is announced once.
+    val snackbarHostState = remember { SnackbarHostState() }
+    val sharedFileNotice = state.sharedFileNotice
+    LaunchedEffect(sharedFileNotice) {
+        if (sharedFileNotice != null) {
+            viewModel.dismissSharedFileNotice()
+            snackbarHostState.showSnackbar(sharedFileNotice)
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -120,6 +132,7 @@ fun SubirCartolaRoute(
                 ),
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = { if (reviewing != null) ReviewActions(state, onConfirm = { actions.call { it.confirm() } }) },
     ) { padding ->
         if (reviewing != null) {
