@@ -27,6 +27,9 @@ export interface ReevaluarCategoriasResult {
  * del usuario autenticado — categorizadas o no, sin filtro de período.
  *
  * Semántica por fila (CRÍTICO):
+ *   - Fila reclasificada a mano (`clasificacionManual`, CLA-16) → se deja
+ *     EXACTAMENTE como está, coincida o no con un patrón: "Lo que la persona
+ *     cambió a mano no lo cambia un patrón".
  *   - Clasificación DETERMINADA (`tipo: 'clasificada'` — matcheó un patrón, o
  *     aplicó la regla Ingreso) → se escribe, SOBRESCRIBIENDO lo que hubiera
  *     antes.
@@ -78,6 +81,9 @@ export class ReevaluarCategoriasUseCase {
     }> = [];
 
     for (const t of transacciones) {
+      // CLA-16: lo reclasificado a mano nunca lo mueve un patrón.
+      if (t.clasificacionManual) continue;
+
       // #778 tramo 3/5b: se pasa `null` a propósito, NUNCA la categoría por
       // defecto real — eso selecciona el overload de
       // `CategorizarTransaccionUseCase.execute` cuyo resultado puede ser

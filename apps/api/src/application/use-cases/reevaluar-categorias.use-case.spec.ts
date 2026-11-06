@@ -64,6 +64,7 @@ function tx(
     abono: 0n,
     categoriaIdActual: null,
     bucketActual: Bucket.Deseos,
+    clasificacionManual: false,
     ...overrides,
   };
 }
@@ -91,6 +92,50 @@ describe('ReevaluarCategoriasUseCase', () => {
     expect(result.getError()).toBe(catalogoError);
     expect(reader.findTodasDelUsuario).not.toHaveBeenCalled();
     expect(writer.escribir).not.toHaveBeenCalled();
+  });
+
+  it('CLA-16: una fila reclasificada a mano no se reescribe aunque un patrón la matchee', async () => {
+    const catalogo = makeCatalogo([patronSupermercado()]);
+    const rows = [
+      tx({
+        id: 'tx-manual',
+        descripcion: 'compra en Lider',
+        cargo: 5000n,
+        categoriaIdActual: 'cat-salud',
+        bucketActual: Bucket.Necesidades,
+        clasificacionManual: true,
+      }),
+      tx({
+        id: 'tx-auto',
+        descripcion: 'compra en Lider',
+        cargo: 7000n,
+        categoriaIdActual: 'cat-otra',
+        bucketActual: Bucket.Deseos,
+      }),
+    ];
+    const reader = makeReader(rows);
+    const writer = makeWriter(Result.ok({ actualizadas: 1 }));
+    const useCase = new ReevaluarCategoriasUseCase(
+      catalogo,
+      reader,
+      writer,
+      new CategorizarTransaccionUseCase(new NoOpLogger()),
+      new NoOpLogger(),
+    );
+
+    const result = await useCase.execute({ userId: 'user-a' });
+
+    expect(result.getValue()).toEqual({
+      transaccionesEvaluadas: 2,
+      transaccionesActualizadas: 1,
+    });
+    expect(writer.escribir).toHaveBeenCalledWith('user-a', [
+      {
+        transaccionId: 'tx-auto',
+        categoriaId: 'cat-supermercado',
+        bucket: Bucket.Necesidades,
+      },
+    ]);
   });
 
   it('una fila que matchea un patrón se escribe, sobrescribiendo su categoría/bucket previos', async () => {

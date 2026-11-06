@@ -49,6 +49,7 @@ export class PrismaReevaluarCategoriasReader implements IReevaluarCategoriasRead
         abono: true,
         categoriaId: true,
         bucketId: true,
+        clasificacionManual: true,
       },
     });
 
@@ -59,6 +60,7 @@ export class PrismaReevaluarCategoriasReader implements IReevaluarCategoriasRead
       abono: row.abono,
       categoriaIdActual: row.categoriaId,
       bucketActual: resolverBucket(row.bucketId),
+      clasificacionManual: row.clasificacionManual,
     }));
   }
 }

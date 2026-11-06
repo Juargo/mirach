@@ -27,6 +27,7 @@ function makePrismaMock(
     abono: bigint;
     categoriaId: string | null;
     bucketId: string | null;
+    clasificacionManual?: boolean;
   }>,
 ) {
   return {
@@ -53,6 +54,30 @@ describe('PrismaReevaluarCategoriasReader', () => {
     expect(prisma.transaccion.findMany as Mock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { account: { userId: 'user-a' } } }),
     );
+  });
+
+  it('CLA-16: lee y expone clasificacionManual, para que la reevaluación no toque lo reclasificado a mano', async () => {
+    const prisma = makePrismaMock([
+      {
+        id: 'tx-m',
+        descripcion: 'compra',
+        cargo: 1000n,
+        abono: 0n,
+        categoriaId: 'cat-1',
+        bucketId: null,
+        clasificacionManual: true,
+      },
+    ]);
+    const reader = new PrismaReevaluarCategoriasReader(prisma, makeCrypto());
+
+    const result = await reader.findTodasDelUsuario('user-a');
+
+    expect(prisma.transaccion.findMany as Mock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ clasificacionManual: true }),
+      }),
+    );
+    expect(result[0].clasificacionManual).toBe(true);
   });
 
   it('mapea categoriaId=null y bucketId=null a { categoriaIdActual: null, bucketActual: Deseos } (issue #778 tramo 5b)', async () => {

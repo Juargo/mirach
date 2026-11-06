@@ -99,7 +99,13 @@ export class PrismaReevaluarCategoriasWriter implements IReevaluarCategoriasWrit
       for (const lote of chunk(jobs, MAX_OPERACIONES_POR_TRANSACCION)) {
         const operaciones = lote.map(({ categoriaId, bucket, ids }) =>
           this.prisma.transaccion.updateMany({
-            where: { id: { in: ids }, account: { userId } },
+            // `clasificacionManual: false` (CLA-16): a row reclassified by
+            // hand between the read and this write keeps the person's choice.
+            where: {
+              id: { in: ids },
+              account: { userId },
+              clasificacionManual: false,
+            },
             data: { categoriaId, bucketId: BUCKET_IDS[bucket] },
           }),
         );
