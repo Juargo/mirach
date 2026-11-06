@@ -35,7 +35,7 @@ Requirement text quoted verbatim from `docs/requisitos/requisitos-funcionales-v1
 - [x] P3 — S3 — inline — 08bbe72f. 403 documented. iOS and Android clients regenerated; iOS maps the 403 (17/17 CategoriasAPITests).
 - [x] P4 — S4 (PATCH and reevaluate) — inline — d08347f2. Migration `20261106010000_add_transaccion_clasificacion_manual`. Integration test checked by mutation: it fails only when both guards are removed.
 - [x] P5 — S4 (review overlay and manual movement) — inline — 80a12959.
-- [ ] V — independent verifier over P4 and P5 (high risk item 1) — pending
+- [x] V — independent verifier over P1–P5 (high risk item 1). S1–S5 PASS, no blockers.
 
 ## Log
 
@@ -56,3 +56,14 @@ Requirement text quoted verbatim from `docs/requisitos/requisitos-funcionales-v1
   - Integration: 265/265 and e2e: 145/145, both against local Postgres with the new migrations.
   - `openapi:check` is clean.
 - L7: P4 was split into P4 and P5 to keep each slice reviewable. The overlay and manual-movement paths went through the persistence mapper separately.
+- L8: Independent verifier, 2026-11-06:
+  - S1–S5 PASS.
+  - Differential run with the real template: 0 of 39 single-pattern glosas changed winner. 612 of 1,521 two-pattern glosas did, all by longest-wins (e.g. "LIDER UBER EATS" → Delivery).
+  - Advisories:
+    - `backfill-categorias.ts` builds patterns without `creadoEn`. It is a one-off script, so this does not matter.
+    - A null overlay (the suggestion was removed) leaves the flag false. Product edge: it fits "category chosen" in S4.
+    - Rows reclassified before this change start as false, as S4 already accepts.
+- L9: Slices, stacked to main:
+  - PR A: P1 and P2 (53e74e3d, 3b0e6109). Needs migration `add_patron_creado_en`.
+  - PR B: P3 (08bbe72f).
+  - PR C: P4, P5 and docs. Needs migration `add_transaccion_clasificacion_manual`.
