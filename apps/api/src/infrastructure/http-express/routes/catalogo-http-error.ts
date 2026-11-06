@@ -17,6 +17,9 @@ import type { ErrorTraducido } from './responder-error-traducido';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import { VistaPreviaPatronError } from '../../../application/use-cases/vista-previa-patron.use-case';
+import { ObtenerParecidosError } from '../../../application/use-cases/obtener-parecidos.use-case';
+import { ReclasificarConParecidosError } from '../../../application/use-cases/reclasificar-con-parecidos.use-case';
+import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { CrearCategoriaError } from '../../../application/use-cases/crear-categoria.use-case';
 import { ActualizarCategoriaError } from '../../../application/use-cases/actualizar-categoria.use-case';
 import { EliminarCategoriaError } from '../../../application/use-cases/eliminar-categoria.use-case';
@@ -31,7 +34,14 @@ export type CatalogoError =
   | CrearPatronError
   | ActualizarPatronError
   | EliminarPatronError
-  | VistaPreviaPatronError;
+  | VistaPreviaPatronError
+  | ObtenerParecidosError
+  // The apply route answers these two with the plain PATCH's own bodies.
+  | Exclude<
+      ReclasificarConParecidosError,
+      CategoriaDesconocidaError | TransaccionNoEncontradaError
+    >
+  | TransaccionNoEncontradaError;
 
 /** Fixed end-user message: `CategorizacionFallidaError.message` carries an
  * internal motive and is never sent. */

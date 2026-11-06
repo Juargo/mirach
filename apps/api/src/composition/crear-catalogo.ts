@@ -8,6 +8,8 @@ import { CrearPatronUseCase } from '../application/use-cases/crear-patron.use-ca
 import { ActualizarPatronUseCase } from '../application/use-cases/actualizar-patron.use-case';
 import { EliminarPatronUseCase } from '../application/use-cases/eliminar-patron.use-case';
 
+import { ObtenerParecidosUseCase } from '../application/use-cases/obtener-parecidos.use-case';
+import { ReclasificarConParecidosUseCase } from '../application/use-cases/reclasificar-con-parecidos.use-case';
 import { VistaPreviaPatronUseCase } from '../application/use-cases/vista-previa-patron.use-case';
 import { CategorizarTransaccionUseCase } from '../application/use-cases/categorizar-transaccion.use-case';
 import { PlanificadorAprendizaje } from '../application/services/planificador-aprendizaje';
@@ -37,6 +39,10 @@ export interface CatalogoGraph {
   readonly eliminarPatron: EliminarPatronUseCase;
   /** CLA-15 — `POST /api/patrones/vista-previa`. */
   readonly vistaPreviaPatron: VistaPreviaPatronUseCase;
+  /** CLA-03 — `GET /api/transacciones/{id}/parecidos`. */
+  readonly obtenerParecidos: ObtenerParecidosUseCase;
+  /** CLA-03 — `PATCH /api/transacciones/{id}/categoria` + `aplicarAParecidos`. */
+  readonly reclasificarConParecidos: ReclasificarConParecidosUseCase;
 }
 
 /**
@@ -58,9 +64,13 @@ export function crearCatalogo(
   const patronRepository = new PrismaPatronRepository(prisma);
   // Classification learning (CLA-03, CLA-15): one planner shared by the
   // preview and the saves, so the count shown and the rows moved agree.
+  const movimientosReader = new PrismaMovimientosParaAprenderReader(
+    prisma,
+    crypto,
+  );
   const planificador = new PlanificadorAprendizaje(
     new PrismaCatalogoClasificacionRepository(prisma),
-    new PrismaMovimientosParaAprenderReader(prisma, crypto),
+    movimientosReader,
     new PrismaPerfilPresupuestoRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
     new CategorizarTransaccionUseCase(logger),
@@ -89,6 +99,17 @@ export function crearCatalogo(
     vistaPreviaPatron: new VistaPreviaPatronUseCase(
       categoriaRepository,
       planificador,
+    ),
+    obtenerParecidos: new ObtenerParecidosUseCase(
+      movimientosReader,
+      categoriaRepository,
+      planificador,
+    ),
+    reclasificarConParecidos: new ReclasificarConParecidosUseCase(
+      movimientosReader,
+      categoriaRepository,
+      planificador,
+      aprendizajeWriter,
     ),
   };
 }

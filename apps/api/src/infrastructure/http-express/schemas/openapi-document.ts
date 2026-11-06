@@ -70,6 +70,8 @@ import {
   transaccionesCategoriaPathParamsSchema,
   transaccionesCategoriaRequestSchema,
   transaccionesCategoriaResponseSchema,
+  transaccionesParecidosQuerySchema,
+  transaccionesParecidosResponseSchema,
 } from './transacciones-categoria.schema';
 import {
   categoriaCreateRequestSchema,
@@ -770,7 +772,10 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
   summary: 'Reclassify a transaction',
   description:
     'Authenticated endpoint that manually reassigns a transaction to a category (and its derived ' +
-    'bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+    'bucket) (US-013 S4). With `aplicarAParecidos` (CLA-03), the same transaction also creates the ' +
+    'suggested pattern in that category (or moves the existing one there, CLA-17) and moves the similar ' +
+    'movements of `periodo`; `movidos` counts them (0 without the option). Requires x-api-key + a valid ' +
+    'session (RNF-SEC-006, per-user isolation).',
   requestParams: {
     path: transaccionesCategoriaPathParamsSchema,
   },
@@ -791,11 +796,77 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
       description:
         "Invalid categoriaId — the given id does not resolve against the caller's own catalog, " +
         'or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed ' +
-        'enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name).',
+        'enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name). With ' +
+        'aplicarAParecidos also: a malformed aplicarAParecidos (`BODY_INVALIDO`), no suggested text for ' +
+        'the glosa (`PATRON_INVALIDO`) or an invalid periodo (`PERIODO_INVALIDO`).',
+    },
+    '403': {
+      description:
+        'With aplicarAParecidos: the category is a protected system category, which accepts no ' +
+        'patterns (CLA-18). `code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
+    '503': {
+      description:
+        'With aplicarAParecidos: the classification catalog could not be read; nothing was saved. ' +
+        '`code` CATALOGO_NO_DISPONIBLE.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
     },
     '404': {
       description:
         'Anti-enumeration: the transaction does not exist or does not belong to the authenticated user.',
+    },
+  },
+};
+
+/**
+ * `GET /api/transacciones/{id}/parecidos` (CLA-03, S6) — read only.
+ */
+const transaccionesParecidosOperation: ZodOpenApiOperationObject = {
+  summary: 'Suggest a pattern from a transaction',
+  description:
+    'Authenticated, read-only endpoint (CLA-03): the CONTAINS text suggested from the glosa of the ' +
+    'transaction, how many OTHER movements of the periodo would move to `categoriaId` with it (incomes, ' +
+    'movements changed by hand and movements already there excluded), and the pattern that already ' +
+    'holds the text, if any (CLA-17). `patron` is null when there is nothing to offer. Requires ' +
+    'x-api-key + a valid session.',
+  requestParams: {
+    path: transaccionesCategoriaPathParamsSchema,
+    query: transaccionesParecidosQuerySchema,
+  },
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: 'Suggestion for the resolved periodo.',
+      content: {
+        'application/json': { schema: transaccionesParecidosResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Missing categoriaId (`PARAMETROS_INVALIDOS`) or an invalid periodo (`PERIODO_INVALIDO`).',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '404': {
+      description:
+        'Anti-enumeration: the transaction (`TRANSACCION_NO_ENCONTRADA`) or the category ' +
+        '(`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '503': {
+      description:
+        'The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
     },
   },
 };
@@ -1892,6 +1963,9 @@ const paths: ZodOpenApiPathsObject = {
   '/api/auth/logout': { post: authLogoutOperation },
   '/api/transacciones/{id}/categoria': {
     patch: transaccionesCategoriaOperation,
+  },
+  '/api/transacciones/{id}/parecidos': {
+    get: transaccionesParecidosOperation,
   },
   '/api/auth/capabilities': { get: authCapabilitiesOperation },
   '/api/auth/google': { get: authGoogleInitiateOperation },

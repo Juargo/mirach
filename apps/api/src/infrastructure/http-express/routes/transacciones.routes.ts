@@ -10,6 +10,28 @@ import {
 } from '../../http/dto/reclasificar-categoria.dto';
 import { aReevaluarCategoriasDto } from '../../http/dto/reevaluar-categorias.dto';
 import { responderErrorTraducido } from './responder-error-traducido';
+import { aCatalogoHttpError } from './catalogo-http-error';
+import { aPatronExistenteDto } from '../../http/dto/patron.dto';
+import {
+  aplicarAParecidosSchema,
+  transaccionesParecidosQuerySchema,
+} from '../schemas/transacciones-categoria.schema';
+import type { CatalogoGraph } from '../../../composition/crear-catalogo';
+
+/** The learning use cases the transaction routes need (CLA-03, S6). */
+export type AprendizajeTransacciones = Pick<
+  CatalogoGraph,
+  'obtenerParecidos' | 'reclasificarConParecidos'
+>;
+
+const BODY_INVALIDO = {
+  message: 'Cuerpo de la petición inválido.',
+  code: 'BODY_INVALIDO',
+};
+const MENSAJE_CATEGORIA_DESCONOCIDA =
+  'La categoría indicada no existe en tu catálogo.';
+const MENSAJE_TRANSACCION_NO_ENCONTRADA =
+  'La transacción no existe o no pertenece al usuario autenticado.';
 
 /**
  * registrarTransacciones — port del TransaccionesController (ADR-028).
@@ -30,14 +52,101 @@ import { responderErrorTraducido } from './responder-error-traducido';
  *   que no le pertenece).
  * TransaccionNoEncontradaError → 404 (funde no-existe y no-es-tuya: anti-enumeración).
  *
+ * `aplicarAParecidos: { periodo }` (CLA-03, S6) — opcional. Presente, la
+ * reclasificación, el patrón sugerido y el movimiento de los parecidos del
+ * período ocurren en UNA transacción (`ReclasificarConParecidosUseCase`).
+ * A diferencia de `categoriaId`, este campo SÍ se valida en el borde: un
+ * valor malformado es 400 `BODY_INVALIDO`, nunca se ignora. Ausente, el
+ * camino es el de siempre. La respuesta suma `movidos` (0 sin la opción).
+ *
+ * GET /api/transacciones/:id/parecidos?categoriaId=&periodo= → texto
+ * sugerido y cuántos OTROS movimientos del período lo seguirían (S6).
+ *
  * Toda respuesta de error pasa por `responderErrorTraducido`.
  */
 export function registrarTransacciones(
   router: Router,
   reclasificarTransaccion: ReclasificarTransaccionUseCase,
+  aprendizaje: AprendizajeTransacciones,
 ): void {
+  router.get('/transacciones/:id/parecidos', async (req, res, next) => {
+    try {
+      const parsed = transaccionesParecidosQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        res.status(400).json({
+          message: 'Parámetros de consulta inválidos.',
+          code: 'PARAMETROS_INVALIDOS',
+        });
+        return;
+      }
+
+      const result = await aprendizaje.obtenerParecidos.execute({
+        userId: req.userId!,
+        transaccionId: req.params.id,
+        categoriaId: parsed.data.categoriaId,
+        periodo: parsed.data.periodo,
+      });
+      if (result.isFail()) {
+        responderErrorTraducido(res, aCatalogoHttpError(result.getError()));
+        return;
+      }
+
+      const { patron, total, existente } = result.getValue();
+      res.status(200).json({
+        patron,
+        total,
+        existente: existente === null ? null : aPatronExistenteDto(existente),
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.patch('/transacciones/:id/categoria', async (req, res, next) => {
     try {
+      const rawAplicar: unknown = (
+        req.body as ReclasificarCategoriaBodyDto | undefined
+      )?.aplicarAParecidos;
+      if (rawAplicar !== undefined) {
+        const aplicar = aplicarAParecidosSchema.safeParse(rawAplicar);
+        const rawId: unknown = (
+          req.body as ReclasificarCategoriaBodyDto | undefined
+        )?.categoriaId;
+        if (!aplicar.success) {
+          res.status(400).json(BODY_INVALIDO);
+          return;
+        }
+        const resultado = await aprendizaje.reclasificarConParecidos.execute({
+          userId: req.userId!,
+          transaccionId: req.params.id,
+          categoriaId: typeof rawId === 'string' ? rawId : '',
+          periodo: aplicar.data.periodo,
+        });
+        if (resultado.isFail()) {
+          const error = resultado.getError();
+          // Same bodies as the plain PATCH where the errors overlap.
+          if (error instanceof CategoriaDesconocidaError) {
+            responderErrorTraducido(res, {
+              status: 400,
+              message: MENSAJE_CATEGORIA_DESCONOCIDA,
+            });
+            return;
+          }
+          if (error instanceof TransaccionNoEncontradaError) {
+            responderErrorTraducido(res, {
+              status: 404,
+              message: MENSAJE_TRANSACCION_NO_ENCONTRADA,
+            });
+            return;
+          }
+          responderErrorTraducido(res, aCatalogoHttpError(error));
+          return;
+        }
+        const r = resultado.getValue();
+        res.status(200).json(aReclasificarCategoriaDto(r, r.movidos));
+        return;
+      }
+
       // El cast usa `ReclasificarCategoriaBodyDto` (la forma cruda que el
       // DTO ya documenta) en vez de repetir su shape inline: una sola
       // definición del body, no dos que pueden divergir en silencio.
@@ -58,15 +167,14 @@ export function registrarTransacciones(
         if (error instanceof CategoriaDesconocidaError) {
           responderErrorTraducido(res, {
             status: 400,
-            message: 'La categoría indicada no existe en tu catálogo.',
+            message: MENSAJE_CATEGORIA_DESCONOCIDA,
           });
           return;
         }
         if (error instanceof TransaccionNoEncontradaError) {
           responderErrorTraducido(res, {
             status: 404,
-            message:
-              'La transacción no existe o no pertenece al usuario autenticado.',
+            message: MENSAJE_TRANSACCION_NO_ENCONTRADA,
           });
           return;
         }

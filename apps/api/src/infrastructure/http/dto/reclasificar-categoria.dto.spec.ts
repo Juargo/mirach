@@ -50,6 +50,12 @@ describe('aReclasificarCategoriaDto', () => {
       id: 'tx-42',
       categoria: { id: 'cat-real-row-id', nombre: 'Ahorro' },
       bucket: Bucket.Ahorro,
+      // CLA-03: additive; 0 when nothing else moved.
+      movidos: 0,
     });
+  });
+
+  it('carries the movidos it is given (aplicarAParecidos)', () => {
+    expect(aReclasificarCategoriaDto(makeResult(), 3).movidos).toBe(3);
   });
 });

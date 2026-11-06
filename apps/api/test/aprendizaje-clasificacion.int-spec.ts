@@ -285,4 +285,114 @@ describe('classification learning (integration — real DB)', () => {
     });
     expect(despues.creadoEn).toEqual(antes.creadoEn);
   });
+  it('S6: aplicarAParecidos reclassifies by hand, creates the pattern and moves the similar rows', async () => {
+    const elegido = await crearTx(USER_A, 'MERPAGO*ZQXRIDE 1234');
+    const parecido = await crearTx(USER_A, 'ZQXRIDE 9988');
+    const manual = await crearTx(USER_A, 'ZQXRIDE', {
+      clasificacionManual: true,
+    });
+    const junio = await crearTx(USER_A, 'ZQXRIDE', { fecha: JUNIO });
+    const deB = await crearTx(USER_B, 'ZQXRIDE B', { categoriaId: null });
+
+    const sugerencia = await catalogo.obtenerParecidos.execute({
+      userId: USER_A,
+      transaccionId: elegido.id,
+      categoriaId: supermercadoA,
+      periodo: '2026-07',
+    });
+    expect(sugerencia.getValue()).toEqual({
+      patron: 'zqxride',
+      total: 1,
+      existente: null,
+    });
+
+    const r = await catalogo.reclasificarConParecidos.execute({
+      userId: USER_A,
+      transaccionId: elegido.id,
+      categoriaId: supermercadoA,
+      periodo: '2026-07',
+    });
+
+    expect(r.getValue()).toMatchObject({
+      id: elegido.id,
+      categoriaId: supermercadoA,
+      bucket: Bucket.Necesidades,
+      movidos: 1,
+    });
+    expect(await leer(elegido.id)).toEqual({
+      categoriaId: supermercadoA,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      clasificacionManual: true,
+    });
+    expect(await leer(parecido.id)).toEqual({
+      categoriaId: supermercadoA,
+      bucketId: BUCKET_IDS[Bucket.Necesidades],
+      clasificacionManual: false,
+    });
+    expect((await leer(manual.id)).categoriaId).toBe(comidaA);
+    expect((await leer(junio.id)).categoriaId).toBe(comidaA);
+    expect((await leer(deB.id)).categoriaId).toBeNull();
+    expect(
+      await prisma.patronClasificacion.count({
+        where: {
+          userId: USER_A,
+          patron: 'zqxride',
+          categoriaId: supermercadoA,
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('S6: when the text lives in another category, the pattern moves there (same id)', async () => {
+    const existente = await catalogo.crearPatron.execute({
+      userId: USER_A,
+      categoriaId: comidaA,
+      patron: 'zqxride',
+      matchType: 'CONTAINS',
+    });
+    const elegido = await crearTx(USER_A, 'ZQXRIDE 1');
+
+    await catalogo.reclasificarConParecidos.execute({
+      userId: USER_A,
+      transaccionId: elegido.id,
+      categoriaId: supermercadoA,
+      periodo: '2026-07',
+    });
+
+    const patrones = await prisma.patronClasificacion.findMany({
+      where: { userId: USER_A, patron: 'zqxride' },
+    });
+    expect(patrones).toHaveLength(1);
+    expect(patrones[0]).toMatchObject({
+      id: existente.getValue().patron.id,
+      categoriaId: supermercadoA,
+    });
+  });
+
+  it("RNF-SEC-006: user B's movement is a 404 for user A and is not counted", async () => {
+    const deB = await crearTx(USER_B, 'ZQXRIDE B', { categoriaId: null });
+    await crearTx(USER_A, 'ZQXRIDE A');
+
+    const r = await catalogo.obtenerParecidos.execute({
+      userId: USER_A,
+      transaccionId: deB.id,
+      categoriaId: supermercadoA,
+      periodo: '2026-07',
+    });
+    expect(r.isFail()).toBe(true);
+
+    const aplicar = await catalogo.reclasificarConParecidos.execute({
+      userId: USER_A,
+      transaccionId: deB.id,
+      categoriaId: supermercadoA,
+      periodo: '2026-07',
+    });
+    expect(aplicar.isFail()).toBe(true);
+    expect((await leer(deB.id)).categoriaId).toBeNull();
+    expect(
+      await prisma.patronClasificacion.count({
+        where: { userId: USER_A, patron: 'zqxride' },
+      }),
+    ).toBe(0);
+  });
 });
