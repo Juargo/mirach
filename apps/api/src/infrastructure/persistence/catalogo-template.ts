@@ -66,7 +66,7 @@ export const CATEGORIA_TEMPLATE = [
   // statement, these three groups were the largest share left in
   // «Desconocido». Icons reuse the allowlist, so no client changes.
   { nombre: 'Suscripciones', bucket: Bucket.Deseos, icono: 'smartphone' },
-  // Ride-hailing (Cabify) is a gusto by default; the person moves it to
+  // Ride-hailing (Cabify, Uber) is a gusto by default; the person moves it to
   // Transporte in Necesidades explicitly. Same name across buckets is
   // allowed (ADR-042).
   { nombre: 'Transporte', bucket: Bucket.Deseos, icono: 'car' },
@@ -525,7 +525,7 @@ export const PATRON_TEMPLATE = [
   {
     patron: 'uber',
     matchType: 'CONTAINS',
-    categoria: 'Necesidades:Transporte',
+    categoria: 'Deseos:Transporte',
     prioridad: 15,
   },
   // Deuda: consumer credit, mortgage dividend and the card payment by PAC.

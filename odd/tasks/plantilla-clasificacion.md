@@ -10,8 +10,8 @@ Objective: raise the template's coverage, measured against the user's real BCI s
   - **Suscripciones** (Gustos/Deseos), **Seguros** (Necesidades), **Comisiones bancarias** (Necesidades).
   - Icons from the existing allowlist: `smartphone`, `shield`, `credit-card`. The allowlist and the clients do not change.
 - **S3 — New CONTAINS patterns, without tildes, based on the measured glosas:**
-  - Transporte (Necesidades): `uber`. `uber eats` stays Delivery because it is longer.
-  - Transporte (Gustos/Deseos), a new category with icon `car`: `cabify`. L6: "Cabify dejalo en transporde gustos. La persona debe hacer la modificación explicitamente para que quede en transporte necesidades."
+  - Transporte (Gustos/Deseos), a new category with icon `car`: `cabify`, `uber`. `uber eats` stays Delivery because it is longer. L7: "Uber también en transporte de gustos".
+  - Previously: `cabify` in Transporte (Gustos/Deseos). L6: "Cabify dejalo en transporde gustos. La persona debe hacer la modificación explicitamente para que quede en transporte necesidades."
   - Deuda: `pago credito`, `hipotec`, `pac tarjeta de credito`.
   - Ahorro: `alcancia`.
   - Seguros: `seguro`, `metlife`.
@@ -30,6 +30,7 @@ Objective: raise the template's coverage, measured against the user's real BCI s
 
 - [x] T1 — S2-S4 — inline — commit: the feature commit. RED: 15 new glosa pins failed. GREEN: unit 3458/3458, integration 265/265, e2e 145/145.
 - [x] T4 — S3 (L6) — inline — Cabify → Transporte in Deseos. RED: the Cabify pin failed. Unit 3458/3458, integration 265/265, e2e 145/145.
+- [x] T5 — S3 (L7) — inline — Uber → Transporte in Deseos. RED: the Uber pin failed.
 - [x] T2 — S1 — inline — re-measured: «Desconocido» down from 55 to 16 of 89 expenses (L4).
 - [ ] T3 — S5 — pending the user's decision after merge
 
@@ -46,3 +47,4 @@ Objective: raise the template's coverage, measured against the user's real BCI s
   - Added Transporte in Deseos, a homonym that ADR-042 allows. The template is now 20 categories.
   - Two icon tests looked icons up by name only, so they were keyed by bucket and name.
   - The T4.8a integration test used to create that homonym by hand. It now uses the seeded row.
+- L7 (2026-11-06): "Uber también en transporte de gustos".
