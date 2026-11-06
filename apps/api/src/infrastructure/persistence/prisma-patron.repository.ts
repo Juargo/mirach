@@ -109,8 +109,15 @@ export class PrismaPatronRepository implements IPatronRepository {
   async actualizar(
     userId: string,
     id: string,
-    patch: { patron?: string; matchType?: MatchType; prioridad?: number },
+    patch: {
+      patron?: string;
+      matchType?: MatchType;
+      prioridad?: number;
+      categoriaId?: string;
+    },
   ): Promise<Patron> {
+    // `categoriaId`: the composite FK (categoriaId, userId) → Categoria is
+    // the DB-level refusal of another user's category, after the use case's.
     const row = await this.prisma.patronClasificacion.update({
       where: { id, userId },
       data: patch,

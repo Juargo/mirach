@@ -7,6 +7,9 @@ import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.
 import { RegexInvalidaError } from '../../domain/errors/regex-invalida.error';
 import { PrioridadInvalidaError } from '../../domain/errors/prioridad-invalida.error';
 import { PatronDuplicadoError } from '../../domain/errors/patron-duplicado.error';
+import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
+import { ICategoriaRepository } from '../ports/categoria-repository.port';
 
 const PATRON_MIN = 1;
 const PATRON_MAX = 200;
@@ -21,24 +24,34 @@ export type ActualizarPatronError =
   | MatchTypeInvalidoError
   | RegexInvalidaError
   | PrioridadInvalidaError
-  | PatronDuplicadoError;
+  | PatronDuplicadoError
+  | CategoriaNoEncontradaError
+  | CategoriaInternaProtegidaError;
 
 /**
  * ActualizarPatronUseCase — use case de escritura para
  * `PATCH /api/patrones/:id` (US-038, CAT038-05).
  *
- * Body PARCIAL (Q4): `patron`, `matchType`, `prioridad` son todos
- * opcionales. `categoriaId` NO se acepta — mover un patrón entre
- * categorías es un non-goal explícito.
+ * Body PARCIAL (Q4): `patron`, `matchType`, `prioridad` y `categoriaId`
+ * son todos opcionales. `categoriaId` mueve el patrón a otra categoría del
+ * usuario (CLA-17: "Si el patrón ya existe en otra categoría, la app lo dice
+ * y ofrece moverlo"). Es la MISMA fila: conserva su `id` y su `creadoEn`, el
+ * desempate de CLA-12. Mover el patrón no mueve movimientos ya
+ * clasificados; eso es `moverDelPeriodo` al crear, o "aplicar a parecidos".
  *
- * Orden de validación: 404 (fila ajena/inexistente) → `patron`?
+ * Orden de validación: 404 (fila ajena/inexistente) → `categoriaId`?
+ * propiedad (404 `CATEGORIA_NO_ENCONTRADA`) + no interna (403, CLA-18) →
+ * `patron`?
  * forma + unicidad self-excluded → `matchType`? ∈ set → si el `matchType`
  * EFECTIVO (el enviado, o el actual si no se envía) es REGEX, el `patron`
  * EFECTIVO (el enviado, o el actual) debe compilar → `prioridad`? rango →
  * delega en el repositorio. Nunca lanza.
  */
 export class ActualizarPatronUseCase {
-  constructor(private readonly patronRepository: IPatronRepository) {}
+  constructor(
+    private readonly patronRepository: IPatronRepository,
+    private readonly categoriaRepository: ICategoriaRepository,
+  ) {}
 
   async execute(input: {
     userId: string;
@@ -46,6 +59,7 @@ export class ActualizarPatronUseCase {
     patron?: string;
     matchType?: string;
     prioridad?: number;
+    categoriaId?: string;
   }): Promise<Result<Patron, ActualizarPatronError>> {
     const actual = await this.patronRepository.buscarPorId(
       input.userId,
@@ -59,7 +73,25 @@ export class ActualizarPatronUseCase {
       patron?: string;
       matchType?: MatchType;
       prioridad?: number;
+      categoriaId?: string;
     } = {};
+
+    if (input.categoriaId !== undefined) {
+      const categoria = await this.categoriaRepository.buscarPorId(
+        input.userId,
+        input.categoriaId,
+      );
+      if (categoria === null) {
+        return Result.fail(new CategoriaNoEncontradaError(input.categoriaId));
+      }
+      // CLA-18: "Desconocido" receives what matches no pattern; it holds none.
+      if (categoria.esInterna) {
+        return Result.fail(
+          new CategoriaInternaProtegidaError(input.categoriaId, 'patron'),
+        );
+      }
+      patch.categoriaId = categoria.id;
+    }
 
     if (input.patron !== undefined) {
       const patron = input.patron.trim();

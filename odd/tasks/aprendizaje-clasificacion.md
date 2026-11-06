@@ -48,8 +48,8 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
 ## Tasks
 
 - [x] T1 — S1, S2, S5 (domain + dedupe) — delegated writer — `3970e78f` — RED: specs failed on missing modules and on `existente`; GREEN: `npx vitest run` 3501 passed
-- [x] T2 — S3 (preview endpoint) — delegated writer — commit: see `git log` (feat(api): preview …) — RED: route/mapper specs 6 failed; GREEN: 3501 passed
-- [ ] T3 — S4, S5 (create with move, 409 detail, move pattern) — inline
+- [x] T2 — S3 (preview endpoint) — delegated writer — `24d191dd` — RED: route/mapper specs 6 failed; GREEN: 3501 passed
+- [x] T3 — S4, S5 (create with move, 409 detail, move pattern) — delegated writer — commit: next `feat(api): save a pattern and move…` — RED: use case 4 + 3 failed, routes failed; GREEN: unit 3522 passed, `aprendizaje-clasificacion.int-spec.ts` 5 passed; mutation (no `$transaction`) turned the rollback test red
 - [ ] T4 — S6 (similar suggestion + reclassify with apply) — inline
 - [ ] T5 — regenerate iOS and Android clients; Android compiles — inline
 - [ ] T6 — S7 (iOS 09, 28, 30) — inline
@@ -69,3 +69,5 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
 - L5 (T1): "Coincide" is exact: the candidate gets a marker category inside the simulated catalog, so a row counts only when the engine picks the candidate itself (not just "lands in the target category"). If the text already exists (folded), the candidate replaces that pattern and keeps its id, match type and `creadoEn`, so the preview models "move it here". A new pattern loses CLA-12 ties (it is the newest).
 - L6 (T1): `existePatron` was replaced by `buscarPorTexto` (returns the existing pattern with category and bucket). It folds accents in memory over the user's patterns (userId in the WHERE). `POST /api/categorias` with nested `patrones` now also folds accents, both against the catalog and inside the batch.
 - L7 (T2): Preview `patron` is returned as the engine compares it (`normalizarTextoPatron`). `monto` is `cargo` as a string (incomes never coincide). Coincidences are ordered by fecha asc, id asc. Catalog read failure → 503 `CATALOGO_NO_DISPONIBLE`; invalid periodo → 400 `PERIODO_INVALIDO` (new codes in `aCatalogoHttpError`).
+- L8 (T3): One interactive `$transaction` in `PrismaAprendizajeClasificacionWriter` does category lookup `(id, userId)` → optional manual reclassification → pattern (create/move/keep) → move rows. The coinciding ids are selected before the transaction; the move's WHERE repeats `account.userId` and `clasificacionManual = false`, so a row changed by hand in between is not overwritten. `movidos` is Prisma's count.
+- L9 (T3): `POST /api/patrones` 201 is now `PatronCreateResponse` (the previous `PatronResponse` fields plus `movidos`). The 409 adds `existente`. `PATCH /api/patrones/{id}` accepts `categoriaId` (404 `CATEGORIA_NO_ENCONTRADA`, 403 `CATEGORIA_INTERNA`); moving a pattern moves no movements. Assumption: `moverDelPeriodo` must be an explicit YYYY-MM (no default).

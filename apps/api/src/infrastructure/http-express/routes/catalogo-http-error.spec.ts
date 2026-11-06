@@ -11,11 +11,36 @@ import { PrioridadInvalidaError } from '../../../domain/errors/prioridad-invalid
 import { PatronDuplicadoError } from '../../../domain/errors/patron-duplicado.error';
 import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encontrado.error';
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
+import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
 
 describe('aCatalogoHttpError — learning flows (CLA-15)', () => {
+  it('TransaccionNoEncontradaError -> 404 TRANSACCION_NO_ENCONTRADA', () => {
+    expect(
+      aCatalogoHttpError(new TransaccionNoEncontradaError('tx')),
+    ).toMatchObject({
+      status: 404,
+      code: 'TRANSACCION_NO_ENCONTRADA',
+    });
+  });
+
+  it('PatronDuplicadoError with existente spreads it (CLA-17)', () => {
+    const existente = {
+      patronId: 'p',
+      categoriaId: 'c',
+      categoria: 'Cafés',
+      bucket: 'Deseos' as never,
+    };
+    expect(
+      aCatalogoHttpError(new PatronDuplicadoError('cafe', existente)).existente,
+    ).toEqual(existente);
+    expect(
+      aCatalogoHttpError(new PatronDuplicadoError('cafe')).existente,
+    ).toBeUndefined();
+  });
+
   it('PeriodoInvalidoError -> 400 PERIODO_INVALIDO', () => {
     const result = aCatalogoHttpError(new PeriodoInvalidoError('2026-13'));
     expect(result).toMatchObject({ status: 400, code: 'PERIODO_INVALIDO' });

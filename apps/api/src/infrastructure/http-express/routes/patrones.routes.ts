@@ -42,6 +42,7 @@ export function registrarPatrones(
         patron: parsed.data.patron,
         matchType: parsed.data.matchType,
         prioridad: parsed.data.prioridad,
+        moverDelPeriodo: parsed.data.moverDelPeriodo,
       });
 
       if (result.isFail()) {
@@ -49,7 +50,8 @@ export function registrarPatrones(
         return;
       }
 
-      res.status(201).json(aPatronDto(result.getValue()));
+      const { patron, movidos } = result.getValue();
+      res.status(201).json({ ...aPatronDto(patron), movidos });
     } catch (err) {
       next(err);
     }
@@ -98,6 +100,7 @@ export function registrarPatrones(
         patron: parsedBody.data.patron,
         matchType: parsedBody.data.matchType,
         prioridad: parsedBody.data.prioridad,
+        categoriaId: parsedBody.data.categoriaId,
       });
 
       if (result.isFail()) {

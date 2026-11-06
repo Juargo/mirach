@@ -57,11 +57,11 @@ describe('patronUpdateRequestSchema (PATCH, partial body — Q4)', () => {
     expect(patronUpdateRequestSchema.safeParse({}).success).toBe(false);
   });
 
-  it('rejects categoriaId — moving a pattern between categories is a non-goal', () => {
+  it('accepts categoriaId alone — moving a pattern (CLA-17)', () => {
     const result = patronUpdateRequestSchema.safeParse({
       categoriaId: 'cat-2',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });
 

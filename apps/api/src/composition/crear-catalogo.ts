@@ -18,6 +18,7 @@ import { PrismaCatalogoClasificacionRepository } from '../infrastructure/persist
 import { PrismaMovimientosParaAprenderReader } from '../infrastructure/persistence/prisma-movimientos-para-aprender.reader';
 import { PrismaPerfilPresupuestoRepository } from '../infrastructure/persistence/prisma-perfil-presupuesto.repository';
 import { PrismaUltimoPeriodoConDatosReader } from '../infrastructure/persistence/prisma-ultimo-periodo-con-datos.repository';
+import { PrismaAprendizajeClasificacionWriter } from '../infrastructure/persistence/prisma-aprendizaje-clasificacion.writer';
 import { PrismaCategoriaRepository } from '../infrastructure/persistence/prisma-categoria.repository';
 import { PrismaPatronRepository } from '../infrastructure/persistence/prisma-patron.repository';
 
@@ -64,6 +65,7 @@ export function crearCatalogo(
     new PrismaUltimoPeriodoConDatosReader(prisma),
     new CategorizarTransaccionUseCase(logger),
   );
+  const aprendizajeWriter = new PrismaAprendizajeClasificacionWriter(prisma);
 
   return {
     listarCatalogo: new ListarCatalogoUseCase(categoriaRepository),
@@ -73,8 +75,16 @@ export function crearCatalogo(
     ),
     actualizarCategoria: new ActualizarCategoriaUseCase(categoriaRepository),
     eliminarCategoria: new EliminarCategoriaUseCase(categoriaRepository),
-    crearPatron: new CrearPatronUseCase(categoriaRepository, patronRepository),
-    actualizarPatron: new ActualizarPatronUseCase(patronRepository),
+    crearPatron: new CrearPatronUseCase(
+      categoriaRepository,
+      patronRepository,
+      planificador,
+      aprendizajeWriter,
+    ),
+    actualizarPatron: new ActualizarPatronUseCase(
+      patronRepository,
+      categoriaRepository,
+    ),
     eliminarPatron: new EliminarPatronUseCase(patronRepository),
     vistaPreviaPatron: new VistaPreviaPatronUseCase(
       categoriaRepository,

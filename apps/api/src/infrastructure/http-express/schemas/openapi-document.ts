@@ -85,6 +85,7 @@ import {
   patronVistaPreviaRequestSchema,
   patronVistaPreviaResponseSchema,
   patronResponseSchema,
+  patronCreateResponseSchema,
 } from './patrones.schema';
 import {
   catalogoErrorResponseSchema,
@@ -1023,7 +1024,10 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
   summary: 'Create a classification pattern',
   description:
     "Authenticated endpoint that creates a classification pattern under one of the caller's own " +
-    'categories (US-038, CAT038-05/06). Requires x-api-key + a valid session.',
+    'categories (US-038, CAT038-05/06). With `moverDelPeriodo` (CLA-15), saving the pattern and moving the ' +
+    'coinciding movements of that financial month happen in one transaction: moved movements get the ' +
+    'category and its bucket and stay pattern-classified; movements changed by hand never move. Without it ' +
+    'nothing moves and `movidos` is 0. Requires x-api-key + a valid session.',
   requestBody: {
     content: {
       'application/json': { schema: patronCreateRequestSchema },
@@ -1032,15 +1036,15 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
   responses: {
     '401': respuesta401Protegida,
     '201': {
-      description: 'Pattern created.',
+      description: 'Pattern created, with the count of moved movements.',
       content: {
-        'application/json': { schema: patronResponseSchema },
+        'application/json': { schema: patronCreateResponseSchema },
       },
     },
     '400': {
       description:
-        'Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a ' +
-        'malformed request body.',
+        'Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), an invalid ' +
+        'moverDelPeriodo (`PERIODO_INVALIDO`), or a malformed request body.',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
@@ -1062,7 +1066,16 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
     },
     '409': {
       description:
-        'A pattern with that text already exists for this user (case-insensitive).',
+        'A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). ' +
+        '`existente` names it with its category and bucket.',
+      content: {
+        'application/json': { schema: catalogoErrorResponseSchema },
+      },
+    },
+    '503': {
+      description:
+        'With moverDelPeriodo: the classification catalog could not be read; nothing was saved. ' +
+        '`code` CATALOGO_NO_DISPONIBLE.',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
@@ -1126,9 +1139,9 @@ const patronesVistaPreviaOperation: ZodOpenApiOperationObject = {
 const patronesUpdateOperation: ZodOpenApiOperationObject = {
   summary: 'Update a classification pattern',
   description:
-    'Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is ' +
-    'NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid ' +
-    'session.',
+    'Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` moves ' +
+    "the pattern to another of the caller's categories (CLA-17); it keeps its id and creation date. " +
+    'Moving a pattern does not move movements. Requires x-api-key + a valid session.',
   requestParams: {
     path: patronIdPathParamsSchema,
   },
@@ -1152,16 +1165,26 @@ const patronesUpdateOperation: ZodOpenApiOperationObject = {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
     },
+    '403': {
+      description:
+        'The target categoriaId is a protected system category, which accepts no patterns (CLA-18). ' +
+        '`code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
     '404': {
       description:
-        'Anti-enumeration: the pattern does not exist or does not belong to the authenticated user.',
+        'Anti-enumeration: the pattern (`PATRON_NO_ENCONTRADO`) or the target categoriaId ' +
+        '(`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
     },
     '409': {
       description:
-        'A pattern with that text already exists for this user (case-insensitive).',
+        'A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). ' +
+        '`existente` names it with its category and bucket.',
       content: {
         'application/json': { schema: catalogoErrorResponseSchema },
       },

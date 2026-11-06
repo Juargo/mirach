@@ -11,6 +11,9 @@ import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encont
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
 import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
+import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
+import { aPatronExistenteDto } from '../../http/dto/patron.dto';
+import type { ErrorTraducido } from './responder-error-traducido';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
 import { VistaPreviaPatronError } from '../../../application/use-cases/vista-previa-patron.use-case';
@@ -50,12 +53,9 @@ const MENSAJE_CATALOGO_NO_DISPONIBLE =
  * garantía para toda la familia — agregar una variante sin mapearla acá
  * DEJA DE COMPILAR, en vez de caer silenciosamente a un status equivocado.
  */
-export function aCatalogoHttpError(error: CatalogoError): {
-  status: number;
-  code: string;
-  message: string;
-  indice?: number;
-} {
+export function aCatalogoHttpError(
+  error: CatalogoError,
+): ErrorTraducido & { code: string } {
   if (error instanceof PatronEnLoteInvalidoError) {
     // Recurses BY TYPE into `causa` — un `PatronEnLoteInvalidoError` nunca
     // envuelve a otro `PatronEnLoteInvalidoError`, así que esta llamada
@@ -120,7 +120,22 @@ export function aCatalogoHttpError(error: CatalogoError): {
     return { status: 409, code: 'NOMBRE_DUPLICADO', message: error.message };
   }
   if (error instanceof PatronDuplicadoError) {
-    return { status: 409, code: 'PATRON_DUPLICADO', message: error.message };
+    // CLA-17: additive `existente`, so the client can offer to move it.
+    return {
+      status: 409,
+      code: 'PATRON_DUPLICADO',
+      message: error.message,
+      ...(error.existente !== null
+        ? { existente: aPatronExistenteDto(error.existente) }
+        : {}),
+    };
+  }
+  if (error instanceof TransaccionNoEncontradaError) {
+    return {
+      status: 404,
+      code: 'TRANSACCION_NO_ENCONTRADA',
+      message: error.message,
+    };
   }
   if (error instanceof PeriodoInvalidoError) {
     // The message is fixed and never echoes the raw input.

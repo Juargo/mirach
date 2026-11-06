@@ -55,7 +55,14 @@ export interface IPatronRepository {
   actualizar(
     userId: string,
     id: string,
-    patch: { patron?: string; matchType?: MatchType; prioridad?: number },
+    /** `categoriaId` (CLA-17) is already validated as the caller's own,
+     * non-internal category; the row keeps its id and `creadoEn`. */
+    patch: {
+      patron?: string;
+      matchType?: MatchType;
+      prioridad?: number;
+      categoriaId?: string;
+    },
   ): Promise<Patron>;
 
   /** `false` ⇒ el patrón no existe o no pertenece al usuario (anti-enumeration). */

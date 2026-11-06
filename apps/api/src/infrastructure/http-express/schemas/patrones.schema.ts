@@ -12,36 +12,71 @@ export const patronCreateRequestSchema = z
     patron: z.string(),
     matchType: z.string(),
     prioridad: z.number().optional(),
+    moverDelPeriodo: z
+      .string()
+      .optional()
+      .describe(
+        'CLA-15: financial month YYYY-MM. When present, saving the pattern and moving the coinciding ' +
+          'movements of that month happen in one transaction. Absent ⇒ nothing moves.',
+      ),
   })
   .strict();
 
 /**
- * PATCH body — partial, at least one field present (Q4). `categoriaId` is
- * intentionally NOT accepted: moving a pattern between categories is a
- * non-goal (design.md §5.1), and `.strict()` makes a caller that tries it
- * fail loudly instead of being silently ignored (D-09).
+ * PATCH body — partial, at least one field present (Q4). `categoriaId`
+ * moves the pattern to another of the caller's categories (CLA-17, S5); it
+ * keeps its id and `creadoEn`. Ownership and the internal-category rule are
+ * the use case's. `.strict()` still rejects any unknown field (D-09).
  */
 export const patronUpdateRequestSchema = z
   .object({
     patron: z.string().optional(),
     matchType: z.string().optional(),
     prioridad: z.number().optional(),
+    categoriaId: z
+      .string()
+      .optional()
+      .describe(
+        'CLA-17: move the pattern to this category of the caller. Keeps id and creadoEn.',
+      ),
   })
   .strict()
   .refine(
     (body) =>
       body.patron !== undefined ||
       body.matchType !== undefined ||
-      body.prioridad !== undefined,
+      body.prioridad !== undefined ||
+      body.categoriaId !== undefined,
     {
       message:
-        'At least one of patron, matchType or prioridad must be present.',
+        'At least one of patron, matchType, prioridad or categoriaId must be present.',
     },
   );
 
 export const patronIdPathParamsSchema = z.object({
   id: z.string(),
 });
+
+/** `POST /api/patrones` 201: the pattern plus how many rows moved (S4). */
+export const patronCreateResponseSchema = z
+  .object({
+    id: z.string(),
+    categoriaId: z.string(),
+    patron: z.string(),
+    matchType: z.string(),
+    prioridad: z.number(),
+    movidos: z
+      .number()
+      .int()
+      .describe(
+        'Movements of moverDelPeriodo moved to the category; 0 without it.',
+      ),
+  })
+  .meta({
+    id: 'PatronCreateResponse',
+    description:
+      'The created pattern (US-038) and how many movements moved with it (CLA-15).',
+  });
 
 /**
  * Response contract for a single patrón (mirrors `PatronDto`,
