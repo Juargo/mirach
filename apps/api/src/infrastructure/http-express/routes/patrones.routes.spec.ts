@@ -1,3 +1,4 @@
+import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { registrarPatrones } from './patrones.routes';
@@ -83,6 +84,31 @@ describe('registrarPatrones', () => {
       });
       expect(catalogo.crearPatron.execute).not.toHaveBeenCalled();
       expect(JSON.stringify(res.body)).not.toContain('sneaky-value');
+    });
+
+    it('403 CATEGORIA_INTERNA when the category is internal (CLA-18)', async () => {
+      const catalogo = makeCatalogo({
+        crearPatron: {
+          execute: vi
+            .fn()
+            .mockResolvedValue(
+              Result.fail(
+                new CategoriaInternaProtegidaError('cat-d', 'patron'),
+              ),
+            ),
+        } as unknown as CatalogoGraph['crearPatron'],
+      });
+      const res = await request(probeApp(catalogo)).post('/api/patrones').send({
+        categoriaId: 'cat-d',
+        patron: 'netflix',
+        matchType: 'CONTAINS',
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({
+        message: 'Esta categoría es interna del sistema: no acepta patrones.',
+        code: 'CATEGORIA_INTERNA',
+      });
     });
 
     it('404 CATEGORIA_NO_ENCONTRADA when the categoriaId is foreign or absent', async () => {

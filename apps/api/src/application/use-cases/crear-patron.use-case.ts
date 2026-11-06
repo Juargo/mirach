@@ -2,6 +2,7 @@ import { Result } from '../../shared/result';
 import { ICategoriaRepository } from '../ports/categoria-repository.port';
 import { IPatronRepository, Patron } from '../ports/patron-repository.port';
 import { CategoriaNoEncontradaError } from '../../domain/errors/categoria-no-encontrada.error';
+import { CategoriaInternaProtegidaError } from '../../domain/errors/categoria-interna-protegida.error';
 import { PatronInvalidoError } from '../../domain/errors/patron-invalido.error';
 import { MatchTypeInvalidoError } from '../../domain/errors/match-type-invalido.error';
 import { RegexInvalidaError } from '../../domain/errors/regex-invalida.error';
@@ -11,6 +12,7 @@ import { validarPatron } from './validar-patron';
 
 export type CrearPatronError =
   | CategoriaNoEncontradaError
+  | CategoriaInternaProtegidaError
   | PatronInvalidoError
   | MatchTypeInvalidoError
   | RegexInvalidaError
@@ -50,6 +52,13 @@ export class CrearPatronUseCase {
     );
     if (categoria === null) {
       return Result.fail(new CategoriaNoEncontradaError(input.categoriaId));
+    }
+    // CLA-18: "Desconocido" (interna) recibe lo que no coincide con ningún
+    // patrón, así que no puede tener patrones propios.
+    if (categoria.esInterna) {
+      return Result.fail(
+        new CategoriaInternaProtegidaError(input.categoriaId, 'patron'),
+      );
     }
 
     const validado = validarPatron({

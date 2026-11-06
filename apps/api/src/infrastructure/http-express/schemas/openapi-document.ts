@@ -1043,6 +1043,14 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
         'application/json': { schema: catalogoErrorResponseSchema },
       },
     },
+    '403': {
+      description:
+        'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"), ' +
+        'which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.',
+      content: {
+        'application/json': { schema: categoriaInternaErrorResponseSchema },
+      },
+    },
     '404': {
       description:
         'Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.',

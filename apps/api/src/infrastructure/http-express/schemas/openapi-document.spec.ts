@@ -654,6 +654,7 @@ describe('buildOpenApiDocument', () => {
     it.each([
       ['patch', '/api/categorias/{id}'],
       ['delete', '/api/categorias/{id}'],
+      ['post', '/api/patrones'],
     ] as const)('%s %s declares 403 CATEGORIA_INTERNA', (metodo, ruta) => {
       const op = document().paths?.[ruta]?.[metodo];
       const schema = componente(schemaRef(op, '403'));
@@ -666,7 +667,6 @@ describe('buildOpenApiDocument', () => {
       const con403 = [
         ['post', '/api/categorias'],
         ['get', '/api/categorias'],
-        ['post', '/api/patrones'],
         ['patch', '/api/patrones/{id}'],
         ['delete', '/api/patrones/{id}'],
       ].filter(

@@ -7514,6 +7514,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/POST/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/POST/responses/403/content/application\/json`.
+                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"), which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/post/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.post_sol_api_sol_patrones.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.post_sol_api_sol_patrones.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             internal struct NotFound: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/patrones/POST/responses/404/content`.
                 internal enum Body: Sendable, Hashable {
