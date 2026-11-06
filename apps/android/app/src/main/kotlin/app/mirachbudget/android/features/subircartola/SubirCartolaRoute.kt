@@ -4,6 +4,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,26 +25,45 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.staging.CartolaFileRules
 import app.mirachbudget.android.core.staging.ContentResolverCartolaSource
+import app.mirachbudget.android.features.cartolassubidas.CartolasSubidasMessages
+import app.mirachbudget.android.features.cartolassubidas.CartolasSubidasScreen
+import app.mirachbudget.android.features.cartolassubidas.CartolasSubidasViewModel
 import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel.Step
+import java.util.UUID
 import kotlinx.coroutines.launch
 
 /**
  * "Subir cartola": one screen that changes with the view model's step (port of iOS
  * `SubirCartolaView.swift`). [onShowResumen] is «Ver resumen del mes»: the shell selects the Resumen tab.
+ *
+ * «Cartolas subidas» opens over this tab, with no navigation library: back returns here. It is
+ * offered only when [cartolasSubidasViewModel] is given; it builds the screen's view model, which
+ * calls the `onChange` it receives after a deletion. [onCartolaDeleted] is that `onChange`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubirCartolaRoute(viewModel: SubirCartolaViewModel, onShowResumen: () -> Unit, modifier: Modifier = Modifier) {
+fun SubirCartolaRoute(
+    viewModel: SubirCartolaViewModel,
+    onShowResumen: () -> Unit,
+    modifier: Modifier = Modifier,
+    cartolasSubidasViewModel: ((onChange: () -> Unit) -> CartolasSubidasViewModel)? = null,
+    onCartolaDeleted: () -> Unit = {},
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Uploads outlive the tab: leaving it mid-commit must not cancel the request.
     val scope = viewModel.viewModelScope
@@ -60,6 +83,21 @@ fun SubirCartolaRoute(viewModel: SubirCartolaViewModel, onShowResumen: () -> Uni
         showResumen = onShowResumen,
     )
     val reviewing = state.step as? Step.Revisando
+
+    // One id per opening, kept across rotation: each opening gets a fresh list, as on iOS, and an
+    // id never names another opening's view model (nor another person's after signing in again).
+    var cartolasOpening by rememberSaveable { mutableStateOf<String?>(null) }
+    val currentOnCartolaDeleted by rememberUpdatedState(onCartolaDeleted)
+    val opening = cartolasOpening
+    if (opening != null && cartolasSubidasViewModel != null) {
+        val cartolasViewModel = viewModel<CartolasSubidasViewModel>(
+            key = "cartolas-subidas-$opening",
+            factory = viewModelFactory { initializer { cartolasSubidasViewModel { currentOnCartolaDeleted() } } },
+        )
+        CartolasSubidasScreen(cartolasViewModel, onBack = { cartolasOpening = null }, modifier = modifier)
+        return
+    }
+    val openCartolas = cartolasSubidasViewModel?.let { { cartolasOpening = UUID.randomUUID().toString() } }
 
     Scaffold(
         modifier = modifier,
@@ -93,6 +131,8 @@ fun SubirCartolaRoute(viewModel: SubirCartolaViewModel, onShowResumen: () -> Uni
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 StepContent(viewModel, state, actions)
+                // The way to the imports already made, to check or undo one (iOS shows it in the same two steps).
+                if (openCartolas != null && (state.step is Step.Inicial || state.step is Step.Exito)) CartolasSubidasLink(openCartolas)
             }
         }
     }
@@ -105,6 +145,18 @@ fun SubirCartolaRoute(viewModel: SubirCartolaViewModel, onShowResumen: () -> Uni
             },
             onCancel = { confirmingDiscard = false },
         )
+    }
+}
+
+/** «Cartolas subidas», styled as a secondary action with a chevron. */
+@Composable
+private fun CartolasSubidasLink(onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth()) {
+            Text(CartolasSubidasMessages.TITLE)
+            Spacer(Modifier.weight(1f))
+            Text("›", modifier = Modifier.clearAndSetSemantics {})
+        }
     }
 }
 
