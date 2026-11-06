@@ -491,6 +491,11 @@ describe('CommitIngestaUseCase', () => {
       // TX0 (index 0) — overlay applies Necesidades via the Map
       expect(txs[0].bucket).toBe(Bucket.Necesidades);
       expect(txs[0].categoriaId).toBe(CAT_NECESIDADES_ID);
+      // CLA-16: the person chose this category in the review.
+      expect(txs[0].clasificacionManual).toBe(true);
+      // Auto-classified and Ingreso rows stay movable by patterns.
+      expect(txs[1].clasificacionManual).toBeFalsy();
+      expect(txs[2].clasificacionManual).toBeFalsy();
       // TX1 (index 1) — no overlay, no pattern → destino por defecto (#778
       // tramo 3/5: commit siempre resuelve, y la Desconocido de Deseos que
       // FakeCategoriaRepository inyecta por defecto reemplaza al viejo

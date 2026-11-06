@@ -31,6 +31,25 @@ describe('transaccion.mapper', () => {
       expect(row.fecha).toEqual(tx.fecha);
     });
 
+    it('CLA-16: persiste clasificacionManual (false por defecto, true si la persona eligió la categoría)', () => {
+      const tx: Transaccion = Transaccion.crear({
+        fecha: new Date('2026-05-14T00:00:00.000Z'),
+        descripcion: 'Compra',
+        cargo: 8103n,
+        abono: 0n,
+      }).getValue();
+
+      expect(aPersistencia(oneShot(tx), crypto).clasificacionManual).toBe(
+        false,
+      );
+      expect(
+        aPersistencia(
+          { ...oneShot(tx), categoriaId: 'cat-1', clasificacionManual: true },
+          crypto,
+        ).clasificacionManual,
+      ).toBe(true);
+    });
+
     it('cifra la descripción usando el crypto service', () => {
       const tx: Transaccion = Transaccion.crear({
         fecha: new Date('2026-05-15T00:00:00.000Z'),

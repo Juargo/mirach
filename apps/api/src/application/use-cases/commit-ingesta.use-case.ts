@@ -463,10 +463,13 @@ export class CommitIngestaUseCase {
               categoriaId: categoriaPorDefecto.id,
             };
           }
+          // CLA-16: the person chose this category in the review, so a
+          // pattern never moves it afterwards.
           return {
             transaccion: tx,
             bucket: bucketDelOverlay,
             categoriaId: overlay.categoriaId,
+            clasificacionManual: true,
           };
         }
 

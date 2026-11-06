@@ -106,6 +106,8 @@ export class PrismaRegistrarMovimientoManualRepository implements IRegistrarMovi
           abono: input.transaccion.abono,
           bucketId: BUCKET_IDS[input.bucket],
           categoriaId: input.categoriaId,
+          // CLA-16: a category chosen by hand is never moved by a pattern.
+          clasificacionManual: input.categoriaId !== null,
         },
       });
 
