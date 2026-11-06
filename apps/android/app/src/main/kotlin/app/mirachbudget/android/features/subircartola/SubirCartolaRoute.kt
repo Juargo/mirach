@@ -105,9 +105,10 @@ fun SubirCartolaRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val sharedFileNotice = state.sharedFileNotice
     LaunchedEffect(sharedFileNotice) {
+        // Dismissed only after it was shown: clearing it first changes the key and cancels the snackbar.
         if (sharedFileNotice != null) {
-            viewModel.dismissSharedFileNotice()
             snackbarHostState.showSnackbar(sharedFileNotice)
+            viewModel.dismissSharedFileNotice()
         }
     }
 
