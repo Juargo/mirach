@@ -22,8 +22,9 @@ Ver y editar el catálogo propio de categorías, agrupado por bloque, y los patr
 | POST | `/api/categorias` | Al crear una categoría | 201, 400, 409, 401 |
 | PATCH | `/api/categorias/{id}` | Al guardar cambios de una categoría | 200, 400, 403, 404, 409, 401 |
 | DELETE | `/api/categorias/{id}` | Al confirmar la eliminación | 204, 403, 404, 401 |
-| POST | `/api/patrones` | Al confirmar un patrón nuevo | 201, 400, 404, 409, 401 |
-| PATCH | `/api/patrones/{id}` | Al guardar la edición de un patrón | 200, 400, 404, 409, 401 |
+| POST | `/api/patrones/vista-previa` | Al escribir el texto de un patrón nuevo (pantalla 28) | 200, 400, 403, 404, 503, 401 |
+| POST | `/api/patrones` | Al confirmar un patrón nuevo | 201, 400, 403, 404, 409, 503, 401 |
+| PATCH | `/api/patrones/{id}` | Al guardar la edición de un patrón, o al moverlo de categoría (pantalla 30) | 200, 400, 403, 404, 409, 401 |
 | DELETE | `/api/patrones/{id}` | Al confirmar la eliminación de un patrón | 204, 404, 401 |
 
 No hay endpoint de una sola categoría: el detalle toma de `GET /api/categorias` la entrada con el `id` recibido. Si no aparece, la categoría ya no existe.
@@ -35,8 +36,10 @@ No hay endpoint de una sola categoría: el detalle toma de `GET /api/categorias`
 | Crear una categoría | `POST /api/categorias` | `{"nombre": "<1 a 40 caracteres>", "bucket": "Necesidades"\|"Deseos"\|"Ahorro", "icono": "<de la lista>"\|null}` | 201 `CategoriaResponse`: aparece en su grupo y se anuncia | 400 `NOMBRE_INVALIDO`, `BUCKET_NO_ASIGNABLE`, `ICONO_INVALIDO`; 409 `NOMBRE_DUPLICADO` (el nombre se repite en el mismo bloque, CLA-10); el formulario conserva lo escrito |
 | Guardar cambios | `PATCH /api/categorias/{id}` | Solo los campos modificados de `{"nombre", "bucket", "icono"}`; un cuerpo vacío no se envía | 200 `CategoriaResponse` | 400 igual que crear; 404 `CATEGORIA_NO_ENCONTRADA`; 409 `NOMBRE_DUPLICADO`; 403 `CATEGORIA_INTERNA` |
 | Eliminar una categoría | `DELETE /api/categorias/{id}` | — | 204: vuelve a la lista | 404 (se vuelve a la lista); 403 `CATEGORIA_INTERNA` |
-| Crear un patrón | `POST /api/patrones` | `{"categoriaId", "patron": "<1 a 200 caracteres>", "matchType": "CONTAINS"}`; nunca otro tipo ni `prioridad` (CLA-12, CLA-14) | 201 `PatronResponse` | 400 `PATRON_INVALIDO`; 404 `CATEGORIA_NO_ENCONTRADA`; 409 `PATRON_DUPLICADO` (pantalla 30, CLA-17) |
-| Editar un patrón | `PATCH /api/patrones/{id}` | `{"patron"}` | 200 `PatronResponse` | 400 igual que crear; 404 `PATRON_NO_ENCONTRADO`; 409 `PATRON_DUPLICADO` |
+| Vista previa de un patrón | `POST /api/patrones/vista-previa` | `{"categoriaId", "patron", "periodo"?: "YYYY-MM"}`; sin `periodo`, el último mes con datos | 200 `PatronVistaPreviaResponse`: `{periodo, patron, total, coincidencias: [{id, descripcion, fecha, monto}], existente}`; «Coincide con {N} movimientos de {mes}» (CLA-15) | 400 `PATRON_INVALIDO`, `PERIODO_INVALIDO`; 403 `CATEGORIA_INTERNA`; 404 `CATEGORIA_NO_ENCONTRADA`; 503 `CATALOGO_NO_DISPONIBLE` |
+| Crear un patrón | `POST /api/patrones` | `{"categoriaId", "patron": "<1 a 200 caracteres>", "matchType": "CONTAINS", "moverDelPeriodo"?: "YYYY-MM"}`; nunca otro tipo ni `prioridad` (CLA-12, CLA-14). `moverDelPeriodo` solo si la persona marcó «Mover también estos {N} movimientos» | 201 `PatronCreateResponse`: el patrón más `movidos` (0 sin `moverDelPeriodo`) | 400 `PATRON_INVALIDO`, `PERIODO_INVALIDO`; 403 `CATEGORIA_INTERNA`; 404 `CATEGORIA_NO_ENCONTRADA`; 409 `PATRON_DUPLICADO` con `existente: {patronId, categoriaId, categoria, bucket}` (pantalla 30, CLA-17); 503 `CATALOGO_NO_DISPONIBLE` |
+| Editar un patrón | `PATCH /api/patrones/{id}` | `{"patron"}` | 200 `PatronResponse` | 400 igual que crear; 404 `PATRON_NO_ENCONTRADO`; 409 `PATRON_DUPLICADO` con `existente` |
+| Mover un patrón a esta categoría | `PATCH /api/patrones/{id}` | `{"categoriaId"}` con el `existente.patronId` del 409 | 200 `PatronResponse`: el mismo patrón (mismo `id` y antigüedad) en la nueva categoría | 403 `CATEGORIA_INTERNA`; 404 `PATRON_NO_ENCONTRADO`, `CATEGORIA_NO_ENCONTRADA` |
 | Eliminar un patrón | `DELETE /api/patrones/{id}` | — | 204: la fila desaparece | 404 `PATRON_NO_ENCONTRADO`: se quita de la lista |
 
 Reglas de contrato:
@@ -46,6 +49,9 @@ Reglas de contrato:
 - **Eliminar un patrón** pide confirmación; no cambia categorías ya asignadas.
 - Las categorías con `esInterna: true` (las tres «Desconocido») se muestran como del sistema, sin editar ni eliminar, y no aceptan patrones (CLA-13, CLA-18). El 403 sigue cubierto.
 - La clasificación con patrones la hace el API; la app lista los patrones en el orden recibido y no decide cuál gana (CLA-12).
+- **Coincidir** (vista previa, mover del mes y aplicar a parecidos) significa que el motor elegiría ese patrón si se agrega al catálogo: gana el más largo y, si miden igual, el más antiguo, sin tildes ni mayúsculas. No cuentan los ingresos, los movimientos cambiados a mano (CLA-16) ni los que ya están en esa categoría. El mes es el mes financiero de la persona (día de inicio del perfil).
+- **Guardar y mover** es una sola transacción: si algo falla, no se guarda el patrón ni se mueve nada. Los movimientos movidos quedan clasificados por patrón, no a mano. Sin marcar la casilla, el patrón solo se usa en las próximas cartolas.
+- **Un texto vive en una sola categoría** (CLA-17): el duplicado se compara sin tildes ni mayúsculas («cafe» choca con «café»). Mover un patrón no mueve movimientos ya clasificados.
 - Los mensajes de cada `code` los define la app; el `message` del servidor es respaldo (brecha 7).
 
 ### Íconos
@@ -68,7 +74,6 @@ El campo `icono` acepta solo la allowlist de `apps/api/src/domain/value-objects/
 
 ## Pendiente en el API
 
-- Brecha 16 (#140): vista previa de un patrón (CLA-15) sin mover lo cambiado a mano (CLA-16).
 - Brecha 20 (#129, #130): coincidencia sin tildes y desempate por largo; la app deja de ofrecer los otros tipos.
 - Brecha 23 (#159): allowlist de íconos distinta del set de CLA-11.
 

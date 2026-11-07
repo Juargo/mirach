@@ -99,6 +99,9 @@ extension OpenAPIMirachAPI {
             case .forbidden(let forbidden):
                 // CLA-18: "Desconocido" accepts no patterns; the server explains why.
                 throw PatronError.rejected(message: try forbidden.body.json.message)
+            case .serviceUnavailable(let unavailable):
+                // Only with `moverDelPeriodo`, which this call never sends.
+                throw PatronError.rejected(message: try unavailable.body.json.message)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
             case .undocumented(let statusCode, _):
@@ -125,6 +128,9 @@ extension OpenAPIMirachAPI {
                 throw Self.patronError(from: try missing.body.json)
             case .conflict(let conflict):
                 throw Self.patronError(from: try conflict.body.json)
+            case .forbidden(let forbidden):
+                // CLA-18: only when moving into "Desconocido", which this call never does.
+                throw PatronError.rejected(message: try forbidden.body.json.message)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
             case .undocumented(let statusCode, _):
@@ -163,6 +169,11 @@ extension OpenAPIMirachAPI {
     }
 
     private static func mapped(_ wire: Components.Schemas.PatronResponse) -> PatronCategoria {
+        PatronCategoria(id: wire.id, patron: wire.patron, matchType: MatchType(apiName: wire.matchType))
+    }
+
+    /// `POST /api/patrones` 201 also carries `movidos` (CLA-15); nothing moves without `moverDelPeriodo`.
+    private static func mapped(_ wire: Components.Schemas.PatronCreateResponse) -> PatronCategoria {
         PatronCategoria(id: wire.id, patron: wire.patron, matchType: MatchType(apiName: wire.matchType))
     }
 

@@ -23,6 +23,7 @@
 
 package app.mirachbudget.android.core.api.generated.models
 
+import app.mirachbudget.android.core.api.generated.models.ApiTransaccionesIdCategoriaPatchRequestAplicarAParecidos
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -32,6 +33,7 @@ import kotlinx.serialization.Contextual
  * 
  *
  * @param categoriaId Categoria id — the caller's OWN Categoria row id, resolved against their own catalog by the use case (CategoriaDesconocidaError if it does not resolve or is not theirs), not this schema.
+ * @param aplicarAParecidos 
  */
 @Serializable
 
@@ -39,7 +41,10 @@ data class ApiTransaccionesIdCategoriaPatchRequest (
 
     /* Categoria id — the caller's OWN Categoria row id, resolved against their own catalog by the use case (CategoriaDesconocidaError if it does not resolve or is not theirs), not this schema. */
     @SerialName(value = "categoriaId")
-    val categoriaId: kotlin.String
+    val categoriaId: kotlin.String,
+
+    @SerialName(value = "aplicarAParecidos")
+    val aplicarAParecidos: ApiTransaccionesIdCategoriaPatchRequestAplicarAParecidos? = null
 
 ) {
 

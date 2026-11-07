@@ -35,6 +35,7 @@ import kotlinx.serialization.Contextual
  * @param bucket Derived bucket name (echo, not raw input).
  * @param categoria 
  * @param id 
+ * @param movidos Similar movements moved with aplicarAParecidos (CLA-03); 0 without it.
  */
 @Serializable
 
@@ -48,7 +49,11 @@ data class TransaccionesCategoriaResponse (
     val categoria: TransaccionesCategoriaResponseCategoria,
 
     @SerialName(value = "id")
-    val id: kotlin.String
+    val id: kotlin.String,
+
+    /* Similar movements moved with aplicarAParecidos (CLA-03); 0 without it. */
+    @SerialName(value = "movidos")
+    val movidos: kotlin.Int
 
 ) {
 

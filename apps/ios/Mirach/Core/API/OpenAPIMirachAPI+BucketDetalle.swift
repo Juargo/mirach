@@ -41,6 +41,11 @@ extension OpenAPIMirachAPI {
                 throw ReclasificarError.categoryNotFound
             case .notFound:
                 throw ReclasificarError.movementNotFound
+            // 403/503 only come with `aplicarAParecidos` (CLA-03), which this call never sends.
+            case .forbidden:
+                throw APIError.badStatus(403)
+            case .serviceUnavailable:
+                throw APIError.badStatus(503)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
             case .undocumented(let statusCode, _):

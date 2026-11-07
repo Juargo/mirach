@@ -638,6 +638,26 @@ extension Components {
         internal struct CatalogoErrorResponse: Codable, Hashable, Sendable {
             /// - Remark: Generated from `#/components/schemas/CatalogoErrorResponse/code`.
             internal var code: Swift.String
+            /// - Remark: Generated from `#/components/schemas/CatalogoErrorResponse/existente`.
+            internal struct existentePayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/CatalogoErrorResponse/existente/value1`.
+                internal var value1: Components.Schemas.PatronExistente
+                /// Creates a new `existentePayload`.
+                ///
+                /// - Parameters:
+                ///   - value1:
+                internal init(value1: Components.Schemas.PatronExistente) {
+                    self.value1 = value1
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    self.value1 = try .init(from: decoder)
+                }
+                internal func encode(to encoder: any Swift.Encoder) throws {
+                    try self.value1.encode(to: encoder)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/CatalogoErrorResponse/existente`.
+            internal var existente: Components.Schemas.CatalogoErrorResponse.existentePayload?
             /// - Remark: Generated from `#/components/schemas/CatalogoErrorResponse/indice`.
             internal var indice: Swift.Double?
             /// - Remark: Generated from `#/components/schemas/CatalogoErrorResponse/message`.
@@ -646,19 +666,23 @@ extension Components {
             ///
             /// - Parameters:
             ///   - code:
+            ///   - existente:
             ///   - indice:
             ///   - message:
             internal init(
                 code: Swift.String,
+                existente: Components.Schemas.CatalogoErrorResponse.existentePayload? = nil,
                 indice: Swift.Double? = nil,
                 message: Swift.String
             ) {
                 self.code = code
+                self.existente = existente
                 self.indice = indice
                 self.message = message
             }
             internal enum CodingKeys: String, CodingKey {
                 case code
+                case existente
                 case indice
                 case message
             }
@@ -667,6 +691,10 @@ extension Components {
                 self.code = try container.decode(
                     Swift.String.self,
                     forKey: .code
+                )
+                self.existente = try container.decodeIfPresent(
+                    Components.Schemas.CatalogoErrorResponse.existentePayload.self,
+                    forKey: .existente
                 )
                 self.indice = try container.decodeIfPresent(
                     Swift.Double.self,
@@ -678,6 +706,7 @@ extension Components {
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "code",
+                    "existente",
                     "indice",
                     "message"
                 ])
@@ -2238,6 +2267,158 @@ extension Components {
                 ])
             }
         }
+        /// The created pattern (US-038) and how many movements moved with it (CLA-15).
+        ///
+        /// - Remark: Generated from `#/components/schemas/PatronCreateResponse`.
+        internal struct PatronCreateResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PatronCreateResponse/categoriaId`.
+            internal var categoriaId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PatronCreateResponse/id`.
+            internal var id: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PatronCreateResponse/matchType`.
+            internal var matchType: Swift.String
+            /// Movements of moverDelPeriodo moved to the category; 0 without it.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PatronCreateResponse/movidos`.
+            internal var movidos: Swift.Int
+            /// - Remark: Generated from `#/components/schemas/PatronCreateResponse/patron`.
+            internal var patron: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PatronCreateResponse/prioridad`.
+            internal var prioridad: Swift.Double
+            /// Creates a new `PatronCreateResponse`.
+            ///
+            /// - Parameters:
+            ///   - categoriaId:
+            ///   - id:
+            ///   - matchType:
+            ///   - movidos: Movements of moverDelPeriodo moved to the category; 0 without it.
+            ///   - patron:
+            ///   - prioridad:
+            internal init(
+                categoriaId: Swift.String,
+                id: Swift.String,
+                matchType: Swift.String,
+                movidos: Swift.Int,
+                patron: Swift.String,
+                prioridad: Swift.Double
+            ) {
+                self.categoriaId = categoriaId
+                self.id = id
+                self.matchType = matchType
+                self.movidos = movidos
+                self.patron = patron
+                self.prioridad = prioridad
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case categoriaId
+                case id
+                case matchType
+                case movidos
+                case patron
+                case prioridad
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.categoriaId = try container.decode(
+                    Swift.String.self,
+                    forKey: .categoriaId
+                )
+                self.id = try container.decode(
+                    Swift.String.self,
+                    forKey: .id
+                )
+                self.matchType = try container.decode(
+                    Swift.String.self,
+                    forKey: .matchType
+                )
+                self.movidos = try container.decode(
+                    Swift.Int.self,
+                    forKey: .movidos
+                )
+                self.patron = try container.decode(
+                    Swift.String.self,
+                    forKey: .patron
+                )
+                self.prioridad = try container.decode(
+                    Swift.Double.self,
+                    forKey: .prioridad
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "categoriaId",
+                    "id",
+                    "matchType",
+                    "movidos",
+                    "patron",
+                    "prioridad"
+                ])
+            }
+        }
+        /// The pattern that already holds the text (accent- and case-insensitive, CLA-17), with its category and bucket.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PatronExistente`.
+        internal struct PatronExistente: Codable, Hashable, Sendable {
+            /// Bucket name of that category.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PatronExistente/bucket`.
+            internal var bucket: Swift.String
+            /// Category name.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PatronExistente/categoria`.
+            internal var categoria: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PatronExistente/categoriaId`.
+            internal var categoriaId: Swift.String
+            /// - Remark: Generated from `#/components/schemas/PatronExistente/patronId`.
+            internal var patronId: Swift.String
+            /// Creates a new `PatronExistente`.
+            ///
+            /// - Parameters:
+            ///   - bucket: Bucket name of that category.
+            ///   - categoria: Category name.
+            ///   - categoriaId:
+            ///   - patronId:
+            internal init(
+                bucket: Swift.String,
+                categoria: Swift.String,
+                categoriaId: Swift.String,
+                patronId: Swift.String
+            ) {
+                self.bucket = bucket
+                self.categoria = categoria
+                self.categoriaId = categoriaId
+                self.patronId = patronId
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case bucket
+                case categoria
+                case categoriaId
+                case patronId
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.bucket = try container.decode(
+                    Swift.String.self,
+                    forKey: .bucket
+                )
+                self.categoria = try container.decode(
+                    Swift.String.self,
+                    forKey: .categoria
+                )
+                self.categoriaId = try container.decode(
+                    Swift.String.self,
+                    forKey: .categoriaId
+                )
+                self.patronId = try container.decode(
+                    Swift.String.self,
+                    forKey: .patronId
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "bucket",
+                    "categoria",
+                    "categoriaId",
+                    "patronId"
+                ])
+            }
+        }
         /// A classification pattern (US-038).
         ///
         /// - Remark: Generated from `#/components/schemas/PatronResponse`.
@@ -2308,6 +2489,169 @@ extension Components {
                     "matchType",
                     "patron",
                     "prioridad"
+                ])
+            }
+        }
+        /// Movements of the periodo the candidate pattern would move (CLA-15): the engine would pick it; incomes, movements changed by hand and movements already in the category are excluded.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse`.
+        internal struct PatronVistaPreviaResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/coincidenciasPayload`.
+            internal struct coincidenciasPayloadPayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/coincidenciasPayload/descripcion`.
+                internal var descripcion: Swift.String
+                /// ISO 8601 UTC.
+                ///
+                /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/coincidenciasPayload/fecha`.
+                internal var fecha: Swift.String
+                /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/coincidenciasPayload/id`.
+                internal var id: Swift.String
+                /// Expense amount (cargo), as a string.
+                ///
+                /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/coincidenciasPayload/monto`.
+                internal var monto: Swift.String
+                /// Creates a new `coincidenciasPayloadPayload`.
+                ///
+                /// - Parameters:
+                ///   - descripcion:
+                ///   - fecha: ISO 8601 UTC.
+                ///   - id:
+                ///   - monto: Expense amount (cargo), as a string.
+                internal init(
+                    descripcion: Swift.String,
+                    fecha: Swift.String,
+                    id: Swift.String,
+                    monto: Swift.String
+                ) {
+                    self.descripcion = descripcion
+                    self.fecha = fecha
+                    self.id = id
+                    self.monto = monto
+                }
+                internal enum CodingKeys: String, CodingKey {
+                    case descripcion
+                    case fecha
+                    case id
+                    case monto
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.descripcion = try container.decode(
+                        Swift.String.self,
+                        forKey: .descripcion
+                    )
+                    self.fecha = try container.decode(
+                        Swift.String.self,
+                        forKey: .fecha
+                    )
+                    self.id = try container.decode(
+                        Swift.String.self,
+                        forKey: .id
+                    )
+                    self.monto = try container.decode(
+                        Swift.String.self,
+                        forKey: .monto
+                    )
+                    try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "descripcion",
+                        "fecha",
+                        "id",
+                        "monto"
+                    ])
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/coincidencias`.
+            internal typealias coincidenciasPayload = [Components.Schemas.PatronVistaPreviaResponse.coincidenciasPayloadPayload]
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/coincidencias`.
+            internal var coincidencias: Components.Schemas.PatronVistaPreviaResponse.coincidenciasPayload
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/existente`.
+            internal struct existentePayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/existente/value1`.
+                internal var value1: Components.Schemas.PatronExistente
+                /// Creates a new `existentePayload`.
+                ///
+                /// - Parameters:
+                ///   - value1:
+                internal init(value1: Components.Schemas.PatronExistente) {
+                    self.value1 = value1
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    self.value1 = try .init(from: decoder)
+                }
+                internal func encode(to encoder: any Swift.Encoder) throws {
+                    try self.value1.encode(to: encoder)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/existente`.
+            internal var existente: Components.Schemas.PatronVistaPreviaResponse.existentePayload?
+            /// The candidate text as the engine compares it (lowercase, no accents).
+            ///
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/patron`.
+            internal var patron: Swift.String
+            /// Resolved financial month YYYY-MM.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/periodo`.
+            internal var periodo: Swift.String
+            /// Count of coinciding movements.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PatronVistaPreviaResponse/total`.
+            internal var total: Swift.Int
+            /// Creates a new `PatronVistaPreviaResponse`.
+            ///
+            /// - Parameters:
+            ///   - coincidencias:
+            ///   - existente:
+            ///   - patron: The candidate text as the engine compares it (lowercase, no accents).
+            ///   - periodo: Resolved financial month YYYY-MM.
+            ///   - total: Count of coinciding movements.
+            internal init(
+                coincidencias: Components.Schemas.PatronVistaPreviaResponse.coincidenciasPayload,
+                existente: Components.Schemas.PatronVistaPreviaResponse.existentePayload? = nil,
+                patron: Swift.String,
+                periodo: Swift.String,
+                total: Swift.Int
+            ) {
+                self.coincidencias = coincidencias
+                self.existente = existente
+                self.patron = patron
+                self.periodo = periodo
+                self.total = total
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case coincidencias
+                case existente
+                case patron
+                case periodo
+                case total
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.coincidencias = try container.decode(
+                    Components.Schemas.PatronVistaPreviaResponse.coincidenciasPayload.self,
+                    forKey: .coincidencias
+                )
+                self.existente = try container.decodeIfPresent(
+                    Components.Schemas.PatronVistaPreviaResponse.existentePayload.self,
+                    forKey: .existente
+                )
+                self.patron = try container.decode(
+                    Swift.String.self,
+                    forKey: .patron
+                )
+                self.periodo = try container.decode(
+                    Swift.String.self,
+                    forKey: .periodo
+                )
+                self.total = try container.decode(
+                    Swift.Int.self,
+                    forKey: .total
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "coincidencias",
+                    "existente",
+                    "patron",
+                    "periodo",
+                    "total"
                 ])
             }
         }
@@ -4302,25 +4646,33 @@ extension Components {
             internal var categoria: Components.Schemas.TransaccionesCategoriaResponse.categoriaPayload
             /// - Remark: Generated from `#/components/schemas/TransaccionesCategoriaResponse/id`.
             internal var id: Swift.String
+            /// Similar movements moved with aplicarAParecidos (CLA-03); 0 without it.
+            ///
+            /// - Remark: Generated from `#/components/schemas/TransaccionesCategoriaResponse/movidos`.
+            internal var movidos: Swift.Int
             /// Creates a new `TransaccionesCategoriaResponse`.
             ///
             /// - Parameters:
             ///   - bucket: Derived bucket name (echo, not raw input).
             ///   - categoria:
             ///   - id:
+            ///   - movidos: Similar movements moved with aplicarAParecidos (CLA-03); 0 without it.
             internal init(
                 bucket: Swift.String,
                 categoria: Components.Schemas.TransaccionesCategoriaResponse.categoriaPayload,
-                id: Swift.String
+                id: Swift.String,
+                movidos: Swift.Int
             ) {
                 self.bucket = bucket
                 self.categoria = categoria
                 self.id = id
+                self.movidos = movidos
             }
             internal enum CodingKeys: String, CodingKey {
                 case bucket
                 case categoria
                 case id
+                case movidos
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -4336,10 +4688,88 @@ extension Components {
                     Swift.String.self,
                     forKey: .id
                 )
+                self.movidos = try container.decode(
+                    Swift.Int.self,
+                    forKey: .movidos
+                )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "bucket",
                     "categoria",
-                    "id"
+                    "id",
+                    "movidos"
+                ])
+            }
+        }
+        /// Suggested pattern for a reclassification and how many other movements would follow it (CLA-03).
+        ///
+        /// - Remark: Generated from `#/components/schemas/TransaccionesParecidosResponse`.
+        internal struct TransaccionesParecidosResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/TransaccionesParecidosResponse/existente`.
+            internal struct existentePayload: Codable, Hashable, Sendable {
+                /// - Remark: Generated from `#/components/schemas/TransaccionesParecidosResponse/existente/value1`.
+                internal var value1: Components.Schemas.PatronExistente
+                /// Creates a new `existentePayload`.
+                ///
+                /// - Parameters:
+                ///   - value1:
+                internal init(value1: Components.Schemas.PatronExistente) {
+                    self.value1 = value1
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    self.value1 = try .init(from: decoder)
+                }
+                internal func encode(to encoder: any Swift.Encoder) throws {
+                    try self.value1.encode(to: encoder)
+                }
+            }
+            /// - Remark: Generated from `#/components/schemas/TransaccionesParecidosResponse/existente`.
+            internal var existente: Components.Schemas.TransaccionesParecidosResponse.existentePayload?
+            /// Suggested CONTAINS text from the glosa, or null when there is nothing to offer (fewer than 3 letters, or an internal category).
+            ///
+            /// - Remark: Generated from `#/components/schemas/TransaccionesParecidosResponse/patron`.
+            internal var patron: Swift.String?
+            /// OTHER movements of the periodo that would move with the suggestion.
+            ///
+            /// - Remark: Generated from `#/components/schemas/TransaccionesParecidosResponse/total`.
+            internal var total: Swift.Int
+            /// Creates a new `TransaccionesParecidosResponse`.
+            ///
+            /// - Parameters:
+            ///   - existente:
+            ///   - patron: Suggested CONTAINS text from the glosa, or null when there is nothing to offer (fewer than 3 letters, or an internal category).
+            ///   - total: OTHER movements of the periodo that would move with the suggestion.
+            internal init(
+                existente: Components.Schemas.TransaccionesParecidosResponse.existentePayload? = nil,
+                patron: Swift.String? = nil,
+                total: Swift.Int
+            ) {
+                self.existente = existente
+                self.patron = patron
+                self.total = total
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case existente
+                case patron
+                case total
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.existente = try container.decodeIfPresent(
+                    Components.Schemas.TransaccionesParecidosResponse.existentePayload.self,
+                    forKey: .existente
+                )
+                self.patron = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .patron
+                )
+                self.total = try container.decode(
+                    Swift.Int.self,
+                    forKey: .total
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "existente",
+                    "patron",
+                    "total"
                 ])
             }
         }

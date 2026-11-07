@@ -202,14 +202,14 @@ internal protocol APIProtocol: Sendable {
     func delete_sol_api_sol_movimientos_sol__lcub_id_rcub_(_ input: Operations.delete_sol_api_sol_movimientos_sol__lcub_id_rcub_.Input) async throws -> Operations.delete_sol_api_sol_movimientos_sol__lcub_id_rcub_.Output
     /// Create a classification pattern
     ///
-    /// Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). Requires x-api-key + a valid session.
+    /// Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). With `moverDelPeriodo` (CLA-15), saving the pattern and moving the coinciding movements of that financial month happen in one transaction: moved movements get the category and its bucket and stay pattern-classified; movements changed by hand never move. Without it nothing moves and `movidos` is 0. Requires x-api-key + a valid session.
     ///
     /// - Remark: HTTP `POST /api/patrones`.
     /// - Remark: Generated from `#/paths//api/patrones/post`.
     func post_sol_api_sol_patrones(_ input: Operations.post_sol_api_sol_patrones.Input) async throws -> Operations.post_sol_api_sol_patrones.Output
     /// Update a classification pattern
     ///
-    /// Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid session.
+    /// Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` moves the pattern to another of the caller's categories (CLA-17); it keeps its id and creation date. Moving a pattern does not move movements. Requires x-api-key + a valid session.
     ///
     /// - Remark: HTTP `PATCH /api/patrones/{id}`.
     /// - Remark: Generated from `#/paths//api/patrones/{id}/patch`.
@@ -221,6 +221,13 @@ internal protocol APIProtocol: Sendable {
     /// - Remark: HTTP `DELETE /api/patrones/{id}`.
     /// - Remark: Generated from `#/paths//api/patrones/{id}/delete`.
     func delete_sol_api_sol_patrones_sol__lcub_id_rcub_(_ input: Operations.delete_sol_api_sol_patrones_sol__lcub_id_rcub_.Input) async throws -> Operations.delete_sol_api_sol_patrones_sol__lcub_id_rcub_.Output
+    /// Preview a classification pattern
+    ///
+    /// Authenticated, read-only endpoint (CLA-15): for a candidate CONTAINS text, a target category and a financial month, lists the movements the pattern would move — the engine (longest wins, then oldest; accent-insensitive) would pick it — and the pattern that already holds the text, if any (CLA-17). Incomes, movements changed by hand and movements already in the category are excluded. Nothing is written. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `POST /api/patrones/vista-previa`.
+    /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post`.
+    func post_sol_api_sol_patrones_sol_vista_hyphen_previa(_ input: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input) async throws -> Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output
     /// Update the current user profile (nombre and/or email)
     ///
     /// Authenticated endpoint that updates the caller's own nombre and/or email (US-040, PERF040-01/02/03/04/07). `passwordActual` is REQUIRED whenever `email` is present. On an email change the ciphertext and blind index are rewritten together in one atomic update, so login keeps working with the NEW address and stops working with the old one. A wrong `passwordActual` and an email already claimed by another account return the SAME generic 403 PERFIL_RECHAZADO (anti-enumeration) — 403, never 401: 401 is reserved for an invalid session. Requires x-api-key + a valid session.
@@ -293,11 +300,18 @@ internal protocol APIProtocol: Sendable {
     func get_sol_api_sol_resumen_sol_semaforo(_ input: Operations.get_sol_api_sol_resumen_sol_semaforo.Input) async throws -> Operations.get_sol_api_sol_resumen_sol_semaforo.Output
     /// Reclassify a transaction
     ///
-    /// Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+    /// Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). With `aplicarAParecidos` (CLA-03), the same transaction also creates the suggested pattern in that category (or moves the existing one there, CLA-17) and moves the similar movements of `periodo`; `movidos` counts them (0 without the option). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
     ///
     /// - Remark: HTTP `PATCH /api/transacciones/{id}/categoria`.
     /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch`.
     func patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria(_ input: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Input) async throws -> Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output
+    /// Suggest a pattern from a transaction
+    ///
+    /// Authenticated, read-only endpoint (CLA-03): the CONTAINS text suggested from the glosa of the transaction, how many OTHER movements of the periodo would move to `categoriaId` with it (incomes, movements changed by hand and movements already there excluded), and the pattern that already holds the text, if any (CLA-17). `patron` is null when there is nothing to offer. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/transacciones/{id}/parecidos`.
+    /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get`.
+    func get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos(_ input: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input) async throws -> Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output
     /// Re-run the caller's classification patterns over all transactions
     ///
     /// Authenticated endpoint that re-runs CategorizarTransaccionUseCase with the caller's CURRENT pattern catalog against ALL of their persisted transactions — categorized or not, no period filter. A determined classification (a matched pattern, or the Ingreso rule) overwrites the existing categoria/bucket. A row where no pattern matched is left exactly as it is — never cleared. Rows whose determined classification already matches their current value are not re-written (transaccionesActualizadas counts real changes only). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
@@ -675,7 +689,7 @@ extension APIProtocol {
     }
     /// Create a classification pattern
     ///
-    /// Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). Requires x-api-key + a valid session.
+    /// Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). With `moverDelPeriodo` (CLA-15), saving the pattern and moving the coinciding movements of that financial month happen in one transaction: moved movements get the category and its bucket and stay pattern-classified; movements changed by hand never move. Without it nothing moves and `movidos` is 0. Requires x-api-key + a valid session.
     ///
     /// - Remark: HTTP `POST /api/patrones`.
     /// - Remark: Generated from `#/paths//api/patrones/post`.
@@ -690,7 +704,7 @@ extension APIProtocol {
     }
     /// Update a classification pattern
     ///
-    /// Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid session.
+    /// Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` moves the pattern to another of the caller's categories (CLA-17); it keeps its id and creation date. Moving a pattern does not move movements. Requires x-api-key + a valid session.
     ///
     /// - Remark: HTTP `PATCH /api/patrones/{id}`.
     /// - Remark: Generated from `#/paths//api/patrones/{id}/patch`.
@@ -718,6 +732,21 @@ extension APIProtocol {
         try await delete_sol_api_sol_patrones_sol__lcub_id_rcub_(Operations.delete_sol_api_sol_patrones_sol__lcub_id_rcub_.Input(
             path: path,
             headers: headers
+        ))
+    }
+    /// Preview a classification pattern
+    ///
+    /// Authenticated, read-only endpoint (CLA-15): for a candidate CONTAINS text, a target category and a financial month, lists the movements the pattern would move — the engine (longest wins, then oldest; accent-insensitive) would pick it — and the pattern that already holds the text, if any (CLA-17). Incomes, movements changed by hand and movements already in the category are excluded. Nothing is written. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `POST /api/patrones/vista-previa`.
+    /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post`.
+    internal func post_sol_api_sol_patrones_sol_vista_hyphen_previa(
+        headers: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Headers = .init(),
+        body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Body? = nil
+    ) async throws -> Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output {
+        try await post_sol_api_sol_patrones_sol_vista_hyphen_previa(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input(
+            headers: headers,
+            body: body
         ))
     }
     /// Update the current user profile (nombre and/or email)
@@ -860,7 +889,7 @@ extension APIProtocol {
     }
     /// Reclassify a transaction
     ///
-    /// Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+    /// Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). With `aplicarAParecidos` (CLA-03), the same transaction also creates the suggested pattern in that category (or moves the existing one there, CLA-17) and moves the similar movements of `periodo`; `movidos` counts them (0 without the option). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
     ///
     /// - Remark: HTTP `PATCH /api/transacciones/{id}/categoria`.
     /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch`.
@@ -873,6 +902,23 @@ extension APIProtocol {
             path: path,
             headers: headers,
             body: body
+        ))
+    }
+    /// Suggest a pattern from a transaction
+    ///
+    /// Authenticated, read-only endpoint (CLA-03): the CONTAINS text suggested from the glosa of the transaction, how many OTHER movements of the periodo would move to `categoriaId` with it (incomes, movements changed by hand and movements already there excluded), and the pattern that already holds the text, if any (CLA-17). `patron` is null when there is nothing to offer. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/transacciones/{id}/parecidos`.
+    /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get`.
+    internal func get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos(
+        path: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Path,
+        query: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Query,
+        headers: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Headers = .init()
+    ) async throws -> Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output {
+        try await get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos(Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input(
+            path: path,
+            query: query,
+            headers: headers
         ))
     }
     /// Re-run the caller's classification patterns over all transactions
