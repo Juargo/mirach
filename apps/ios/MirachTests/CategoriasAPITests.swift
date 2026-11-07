@@ -133,7 +133,10 @@ struct CategoriasAPITests {
     private static let patternBody = #"{"id":"p-7","categoriaId":"c-1","patron":"UBER","matchType":"STARTS_WITH","prioridad":0}"#
 
     @Test func creatingAPatternSendsTheCategoryIdTheTextAndTheTypeButNoPriority() async throws {
-        let transport = FakeTransport.json(Self.patternBody, status: .created)
+        let transport = FakeTransport.json(
+            #"{"id":"p-7","categoriaId":"c-1","patron":"UBER","matchType":"STARTS_WITH","prioridad":0,"movidos":0}"#,
+            status: .created
+        )
 
         let pattern = try await makeAPI(transport).crearPatron(categoriaId: "c-1", patron: "UBER", matchType: .startsWith)
 

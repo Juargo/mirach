@@ -152,7 +152,7 @@ struct BucketDetalleAPITests {
     // MARK: reclassify
 
     @Test func reclassifySendsTheCategoryIdAndMapsTheAnswer() async throws {
-        let transport = FakeTransport.json(#"{"id":"t-1","categoria":{"id":"cat-ropa","nombre":"Ropa"},"bucket":"Deseos"}"#)
+        let transport = FakeTransport.json(#"{"id":"t-1","categoria":{"id":"cat-ropa","nombre":"Ropa"},"bucket":"Deseos","movidos":0}"#)
 
         let result = try await api(transport).reclasificar(transaccionId: "t-1", categoriaId: "cat-ropa")
 
@@ -165,7 +165,7 @@ struct BucketDetalleAPITests {
     }
 
     @Test func aMovementIdWithSpecialCharactersIsEscapedInThePath() async throws {
-        let transport = FakeTransport.json(#"{"id":"a/b","categoria":{"id":"c","nombre":"C"},"bucket":"Ahorro"}"#)
+        let transport = FakeTransport.json(#"{"id":"a/b","categoria":{"id":"c","nombre":"C"},"bucket":"Ahorro","movidos":0}"#)
 
         _ = try await api(transport).reclasificar(transaccionId: "a/b", categoriaId: "c")
 
