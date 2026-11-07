@@ -11,6 +11,15 @@ import { PatronNoEncontradoError } from '../../../domain/errors/patron-no-encont
 import { PatronEnLoteInvalidoError } from '../../../domain/errors/patron-en-lote-invalido.error';
 import { IconoCategoriaInvalidoError } from '../../../domain/errors/icono-categoria-invalido.error';
 import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
+import { TransaccionNoEncontradaError } from '../../../domain/errors/transaccion-no-encontrada.error';
+import { aPatronExistenteDto } from '../../http/dto/patron.dto';
+import type { ErrorTraducido } from './responder-error-traducido';
+import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
+import { CategorizacionFallidaError } from '../../../domain/errors/categorizacion-fallida.error';
+import { VistaPreviaPatronError } from '../../../application/use-cases/vista-previa-patron.use-case';
+import { ObtenerParecidosError } from '../../../application/use-cases/obtener-parecidos.use-case';
+import { ReclasificarConParecidosError } from '../../../application/use-cases/reclasificar-con-parecidos.use-case';
+import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
 import { CrearCategoriaError } from '../../../application/use-cases/crear-categoria.use-case';
 import { ActualizarCategoriaError } from '../../../application/use-cases/actualizar-categoria.use-case';
 import { EliminarCategoriaError } from '../../../application/use-cases/eliminar-categoria.use-case';
@@ -24,7 +33,20 @@ export type CatalogoError =
   | EliminarCategoriaError
   | CrearPatronError
   | ActualizarPatronError
-  | EliminarPatronError;
+  | EliminarPatronError
+  | VistaPreviaPatronError
+  | ObtenerParecidosError
+  // The apply route answers these two with the plain PATCH's own bodies.
+  | Exclude<
+      ReclasificarConParecidosError,
+      CategoriaDesconocidaError | TransaccionNoEncontradaError
+    >
+  | TransaccionNoEncontradaError;
+
+/** Fixed end-user message: `CategorizacionFallidaError.message` carries an
+ * internal motive and is never sent. */
+const MENSAJE_CATALOGO_NO_DISPONIBLE =
+  'Tuvimos un problema temporal de nuestro lado. Intenta de nuevo en unos minutos.';
 
 /**
  * aCatalogoHttpError — ÚNICO traductor de errores para `registrarCategorias`
@@ -41,12 +63,9 @@ export type CatalogoError =
  * garantía para toda la familia — agregar una variante sin mapearla acá
  * DEJA DE COMPILAR, en vez de caer silenciosamente a un status equivocado.
  */
-export function aCatalogoHttpError(error: CatalogoError): {
-  status: number;
-  code: string;
-  message: string;
-  indice?: number;
-} {
+export function aCatalogoHttpError(
+  error: CatalogoError,
+): ErrorTraducido & { code: string } {
   if (error instanceof PatronEnLoteInvalidoError) {
     // Recurses BY TYPE into `causa` — un `PatronEnLoteInvalidoError` nunca
     // envuelve a otro `PatronEnLoteInvalidoError`, así que esta llamada
@@ -111,7 +130,34 @@ export function aCatalogoHttpError(error: CatalogoError): {
     return { status: 409, code: 'NOMBRE_DUPLICADO', message: error.message };
   }
   if (error instanceof PatronDuplicadoError) {
-    return { status: 409, code: 'PATRON_DUPLICADO', message: error.message };
+    // CLA-17: additive `existente`, so the client can offer to move it.
+    return {
+      status: 409,
+      code: 'PATRON_DUPLICADO',
+      message: error.message,
+      ...(error.existente !== null
+        ? { existente: aPatronExistenteDto(error.existente) }
+        : {}),
+    };
+  }
+  if (error instanceof TransaccionNoEncontradaError) {
+    return {
+      status: 404,
+      code: 'TRANSACCION_NO_ENCONTRADA',
+      message: error.message,
+    };
+  }
+  if (error instanceof PeriodoInvalidoError) {
+    // The message is fixed and never echoes the raw input.
+    return { status: 400, code: 'PERIODO_INVALIDO', message: error.message };
+  }
+  // Transient: the catalog could not be read (same code as the ingestion).
+  if (error instanceof CategorizacionFallidaError) {
+    return {
+      status: 503,
+      code: 'CATALOGO_NO_DISPONIBLE',
+      message: MENSAJE_CATALOGO_NO_DISPONIBLE,
+    };
   }
   const _exhaustive: never = error;
   return _exhaustive;

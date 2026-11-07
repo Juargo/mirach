@@ -14,6 +14,7 @@ import { ReclasificarCategoriaResult } from '../../../application/ports/reclasif
  */
 export interface ReclasificarCategoriaBodyDto {
   readonly categoriaId?: unknown;
+  readonly aplicarAParecidos?: unknown;
 }
 
 /**
@@ -27,6 +28,8 @@ export interface ReclasificarCategoriaResponseDto {
   readonly id: string;
   readonly categoria: { readonly id: string; readonly nombre: string };
   readonly bucket: string;
+  /** CLA-03: similar movements moved with `aplicarAParecidos`; 0 without it. */
+  readonly movidos: number;
 }
 
 /**
@@ -38,10 +41,12 @@ export interface ReclasificarCategoriaResponseDto {
  */
 export function aReclasificarCategoriaDto(
   data: ReclasificarCategoriaResult,
+  movidos = 0,
 ): ReclasificarCategoriaResponseDto {
   return {
     id: data.id,
     categoria: { id: data.categoriaId, nombre: data.categoria },
     bucket: data.bucket,
+    movidos,
   };
 }

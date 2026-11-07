@@ -7262,7 +7262,7 @@ internal enum Operations {
     }
     /// Create a classification pattern
     ///
-    /// Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). Requires x-api-key + a valid session.
+    /// Authenticated endpoint that creates a classification pattern under one of the caller's own categories (US-038, CAT038-05/06). With `moverDelPeriodo` (CLA-15), saving the pattern and moving the coinciding movements of that financial month happen in one transaction: moved movements get the category and its bucket and stay pattern-classified; movements changed by hand never move. Without it nothing moves and `movidos` is 0. Requires x-api-key + a valid session.
     ///
     /// - Remark: HTTP `POST /api/patrones`.
     /// - Remark: Generated from `#/paths//api/patrones/post`.
@@ -7289,6 +7289,10 @@ internal enum Operations {
                     internal var categoriaId: Swift.String
                     /// - Remark: Generated from `#/paths/api/patrones/POST/requestBody/json/matchType`.
                     internal var matchType: Swift.String
+                    /// CLA-15: financial month YYYY-MM. When present, saving the pattern and moving the coinciding movements of that month happen in one transaction. Absent ⇒ nothing moves.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/patrones/POST/requestBody/json/moverDelPeriodo`.
+                    internal var moverDelPeriodo: Swift.String?
                     /// - Remark: Generated from `#/paths/api/patrones/POST/requestBody/json/patron`.
                     internal var patron: Swift.String
                     /// - Remark: Generated from `#/paths/api/patrones/POST/requestBody/json/prioridad`.
@@ -7298,22 +7302,26 @@ internal enum Operations {
                     /// - Parameters:
                     ///   - categoriaId:
                     ///   - matchType:
+                    ///   - moverDelPeriodo: CLA-15: financial month YYYY-MM. When present, saving the pattern and moving the coinciding movements of that month happen in one transaction. Absent ⇒ nothing moves.
                     ///   - patron:
                     ///   - prioridad:
                     internal init(
                         categoriaId: Swift.String,
                         matchType: Swift.String,
+                        moverDelPeriodo: Swift.String? = nil,
                         patron: Swift.String,
                         prioridad: Swift.Double? = nil
                     ) {
                         self.categoriaId = categoriaId
                         self.matchType = matchType
+                        self.moverDelPeriodo = moverDelPeriodo
                         self.patron = patron
                         self.prioridad = prioridad
                     }
                     internal enum CodingKeys: String, CodingKey {
                         case categoriaId
                         case matchType
+                        case moverDelPeriodo
                         case patron
                         case prioridad
                     }
@@ -7327,6 +7335,10 @@ internal enum Operations {
                             Swift.String.self,
                             forKey: .matchType
                         )
+                        self.moverDelPeriodo = try container.decodeIfPresent(
+                            Swift.String.self,
+                            forKey: .moverDelPeriodo
+                        )
                         self.patron = try container.decode(
                             Swift.String.self,
                             forKey: .patron
@@ -7338,6 +7350,7 @@ internal enum Operations {
                         try decoder.ensureNoAdditionalProperties(knownKeys: [
                             "categoriaId",
                             "matchType",
+                            "moverDelPeriodo",
                             "patron",
                             "prioridad"
                         ])
@@ -7365,12 +7378,12 @@ internal enum Operations {
                 /// - Remark: Generated from `#/paths/api/patrones/POST/responses/201/content`.
                 internal enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/api/patrones/POST/responses/201/content/application\/json`.
-                    case json(Components.Schemas.PatronResponse)
+                    case json(Components.Schemas.PatronCreateResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    internal var json: Components.Schemas.PatronResponse {
+                    internal var json: Components.Schemas.PatronCreateResponse {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -7389,7 +7402,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// Pattern created.
+            /// Pattern created, with the count of moved movements.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/post/responses/201`.
             ///
@@ -7440,7 +7453,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a malformed request body.
+            /// Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), an invalid moverDelPeriodo (`PERIODO_INVALIDO`), or a malformed request body.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/post/responses/400`.
             ///
@@ -7644,7 +7657,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// A pattern with that text already exists for this user (case-insensitive).
+            /// A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). `existente` names it with its category and bucket.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/post/responses/409`.
             ///
@@ -7662,6 +7675,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "conflict",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// With moverDelPeriodo: the classification catalog could not be read; nothing was saved. `code` CATALOGO_NO_DISPONIBLE.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_patrones.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_patrones.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
                             response: self
                         )
                     }
@@ -7700,7 +7764,7 @@ internal enum Operations {
     }
     /// Update a classification pattern
     ///
-    /// Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` is NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid session.
+    /// Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). `categoriaId` moves the pattern to another of the caller's categories (CLA-17); it keeps its id and creation date. Moving a pattern does not move movements. Requires x-api-key + a valid session.
     ///
     /// - Remark: HTTP `PATCH /api/patrones/{id}`.
     /// - Remark: Generated from `#/paths//api/patrones/{id}/patch`.
@@ -7736,6 +7800,10 @@ internal enum Operations {
             internal enum Body: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/requestBody/json`.
                 internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// CLA-17: move the pattern to this category of the caller. Keeps id and creadoEn.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/requestBody/json/categoriaId`.
+                    internal var categoriaId: Swift.String?
                     /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/requestBody/json/matchType`.
                     internal var matchType: Swift.String?
                     /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/requestBody/json/patron`.
@@ -7745,25 +7813,33 @@ internal enum Operations {
                     /// Creates a new `jsonPayload`.
                     ///
                     /// - Parameters:
+                    ///   - categoriaId: CLA-17: move the pattern to this category of the caller. Keeps id and creadoEn.
                     ///   - matchType:
                     ///   - patron:
                     ///   - prioridad:
                     internal init(
+                        categoriaId: Swift.String? = nil,
                         matchType: Swift.String? = nil,
                         patron: Swift.String? = nil,
                         prioridad: Swift.Double? = nil
                     ) {
+                        self.categoriaId = categoriaId
                         self.matchType = matchType
                         self.patron = patron
                         self.prioridad = prioridad
                     }
                     internal enum CodingKeys: String, CodingKey {
+                        case categoriaId
                         case matchType
                         case patron
                         case prioridad
                     }
                     internal init(from decoder: any Swift.Decoder) throws {
                         let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.categoriaId = try container.decodeIfPresent(
+                            Swift.String.self,
+                            forKey: .categoriaId
+                        )
                         self.matchType = try container.decodeIfPresent(
                             Swift.String.self,
                             forKey: .matchType
@@ -7777,6 +7853,7 @@ internal enum Operations {
                             forKey: .prioridad
                         )
                         try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "categoriaId",
                             "matchType",
                             "patron",
                             "prioridad"
@@ -7957,6 +8034,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/responses/403/content/application\/json`.
+                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.patch_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.patch_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The target categoriaId is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/{id}/patch/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.patch_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.patch_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             internal struct NotFound: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/responses/404/content`.
                 internal enum Body: Sendable, Hashable {
@@ -7985,7 +8113,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// Anti-enumeration: the pattern does not exist or does not belong to the authenticated user.
+            /// Anti-enumeration: the pattern (`PATRON_NO_ENCONTRADO`) or the target categoriaId (`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/{id}/patch/responses/404`.
             ///
@@ -8036,7 +8164,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// A pattern with that text already exists for this user (case-insensitive).
+            /// A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). `existente` names it with its category and bucket.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/{id}/patch/responses/409`.
             ///
@@ -8270,6 +8398,437 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Preview a classification pattern
+    ///
+    /// Authenticated, read-only endpoint (CLA-15): for a candidate CONTAINS text, a target category and a financial month, lists the movements the pattern would move — the engine (longest wins, then oldest; accent-insensitive) would pick it — and the pattern that already holds the text, if any (CLA-17). Incomes, movements changed by hand and movements already in the category are excluded. Nothing is written. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `POST /api/patrones/vista-previa`.
+    /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post`.
+    internal enum post_sol_api_sol_patrones_sol_vista_hyphen_previa {
+        internal static let id: Swift.String = "post/api/patrones/vista-previa"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Headers
+            /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/requestBody`.
+            internal enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/requestBody/json`.
+                internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/requestBody/json/categoriaId`.
+                    internal var categoriaId: Swift.String
+                    /// Candidate CONTAINS text.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/requestBody/json/patron`.
+                    internal var patron: Swift.String
+                    /// Financial month YYYY-MM. Absent ⇒ the last month with data, like other monthly reads.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/requestBody/json/periodo`.
+                    internal var periodo: Swift.String?
+                    /// Creates a new `jsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - categoriaId:
+                    ///   - patron: Candidate CONTAINS text.
+                    ///   - periodo: Financial month YYYY-MM. Absent ⇒ the last month with data, like other monthly reads.
+                    internal init(
+                        categoriaId: Swift.String,
+                        patron: Swift.String,
+                        periodo: Swift.String? = nil
+                    ) {
+                        self.categoriaId = categoriaId
+                        self.patron = patron
+                        self.periodo = periodo
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case categoriaId
+                        case patron
+                        case periodo
+                    }
+                    internal init(from decoder: any Swift.Decoder) throws {
+                        let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.categoriaId = try container.decode(
+                            Swift.String.self,
+                            forKey: .categoriaId
+                        )
+                        self.patron = try container.decode(
+                            Swift.String.self,
+                            forKey: .patron
+                        )
+                        self.periodo = try container.decodeIfPresent(
+                            Swift.String.self,
+                            forKey: .periodo
+                        )
+                        try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "categoriaId",
+                            "patron",
+                            "periodo"
+                        ])
+                    }
+                }
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/requestBody/content/application\/json`.
+                case json(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Body.jsonPayload)
+            }
+            internal var body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            internal init(
+                headers: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Headers = .init(),
+                body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Body? = nil
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.PatronVistaPreviaResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PatronVistaPreviaResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Preview of the candidate pattern for the resolved periodo.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Invalid patron (`PATRON_INVALIDO`), invalid periodo (`PERIODO_INVALIDO`) or a malformed body (`BODY_INVALIDO`).
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/403/content/application\/json`.
+                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct NotFound: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/404/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/404/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.NotFound.Body
+                /// Creates a new `NotFound`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.NotFound.Body) {
+                    self.body = body
+                }
+            }
+            /// Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            case notFound(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.NotFound)
+            /// The associated value of the enum case if `self` is `.notFound`.
+            ///
+            /// - Throws: An error if `self` is not `.notFound`.
+            /// - SeeAlso: `.notFound`.
+            internal var notFound: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.NotFound {
+                get throws {
+                    switch self {
+                    case let .notFound(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
                             response: self
                         )
                     }
@@ -10859,7 +11418,7 @@ internal enum Operations {
     }
     /// Reclassify a transaction
     ///
-    /// Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+    /// Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). With `aplicarAParecidos` (CLA-03), the same transaction also creates the suggested pattern in that category (or moves the existing one there, CLA-17) and moves the similar movements of `periodo`; `movidos` counts them (0 without the option). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
     ///
     /// - Remark: HTTP `PATCH /api/transacciones/{id}/categoria`.
     /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch`.
@@ -10897,6 +11456,39 @@ internal enum Operations {
             internal enum Body: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/requestBody/json`.
                 internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// CLA-03: also create the suggested pattern in this category (or move the existing one here) and move the similar movements of `periodo`, in one transaction. This one IS validated at the route: a malformed value is 400 BODY_INVALIDO.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/requestBody/json/aplicarAParecidos`.
+                    internal struct aplicarAParecidosPayload: Codable, Hashable, Sendable {
+                        /// Financial month YYYY-MM whose similar movements move too.
+                        ///
+                        /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/requestBody/json/aplicarAParecidos/periodo`.
+                        internal var periodo: Swift.String
+                        /// Creates a new `aplicarAParecidosPayload`.
+                        ///
+                        /// - Parameters:
+                        ///   - periodo: Financial month YYYY-MM whose similar movements move too.
+                        internal init(periodo: Swift.String) {
+                            self.periodo = periodo
+                        }
+                        internal enum CodingKeys: String, CodingKey {
+                            case periodo
+                        }
+                        internal init(from decoder: any Swift.Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            self.periodo = try container.decode(
+                                Swift.String.self,
+                                forKey: .periodo
+                            )
+                            try decoder.ensureNoAdditionalProperties(knownKeys: [
+                                "periodo"
+                            ])
+                        }
+                    }
+                    /// CLA-03: also create the suggested pattern in this category (or move the existing one here) and move the similar movements of `periodo`, in one transaction. This one IS validated at the route: a malformed value is 400 BODY_INVALIDO.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/requestBody/json/aplicarAParecidos`.
+                    internal var aplicarAParecidos: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Input.Body.jsonPayload.aplicarAParecidosPayload?
                     /// Categoria id — the caller's OWN Categoria row id, resolved against their own catalog by the use case (CategoriaDesconocidaError if it does not resolve or is not theirs), not this schema.
                     ///
                     /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/requestBody/json/categoriaId`.
@@ -10904,11 +11496,17 @@ internal enum Operations {
                     /// Creates a new `jsonPayload`.
                     ///
                     /// - Parameters:
+                    ///   - aplicarAParecidos: CLA-03: also create the suggested pattern in this category (or move the existing one here) and move the similar movements of `periodo`, in one transaction. This one IS validated at the route: a malformed value is 400 BODY_INVALIDO.
                     ///   - categoriaId: Categoria id — the caller's OWN Categoria row id, resolved against their own catalog by the use case (CategoriaDesconocidaError if it does not resolve or is not theirs), not this schema.
-                    internal init(categoriaId: Swift.String) {
+                    internal init(
+                        aplicarAParecidos: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Input.Body.jsonPayload.aplicarAParecidosPayload? = nil,
+                        categoriaId: Swift.String
+                    ) {
+                        self.aplicarAParecidos = aplicarAParecidos
                         self.categoriaId = categoriaId
                     }
                     internal enum CodingKeys: String, CodingKey {
+                        case aplicarAParecidos
                         case categoriaId
                     }
                 }
@@ -10988,13 +11586,13 @@ internal enum Operations {
                 /// Creates a new `BadRequest`.
                 internal init() {}
             }
-            /// Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name).
+            /// Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name). With aplicarAParecidos also: a malformed aplicarAParecidos (`BODY_INVALIDO`), no suggested text for the glosa (`PATRON_INVALIDO`) or an invalid periodo (`PERIODO_INVALIDO`).
             ///
             /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch/responses/400`.
             ///
             /// HTTP response code: `400 badRequest`.
             case badRequest(Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.BadRequest)
-            /// Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name).
+            /// Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name). With aplicarAParecidos also: a malformed aplicarAParecidos (`BODY_INVALIDO`), no suggested text for the glosa (`PATRON_INVALIDO`) or an invalid periodo (`PERIODO_INVALIDO`).
             ///
             /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch/responses/400`.
             ///
@@ -11070,6 +11668,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/responses/403/content/application\/json`.
+                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// With aplicarAParecidos: the category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             internal struct NotFound: Sendable, Hashable {
                 /// Creates a new `NotFound`.
                 internal init() {}
@@ -11100,6 +11749,420 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/responses/503/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// With aplicarAParecidos: the classification catalog could not be read; nothing was saved. `code` CATALOGO_NO_DISPONIBLE.
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.patch_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_categoria.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Suggest a pattern from a transaction
+    ///
+    /// Authenticated, read-only endpoint (CLA-03): the CONTAINS text suggested from the glosa of the transaction, how many OTHER movements of the periodo would move to `categoriaId` with it (incomes, movements changed by hand and movements already there excluded), and the pattern that already holds the text, if any (CLA-17). `patron` is null when there is nothing to offer. Requires x-api-key + a valid session.
+    ///
+    /// - Remark: HTTP `GET /api/transacciones/{id}/parecidos`.
+    /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get`.
+    internal enum get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos {
+        internal static let id: Swift.String = "get/api/transacciones/{id}/parecidos"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/path`.
+            internal struct Path: Sendable, Hashable {
+                /// Transaction id (raw path param). Existence/ownership is checked by the use case, not this schema.
+                ///
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/path/id`.
+                internal var id: Swift.String
+                /// Creates a new `Path`.
+                ///
+                /// - Parameters:
+                ///   - id: Transaction id (raw path param). Existence/ownership is checked by the use case, not this schema.
+                internal init(id: Swift.String) {
+                    self.id = id
+                }
+            }
+            internal var path: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Path
+            /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/query`.
+            internal struct Query: Sendable, Hashable {
+                /// Target category the person is choosing.
+                ///
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/query/categoriaId`.
+                internal var categoriaId: Swift.String
+                /// Financial month YYYY-MM. Absent ⇒ the last month with data.
+                ///
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/query/periodo`.
+                internal var periodo: Swift.String?
+                /// Creates a new `Query`.
+                ///
+                /// - Parameters:
+                ///   - categoriaId: Target category the person is choosing.
+                ///   - periodo: Financial month YYYY-MM. Absent ⇒ the last month with data.
+                internal init(
+                    categoriaId: Swift.String,
+                    periodo: Swift.String? = nil
+                ) {
+                    self.categoriaId = categoriaId
+                    self.periodo = periodo
+                }
+            }
+            internal var query: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Query
+            /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Headers
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - path:
+            ///   - query:
+            ///   - headers:
+            internal init(
+                path: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Path,
+                query: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Query,
+                headers: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Input.Headers = .init()
+            ) {
+                self.path = path
+                self.query = query
+                self.headers = headers
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/200/content/application\/json`.
+                    case json(Components.Schemas.TransaccionesParecidosResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.TransaccionesParecidosResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Suggestion for the resolved periodo.
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/400/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Missing categoriaId (`PARAMETROS_INVALIDOS`) or an invalid periodo (`PERIODO_INVALIDO`).
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct NotFound: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/404/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/404/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.NotFound.Body
+                /// Creates a new `NotFound`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.NotFound.Body) {
+                    self.body = body
+                }
+            }
+            /// Anti-enumeration: the transaction (`TRANSACCION_NO_ENCONTRADA`) or the category (`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            case notFound(Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.NotFound)
+            /// The associated value of the enum case if `self` is `.notFound`.
+            ///
+            /// - Throws: An error if `self` is not `.notFound`.
+            /// - SeeAlso: `.notFound`.
+            internal var notFound: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.NotFound {
+                get throws {
+                    switch self {
+                    case let .notFound(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/503/content/application\/json`.
+                    case json(Components.Schemas.CatalogoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CatalogoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
                             response: self
                         )
                     }

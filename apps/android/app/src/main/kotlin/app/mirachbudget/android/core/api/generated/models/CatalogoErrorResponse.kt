@@ -23,6 +23,7 @@
 
 package app.mirachbudget.android.core.api.generated.models
 
+import app.mirachbudget.android.core.api.generated.models.PatronExistente
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -33,6 +34,7 @@ import kotlinx.serialization.Contextual
  *
  * @param code 
  * @param message 
+ * @param existente 
  * @param indice 
  */
 @Serializable
@@ -44,6 +46,9 @@ data class CatalogoErrorResponse (
 
     @SerialName(value = "message")
     val message: kotlin.String,
+
+    @SerialName(value = "existente")
+    val existente: PatronExistente? = null,
 
     @Contextual @SerialName(value = "indice")
     val indice: java.math.BigDecimal? = null

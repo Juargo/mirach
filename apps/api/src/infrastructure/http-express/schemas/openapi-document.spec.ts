@@ -655,6 +655,9 @@ describe('buildOpenApiDocument', () => {
       ['patch', '/api/categorias/{id}'],
       ['delete', '/api/categorias/{id}'],
       ['post', '/api/patrones'],
+      // CLA-17/CLA-18: moving a pattern into a system category is refused.
+      ['patch', '/api/patrones/{id}'],
+      ['post', '/api/patrones/vista-previa'],
     ] as const)('%s %s declares 403 CATEGORIA_INTERNA', (metodo, ruta) => {
       const op = document().paths?.[ruta]?.[metodo];
       const schema = componente(schemaRef(op, '403'));
@@ -667,7 +670,6 @@ describe('buildOpenApiDocument', () => {
       const con403 = [
         ['post', '/api/categorias'],
         ['get', '/api/categorias'],
-        ['patch', '/api/patrones/{id}'],
         ['delete', '/api/patrones/{id}'],
       ].filter(
         ([m, r]) =>

@@ -47,11 +47,11 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
 
 ## Tasks
 
-- [ ] T1 — S1, S2, S5 (domain + dedupe) — inline
-- [ ] T2 — S3 (preview endpoint) — inline
-- [ ] T3 — S4, S5 (create with move, 409 detail, move pattern) — inline
-- [ ] T4 — S6 (similar suggestion + reclassify with apply) — inline
-- [ ] T5 — regenerate iOS and Android clients; Android compiles — inline
+- [x] T1 — S1, S2, S5 (domain + dedupe) — delegated writer — `3970e78f` — RED: specs failed on missing modules and on `existente`; GREEN: `npx vitest run` 3501 passed
+- [x] T2 — S3 (preview endpoint) — delegated writer — `24d191dd` — RED: route/mapper specs 6 failed; GREEN: 3501 passed
+- [x] T3 — S4, S5 (create with move, 409 detail, move pattern) — delegated writer — `ae57da2b` — RED: use case 4 + 3 failed, routes failed; GREEN: unit 3522 passed, `aprendizaje-clasificacion.int-spec.ts` 5 passed; mutation (no `$transaction`) turned the rollback test red
+- [x] T4 — S6 (similar suggestion + reclassify with apply) — delegated writer — `f91f070e` — RED: 2 use case specs + 9 route tests failed; GREEN: unit 3545 passed, int spec 8 passed
+- [x] T5 — regenerate iOS and Android clients; Android compiles — delegated writer — `f6eb4398` — iOS `xcodebuild build` and `build-for-testing` exit 0; Android `:app:compileDebugKotlin` exit 0; int 273 passed, e2e 145 passed
 - [ ] T6 — S7 (iOS 09, 28, 30) — inline
 - [ ] V — independent verifier (high-risk item 1: moving stored rows)
 
@@ -66,3 +66,11 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
   - PATCH /api/patrones rejects `categoriaId`.
   - Android has no categories UI.
 - L4: Route: inline throughout. API and iOS are dependent (iOS needs the regenerated contract), so no parallel writers. Forecast: ~1,500 authored lines, so chained PRs.
+- L5 (T1): "Coincide" is exact: the candidate gets a marker category inside the simulated catalog, so a row counts only when the engine picks the candidate itself (not just "lands in the target category"). If the text already exists (folded), the candidate replaces that pattern and keeps its id, match type and `creadoEn`, so the preview models "move it here". A new pattern loses CLA-12 ties (it is the newest).
+- L6 (T1): `existePatron` was replaced by `buscarPorTexto` (returns the existing pattern with category and bucket). It folds accents in memory over the user's patterns (userId in the WHERE). `POST /api/categorias` with nested `patrones` now also folds accents, both against the catalog and inside the batch.
+- L7 (T2): Preview `patron` is returned as the engine compares it (`normalizarTextoPatron`). `monto` is `cargo` as a string (incomes never coincide). Coincidences are ordered by fecha asc, id asc. Catalog read failure → 503 `CATALOGO_NO_DISPONIBLE`; invalid periodo → 400 `PERIODO_INVALIDO` (new codes in `aCatalogoHttpError`).
+- L8 (T3): One interactive `$transaction` in `PrismaAprendizajeClasificacionWriter` does category lookup `(id, userId)` → optional manual reclassification → pattern (create/move/keep) → move rows. The coinciding ids are selected before the transaction; the move's WHERE repeats `account.userId` and `clasificacionManual = false`, so a row changed by hand in between is not overwritten. `movidos` is Prisma's count.
+- L9 (T3): `POST /api/patrones` 201 is now `PatronCreateResponse` (the previous `PatronResponse` fields plus `movidos`). The 409 adds `existente`. `PATCH /api/patrones/{id}` accepts `categoriaId` (404 `CATEGORIA_NO_ENCONTRADA`, 403 `CATEGORIA_INTERNA`); moving a pattern moves no movements. Assumption: `moverDelPeriodo` must be an explicit YYYY-MM (no default).
+- L10 (T4): `GET /api/transacciones/{id}/parecidos` returns `patron: null, total: 0` both when the glosa leaves fewer than 3 letters and when the target category is internal (assumption: "Desconocido" holds no patterns, so there is nothing to offer, instead of a 403 the sheet would have to handle). Missing `categoriaId` → 400 `PARAMETROS_INVALIDOS`; foreign movement → 404 `TRANSACCION_NO_ENCONTRADA`; foreign category → 404 `CATEGORIA_NO_ENCONTRADA`.
+- L11 (T4): `PATCH /api/transacciones/{id}/categoria` always returns `movidos` (0 without `aplicarAParecidos`, same as `POST /api/patrones`). With `aplicarAParecidos` the body is validated at the route (malformed → 400 `BODY_INVALIDO`, never ignored); an unknown category and a foreign movement keep the plain PATCH's 400/404 bodies; internal category → 403 `CATEGORIA_INTERNA`; no suggestion → 400 `PATRON_INVALIDO` (assumption: refuse rather than silently reclassify only). The pattern is created, moved (CLA-17, same id) or kept; OTHER coinciding rows move.
+- L12 (T5): Minimal iOS mapping edits only: `POST /api/patrones` 201 decodes `PatronCreateResponse` (an overload of `mapped`), and the new documented 403/503 cases of create, PATCH pattern and PATCH reclassify are handled (those calls never send the new options). Android compiled with the regenerated client unchanged. Docs updated: `docs/catalogo/flujos/categorias-y-patrones.md`, `inicio-y-movimientos.md`, and gap 16 moved to "Cerradas" in `docs/catalogo/README.md` (iOS screens still pending, T6).

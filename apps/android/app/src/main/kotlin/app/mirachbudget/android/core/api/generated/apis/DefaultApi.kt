@@ -20,6 +20,7 @@ import app.mirachbudget.android.core.api.generated.models.ApiKeyUnauthorizedResp
 import app.mirachbudget.android.core.api.generated.models.ApiMovimientosPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPatronesIdPatchRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPatronesPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiPatronesVistaPreviaPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPerfilGoogleDesvincularPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPerfilPasswordPatchRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPerfilPatchRequest
@@ -44,7 +45,9 @@ import app.mirachbudget.android.core.api.generated.models.IngestaErrorResponse
 import app.mirachbudget.android.core.api.generated.models.IngestasListResponse
 import app.mirachbudget.android.core.api.generated.models.IngresosMesResponse
 import app.mirachbudget.android.core.api.generated.models.MovimientosMesResponse
+import app.mirachbudget.android.core.api.generated.models.PatronCreateResponse
 import app.mirachbudget.android.core.api.generated.models.PatronResponse
+import app.mirachbudget.android.core.api.generated.models.PatronVistaPreviaResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilErrorResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoUpdateRequest
@@ -58,6 +61,7 @@ import app.mirachbudget.android.core.api.generated.models.SemaforoDetalleRespons
 import app.mirachbudget.android.core.api.generated.models.ServerErrorResponse
 import app.mirachbudget.android.core.api.generated.models.ServicioNoDisponibleResponse
 import app.mirachbudget.android.core.api.generated.models.TransaccionesCategoriaResponse
+import app.mirachbudget.android.core.api.generated.models.TransaccionesParecidosResponse
 import app.mirachbudget.android.core.api.generated.models.UnauthorizedResponse
 import app.mirachbudget.android.core.api.generated.models.VersionResponse
 import app.mirachbudget.android.core.api.generated.models.VincularGoogleResponse
@@ -515,13 +519,14 @@ interface DefaultApi {
     /**
      * PATCH api/patrones/{id}
      * Update a classification pattern
-     * Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). &#x60;categoriaId&#x60; is NOT accepted — moving a pattern between categories is a non-goal. Requires x-api-key + a valid session.
+     * Authenticated endpoint that partially updates a pattern (US-038, CAT038-05). &#x60;categoriaId&#x60; moves the pattern to another of the caller&#39;s categories (CLA-17); it keeps its id and creation date. Moving a pattern does not move movements. Requires x-api-key + a valid session.
      * Responses:
      *  - 200: Pattern updated.
      *  - 400: Invalid patron/matchType/prioridad, an invalid REGEX, an empty body, or a malformed request body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 404: Anti-enumeration: the pattern does not exist or does not belong to the authenticated user.
-     *  - 409: A pattern with that text already exists for this user (case-insensitive).
+     *  - 403: The target categoriaId is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+     *  - 404: Anti-enumeration: the pattern (`PATRON_NO_ENCONTRADO`) or the target categoriaId (`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.
+     *  - 409: A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). `existente` names it with its category and bucket.
      *
      * @param id 
      * @param apiPatronesIdPatchRequest  (optional)
@@ -533,20 +538,39 @@ interface DefaultApi {
     /**
      * POST api/patrones
      * Create a classification pattern
-     * Authenticated endpoint that creates a classification pattern under one of the caller&#39;s own categories (US-038, CAT038-05/06). Requires x-api-key + a valid session.
+     * Authenticated endpoint that creates a classification pattern under one of the caller&#39;s own categories (US-038, CAT038-05/06). With &#x60;moverDelPeriodo&#x60; (CLA-15), saving the pattern and moving the coinciding movements of that financial month happen in one transaction: moved movements get the category and its bucket and stay pattern-classified; movements changed by hand never move. Without it nothing moves and &#x60;movidos&#x60; is 0. Requires x-api-key + a valid session.
      * Responses:
-     *  - 201: Pattern created.
-     *  - 400: Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), or a malformed request body.
+     *  - 201: Pattern created, with the count of moved movements.
+     *  - 400: Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), an invalid moverDelPeriodo (`PERIODO_INVALIDO`), or a malformed request body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
      *  - 403: The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"), which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.
-     *  - 409: A pattern with that text already exists for this user (case-insensitive).
+     *  - 409: A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). `existente` names it with its category and bucket.
+     *  - 503: With moverDelPeriodo: the classification catalog could not be read; nothing was saved. `code` CATALOGO_NO_DISPONIBLE.
      *
      * @param apiPatronesPostRequest  (optional)
-     * @return [PatronResponse]
+     * @return [PatronCreateResponse]
      */
     @POST("api/patrones")
-    suspend fun apiPatronesPost(@Body apiPatronesPostRequest: ApiPatronesPostRequest? = null): Response<PatronResponse>
+    suspend fun apiPatronesPost(@Body apiPatronesPostRequest: ApiPatronesPostRequest? = null): Response<PatronCreateResponse>
+
+    /**
+     * POST api/patrones/vista-previa
+     * Preview a classification pattern
+     * Authenticated, read-only endpoint (CLA-15): for a candidate CONTAINS text, a target category and a financial month, lists the movements the pattern would move — the engine (longest wins, then oldest; accent-insensitive) would pick it — and the pattern that already holds the text, if any (CLA-17). Incomes, movements changed by hand and movements already in the category are excluded. Nothing is written. Requires x-api-key + a valid session.
+     * Responses:
+     *  - 200: Preview of the candidate pattern for the resolved periodo.
+     *  - 400: Invalid patron (`PATRON_INVALIDO`), invalid periodo (`PERIODO_INVALIDO`) or a malformed body (`BODY_INVALIDO`).
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+     *  - 404: Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.
+     *  - 503: The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.
+     *
+     * @param apiPatronesVistaPreviaPostRequest  (optional)
+     * @return [PatronVistaPreviaResponse]
+     */
+    @POST("api/patrones/vista-previa")
+    suspend fun apiPatronesVistaPreviaPost(@Body apiPatronesVistaPreviaPostRequest: ApiPatronesVistaPreviaPostRequest? = null): Response<PatronVistaPreviaResponse>
 
     /**
      * POST api/perfil/google/desvincular
@@ -704,12 +728,14 @@ interface DefaultApi {
     /**
      * PATCH api/transacciones/{id}/categoria
      * Reclassify a transaction
-     * Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+     * Authenticated endpoint that manually reassigns a transaction to a category (and its derived bucket) (US-013 S4). With &#x60;aplicarAParecidos&#x60; (CLA-03), the same transaction also creates the suggested pattern in that category (or moves the existing one there, CLA-17) and moves the similar movements of &#x60;periodo&#x60;; &#x60;movidos&#x60; counts them (0 without the option). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
      * Responses:
      *  - 200: Transaction reclassified.
-     *  - 400: Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name).
+     *  - 400: Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name). With aplicarAParecidos also: a malformed aplicarAParecidos (`BODY_INVALIDO`), no suggested text for the glosa (`PATRON_INVALIDO`) or an invalid periodo (`PERIODO_INVALIDO`).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: With aplicarAParecidos: the category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: the transaction does not exist or does not belong to the authenticated user.
+     *  - 503: With aplicarAParecidos: the classification catalog could not be read; nothing was saved. `code` CATALOGO_NO_DISPONIBLE.
      *
      * @param id Transaction id (raw path param). Existence/ownership is checked by the use case, not this schema.
      * @param apiTransaccionesIdCategoriaPatchRequest  (optional)
@@ -717,6 +743,25 @@ interface DefaultApi {
      */
     @PATCH("api/transacciones/{id}/categoria")
     suspend fun apiTransaccionesIdCategoriaPatch(@Path("id") id: kotlin.String, @Body apiTransaccionesIdCategoriaPatchRequest: ApiTransaccionesIdCategoriaPatchRequest? = null): Response<TransaccionesCategoriaResponse>
+
+    /**
+     * GET api/transacciones/{id}/parecidos
+     * Suggest a pattern from a transaction
+     * Authenticated, read-only endpoint (CLA-03): the CONTAINS text suggested from the glosa of the transaction, how many OTHER movements of the periodo would move to &#x60;categoriaId&#x60; with it (incomes, movements changed by hand and movements already there excluded), and the pattern that already holds the text, if any (CLA-17). &#x60;patron&#x60; is null when there is nothing to offer. Requires x-api-key + a valid session.
+     * Responses:
+     *  - 200: Suggestion for the resolved periodo.
+     *  - 400: Missing categoriaId (`PARAMETROS_INVALIDOS`) or an invalid periodo (`PERIODO_INVALIDO`).
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 404: Anti-enumeration: the transaction (`TRANSACCION_NO_ENCONTRADA`) or the category (`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.
+     *  - 503: The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.
+     *
+     * @param id Transaction id (raw path param). Existence/ownership is checked by the use case, not this schema.
+     * @param categoriaId Target category the person is choosing.
+     * @param periodo Financial month YYYY-MM. Absent ⇒ the last month with data. (optional)
+     * @return [TransaccionesParecidosResponse]
+     */
+    @GET("api/transacciones/{id}/parecidos")
+    suspend fun apiTransaccionesIdParecidosGet(@Path("id") id: kotlin.String, @Query("categoriaId") categoriaId: kotlin.String, @Query("periodo") periodo: kotlin.String? = null): Response<TransaccionesParecidosResponse>
 
     /**
      * POST api/transacciones/reevaluar

@@ -34,6 +34,7 @@ import kotlinx.serialization.Contextual
  * @param categoriaId 
  * @param matchType 
  * @param patron 
+ * @param moverDelPeriodo CLA-15: financial month YYYY-MM. When present, saving the pattern and moving the coinciding movements of that month happen in one transaction. Absent ⇒ nothing moves.
  * @param prioridad 
  */
 @Serializable
@@ -48,6 +49,10 @@ data class ApiPatronesPostRequest (
 
     @SerialName(value = "patron")
     val patron: kotlin.String,
+
+    /* CLA-15: financial month YYYY-MM. When present, saving the pattern and moving the coinciding movements of that month happen in one transaction. Absent ⇒ nothing moves. */
+    @SerialName(value = "moverDelPeriodo")
+    val moverDelPeriodo: kotlin.String? = null,
 
     @Contextual @SerialName(value = "prioridad")
     val prioridad: java.math.BigDecimal? = null
