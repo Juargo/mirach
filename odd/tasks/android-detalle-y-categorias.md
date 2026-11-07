@@ -32,6 +32,7 @@ Objective: port iOS `Features/DetalleBucket` and `Features/Categorias` to Androi
 - [x] T1b — icons + shared sheet parts + `Format.monthName` (prep for T2/T3) — inline — `feac235c` — RED: `CategoryIconTest` did not compile; GREEN: CI command exit 0
 - [x] T2 — S2, S3 — delegated writer (Writer trigger (a): T2 and T3 are independent units with disjoint surfaces, each well over 100 lines, launched together) — worktree `/Users/jorge/dev/mirach-worktrees/android-t2`, branch `feat/android-detalle-bucket` — `35917bad` (PR #219) — RED: 45 tests did not compile; GREEN: CI command exit 0, 476 tests; mutation (apply-to-similar condition) red
 - [x] T3 — S4, S5 — delegated writer (same trigger) — worktree `/Users/jorge/dev/mirach-worktrees/android-t3`, branch `feat/android-categorias` — `752cc6ef` (PR #220) — RED: 96 tests did not compile (413 errors); GREEN: CI command exit 0; 5 mutations red; seam check with T2: 572 tests, 0 failed
+- [x] V — independent verifier (high-risk item 1: the client decides when stored rows move): S1–S5 PASS, no blockers (L10)
 - [x] T4 — wiring: Resumen → bucket detail, «Categorías» tab, bucket group → category detail, catalog refresh across tabs — inline (shared `RootRoute.kt`)
 
 ## Log
@@ -68,3 +69,14 @@ Objective: port iOS `Features/DetalleBucket` and `Features/Categorias` to Androi
   - A group header in the bucket detail opens `DetalleCategoriaRoute` inside the Resumen tab; a `SaveableStateHolder` keeps the open bucket detail under it.
   - *Limitation:* a category created from the reclassify sheet without saving does not refresh Subir or Categorías until the next catalog change or reclassification.
   - No Compose UI tests exist, so the wiring was checked by the CI build and by reading.
+- L10 (2026-11-07): Independent verifier, baseline 679f0d76, candidate 835fff60.
+  - S1–S5 PASS, no blockers. CI exit 0.
+  - 24 probes pass. Two mutations (the previewed-text guard, and `takeIf { applyToSimilar }`) turned them red.
+  - Android sends `aplicarAParecidos` with the periodo `parecidos` answered for, which is stricter than iOS (iOS uses the screen periodo at save time).
+  - Subir cartola is unchanged after the sheet extraction.
+  - The probes are committed as `ReclassifyApplyRegressionTest` and `PatternMoveRegressionTest`. CI exit 0, 596 tests.
+  - Advisories:
+    - A new pattern text whose preview has the same total and month keeps the checkbox marked (same as iOS).
+    - The L9 limitation.
+    - No Compose UI tests.
+
