@@ -1,5 +1,9 @@
 package app.mirachbudget.android
 
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import app.mirachbudget.android.features.categorias.CategoriasRoute
+import app.mirachbudget.android.features.categorias.DetalleCategoriaRoute
+import app.mirachbudget.android.features.detallebucket.DetalleBucketViewModel
 import android.net.Uri
 import app.mirachbudget.android.core.staging.ContentResolverCartolaSource
 import app.mirachbudget.android.features.cartolassubidas.CartolasSubidasViewModel
@@ -103,6 +107,22 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
             LaunchedEffect(cartolasDeleted) {
                 if (cartolasDeleted > 0) resumenViewModel.load()
             }
+            // Any catalog change (Categorías, or a category created while reclassifying) moves
+            // figures and names elsewhere: Resumen reloads, Subir re-reads its catalog, and the
+            // screens that show categories read them again.
+            var catalogRevision by rememberSaveable { mutableIntStateOf(0) }
+            LaunchedEffect(catalogRevision) {
+                if (catalogRevision > 0) {
+                    resumenViewModel.load()
+                    subirViewModel.catalogDidChange()
+                }
+            }
+            // A reclassification changes the categories' counts, but Resumen already refreshes itself.
+            var categoriasRevision by rememberSaveable { mutableIntStateOf(0) }
+            // A category opened from a bucket detail, shown inside the Resumen tab.
+            var resumenCategoria by rememberSaveable { mutableStateOf<String?>(null) }
+            val resumenStates = rememberSaveableStateHolder()
+            val userId = (phase as Phase.SignedIn).userId
             var selectedTab by rememberSaveable { mutableStateOf("resumen") }
             // A file shared from another app opens Subir. It is retried whenever the step changes,
             // because it waits while Subir is still preparing or accepting the consent. The call runs
@@ -124,11 +144,32 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
             SignedInShell(
                 tabs = listOf(
                     ShellTab("resumen", "Resumen") {
-                        ResumenRoute(
-                            viewModel = resumenViewModel,
-                            version = (version as? ApiVersionState.Loaded)?.info,
-                            onUploadStatement = { selectedTab = "subir" },
-                        )
+                        val categoria = resumenCategoria
+                        if (categoria != null) {
+                            DetalleCategoriaRoute(
+                                api = dependencies.api,
+                                categoriaId = categoria,
+                                onBack = { resumenCategoria = null },
+                                onChange = { catalogRevision++; categoriasRevision++ },
+                            )
+                        } else {
+                            // Keeps the open bucket detail while a category detail covers it.
+                            resumenStates.SaveableStateProvider("resumen") {
+                                ResumenRoute(
+                                    viewModel = resumenViewModel,
+                                    version = (version as? ApiVersionState.Loaded)?.info,
+                                    onUploadStatement = { selectedTab = "subir" },
+                                    detalleBucketViewModel = { bucket, periodo, onReclassified ->
+                                        DetalleBucketViewModel(dependencies.api, bucket, periodo) {
+                                            onReclassified()
+                                            categoriasRevision++
+                                        }
+                                    },
+                                    onOpenCategory = { resumenCategoria = it },
+                                    catalogRevision = catalogRevision,
+                                )
+                            }
+                        }
                     },
                     ShellTab("subir", "Subir") {
                         SubirCartolaRoute(
@@ -136,6 +177,14 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                             onShowResumen = { selectedTab = "resumen" },
                             cartolasSubidasViewModel = { onChange -> CartolasSubidasViewModel(dependencies.api, onChange) },
                             onCartolaDeleted = { cartolasDeleted++ },
+                        )
+                    },
+                    ShellTab("categorias", "Categorías") {
+                        CategoriasRoute(
+                            api = dependencies.api,
+                            userId = userId,
+                            onChange = { catalogRevision++; categoriasRevision++ },
+                            catalogRevision = categoriasRevision,
                         )
                     },
                     ShellTab("perfil", "Perfil") { PerfilRoute(perfilViewModel) },
