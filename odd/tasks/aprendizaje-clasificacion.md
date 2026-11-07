@@ -107,3 +107,4 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
   - #214 B, `feat/api-aprendizaje-contrato`: T2–T5. About 3,600 authored lines, so `size:exception`. Every endpoint commit changes `openapi.json`, and CI needs the regenerated clients with it, so B cannot split further and stay green.
   - #215 C, `feat/ios-aprendizaje-clasificacion`: T6 plus the follow-ups. About 1,670 authored lines, so `size:exception`.
   - No migration is needed.
+- L25 (2026-11-06): #214 had `ios checks` red because three iOS API fixtures lacked `movidos` (fixed only in #215). The fix moved to #214 (410fd177; MirachTests 620/620 locally), and #214 was merged into #215 (0cc1746a), so each PR is green by itself.
