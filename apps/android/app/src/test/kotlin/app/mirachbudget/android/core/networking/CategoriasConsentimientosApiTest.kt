@@ -60,9 +60,9 @@ class CategoriasConsentimientosApiTest {
         // A bucket the app does not know cannot be placed in a group: left out.
         assertEquals(
             listOf(
-                CategoriaCatalogo("c1", "Arriendo", Bucket.Necesidades, "casa"),
-                CategoriaCatalogo("c2", "Cine", Bucket.Deseos, null),
-                CategoriaCatalogo("c4", "Luz", Bucket.Necesidades, null),
+                CategoriaCatalogo("c1", "Arriendo", Bucket.Necesidades, "casa", transaccionesCount = 4),
+                CategoriaCatalogo("c2", "Cine", Bucket.Deseos, null, transaccionesCount = 4),
+                CategoriaCatalogo("c4", "Luz", Bucket.Necesidades, null, transaccionesCount = 4),
             ),
             catalog.categorias,
         )
@@ -95,7 +95,7 @@ class CategoriasConsentimientosApiTest {
 
         val created = api().crearCategoria(NuevaCategoria(nombre = "Mascotas", bucket = Bucket.Deseos, patron = "  PET SHOP ", icono = "pata"))
 
-        assertEquals(CategoriaCatalogo("c9", "Mascotas", Bucket.Deseos, "pata"), created)
+        assertEquals(CategoriaCatalogo("c9", "Mascotas", Bucket.Deseos, "pata", transaccionesCount = 4), created)
         val r = request()
         assertEquals("POST", r.method)
         assertEquals("/api/categorias", r.url.encodedPath)
