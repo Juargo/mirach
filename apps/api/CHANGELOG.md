@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.13.0](https://github.com/Juargo/mirach/compare/api-v0.12.0...api-v0.13.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** remove the one-step POST /api/ingestas endpoint
+
+### Features
+
+* **api:** a manual classification is never moved by a pattern (CLA-16) ([d29ccfe](https://github.com/Juargo/mirach/commit/d29ccfec9f57de298abd38f6fa1dc018825359b5))
+* **api:** a manual reclassification is never moved by a pattern (CLA-16) ([d08347f](https://github.com/Juargo/mirach/commit/d08347f2cda1952ddcbf6c88f9257ce847b49d32))
+* **api:** add budget profile domain and goal-based traffic-light bands ([2635535](https://github.com/Juargo/mirach/commit/2635535220e7a61748d2e981eb2603b4e6c9b428)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **api:** add consent endpoints and require statement consent to import ([d47d633](https://github.com/Juargo/mirach/commit/d47d633249615802bd9b284217343d253b0d9508)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** add GET/PUT /api/perfil/presupuesto ([47f37ca](https://github.com/Juargo/mirach/commit/47f37cacd669ded8d76ac5553fa2f1392c5adfb8)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **api:** add rule 9 block states, month state and Gustos label ([5132a8f](https://github.com/Juargo/mirach/commit/5132a8facc9285c66567733df02f83a0d1dbd997))
+* **api:** add rule 9 block states, month state and Gustos label ([c23ba82](https://github.com/Juargo/mirach/commit/c23ba82bddb3dc30f56a8c2669910db156b0498f))
+* **api:** add stable codes for scanned PDFs and unknown banks ([1097dd0](https://github.com/Juargo/mirach/commit/1097dd0c0ffe97db1db70c011e680b3335d80849))
+* **api:** add stable codes for scanned PDFs and unknown banks ([824bc8d](https://github.com/Juargo/mirach/commit/824bc8d6d64f47a0b8280bfe156b1c84b77a24e8)), closes [#115](https://github.com/Juargo/mirach/issues/115)
+* **api:** add versioned consent model and repository ([7c25a04](https://github.com/Juargo/mirach/commit/7c25a04d495511d4c0318f8e60935cb2d5c4cfe3)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** budget profile and summary goals from the profile ([3a7d066](https://github.com/Juargo/mirach/commit/3a7d06620ca697efc4eba2ca92b423a7993d6847))
+* **api:** expose the cut-off day and declared income in the budget profile ([2b6bad6](https://github.com/Juargo/mirach/commit/2b6bad69956b476753fa14696409744eefbc2a68))
+* **api:** financial month cut-off day and declared income ([9e4f365](https://github.com/Juargo/mirach/commit/9e4f365e128795890ae97faefeb5418e8c22aa04))
+* **api:** longest pattern wins, then the oldest (CLA-12) ([3b0e610](https://github.com/Juargo/mirach/commit/3b0e6109e187cc3a95d3c433a106e8564b751b96))
+* **api:** mark categories chosen in the review or a manual movement (CLA-16) ([80a1295](https://github.com/Juargo/mirach/commit/80a12959d56e3f1443327a83fb47ec37818e537c))
+* **api:** match patterns ignoring accents (CLA-14) ([53e74e3](https://github.com/Juargo/mirach/commit/53e74e3d29c1e3afffa6b234c4b76dc4f6632d98))
+* **api:** match patterns ignoring accents and prefer the longest (CLA-14, CLA-12) ([f87850c](https://github.com/Juargo/mirach/commit/f87850cde9d799d476aa6c5e42dc714e7917bd79))
+* **api:** model the financial month in the domain ([563ba6f](https://github.com/Juargo/mirach/commit/563ba6f7d5c5deccdd7db8921e35663de1384d02))
+* **api:** persist the cut-off day and declared income ([9db0d59](https://github.com/Juargo/mirach/commit/9db0d597f4e6729e37eafcd5f7d37c84dec2b526))
+* **api:** preview the movements a pattern would move ([24d191d](https://github.com/Juargo/mirach/commit/24d191ddd95325ca8441061343ab2faf470ba7a1))
+* **api:** preview, save-and-move and apply-to-similar endpoints ([8472ef9](https://github.com/Juargo/mirach/commit/8472ef9dd0bd71faa236cc4d6a2b9ad9610fb30e))
+* **api:** put cabify in Transporte under Gustos by default ([36186a3](https://github.com/Juargo/mirach/commit/36186a31e1964b6147e3bc2eaddaa773f9d2d909))
+* **api:** put uber in Transporte under Gustos by default ([309791e](https://github.com/Juargo/mirach/commit/309791ead8c673fee9ccde874a1958ed5c2f16e5))
+* **api:** read summary goals from the user's budget profile ([235c3cb](https://github.com/Juargo/mirach/commit/235c3cb6812ecafef6793f764adfc52d5faad27d)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **api:** reject patterns on the internal Desconocido category (CLA-18) ([ddd6126](https://github.com/Juargo/mirach/commit/ddd61264003fe69092b4d09862a176a38766cd9b))
+* **api:** reject patterns on the internal Desconocido category (CLA-18) ([08bbe72](https://github.com/Juargo/mirach/commit/08bbe72f2942c26499509549544f5265a00be4c0))
+* **api:** remote config with minimum app version per platform ([94087d4](https://github.com/Juargo/mirach/commit/94087d4f234a6e1d51e2ceaca7ca37912375bac1))
+* **api:** remote config with minimum app version per platform ([8a93955](https://github.com/Juargo/mirach/commit/8a9395546cef064f00de31f9cce4cd18583a6f6b))
+* **api:** remove the one-step POST /api/ingestas endpoint ([d174ab4](https://github.com/Juargo/mirach/commit/d174ab441ad993d67e42b16e926861aa04488ca8)), closes [#115](https://github.com/Juargo/mirach/issues/115)
+* **api:** resolve every monthly read by the financial month ([965a5e1](https://github.com/Juargo/mirach/commit/965a5e106630595e91acb620d92628efb129f07a))
+* **api:** save a pattern and move this month's movements at once ([ae57da2](https://github.com/Juargo/mirach/commit/ae57da2bc1309f865e814fc6042b9ea533f7ce4e))
+* **api:** store accepted terms at signup behind CONSENTS_REQUIRED ([e75f61a](https://github.com/Juargo/mirach/commit/e75f61a28e7941c7ee53f1b746d2c65cccaba873)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** suggest a pattern text and find coinciding movements ([3970e78](https://github.com/Juargo/mirach/commit/3970e78f7ffcdbd6dc2191f54310dc124d2197d4))
+* **api:** suggest a pattern while reclassifying and apply it to similar ([f91f070](https://github.com/Juargo/mirach/commit/f91f070ed33e6ed2214405550c6af4fb171e5224))
+* **api:** suggest pattern texts and find coinciding movements ([7846b1f](https://github.com/Juargo/mirach/commit/7846b1f208a3694cf92883b28f07d6789b679a73))
+* **api:** template categories and patterns measured on a real statement ([cb7675a](https://github.com/Juargo/mirach/commit/cb7675a81f709b03b38fa18104cd46bbb10581f3))
+* **api:** template categories and patterns measured on a real statement ([25d63ee](https://github.com/Juargo/mirach/commit/25d63ee47f679c834dbca28db20e916f2fa6e2ca))
+* **api:** use the declared income as the base of the percentages ([c6031be](https://github.com/Juargo/mirach/commit/c6031be7ca2577e52c16a1ce7c7e09469794c470))
+* **api:** versioned consents and terms at signup ([cb7e377](https://github.com/Juargo/mirach/commit/cb7e37780939e91c478feaae15de6268b1451424))
+* **apps:** regenerate clients for the budget profile contract ([61ea865](https://github.com/Juargo/mirach/commit/61ea865eb3cf7529f62c45b18d15afe16f7e2dc1)), closes [#110](https://github.com/Juargo/mirach/issues/110)
+* **apps:** regenerate clients for the financial month contract ([fefa29e](https://github.com/Juargo/mirach/commit/fefa29ed29990cee45b77b25fbd1d891280c3f1d))
+
+
+### Bug Fixes
+
+* **api:** answer 400 to malformed JSON and 503 when token checks cannot run ([4dc23c2](https://github.com/Juargo/mirach/commit/4dc23c2385decdd9cfebd38c10c67b7c051a4d2c))
+* **api:** answer 400 to malformed JSON and 503 when token checks cannot run ([3624733](https://github.com/Juargo/mirach/commit/36247330ba8a422f6b4c64ae4090a7f7ed0421be)), closes [#115](https://github.com/Juargo/mirach/issues/115)
+* **api:** count identical same-day movements instead of collapsing them ([87a8766](https://github.com/Juargo/mirach/commit/87a87665cccf0802a8ac4f188020058c2b2bde90))
+* **api:** count identical same-day movements instead of collapsing them ([1faf43a](https://github.com/Juargo/mirach/commit/1faf43a9857d341bc1d42df0eb82f049b09bc569))
+* **api:** enable RLS on every public table ([4461004](https://github.com/Juargo/mirach/commit/446100406bd7f77c36c4678beaa0e7c8299b2e59))
+* **api:** enable RLS on every public table ([c7fae2a](https://github.com/Juargo/mirach/commit/c7fae2a2a495dadebb1bc2075a85fcdfce166980))
+* **api:** ignore the BCI period range when it wraps onto two lines ([6bcd552](https://github.com/Juargo/mirach/commit/6bcd552cb729532fae3f163ac8eab1cab127d4a7))
+* **api:** ignore the BCI period range when it wraps onto two lines ([406f318](https://github.com/Juargo/mirach/commit/406f318786d75c7cf19bcd569fd91260c4169541))
+* **api:** keep a malformed consent version from rejecting Apple logins ([212e6f7](https://github.com/Juargo/mirach/commit/212e6f767385b586c4cc3969b6a6f461213e77b2)), closes [#112](https://github.com/Juargo/mirach/issues/112)
+* **api:** keep a month without movements free of a verdict ([d0f8e38](https://github.com/Juargo/mirach/commit/d0f8e38a4443975958bbb22a09bade3f97c98f43))
+* **api:** report rejected PDF movements with their real row and reason ([8badafd](https://github.com/Juargo/mirach/commit/8badafd55d9f9c8f533884c3f5e725b2897861dc))
+* **api:** report rejected PDF movements with their real row and reason ([de4b03d](https://github.com/Juargo/mirach/commit/de4b03dde7801e75b054018b7fb5f0ea2ac12b65))
+* **api:** restore typescript 6 specifier reverted by release 0.12.0 ([5d9194e](https://github.com/Juargo/mirach/commit/5d9194e6761e00d583ec44ab4608ab7c91125d19))
+* **api:** restore typescript 6 specifier reverted by release 0.12.0 ([8e0a1dc](https://github.com/Juargo/mirach/commit/8e0a1dc2a1da1bc9488fdb927bed654d2874499b))
+* **deps:** patch body-parser and multer advisories after quarantine ([d0baf33](https://github.com/Juargo/mirach/commit/d0baf330dc386efe1975a8a748b708c7d6a533c3))
+* **deps:** patch body-parser and multer advisories after quarantine ([e8c5cde](https://github.com/Juargo/mirach/commit/e8c5cdef88e55154df6ae869191feb722e6e871f)), closes [#127](https://github.com/Juargo/mirach/issues/127)
+* **deps:** patch high advisories in zod, vite and undici ([1f20ec1](https://github.com/Juargo/mirach/commit/1f20ec1c49c3b8504694ef7fdf324c674ada00ad))
+* **deps:** patch high advisories in zod, vite and undici ([a61133a](https://github.com/Juargo/mirach/commit/a61133a307913fcc09208f397f1aa677a946dda3))
+
+
+### Documentation
+
+* align requirements, ADRs and CLAUDE.md with the product decisions of 2026-10-25 ([1ab4cdf](https://github.com/Juargo/mirach/commit/1ab4cdf0688a4a454389989e58d94db86e1de747))
+* **claude:** trim derivable content and move API-only commands to apps/api ([841514b](https://github.com/Juargo/mirach/commit/841514bcd5c95d7f298e258a0c37d2133e484519))
+* restore dropped API categorization notes and fix review findings ([3d820ac](https://github.com/Juargo/mirach/commit/3d820acbd90ac7ea4d35e6f808ec58746c34d0fa))
+
 ## [0.12.0](https://github.com/Juargo/mirach/compare/api-v0.11.0...api-v0.12.0) (2026-10-24)
 
 
