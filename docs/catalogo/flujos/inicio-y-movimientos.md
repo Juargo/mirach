@@ -41,8 +41,8 @@ Los ingresos del mes (VIS-10, MOV-11) se abren desde la línea «Ingresos del me
 | Cambiar de mes (flechas que recorren `GET /api/periodos`) | `GET /api/resumen?periodo=AAAA-MM` | — | Reemplaza el contenido; los meses fuera de la lista no tienen datos y las flechas los saltan | 400 se trata como error genérico (la app solo envía valores propios) |
 | Tocar un bloque | `GET /api/buckets/{bucket}/detalle?periodo=…` | — | Abre el detalle (10): grupos por categoría ya ordenados por subtotal | Error con reintento |
 | Ver los movimientos del mes | `GET /api/movimientos?periodo=…` | — | Lista con `fecha`, `descripcion`, `cargo`/`abono`, `bucket`, `categoria` y `banco` («Manual» para los registrados a mano); filtros por bloque y banco sobre los datos recibidos (MOV-01) | Error con reintento |
-| Reclasificar un movimiento | `PATCH /api/transacciones/{id}/categoria` | `{"categoriaId": "<id elegido>"}` | 200 `{id, categoria, bucket, movidos: 0}`: se anuncia «Movido a {bloque} · {categoría}» y se recargan la lista y el resumen | 400 la categoría ya no existe: mensaje y se recarga el catálogo; 404 el movimiento ya no existe: se recarga la lista |
-| Crear una categoría desde la hoja | `POST /api/categorias` | `{"nombre", "bucket", "icono"?}` | 201: queda elegida y se continúa con la reclasificación | 400 `NOMBRE_INVALIDO`, `BUCKET_NO_ASIGNABLE`, `ICONO_INVALIDO`; 409 `NOMBRE_DUPLICADO` |
+| Reclasificar un movimiento (elegir una categoría la marca; se envía al tocar «Guardar») | `PATCH /api/transacciones/{id}/categoria` | `{"categoriaId": "<id elegido>"}` | 200 `{id, categoria, bucket, movidos: 0}`: se anuncia «Movido a {bloque} · {categoría}» y se recargan la lista y el resumen | 400 la categoría ya no existe: mensaje y se recarga el catálogo; 404 el movimiento ya no existe: se recarga la lista |
+| Crear una categoría desde la hoja | `POST /api/categorias` | `{"nombre", "bucket", "icono"?}` | 201: vuelve a la hoja elegida; la reclasificación se envía al tocar «Guardar» | 400 `NOMBRE_INVALIDO`, `BUCKET_NO_ASIGNABLE`, `ICONO_INVALIDO`; 409 `NOMBRE_DUPLICADO` |
 | Consultar parecidos | `GET /api/transacciones/{id}/parecidos?categoriaId=&periodo=` | — | 200 `{patron, total, existente}`: «Aplicar a “{patron}”» con «{total} movimientos más y los próximos que lleguen»; `patron: null` oculta la casilla (texto con menos de 3 letras o categoría interna) | 400 `PARAMETROS_INVALIDOS`, `PERIODO_INVALIDO`; 404 `TRANSACCION_NO_ENCONTRADA`, `CATEGORIA_NO_ENCONTRADA` |
 | Aplicar a parecidos | `PATCH /api/transacciones/{id}/categoria` | `{"categoriaId", "aplicarAParecidos": {"periodo": "YYYY-MM"}}` | 200 `{id, categoria, bucket, movidos}`: en una sola transacción reclasifica el movimiento a mano, crea el patrón sugerido (o lo mueve aquí si vivía en otra categoría, CLA-17) y mueve los parecidos del mes | 400 igual que reclasificar, más `BODY_INVALIDO`, `PATRON_INVALIDO`, `PERIODO_INVALIDO`; 403 `CATEGORIA_INTERNA`; 404 igual que reclasificar; 503 `CATALOGO_NO_DISPONIBLE` |
 | Ignorar un movimiento | Pendiente (brecha 22) | — | — | — |
@@ -51,7 +51,8 @@ Los ingresos del mes (VIS-10, MOV-11) se abren desde la línea «Ingresos del me
 Reglas de contrato:
 
 - La identidad de la categoría es siempre su `id`, nunca el nombre (ADR-004).
-- Si la categoría elegida es de **otro bloque**, se pide confirmación antes de llamar al API («Este movimiento pasará de {bloque actual} a {bloque nuevo} y cambiará el cálculo del mes»).
+- En la hoja (09), elegir una categoría solo la marca; nada se envía hasta «Guardar», que está desactivado mientras no haya una elegida. Elegir la categoría que el movimiento ya tiene no deja nada que guardar.
+- Si la categoría elegida es de **otro bloque**, al tocar «Guardar» se pide confirmación antes de llamar al API («Este movimiento pasará de {bloque actual} a {bloque nuevo} y cambiará el cálculo del mes»).
 - Monto, fecha y descripción no se editan (MOV-03). Los movimientos registrados a mano se borran desde su detalle ([Registrar a mano](registro-a-mano.md)).
 - La app no calcula porcentajes, estados ni totales: todo sale del API (ADR-001).
 
@@ -61,8 +62,9 @@ Reglas de contrato:
 - **Cargando un mes**: no se muestran datos del mes anterior.
 - **Detalle vacío** (`grupos` vacío): «Sin movimientos en {mes}».
 - **Reclasificando**: el movimiento muestra progreso y no admite otra acción.
-- **Confirmación de cambio de bloque**: «Cancelar» revierte la selección.
+- **Confirmación de cambio de bloque**: «Cancelar» cierra la confirmación sin enviar nada; la hoja conserva la categoría elegida y la casilla «Aplicar a…».
 - **Error al reclasificar**: el movimiento conserva su categoría anterior.
+- **Consulta de parecidos fallida**: solo oculta la casilla; «Guardar» sigue disponible.
 
 ## Navegación
 

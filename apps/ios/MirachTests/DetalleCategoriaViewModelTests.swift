@@ -28,7 +28,8 @@ struct DetalleCategoriaViewModelTests {
         _ api: FakeMirachAPI, id: String = "cat-super", recorder: Recorder = Recorder()
     ) -> DetalleCategoriaViewModel {
         DetalleCategoriaViewModel(
-            api: api, categoriaId: id, onChange: { recorder.changes += 1 }, onDeleted: { recorder.deleted.append($0) }
+            api: api, categoriaId: id, onChange: { recorder.changes += 1 }, onDeleted: { recorder.deleted.append($0) },
+            previewDelay: .zero
         )
     }
 
@@ -483,17 +484,18 @@ struct DetalleCategoriaViewModelTests {
 
     // MARK: patterns
 
-    @Test func addingAPatternSendsTheCategoryIdTheTrimmedTextAndTheTypeThenListsIt() async {
+    @Test func addingAPatternSendsTheCategoryIdAndTheTrimmedTextAsContainsThenListsIt() async {
         let api = FakeMirachAPI()
         let recorder = Recorder()
         let viewModel = await loaded(api, recorder: recorder)
-        let created = PatronCategoria(id: "p-9", patron: "UNIMARC", matchType: .startsWith)
+        let created = PatronCategoria(id: "p-9", patron: "UNIMARC", matchType: .contains)
         api.setCrearPatronResults([.success(created)])
         viewModel.beginAddPattern()
 
-        await viewModel.savePattern(text: "  UNIMARC ", matchType: .startsWith)
+        await viewModel.savePattern(text: "  UNIMARC ")
 
-        #expect(api.crearPatronCalls == [.init(categoriaId: "cat-super", patron: "UNIMARC", matchType: .startsWith)])
+        // CLA-14: there is no picker; a new pattern is always «contains» and moves nothing.
+        #expect(api.crearPatronCalls == [.init(categoriaId: "cat-super", patron: "UNIMARC", matchType: .contains, moverDelPeriodo: nil)])
         guard case .loaded(let category) = viewModel.state else { Issue.record("not loaded"); return }
         #expect(category.patrones.map(\.id) == ["p-1", "p-2", "p-9"])
         #expect(viewModel.patternSheet == nil, "the sheet closes")
@@ -501,18 +503,20 @@ struct DetalleCategoriaViewModelTests {
         #expect(recorder.changes == 1)
     }
 
-    @Test func editingAPatternSendsOnlyWhatChangedAndReplacesTheRow() async {
+    @Test func editingAPatternSendsOnlyTheTextAndReplacesTheRow() async {
         let api = FakeMirachAPI()
         let viewModel = await loaded(api)
-        let updated = PatronCategoria(id: "p-1", patron: "LIDER", matchType: .startsWith)
+        let updated = PatronCategoria(id: "p-2", patron: "JUMBO CL", matchType: .startsWith)
         api.setActualizarPatronResults([.success(updated)])
-        viewModel.beginEditPattern(Self.lider)
+        viewModel.beginEditPattern(Self.jumbo)
 
-        await viewModel.savePattern(text: "LIDER", matchType: .startsWith)
+        await viewModel.savePattern(text: "JUMBO CL")
 
-        #expect(api.actualizarPatronCalls == [.init(id: "p-1", cambios: PatronCambios(matchType: .startsWith))])
+        // The plain PATCH of the text: the pattern keeps its own type and never previews.
+        #expect(api.actualizarPatronCalls == [.init(id: "p-2", cambios: PatronCambios(patron: "JUMBO CL"))])
+        #expect(api.crearPatronCalls.isEmpty)
         guard case .loaded(let category) = viewModel.state else { Issue.record("not loaded"); return }
-        #expect(category.patrones.first { $0.id == "p-1" } == updated)
+        #expect(category.patrones.first { $0.id == "p-2" } == updated)
     }
 
     @Test func editingAPatternWithoutChangesJustClosesTheSheet() async {
@@ -520,7 +524,7 @@ struct DetalleCategoriaViewModelTests {
         let viewModel = await loaded(api)
         viewModel.beginEditPattern(Self.lider)
 
-        await viewModel.savePattern(text: "LIDER ", matchType: .contains)
+        await viewModel.savePattern(text: "LIDER ")
 
         #expect(api.actualizarPatronCalls.isEmpty)
         #expect(viewModel.patternSheet == nil)
@@ -540,7 +544,7 @@ struct DetalleCategoriaViewModelTests {
         api.setCrearPatronResults([.failure(error)])
         viewModel.beginAddPattern()
 
-        await viewModel.savePattern(text: "x", matchType: .regex)
+        await viewModel.savePattern(text: "x")
 
         #expect(viewModel.patternErrors.pattern == text || viewModel.patternErrors.general == text)
         #expect(viewModel.patternSheet == .adding)
@@ -554,7 +558,7 @@ struct DetalleCategoriaViewModelTests {
         api.setCrearPatronResults([.failure(PatronError.categoryNotFound)])
         viewModel.beginAddPattern()
 
-        await viewModel.savePattern(text: "x", matchType: .contains)
+        await viewModel.savePattern(text: "x")
 
         #expect(viewModel.state == .notFound)
         #expect(viewModel.patternSheet == nil)
@@ -566,7 +570,7 @@ struct DetalleCategoriaViewModelTests {
         api.setActualizarPatronResults([.failure(PatronError.patternNotFound)])
         viewModel.beginEditPattern(Self.lider)
 
-        await viewModel.savePattern(text: "OTRO", matchType: .contains)
+        await viewModel.savePattern(text: "OTRO")
 
         guard case .loaded(let category) = viewModel.state else { Issue.record("not loaded"); return }
         #expect(category.patrones.map(\.id) == ["p-2"])
@@ -581,10 +585,10 @@ struct DetalleCategoriaViewModelTests {
         api.catalogWriteGate = gate
         viewModel.beginAddPattern()
 
-        let first = Task { await viewModel.savePattern(text: "x", matchType: .contains) }
+        let first = Task { await viewModel.savePattern(text: "x") }
         await gate.waitUntilWaiting()
         #expect(viewModel.isSavingPattern)
-        await viewModel.savePattern(text: "x", matchType: .contains)
+        await viewModel.savePattern(text: "x")
         await gate.open()
         await first.value
 
@@ -704,26 +708,7 @@ struct DetalleCategoriaViewModelTests {
     }
 
     @Test func theThreeMatchTypesHaveTheirOwnLabelNotTheInternalValue() {
-        #expect(MatchType.selectable.map(\.label) == ["Contiene", "Empieza con", "Expresión regular"])
-    }
-
-    @Test func aMatchTypeTheAppDoesNotKnowStaysInTheListOfItsOwnPattern() {
-        let unknown = MatchType.other("ENDS_WITH")
-
-        #expect(MatchType.options(including: unknown) == [unknown, .contains, .startsWith, .regex])
-        #expect(MatchType.options(including: .startsWith) == MatchType.selectable)
-    }
-
-    @Test func theSheetOfAPatternStartsOnItsOwnMatchTypeEvenIfTheAppDoesNotKnowIt() async {
-        let api = FakeMirachAPI()
-        let viewModel = await loaded(api)
-        let odd = PatronCategoria(id: "p-odd", patron: "HBO", matchType: .other("ENDS_WITH"))
-
-        viewModel.beginEditPattern(odd)
-        #expect(viewModel.patternSheetMatchType == .other("ENDS_WITH"), "never silently «Contiene»")
-        viewModel.dismissPatternSheet()
-        viewModel.beginAddPattern()
-        #expect(viewModel.patternSheetMatchType == .contains)
+        #expect([MatchType.contains, .startsWith, .regex].map(\.label) == ["Contiene", "Empieza con", "Expresión regular"])
     }
 
     @Test func changingOnlyTheTextOfAnUnknownTypePatternNeverSendsAMatchType() async {
@@ -733,8 +718,236 @@ struct DetalleCategoriaViewModelTests {
         api.setActualizarPatronResults([.success(PatronCategoria(id: "p-odd", patron: "HBO MAX", matchType: .other("ENDS_WITH")))])
         viewModel.beginEditPattern(odd)
 
-        await viewModel.savePattern(text: "HBO MAX", matchType: viewModel.patternSheetMatchType)
+        await viewModel.savePattern(text: "HBO MAX")
 
         #expect(api.actualizarPatronCalls == [.init(id: "p-odd", cambios: PatronCambios(patron: "HBO MAX"))])
+    }
+
+    // MARK: new pattern preview (CLA-15, Figma 28)
+
+    private func preview(
+        total: Int, existente: PatronExistente? = nil, periodo: String = "2026-10"
+    ) -> VistaPreviaPatron {
+        let rows = (0..<total).map {
+            CoincidenciaPatron(id: "t-\($0)", descripcion: "SUPER ACUENTA", fecha: SampleData.date(day: $0), monto: 32_400)
+        }
+        return VistaPreviaPatron(periodo: Periodo(periodo)!, patron: "acuenta", total: total, coincidencias: rows, existente: existente)
+    }
+
+    @Test func typingANewPatternAsksForThePreviewOfThisCategoryWithoutAMonth() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.success(preview(total: 3))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+
+        await viewModel.previewPattern("  acuenta ")
+
+        #expect(api.vistaPreviaCalls == [.init(categoriaId: "cat-super", patron: "acuenta")])
+        #expect(viewModel.patternPreview == preview(total: 3))
+        #expect(viewModel.moveMatches == false, "off until the person marks it (CLA-15)")
+    }
+
+    @Test func anEmptyTextAsksNothingAndClearsThePreview() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.success(preview(total: 3))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+        await viewModel.previewPattern("acuenta")
+
+        await viewModel.previewPattern("  ")
+
+        #expect(api.vistaPreviaCalls.count == 1)
+        #expect(viewModel.patternPreview == nil)
+    }
+
+    @Test func editingAPatternNeverAsksForAPreview() async {
+        let api = FakeMirachAPI()
+        let viewModel = await loaded(api)
+        viewModel.beginEditPattern(Self.lider)
+
+        await viewModel.previewPattern("LIDER EXPRESS")
+
+        #expect(api.vistaPreviaCalls.isEmpty)
+    }
+
+    @Test func theMoveCheckboxIsOfferedOnlyWhenSomethingCoincides() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.success(preview(total: 0)), .success(preview(total: 2))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+
+        await viewModel.previewPattern("acuenta")
+        #expect(viewModel.offersMoveMatches == false)
+        await viewModel.previewPattern("acuenta ñuñoa")
+        #expect(viewModel.offersMoveMatches == true)
+    }
+
+    @Test func savingWithTheCheckboxOnMovesThePreviewedMonthAndSaysHowMany() async {
+        let api = FakeMirachAPI()
+        let recorder = Recorder()
+        api.setVistaPreviaResults([.success(preview(total: 3))])
+        api.setCrearPatronResults([.success(PatronCategoria(id: "p-9", patron: "acuenta", matchType: .contains))])
+        api.setCrearPatronMovidos(3)
+        let viewModel = await loaded(api, recorder: recorder)
+        viewModel.beginAddPattern()
+        await viewModel.previewPattern("acuenta")
+
+        viewModel.moveMatches = true
+        await viewModel.savePattern(text: "acuenta")
+
+        #expect(api.crearPatronCalls == [.init(
+            categoriaId: "cat-super", patron: "acuenta", matchType: .contains, moverDelPeriodo: Periodo("2026-10")!
+        )])
+        #expect(viewModel.patternSheet == nil)
+        #expect(viewModel.announcement == "Patrón guardado · 3 movidos")
+        #expect(recorder.changes == 1)
+    }
+
+    /// The text changed after the preview (saved within the debounce): the previewed list no longer
+    /// describes what would move, so nothing moves.
+    @Test func savingATextOtherThanThePreviewedOneMovesNothing() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.success(preview(total: 3))])
+        api.setCrearPatronResults([.success(PatronCategoria(id: "p-9", patron: "acu", matchType: .contains))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+        await viewModel.previewPattern("acuenta")
+
+        viewModel.moveMatches = true
+        await viewModel.savePattern(text: "acu")
+
+        #expect(api.crearPatronCalls == [.init(
+            categoriaId: "cat-super", patron: "acu", matchType: .contains, moverDelPeriodo: nil
+        )])
+    }
+
+    @Test func savingWithTheCheckboxOffMovesNothing() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.success(preview(total: 3))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+        await viewModel.previewPattern("acuenta")
+
+        await viewModel.savePattern(text: "acuenta")
+
+        #expect(api.crearPatronCalls.map(\.moverDelPeriodo) == [nil])
+        #expect(viewModel.announcement == "Patrón guardado")
+    }
+
+    @Test func aFailedPreviewHidesItAndSavingStillWorks() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.failure(URLError(.notConnectedToInternet))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+        await viewModel.previewPattern("acuenta")
+        #expect(viewModel.patternPreview == nil)
+
+        viewModel.moveMatches = true
+        await viewModel.savePattern(text: "acuenta")
+
+        #expect(api.crearPatronCalls.map(\.moverDelPeriodo) == [nil], "no preview, no month to move")
+    }
+
+    // MARK: a text that lives in another category (CLA-17, Figma 30)
+
+    private let elsewhere = PatronExistente(patronId: "p-77", categoriaId: "cat-empty", categoria: "Vacía", bucket: .deseos)
+
+    @Test func aPreviewNamingAnotherCategoryBecomesTheConflict() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.success(preview(total: 1, existente: elsewhere))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+
+        await viewModel.previewPattern("unimarc")
+
+        #expect(viewModel.patternConflict == .init(texto: "unimarc", existente: elsewhere))
+        #expect(viewModel.offersMoveMatches == false, "the conflict replaces the preview")
+    }
+
+    @Test func aPreviewNamingThisCategoryIsNoConflict() async {
+        let api = FakeMirachAPI()
+        let here = PatronExistente(patronId: "p-1", categoriaId: "cat-super", categoria: "Supermercado", bucket: .necesidades)
+        api.setVistaPreviaResults([.success(preview(total: 0, existente: here))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+
+        await viewModel.previewPattern("lider")
+
+        #expect(viewModel.patternConflict == nil)
+    }
+
+    @Test func aDuplicateNamingAnotherCategoryOnSaveBecomesTheConflict() async {
+        let api = FakeMirachAPI()
+        api.setCrearPatronResults([.failure(PatronError.duplicateOf(elsewhere))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+
+        await viewModel.savePattern(text: "unimarc")
+
+        #expect(viewModel.patternConflict == .init(texto: "unimarc", existente: elsewhere))
+        #expect(viewModel.patternSheet == .adding)
+        #expect(viewModel.patternErrors.isEmpty)
+    }
+
+    @Test func aDuplicateInThisCategoryKeepsTheDuplicateMessage() async {
+        let api = FakeMirachAPI()
+        let here = PatronExistente(patronId: "p-1", categoriaId: "cat-super", categoria: "Supermercado", bucket: .necesidades)
+        api.setCrearPatronResults([.failure(PatronError.duplicateOf(here))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+
+        await viewModel.savePattern(text: "lider")
+
+        #expect(viewModel.patternConflict == nil)
+        #expect(viewModel.patternErrors.pattern == "Ya tienes un patrón con ese texto")
+    }
+
+    @Test func movingItHerePatchesThePatternWithThisCategoryAndListsIt() async {
+        let api = FakeMirachAPI()
+        let recorder = Recorder()
+        api.setVistaPreviaResults([.success(preview(total: 0, existente: elsewhere))])
+        let moved = PatronCategoria(id: "p-77", patron: "unimarc", matchType: .contains)
+        api.setActualizarPatronResults([.success(moved)])
+        let viewModel = await loaded(api, recorder: recorder)
+        viewModel.beginAddPattern()
+        await viewModel.previewPattern("unimarc")
+
+        await viewModel.movePatternHere()
+
+        #expect(api.actualizarPatronCalls == [.init(id: "p-77", cambios: PatronCambios(categoriaId: "cat-super"))])
+        #expect(api.crearPatronCalls.isEmpty)
+        guard case .loaded(let category) = viewModel.state else { Issue.record("not loaded"); return }
+        #expect(category.patrones.map(\.id) == ["p-1", "p-2", "p-77"])
+        #expect(viewModel.patternSheet == nil)
+        #expect(viewModel.patternConflict == nil)
+        #expect(recorder.changes == 1)
+    }
+
+    @Test func theConflictsCopyNamesBothCategoriesAndBuckets() {
+        let conflict = DetalleCategoriaViewModel.PatternConflict(
+            texto: "unimarc",
+            existente: PatronExistente(patronId: "p", categoriaId: "c", categoria: "Supermercado", bucket: .necesidades)
+        )
+        let here = CategoriaCatalogo(id: "h", nombre: "Supermercado", bucket: .deseos, icono: nil, transaccionesCount: 0)
+
+        #expect(DetalleCategoriaPresentation.conflictTitle(conflict) == "«unimarc» ya está en Supermercado (Necesidades)")
+        #expect(DetalleCategoriaPresentation.conflictRule == "Un texto solo puede estar en una categoría.")
+        #expect(DetalleCategoriaPresentation.conflictConsequence(conflict, here: here)
+            == "Si lo mueves aquí, los próximos movimientos con «unimarc» contarán como gustos.")
+        #expect(DetalleCategoriaPresentation.moveHere(here) == "Moverlo a Supermercado (Gustos)")
+    }
+
+    @Test func thePreviewCopyCountsTheMonthsMovementsAndListsThem() {
+        let row = CoincidenciaPatron(id: "t", descripcion: "SUPER ACUENTA ÑUÑOA", fecha: SampleData.date(day: 11), monto: 32_400)
+
+        #expect(DetalleCategoriaPresentation.previewTitle(total: 3, periodo: Periodo("2026-10")!)
+            == "Coincide con 3 movimientos de octubre")
+        #expect(DetalleCategoriaPresentation.previewTitle(total: 1, periodo: Periodo("2026-10")!)
+            == "Coincide con 1 movimiento de octubre")
+        #expect(DetalleCategoriaPresentation.previewRow(row) == "SUPER ACUENTA ÑUÑOA · 14 oct · -$32.400")
+        #expect(DetalleCategoriaPresentation.moveMatchesTitle(total: 3, categoria: "Supermercado")
+            == "Mover también estos 3 movimientos a Supermercado")
+        #expect(DetalleCategoriaPresentation.moveMatchesNote
+            == "Los que cambiaste a mano no se mueven. Las próximas cartolas usan el patrón siempre.")
     }
 }

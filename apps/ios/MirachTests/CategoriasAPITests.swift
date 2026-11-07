@@ -155,6 +155,71 @@ struct CategoriasAPITests {
         #expect(try sentObject(transport) as NSDictionary == ["matchType": "REGEX"])
     }
 
+    @Test func creatingAPatternToMoveTheMonthSendsContainsAndThePeriodAndReadsTheMovedCount() async throws {
+        let transport = FakeTransport.json(
+            #"{"id":"p-7","categoriaId":"c-1","patron":"acuenta","matchType":"CONTAINS","prioridad":0,"movidos":3}"#,
+            status: .created
+        )
+
+        let created = try await makeAPI(transport).crearPatron(
+            categoriaId: "c-1", patron: "acuenta", moverDelPeriodo: Periodo("2026-10")!
+        )
+
+        #expect(created == PatronCreado(patron: PatronCategoria(id: "p-7", patron: "acuenta", matchType: .contains), movidos: 3))
+        #expect(try sentObject(transport) as NSDictionary
+            == ["categoriaId": "c-1", "patron": "acuenta", "matchType": "CONTAINS", "moverDelPeriodo": "2026-10"])
+    }
+
+    @Test func creatingAPatternWithoutAPeriodSendsNoPeriod() async throws {
+        let transport = FakeTransport.json(
+            #"{"id":"p-7","categoriaId":"c-1","patron":"acuenta","matchType":"CONTAINS","prioridad":0,"movidos":0}"#,
+            status: .created
+        )
+
+        _ = try await makeAPI(transport).crearPatron(categoriaId: "c-1", patron: "acuenta", moverDelPeriodo: nil)
+
+        #expect(try sentObject(transport) as NSDictionary == ["categoriaId": "c-1", "patron": "acuenta", "matchType": "CONTAINS"])
+    }
+
+    @Test func aDuplicateThatNamesItsHolderCarriesIt() async {
+        let transport = FakeTransport.json(
+            #"{"message":"m","code":"PATRON_DUPLICADO","existente":{"patronId":"p-1","categoriaId":"c-9","categoria":"Supermercado","bucket":"Necesidades"}}"#,
+            status: .conflict
+        )
+
+        await #expect(throws: PatronError.duplicateOf(
+            PatronExistente(patronId: "p-1", categoriaId: "c-9", categoria: "Supermercado", bucket: .necesidades)
+        )) {
+            _ = try await makeAPI(transport).crearPatron(categoriaId: "c-1", patron: "unimarc", moverDelPeriodo: nil)
+        }
+    }
+
+    @Test func thePreviewSendsNoMonthAndMapsRowsAndTheHolder() async throws {
+        let transport = FakeTransport.json(#"""
+        {"periodo":"2026-10","patron":"acuenta","total":1,
+         "coincidencias":[{"id":"t-1","descripcion":"SUPER ACUENTA","fecha":"2026-10-14T00:00:00.000Z","monto":"32400"}],
+         "existente":{"patronId":"p-1","categoriaId":"c-9","categoria":"Super","bucket":"Deseos"}}
+        """#)
+
+        let preview = try await makeAPI(transport).vistaPreviaPatron(categoriaId: "c-1", patron: "acuenta")
+
+        #expect(transport.requests.first?.path == "/api/patrones/vista-previa")
+        #expect(try sentObject(transport) as NSDictionary == ["categoriaId": "c-1", "patron": "acuenta"])
+        #expect(preview.periodo == Periodo("2026-10"))
+        #expect(preview.total == 1)
+        #expect(preview.coincidencias.map(\.monto) == [32_400])
+        #expect(preview.coincidencias.map { Format.shortDate($0.fecha) } == ["14 oct"])
+        #expect(preview.existente == PatronExistente(patronId: "p-1", categoriaId: "c-9", categoria: "Super", bucket: .deseos))
+    }
+
+    @Test func movingAPatternSendsOnlyTheCategoryId() async throws {
+        let transport = FakeTransport.json(Self.patternBody)
+
+        _ = try await makeAPI(transport).actualizarPatron(id: "p-7", cambios: PatronCambios(categoriaId: "c-2"))
+
+        #expect(try sentObject(transport) as NSDictionary == ["categoriaId": "c-2"])
+    }
+
     @Test func deletingAPatternCallsItsId() async throws {
         let transport = FakeTransport { _ in (HTTPResponse(status: .noContent), nil) }
 

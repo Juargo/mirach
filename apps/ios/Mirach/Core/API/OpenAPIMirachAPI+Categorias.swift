@@ -81,6 +81,65 @@ extension OpenAPIMirachAPI {
         }
     }
 
+    func crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?) async throws -> PatronCreado {
+        let sentToken = currentToken()
+        // CLA-14: a new pattern is always «contains».
+        let body = Operations.post_sol_api_sol_patrones.Input.Body.jsonPayload(
+            categoriaId: categoriaId, matchType: MatchType.contains.apiName,
+            moverDelPeriodo: moverDelPeriodo?.apiValue, patron: patron
+        )
+        do {
+            switch try await client.post_sol_api_sol_patrones(body: .json(body)) {
+            case .created(let created):
+                let wire = try created.body.json
+                return PatronCreado(patron: Self.mapped(wire), movidos: wire.movidos)
+            case .badRequest(let bad):
+                throw Self.patronError(from: try bad.body.json)
+            case .notFound(let missing):
+                throw Self.patronError(from: try missing.body.json)
+            case .conflict(let conflict):
+                throw Self.patronError(from: try conflict.body.json)
+            case .forbidden(let forbidden):
+                throw PatronError.rejected(message: try forbidden.body.json.message)
+            case .serviceUnavailable(let unavailable):
+                throw PatronError.rejected(message: try unavailable.body.json.message)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func vistaPreviaPatron(categoriaId: String, patron: String) async throws -> VistaPreviaPatron {
+        let sentToken = currentToken()
+        let body = Operations.post_sol_api_sol_patrones_sol_vista_hyphen_previa.Input.Body.jsonPayload(
+            categoriaId: categoriaId, patron: patron
+        )
+        do {
+            switch try await client.post_sol_api_sol_patrones_sol_vista_hyphen_previa(body: .json(body)) {
+            case .ok(let ok):
+                return try Self.mapped(try ok.body.json)
+            case .badRequest(let bad):
+                throw Self.patronError(from: try bad.body.json)
+            case .notFound(let missing):
+                throw Self.patronError(from: try missing.body.json)
+            case .forbidden(let forbidden):
+                throw PatronError.rejected(message: try forbidden.body.json.message)
+            case .serviceUnavailable:
+                throw APIError.badStatus(503)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
     func crearPatron(categoriaId: String, patron: String, matchType: MatchType) async throws -> PatronCategoria {
         let sentToken = currentToken()
         let body = Operations.post_sol_api_sol_patrones.Input.Body.jsonPayload(
@@ -116,7 +175,7 @@ extension OpenAPIMirachAPI {
     func actualizarPatron(id: String, cambios: PatronCambios) async throws -> PatronCategoria {
         let sentToken = currentToken()
         let body = Operations.patch_sol_api_sol_patrones_sol__lcub_id_rcub_.Input.Body.jsonPayload(
-            matchType: cambios.matchType?.apiName, patron: cambios.patron
+            categoriaId: cambios.categoriaId, matchType: cambios.matchType?.apiName, patron: cambios.patron
         )
         do {
             switch try await client.patch_sol_api_sol_patrones_sol__lcub_id_rcub_(path: .init(id: id), body: .json(body)) {
@@ -129,7 +188,7 @@ extension OpenAPIMirachAPI {
             case .conflict(let conflict):
                 throw Self.patronError(from: try conflict.body.json)
             case .forbidden(let forbidden):
-                // CLA-18: only when moving into "Desconocido", which this call never does.
+                // CLA-18: moving it into «Desconocido»; the server explains why.
                 throw PatronError.rejected(message: try forbidden.body.json.message)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
@@ -177,6 +236,28 @@ extension OpenAPIMirachAPI {
         PatronCategoria(id: wire.id, patron: wire.patron, matchType: MatchType(apiName: wire.matchType))
     }
 
+    private static func mapped(_ wire: Components.Schemas.PatronVistaPreviaResponse) throws -> VistaPreviaPatron {
+        guard let periodo = Periodo(wire.periodo) else { throw IngestaMapper.malformed("periodo \(wire.periodo)") }
+        return VistaPreviaPatron(
+            periodo: periodo,
+            patron: wire.patron,
+            total: wire.total,
+            coincidencias: try wire.coincidencias.map { item in
+                let monto: Int
+                do { monto = try Money.pesos(item.monto) } catch { throw IngestaMapper.malformed("amount \(item.monto)") }
+                return CoincidenciaPatron(
+                    id: item.id, descripcion: item.descripcion, fecha: try IngestaMapper.date(item.fecha), monto: monto
+                )
+            },
+            existente: try wire.existente.map { try existente($0.value1) }
+        )
+    }
+
+    static func existente(_ wire: Components.Schemas.PatronExistente) throws -> PatronExistente {
+        guard let bucket = Bucket(apiName: wire.bucket) else { throw IngestaMapper.malformed("bucket \(wire.bucket)") }
+        return PatronExistente(patronId: wire.patronId, categoriaId: wire.categoriaId, categoria: wire.categoria, bucket: bucket)
+    }
+
     private static func categoriaError(from wire: Components.Schemas.CatalogoErrorResponse) -> CategoriaError {
         categoriaError(code: wire.code, index: wire.indice.map(Int.init), message: wire.message)
     }
@@ -203,7 +284,8 @@ extension OpenAPIMirachAPI {
         case "MATCH_TYPE_INVALIDO": .invalidMatchType
         case "REGEX_INVALIDA": .invalidRegex
         case "PRIORIDAD_INVALIDA": .invalidPriority
-        case "PATRON_DUPLICADO": .duplicate
+        // CLA-17: the 409 names the holder when it can; an unknown bucket keeps the plain case.
+        case "PATRON_DUPLICADO": (wire.existente.flatMap { try? existente($0.value1) }).map { .duplicateOf($0) } ?? .duplicate
         case "CATEGORIA_NO_ENCONTRADA": .categoryNotFound
         case "PATRON_NO_ENCONTRADO": .patternNotFound
         default: .rejected(message: wire.message)

@@ -345,6 +345,36 @@ private struct MovementRow: View {
     }
 }
 
+/// «Guardar» under the categories (Figma 09), with «Aplicar a “…”» over it when the API suggested
+/// a pattern for the picked category. Nothing moves until «Guardar».
+private struct SaveFooter: View {
+    @Bindable var viewModel: DetalleBucketViewModel
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if let suggestion = viewModel.suggestion {
+                CheckboxRow(
+                    title: DetalleBucketPresentation.applyTitle(suggestion.parecidos.patron ?? ""),
+                    lines: [
+                        DetalleBucketPresentation.applySubtitle(suggestion.parecidos.total),
+                        DetalleBucketPresentation.applyElsewhere(suggestion.parecidos.existente, categoriaId: suggestion.category.id),
+                    ].compactMap { $0 },
+                    spokenLabel: DetalleBucketPresentation.applyLabel(suggestion.parecidos, categoriaId: suggestion.category.id),
+                    identifier: "detalle.applySimilar",
+                    isOn: $viewModel.applyToSimilar
+                )
+            }
+            Button { Task { await viewModel.save() } } label: {
+                Text("Guardar").frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .prominentButton()
+            .disabled(!viewModel.canSave)
+            .accessibilityHint(DetalleBucketPresentation.saveHint(viewModel.selection))
+            .accessibilityIdentifier("detalle.saveCategory")
+        }
+    }
+}
+
 /// The sheet over the list: the user's categories, or what is happening with them.
 private struct ReclasificarSheet: View {
     let viewModel: DetalleBucketViewModel
@@ -359,12 +389,13 @@ private struct ReclasificarSheet: View {
                         summaryTitle: movement.descripcion,
                         summaryDetail: "\(Format.shortDate(movement.fecha)) · \(Format.expense(movement.monto))",
                         catalog: catalog,
-                        selectedID: viewModel.currentCategoryId(of: movement),
+                        selectedID: viewModel.selection?.id ?? viewModel.currentCategoryId(of: movement),
                         idPrefix: "detalle",
                         notice: viewModel.sheetNotice,
-                        isBusy: viewModel.reclassifyingId != nil,
+                        isBusy: viewModel.reclassifyingId != nil || viewModel.isCheckingSimilar,
                         createdCount: viewModel.createdCategoryCount,
                         onSelect: { id in Task { await viewModel.choose(categoryId: id) } },
+                        footer: AnyView(SaveFooter(viewModel: viewModel)),
                         createForm: {
                             NewCategoryForm(
                                 initialPattern: nil,

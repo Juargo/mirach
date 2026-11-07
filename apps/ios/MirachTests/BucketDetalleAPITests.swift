@@ -164,6 +164,40 @@ struct BucketDetalleAPITests {
         #expect(sent == ["categoriaId": "cat-ropa"])
     }
 
+    @Test func applyingToSimilarSendsThePeriodAndReadsHowManyMoved() async throws {
+        let transport = FakeTransport.json(#"{"id":"t-1","categoria":{"id":"c","nombre":"Ropa"},"bucket":"Deseos","movidos":2}"#)
+
+        let result = try await api(transport).reclasificar(
+            transaccionId: "t-1", categoriaId: "c", aplicarAParecidos: Periodo("2026-09")!
+        )
+
+        #expect(result.movidos == 2)
+        let sent = try JSONSerialization.jsonObject(with: Data(try #require(transport.bodies.first).utf8)) as? NSDictionary
+        #expect(sent == ["categoriaId": "c", "aplicarAParecidos": ["periodo": "2026-09"]])
+    }
+
+    @Test func similarMovementsAskWithTheCategoryAndMonthAndMapTheSuggestion() async throws {
+        let transport = FakeTransport.json(
+            #"{"patron":"netflix","total":2,"existente":{"patronId":"p","categoriaId":"c-9","categoria":"Ocio","bucket":"Deseos"}}"#
+        )
+
+        let result = try await api(transport).parecidos(transaccionId: "t-1", categoriaId: "c-1", periodo: Periodo("2026-09")!)
+
+        #expect(result == Parecidos(
+            patron: "netflix", total: 2,
+            existente: PatronExistente(patronId: "p", categoriaId: "c-9", categoria: "Ocio", bucket: .deseos)
+        ))
+        #expect(transport.requests.map(\.path) == ["/api/transacciones/t-1/parecidos?categoriaId=c-1&periodo=2026-09"])
+    }
+
+    @Test func noSuggestionIsANullText() async throws {
+        let transport = FakeTransport.json(#"{"patron":null,"total":0,"existente":null}"#)
+
+        let result = try await api(transport).parecidos(transaccionId: "t-1", categoriaId: "c-1", periodo: Periodo("2026-09")!)
+
+        #expect(result == .ninguno)
+    }
+
     @Test func aMovementIdWithSpecialCharactersIsEscapedInThePath() async throws {
         let transport = FakeTransport.json(#"{"id":"a/b","categoria":{"id":"c","nombre":"C"},"bucket":"Ahorro","movidos":0}"#)
 

@@ -45,6 +45,12 @@ final class DetalleCategoriaViewModel {
         let to: Bucket
     }
 
+    /// The text typed for a new pattern already lives in ANOTHER category (CLA-17, Figma 30).
+    struct PatternConflict: Equatable {
+        let texto: String
+        let existente: PatronExistente
+    }
+
     enum PatternSheet: Equatable {
         case adding
         case editing(PatronCategoria)
@@ -76,6 +82,12 @@ final class DetalleCategoriaViewModel {
     private(set) var isSavingPattern = false
     private(set) var pendingPatternDeletion: PatronCategoria?
     private(set) var deletingPattern: String?
+    /// What the text typed for a new pattern would move this month (CLA-15); `nil` hides it.
+    private(set) var patternPreview: VistaPreviaPatron?
+    /// «Mover también estos N movimientos a …»; off until the person marks it.
+    var moveMatches = false
+    /// Replaces the preview and the «Guardar patrón» button while it is set.
+    private(set) var patternConflict: PatternConflict?
 
     /// What VoiceOver announces after a write: «Categoría guardada».
     private(set) var announcement: String?
@@ -89,16 +101,22 @@ final class DetalleCategoriaViewModel {
     private let onDeleted: @MainActor (String) -> Void
     /// Bumped on every request (and write) so a late answer for an older one is dropped.
     private var generation = 0
+    /// How long the text must stay still before the preview is asked for.
+    private let previewDelay: Duration
+    /// Bumped on every keystroke and whenever the sheet opens or closes.
+    private var previewGeneration = 0
     private var needsLoad = true
 
     init(
         api: any MirachAPI, categoriaId: String,
-        onChange: @escaping @MainActor () -> Void = {}, onDeleted: @escaping @MainActor (String) -> Void = { _ in }
+        onChange: @escaping @MainActor () -> Void = {}, onDeleted: @escaping @MainActor (String) -> Void = { _ in },
+        previewDelay: Duration = .milliseconds(350)
     ) {
         self.api = api
         self.categoriaId = categoriaId
         self.onChange = onChange
         self.onDeleted = onDeleted
+        self.previewDelay = previewDelay
     }
 
     // MARK: derived
@@ -304,73 +322,153 @@ final class DetalleCategoriaViewModel {
 
     // MARK: patterns
 
-    /// The type the pattern sheet starts on: the pattern's own (even one the app does not know),
-    /// «Contiene» for a new one.
-    var patternSheetMatchType: MatchType {
-        if case .editing(let pattern) = patternSheet { return pattern.matchType }
-        return .contains
+    /// The checkbox is offered only when the preview found something to move (and no conflict).
+    var offersMoveMatches: Bool {
+        guard patternConflict == nil, let patternPreview else { return false }
+        return patternPreview.total > 0
     }
 
     func beginAddPattern() {
         guard category != nil, !isProtected, !isSavingPattern else { return }
-        patternErrors = PatternErrors()
+        resetPatternSheet()
         patternSheet = .adding
     }
 
     func beginEditPattern(_ pattern: PatronCategoria) {
         guard category != nil, !isProtected, !isSavingPattern else { return }
-        patternErrors = PatternErrors()
+        resetPatternSheet()
         patternSheet = .editing(pattern)
     }
 
     func dismissPatternSheet() {
         guard !isSavingPattern else { return }
         patternSheet = nil
-        patternErrors = PatternErrors()
+        resetPatternSheet()
     }
 
-    /// "Guardar" in the pattern sheet: a new pattern, or only what changed of an existing one.
-    func savePattern(text: String, matchType: MatchType) async {
+    /// The text `patternPreview` answers for. Saving another text (within the debounce) never
+    /// moves the previewed list: it no longer describes what would move.
+    private var previewedText: String?
+
+    private func resetPatternSheet() {
+        patternErrors = PatternErrors()
+        patternPreview = nil
+        previewedText = nil
+        patternConflict = nil
+        moveMatches = false
+        previewGeneration += 1
+    }
+
+    /// The text of a new pattern changed: after `previewDelay` without another change, asks what it
+    /// would move. The screen calls it from a task keyed by the text, so typing cancels the wait.
+    /// No month is sent: the API resolves the latest one with data, as the Resumen does. A failed
+    /// preview only hides it; saving never depends on it.
+    func previewPattern(_ text: String) async {
+        guard patternSheet == .adding, let category else { return }
+        previewGeneration += 1
+        let mine = previewGeneration
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        patternConflict = nil
+        guard !trimmed.isEmpty else {
+            patternPreview = nil
+            previewedText = nil
+            moveMatches = false
+            return
+        }
+        if previewDelay > .zero {
+            do { try await Task.sleep(for: previewDelay) } catch { return }
+        }
+        guard mine == previewGeneration else { return }
+        let preview = try? await api.vistaPreviaPatron(categoriaId: category.id, patron: trimmed)
+        guard mine == previewGeneration, patternSheet == .adding else { return }
+        if preview?.total != patternPreview?.total || preview?.periodo != patternPreview?.periodo { moveMatches = false }
+        patternPreview = preview
+        previewedText = trimmed
+        if let existente = preview?.existente, existente.categoriaId != category.id {
+            patternConflict = PatternConflict(texto: trimmed, existente: existente)
+        }
+    }
+
+    /// "Guardar patrón": a new «contains» pattern (CLA-14), moving the previewed month's movements
+    /// when the checkbox is marked (CLA-15). Editing sends only the text, if it changed.
+    func savePattern(text: String) async {
         guard let category, let sheet = patternSheet, !isSavingPattern else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         isSavingPattern = true
         patternErrors = PatternErrors()
         let saved: PatronCategoria
+        var movidos = 0
         do {
             switch sheet {
             case .adding:
-                saved = try await api.crearPatron(categoriaId: category.id, patron: trimmed, matchType: matchType)
+                let previewed = previewedText == trimmed
+                let periodo = previewed && offersMoveMatches && moveMatches ? patternPreview?.periodo : nil
+                let created = try await api.crearPatron(categoriaId: category.id, patron: trimmed, moverDelPeriodo: periodo)
+                saved = created.patron
+                movidos = created.movidos
             case .editing(let current):
-                var changes = PatronCambios()
-                if trimmed != current.patron { changes.patron = trimmed }
-                if matchType != current.matchType { changes.matchType = matchType }
-                guard !changes.isEmpty else {
+                guard trimmed != current.patron else {
                     isSavingPattern = false
                     patternSheet = nil
                     return
                 }
-                saved = try await api.actualizarPatron(id: current.id, cambios: changes)
+                saved = try await api.actualizarPatron(id: current.id, cambios: PatronCambios(patron: trimmed))
             }
         } catch {
             isSavingPattern = false
-            handlePatternFailure(error, sheet: sheet)
+            handlePatternFailure(error, sheet: sheet, text: trimmed)
             return
         }
         isSavingPattern = false
-        patternSheet = nil
+        dismissPatternSheet()
         generation += 1
         switch sheet {
         case .adding: replacePatterns { $0 + [saved] }
         case .editing(let current): replacePatterns { $0.map { $0.id == current.id ? saved : $0 } }
         }
+        announcement = DetalleCategoriaPresentation.patternSaved(movidos: movidos)
+        onChange()
+        // Moved movements change this category's count: read it again without blanking the screen.
+        if movidos > 0 { await fetch(isRefresh: true) }
+    }
+
+    /// «Moverlo a …» (Figma 30): the existing pattern moves here, keeping its id (CLA-17).
+    func movePatternHere() async {
+        guard let category, let conflict = patternConflict, !isSavingPattern else { return }
+        isSavingPattern = true
+        patternErrors = PatternErrors()
+        let moved: PatronCategoria
+        do {
+            moved = try await api.actualizarPatron(
+                id: conflict.existente.patronId, cambios: PatronCambios(categoriaId: category.id)
+            )
+        } catch {
+            isSavingPattern = false
+            switch error {
+            case PatronError.patternNotFound:
+                // Deleted meanwhile: the text is free now, so the conflict goes and saving works.
+                patternConflict = nil
+                patternErrors.general = "Ese patrón ya no existe. Puedes guardarlo aquí."
+            default:
+                handlePatternFailure(error, sheet: .adding, text: conflict.texto)
+            }
+            return
+        }
+        isSavingPattern = false
+        dismissPatternSheet()
+        generation += 1
+        replacePatterns { $0.filter { $0.id != moved.id } + [moved] }
         announcement = "Patrón guardado"
         onChange()
     }
 
-    private func handlePatternFailure(_ error: any Error, sheet: PatternSheet) {
+    private func handlePatternFailure(_ error: any Error, sheet: PatternSheet, text: String) {
         switch error {
         case APIError.sessionExpired:
             break
+        case PatronError.duplicateOf(let existente) where existente.categoriaId != categoriaId:
+            // CLA-17: the text lives in another category; the sheet offers to move it here.
+            patternConflict = PatternConflict(texto: text, existente: existente)
         case PatronError.categoryNotFound:
             patternSheet = nil
             gone()

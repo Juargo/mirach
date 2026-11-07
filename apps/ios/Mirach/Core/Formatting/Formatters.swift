@@ -64,6 +64,11 @@ enum Format {
         "\(monthNames[periodo.month - 1]) de \(periodo.year)"
     }
 
+    /// `septiembre`: the month alone, inside a sentence.
+    static func monthName(_ periodo: Periodo) -> String {
+        monthNames[periodo.month - 1]
+    }
+
     /// `Septiembre de 2026`, for a title.
     static func monthTitle(_ periodo: Periodo) -> String {
         let text = month(periodo)

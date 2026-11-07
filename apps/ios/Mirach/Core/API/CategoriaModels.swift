@@ -35,16 +35,6 @@ enum MatchType: Equatable, Sendable {
     /// A value the app does not know: shown as it came, never an error.
     case other(String)
 
-    /// The three the person can choose, in the order the form lists them.
-    static let selectable: [MatchType] = [.contains, .startsWith, .regex]
-
-    /// What the picker lists for a pattern: the three, plus the pattern's own type when the app
-    /// does not know it, so editing the text never swaps the type for another.
-    static func options(including current: MatchType) -> [MatchType] {
-        if case .other = current { return [current] + selectable }
-        return selectable
-    }
-
     init(apiName: String) {
         switch apiName {
         case "CONTAINS": self = .contains
@@ -80,12 +70,14 @@ struct PatronCategoria: Equatable, Sendable, Identifiable {
     let matchType: MatchType
 }
 
-/// The fields of a pattern the person changed (`PATCH /api/patrones/{id}`).
+/// The fields of a pattern the person changed (`PATCH /api/patrones/{id}`). `categoriaId` moves
+/// the pattern to another category of the person (CLA-17); it keeps its id.
 struct PatronCambios: Equatable, Sendable {
     var patron: String?
     var matchType: MatchType?
+    var categoriaId: String?
 
-    var isEmpty: Bool { patron == nil && matchType == nil }
+    var isEmpty: Bool { patron == nil && matchType == nil && categoriaId == nil }
 }
 
 /// What the pattern endpoints can answer besides success. 401 goes through the session relay.
@@ -95,6 +87,8 @@ enum PatronError: Error, Equatable {
     case invalidRegex
     case invalidPriority
     case duplicate
+    /// 409 `PATRON_DUPLICADO` that names the pattern holding the text (CLA-17).
+    case duplicateOf(PatronExistente)
     case categoryNotFound
     case patternNotFound
     /// A 400 or 409 whose `code` the app does not know: the server's own message.
@@ -130,4 +124,40 @@ extension Bucket {
         case .ahorro: "Ahorro"
         }
     }
+}
+
+/// The pattern that already holds a text, accent- and case-insensitive (CLA-17): a text lives in
+/// one category only.
+struct PatronExistente: Equatable, Sendable {
+    let patronId: String
+    let categoriaId: String
+    /// Name of the category that holds it.
+    let categoria: String
+    let bucket: Bucket
+}
+
+/// A movement of the month that a candidate pattern would move (CLA-15).
+struct CoincidenciaPatron: Equatable, Sendable, Identifiable {
+    let id: String
+    let descripcion: String
+    let fecha: Date
+    /// Whole pesos, positive: only expenses coincide.
+    let monto: Int
+}
+
+/// `POST /api/patrones/vista-previa`: what a candidate CONTAINS text would move this month.
+struct VistaPreviaPatron: Equatable, Sendable {
+    /// The month the API resolved (the latest with data when none was asked for).
+    let periodo: Periodo
+    /// The text as the engine compares it (lowercase, no accents).
+    let patron: String
+    let total: Int
+    let coincidencias: [CoincidenciaPatron]
+    let existente: PatronExistente?
+}
+
+/// `POST /api/patrones` 201: the pattern and how many movements of `moverDelPeriodo` moved with it.
+struct PatronCreado: Equatable, Sendable {
+    let patron: PatronCategoria
+    let movidos: Int
 }
