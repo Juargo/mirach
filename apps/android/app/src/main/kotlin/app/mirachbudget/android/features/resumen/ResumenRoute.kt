@@ -17,6 +17,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -57,6 +58,8 @@ fun ResumenRoute(
     modifier: Modifier = Modifier,
     detalleBucketViewModel: ((Bucket, Periodo, onReclassified: () -> Unit) -> DetalleBucketViewModel)? = null,
     onOpenCategory: ((String) -> Unit)? = null,
+    /** Bumped when the catalog changes elsewhere; an open bucket detail reads its month again. */
+    catalogRevision: Int = 0,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val periodos by viewModel.periodos.collectAsStateWithLifecycle()
@@ -79,6 +82,14 @@ fun ResumenRoute(
                 }
             },
         )
+        // Saved with the opening, so coming back from a category detail still sees what changed there.
+        var seenRevision by rememberSaveable(opening.id) { mutableIntStateOf(catalogRevision) }
+        LaunchedEffect(detailViewModel, catalogRevision) {
+            if (catalogRevision != seenRevision) {
+                seenRevision = catalogRevision
+                detailViewModel.refresh()
+            }
+        }
         DetalleBucketScreen(detailViewModel, onBack = { bucketOpening = null }, modifier = modifier, onOpenCategory = onOpenCategory)
         return
     }

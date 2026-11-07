@@ -15,8 +15,8 @@ import app.mirachbudget.android.core.design.MirachTheme
 class ShellTab(val id: String, val label: String, val content: @Composable () -> Unit)
 
 /**
- * The signed-in area: the current tab's screen above a bottom navigation bar. Adding a tab
- * (Categorías arrives later) is one more [ShellTab] in the list the caller passes. The caller owns
+ * The signed-in area: the current tab's screen above a bottom navigation bar. Adding a tab is
+ * one more [ShellTab] in the list the caller passes. The caller owns
  * the selection, so a screen can switch tabs (e.g. "Ver resumen del mes" after an import).
  */
 @Composable

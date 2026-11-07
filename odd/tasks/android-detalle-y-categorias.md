@@ -30,9 +30,9 @@ Objective: port iOS `Features/DetalleBucket` and `Features/Categorias` to Androi
 
 - [x] T1 — S1 — inline (shared dependency of T2 and T3; no writer reason) — RED: `DetalleCategoriasApiTest` did not compile (128 errors); GREEN: `./gradlew testDebugUnitTest assembleDebug lint` exit 0; mutation (`moverDelPeriodo = null`) turned 1 of 23 red
 - [x] T1b — icons + shared sheet parts + `Format.monthName` (prep for T2/T3) — inline — `feac235c` — RED: `CategoryIconTest` did not compile; GREEN: CI command exit 0
-- [ ] T2 — S2, S3 — delegated writer (Writer trigger (a): T2 and T3 are independent units with disjoint surfaces, each well over 100 lines, launched together) — worktree `/Users/jorge/dev/mirach-worktrees/android-t2`, branch `feat/android-detalle-bucket`
-- [ ] T3 — S4, S5 — delegated writer (same trigger) — worktree `/Users/jorge/dev/mirach-worktrees/android-t3`, branch `feat/android-categorias`
-- [ ] T4 — wiring: Resumen → bucket detail, «Categorías» tab, bucket group → category detail, catalog refresh across tabs — inline (shared `RootRoute.kt`)
+- [x] T2 — S2, S3 — delegated writer (Writer trigger (a): T2 and T3 are independent units with disjoint surfaces, each well over 100 lines, launched together) — worktree `/Users/jorge/dev/mirach-worktrees/android-t2`, branch `feat/android-detalle-bucket` — `35917bad` (PR #219) — RED: 45 tests did not compile; GREEN: CI command exit 0, 476 tests; mutation (apply-to-similar condition) red
+- [x] T3 — S4, S5 — delegated writer (same trigger) — worktree `/Users/jorge/dev/mirach-worktrees/android-t3`, branch `feat/android-categorias` — `752cc6ef` (PR #220) — RED: 96 tests did not compile (413 errors); GREEN: CI command exit 0; 5 mutations red; seam check with T2: 572 tests, 0 failed
+- [x] T4 — wiring: Resumen → bucket detail, «Categorías» tab, bucket group → category detail, catalog refresh across tabs — inline (shared `RootRoute.kt`)
 
 ## Log
 
@@ -55,3 +55,16 @@ Objective: port iOS `Features/DetalleBucket` and `Features/Categorias` to Androi
   - The allowlist values are Lucide names, so the drawables are converted from `lucide-static@0.460.0` (ISC).
   - `CategoryIcon` (`core/design/CategoryIcon.kt`) uses the same labels as iOS.
 - L6: Parallel writers work in separate worktrees, not in the shared tree. Both units build the same Gradle module, so a half-written file of one would break the other's compile. `RootRoute.kt` belongs to the parent (T4).
+- L7 (T2, writer): The sheet and form are generalized into `features/categoriasheet/CategorySheet.kt`, and Subir cartola uses them with unchanged behavior and tests.
+  - *Assumptions:* back reads «Volver»; the «Guardar» hint is a `stateDescription`; the checkbox reads «Marcado»/«Sin marcar».
+  - `BucketRow` is clickable only when `ResumenRoute` gets a detail factory.
+- L8 (T3, writer):
+  - *Assumptions:* deleting a pattern is a text button «Eliminar» (no trash drawable); the system-category notice is prefixed «🔒 »; «Nueva categoría» is a «+» icon button.
+  - `CategoriasMessages.movements` and `DetalleBucketMessages.movements` are the same one-line plural, kept per feature (copy, not shared state).
+- L9 (T4): Wiring in `RootRoute.kt`.
+  - Tabs: Resumen, Subir, Categorías, Perfil (as iOS).
+  - A catalog change (Categorías or a category detail) bumps `catalogRevision`. That reloads Resumen, calls Subir's `catalogDidChange()`, and refreshes an open bucket detail through `ResumenRoute(catalogRevision)`; the revision the detail last saw is saved with its opening.
+  - A reclassification bumps only `categoriasRevision`, because Resumen already refreshes itself.
+  - A group header in the bucket detail opens `DetalleCategoriaRoute` inside the Resumen tab; a `SaveableStateHolder` keeps the open bucket detail under it.
+  - *Limitation:* a category created from the reclassify sheet without saving does not refresh Subir or Categorías until the next catalog change or reclassification.
+  - No Compose UI tests exist, so the wiring was checked by the CI build and by reading.
