@@ -1,5 +1,12 @@
 package app.mirachbudget.android.features.subircartola
 
+import app.mirachbudget.android.core.design.BucketChoice
+import app.mirachbudget.android.core.design.FieldError
+import app.mirachbudget.android.core.design.Footer
+import app.mirachbudget.android.core.design.FormHeader
+import app.mirachbudget.android.core.design.SheetBar
+import app.mirachbudget.android.core.design.SheetRow
+import app.mirachbudget.android.core.design.Swatch
 import app.mirachbudget.android.features.resumen.isLargeText
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -195,12 +202,6 @@ private fun Muted(text: String, live: Boolean = false) {
     )
 }
 
-/** The bucket color is a fill; the name next to it is the real label. */
-@Composable
-private fun Swatch(bucket: Bucket) {
-    Box(Modifier.size(14.dp).background(MirachTheme.colors.bucket.fill(bucket)))
-}
-
 /** «Necesidades · Supermercado» with the bucket swatch and the row count; pinned while its rows scroll. */
 @Composable
 private fun SectionHeader(section: ReviewPresentation.Section) {
@@ -336,20 +337,6 @@ private fun CategorySheet(
 }
 
 @Composable
-private fun SheetBar(title: String, leading: String, onLeading: () -> Unit, trailing: @Composable () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onLeading) { Text(leading) }
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MirachTheme.colors.base.foreground,
-            modifier = Modifier.weight(1f).semantics { heading() },
-        )
-        trailing()
-    }
-}
-
-@Composable
 private fun CategoryList(
     row: CartolaRow,
     catalog: CatalogoCategorias,
@@ -404,17 +391,6 @@ private fun CategoryList(
         }
         item(key = "bottom") { Spacer(Modifier.navigationBarsPadding().size(16.dp)) }
     }
-}
-
-@Composable
-private fun SheetRow(onClick: () -> Unit, selected: Boolean? = null, content: @Composable RowScope.() -> Unit) {
-    val base = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-    Row(
-        (if (selected != null) base.selectable(selected = selected, onClick = onClick, role = Role.Button) else base.clickable(onClick = onClick, role = Role.Button))
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        content = content,
-    )
 }
 
 /**
@@ -479,52 +455,3 @@ private fun NewCategoryForm(
     }
 }
 
-@Composable
-private fun FormHeader(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MirachTheme.colors.base.mutedForeground,
-        modifier = Modifier.padding(top = 8.dp).semantics { heading() },
-    )
-}
-
-@Composable
-private fun Footer(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MirachTheme.colors.base.mutedForeground)
-}
-
-@Composable
-private fun FieldError(text: String?) {
-    text?.let {
-        Text(
-            it,
-            style = MaterialTheme.typography.bodySmall,
-            color = MirachTheme.colors.feedback.errorText,
-            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-        )
-    }
-}
-
-/** Three labeled options, one per row, with a check on the chosen one (not color alone). */
-@Composable
-private fun BucketChoice(selection: Bucket?, onSelect: (Bucket) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(MirachTheme.colors.base.card)) {
-        Bucket.entries.forEach { option ->
-            val selected = selection == option
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .selectable(selected = selected, onClick = { onSelect(option) }, role = Role.RadioButton)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Swatch(option)
-                Text(option.label, maxLines = 1, color = MirachTheme.colors.base.cardForeground, modifier = Modifier.weight(1f))
-                if (selected) Text("✓", color = MirachTheme.colors.base.cardForeground, modifier = Modifier.clearAndSetSemantics {})
-            }
-        }
-    }
-}

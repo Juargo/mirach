@@ -51,6 +51,9 @@ object Format {
         "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
     )
 
+    /** `septiembre`, without the year. */
+    fun monthName(periodo: Periodo): String = monthNames[periodo.month - 1]
+
     /** `septiembre de 2026`. */
     fun month(periodo: Periodo): String = "${monthNames[periodo.month - 1]} de ${periodo.year}"
 

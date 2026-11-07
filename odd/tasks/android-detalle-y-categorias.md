@@ -29,8 +29,10 @@ Objective: port iOS `Features/DetalleBucket` and `Features/Categorias` to Androi
 ## Tasks
 
 - [x] T1 — S1 — inline (shared dependency of T2 and T3; no writer reason) — RED: `DetalleCategoriasApiTest` did not compile (128 errors); GREEN: `./gradlew testDebugUnitTest assembleDebug lint` exit 0; mutation (`moverDelPeriodo = null`) turned 1 of 23 red
-- [ ] T2 — S2, S3 — pending route decision after T1
-- [ ] T3 — S4, S5 — pending route decision after T1
+- [x] T1b — icons + shared sheet parts + `Format.monthName` (prep for T2/T3) — inline — `feac235c` — RED: `CategoryIconTest` did not compile; GREEN: CI command exit 0
+- [ ] T2 — S2, S3 — delegated writer (Writer trigger (a): T2 and T3 are independent units with disjoint surfaces, each well over 100 lines, launched together) — worktree `/Users/jorge/dev/mirach-worktrees/android-t2`, branch `feat/android-detalle-bucket`
+- [ ] T3 — S4, S5 — delegated writer (same trigger) — worktree `/Users/jorge/dev/mirach-worktrees/android-t3`, branch `feat/android-categorias`
+- [ ] T4 — wiring: Resumen → bucket detail, «Categorías» tab, bucket group → category detail, catalog refresh across tabs — inline (shared `RootRoute.kt`)
 
 ## Log
 
@@ -49,3 +51,7 @@ Objective: port iOS `Features/DetalleBucket` and `Features/Categorias` to Androi
   - `PatronCategoria.matchType` stays the server's raw string (no picker; L18 of aprendizaje-clasificacion).
   - The 409 `PATRON_DUPLICADO` reads `existente` from the error body into `PatronException.DuplicateOf`.
   - `categoriaFailure` (shared with `crearCategoria`) is unchanged.
+- L5 (2026-11-07): Icons. The options were no icons, own vector drawables, or `material-icons-extended`. The user chose "2".
+  - The allowlist values are Lucide names, so the drawables are converted from `lucide-static@0.460.0` (ISC).
+  - `CategoryIcon` (`core/design/CategoryIcon.kt`) uses the same labels as iOS.
+- L6: Parallel writers work in separate worktrees, not in the shared tree. Both units build the same Gradle module, so a half-written file of one would break the other's compile. `RootRoute.kt` belongs to the parent (T4).

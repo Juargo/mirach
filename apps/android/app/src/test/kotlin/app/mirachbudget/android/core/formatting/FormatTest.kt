@@ -87,4 +87,10 @@ class FormatTest {
         assertEquals("1 sep", Format.shortDate(Instant.parse("2026-09-01T00:00:00Z")))
         assertEquals("1 sep", Format.shortDate(Instant.parse("2026-09-01T23:59:59Z")))
     }
+
+    @Test
+    fun theMonthNameHasNoYear() {
+        assertEquals("septiembre", Format.monthName(Periodo(2026, 9)))
+        assertEquals("enero", Format.monthName(Periodo(2027, 1)))
+    }
 }
