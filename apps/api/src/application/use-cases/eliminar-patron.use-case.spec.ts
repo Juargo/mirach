@@ -5,7 +5,7 @@ import { PatronNoEncontradoError } from '../../domain/errors/patron-no-encontrad
 function makeRepo(eliminar: IPatronRepository['eliminar']): IPatronRepository {
   return {
     buscarPorId: vi.fn(),
-    existePatron: vi.fn(),
+    buscarPorTexto: vi.fn(),
     crear: vi.fn(),
     actualizar: vi.fn(),
     eliminar,

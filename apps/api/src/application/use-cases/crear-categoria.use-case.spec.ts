@@ -11,6 +11,14 @@ import { IconoCategoriaInvalidoError } from '../../domain/errors/icono-categoria
 import { Bucket } from '../../domain/value-objects/bucket';
 import { Result } from '../../shared/result';
 
+/** CLA-17: the pattern that already holds the text, with its category. */
+const EXISTENTE = {
+  patronId: 'patron-existente',
+  categoriaId: 'cat-otra',
+  categoria: 'Otra',
+  bucket: 'Deseos' as never,
+};
+
 function makeRepo(
   overrides: Partial<ICategoriaRepository> = {},
 ): ICategoriaRepository {
@@ -39,7 +47,7 @@ function makePatronRepo(
 ): IPatronRepository {
   return {
     buscarPorId: vi.fn(),
-    existePatron: vi.fn().mockResolvedValue(false),
+    buscarPorTexto: vi.fn().mockResolvedValue(null),
     crear: vi.fn(),
     actualizar: vi.fn(),
     eliminar: vi.fn(),
@@ -226,7 +234,7 @@ describe('CrearCategoriaUseCase', () => {
       bucket: 'Deseos',
     });
     expect(repo.crearConPatrones).not.toHaveBeenCalled();
-    expect(patronRepo.existePatron).not.toHaveBeenCalled();
+    expect(patronRepo.buscarPorTexto).not.toHaveBeenCalled();
   });
 
   it('la categoría creada vuelve con patrones: [] (CA-03) cuando no se envían patrones', async () => {
@@ -296,6 +304,26 @@ describe('CrearCategoriaUseCase', () => {
     expect(repo.crearConPatrones).not.toHaveBeenCalled();
   });
 
+  it('duplicado DENTRO del mismo lote pliega tildes (CLA-17): "cafe" choca con "Café"', async () => {
+    const repo = makeRepo();
+    const patronRepo = makePatronRepo();
+    const useCase = new CrearCategoriaUseCase(repo, patronRepo);
+
+    const result = await useCase.execute({
+      userId: 'user-1',
+      nombre: 'Cafés',
+      bucket: 'Deseos',
+      patrones: [
+        { patron: 'Café', matchType: 'CONTAINS' },
+        { patron: 'cafe', matchType: 'CONTAINS' },
+      ],
+    });
+
+    expect(result.isFail()).toBe(true);
+    expect((result.getError() as PatronEnLoteInvalidoError).indice).toBe(1);
+    expect(repo.crearConPatrones).not.toHaveBeenCalled();
+  });
+
   it('duplicado case-insensitive DENTRO del mismo lote ⇒ error en la SEGUNDA ocurrencia', async () => {
     const repo = makeRepo();
     const patronRepo = makePatronRepo();
@@ -321,10 +349,10 @@ describe('CrearCategoriaUseCase', () => {
     expect(repo.crearConPatrones).not.toHaveBeenCalled();
   });
 
-  it('un patrón que colisiona con el catálogo existente (existePatron) ⇒ error envuelto con su índice', async () => {
+  it('un patrón que colisiona con el catálogo existente (buscarPorTexto) ⇒ error envuelto con su índice', async () => {
     const repo = makeRepo();
     const patronRepo = makePatronRepo({
-      existePatron: vi.fn().mockResolvedValue(true),
+      buscarPorTexto: vi.fn().mockResolvedValue(EXISTENTE),
     });
     const useCase = new CrearCategoriaUseCase(repo, patronRepo);
 
@@ -342,6 +370,10 @@ describe('CrearCategoriaUseCase', () => {
     expect((error as PatronEnLoteInvalidoError).causa).toBeInstanceOf(
       PatronDuplicadoError,
     );
+    expect(
+      ((error as PatronEnLoteInvalidoError).causa as PatronDuplicadoError)
+        .existente,
+    ).toEqual(EXISTENTE);
     expect(repo.crearConPatrones).not.toHaveBeenCalled();
   });
 

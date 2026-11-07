@@ -26,7 +26,7 @@ export type CrearPatronError =
  * Orden de validación (design.md §5.1/§5.2, mirrors CrearPatronError union):
  *   ownership de `categoriaId` (404) → forma de `patron` →
  *   `matchType` ∈ set → si REGEX, compila → `prioridad` (default 100,
- *   rango 1..999) → unicidad case-insensitive de `patron` por usuario →
+ *   rango 1..999) → unicidad de `patron` por usuario, sin mayúsculas ni tildes (CLA-17) →
  *   creación.
  *
  * El chequeo de escritura de REGEX es un gate MÁS TEMPRANO y amigable —
@@ -71,12 +71,12 @@ export class CrearPatronUseCase {
     }
     const { patron, matchType, prioridad } = validado.getValue();
 
-    const duplicado = await this.patronRepository.existePatron(
+    const existente = await this.patronRepository.buscarPorTexto(
       input.userId,
       patron,
     );
-    if (duplicado) {
-      return Result.fail(new PatronDuplicadoError(patron));
+    if (existente !== null) {
+      return Result.fail(new PatronDuplicadoError(patron, existente));
     }
 
     const nuevo = await this.patronRepository.crear(input.userId, {

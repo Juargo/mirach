@@ -67,13 +67,13 @@ export class ActualizarPatronUseCase {
         return Result.fail(new PatronInvalidoError(input.patron));
       }
 
-      const colisiona = await this.patronRepository.existePatron(
+      const existente = await this.patronRepository.buscarPorTexto(
         input.userId,
         patron,
         input.id,
       );
-      if (colisiona) {
-        return Result.fail(new PatronDuplicadoError(patron));
+      if (existente !== null) {
+        return Result.fail(new PatronDuplicadoError(patron, existente));
       }
 
       patch.patron = patron;

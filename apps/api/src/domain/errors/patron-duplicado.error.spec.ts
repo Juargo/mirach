@@ -17,3 +17,21 @@ describe('PatronDuplicadoError', () => {
     expect(error.rawValue).toBe('netflix');
   });
 });
+
+describe('PatronDuplicadoError — existente (CLA-17)', () => {
+  it('carries the pattern that already holds the text', () => {
+    const existente = {
+      patronId: 'p-2',
+      categoriaId: 'cat-cafes',
+      categoria: 'Cafés',
+      bucket: 'Deseos' as never,
+    };
+    expect(new PatronDuplicadoError('cafe', existente).existente).toBe(
+      existente,
+    );
+  });
+
+  it('existente is null when the caller does not know it', () => {
+    expect(new PatronDuplicadoError('cafe').existente).toBeNull();
+  });
+});

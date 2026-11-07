@@ -12,6 +12,7 @@ import { PatronEnLoteInvalidoError } from '../../domain/errors/patron-en-lote-in
 import { IconoCategoriaInvalidoError } from '../../domain/errors/icono-categoria-invalido.error';
 import { esIconoCategoria } from '../../domain/value-objects/icono-categoria';
 import { validarPatron } from './validar-patron';
+import { normalizarTextoPatron } from '../../domain/value-objects/patron-clasificacion';
 
 const NOMBRE_MIN = 1;
 const NOMBRE_MAX = 40;
@@ -114,8 +115,8 @@ export class CrearCategoriaUseCase {
       matchType: string;
       prioridad: number;
     }> = [];
-    // Set en memoria, case-insensitive — F-3: no hay constraint DB en
-    // (userId, patron), así que N llamadas a existePatron no pueden verse
+    // Set en memoria, sin mayúsculas ni tildes — F-3: no hay constraint DB en
+    // (userId, patron), así que N llamadas a buscarPorTexto no pueden verse
     // entre sí las filas del MISMO lote todavía no persistidas (D-02).
     const vistos = new Set<string>();
 
@@ -133,20 +134,21 @@ export class CrearCategoriaUseCase {
       }
       const { patron, matchType, prioridad } = validado.getValue();
 
-      const existeEnCatalogo = await this.patronRepository.existePatron(
+      const existente = await this.patronRepository.buscarPorTexto(
         input.userId,
         patron,
       );
-      if (existeEnCatalogo) {
+      if (existente !== null) {
         return Result.fail(
           new PatronEnLoteInvalidoError(
             indice,
-            new PatronDuplicadoError(patron),
+            new PatronDuplicadoError(patron, existente),
           ),
         );
       }
 
-      const clave = patron.toLowerCase();
+      // Mismo pliegue que `buscarPorTexto` (CLA-14/CLA-17): sin tildes.
+      const clave = normalizarTextoPatron(patron);
       if (vistos.has(clave)) {
         return Result.fail(
           new PatronEnLoteInvalidoError(
