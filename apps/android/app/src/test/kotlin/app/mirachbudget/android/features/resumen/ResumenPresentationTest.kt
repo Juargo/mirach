@@ -61,4 +61,9 @@ class ResumenPresentationTest {
         assertEquals(listOf(360f, 0f, 0f), sweepAngles(listOf(5, -3, 0)))
         assertEquals(listOf(0f, 0f, 0f), sweepAngles(listOf(0, 0, 0)))
     }
+
+    @Test
+    fun aBucketRowThatOpensItsMovementsSaysSoAsIos() {
+        assertEquals("Ver los movimientos", BUCKET_ROW_HINT)
+    }
 }
