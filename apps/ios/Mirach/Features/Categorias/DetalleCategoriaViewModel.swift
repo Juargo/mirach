@@ -346,9 +346,14 @@ final class DetalleCategoriaViewModel {
         resetPatternSheet()
     }
 
+    /// The text `patternPreview` answers for. Saving another text (within the debounce) never
+    /// moves the previewed list: it no longer describes what would move.
+    private var previewedText: String?
+
     private func resetPatternSheet() {
         patternErrors = PatternErrors()
         patternPreview = nil
+        previewedText = nil
         patternConflict = nil
         moveMatches = false
         previewGeneration += 1
@@ -366,6 +371,7 @@ final class DetalleCategoriaViewModel {
         patternConflict = nil
         guard !trimmed.isEmpty else {
             patternPreview = nil
+            previewedText = nil
             moveMatches = false
             return
         }
@@ -377,6 +383,7 @@ final class DetalleCategoriaViewModel {
         guard mine == previewGeneration, patternSheet == .adding else { return }
         if preview?.total != patternPreview?.total || preview?.periodo != patternPreview?.periodo { moveMatches = false }
         patternPreview = preview
+        previewedText = trimmed
         if let existente = preview?.existente, existente.categoriaId != category.id {
             patternConflict = PatternConflict(texto: trimmed, existente: existente)
         }
@@ -394,7 +401,8 @@ final class DetalleCategoriaViewModel {
         do {
             switch sheet {
             case .adding:
-                let periodo = offersMoveMatches && moveMatches ? patternPreview?.periodo : nil
+                let previewed = previewedText == trimmed
+                let periodo = previewed && offersMoveMatches && moveMatches ? patternPreview?.periodo : nil
                 let created = try await api.crearPatron(categoriaId: category.id, patron: trimmed, moverDelPeriodo: periodo)
                 saved = created.patron
                 movidos = created.movidos

@@ -803,6 +803,24 @@ struct DetalleCategoriaViewModelTests {
         #expect(recorder.changes == 1)
     }
 
+    /// The text changed after the preview (saved within the debounce): the previewed list no longer
+    /// describes what would move, so nothing moves.
+    @Test func savingATextOtherThanThePreviewedOneMovesNothing() async {
+        let api = FakeMirachAPI()
+        api.setVistaPreviaResults([.success(preview(total: 3))])
+        api.setCrearPatronResults([.success(PatronCategoria(id: "p-9", patron: "acu", matchType: .contains))])
+        let viewModel = await loaded(api)
+        viewModel.beginAddPattern()
+        await viewModel.previewPattern("acuenta")
+
+        viewModel.moveMatches = true
+        await viewModel.savePattern(text: "acu")
+
+        #expect(api.crearPatronCalls == [.init(
+            categoriaId: "cat-super", patron: "acu", matchType: .contains, moverDelPeriodo: nil
+        )])
+    }
+
     @Test func savingWithTheCheckboxOffMovesNothing() async {
         let api = FakeMirachAPI()
         api.setVistaPreviaResults([.success(preview(total: 3))])

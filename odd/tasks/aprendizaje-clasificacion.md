@@ -53,7 +53,7 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
 - [x] T4 — S6 (similar suggestion + reclassify with apply) — delegated writer — `f91f070e` — RED: 2 use case specs + 9 route tests failed; GREEN: unit 3545 passed, int spec 8 passed
 - [x] T5 — regenerate iOS and Android clients; Android compiles — delegated writer — `f6eb4398` — iOS `xcodebuild build` and `build-for-testing` exit 0; Android `:app:compileDebugKotlin` exit 0; int 273 passed, e2e 145 passed
 - [x] T6 — S6, S7 (iOS 09, 28, 30) — delegated writer — `f1688fbd` — RED: with compile-only skeletons, 25 tests failed (47 issues) of 654, including 3 existing API fixtures without `movidos` (T5 left them red); GREEN: `xcodebuild test -only-testing:MirachTests` 654 passed
-- [ ] V — independent verifier (high-risk item 1: moving stored rows)
+- [x] V — independent verifier (high-risk item 1: moving stored rows): S1–S7 PASS, no blockers (L21).
 
 ## Log
 
@@ -83,3 +83,16 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
 - L19 (T6): Protocol design: `MirachAPI` gained `crearPatron(categoriaId:patron:moverDelPeriodo:)`, `vistaPreviaPatron`, `parecidos` and `reclasificar(…aplicarAParecidos:)`; `PatronCambios` gained `categoriaId`; `PatronError.duplicateOf(PatronExistente)`. A protocol extension gives fallbacks so `StubMirachAPI` (apps/ios/Mirach/App, outside T6's edit surface) still compiles: plain calls delegate, the learning calls throw 501, which the screens show as "nothing to offer". Limitation: the reclassify 400 has no documented body, so a `PATRON_INVALIDO` with `aplicarAParecidos` would read as "Esa categoría ya no existe" (the app only applies a suggestion the API made).
 - L20 (T6): Pending outside T6's surface: `MirachUITests.swift:1084-1092` taps `pattern.type.REGEX`/`STARTS_WITH`, which no longer exist, so that UI test must be updated (it was not run). The UI-test stub does not implement the new endpoints.
 
+- L21 (2026-11-06): Independent verifier, baseline 8827a468:
+  - S1–S6 PASS on live local-DB probes, including:
+    - a longer pattern wins over the candidate;
+    - a forced failure mid-transaction leaves nothing changed;
+    - user B is never touched;
+    - rejections leave the row hash unchanged.
+  - S7 PASS on code reading.
+  - The contract diff is additive only.
+  - Behavior change reported: POST /api/categorias with nested patterns now folds accents in its duplicate check (consistent with CLA-17).
+  - Advisories:
+    - S1 can suggest generic texts such as «compra tarjeta debito»; the count is shown first.
+    - An iOS race on screen 28: saving within the 350 ms debounce sent `moverDelPeriodo` for a text that was never previewed. Fixed by the parent: the move only goes with the previewed text. RED/GREEN in `savingATextOtherThanThePreviewedOneMovesNothing`, and MirachTests 655/655.
+- L22: The parent rewrote the UI test that tapped the removed type picker (62c06704). It now passes.
