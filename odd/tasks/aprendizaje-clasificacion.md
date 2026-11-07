@@ -51,7 +51,7 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
 - [x] T2 — S3 (preview endpoint) — delegated writer — `24d191dd` — RED: route/mapper specs 6 failed; GREEN: 3501 passed
 - [x] T3 — S4, S5 (create with move, 409 detail, move pattern) — delegated writer — `ae57da2b` — RED: use case 4 + 3 failed, routes failed; GREEN: unit 3522 passed, `aprendizaje-clasificacion.int-spec.ts` 5 passed; mutation (no `$transaction`) turned the rollback test red
 - [x] T4 — S6 (similar suggestion + reclassify with apply) — delegated writer — `f91f070e` — RED: 2 use case specs + 9 route tests failed; GREEN: unit 3545 passed, int spec 8 passed
-- [x] T5 — regenerate iOS and Android clients; Android compiles — delegated writer — commit: next `chore(clients): regenerate…` — iOS `xcodebuild build` and `build-for-testing` exit 0; Android `:app:compileDebugKotlin` exit 0; int 273 passed, e2e 145 passed
+- [x] T5 — regenerate iOS and Android clients; Android compiles — delegated writer — `f6eb4398` — iOS `xcodebuild build` and `build-for-testing` exit 0; Android `:app:compileDebugKotlin` exit 0; int 273 passed, e2e 145 passed
 - [ ] T6 — S7 (iOS 09, 28, 30) — inline
 - [ ] V — independent verifier (high-risk item 1: moving stored rows)
 
