@@ -34,7 +34,15 @@ internal object IngestaMapper {
 
     /** `null` for a bucket the app does not know. */
     fun category(wire: CategoriaResponse): CategoriaCatalogo? = Bucket.fromApi(wire.bucket)?.let {
-        CategoriaCatalogo(id = wire.id, nombre = wire.nombre, bucket = it, icono = wire.icono)
+        CategoriaCatalogo(
+            id = wire.id,
+            nombre = wire.nombre,
+            bucket = it,
+            icono = wire.icono,
+            transaccionesCount = wire.transaccionesCount.toInt(),
+            esInterna = wire.esInterna,
+            patrones = wire.patrones.map { p -> PatronCategoria(id = p.id, patron = p.patron, matchType = p.matchType) },
+        )
     }
 
     /** The `edits` form field: `[{"rowIndex":3,"categoriaId":"..."}]`, keys in that order. */
@@ -53,7 +61,7 @@ internal object IngestaMapper {
     )
 
     /** ISO 8601 UTC, with or without fractional seconds. */
-    private fun instant(text: String): Instant = try {
+    fun instant(text: String): Instant = try {
         Instant.parse(text)
     } catch (e: DateTimeParseException) {
         throw SerializationException("Unexpected date $text", e)
