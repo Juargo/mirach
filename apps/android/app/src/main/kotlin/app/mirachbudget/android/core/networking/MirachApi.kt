@@ -87,6 +87,40 @@ interface MirachApi {
      * [CartolaNotFoundException] on 404 and [SessionExpiredException] on 401.
      */
     suspend fun eliminarCartola(id: String)
+
+    /** `GET /api/buckets/{bucket}/detalle?periodo`: the bucket's month, grouped by category. */
+    suspend fun bucketDetalle(bucket: Bucket, periodo: Periodo): BucketDetalle
+
+    /**
+     * `PATCH /api/transacciones/{id}/categoria`; the movement becomes a manual classification.
+     * [aplicarAParecidos] also saves the suggested pattern and moves the month's coinciding movements
+     * (CLA-03). Throws [ReclasificarException] for 400 and 404.
+     */
+    suspend fun reclasificar(transaccionId: String, categoriaId: String, aplicarAParecidos: Periodo? = null): Reclasificacion
+
+    /** `GET /api/transacciones/{id}/parecidos`: what «Aplicar a …» would do. Throws [ReclasificarException] for 404. */
+    suspend fun parecidos(transaccionId: String, categoriaId: String, periodo: Periodo): Parecidos
+
+    /** `PATCH /api/categorias/{id}` with only what changed. Throws [CategoriaException], including [CategoriaException.NotFound] and [CategoriaException.IsInternal]. */
+    suspend fun actualizarCategoria(id: String, cambios: CategoriaCambios): CategoriaCatalogo
+
+    /** `DELETE /api/categorias/{id}`: its movements go to «Desconocido». Throws [CategoriaException.NotFound] or [CategoriaException.IsInternal]. */
+    suspend fun eliminarCategoria(id: String)
+
+    /**
+     * `POST /api/patrones`, always «contains» (CLA-14). [moverDelPeriodo] also moves that month's
+     * coinciding movements (CLA-15). Throws [PatronException].
+     */
+    suspend fun crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?): PatronCreado
+
+    /** `POST /api/patrones/vista-previa` without a month: the API uses the latest month with data. Throws [PatronException]. */
+    suspend fun vistaPreviaPatron(categoriaId: String, patron: String): VistaPreviaPatron
+
+    /** `PATCH /api/patrones/{id}` with only what changed; moving it moves no movements. Throws [PatronException]. */
+    suspend fun actualizarPatron(id: String, cambios: PatronCambios): PatronCategoria
+
+    /** `DELETE /api/patrones/{id}`. Throws [PatronException.PatternNotFound] on 404. */
+    suspend fun eliminarPatron(id: String)
 }
 
 /** The server answered with a non-2xx status. */
