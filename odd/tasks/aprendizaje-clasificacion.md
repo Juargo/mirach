@@ -102,3 +102,8 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
   - Another bucket: «Cambiar de grupo» now shows on «Guardar». «Cancelar» keeps the sheet, the selection and the checkbox; «Confirmar» saves, honoring the checkbox.
   - Picking the category the movement already has clears the selection (nothing to save) instead of closing the sheet. A category created from the sheet comes back selected and waits for «Guardar».
   - The highlight is the shared `CategorySheet`'s checkmark and `isSelected` trait; Figma's dark tile border was not added because `CategorySheet` (SubirCartola/ReviewView.swift) is shared with the statement review and outside this change.
+- L24: Slices, chained to main:
+  - #213 A, `feat/api-aprendizaje-dominio`: T1, plus the docs commits.
+  - #214 B, `feat/api-aprendizaje-contrato`: T2–T5. About 3,600 authored lines, so `size:exception`. Every endpoint commit changes `openapi.json`, and CI needs the regenerated clients with it, so B cannot split further and stay green.
+  - #215 C, `feat/ios-aprendizaje-clasificacion`: T6 plus the follow-ups. About 1,670 authored lines, so `size:exception`.
+  - No migration is needed.
