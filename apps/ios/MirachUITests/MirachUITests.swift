@@ -339,7 +339,14 @@ final class MirachUITests: XCTestCase {
         // Netflix is in Suscripciones; Restaurantes is in the same bucket: no confirmation.
         element(app, "detalle.row.t-d3").tap()
         XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
+        let save = app.buttons["detalle.saveCategory"]
+        XCTAssertFalse(save.isEnabled, "«Guardar» waits for a category")
         element(app, "detalle.category.stub-des-rest").tap()
+        // Picking only selects: nothing is sent until «Guardar».
+        XCTAssertTrue(element(app, "detalle.category.stub-des-rest").isSelected)
+        XCTAssertTrue(element(app, "detalle.sheet").exists)
+        XCTAssertFalse(element(app, "detalle.announcement").exists)
+        save.tap()
 
         let announcement = element(app, "detalle.announcement")
         XCTAssertTrue(announcement.waitForExistence(timeout: 10))
@@ -356,13 +363,17 @@ final class MirachUITests: XCTestCase {
         element(app, "detalle.row.t-d5").tap()
         XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
         element(app, "detalle.category.stub-nec-super").tap()
+        XCTAssertFalse(app.alerts["Cambiar de grupo"].exists, "picking alone asks nothing")
+        let save = app.buttons["detalle.saveCategory"]
+        save.tap()
         // Another bucket: nothing is sent until the person confirms.
         XCTAssertTrue(app.alerts["Cambiar de grupo"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.alerts.staticTexts["Este movimiento pasará de Gustos a Necesidades y cambiará el cálculo del mes."].exists)
         app.alerts.buttons["Cancelar"].tap()
         XCTAssertTrue(element(app, "detalle.sheet").exists, "cancelling keeps the sheet and the movement")
+        XCTAssertTrue(element(app, "detalle.category.stub-nec-super").isSelected, "and the selection")
 
-        element(app, "detalle.category.stub-nec-super").tap()
+        save.tap()
         XCTAssertTrue(app.alerts["Cambiar de grupo"].waitForExistence(timeout: 10))
         app.alerts.buttons["Confirmar"].tap()
 
@@ -394,6 +405,13 @@ final class MirachUITests: XCTestCase {
         name.typeWhenFocused("Ropa")
         element(app, "category.bucket.Deseos").tap()
         app.buttons["category.save"].tap()
+
+        // The new category comes back to the sheet selected; «Guardar» moves the movement.
+        let save = app.buttons["detalle.saveCategory"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "detalle.category.stub-new-1").isSelected)
+        XCTAssertFalse(element(app, "detalle.announcement").exists)
+        save.tap()
 
         let announcement = element(app, "detalle.announcement")
         XCTAssertTrue(announcement.waitForExistence(timeout: 10))

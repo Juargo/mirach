@@ -96,3 +96,9 @@ Requirements quoted verbatim from `docs/requisitos/requisitos-funcionales-v1.md`
     - S1 can suggest generic texts such as «compra tarjeta debito»; the count is shown first.
     - An iOS race on screen 28: saving within the 350 ms debounce sent `moverDelPeriodo` for a text that was never previewed. Fixed by the parent: the move only goes with the previewed text. RED/GREEN in `savingATextOtherThanThePreviewedOneMovesNothing`, and MirachTests 655/655.
 - L22: The parent rewrote the UI test that tapped the removed type picker (62c06704). It now passes.
+- L23 (2026-11-06): The user decided, verbatim: "que siempre pida Guardar, como en Figma". L13 is superseded:
+  - Screen 09 always works as select-then-«Guardar». Picking a category only selects it (highlighted); nothing is sent until «Guardar» (`detalle.saveCategory`), which is disabled until a category is picked.
+  - «Aplicar a “…”» still appears only when `parecidos` returns a `patron`; a failed lookup only hides it and never blocks «Guardar».
+  - Another bucket: «Cambiar de grupo» now shows on «Guardar». «Cancelar» keeps the sheet, the selection and the checkbox; «Confirmar» saves, honoring the checkbox.
+  - Picking the category the movement already has clears the selection (nothing to save) instead of closing the sheet. A category created from the sheet comes back selected and waits for «Guardar».
+  - The highlight is the shared `CategorySheet`'s checkmark and `isSelected` trait; Figma's dark tile border was not added because `CategorySheet` (SubirCartola/ReviewView.swift) is shared with the statement review and outside this change.

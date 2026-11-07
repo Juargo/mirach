@@ -345,29 +345,31 @@ private struct MovementRow: View {
     }
 }
 
-/// «Aplicar a “…”» and «Guardar» under the categories (Figma 09): the chosen category waits here
-/// while the API suggested a pattern for it.
-private struct SimilarFooter: View {
+/// «Guardar» under the categories (Figma 09), with «Aplicar a “…”» over it when the API suggested
+/// a pattern for the picked category. Nothing moves until «Guardar».
+private struct SaveFooter: View {
     @Bindable var viewModel: DetalleBucketViewModel
-    let suggestion: DetalleBucketViewModel.SimilarSuggestion
 
     var body: some View {
         VStack(spacing: 12) {
-            CheckboxRow(
-                title: DetalleBucketPresentation.applyTitle(suggestion.parecidos.patron ?? ""),
-                lines: [
-                    DetalleBucketPresentation.applySubtitle(suggestion.parecidos.total),
-                    DetalleBucketPresentation.applyElsewhere(suggestion.parecidos.existente, categoriaId: suggestion.category.id),
-                ].compactMap { $0 },
-                spokenLabel: DetalleBucketPresentation.applyLabel(suggestion.parecidos, categoriaId: suggestion.category.id),
-                identifier: "detalle.applySimilar",
-                isOn: $viewModel.applyToSimilar
-            )
-            Button { Task { await viewModel.saveSuggestion() } } label: {
+            if let suggestion = viewModel.suggestion {
+                CheckboxRow(
+                    title: DetalleBucketPresentation.applyTitle(suggestion.parecidos.patron ?? ""),
+                    lines: [
+                        DetalleBucketPresentation.applySubtitle(suggestion.parecidos.total),
+                        DetalleBucketPresentation.applyElsewhere(suggestion.parecidos.existente, categoriaId: suggestion.category.id),
+                    ].compactMap { $0 },
+                    spokenLabel: DetalleBucketPresentation.applyLabel(suggestion.parecidos, categoriaId: suggestion.category.id),
+                    identifier: "detalle.applySimilar",
+                    isOn: $viewModel.applyToSimilar
+                )
+            }
+            Button { Task { await viewModel.save() } } label: {
                 Text("Guardar").frame(maxWidth: .infinity, minHeight: 44)
             }
             .prominentButton()
-            .accessibilityHint("Mueve el movimiento a \(suggestion.category.nombre)")
+            .disabled(!viewModel.canSave)
+            .accessibilityHint(DetalleBucketPresentation.saveHint(viewModel.selection))
             .accessibilityIdentifier("detalle.saveCategory")
         }
     }
@@ -387,13 +389,13 @@ private struct ReclasificarSheet: View {
                         summaryTitle: movement.descripcion,
                         summaryDetail: "\(Format.shortDate(movement.fecha)) · \(Format.expense(movement.monto))",
                         catalog: catalog,
-                        selectedID: viewModel.suggestion?.category.id ?? viewModel.currentCategoryId(of: movement),
+                        selectedID: viewModel.selection?.id ?? viewModel.currentCategoryId(of: movement),
                         idPrefix: "detalle",
                         notice: viewModel.sheetNotice,
                         isBusy: viewModel.reclassifyingId != nil || viewModel.isCheckingSimilar,
                         createdCount: viewModel.createdCategoryCount,
                         onSelect: { id in Task { await viewModel.choose(categoryId: id) } },
-                        footer: viewModel.suggestion.map { AnyView(SimilarFooter(viewModel: viewModel, suggestion: $0)) },
+                        footer: AnyView(SaveFooter(viewModel: viewModel)),
                         createForm: {
                             NewCategoryForm(
                                 initialPattern: nil,

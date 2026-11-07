@@ -77,4 +77,10 @@ struct DetalleBucketPresentationTests {
         #expect(DetalleBucketPresentation.movedAnnouncement(plain) == "Movida a Gustos · Ropa")
         #expect(DetalleBucketPresentation.movedAnnouncement(applied) == "Movida a Gustos · Ropa · 3 movidos")
     }
+
+    @Test func guardarSaysWhereTheMovementGoesOrThatACategoryIsMissing() {
+        let ropa = CategoriaCatalogo(id: "cat-ropa", nombre: "Ropa", bucket: .deseos)
+        #expect(DetalleBucketPresentation.saveHint(ropa) == "Mueve el movimiento a Ropa")
+        #expect(DetalleBucketPresentation.saveHint(nil) == "Elige una categoría primero")
+    }
 }

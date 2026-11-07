@@ -35,8 +35,8 @@ final class DetalleBucketViewModel {
         var aplicarAParecidos: Periodo? = nil
     }
 
-    /// A chosen category with a suggested pattern (CLA-03): the sheet shows «Aplicar a “…”» and
-    /// waits for «Guardar».
+    /// The picked category with a suggested pattern (CLA-03): the sheet adds «Aplicar a “…”» over
+    /// «Guardar».
     struct SimilarSuggestion: Equatable {
         let movement: MovimientoBucket
         let category: CategoriaCatalogo
@@ -64,7 +64,9 @@ final class DetalleBucketViewModel {
     /// What VoiceOver announces after a successful move: «Movida a Deseos · Ropa».
     private(set) var announcement: String?
 
-    /// Set after choosing a category the API suggests a pattern for; `nil` hides the checkbox.
+    /// The category picked in the sheet (Figma 09): highlighted, and sent only on «Guardar».
+    private(set) var selection: CategoriaCatalogo?
+    /// Set after picking a category the API suggests a pattern for; `nil` hides the checkbox.
     private(set) var suggestion: SimilarSuggestion?
     /// The «Aplicar a “…”» checkbox; off by default.
     var applyToSimilar = false
@@ -208,7 +210,7 @@ final class DetalleBucketViewModel {
         guard reclassifyingId == nil else { return }
         sheetMovement = movement
         sheetNotice = nil
-        clearSuggestion()
+        clearSelection()
         announcement = nil
         notice = nil
         if catalog == .idle { await loadCatalog() }
@@ -219,10 +221,11 @@ final class DetalleBucketViewModel {
         sheetMovement = nil
         pendingChange = nil
         sheetNotice = nil
-        clearSuggestion()
+        clearSelection()
     }
 
-    private func clearSuggestion() {
+    private func clearSelection() {
+        selection = nil
         suggestion = nil
         applyToSimilar = false
     }
@@ -248,39 +251,41 @@ final class DetalleBucketViewModel {
         }
     }
 
-    /// The person picked a category in the sheet. When the API suggests a pattern (CLA-03) the
-    /// sheet offers «Aplicar a “…”» and waits for «Guardar»; otherwise the move goes as before
-    /// (another bucket asks for confirmation first). A failed lookup never blocks the move.
+    /// The person picked a category in the sheet: it is only selected (Figma 09), nothing is sent
+    /// until «Guardar». The API is asked for a suggested pattern (CLA-03) so the sheet can offer
+    /// «Aplicar a “…”»; a failed lookup only hides the checkbox. Picking the category the movement
+    /// already has leaves nothing to save.
     func choose(categoryId: String) async {
         guard reclassifyingId == nil, pendingChange == nil, !isCheckingSimilar, let movement = sheetMovement,
               case .loaded(let categories) = catalog, let category = categories.categoria(id: categoryId)
         else { return }
-        guard category.id != currentCategoryId(of: movement) else { return dismissSheet() }
-        clearSuggestion()
+        clearSelection()
+        guard category.id != currentCategoryId(of: movement) else { return }
+        selection = category
         isCheckingSimilar = true
         let parecidos = try? await api.parecidos(transaccionId: movement.id, categoriaId: category.id, periodo: periodo)
         isCheckingSimilar = false
         // The sheet was closed (or opened for another movement) meanwhile.
-        guard sheetMovement == movement else { return }
+        guard sheetMovement == movement, selection == category else { return }
         if let parecidos, parecidos.patron != nil {
             suggestion = SimilarSuggestion(movement: movement, category: category, parecidos: parecidos)
-            return
         }
-        await proceed(movement, to: category, aplicarAParecidos: nil)
     }
 
-    /// «Guardar» under the checkbox: the chosen category, applied to the similar ones when marked.
-    func saveSuggestion() async {
-        guard reclassifyingId == nil, pendingChange == nil, let suggestion, sheetMovement == suggestion.movement
-        else { return }
-        await proceed(suggestion.movement, to: suggestion.category, aplicarAParecidos: applyToSimilar ? periodo : nil)
+    /// Whether «Guardar» can be tapped: a category is picked and nothing else is going on.
+    var canSave: Bool {
+        selection != nil && sheetMovement != nil && reclassifyingId == nil && pendingChange == nil && !isCheckingSimilar
     }
 
-    private func proceed(_ movement: MovimientoBucket, to category: CategoriaCatalogo, aplicarAParecidos: Periodo?) async {
+    /// «Guardar»: the picked category, applied to the similar ones when marked. Another bucket asks
+    /// for confirmation first.
+    func save() async {
+        guard canSave, let movement = sheetMovement, let category = selection else { return }
+        let aplicar = suggestion != nil && applyToSimilar ? periodo : nil
         if category.bucket != bucket {
-            pendingChange = BucketChange(movement: movement, category: category, aplicarAParecidos: aplicarAParecidos)
+            pendingChange = BucketChange(movement: movement, category: category, aplicarAParecidos: aplicar)
         } else {
-            await move(movement, to: category, aplicarAParecidos: aplicarAParecidos)
+            await move(movement, to: category, aplicarAParecidos: aplicar)
         }
     }
 
@@ -290,7 +295,7 @@ final class DetalleBucketViewModel {
         await move(change.movement, to: change.category, aplicarAParecidos: change.aplicarAParecidos)
     }
 
-    /// «Cancelar»: the choice is reverted and the sheet stays open.
+    /// «Cancelar»: nothing is sent; the sheet stays open with the selection and the checkbox.
     func cancelBucketChange() {
         pendingChange = nil
     }
@@ -315,7 +320,7 @@ final class DetalleBucketViewModel {
         }
         reclassifyingId = nil
         sheetMovement = nil
-        clearSuggestion()
+        clearSelection()
         announcement = DetalleBucketPresentation.movedAnnouncement(result)
         onReclassified()
         // The movement may have changed group or left this bucket: ask again.
@@ -328,11 +333,11 @@ final class DetalleBucketViewModel {
         switch error {
         case ReclasificarError.categoryNotFound:
             sheetNotice = "Esa categoría ya no existe. Elige otra."
-            clearSuggestion()
+            clearSelection()
             await loadCatalog()
         case ReclasificarError.movementNotFound:
             sheetMovement = nil
-            clearSuggestion()
+            clearSelection()
             notice = "Ese movimiento ya no existe."
             await fetch(periodo: periodo, keepingContentOnFailure: true)
         case APIError.sessionExpired, is CancellationError:
@@ -350,8 +355,8 @@ final class DetalleBucketViewModel {
         categoryFormErrors = SubirCartolaViewModel.CategoryFormErrors()
     }
 
-    /// "Crear" in the form: on success the category joins the catalog, the form closes and the
-    /// movement continues down the normal path (confirmation included when the bucket differs).
+    /// "Crear" in the form: on success the category joins the catalog, the form closes and the new
+    /// category is picked, waiting for «Guardar» like any other.
     func createCategory(_ new: NuevaCategoria) async {
         guard let movement = sheetMovement, case .loaded(let categories) = catalog,
               !isCreatingCategory, reclassifyingId == nil

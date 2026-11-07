@@ -36,6 +36,11 @@ enum DetalleBucketPresentation {
         "Este movimiento pasará de \(from.label) a \(to.label) y cambiará el cálculo del mes."
     }
 
+    /// What «Guardar» does, or why it cannot yet.
+    static func saveHint(_ selection: CategoriaCatalogo?) -> String {
+        selection.map { "Mueve el movimiento a \($0.nombre)" } ?? "Elige una categoría primero"
+    }
+
     // MARK: apply to similar movements (CLA-03, Figma 09)
 
     /// «Aplicar a “netflix”».

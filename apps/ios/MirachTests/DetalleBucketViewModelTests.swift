@@ -248,9 +248,39 @@ struct DetalleBucketViewModelTests {
         #expect(viewModel.catalog == .loaded(SampleData.catalog))
     }
 
-    // MARK: reclassification: choosing
+    // MARK: reclassification: choosing, then «Guardar» (Figma 09)
 
-    @Test func choosingACategoryOfTheSameBucketSendsItsIdAtOnceAndRefreshesEverything() async {
+    @Test func pickingACategoryOnlySelectsItAndSendsNothing() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(firstMovement)
+
+        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+
+        #expect(viewModel.selection == SampleData.catalog.categoria(id: SampleData.Cat.desconocidoDeseos))
+        #expect(viewModel.canSave)
+        #expect(api.reclasificarCalls.isEmpty)
+        #expect(viewModel.pendingChange == nil)
+        #expect(viewModel.sheetMovement == firstMovement)
+        #expect(viewModel.announcement == nil)
+    }
+
+    @Test func guardarIsDisabledAndDoesNothingUntilACategoryIsPicked() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(firstMovement)
+        #expect(viewModel.selection == nil)
+        #expect(viewModel.canSave == false)
+
+        await viewModel.save()
+
+        #expect(api.reclasificarCalls.isEmpty)
+        #expect(viewModel.sheetMovement == firstMovement)
+    }
+
+    @Test func guardarWithACategoryOfTheSameBucketSendsItsIdOnceAndRefreshesEverything() async {
         let api = FakeMirachAPI()
         api.setReclasificarResults([.success(.init(categoriaId: SampleData.Cat.restaurantes, categoriaNombre: "Restaurantes", bucket: .deseos))])
         api.setDetalleResults([.success(SampleData.deseosDetalle), .success(SampleData.deseosVacio)])
@@ -260,12 +290,14 @@ struct DetalleBucketViewModelTests {
         // t-3 is in Suscripciones: moving it to Restaurantes stays inside Deseos.
         let netflix = SampleData.deseosDetalle.grupos[1].transacciones[0]
         await viewModel.beginReclassify(netflix)
-
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        await viewModel.save()
 
         #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes)])
         #expect(viewModel.pendingChange == nil)
         #expect(viewModel.sheetMovement == nil)
+        #expect(viewModel.selection == nil)
         #expect(viewModel.announcement == "Movida a Gustos · Restaurantes")
         #expect(api.detalleCalls.count == 2)
         #expect(viewModel.state == .loaded(SampleData.deseosVacio))
@@ -278,19 +310,23 @@ struct DetalleBucketViewModelTests {
         let viewModel = make(api)
         await viewModel.load()
         await viewModel.beginReclassify(firstMovement)
-
         await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+
+        await viewModel.save()
 
         #expect(viewModel.announcement == "Movida a Ahorro · Otra")
     }
 
-    @Test func aCategoryOfAnotherBucketAsksForConfirmationBeforeCallingTheAPI() async {
+    @Test func aCategoryOfAnotherBucketAsksForConfirmationOnGuardarBeforeCallingTheAPI() async {
         let api = FakeMirachAPI()
         let viewModel = make(api)
         await viewModel.load()
         await viewModel.beginReclassify(firstMovement)
 
         await viewModel.choose(categoryId: SampleData.Cat.supermercado)
+        #expect(viewModel.pendingChange == nil, "picking alone asks nothing")
+
+        await viewModel.save()
 
         let category = SampleData.catalog.categoria(id: SampleData.Cat.supermercado)!
         #expect(viewModel.pendingChange == .init(movement: firstMovement, category: category))
@@ -298,18 +334,21 @@ struct DetalleBucketViewModelTests {
         #expect(viewModel.sheetMovement == firstMovement)
     }
 
-    @Test func cancellingTheConfirmationRevertsTheChoiceWithoutCallingTheAPI() async {
+    @Test func cancellingTheConfirmationKeepsTheSheetAndTheSelectionWithoutCallingTheAPI() async {
         let api = FakeMirachAPI()
         let viewModel = make(api)
         await viewModel.load()
         await viewModel.beginReclassify(firstMovement)
         await viewModel.choose(categoryId: SampleData.Cat.supermercado)
+        await viewModel.save()
 
         viewModel.cancelBucketChange()
 
         #expect(viewModel.pendingChange == nil)
         #expect(api.reclasificarCalls.isEmpty)
         #expect(viewModel.sheetMovement == firstMovement)
+        #expect(viewModel.selection?.id == SampleData.Cat.supermercado)
+        #expect(viewModel.canSave)
     }
 
     @Test func confirmingTheBucketChangeSendsTheCategoryId() async {
@@ -319,6 +358,7 @@ struct DetalleBucketViewModelTests {
         await viewModel.load()
         await viewModel.beginReclassify(firstMovement)
         await viewModel.choose(categoryId: SampleData.Cat.supermercado)
+        await viewModel.save()
 
         await viewModel.confirmBucketChange()
 
@@ -327,16 +367,20 @@ struct DetalleBucketViewModelTests {
         #expect(viewModel.announcement == "Movida a Necesidades · Supermercado")
     }
 
-    @Test func choosingTheCategoryItAlreadyHasDoesNothingAndClosesTheSheet() async {
+    @Test func pickingTheCategoryItAlreadyHasLeavesNothingToSave() async {
         let api = FakeMirachAPI()
         let viewModel = make(api)
         await viewModel.load()
         await viewModel.beginReclassify(firstMovement)
+        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
 
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+        await viewModel.save()
 
+        #expect(viewModel.selection == nil)
+        #expect(viewModel.canSave == false)
         #expect(api.reclasificarCalls.isEmpty)
-        #expect(viewModel.sheetMovement == nil)
+        #expect(viewModel.sheetMovement == firstMovement)
         #expect(viewModel.announcement == nil)
     }
 
@@ -346,8 +390,9 @@ struct DetalleBucketViewModelTests {
         await viewModel.load()
         let unclassified = SampleData.deseosDetalle.grupos[2].transacciones[0]
         await viewModel.beginReclassify(unclassified)
-
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        await viewModel.save()
 
         #expect(api.reclasificarCalls == [.init(transaccionId: "t-4", categoriaId: SampleData.Cat.restaurantes)])
     }
@@ -359,11 +404,14 @@ struct DetalleBucketViewModelTests {
         let viewModel = make(api)
         await viewModel.load()
         await viewModel.beginReclassify(firstMovement)
+        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
 
-        let moving = Task { await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos) }
+        let moving = Task { await viewModel.save() }
         await gate.waitUntilWaiting()
         #expect(viewModel.reclassifyingId == "t-1")
+        #expect(viewModel.canSave == false)
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+        await viewModel.save()
         await gate.open()
         await moving.value
 
@@ -373,17 +421,24 @@ struct DetalleBucketViewModelTests {
 
     // MARK: reclassification: failures
 
+    /// Picks the "Desconocido" of Deseos for t-1 and taps «Guardar».
+    private func pickAndSave(_ viewModel: DetalleBucketViewModel) async {
+        await viewModel.beginReclassify(firstMovement)
+        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+        await viewModel.save()
+    }
+
     @Test func aCategoryThatNoLongerExistsKeepsTheMovementShowsAMessageAndReloadsTheCatalog() async {
         let api = FakeMirachAPI()
         api.setReclasificarResults([.failure(ReclasificarError.categoryNotFound)])
         let changes = CallCounter()
         let viewModel = make(api, reclassified: { changes.bump() })
         await viewModel.load()
-        await viewModel.beginReclassify(firstMovement)
 
-        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+        await pickAndSave(viewModel)
 
         #expect(viewModel.sheetNotice == "Esa categoría ya no existe. Elige otra.")
+        #expect(viewModel.selection == nil, "the category is gone: nothing left to save")
         #expect(api.categoriasCalls == 2)
         #expect(viewModel.sheetMovement == firstMovement)
         #expect(viewModel.state == .loaded(SampleData.deseosDetalle))
@@ -397,27 +452,26 @@ struct DetalleBucketViewModelTests {
         api.setReclasificarResults([.failure(ReclasificarError.movementNotFound)])
         let viewModel = make(api)
         await viewModel.load()
-        await viewModel.beginReclassify(firstMovement)
 
-        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+        await pickAndSave(viewModel)
 
         #expect(viewModel.notice == "Ese movimiento ya no existe.")
         #expect(viewModel.sheetMovement == nil)
         #expect(api.detalleCalls.count == 2)
     }
 
-    @Test func aConnectionFailureKeepsTheMovementAndTheSheetWithAMessage() async {
+    @Test func aConnectionFailureKeepsTheMovementTheSheetAndTheSelectionWithAMessage() async {
         let api = FakeMirachAPI()
         api.setReclasificarResults([.failure(URLError(.notConnectedToInternet))])
         let changes = CallCounter()
         let viewModel = make(api, reclassified: { changes.bump() })
         await viewModel.load()
-        await viewModel.beginReclassify(firstMovement)
 
-        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+        await pickAndSave(viewModel)
 
         #expect(viewModel.sheetNotice == "No pudimos mover el movimiento. Revisa tu conexión e inténtalo de nuevo.")
         #expect(viewModel.sheetMovement == firstMovement)
+        #expect(viewModel.selection?.id == SampleData.Cat.desconocidoDeseos, "«Guardar» can be tapped again")
         #expect(viewModel.state == .loaded(SampleData.deseosDetalle))
         #expect(changes.count == 0)
     }
@@ -427,9 +481,8 @@ struct DetalleBucketViewModelTests {
         api.setReclasificarResults([.failure(APIError.sessionExpired)])
         let viewModel = make(api)
         await viewModel.load()
-        await viewModel.beginReclassify(firstMovement)
 
-        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+        await pickAndSave(viewModel)
 
         #expect(viewModel.sheetNotice == nil && viewModel.notice == nil)
     }
@@ -439,9 +492,8 @@ struct DetalleBucketViewModelTests {
         let viewModel = make(api)
         await viewModel.load()
         api.setDetalleResults([.failure(URLError(.timedOut))])
-        await viewModel.beginReclassify(firstMovement)
 
-        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+        await pickAndSave(viewModel)
 
         #expect(viewModel.state == .loaded(SampleData.deseosDetalle))
         #expect(viewModel.notice == "Se movió, pero no pudimos actualizar la lista. Desliza hacia abajo para actualizar.")
@@ -449,22 +501,28 @@ struct DetalleBucketViewModelTests {
 
     // MARK: creating a category from the sheet
 
-    @Test func aNewCategoryOfTheSameBucketIsAddedChosenAndAppliedInOneStep() async {
+    @Test func aNewCategoryIsAddedAndChosenAndGuardarAppliesIt() async {
         let api = FakeMirachAPI()
-        api.setCrearCategoriaResults([.success(CategoriaCatalogo(id: "cat-ropa", nombre: "Ropa", bucket: .deseos))])
+        let ropa = CategoriaCatalogo(id: "cat-ropa", nombre: "Ropa", bucket: .deseos)
+        api.setCrearCategoriaResults([.success(ropa)])
         let viewModel = make(api)
         await viewModel.load()
         await viewModel.beginReclassify(firstMovement)
 
         await viewModel.createCategory(NuevaCategoria(nombre: "Ropa", bucket: .deseos, patron: nil))
 
-        #expect(viewModel.catalog == .loaded(CatalogoCategorias(categorias: SampleData.catalog.categorias + [CategoriaCatalogo(id: "cat-ropa", nombre: "Ropa", bucket: .deseos)])))
-        #expect(api.reclasificarCalls == [.init(transaccionId: "t-1", categoriaId: "cat-ropa")])
+        #expect(viewModel.catalog == .loaded(CatalogoCategorias(categorias: SampleData.catalog.categorias + [ropa])))
+        #expect(viewModel.selection == ropa)
+        #expect(api.reclasificarCalls.isEmpty, "the new category waits for «Guardar»")
         #expect(viewModel.createdCategoryCount == 1)
         #expect(viewModel.isCreatingCategory == false)
+
+        await viewModel.save()
+
+        #expect(api.reclasificarCalls == [.init(transaccionId: "t-1", categoriaId: "cat-ropa")])
     }
 
-    @Test func aNewCategoryOfAnotherBucketStillAsksForConfirmation() async {
+    @Test func aNewCategoryOfAnotherBucketStillAsksForConfirmationOnGuardar() async {
         let api = FakeMirachAPI()
         api.setCrearCategoriaResults([.success(CategoriaCatalogo(id: "cat-gym", nombre: "Gimnasio", bucket: .necesidades))])
         let viewModel = make(api)
@@ -472,6 +530,8 @@ struct DetalleBucketViewModelTests {
         await viewModel.beginReclassify(firstMovement)
 
         await viewModel.createCategory(NuevaCategoria(nombre: "Gimnasio", bucket: .necesidades, patron: nil))
+        #expect(viewModel.pendingChange == nil)
+        await viewModel.save()
 
         #expect(viewModel.pendingChange?.category.id == "cat-gym")
         #expect(api.reclasificarCalls.isEmpty)
@@ -488,6 +548,7 @@ struct DetalleBucketViewModelTests {
 
         #expect(viewModel.categoryFormErrors.name == "Ya tienes una categoría con ese nombre")
         #expect(api.reclasificarCalls.isEmpty)
+        #expect(viewModel.selection == nil)
         #expect(viewModel.createdCategoryCount == 0)
         viewModel.resetCategoryForm()
         #expect(viewModel.categoryFormErrors.isEmpty)
@@ -526,7 +587,7 @@ struct DetalleBucketViewModelTests {
         #expect(viewModel.sheetMovement == netflix)
     }
 
-    @Test func withoutASuggestionTheCheckboxIsHiddenAndTheMoveIsImmediate() async {
+    @Test func withoutASuggestionTheCheckboxIsHiddenAndGuardarSendsThePlainMove() async {
         let api = FakeMirachAPI()
         api.setParecidosResults([.success(.ninguno)])
         let viewModel = make(api)
@@ -534,12 +595,15 @@ struct DetalleBucketViewModelTests {
         await viewModel.beginReclassify(netflix)
 
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
-
         #expect(viewModel.suggestion == nil)
-        #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes)])
+        #expect(api.reclasificarCalls.isEmpty, "the move still waits for «Guardar»")
+
+        await viewModel.save()
+
+        #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes, aplicarAParecidos: nil)])
     }
 
-    @Test func aFailedSimilarLookupHidesTheCheckboxAndStillReclassifies() async {
+    @Test func aFailedSimilarLookupHidesTheCheckboxAndNeverBlocksGuardar() async {
         let api = FakeMirachAPI()
         api.setParecidosResults([.failure(URLError(.notConnectedToInternet))])
         let viewModel = make(api)
@@ -547,8 +611,11 @@ struct DetalleBucketViewModelTests {
         await viewModel.beginReclassify(netflix)
 
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
-
         #expect(viewModel.suggestion == nil)
+        #expect(viewModel.canSave)
+
+        await viewModel.save()
+
         #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes)])
         #expect(viewModel.sheetNotice == nil)
         #expect(viewModel.announcement == "Movida a Gustos · Restaurantes")
@@ -562,7 +629,7 @@ struct DetalleBucketViewModelTests {
         await viewModel.beginReclassify(netflix)
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
 
-        await viewModel.saveSuggestion()
+        await viewModel.save()
 
         #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes, aplicarAParecidos: nil)])
         #expect(viewModel.suggestion == nil)
@@ -581,7 +648,7 @@ struct DetalleBucketViewModelTests {
         await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
 
         viewModel.applyToSimilar = true
-        await viewModel.saveSuggestion()
+        await viewModel.save()
 
         #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes, aplicarAParecidos: sept)])
         #expect(viewModel.announcement == "Movida a Gustos · Restaurantes · 2 movidos")
@@ -596,11 +663,29 @@ struct DetalleBucketViewModelTests {
         await viewModel.choose(categoryId: SampleData.Cat.supermercado)
         viewModel.applyToSimilar = true
 
-        await viewModel.saveSuggestion()
+        await viewModel.save()
         #expect(api.reclasificarCalls.isEmpty, "the bucket change asks first")
         await viewModel.confirmBucketChange()
 
         #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.supermercado, aplicarAParecidos: sept)])
+    }
+
+    @Test func cancellingTheBucketChangeKeepsTheSuggestionAndTheCheckbox() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.success(netflixSuggestion)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+        await viewModel.choose(categoryId: SampleData.Cat.supermercado)
+        viewModel.applyToSimilar = true
+        await viewModel.save()
+
+        viewModel.cancelBucketChange()
+
+        #expect(viewModel.selection?.id == SampleData.Cat.supermercado)
+        #expect(viewModel.suggestion?.parecidos == netflixSuggestion)
+        #expect(viewModel.applyToSimilar)
+        #expect(api.reclasificarCalls.isEmpty)
     }
 
     @Test func choosingAnotherCategoryReplacesTheSuggestionAndTurnsTheCheckboxOff() async {
@@ -615,12 +700,13 @@ struct DetalleBucketViewModelTests {
 
         await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
 
+        #expect(viewModel.selection?.id == SampleData.Cat.desconocidoDeseos)
         #expect(viewModel.suggestion?.category.id == SampleData.Cat.desconocidoDeseos)
         #expect(viewModel.suggestion?.parecidos == other)
         #expect(viewModel.applyToSimilar == false)
     }
 
-    @Test func closingTheSheetForgetsTheSuggestion() async {
+    @Test func closingTheSheetForgetsTheSelectionAndTheSuggestion() async {
         let api = FakeMirachAPI()
         api.setParecidosResults([.success(netflixSuggestion)])
         let viewModel = make(api)
@@ -630,6 +716,7 @@ struct DetalleBucketViewModelTests {
 
         viewModel.dismissSheet()
 
+        #expect(viewModel.selection == nil)
         #expect(viewModel.suggestion == nil)
         #expect(api.reclasificarCalls.isEmpty)
     }
