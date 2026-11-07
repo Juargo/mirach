@@ -1069,32 +1069,26 @@ final class MirachUITests: XCTestCase {
     }
 
     @MainActor
-    func testPatternsAreAddedWithAFieldErrorForABadExpressionAndDeletedAfterConfirming() {
+    func testPatternsAreAddedAsContainsAndDeletedAfterConfirming() {
         let app = launch([savedSession])
         openCategoriasTab(app)
         element(app, "categorias.row.stub-des-rest").tap()
         XCTAssertTrue(reveal(app, "categoria.patterns.empty").waitForExistence(timeout: 10))
 
-        // A bad regular expression: the server's verdict under the field, the sheet stays.
+        // Only «Contiene» is offered (CLA-14): there is no type picker any more.
         reveal(app, "categoria.pattern.add").tap()
         let text = app.textFields["pattern.text"]
         XCTAssertTrue(text.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["pattern.type.REGEX"].exists)
+        XCTAssertFalse(app.buttons["pattern.type.STARTS_WITH"].exists)
         text.tap()
-        text.typeWhenFocused("[\n")
-        app.buttons["pattern.type.REGEX"].tap()
-        app.buttons["pattern.save"].tap()
-        XCTAssertTrue(element(app, "pattern.error.text").waitForExistence(timeout: 5))
-        XCTAssertEqual(element(app, "pattern.error.text").label, "Esa expresión regular no es válida")
-
-        // A valid one: «Empieza con».
-        replaceText(text, with: "RESTAURANT")
-        app.buttons["pattern.type.STARTS_WITH"].tap()
+        text.typeWhenFocused("RESTAURANT")
         app.buttons["pattern.save"].tap()
         XCTAssertEqual(element(app, "categoria.announcement").waitForExistence(timeout: 10), true)
         XCTAssertEqual(detailMessage(app), "Patrón guardado")
         let row = element(app, "categoria.pattern.stub-pat-1")
         XCTAssertTrue(row.exists)
-        XCTAssertEqual(row.label, "Empieza con: RESTAURANT")
+        XCTAssertEqual(row.label, "Contiene: RESTAURANT")
 
         // Delete asks first, and cancelling keeps it.
         reveal(app, "categoria.pattern.delete.stub-pat-1").tap()
