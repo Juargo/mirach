@@ -53,6 +53,13 @@ protocol MirachAPI: Sendable {
     func eliminarCategoria(id: String) async throws
     /// `POST /api/patrones`; the category is identified by id. Throws `PatronError`.
     func crearPatron(categoriaId: String, patron: String, matchType: MatchType) async throws -> PatronCategoria
+    /// `POST /api/patrones` with a CONTAINS text (CLA-14). With `moverDelPeriodo`, saving the pattern
+    /// and moving the coinciding movements of that month are one transaction (CLA-15); without
+    /// it nothing moves. Throws `PatronError` (`.duplicateOf` when the 409 names the holder).
+    func crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?) async throws -> PatronCreado
+    /// `POST /api/patrones/vista-previa` without `periodo`: the API resolves the latest month with
+    /// data, like the Resumen. Saves nothing. Throws `PatronError`.
+    func vistaPreviaPatron(categoriaId: String, patron: String) async throws -> VistaPreviaPatron
     /// `PATCH /api/patrones/{id}` with only the changed fields. Throws `PatronError`.
     func actualizarPatron(id: String, cambios: PatronCambios) async throws -> PatronCategoria
     /// `DELETE /api/patrones/{id}`. Throws `PatronError.patternNotFound` for the 404.
@@ -64,6 +71,14 @@ protocol MirachAPI: Sendable {
     /// identified by its id, never by name (ADR-042). Throws `ReclasificarError` for the 400 and
     /// 404 the catalog names.
     func reclasificar(transaccionId: String, categoriaId: String) async throws -> Reclasificacion
+    /// The same PATCH; with `aplicarAParecidos` it also creates (or moves here) the suggested
+    /// pattern and moves the similar movements of that month, in one transaction (CLA-03).
+    func reclasificar(
+        transaccionId: String, categoriaId: String, aplicarAParecidos: Periodo?
+    ) async throws -> Reclasificacion
+    /// `GET /api/transacciones/{id}/parecidos`: the suggested text for moving the movement to
+    /// `categoriaId` and how many other movements of `periodo` would follow it.
+    func parecidos(transaccionId: String, categoriaId: String, periodo: Periodo) async throws -> Parecidos
     /// `GET /api/ingresos/mes`: every income of the month, with its total and count. The
     /// response carries no month, so the model gets the `periodo` that was asked for.
     func ingresosMes(periodo: Periodo) async throws -> IngresosMes
@@ -79,6 +94,32 @@ protocol MirachAPI: Sendable {
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult
+}
+
+/// Fallbacks for conformers that only fake the API (the UI-test stub): the plain calls keep
+/// working and the learning features (CLA-03, CLA-15) report themselves unavailable, which the
+/// screens treat as "nothing to offer". `OpenAPIMirachAPI` implements every one of them.
+extension MirachAPI {
+    func crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?) async throws -> PatronCreado {
+        guard moverDelPeriodo == nil else { throw APIError.badStatus(501) }
+        let created = try await crearPatron(categoriaId: categoriaId, patron: patron, matchType: .contains)
+        return PatronCreado(patron: created, movidos: 0)
+    }
+
+    func vistaPreviaPatron(categoriaId: String, patron: String) async throws -> VistaPreviaPatron {
+        throw APIError.badStatus(501)
+    }
+
+    func reclasificar(
+        transaccionId: String, categoriaId: String, aplicarAParecidos: Periodo?
+    ) async throws -> Reclasificacion {
+        guard aplicarAParecidos == nil else { throw APIError.badStatus(501) }
+        return try await reclasificar(transaccionId: transaccionId, categoriaId: categoriaId)
+    }
+
+    func parecidos(transaccionId: String, categoriaId: String, periodo: Periodo) async throws -> Parecidos {
+        throw APIError.badStatus(501)
+    }
 }
 
 enum APIError: Error, Equatable {

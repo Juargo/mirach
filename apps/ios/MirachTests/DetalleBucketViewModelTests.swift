@@ -492,6 +492,147 @@ struct DetalleBucketViewModelTests {
         viewModel.resetCategoryForm()
         #expect(viewModel.categoryFormErrors.isEmpty)
     }
+
+    // MARK: apply to similar movements (CLA-03, Figma 09)
+
+    private let netflixSuggestion = Parecidos(patron: "netflix", total: 2, existente: nil)
+    /// t-3 is in Suscripciones: Restaurantes keeps it inside Deseos (no confirmation).
+    private var netflix: MovimientoBucket { SampleData.deseosDetalle.grupos[1].transacciones[0] }
+
+    @Test func choosingACategoryAsksForSimilarMovementsOfTheScreensMonth() async {
+        let api = FakeMirachAPI()
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        #expect(api.parecidosCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes, periodo: sept)])
+    }
+
+    @Test func aSuggestionShowsTheCheckboxOffAndWaitsForGuardar() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.success(netflixSuggestion)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        let restaurantes = SampleData.catalog.categoria(id: SampleData.Cat.restaurantes)!
+        #expect(viewModel.suggestion == .init(movement: netflix, category: restaurantes, parecidos: netflixSuggestion))
+        #expect(viewModel.applyToSimilar == false, "off by default")
+        #expect(api.reclasificarCalls.isEmpty)
+        #expect(viewModel.sheetMovement == netflix)
+    }
+
+    @Test func withoutASuggestionTheCheckboxIsHiddenAndTheMoveIsImmediate() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.success(.ninguno)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        #expect(viewModel.suggestion == nil)
+        #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes)])
+    }
+
+    @Test func aFailedSimilarLookupHidesTheCheckboxAndStillReclassifies() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.failure(URLError(.notConnectedToInternet))])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        #expect(viewModel.suggestion == nil)
+        #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes)])
+        #expect(viewModel.sheetNotice == nil)
+        #expect(viewModel.announcement == "Movida a Gustos · Restaurantes")
+    }
+
+    @Test func guardarWithTheCheckboxOffIsThePlainReclassification() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.success(netflixSuggestion)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        await viewModel.saveSuggestion()
+
+        #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes, aplicarAParecidos: nil)])
+        #expect(viewModel.suggestion == nil)
+        #expect(viewModel.sheetMovement == nil)
+    }
+
+    @Test func guardarWithTheCheckboxOnAppliesToTheSimilarOnesOfTheMonthAndSaysHowMany() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.success(netflixSuggestion)])
+        api.setReclasificarResults([.success(.init(
+            categoriaId: SampleData.Cat.restaurantes, categoriaNombre: "Restaurantes", bucket: .deseos, movidos: 2
+        ))])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        viewModel.applyToSimilar = true
+        await viewModel.saveSuggestion()
+
+        #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.restaurantes, aplicarAParecidos: sept)])
+        #expect(viewModel.announcement == "Movida a Gustos · Restaurantes · 2 movidos")
+    }
+
+    @Test func applyingToAnotherBucketStillAsksAndKeepsTheChoiceThroughTheConfirmation() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.success(netflixSuggestion)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+        await viewModel.choose(categoryId: SampleData.Cat.supermercado)
+        viewModel.applyToSimilar = true
+
+        await viewModel.saveSuggestion()
+        #expect(api.reclasificarCalls.isEmpty, "the bucket change asks first")
+        await viewModel.confirmBucketChange()
+
+        #expect(api.reclasificarCalls == [.init(transaccionId: "t-3", categoriaId: SampleData.Cat.supermercado, aplicarAParecidos: sept)])
+    }
+
+    @Test func choosingAnotherCategoryReplacesTheSuggestionAndTurnsTheCheckboxOff() async {
+        let api = FakeMirachAPI()
+        let other = Parecidos(patron: "netflix", total: 0, existente: nil)
+        api.setParecidosResults([.success(netflixSuggestion), .success(other)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+        viewModel.applyToSimilar = true
+
+        await viewModel.choose(categoryId: SampleData.Cat.desconocidoDeseos)
+
+        #expect(viewModel.suggestion?.category.id == SampleData.Cat.desconocidoDeseos)
+        #expect(viewModel.suggestion?.parecidos == other)
+        #expect(viewModel.applyToSimilar == false)
+    }
+
+    @Test func closingTheSheetForgetsTheSuggestion() async {
+        let api = FakeMirachAPI()
+        api.setParecidosResults([.success(netflixSuggestion)])
+        let viewModel = make(api)
+        await viewModel.load()
+        await viewModel.beginReclassify(netflix)
+        await viewModel.choose(categoryId: SampleData.Cat.restaurantes)
+
+        viewModel.dismissSheet()
+
+        #expect(viewModel.suggestion == nil)
+        #expect(api.reclasificarCalls.isEmpty)
+    }
 }
 
 private final class CallCounter: @unchecked Sendable {

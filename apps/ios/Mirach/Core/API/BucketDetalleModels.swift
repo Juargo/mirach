@@ -47,6 +47,20 @@ struct Reclasificacion: Equatable, Sendable {
     let categoriaId: String
     let categoriaNombre: String
     let bucket: Bucket
+    /// Similar movements moved with `aplicarAParecidos` (CLA-03); 0 without it.
+    var movidos: Int = 0
+}
+
+/// `GET /api/transacciones/{id}/parecidos`: the CONTAINS text suggested for a reclassification
+/// and how many OTHER movements of the month would follow it (CLA-03).
+struct Parecidos: Equatable, Sendable {
+    /// `nil` when there is nothing to offer (too few letters, or an internal category).
+    let patron: String?
+    let total: Int
+    /// The pattern that already holds the text, in whichever category.
+    let existente: PatronExistente?
+
+    static let ninguno = Parecidos(patron: nil, total: 0, existente: nil)
 }
 
 /// What the reclassification can answer besides success. 401 goes through the single
