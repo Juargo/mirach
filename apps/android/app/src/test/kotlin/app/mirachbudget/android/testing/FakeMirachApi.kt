@@ -48,6 +48,7 @@ class FakeMirachApi : MirachApi {
     var onCrearCategoria: suspend (NuevaCategoria) -> CategoriaCatalogo = { error("crearCategoria() not scripted") }
     var onConsentimientos: suspend () -> Consentimientos = { error("consentimientos() not scripted") }
     var onAceptarConsentimientoCartolas: suspend () -> Unit = {}
+    var onRevocarConsentimientoCartolas: suspend () -> Unit = {}
     var onCartolasSubidas: suspend () -> List<CartolaSubida> = { error("cartolasSubidas() not scripted") }
     var onEliminarCartola: suspend (String) -> Unit = {}
     var onBucketDetalle: suspend (Bucket, Periodo) -> BucketDetalle = { _, _ -> error("bucketDetalle() not scripted") }
@@ -77,6 +78,7 @@ class FakeMirachApi : MirachApi {
     val crearCategoriaCalls = mutableListOf<NuevaCategoria>()
     var consentimientosCalls = 0
     var aceptarConsentimientoCalls = 0
+    var revocarConsentimientoCalls = 0
     var cartolasSubidasCalls = 0
     val eliminarCartolaCalls = mutableListOf<String>()
     val bucketDetalleCalls = mutableListOf<Pair<Bucket, Periodo>>()
@@ -160,6 +162,11 @@ class FakeMirachApi : MirachApi {
     override suspend fun aceptarConsentimientoCartolas() {
         aceptarConsentimientoCalls++
         onAceptarConsentimientoCartolas()
+    }
+
+    override suspend fun revocarConsentimientoCartolas() {
+        revocarConsentimientoCalls++
+        onRevocarConsentimientoCartolas()
     }
 
     override suspend fun cartolasSubidas(): List<CartolaSubida> {

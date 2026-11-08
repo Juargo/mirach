@@ -45,10 +45,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.features.perfil.PerfilViewModel.DeleteState
 import app.mirachbudget.android.features.perfil.PerfilViewModel.LoadState
+import app.mirachbudget.android.features.perfil.PerfilViewModel.RevokeState
 import app.mirachbudget.android.features.perfil.PerfilViewModel.SaveState
 import kotlinx.coroutines.launch
 
-/** "Perfil": edit the name, see the email, sign out, delete the account. */
+/** "Perfil": edit the name, see the email, revoke the statement consent, sign out, delete the account. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PerfilRoute(viewModel: PerfilViewModel, modifier: Modifier = Modifier) {
@@ -85,6 +86,10 @@ fun PerfilRoute(viewModel: PerfilViewModel, modifier: Modifier = Modifier) {
                         onSave = { scope.launch { viewModel.save() } },
                     )
                     state.email?.let { EmailSection(it) }
+                    // Hidden while the status is unknown (loading, or its request failed).
+                    state.cartolasConsent?.let { inForce ->
+                        ConsentSection(state = state, inForce = inForce, onRevoke = viewModel::askRevokeConsent)
+                    }
                     SessionSection(
                         state = state,
                         onSignOut = { scope.launch { viewModel.signOut() } },
@@ -93,6 +98,13 @@ fun PerfilRoute(viewModel: PerfilViewModel, modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+
+    if (state.isConfirmingRevocation) {
+        RevokeConsentDialog(
+            onConfirm = { scope.launch { viewModel.revokeConsent() } },
+            onDismiss = viewModel::cancelRevokeConsent,
+        )
     }
 
     if (confirmingDeletion) {
@@ -167,6 +179,46 @@ private fun EmailSection(email: String) {
         // Read only. It may be Apple's private relay address.
         Text(email, color = MirachTheme.colors.base.foreground)
     }
+}
+
+@Composable
+private fun ConsentSection(state: PerfilViewModel.State, inForce: Boolean, onRevoke: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(PerfilMessages.CONSENT_TITLE, style = MaterialTheme.typography.labelMedium, color = MirachTheme.colors.base.mutedForeground)
+        Text(PerfilMessages.consentText(inForce), color = MirachTheme.colors.base.foreground)
+        if (inForce) {
+            OutlinedButton(onClick = onRevoke, enabled = state.canRevoke, modifier = Modifier.fillMaxWidth()) {
+                Text(PerfilMessages.REVOKE_BUTTON)
+            }
+        }
+        // A live region announces the result without moving focus.
+        Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+            when (val revoke = state.revoke) {
+                RevokeState.Revoked -> Text(PerfilMessages.REVOKED, color = MirachTheme.colors.feedback.successText)
+                is RevokeState.Failed -> Text(PerfilMessages.revoke(revoke.failure), color = MirachTheme.colors.feedback.errorText)
+                else -> Unit
+            }
+        }
+    }
+}
+
+/** Only "Revocar" sends the revocation. */
+@Composable
+private fun RevokeConsentDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(PerfilMessages.REVOKE_CONFIRM_TITLE) },
+        text = { Text(PerfilMessages.REVOKE_CONFIRM_BODY) },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(contentColor = MirachTheme.colors.feedback.errorText),
+            ) {
+                Text(PerfilMessages.REVOKE_CONFIRM)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(PerfilMessages.CANCEL) } },
+    )
 }
 
 @Composable

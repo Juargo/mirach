@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 
-/** State of "Perfil": the name to edit, the email to show, and the two session actions. */
+/** State of "Perfil": the name to edit, the email to show, the statement consent and the two session actions. */
 class PerfilViewModel(
     private val api: MirachApi,
     private val session: SessionController,
@@ -57,6 +57,15 @@ class PerfilViewModel(
         data class Failed(val failure: DeleteFailure) : DeleteState
     }
 
+    sealed interface RevokeState {
+        data object Idle : RevokeState
+        data object Revoking : RevokeState
+
+        /** The last revocation went through: "Consentimiento revocado". */
+        data object Revoked : RevokeState
+        data class Failed(val failure: Failure) : RevokeState
+    }
+
     data class State(
         val load: LoadState = LoadState.Loading,
         val email: String? = null,
@@ -68,7 +77,13 @@ class PerfilViewModel(
         val isSigningOut: Boolean = false,
         val deleteConfirmation: String = "",
         val delete: DeleteState = DeleteState.Idle,
+        /** Whether the `cartolas` consent is in force; `null` while unknown (loading, or its request failed). */
+        val cartolasConsent: Boolean? = null,
+        val isConfirmingRevocation: Boolean = false,
+        val revoke: RevokeState = RevokeState.Idle,
     ) {
+        val canRevoke: Boolean get() = cartolasConsent == true && revoke != RevokeState.Revoking && !isBusyWithSession
+
         val hasNameChanges: Boolean get() = normalized(nombre) != normalized(savedNombre)
 
         val canSave: Boolean get() = load == LoadState.Loaded && hasNameChanges && save != SaveState.Saving && !isBusyWithSession
@@ -106,6 +121,11 @@ class PerfilViewModel(
      */
     suspend fun load() {
         if (_state.value.save == SaveState.Saving) return
+        loadUser()
+        refreshConsent()
+    }
+
+    private suspend fun loadUser() {
         val isRefresh = _state.value.load == LoadState.Loaded
         if (!isRefresh) _state.update { it.copy(load = LoadState.Loading) }
         try {
@@ -151,6 +171,51 @@ class PerfilViewModel(
                 }
             }
             _state.update { it.copy(save = next) }
+        }
+    }
+
+    // --- statement consent (PRI-06)
+
+    /** Refreshed with Perfil; a failure hides the section and never blocks the rest of the screen. */
+    private suspend fun refreshConsent() {
+        if (_state.value.revoke == RevokeState.Revoking) return
+        val inForce = try {
+            api.consentimientos().cartolasVigente
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            null
+        }
+        // A revocation may have started while this request was out: its answer wins.
+        if (_state.value.revoke == RevokeState.Revoking) return
+        _state.update { it.copy(cartolasConsent = inForce, revoke = RevokeState.Idle) }
+    }
+
+    /** "Revocar consentimiento": opens the confirmation; nothing is sent yet. */
+    fun askRevokeConsent() {
+        if (_state.value.canRevoke) _state.update { it.copy(isConfirmingRevocation = true) }
+    }
+
+    /** "Cancelar" or a dismissed confirmation. */
+    fun cancelRevokeConsent() = _state.update { it.copy(isConfirmingRevocation = false) }
+
+    /** "Revocar" in the confirmation. A second tap while the request is out does nothing. */
+    suspend fun revokeConsent() {
+        if (!_state.value.canRevoke) {
+            cancelRevokeConsent()
+            return
+        }
+        _state.update { it.copy(isConfirmingRevocation = false, revoke = RevokeState.Revoking) }
+        try {
+            api.revocarConsentimientoCartolas()
+            _state.update { it.copy(cartolasConsent = false, revoke = RevokeState.Revoked) }
+        } catch (cancelled: CancellationException) {
+            _state.update { it.copy(revoke = RevokeState.Idle) }
+            throw cancelled
+        } catch (e: Exception) {
+            // The consent stays in force; a 401 (the relay signs out) has no message of its own.
+            val next = failure(e)?.let { RevokeState.Failed(it) } ?: RevokeState.Idle
+            _state.update { it.copy(revoke = next) }
         }
     }
 

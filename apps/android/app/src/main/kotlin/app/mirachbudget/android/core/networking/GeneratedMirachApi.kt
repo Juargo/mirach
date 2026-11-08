@@ -205,6 +205,13 @@ class GeneratedMirachApi(
         if (!response.isSuccessful) throw ApiException(response.code())
     }
 
+    override suspend fun revocarConsentimientoCartolas() {
+        val sentToken = tokenProvider.token()
+        val response = api.apiConsentimientosTipoDelete(DefaultApi.TipoApiConsentimientosTipoDelete.cartolas.value)
+        if (response.code() == 401) throw rejection(response, sentToken)
+        if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
     override suspend fun cartolasSubidas(): List<CartolaSubida> {
         val sentToken = tokenProvider.token()
         val response = api.apiIngestasGet()

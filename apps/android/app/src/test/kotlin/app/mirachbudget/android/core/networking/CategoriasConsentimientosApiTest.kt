@@ -14,7 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/** `GET/POST /api/categorias` and `GET/POST /api/consentimientos` of [GeneratedMirachApi] against a fake server. */
+/** `GET/POST /api/categorias` and `GET/POST/DELETE /api/consentimientos` of [GeneratedMirachApi] against a fake server. */
 class CategoriasConsentimientosApiTest {
     private val server = MockWebServer()
     private val expired = mutableListOf<String>()
@@ -242,5 +242,34 @@ class CategoriasConsentimientosApiTest {
 
         assertThrows(ApiKeyRejectedException::class.java) { runBlocking { api().aceptarConsentimientoCartolas() } }
         assertEquals(emptyList<String>(), expired)
+    }
+
+    // --- DELETE /api/consentimientos/cartolas
+
+    @Test
+    fun revokingSendsTheDeleteForCartolas() = runBlocking<Unit> {
+        server.enqueue(MockResponse.Builder().code(204).build())
+
+        api().revocarConsentimientoCartolas()
+
+        val r = request()
+        assertEquals("DELETE", r.method)
+        assertEquals("/api/consentimientos/cartolas", r.url.encodedPath)
+        assertEquals("Bearer tok-1", r.headers["Authorization"])
+    }
+
+    @Test
+    fun aRejectedRevocationIsAnApiException() {
+        json(500, """{"code":"ERROR_INTERNO"}""")
+
+        assertEquals(500, assertThrows(ApiException::class.java) { runBlocking { api().revocarConsentimientoCartolas() } }.status)
+    }
+
+    @Test
+    fun anExpiredSessionWhileRevokingGoesThroughTheRelay() {
+        json(401, """{"code":"SESION_INVALIDA"}""")
+
+        assertThrows(SessionExpiredException::class.java) { runBlocking { api("tok-7").revocarConsentimientoCartolas() } }
+        assertEquals(listOf("tok-7"), expired)
     }
 }

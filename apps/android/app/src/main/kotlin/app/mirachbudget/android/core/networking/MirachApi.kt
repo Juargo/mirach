@@ -79,6 +79,12 @@ interface MirachApi {
     /** `POST /api/consentimientos` `{tipo: "cartolas", version: LegalDocuments.VERSION}` (PRI-02). */
     suspend fun aceptarConsentimientoCartolas()
 
+    /**
+     * `DELETE /api/consentimientos/cartolas` (PRI-06): new imports are blocked until accepted again.
+     * Idempotent on the server. Throws [SessionExpiredException] on 401 and [ApiException] otherwise.
+     */
+    suspend fun revocarConsentimientoCartolas()
+
     /** `GET /api/ingestas`: the user's imports, newest first (the server's order is kept). */
     suspend fun cartolasSubidas(): List<CartolaSubida>
 
