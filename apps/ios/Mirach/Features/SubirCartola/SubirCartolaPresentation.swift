@@ -31,7 +31,7 @@ extension SubirCartolaViewModel {
 
 /// Copy of the consent (PRI-02, Figma 16 node 114:442), identical to Android `SubirCartolaMessages`.
 extension SubirCartolaViewModel {
-    nonisolated static let consentTitle = "Antes de tu primera cartola"
+    nonisolated static let consentTitle = "Antes de subir tu cartola"
     nonisolated static let consentBody =
         "Para mostrarte tu 50/30/20 necesitamos leer los movimientos de tu cartola. Esto es lo que hacemos con ella."
     nonisolated static let consentListHeader = "Qué hacemos con tu archivo"

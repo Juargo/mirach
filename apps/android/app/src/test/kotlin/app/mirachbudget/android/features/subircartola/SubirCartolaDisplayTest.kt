@@ -59,4 +59,10 @@ class SubirCartolaDisplayTest {
     fun fileLineJoinsNameAndSize() {
         assertEquals("cartola.pdf · 1,2 MB", SubirCartolaDisplay.fileLine("cartola.pdf", "1,2 MB"))
     }
+
+    @Test
+    fun consentHeadlineFitsAFirstConsentAndAConsentGivenAgain() {
+        // The same screen comes back after a revocation (PRI-06), so it cannot say "primera".
+        assertEquals("Antes de subir tu cartola", SubirCartolaMessages.CONSENT_TITLE)
+    }
 }
