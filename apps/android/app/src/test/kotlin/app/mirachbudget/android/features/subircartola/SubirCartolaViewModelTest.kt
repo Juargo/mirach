@@ -58,6 +58,43 @@ class SubirCartolaViewModelTest : SubirCartolaTestBase() {
     }
 
     @Test
+    fun `opening Subir again after the consent was revoked shows the consent`() = runTest {
+        val vm = started()
+        api.onConsentimientos = { Consentimientos(cartolasVigente = false) }
+
+        vm.start()
+
+        assertEquals(Step.Consentimiento(), vm.state.value.step)
+        assertEquals(2, api.consentimientosCalls)
+    }
+
+    @Test
+    fun `opening Subir again with the consent in force, or a failed check, keeps the initial screen and its message`() = runTest {
+        val vm = started()
+        vm.chooseFile(FakeSource("cartola.txt"))
+        val refused = vm.state.value.step
+        assertTrue(refused is Step.Inicial && refused.message != null)
+
+        vm.start()
+        assertEquals(refused, vm.state.value.step)
+
+        api.onConsentimientos = { throw IOException("offline") }
+        vm.start()
+        assertEquals(refused, vm.state.value.step)
+    }
+
+    @Test
+    fun `opening Subir again mid-flow does not check the consent`() = runTest {
+        val vm = deciding()
+        val calls = api.consentimientosCalls
+
+        vm.start()
+
+        assertEquals(calls, api.consentimientosCalls)
+        assertTrue(vm.state.value.step is Step.Decidiendo)
+    }
+
+    @Test
     fun `accepting the consent sends it and opens the initial screen`() = runTest {
         api.onConsentimientos = { Consentimientos(cartolasVigente = false) }
         val vm = viewModel()
