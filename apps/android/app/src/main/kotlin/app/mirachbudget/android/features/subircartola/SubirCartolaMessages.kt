@@ -18,7 +18,7 @@ object SubirCartolaMessages {
 
     // --- consent (PRI-02, Figma 16 node 114:442)
 
-    const val CONSENT_TITLE = "Antes de tu primera cartola"
+    const val CONSENT_TITLE = "Antes de subir tu cartola"
     const val CONSENT_BODY =
         "Para mostrarte tu 50/30/20 necesitamos leer los movimientos de tu cartola. Esto es lo que hacemos con ella."
     const val CONSENT_LIST_HEADER = "Qué hacemos con tu archivo"
