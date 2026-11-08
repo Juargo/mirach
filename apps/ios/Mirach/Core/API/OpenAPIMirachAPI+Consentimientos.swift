@@ -1,7 +1,7 @@
 import Foundation
 import OpenAPIRuntime
 
-/// The statement-processing consent (PRI-02) the upload endpoints require.
+/// The statement-processing consent (PRI-02) the upload endpoints require, and its revocation (PRI-06).
 extension OpenAPIMirachAPI {
     func consentimientos() async throws -> Consentimientos {
         let sentToken = currentToken()
@@ -31,6 +31,25 @@ extension OpenAPIMirachAPI {
                 return
             case .badRequest:
                 // The app only sends a fixed type and version: a 400 is a bug, not a user error.
+                throw APIError.badStatus(400)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw error.underlyingError
+        }
+    }
+
+    func revocarConsentimientoCartolas() async throws {
+        let sentToken = currentToken()
+        do {
+            switch try await client.delete_sol_api_sol_consentimientos_sol__lcub_tipo_rcub_(path: .init(tipo: .cartolas)) {
+            case .noContent:
+                return
+            case .badRequest:
+                // The app only sends a fixed type: a 400 is a bug, not a user error.
                 throw APIError.badStatus(400)
             case .unauthorized(let unauthorized):
                 throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)

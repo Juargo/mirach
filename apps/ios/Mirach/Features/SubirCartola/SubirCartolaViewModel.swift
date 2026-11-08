@@ -236,13 +236,23 @@ final class SubirCartolaViewModel {
     // MARK: consent (PRI-02)
 
     /// The flow opens: shows the consent first unless it is in force. A failed check lets the API
-    /// decide (a 409 brings the consent back). Does nothing once the flow is open.
+    /// decide (a 409 brings the consent back). Coming back to the initial screen checks again, so
+    /// a consent revoked from "Perfil" (PRI-06) is asked for again; with a file in progress it
+    /// does nothing.
     func start() async {
-        guard state == .preparando else { return }
+        let before = state
+        switch before {
+        case .preparando, .inicial: break
+        default: return
+        }
         let mine = generation
-        let inForce = (try? await api.consentimientos())?.cartolasVigente ?? true
-        guard mine == generation, state == .preparando else { return }
-        state = inForce ? .inicial(message: nil) : .consentimiento(failed: false)
+        let checked = (try? await api.consentimientos())?.cartolasVigente
+        guard mine == generation, state == before else { return }
+        if checked == false {
+            state = .consentimiento(failed: false)
+        } else if before == .preparando {
+            state = .inicial(message: nil)
+        }
     }
 
     /// «Acepto y continúo». A file waiting for the consent is previewed again with its password.
