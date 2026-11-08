@@ -42,4 +42,45 @@ struct DetalleBucketPresentationTests {
         let text = DetalleBucketPresentation.bucketChangeMessage(from: .deseos, to: .necesidades)
         #expect(text == "Este movimiento pasará de Gustos a Necesidades y cambiará el cálculo del mes.")
     }
+
+    // MARK: apply to similar movements (Figma 09)
+
+    @Test func theCheckboxNamesTheSuggestedText() {
+        #expect(DetalleBucketPresentation.applyTitle("transferencia a j perez") == "Aplicar a “transferencia a j perez”")
+    }
+
+    @Test func theSubtitleCountsTheOtherMovementsAndTheNextOnes() {
+        #expect(DetalleBucketPresentation.applySubtitle(0) == "Los próximos que lleguen")
+        #expect(DetalleBucketPresentation.applySubtitle(1) == "1 movimiento más y los próximos que lleguen")
+        #expect(DetalleBucketPresentation.applySubtitle(2) == "2 movimientos más y los próximos que lleguen")
+    }
+
+    @Test func aTextOfAnotherCategorySaysItWillMoveHere() {
+        let existente = PatronExistente(patronId: "p-1", categoriaId: "cat-super", categoria: "Supermercado", bucket: .necesidades)
+        #expect(DetalleBucketPresentation.applyElsewhere(existente, categoriaId: "cat-rest")
+            == "Ya está en Supermercado: se moverá aquí.")
+        #expect(DetalleBucketPresentation.applyElsewhere(existente, categoriaId: "cat-super") == nil)
+        #expect(DetalleBucketPresentation.applyElsewhere(nil, categoriaId: "cat-rest") == nil)
+    }
+
+    @Test func voiceOverReadsTheCheckboxAsOneSentence() {
+        let existente = PatronExistente(patronId: "p-1", categoriaId: "cat-super", categoria: "Supermercado", bucket: .necesidades)
+        let parecidos = Parecidos(patron: "netflix", total: 1, existente: existente)
+        #expect(DetalleBucketPresentation.applyLabel(parecidos, categoriaId: "cat-rest")
+            == "Aplicar a “netflix”. 1 movimiento más y los próximos que lleguen. Ya está en Supermercado: se moverá aquí.")
+    }
+
+    @Test func theAnnouncementAddsTheMovedOnesOnlyWhenThereAreAny() {
+        let plain = Reclasificacion(categoriaId: "c", categoriaNombre: "Ropa", bucket: .deseos)
+        var applied = plain
+        applied.movidos = 3
+        #expect(DetalleBucketPresentation.movedAnnouncement(plain) == "Movida a Gustos · Ropa")
+        #expect(DetalleBucketPresentation.movedAnnouncement(applied) == "Movida a Gustos · Ropa · 3 movidos")
+    }
+
+    @Test func guardarSaysWhereTheMovementGoesOrThatACategoryIsMissing() {
+        let ropa = CategoriaCatalogo(id: "cat-ropa", nombre: "Ropa", bucket: .deseos)
+        #expect(DetalleBucketPresentation.saveHint(ropa) == "Mueve el movimiento a Ropa")
+        #expect(DetalleBucketPresentation.saveHint(nil) == "Elige una categoría primero")
+    }
 }

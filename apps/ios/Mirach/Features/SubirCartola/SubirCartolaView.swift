@@ -59,7 +59,8 @@ struct SubirCartolaView: View {
                 Text("Se perderá la revisión. Nada se ha guardado.")
             }
             .onChange(of: viewModel.state) { messageFocused = hasMessage }
-            // The consent (PRI-02) is checked when the flow opens; once open this does nothing.
+            // The consent (PRI-02) is checked when the flow opens and again whenever it comes back to
+            // the initial screen (a revocation from "Perfil", PRI-06); with a file in progress it does nothing.
             .task { await viewModel.start() }
         }
     }

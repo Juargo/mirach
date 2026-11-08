@@ -55,6 +55,15 @@ describe('CATEGORIA_TEMPLATE', () => {
       bucket: Bucket.Necesidades,
       icono: 'wifi',
     },
+    // Step 2 of the classification plan (2026-11-06).
+    { nombre: 'Suscripciones', bucket: Bucket.Deseos, icono: 'smartphone' },
+    { nombre: 'Transporte', bucket: Bucket.Deseos, icono: 'car' },
+    { nombre: 'Seguros', bucket: Bucket.Necesidades, icono: 'shield' },
+    {
+      nombre: 'Comisiones bancarias',
+      bucket: Bucket.Necesidades,
+      icono: 'credit-card',
+    },
     // Restaurantes / comida fuera de casa y vestuario — issue #746. Sin
     // PATRON_TEMPLATE a propósito (ver docblock de PATRON_TEMPLATE).
     { nombre: 'Comida', bucket: Bucket.Deseos, icono: 'utensils' },
@@ -76,8 +85,8 @@ describe('CATEGORIA_TEMPLATE', () => {
     },
   ];
 
-  it('pins exactly 16 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list; issue #746)', () => {
-    expect(CATEGORIA_TEMPLATE_SIZE).toBe(16);
+  it('pins exactly 20 categorías por nombre+bucket+icono (CATICO-04, D-06 seed list; issue #746)', () => {
+    expect(CATEGORIA_TEMPLATE_SIZE).toBe(20);
     expect(CATEGORIA_TEMPLATE).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     const actual = CATEGORIA_TEMPLATE.map((entry) => ({
       nombre: entry.nombre,
@@ -155,7 +164,7 @@ describe('Categoria "Desconocido" (categoria-desconocido)', () => {
       (entry) => entry.nombre !== 'Desconocido',
     );
 
-    expect(noDesconocidas).toHaveLength(13);
+    expect(noDesconocidas).toHaveLength(17);
     for (const entry of noDesconocidas) {
       expect('esInterna' in entry && entry.esInterna).toBe(false);
     }
@@ -215,8 +224,8 @@ describe('PATRON_TEMPLATE', () => {
     expect(new Set(patrones).size).toBe(patrones.length);
   });
 
-  it('size is derived from the array and matches the current PATRON_CATALOG count (39, issue #746)', () => {
-    expect(PATRON_TEMPLATE_SIZE).toBe(39);
+  it('size is derived from the array and matches the current PATRON_CATALOG count (54, step 2)', () => {
+    expect(PATRON_TEMPLATE_SIZE).toBe(54);
     expect(PATRON_TEMPLATE).toHaveLength(PATRON_TEMPLATE_SIZE);
   });
 });
@@ -359,12 +368,16 @@ describe('copiarCatalogoTemplate', () => {
 
     await copiarCatalogoTemplate(client, 'user-1');
 
-    const iconoPorNombre = new Map<string, string>(
-      CATEGORIA_TEMPLATE.map((entry) => [entry.nombre, entry.icono]),
+    // Keyed by bucketId|nombre: names repeat across buckets (ADR-042).
+    const iconoPorPar = new Map<string, string>(
+      CATEGORIA_TEMPLATE.map((entry) => [
+        `${BUCKET_IDS[entry.bucket]}|${entry.nombre}`,
+        entry.icono,
+      ]),
     );
     expect(createdCategorias).toHaveLength(CATEGORIA_TEMPLATE_SIZE);
     for (const row of createdCategorias) {
-      expect(row.icono).toBe(iconoPorNombre.get(row.nombre));
+      expect(row.icono).toBe(iconoPorPar.get(`${row.bucketId}|${row.nombre}`));
     }
   });
 

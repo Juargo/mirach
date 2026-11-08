@@ -397,7 +397,7 @@ export function createContainer(
       : new NoopRevocadorIdentidadExterna(),
     logger,
   );
-  const catalogo = crearCatalogo(prisma);
+  const catalogo = crearCatalogo(prisma, crypto, logger);
   // US-040: reusa las MISMAS instancias crypto/blindIndex derivadas arriba —
   // nunca una re-derivación (mismo carry-forward que googleAuth/googleAuthMobile).
   const perfil = crearPerfil(prisma, crypto, blindIndex, logger);

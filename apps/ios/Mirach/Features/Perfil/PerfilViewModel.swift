@@ -1,7 +1,8 @@
 import Foundation
 import Observation
 
-/// State of "Perfil": the name to edit, the email to show, and the two session actions.
+/// State of "Perfil": the name to edit, the email to show, the statement consent (PRI-06), and the
+/// two session actions.
 @MainActor
 @Observable
 final class PerfilViewModel {
@@ -44,6 +45,13 @@ final class PerfilViewModel {
         case failed(DeleteFailure)
     }
 
+    enum RevokeState: Equatable {
+        case idle
+        case revoking
+        case revoked
+        case failed(Failure)
+    }
+
     /// The word the person types to confirm; the same text goes to the API.
     static let confirmationWord = "ELIMINAR"
 
@@ -55,6 +63,11 @@ final class PerfilViewModel {
     private(set) var isSigningOut = false
     var deleteConfirmation = ""
     private(set) var deleteState: DeleteState = .idle
+    /// Whether the `cartolas` consent is in force; `nil` while unknown (loading, or its check failed).
+    private(set) var cartolasConsent: Bool?
+    private(set) var revokeState: RevokeState = .idle
+    /// The revocation confirmation is on screen.
+    var isConfirmingRevocation = false
 
     /// The name as the server has it, to know whether there is anything to save.
     private var savedNombre = ""
@@ -85,6 +98,11 @@ final class PerfilViewModel {
         deleteConfirmation == Self.confirmationWord && deleteState != .deleting && !isSigningOut
     }
 
+    /// The button exists only while the consent is in force.
+    var showsRevokeButton: Bool { cartolasConsent == true }
+
+    var showsRevokeButtonEnabled: Bool { showsRevokeButton && revokeState != .revoking && !isBusyWithSession }
+
     /// Signing out or deleting: the rest of the screen is locked.
     var isBusyWithSession: Bool { isSigningOut || deleteState == .deleting }
 
@@ -94,6 +112,15 @@ final class PerfilViewModel {
     /// refreshes quietly: no loading flash, a failure keeps what is on screen, an unsaved draft
     /// is never overwritten, and nothing runs while a save is in flight.
     func load() async {
+        // A refresh clears the last revocation result, but never one still in flight.
+        if revokeState != .revoking { revokeState = .idle }
+        // The consent is asked for alongside the user and never blocks the rest of the screen.
+        async let consent: Void = loadConsent()
+        await loadUser()
+        await consent
+    }
+
+    private func loadUser() async {
         guard saveState != .saving else { return }
         let isRefresh = loadState == .loaded
         if !isRefresh { loadState = .loading }
@@ -110,6 +137,52 @@ final class PerfilViewModel {
             loadState = .loaded
         } catch {
             if !isRefresh, let failure = Self.failure(for: error) { loadState = .failed(failure) }
+        }
+    }
+
+    private func loadConsent() async {
+        do {
+            let result = try await api.consentimientos()
+            // A revocation in flight owns the answer.
+            guard revokeState != .revoking else { return }
+            cartolasConsent = result.cartolasVigente
+        } catch {
+            guard revokeState != .revoking else { return }
+            // A cancelled refresh keeps what is on screen; any other failure hides the section.
+            if !Self.isCancellation(error) { cartolasConsent = nil }
+        }
+    }
+
+    // MARK: consent (PRI-06)
+
+    /// "Revocar consentimiento": only opens the confirmation.
+    func askToRevoke() {
+        guard showsRevokeButtonEnabled else { return }
+        revokeState = .idle
+        isConfirmingRevocation = true
+    }
+
+    /// "Cancelar" in the confirmation: nothing is sent.
+    func cancelRevocation() {
+        isConfirmingRevocation = false
+    }
+
+    /// "Revocar" in the confirmation; a second tap while one request is out does nothing.
+    func revokeConsent() async {
+        isConfirmingRevocation = false
+        guard showsRevokeButtonEnabled else { return }
+        revokeState = .revoking
+        do {
+            try await api.revocarConsentimientoCartolas()
+            cartolasConsent = false
+            revokeState = .revoked
+        } catch {
+            switch Self.failure(for: error) {
+            case .connection?: revokeState = .failed(.connection)
+            case .server?: revokeState = .failed(.server)
+            // A 401 (the relay signs out) or a cancellation: no message of its own.
+            case nil: revokeState = .idle
+            }
         }
     }
 
@@ -187,6 +260,10 @@ final class PerfilViewModel {
 
     private static func isExpiredSession(_ error: any Error) -> Bool {
         (error as? APIError) == .sessionExpired
+    }
+
+    private static func isCancellation(_ error: any Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled
     }
 
     /// `nil` for what needs no message here: an expired session (the relay already signs out)

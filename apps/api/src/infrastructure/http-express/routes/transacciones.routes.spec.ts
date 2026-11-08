@@ -3,7 +3,9 @@ import request from 'supertest';
 import {
   registrarTransacciones,
   registrarReevaluarCategorias,
+  type AprendizajeTransacciones,
 } from './transacciones.routes';
+import { CategoriaInternaProtegidaError } from '../../../domain/errors/categoria-interna-protegida.error';
 import { errorMiddleware } from '../middleware/error.middleware';
 import { Result } from '../../../shared/result';
 import { CategoriaDesconocidaError } from '../../../domain/errors/categoria-desconocida.error';
@@ -38,7 +40,37 @@ const RECLASIF_OK = {
   bucket: 'Necesidades',
 };
 
-function probeApp(uc: Doble): Express {
+function makeAprendizaje(
+  overrides: Partial<AprendizajeTransacciones> = {},
+): AprendizajeTransacciones {
+  return {
+    obtenerParecidos: {
+      execute: vi.fn().mockResolvedValue(
+        Result.ok({
+          patron: 'cabify',
+          total: 3,
+          existente: {
+            patronId: 'pat-9',
+            categoriaId: 'cat-auto',
+            categoria: 'Auto',
+            bucket: 'Necesidades',
+          },
+        }),
+      ),
+    },
+    reclasificarConParecidos: {
+      execute: vi
+        .fn()
+        .mockResolvedValue(Result.ok({ ...RECLASIF_OK, movidos: 4 })),
+    },
+    ...overrides,
+  } as unknown as AprendizajeTransacciones;
+}
+
+function probeApp(
+  uc: Doble,
+  aprendizaje: AprendizajeTransacciones = makeAprendizaje(),
+): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
@@ -46,7 +78,11 @@ function probeApp(uc: Doble): Express {
     req.userId = 'user-x';
     next();
   });
-  registrarTransacciones(router, uc as ReclasificarTransaccionUseCase);
+  registrarTransacciones(
+    router,
+    uc as ReclasificarTransaccionUseCase,
+    aprendizaje,
+  );
   app.use('/api', router);
   app.use(errorMiddleware);
   return app;
@@ -69,6 +105,101 @@ describe('registrarTransacciones — PATCH /api/transacciones/:id/categoria', ()
       userId: 'user-x',
       transaccionId: 'tx-1',
       categoriaId: 'cat-supermercado-row-id',
+    });
+  });
+
+  it('without aplicarAParecidos: the previous body plus movidos 0; the apply flow is not called', async () => {
+    const uc = { execute: vi.fn().mockResolvedValue(Result.ok(RECLASIF_OK)) };
+    const aprendizaje = makeAprendizaje();
+    const res = await request(probeApp(uc, aprendizaje))
+      .patch('/api/transacciones/tx-1/categoria')
+      .send({ categoriaId: 'cat-supermercado-row-id' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      id: 'tx-1',
+      categoria: { id: 'cat-supermercado-row-id', nombre: 'Supermercado' },
+      bucket: 'Necesidades',
+      movidos: 0,
+    });
+    expect(aprendizaje.reclasificarConParecidos.execute).not.toHaveBeenCalled();
+  });
+
+  it('with aplicarAParecidos: runs the apply flow and reports movidos (CLA-03, S6)', async () => {
+    const uc = { execute: vi.fn() };
+    const aprendizaje = makeAprendizaje();
+    const res = await request(probeApp(uc, aprendizaje))
+      .patch('/api/transacciones/tx-1/categoria')
+      .send({
+        categoriaId: 'cat-supermercado-row-id',
+        aplicarAParecidos: { periodo: '2026-07' },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      id: 'tx-1',
+      categoria: { id: 'cat-supermercado-row-id', nombre: 'Supermercado' },
+      bucket: 'Necesidades',
+      movidos: 4,
+    });
+    expect(aprendizaje.reclasificarConParecidos.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      transaccionId: 'tx-1',
+      categoriaId: 'cat-supermercado-row-id',
+      periodo: '2026-07',
+    });
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('400 BODY_INVALIDO when aplicarAParecidos has no periodo', async () => {
+    const uc = { execute: vi.fn() };
+    const aprendizaje = makeAprendizaje();
+    const res = await request(probeApp(uc, aprendizaje))
+      .patch('/api/transacciones/tx-1/categoria')
+      .send({ categoriaId: 'cat-1', aplicarAParecidos: {} });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('BODY_INVALIDO');
+    expect(aprendizaje.reclasificarConParecidos.execute).not.toHaveBeenCalled();
+    expect(uc.execute).not.toHaveBeenCalled();
+  });
+
+  it('with aplicarAParecidos: 403 CATEGORIA_INTERNA on an internal category (CLA-18)', async () => {
+    const aprendizaje = makeAprendizaje({
+      reclasificarConParecidos: {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(new CategoriaInternaProtegidaError('cat-d', 'patron')),
+          ),
+      } as unknown as AprendizajeTransacciones['reclasificarConParecidos'],
+    });
+    const res = await request(probeApp({ execute: vi.fn() }, aprendizaje))
+      .patch('/api/transacciones/tx-1/categoria')
+      .send({
+        categoriaId: 'cat-d',
+        aplicarAParecidos: { periodo: '2026-07' },
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('CATEGORIA_INTERNA');
+  });
+
+  it('with aplicarAParecidos: an unknown category keeps the plain 400', async () => {
+    const aprendizaje = makeAprendizaje({
+      reclasificarConParecidos: {
+        execute: vi
+          .fn()
+          .mockResolvedValue(Result.fail(new CategoriaDesconocidaError('x'))),
+      } as unknown as AprendizajeTransacciones['reclasificarConParecidos'],
+    });
+    const res = await request(probeApp({ execute: vi.fn() }, aprendizaje))
+      .patch('/api/transacciones/tx-1/categoria')
+      .send({ categoriaId: 'x', aplicarAParecidos: { periodo: '2026-07' } });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      message: 'La categoría indicada no existe en tu catálogo.',
     });
   });
 
@@ -219,5 +350,60 @@ describe('registrarReevaluarCategorias — POST /api/transacciones/reevaluar', (
     );
 
     expect(res.status).toBe(500);
+  });
+});
+
+describe('registrarTransacciones — GET /api/transacciones/:id/parecidos (CLA-03, S6)', () => {
+  it('200 with the suggested text, the count of other movements and existente', async () => {
+    const aprendizaje = makeAprendizaje();
+    const res = await request(probeApp({ execute: vi.fn() }, aprendizaje))
+      .get('/api/transacciones/tx-1/parecidos')
+      .query({ categoriaId: 'cat-1', periodo: '2026-07' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      patron: 'cabify',
+      total: 3,
+      existente: {
+        patronId: 'pat-9',
+        categoriaId: 'cat-auto',
+        categoria: 'Auto',
+        bucket: 'Necesidades',
+      },
+    });
+    expect(aprendizaje.obtenerParecidos.execute).toHaveBeenCalledWith({
+      userId: 'user-x',
+      transaccionId: 'tx-1',
+      categoriaId: 'cat-1',
+      periodo: '2026-07',
+    });
+  });
+
+  it('400 when categoriaId is missing', async () => {
+    const aprendizaje = makeAprendizaje();
+    const res = await request(probeApp({ execute: vi.fn() }, aprendizaje)).get(
+      '/api/transacciones/tx-1/parecidos',
+    );
+
+    expect(res.status).toBe(400);
+    expect(aprendizaje.obtenerParecidos.execute).not.toHaveBeenCalled();
+  });
+
+  it("404 TRANSACCION_NO_ENCONTRADA when the movement is not the caller's", async () => {
+    const aprendizaje = makeAprendizaje({
+      obtenerParecidos: {
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            Result.fail(new TransaccionNoEncontradaError('tx-x')),
+          ),
+      } as unknown as AprendizajeTransacciones['obtenerParecidos'],
+    });
+    const res = await request(probeApp({ execute: vi.fn() }, aprendizaje))
+      .get('/api/transacciones/tx-x/parecidos')
+      .query({ categoriaId: 'cat-1' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('TRANSACCION_NO_ENCONTRADA');
   });
 });

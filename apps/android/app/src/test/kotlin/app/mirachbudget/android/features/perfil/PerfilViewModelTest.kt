@@ -3,6 +3,7 @@ package app.mirachbudget.android.features.perfil
 import app.mirachbudget.android.core.networking.ApiException
 import app.mirachbudget.android.core.networking.ApiKeyRejectedException
 import app.mirachbudget.android.core.networking.ConfirmationRejectedException
+import app.mirachbudget.android.core.networking.Consentimientos
 import app.mirachbudget.android.core.networking.CurrentUser
 import app.mirachbudget.android.core.networking.InvalidNameException
 import app.mirachbudget.android.core.networking.SessionExpiredException
@@ -14,6 +15,7 @@ import app.mirachbudget.android.features.perfil.PerfilViewModel.DeleteFailure
 import app.mirachbudget.android.features.perfil.PerfilViewModel.DeleteState
 import app.mirachbudget.android.features.perfil.PerfilViewModel.Failure
 import app.mirachbudget.android.features.perfil.PerfilViewModel.LoadState
+import app.mirachbudget.android.features.perfil.PerfilViewModel.RevokeState
 import app.mirachbudget.android.features.perfil.PerfilViewModel.SaveFailure
 import app.mirachbudget.android.features.perfil.PerfilViewModel.SaveState
 import app.mirachbudget.android.testing.FakeMirachApi
@@ -614,5 +616,159 @@ class PerfilViewModelTest {
         assertEquals("La confirmación no coincide. No se eliminó nada.", PerfilMessages.delete(DeleteFailure.ConfirmationRejected))
         assertEquals("No se pudo eliminar la cuenta. Intenta de nuevo.", PerfilMessages.delete(DeleteFailure.Retry))
         assertEquals("Tu cuenta y tus datos se eliminaron", PerfilMessages.notice(SignedOutNotice.AccountDeleted))
+    }
+
+    // --- statement consent (PRI-06)
+
+    private fun consentInForce(inForce: Boolean = true) {
+        api.onConsentimientos = { Consentimientos(cartolasVigente = inForce) }
+    }
+
+    @Test
+    fun theConsentSectionFollowsTheStatus() = runTest {
+        consentInForce(true)
+        loaded()
+        assertEquals(true, state.cartolasConsent)
+
+        consentInForce(false)
+        vm.load()
+        assertEquals(false, state.cartolasConsent)
+    }
+
+    @Test
+    fun theConsentSectionIsHiddenWhileUnknownOrWhenItsRequestFails() = runTest {
+        assertNull(state.cartolasConsent)
+        api.onConsentimientos = { throw IOException("offline") }
+
+        loaded()
+
+        // The rest of Perfil loads anyway.
+        assertEquals(LoadState.Loaded, state.load)
+        assertEquals("Ana", state.nombre)
+        assertNull(state.cartolasConsent)
+    }
+
+    @Test
+    fun aRefreshThatFailsHidesTheSectionAgain() = runTest {
+        consentInForce(true)
+        loaded()
+        api.onConsentimientos = { throw ApiException(503) }
+
+        vm.load()
+
+        assertNull(state.cartolasConsent)
+        assertEquals(LoadState.Loaded, state.load)
+    }
+
+    @Test
+    fun onlyRevocarInTheConfirmationCallsTheApi() = runTest {
+        consentInForce(true)
+        loaded()
+
+        vm.askRevokeConsent()
+        assertTrue(state.isConfirmingRevocation)
+        vm.cancelRevokeConsent()
+        assertFalse(state.isConfirmingRevocation)
+        assertEquals(0, api.revocarConsentimientoCalls)
+
+        vm.askRevokeConsent()
+        vm.revokeConsent()
+        assertFalse(state.isConfirmingRevocation)
+        assertEquals(1, api.revocarConsentimientoCalls)
+    }
+
+    @Test
+    fun revokingIsIgnoredWhenTheConsentIsNotInForce() = runTest {
+        consentInForce(false)
+        loaded()
+
+        vm.askRevokeConsent()
+        vm.revokeConsent()
+
+        assertFalse(state.isConfirmingRevocation)
+        assertEquals(0, api.revocarConsentimientoCalls)
+    }
+
+    @Test
+    fun aSecondRevokeTapWhileTheRequestIsOutDoesNothing() = runTest {
+        consentInForce(true)
+        loaded()
+        val gate = CompletableDeferred<Unit>()
+        api.onRevocarConsentimientoCartolas = { gate.await() }
+        val first = launch { vm.revokeConsent() }
+        runCurrent()
+
+        assertEquals(RevokeState.Revoking, state.revoke)
+        vm.revokeConsent()
+
+        assertEquals(1, api.revocarConsentimientoCalls)
+        gate.complete(Unit)
+        first.join()
+    }
+
+    @Test
+    fun aRevokedConsentIsNoLongerInForceAndSaysSo() = runTest {
+        consentInForce(true)
+        loaded()
+
+        vm.revokeConsent()
+
+        assertEquals(false, state.cartolasConsent)
+        assertEquals(RevokeState.Revoked, state.revoke)
+        assertEquals("Consentimiento revocado", PerfilMessages.REVOKED)
+    }
+
+    @Test
+    fun aRevocationWithoutAnswerKeepsTheConsentInForceWithTheConnectionMessage() = runTest {
+        consentInForce(true)
+        loaded()
+        api.onRevocarConsentimientoCartolas = { throw SocketTimeoutException() }
+
+        vm.revokeConsent()
+
+        assertEquals(true, state.cartolasConsent)
+        assertEquals(RevokeState.Failed(Failure.Connection), state.revoke)
+    }
+
+    @Test
+    fun aServerErrorWhileRevokingKeepsTheConsentInForceWithItsMessage() = runTest {
+        consentInForce(true)
+        loaded()
+        api.onRevocarConsentimientoCartolas = { throw ApiException(500) }
+
+        vm.revokeConsent()
+
+        assertEquals(true, state.cartolasConsent)
+        assertEquals(RevokeState.Failed(Failure.Server), state.revoke)
+    }
+
+    @Test
+    fun anExpiredSessionWhileRevokingHasNoMessageOfItsOwn() = runTest {
+        consentInForce(true)
+        loaded()
+        api.onRevocarConsentimientoCartolas = { throw SessionExpiredException() }
+
+        vm.revokeConsent()
+
+        assertEquals(true, state.cartolasConsent)
+        assertEquals(RevokeState.Idle, state.revoke)
+    }
+
+    @Test
+    fun theConsentCopyIsTheSpecCopy() {
+        assertEquals("Procesamiento de cartolas", PerfilMessages.CONSENT_TITLE)
+        assertEquals("Aceptaste que leamos tus cartolas para calcular tu 50/30/20.", PerfilMessages.consentText(true))
+        assertEquals("No has dado tu consentimiento. Te lo pediremos cuando subas una cartola.", PerfilMessages.consentText(false))
+        assertEquals("Revocar consentimiento", PerfilMessages.REVOKE_BUTTON)
+        assertEquals("¿Revocar consentimiento?", PerfilMessages.REVOKE_CONFIRM_TITLE)
+        assertEquals(
+            "No podrás subir nuevas cartolas hasta que vuelvas a aceptarlo. Tus movimientos ya importados no se borran.",
+            PerfilMessages.REVOKE_CONFIRM_BODY,
+        )
+        assertEquals("Revocar", PerfilMessages.REVOKE_CONFIRM)
+        assertEquals("Cancelar", PerfilMessages.CANCEL)
+        assertEquals("Consentimiento revocado", PerfilMessages.REVOKED)
+        assertEquals("Problema de conexión. Revisa tu conexión e inténtalo de nuevo.", PerfilMessages.revoke(Failure.Connection))
+        assertEquals("No pudimos revocar el consentimiento. Inténtalo de nuevo.", PerfilMessages.revoke(Failure.Server))
     }
 }

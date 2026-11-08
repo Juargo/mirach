@@ -30,6 +30,29 @@ object PerfilMessages {
         DeleteFailure.Retry -> "No se pudo eliminar la cuenta. Intenta de nuevo."
     }
 
+    // --- statement consent (PRI-06)
+
+    const val CONSENT_TITLE = "Procesamiento de cartolas"
+    const val REVOKE_BUTTON = "Revocar consentimiento"
+    const val REVOKE_CONFIRM_TITLE = "¿Revocar consentimiento?"
+    const val REVOKE_CONFIRM_BODY =
+        "No podrás subir nuevas cartolas hasta que vuelvas a aceptarlo. Tus movimientos ya importados no se borran."
+    const val REVOKE_CONFIRM = "Revocar"
+    const val CANCEL = "Cancelar"
+    const val REVOKED = "Consentimiento revocado"
+
+    fun consentText(inForce: Boolean): String =
+        if (inForce) {
+            "Aceptaste que leamos tus cartolas para calcular tu 50/30/20."
+        } else {
+            "No has dado tu consentimiento. Te lo pediremos cuando subas una cartola."
+        }
+
+    fun revoke(failure: Failure): String = when (failure) {
+        Failure.Connection -> CONNECTION
+        Failure.Server -> "No pudimos revocar el consentimiento. Inténtalo de nuevo."
+    }
+
     fun notice(notice: SignedOutNotice): String = when (notice) {
         SignedOutNotice.AccountDeleted -> "Tu cuenta y tus datos se eliminaron"
     }

@@ -182,9 +182,14 @@ class SubirCartolaViewModel(
 
     // --- consent (PRI-02)
 
-    /** The flow opens: shows the consent first unless it is in force. A failed check lets the API decide. */
+    /**
+     * The flow opens: shows the consent first unless it is in force. A failed check lets the API decide.
+     * Opening it again on the idle initial screen checks once more, so a consent revoked from Perfil
+     * (PRI-06) brings the consent back; an in-force answer or a failed check leaves the screen as it is.
+     */
     suspend fun start() {
-        if (step != Step.Preparando) return
+        val opened = step
+        if (opened != Step.Preparando && !(opened is Step.Inicial && _state.value.stagedFile == null)) return
         val mine = generation
         val inForce = try {
             api.consentimientos().cartolasVigente
@@ -193,8 +198,8 @@ class SubirCartolaViewModel(
         } catch (e: Exception) {
             true
         }
-        if (mine != generation || step != Step.Preparando) return
-        setStep(if (inForce) Step.Inicial(null) else Step.Consentimiento())
+        if (mine != generation || step != opened) return
+        if (!inForce) setStep(Step.Consentimiento()) else if (opened == Step.Preparando) setStep(Step.Inicial(null))
     }
 
     /** «Acepto y continúo». A file waiting for the consent is previewed again with its password. */

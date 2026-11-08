@@ -57,7 +57,7 @@ enum DetalleCategoriaPresentation {
         case PatronError.invalidPattern:
             errors.pattern = "Escribe un texto válido para el patrón (de 1 a 200 caracteres)"
         case PatronError.invalidRegex: errors.pattern = "Esa expresión regular no es válida"
-        case PatronError.duplicate: errors.pattern = "Ya tienes un patrón con ese texto"
+        case PatronError.duplicate, PatronError.duplicateOf: errors.pattern = "Ya tienes un patrón con ese texto"
         case PatronError.invalidMatchType: errors.pattern = "Ese tipo de coincidencia no es válido"
         case PatronError.rejected(let message): errors.general = message
         case is URLError, is CancellationError:
@@ -73,5 +73,56 @@ enum DetalleCategoriaPresentation {
             "No pudimos eliminar \(what). Revisa tu conexión e inténtalo de nuevo."
         default: "No pudimos eliminar \(what). Inténtalo de nuevo."
         }
+    }
+
+    // MARK: new pattern (CLA-15, Figma 28)
+
+    /// «Coincide con 3 movimientos de octubre».
+    static func previewTitle(total: Int, periodo: Periodo) -> String {
+        let count = total == 1 ? "1 movimiento" : "\(total) movimientos"
+        return "Coincide con \(count) de \(Format.monthName(periodo))"
+    }
+
+    /// «SUPER ACUENTA ÑUÑOA · 14 oct · -$32.400», with the same formatters as every list.
+    static func previewRow(_ row: CoincidenciaPatron) -> String {
+        "\(row.descripcion) · \(Format.shortDate(row.fecha)) · \(Format.expense(row.monto))"
+    }
+
+    /// The row as VoiceOver reads it, with the spoken amount.
+    static func previewRowLabel(_ row: CoincidenciaPatron) -> String {
+        "\(row.descripcion). \(Format.shortDate(row.fecha)). \(Format.spokenExpense(row.monto))"
+    }
+
+    /// «Mover también estos 3 movimientos a Supermercado»; one movement reads in the singular.
+    static func moveMatchesTitle(total: Int, categoria: String) -> String {
+        total == 1
+            ? "Mover también este movimiento a \(categoria)"
+            : "Mover también estos \(total) movimientos a \(categoria)"
+    }
+
+    static let moveMatchesNote = "Los que cambiaste a mano no se mueven. Las próximas cartolas usan el patrón siempre."
+
+    /// «Patrón guardado», plus « · 3 movidos» when movements of the month moved with it.
+    static func patternSaved(movidos: Int) -> String {
+        movidos > 0 ? "Patrón guardado · \(movidos) movidos" : "Patrón guardado"
+    }
+
+    // MARK: a text of another category (CLA-17, Figma 30)
+
+    /// «“unimarc” ya está en Supermercado (Necesidades)», with the app's own quotes.
+    static func conflictTitle(_ conflict: DetalleCategoriaViewModel.PatternConflict) -> String {
+        "«\(conflict.texto)» ya está en \(conflict.existente.categoria) (\(conflict.existente.bucket.label))"
+    }
+
+    static let conflictRule = "Un texto solo puede estar en una categoría."
+
+    /// What moving it here changes: the next movements count in this category's bucket.
+    static func conflictConsequence(_ conflict: DetalleCategoriaViewModel.PatternConflict, here: CategoriaCatalogo) -> String {
+        "Si lo mueves aquí, los próximos movimientos con «\(conflict.texto)» contarán como \(here.bucket.label.lowercased())."
+    }
+
+    /// «Moverlo a Supermercado (Gustos)».
+    static func moveHere(_ here: CategoriaCatalogo) -> String {
+        "Moverlo a \(here.nombre) (\(here.bucket.label))"
     }
 }

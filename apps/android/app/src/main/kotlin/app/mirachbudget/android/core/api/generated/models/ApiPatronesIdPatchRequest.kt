@@ -31,6 +31,7 @@ import kotlinx.serialization.Contextual
 /**
  * 
  *
+ * @param categoriaId CLA-17: move the pattern to this category of the caller. Keeps id and creadoEn.
  * @param matchType 
  * @param patron 
  * @param prioridad 
@@ -38,6 +39,10 @@ import kotlinx.serialization.Contextual
 @Serializable
 
 data class ApiPatronesIdPatchRequest (
+
+    /* CLA-17: move the pattern to this category of the caller. Keeps id and creadoEn. */
+    @SerialName(value = "categoriaId")
+    val categoriaId: kotlin.String? = null,
 
     @SerialName(value = "matchType")
     val matchType: kotlin.String? = null,

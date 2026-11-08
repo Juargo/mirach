@@ -53,13 +53,47 @@ struct SubirCartolaConsentTests {
         #expect(viewModel.state == .inicial(message: nil))
     }
 
-    @Test func startingAgainOnceTheFlowIsOpenChecksNothing() async {
+    @Test func startingAgainWithAFileInProgressChecksNothing() async {
+        let (viewModel, api, _) = make(consent: .success(Consentimientos(cartolasVigente: true)))
+        await viewModel.start()
+        await viewModel.chooseFile(xlsx)
+        let before = viewModel.state
+
+        await viewModel.start()
+
+        #expect(api.consentimientosCalls == 1)
+        #expect(viewModel.state == before)
+    }
+
+    // MARK: coming back to the flow (PRI-06)
+
+    @Test func comingBackToTheInitialScreenKeepsItWhileTheConsentIsInForce() async {
         let (viewModel, api, _) = make(consent: .success(Consentimientos(cartolasVigente: true)))
         await viewModel.start()
 
         await viewModel.start()
 
-        #expect(api.consentimientosCalls == 1)
+        #expect(api.consentimientosCalls == 2)
+        #expect(viewModel.state == .inicial(message: nil))
+    }
+
+    @Test func comingBackAfterARevocationShowsTheConsentAgain() async {
+        let (viewModel, api, _) = make(consent: .success(Consentimientos(cartolasVigente: true)))
+        await viewModel.start()
+        api.setConsentimientosResults([.success(Consentimientos(cartolasVigente: false))])
+
+        await viewModel.start()
+
+        #expect(viewModel.state == .consentimiento(failed: false))
+    }
+
+    @Test func aFailedCheckOnComingBackKeepsTheInitialScreen() async {
+        let (viewModel, api, _) = make(consent: .success(Consentimientos(cartolasVigente: true)))
+        await viewModel.start()
+        api.setConsentimientosResults([.failure(URLError(.notConnectedToInternet))])
+
+        await viewModel.start()
+
         #expect(viewModel.state == .inicial(message: nil))
     }
 
@@ -246,7 +280,7 @@ struct SubirCartolaConsentTests {
 
     @Test func theConsentCopyIsTheFigmaText() {
         typealias VM = SubirCartolaViewModel
-        #expect(VM.consentTitle == "Antes de tu primera cartola")
+        #expect(VM.consentTitle == "Antes de subir tu cartola")
         #expect(VM.consentBody
             == "Para mostrarte tu 50/30/20 necesitamos leer los movimientos de tu cartola. Esto es lo que hacemos con ella.")
         #expect(VM.consentListHeader == "Qué hacemos con tu archivo")

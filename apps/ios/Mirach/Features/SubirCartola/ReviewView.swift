@@ -357,6 +357,8 @@ struct CategorySheet<CreateForm: View>: View {
     /// Grows with every category created: the form closes when it changes.
     let createdCount: Int
     let onSelect: (String) -> Void
+    /// Pinned under the list (the bucket detail's «Aplicar a “…”» and «Guardar»); `nil` shows nothing.
+    var footer: AnyView? = nil
     @ViewBuilder let createForm: () -> CreateForm
     @Environment(\.dismiss) private var dismiss
     @State private var showingForm = false
@@ -421,6 +423,16 @@ struct CategorySheet<CreateForm: View>: View {
             .disabled(isBusy)
             .overlay { if isBusy { ProgressView().controlSize(.large).accessibilityLabel("Moviendo el movimiento") } }
             .safeAreaInset(edge: .top, spacing: 0) { rowSummary }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let footer {
+                    footer
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.Mirach.Base.card)
+                        .overlay(alignment: .top) { Divider().overlay(Color.Mirach.Base.border) }
+                        .disabled(isBusy)
+                }
+            }
             .navigationTitle("Categoría")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showingForm) { createForm() }

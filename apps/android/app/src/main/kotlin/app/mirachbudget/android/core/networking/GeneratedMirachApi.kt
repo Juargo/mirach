@@ -4,6 +4,13 @@ import app.mirachbudget.android.core.staging.CartolaFile
 import app.mirachbudget.android.core.api.generated.apis.DefaultApi
 import app.mirachbudget.android.core.api.generated.models.ApiAuthGoogleTokenPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiAuthLoginPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiCategoriasIdPatchRequest
+import app.mirachbudget.android.core.api.generated.models.ApiPatronesIdPatchRequest
+import app.mirachbudget.android.core.api.generated.models.ApiPatronesPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiPatronesVistaPreviaPostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiTransaccionesIdCategoriaPatchRequest
+import app.mirachbudget.android.core.api.generated.models.ApiTransaccionesIdCategoriaPatchRequestAplicarAParecidos
+import app.mirachbudget.android.core.api.generated.models.PatronResponse
 import app.mirachbudget.android.core.api.generated.models.ApiCategoriasPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCategoriasPostRequestPatronesInner
 import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet200ResponseConsentimientosInner
@@ -198,6 +205,13 @@ class GeneratedMirachApi(
         if (!response.isSuccessful) throw ApiException(response.code())
     }
 
+    override suspend fun revocarConsentimientoCartolas() {
+        val sentToken = tokenProvider.token()
+        val response = api.apiConsentimientosTipoDelete(DefaultApi.TipoApiConsentimientosTipoDelete.cartolas.value)
+        if (response.code() == 401) throw rejection(response, sentToken)
+        if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
     override suspend fun cartolasSubidas(): List<CartolaSubida> {
         val sentToken = tokenProvider.token()
         val response = api.apiIngestasGet()
@@ -213,6 +227,154 @@ class GeneratedMirachApi(
             404 -> throw CartolaNotFoundException()
         }
         if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
+    override suspend fun bucketDetalle(bucket: Bucket, periodo: Periodo): BucketDetalle {
+        val sentToken = tokenProvider.token()
+        val response = api.apiBucketsBucketDetalleGet(bucket.apiName, periodo.apiValue)
+        // 400 means a bucket or month the app built itself is wrong: a bug, not a user error.
+        if (response.code() == 401) throw rejection(response, sentToken)
+        return BucketDetalleMapper.detalle(response.bodyOrThrow("GET /api/buckets/{bucket}/detalle"))
+    }
+
+    override suspend fun reclasificar(transaccionId: String, categoriaId: String, aplicarAParecidos: Periodo?): Reclasificacion {
+        val sentToken = tokenProvider.token()
+        val response = api.apiTransaccionesIdCategoriaPatch(
+            transaccionId,
+            ApiTransaccionesIdCategoriaPatchRequest(
+                categoriaId = categoriaId,
+                aplicarAParecidos = aplicarAParecidos?.let { ApiTransaccionesIdCategoriaPatchRequestAplicarAParecidos(it.apiValue) },
+            ),
+        )
+        when (response.code()) {
+            // The 400 has no documented body; the app only applies a suggestion the API made, so
+            // the one it can provoke is a category deleted meanwhile.
+            400 -> throw ReclasificarException.CategoryNotFound()
+            401 -> throw rejection(response, sentToken)
+            404 -> throw ReclasificarException.MovementNotFound()
+        }
+        val body = response.bodyOrThrow("PATCH /api/transacciones/{id}/categoria")
+        return Reclasificacion(
+            categoriaId = body.categoria.id,
+            categoriaNombre = body.categoria.nombre,
+            bucket = BucketDetalleMapper.bucket(body.bucket),
+            movidos = body.movidos,
+        )
+    }
+
+    override suspend fun parecidos(transaccionId: String, categoriaId: String, periodo: Periodo): Parecidos {
+        val sentToken = tokenProvider.token()
+        val response = api.apiTransaccionesIdParecidosGet(transaccionId, categoriaId, periodo.apiValue)
+        when (response.code()) {
+            401 -> throw rejection(response, sentToken)
+            404 -> throw if (errorCode(response) == "TRANSACCION_NO_ENCONTRADA") {
+                ReclasificarException.MovementNotFound()
+            } else {
+                ReclasificarException.CategoryNotFound()
+            }
+        }
+        val body = response.bodyOrThrow("GET /api/transacciones/{id}/parecidos")
+        return Parecidos(patron = body.patron, total = body.total, existente = body.existente?.let(BucketDetalleMapper::existente))
+    }
+
+    override suspend fun actualizarCategoria(id: String, cambios: CategoriaCambios): CategoriaCatalogo {
+        val sentToken = tokenProvider.token()
+        val response = api.apiCategoriasIdPatch(
+            id,
+            ApiCategoriasIdPatchRequest(bucket = cambios.bucket?.apiName, icono = cambios.icono, nombre = cambios.nombre),
+        )
+        when (response.code()) {
+            400, 409 -> throw categoriaFailure(response)
+            401 -> throw rejection(response, sentToken)
+            403 -> throw CategoriaException.IsInternal()
+            // Whatever its code, the category is not there.
+            404 -> throw CategoriaException.NotFound()
+        }
+        val updated = response.bodyOrThrow("PATCH /api/categorias/{id}")
+        return IngestaMapper.category(updated) ?: throw IngestaMapper.malformed("bucket ${updated.bucket}")
+    }
+
+    override suspend fun eliminarCategoria(id: String) {
+        val sentToken = tokenProvider.token()
+        val response = api.apiCategoriasIdDelete(id)
+        when (response.code()) {
+            401 -> throw rejection(response, sentToken)
+            403 -> throw CategoriaException.IsInternal()
+            404 -> throw CategoriaException.NotFound()
+        }
+        if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
+    override suspend fun crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?): PatronCreado {
+        val sentToken = tokenProvider.token()
+        val response = api.apiPatronesPost(
+            ApiPatronesPostRequest(
+                categoriaId = categoriaId,
+                matchType = "CONTAINS",
+                patron = patron,
+                moverDelPeriodo = moverDelPeriodo?.apiValue,
+            ),
+        )
+        when (response.code()) {
+            400, 404, 409 -> throw patronFailure(response)
+            401 -> throw rejection(response, sentToken)
+            // 403: «Desconocido» accepts no patterns (CLA-18); 503: the catalog could not be read
+            // to move the month. The server explains both.
+            403, 503 -> throw PatronException.Rejected(errorBody(response)?.message.orEmpty())
+        }
+        val body = response.bodyOrThrow("POST /api/patrones")
+        return PatronCreado(PatronCategoria(id = body.id, patron = body.patron, matchType = body.matchType), movidos = body.movidos)
+    }
+
+    override suspend fun vistaPreviaPatron(categoriaId: String, patron: String): VistaPreviaPatron {
+        val sentToken = tokenProvider.token()
+        val response = api.apiPatronesVistaPreviaPost(ApiPatronesVistaPreviaPostRequest(categoriaId = categoriaId, patron = patron))
+        when (response.code()) {
+            400, 404 -> throw patronFailure(response)
+            401 -> throw rejection(response, sentToken)
+            403 -> throw PatronException.Rejected(errorBody(response)?.message.orEmpty())
+        }
+        return BucketDetalleMapper.vistaPrevia(response.bodyOrThrow("POST /api/patrones/vista-previa"))
+    }
+
+    override suspend fun actualizarPatron(id: String, cambios: PatronCambios): PatronCategoria {
+        val sentToken = tokenProvider.token()
+        val response = api.apiPatronesIdPatch(id, ApiPatronesIdPatchRequest(categoriaId = cambios.categoriaId, patron = cambios.patron))
+        when (response.code()) {
+            400, 404, 409 -> throw patronFailure(response)
+            401 -> throw rejection(response, sentToken)
+            // CLA-18: moving it into «Desconocido»; the server explains why.
+            403 -> throw PatronException.Rejected(errorBody(response)?.message.orEmpty())
+        }
+        return pattern(response.bodyOrThrow("PATCH /api/patrones/{id}"))
+    }
+
+    override suspend fun eliminarPatron(id: String) {
+        val sentToken = tokenProvider.token()
+        val response = api.apiPatronesIdDelete(id)
+        when (response.code()) {
+            401 -> throw rejection(response, sentToken)
+            404 -> throw PatronException.PatternNotFound()
+        }
+        if (!response.isSuccessful) throw ApiException(response.code())
+    }
+
+    private fun pattern(wire: PatronResponse) = PatronCategoria(id = wire.id, patron = wire.patron, matchType = wire.matchType)
+
+    /** One case per `code` the pattern endpoints name; anything else keeps the server's message. */
+    private fun patronFailure(response: Response<*>): Exception {
+        val error = errorBody(response) ?: return ApiException(response.code())
+        return when (error.code) {
+            "PATRON_INVALIDO" -> PatronException.InvalidPattern()
+            "MATCH_TYPE_INVALIDO" -> PatronException.InvalidMatchType()
+            "REGEX_INVALIDA" -> PatronException.InvalidRegex()
+            "PRIORIDAD_INVALIDA" -> PatronException.InvalidPriority()
+            // CLA-17: the 409 names the holder when it can; an unknown bucket keeps the plain case.
+            "PATRON_DUPLICADO" -> error.existente?.let { PatronException.DuplicateOf(it) } ?: PatronException.Duplicate()
+            "CATEGORIA_NO_ENCONTRADA" -> PatronException.CategoryNotFound()
+            "PATRON_NO_ENCONTRADO" -> PatronException.PatternNotFound()
+            else -> PatronException.Rejected(error.message.orEmpty())
+        }
     }
 
     /**
@@ -319,12 +481,28 @@ class GeneratedMirachApi(
         } catch (_: IllegalArgumentException) {
             null
         } ?: return null
-        return ErrorBody(code = obj.text("code"), message = obj.text("message"), indice = (obj["indice"] as? JsonPrimitive)?.intOrNull)
+        return ErrorBody(
+            code = obj.text("code"),
+            message = obj.text("message"),
+            indice = (obj["indice"] as? JsonPrimitive)?.intOrNull,
+            existente = (obj["existente"] as? JsonObject)?.existente(),
+        )
+    }
+
+    /** `null` when any field is missing or the bucket is unknown: the plain duplicate case. */
+    private fun JsonObject.existente(): PatronExistente? {
+        val bucket = text("bucket")?.let(Bucket::fromApi) ?: return null
+        return PatronExistente(
+            patronId = text("patronId") ?: return null,
+            categoriaId = text("categoriaId") ?: return null,
+            categoria = text("categoria") ?: return null,
+            bucket = bucket,
+        )
     }
 
     private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
-    private class ErrorBody(val code: String?, val message: String?, val indice: Int?)
+    private class ErrorBody(val code: String?, val message: String?, val indice: Int?, val existente: PatronExistente? = null)
 
     private companion object {
         val errorJson = Json { ignoreUnknownKeys = true }

@@ -14,7 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/** `GET/POST /api/categorias` and `GET/POST /api/consentimientos` of [GeneratedMirachApi] against a fake server. */
+/** `GET/POST /api/categorias` and `GET/POST/DELETE /api/consentimientos` of [GeneratedMirachApi] against a fake server. */
 class CategoriasConsentimientosApiTest {
     private val server = MockWebServer()
     private val expired = mutableListOf<String>()
@@ -60,9 +60,9 @@ class CategoriasConsentimientosApiTest {
         // A bucket the app does not know cannot be placed in a group: left out.
         assertEquals(
             listOf(
-                CategoriaCatalogo("c1", "Arriendo", Bucket.Necesidades, "casa"),
-                CategoriaCatalogo("c2", "Cine", Bucket.Deseos, null),
-                CategoriaCatalogo("c4", "Luz", Bucket.Necesidades, null),
+                CategoriaCatalogo("c1", "Arriendo", Bucket.Necesidades, "casa", transaccionesCount = 4),
+                CategoriaCatalogo("c2", "Cine", Bucket.Deseos, null, transaccionesCount = 4),
+                CategoriaCatalogo("c4", "Luz", Bucket.Necesidades, null, transaccionesCount = 4),
             ),
             catalog.categorias,
         )
@@ -95,7 +95,7 @@ class CategoriasConsentimientosApiTest {
 
         val created = api().crearCategoria(NuevaCategoria(nombre = "Mascotas", bucket = Bucket.Deseos, patron = "  PET SHOP ", icono = "pata"))
 
-        assertEquals(CategoriaCatalogo("c9", "Mascotas", Bucket.Deseos, "pata"), created)
+        assertEquals(CategoriaCatalogo("c9", "Mascotas", Bucket.Deseos, "pata", transaccionesCount = 4), created)
         val r = request()
         assertEquals("POST", r.method)
         assertEquals("/api/categorias", r.url.encodedPath)
@@ -242,5 +242,34 @@ class CategoriasConsentimientosApiTest {
 
         assertThrows(ApiKeyRejectedException::class.java) { runBlocking { api().aceptarConsentimientoCartolas() } }
         assertEquals(emptyList<String>(), expired)
+    }
+
+    // --- DELETE /api/consentimientos/cartolas
+
+    @Test
+    fun revokingSendsTheDeleteForCartolas() = runBlocking<Unit> {
+        server.enqueue(MockResponse.Builder().code(204).build())
+
+        api().revocarConsentimientoCartolas()
+
+        val r = request()
+        assertEquals("DELETE", r.method)
+        assertEquals("/api/consentimientos/cartolas", r.url.encodedPath)
+        assertEquals("Bearer tok-1", r.headers["Authorization"])
+    }
+
+    @Test
+    fun aRejectedRevocationIsAnApiException() {
+        json(500, """{"code":"ERROR_INTERNO"}""")
+
+        assertEquals(500, assertThrows(ApiException::class.java) { runBlocking { api().revocarConsentimientoCartolas() } }.status)
+    }
+
+    @Test
+    fun anExpiredSessionWhileRevokingGoesThroughTheRelay() {
+        json(401, """{"code":"SESION_INVALIDA"}""")
+
+        assertThrows(SessionExpiredException::class.java) { runBlocking { api("tok-7").revocarConsentimientoCartolas() } }
+        assertEquals(listOf("tok-7"), expired)
     }
 }

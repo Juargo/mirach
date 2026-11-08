@@ -1,4 +1,5 @@
 import { MatchType } from '../../domain/value-objects/patron-clasificacion';
+import { PatronExistente } from '../../domain/value-objects/patron-existente';
 
 /**
  * Patron — forma de lectura de un patrón de clasificación, para el
@@ -28,12 +29,18 @@ export interface Patron {
 export interface IPatronRepository {
   buscarPorId(userId: string, id: string): Promise<Patron | null>;
 
-  /** Comparación case-insensitive, userId-scoped; `excluirId` habilita la auto-exclusión en PATCH. */
-  existePatron(
+  /**
+   * El patrón del usuario que ya tiene ese texto, con su categoría y bucket
+   * (CLA-17), o `null`. Pliega mayúsculas Y tildes ("cafe" ≡ "Café"): como
+   * SQL no pliega tildes, el adapter lee los patrones del usuario (`userId`
+   * en el WHERE) y compara en memoria con `buscarPatronPorTexto`.
+   * `excluirId` habilita la auto-exclusión en PATCH.
+   */
+  buscarPorTexto(
     userId: string,
     patron: string,
     excluirId?: string,
-  ): Promise<boolean>;
+  ): Promise<PatronExistente | null>;
 
   crear(
     userId: string,
@@ -48,7 +55,14 @@ export interface IPatronRepository {
   actualizar(
     userId: string,
     id: string,
-    patch: { patron?: string; matchType?: MatchType; prioridad?: number },
+    /** `categoriaId` (CLA-17) is already validated as the caller's own,
+     * non-internal category; the row keeps its id and `creadoEn`. */
+    patch: {
+      patron?: string;
+      matchType?: MatchType;
+      prioridad?: number;
+      categoriaId?: string;
+    },
   ): Promise<Patron>;
 
   /** `false` ⇒ el patrón no existe o no pertenece al usuario (anti-enumeration). */

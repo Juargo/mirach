@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { patronExistenteSchema } from './patrones.schema';
 
 /**
  * catalogoErrorResponseSchema — shared non-2xx body for the 4 new catalog
@@ -19,6 +20,9 @@ export const catalogoErrorResponseSchema = z
     // `patrones[]` array of POST /api/categorias. Optional: every other
     // error on these 4 endpoints omits it.
     indice: z.number().optional(),
+    // CLA-17: only on a 409 PATRON_DUPLICADO — the pattern that already
+    // holds the text, with its category and bucket. Additive.
+    existente: patronExistenteSchema.optional(),
   })
   .meta({
     id: 'CatalogoErrorResponse',

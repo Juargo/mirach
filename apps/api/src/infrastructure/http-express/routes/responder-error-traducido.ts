@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import type { PatronExistenteDto } from '../../http/dto/patron.dto';
 
 /**
  * ErrorTraducido — la forma común que devuelve CADA traductor
@@ -16,6 +17,9 @@ export interface ErrorTraducido {
    * campo hoy es `POST /api/categorias` con `patrones[]`. Ausente en
    * cualquier otra respuesta de error. */
   readonly indice?: number;
+  /** CLA-17: the pattern that already holds the text, on a 409
+   * `PATRON_DUPLICADO` whose caller knows it. Absent otherwise. */
+  readonly existente?: PatronExistenteDto;
 }
 
 /**
@@ -36,5 +40,8 @@ export function responderErrorTraducido(
     message: traduccion.message,
     ...(traduccion.code ? { code: traduccion.code } : {}),
     ...(traduccion.indice !== undefined ? { indice: traduccion.indice } : {}),
+    ...(traduccion.existente !== undefined
+      ? { existente: traduccion.existente }
+      : {}),
   });
 }

@@ -381,12 +381,13 @@ private struct PatternRow: View {
     }
 }
 
-/// The sheet for a new pattern or the edit of one: text and match type, with the server's
-/// verdict (invalid expression, duplicate) under the field.
+/// The sheet for a new pattern or the edit of one (Figma 28 and 30). A new pattern is always
+/// «contains» (CLA-14): while typing, it shows what the text would move this month and offers to
+/// move it too (CLA-15); a text of another category offers to move that pattern here (CLA-17).
+/// Editing changes only the text.
 private struct PatternSheet: View {
-    let viewModel: DetalleCategoriaViewModel
+    @Bindable var viewModel: DetalleCategoriaViewModel
     @State private var text = ""
-    @State private var matchType: MatchType = .contains
     @State private var seeded = false
 
     private var isEditing: Bool {
@@ -397,7 +398,7 @@ private struct PatternSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Texto a buscar", text: $text)
+                    TextField("Texto que aparece en la cartola", text: $text)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .accessibilityIdentifier("pattern.text")
@@ -407,28 +408,54 @@ private struct PatternSheet: View {
                             .foregroundStyle(Color.Mirach.Feedback.errorText)
                             .accessibilityIdentifier("pattern.error.text")
                     }
-                } header: { Text("Patrón") } footer: {
-                    Text("Compara con la descripción del movimiento. Distingue tildes, no mayúsculas.")
-                }
+                } header: { Text("Texto que aparece en la cartola") }
                 .listRowBackground(Color.Mirach.Base.card)
 
-                Section {
-                    ForEach(MatchType.options(including: viewModel.patternSheetMatchType), id: \.apiName) { option in
-                        Button { matchType = option } label: {
-                            HStack {
-                                Text(option.label).foregroundStyle(Color.Mirach.Base.foreground)
-                                Spacer()
-                                if matchType == option { Image(systemName: "checkmark").accessibilityHidden(true) }
-                            }
-                            .frame(minHeight: 44)
-                            .contentShape(Rectangle())
+                if let conflict = viewModel.patternConflict, let here = viewModel.category {
+                    Section {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(DetalleCategoriaPresentation.conflictTitle(conflict))
+                                .font(.mirach(.subheadline).weight(.semibold))
+                                .foregroundStyle(Color.Mirach.Base.foreground)
+                            Text(DetalleCategoriaPresentation.conflictRule)
+                            Text(DetalleCategoriaPresentation.conflictConsequence(conflict, here: here))
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(matchType == option ? .isSelected : [])
-                        .accessibilityIdentifier("pattern.type.\(option.apiName)")
+                        .font(.mirach(.footnote))
+                        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("pattern.conflict")
                     }
-                } header: { Text("Tipo de coincidencia") }
                     .listRowBackground(Color.Mirach.Base.card)
+                } else if let preview = viewModel.patternPreview, let here = viewModel.category {
+                    Section {
+                        ForEach(preview.coincidencias) { row in
+                            Text(DetalleCategoriaPresentation.previewRow(row))
+                                .font(.mirach(.footnote))
+                                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                                .accessibilityLabel(DetalleCategoriaPresentation.previewRowLabel(row))
+                        }
+                    } header: {
+                        Text(DetalleCategoriaPresentation.previewTitle(total: preview.total, periodo: preview.periodo))
+                            .textCase(nil)
+                            .accessibilityIdentifier("pattern.preview")
+                    }
+                    .listRowBackground(Color.Mirach.Base.card)
+
+                    if viewModel.offersMoveMatches {
+                        Section {
+                            CheckboxRow(
+                                title: DetalleCategoriaPresentation.moveMatchesTitle(total: preview.total, categoria: here.nombre),
+                                lines: [DetalleCategoriaPresentation.moveMatchesNote],
+                                spokenLabel: DetalleCategoriaPresentation.moveMatchesTitle(total: preview.total, categoria: here.nombre)
+                                    + ". " + DetalleCategoriaPresentation.moveMatchesNote,
+                                identifier: "pattern.moveMatches",
+                                isOn: $viewModel.moveMatches
+                            )
+                        }
+                        .listRowBackground(Color.Mirach.Base.card)
+                    }
+                }
 
                 if let general = viewModel.patternErrors.general {
                     Section {
@@ -441,6 +468,7 @@ private struct PatternSheet: View {
             }
             .scrollContentBackground(.hidden)
             .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
+            .safeAreaInset(edge: .bottom, spacing: 0) { actions }
             .navigationTitle(isEditing ? "Editar patrón" : "Nuevo patrón")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -449,26 +477,44 @@ private struct PatternSheet: View {
                         .disabled(viewModel.isSavingPattern)
                         .accessibilityIdentifier("pattern.cancel")
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    if viewModel.isSavingPattern {
-                        ProgressView().accessibilityLabel("Guardando…")
-                    } else {
-                        Button("Guardar") { Task { await viewModel.savePattern(text: text, matchType: matchType) } }
-                            .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
-                            .accessibilityIdentifier("pattern.save")
-                    }
-                }
             }
+            // Keyed by the text: every keystroke cancels the previous wait (the debounce).
+            .task(id: text) { await viewModel.previewPattern(text) }
             .onAppear {
                 // Once: the sheet may re-appear while a field error is up.
                 guard !seeded else { return }
                 seeded = true
-                if case .editing(let pattern) = viewModel.patternSheet {
-                    text = pattern.patron
-                    matchType = viewModel.patternSheetMatchType
-                }
+                if case .editing(let pattern) = viewModel.patternSheet { text = pattern.patron }
             }
         }
         .accessibilityIdentifier("pattern.sheet")
+    }
+
+    @ViewBuilder private var actions: some View {
+        VStack(spacing: 12) {
+            if viewModel.isSavingPattern {
+                ProgressView().frame(minHeight: 44).accessibilityLabel("Guardando…")
+            } else if viewModel.patternConflict != nil, let here = viewModel.category {
+                Button { Task { await viewModel.movePatternHere() } } label: {
+                    Text(DetalleCategoriaPresentation.moveHere(here)).frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .prominentButton()
+                .accessibilityIdentifier("pattern.moveHere")
+                Button { viewModel.dismissPatternSheet() } label: {
+                    Text("Cancelar").frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
+                .accessibilityIdentifier("pattern.conflict.cancel")
+            } else {
+                Button { Task { await viewModel.savePattern(text: text) } } label: {
+                    Text("Guardar patrón").frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .prominentButton()
+                .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityIdentifier("pattern.save")
+            }
+        }
+        .padding(16)
+        .background(Color.Mirach.Base.background)
     }
 }

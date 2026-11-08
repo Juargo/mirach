@@ -72,7 +72,8 @@ fun SubirCartolaRoute(
     val scope = viewModel.viewModelScope
     val resolver = LocalContext.current.contentResolver
     var confirmingDiscard by rememberSaveable { mutableStateOf(false) }
-    // `start` only acts on `Preparando`, so running it again after a rotation or a tab switch is harmless.
+    // `start` only acts on `Preparando` or the idle initial screen, so running it again after a
+    // rotation or a tab switch costs at most one consent check and brings back a revoked consent.
     LaunchedEffect(viewModel) { viewModel.start() }
 
     // The system picker, limited to the two formats the API reads. A cancelled pick returns null.

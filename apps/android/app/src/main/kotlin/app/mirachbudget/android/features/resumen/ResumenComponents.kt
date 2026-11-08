@@ -3,6 +3,7 @@ package app.mirachbudget.android.features.resumen
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +26,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +40,7 @@ import app.mirachbudget.android.core.design.MirachCopy
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.mirachFigures
 import app.mirachbudget.android.core.formatting.Format
+import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.BucketResumen
 import app.mirachbudget.android.core.networking.Periodo
 import app.mirachbudget.android.core.networking.ResumenMes
@@ -160,7 +165,7 @@ private fun Arrow(glyph: String, label: String, target: Periodo?, onSelect: (Per
 
 /** The month with data: income, the distribution chart and one row per bucket. */
 @Composable
-fun ResumenContent(mes: ResumenMes, modifier: Modifier = Modifier) {
+fun ResumenContent(mes: ResumenMes, modifier: Modifier = Modifier, onOpenBucket: ((Bucket) -> Unit)? = null) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         IncomeCard(mes)
         if (mes.hasSpending()) {
@@ -174,7 +179,7 @@ fun ResumenContent(mes: ResumenMes, modifier: Modifier = Modifier) {
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            mes.buckets.forEach { BucketRow(it) }
+            mes.buckets.forEach { item -> BucketRow(item, onOpen = onOpenBucket?.let { open -> { open(item.bucket) } }) }
         }
     }
 }
@@ -236,9 +241,15 @@ fun DistribucionChart(buckets: List<BucketResumen>, modifier: Modifier = Modifie
     }
 }
 
-/** One legend row: swatch, name, spend, share of the income and target. Always shown, so the chart is never the only way to see a bucket. */
+/** What TalkBack offers on a bucket row that opens its movements (iOS: «Ver los movimientos»). */
+internal const val BUCKET_ROW_HINT = "Ver los movimientos"
+
+/**
+ * One legend row: swatch, name, spend, share of the income and target. Always shown, so the chart is
+ * never the only way to see a bucket. With [onOpen] the row is a button that opens the bucket's movements.
+ */
 @Composable
-private fun BucketRow(item: BucketResumen) {
+private fun BucketRow(item: BucketResumen, onOpen: (() -> Unit)? = null) {
     val name: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // The bucket color is a fill; the name next to it is the real label.
@@ -265,7 +276,17 @@ private fun BucketRow(item: BucketResumen) {
             )
         }
     }
-    Box(Modifier.card().clearAndSetSemantics { contentDescription = item.accessibilityLabel() }) {
+    val label = item.accessibilityLabel()
+    val clickable = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier
+    Box(
+        clickable.card().clearAndSetSemantics {
+            contentDescription = label
+            if (onOpen != null) {
+                role = Role.Button
+                onClick(label = BUCKET_ROW_HINT) { onOpen(); true }
+            }
+        },
+    ) {
         if (isLargeText()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 name()

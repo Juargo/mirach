@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "Perfil": edit the name, see the email, sign out, delete the account.
+/// "Perfil": edit the name, see the email, revoke the statement consent, sign out, delete the account.
 struct PerfilView: View {
     @State private var viewModel: PerfilViewModel
     @State private var confirmingDeletion = false
@@ -33,6 +33,20 @@ struct PerfilView: View {
                     AccessibilityNotification.Announcement(PerfilViewModel.savedMessage).post()
                 }
             }
+            .onChange(of: viewModel.revokeState) {
+                if viewModel.revokeState == .revoked {
+                    AccessibilityNotification.Announcement(PerfilViewModel.revokedMessage).post()
+                }
+            }
+            // Only "Revocar" reaches the API.
+            .alert(PerfilViewModel.revokeConfirmationTitle, isPresented: $viewModel.isConfirmingRevocation) {
+                Button(PerfilViewModel.revokeConfirmButton, role: .destructive) {
+                    Task { await viewModel.revokeConsent() }
+                }
+                Button(PerfilViewModel.revokeCancelButton, role: .cancel) { viewModel.cancelRevocation() }
+            } message: {
+                Text(PerfilViewModel.revokeConfirmationMessage)
+            }
         }
     }
 
@@ -63,6 +77,8 @@ struct PerfilView: View {
         case .loaded:
             nameSection
             if let email = viewModel.email { emailSection(email) }
+            // Hidden while the consent is unknown (loading, or its check failed).
+            if let text = viewModel.consentText { consentSection(text) }
             sessionSection
         }
     }
@@ -127,6 +143,42 @@ struct PerfilView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("perfil.email")
+    }
+
+    private func consentSection(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(PerfilViewModel.consentTitle)
+                    .font(.mirach(.footnote))
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    .accessibilityAddTraits(.isHeader)
+                Text(text)
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("perfil.consent.text")
+            }
+            if viewModel.showsRevokeButton {
+                Button(role: .destructive) {
+                    viewModel.askToRevoke()
+                } label: {
+                    // The same label while the request is out (as on Android); the button is disabled.
+                    Text(PerfilViewModel.revokeButtonTitle).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Feedback.errorText))
+                .disabled(!viewModel.showsRevokeButtonEnabled)
+                .accessibilityIdentifier("perfil.consent.revoke")
+            }
+            if let message = viewModel.revokeFailureMessage {
+                Label(message, systemImage: "exclamationmark.circle")
+                    .foregroundStyle(Color.Mirach.Feedback.errorText)
+                    .accessibilityIdentifier("perfil.consent.error")
+            } else if let message = viewModel.revokeMessage {
+                Label(message, systemImage: "checkmark.circle")
+                    .foregroundStyle(Color.Mirach.Feedback.successText)
+                    .accessibilityIdentifier("perfil.consent.revoked")
+            }
+        }
+        .accessibilityIdentifier("perfil.consent")
     }
 
     private var sessionSection: some View {

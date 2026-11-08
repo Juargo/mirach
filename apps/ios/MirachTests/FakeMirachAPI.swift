@@ -30,6 +30,18 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     struct ReclasificarCall: Equatable {
         let transaccionId: String
         let categoriaId: String
+        var aplicarAParecidos: Periodo? = nil
+    }
+
+    struct ParecidosCall: Equatable {
+        let transaccionId: String
+        let categoriaId: String
+        let periodo: Periodo
+    }
+
+    struct VistaPreviaCall: Equatable {
+        let categoriaId: String
+        let patron: String
     }
 
     struct ActualizarCategoriaCall: Equatable {
@@ -41,6 +53,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let categoriaId: String
         let patron: String
         let matchType: MatchType
+        var moverDelPeriodo: Periodo? = nil
     }
 
     struct ActualizarPatronCall: Equatable {
@@ -115,6 +128,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         .success(PatronCategoria(id: "pat-new", patron: "x", matchType: .contains))
     ]
     private var _crearPatronCalls: [CrearPatronCall] = []
+    private var _crearPatronMovidos = 0
+    private var vistaPreviaResults: [Result<VistaPreviaPatron, any Error>] = [
+        .success(VistaPreviaPatron(periodo: Periodo("2026-09")!, patron: "x", total: 0, coincidencias: [], existente: nil))
+    ]
+    private var _vistaPreviaCalls: [VistaPreviaCall] = []
+    private var parecidosResults: [Result<Parecidos, any Error>] = [.success(.ninguno)]
+    private var _parecidosCalls: [ParecidosCall] = []
     private var actualizarPatronResults: [Result<PatronCategoria, any Error>] = [
         .success(PatronCategoria(id: "pat-edit", patron: "x", matchType: .contains))
     ]
@@ -131,6 +151,9 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var aceptarResults: [Result<Void, any Error>] = [.success(())]
     private var _aceptarCalls = 0
     private var _aceptarGate: Gate?
+    private var revocarResults: [Result<Void, any Error>] = [.success(())]
+    private var _revocarCalls = 0
+    private var _revocarGate: Gate?
 
     init(
         versionResult: Result<VersionInfo, any Error> = .success(VersionInfo(version: "0", commit: "0")),
@@ -320,6 +343,38 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         try result.get()
     }
 
+    /// `movidos` of every `crearPatron(categoriaId:patron:moverDelPeriodo:)` that succeeds.
+    func setCrearPatronMovidos(_ movidos: Int) { lock.withLock { _crearPatronMovidos = movidos } }
+
+    func crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?) async throws -> PatronCreado {
+        let (result, gate, movidos) = lock.withLock {
+            _crearPatronCalls.append(CrearPatronCall(
+                categoriaId: categoriaId, patron: patron, matchType: .contains, moverDelPeriodo: moverDelPeriodo
+            ))
+            return (
+                crearPatronResults.count > 1 ? crearPatronResults.removeFirst() : crearPatronResults[0],
+                _catalogWriteGate, _crearPatronMovidos
+            )
+        }
+        await gate?.wait()
+        return PatronCreado(patron: try result.get(), movidos: movidos)
+    }
+
+    /// Answers for the next `vistaPreviaPatron` calls, in order; the last one repeats.
+    func setVistaPreviaResults(_ results: [Result<VistaPreviaPatron, any Error>]) {
+        lock.withLock { vistaPreviaResults = results }
+    }
+
+    var vistaPreviaCalls: [VistaPreviaCall] { lock.withLock { _vistaPreviaCalls } }
+
+    func vistaPreviaPatron(categoriaId: String, patron: String) async throws -> VistaPreviaPatron {
+        let result = lock.withLock {
+            _vistaPreviaCalls.append(VistaPreviaCall(categoriaId: categoriaId, patron: patron))
+            return vistaPreviaResults.count > 1 ? vistaPreviaResults.removeFirst() : vistaPreviaResults[0]
+        }
+        return try result.get()
+    }
+
     func crearPatron(categoriaId: String, patron: String, matchType: MatchType) async throws -> PatronCategoria {
         let (result, gate) = lock.withLock {
             _crearPatronCalls.append(CrearPatronCall(categoriaId: categoriaId, patron: patron, matchType: matchType))
@@ -461,9 +516,32 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     }
 
     func reclasificar(transaccionId: String, categoriaId: String) async throws -> Reclasificacion {
+        try await reclasificar(transaccionId: transaccionId, categoriaId: categoriaId, aplicarAParecidos: nil)
+    }
+
+    /// Answers for the next `parecidos` calls, in order; the last one repeats. Nothing to offer by default.
+    func setParecidosResults(_ results: [Result<Parecidos, any Error>]) {
+        lock.withLock { parecidosResults = results }
+    }
+
+    var parecidosCalls: [ParecidosCall] { lock.withLock { _parecidosCalls } }
+
+    func parecidos(transaccionId: String, categoriaId: String, periodo: Periodo) async throws -> Parecidos {
+        let result = lock.withLock {
+            _parecidosCalls.append(ParecidosCall(transaccionId: transaccionId, categoriaId: categoriaId, periodo: periodo))
+            return parecidosResults.count > 1 ? parecidosResults.removeFirst() : parecidosResults[0]
+        }
+        return try result.get()
+    }
+
+    func reclasificar(
+        transaccionId: String, categoriaId: String, aplicarAParecidos: Periodo?
+    ) async throws -> Reclasificacion {
         await reclasificarGate?.wait()
         let result = lock.withLock {
-            _reclasificarCalls.append(ReclasificarCall(transaccionId: transaccionId, categoriaId: categoriaId))
+            _reclasificarCalls.append(ReclasificarCall(
+                transaccionId: transaccionId, categoriaId: categoriaId, aplicarAParecidos: aplicarAParecidos
+            ))
             return reclasificarResults.count > 1 ? reclasificarResults.removeFirst() : reclasificarResults[0]
         }
         return try result.get()
@@ -503,6 +581,28 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let (result, gate) = lock.withLock {
             _aceptarCalls += 1
             return (aceptarResults.count > 1 ? aceptarResults.removeFirst() : aceptarResults[0], _aceptarGate)
+        }
+        await gate?.wait()
+        try result.get()
+    }
+
+    /// Answers for the next `revocarConsentimientoCartolas()` calls, in order; the last one repeats.
+    func setRevocarResults(_ results: [Result<Void, any Error>]) {
+        lock.withLock { revocarResults = results }
+    }
+
+    var revocarCalls: Int { lock.withLock { _revocarCalls } }
+
+    /// When set, `revocarConsentimientoCartolas` waits at the gate before delivering its answer.
+    var revocarGate: Gate? {
+        get { lock.withLock { _revocarGate } }
+        set { lock.withLock { _revocarGate = newValue } }
+    }
+
+    func revocarConsentimientoCartolas() async throws {
+        let (result, gate) = lock.withLock {
+            _revocarCalls += 1
+            return (revocarResults.count > 1 ? revocarResults.removeFirst() : revocarResults[0], _revocarGate)
         }
         await gate?.wait()
         try result.get()

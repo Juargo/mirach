@@ -81,7 +81,7 @@ services:
         - apps/api/**/*.md
     envVars:
       - key: NODE_VERSION
-        value: "22.22.3"
+        value: "22.23.4"
       # ADR-029: env.ts's superRefine only enforces the production rules
       # (COOKIE_SECURE=true, Supabase host, ALLOW_DESTRUCTIVE_DB absent) when
       # NODE_ENV === 'production'. Render does NOT set this implicitly, so it

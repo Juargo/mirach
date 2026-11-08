@@ -5,6 +5,36 @@ import Foundation
 extension PerfilViewModel {
     static let savedMessage = "Perfil guardado"
 
+    // MARK: statement consent (PRI-06); the same words as Android.
+
+    static let consentTitle = "Procesamiento de cartolas"
+    static let revokeButtonTitle = "Revocar consentimiento"
+    static let revokeConfirmationTitle = "¿Revocar consentimiento?"
+    static let revokeConfirmationMessage =
+        "No podrás subir nuevas cartolas hasta que vuelvas a aceptarlo. Tus movimientos ya importados no se borran."
+    static let revokeConfirmButton = "Revocar"
+    static let revokeCancelButton = "Cancelar"
+    static let revokedMessage = "Consentimiento revocado"
+
+    /// `nil` while the consent is unknown: the section is not shown.
+    var consentText: String? {
+        switch cartolasConsent {
+        case true?: "Aceptaste que leamos tus cartolas para calcular tu 50/30/20."
+        case false?: "No has dado tu consentimiento. Te lo pediremos cuando subas una cartola."
+        case nil: nil
+        }
+    }
+
+    var revokeMessage: String? { revokeState == .revoked ? Self.revokedMessage : nil }
+
+    var revokeFailureMessage: String? {
+        guard case .failed(let failure) = revokeState else { return nil }
+        switch failure {
+        case .connection: return "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
+        case .server: return "No pudimos revocar el consentimiento. Inténtalo de nuevo."
+        }
+    }
+
     var loadFailureMessage: String? {
         guard case .failed(let failure) = loadState else { return nil }
         switch failure {

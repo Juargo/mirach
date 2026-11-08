@@ -339,7 +339,14 @@ final class MirachUITests: XCTestCase {
         // Netflix is in Suscripciones; Restaurantes is in the same bucket: no confirmation.
         element(app, "detalle.row.t-d3").tap()
         XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
+        let save = app.buttons["detalle.saveCategory"]
+        XCTAssertFalse(save.isEnabled, "«Guardar» waits for a category")
         element(app, "detalle.category.stub-des-rest").tap()
+        // Picking only selects: nothing is sent until «Guardar».
+        XCTAssertTrue(element(app, "detalle.category.stub-des-rest").isSelected)
+        XCTAssertTrue(element(app, "detalle.sheet").exists)
+        XCTAssertFalse(element(app, "detalle.announcement").exists)
+        save.tap()
 
         let announcement = element(app, "detalle.announcement")
         XCTAssertTrue(announcement.waitForExistence(timeout: 10))
@@ -356,13 +363,17 @@ final class MirachUITests: XCTestCase {
         element(app, "detalle.row.t-d5").tap()
         XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
         element(app, "detalle.category.stub-nec-super").tap()
+        XCTAssertFalse(app.alerts["Cambiar de grupo"].exists, "picking alone asks nothing")
+        let save = app.buttons["detalle.saveCategory"]
+        save.tap()
         // Another bucket: nothing is sent until the person confirms.
         XCTAssertTrue(app.alerts["Cambiar de grupo"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.alerts.staticTexts["Este movimiento pasará de Gustos a Necesidades y cambiará el cálculo del mes."].exists)
         app.alerts.buttons["Cancelar"].tap()
         XCTAssertTrue(element(app, "detalle.sheet").exists, "cancelling keeps the sheet and the movement")
+        XCTAssertTrue(element(app, "detalle.category.stub-nec-super").isSelected, "and the selection")
 
-        element(app, "detalle.category.stub-nec-super").tap()
+        save.tap()
         XCTAssertTrue(app.alerts["Cambiar de grupo"].waitForExistence(timeout: 10))
         app.alerts.buttons["Confirmar"].tap()
 
@@ -394,6 +405,13 @@ final class MirachUITests: XCTestCase {
         name.typeWhenFocused("Ropa")
         element(app, "category.bucket.Deseos").tap()
         app.buttons["category.save"].tap()
+
+        // The new category comes back to the sheet selected; «Guardar» moves the movement.
+        let save = app.buttons["detalle.saveCategory"]
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "detalle.category.stub-new-1").isSelected)
+        XCTAssertFalse(element(app, "detalle.announcement").exists)
+        save.tap()
 
         let announcement = element(app, "detalle.announcement")
         XCTAssertTrue(announcement.waitForExistence(timeout: 10))
@@ -516,7 +534,7 @@ final class MirachUITests: XCTestCase {
         openSubirTab(app)
 
         XCTAssertTrue(app.buttons["subir.consent.accept"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Antes de tu primera cartola"].exists)
+        XCTAssertTrue(app.staticTexts["Antes de subir tu cartola"].exists)
         XCTAssertTrue(app.buttons["subir.consent.decline"].exists)
         XCTAssertFalse(app.buttons["subir.chooseFile"].exists)
 
@@ -1069,32 +1087,26 @@ final class MirachUITests: XCTestCase {
     }
 
     @MainActor
-    func testPatternsAreAddedWithAFieldErrorForABadExpressionAndDeletedAfterConfirming() {
+    func testPatternsAreAddedAsContainsAndDeletedAfterConfirming() {
         let app = launch([savedSession])
         openCategoriasTab(app)
         element(app, "categorias.row.stub-des-rest").tap()
         XCTAssertTrue(reveal(app, "categoria.patterns.empty").waitForExistence(timeout: 10))
 
-        // A bad regular expression: the server's verdict under the field, the sheet stays.
+        // Only «Contiene» is offered (CLA-14): there is no type picker any more.
         reveal(app, "categoria.pattern.add").tap()
         let text = app.textFields["pattern.text"]
         XCTAssertTrue(text.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["pattern.type.REGEX"].exists)
+        XCTAssertFalse(app.buttons["pattern.type.STARTS_WITH"].exists)
         text.tap()
-        text.typeWhenFocused("[\n")
-        app.buttons["pattern.type.REGEX"].tap()
-        app.buttons["pattern.save"].tap()
-        XCTAssertTrue(element(app, "pattern.error.text").waitForExistence(timeout: 5))
-        XCTAssertEqual(element(app, "pattern.error.text").label, "Esa expresión regular no es válida")
-
-        // A valid one: «Empieza con».
-        replaceText(text, with: "RESTAURANT")
-        app.buttons["pattern.type.STARTS_WITH"].tap()
+        text.typeWhenFocused("RESTAURANT")
         app.buttons["pattern.save"].tap()
         XCTAssertEqual(element(app, "categoria.announcement").waitForExistence(timeout: 10), true)
         XCTAssertEqual(detailMessage(app), "Patrón guardado")
         let row = element(app, "categoria.pattern.stub-pat-1")
         XCTAssertTrue(row.exists)
-        XCTAssertEqual(row.label, "Empieza con: RESTAURANT")
+        XCTAssertEqual(row.label, "Contiene: RESTAURANT")
 
         // Delete asks first, and cancelling keeps it.
         reveal(app, "categoria.pattern.delete.stub-pat-1").tap()
