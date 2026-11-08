@@ -91,6 +91,8 @@ protocol MirachAPI: Sendable {
     func consentimientos() async throws -> Consentimientos
     /// `POST /api/consentimientos` with `{"tipo":"cartolas","version":LegalDocuments.version}`.
     func aceptarConsentimientoCartolas() async throws
+    /// `DELETE /api/consentimientos/cartolas` (PRI-06): revokes the consent; idempotent.
+    func revocarConsentimientoCartolas() async throws
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult

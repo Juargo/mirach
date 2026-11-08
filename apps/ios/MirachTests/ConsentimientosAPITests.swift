@@ -4,7 +4,7 @@ import Testing
 @testable import Mirach
 
 /// The statement-processing consent (PRI-02) through the real generated client and a fake
-/// transport: whether a `cartolas` consent is in force, and how it is accepted.
+/// transport: whether a `cartolas` consent is in force, and how it is accepted and revoked.
 struct ConsentimientosAPITests {
     private let serverURL = URL(string: "https://example.test")!
 
@@ -93,6 +93,44 @@ struct ConsentimientosAPITests {
 
         await #expect(throws: APIError.badStatus(500)) {
             try await makeAPI(transport).aceptarConsentimientoCartolas()
+        }
+    }
+
+    // MARK: DELETE /api/consentimientos/cartolas
+
+    @Test func revokingSendsADeleteForTheCartolasType() async throws {
+        let transport = FakeTransport { _ in (HTTPResponse(status: .noContent), nil) }
+
+        try await makeAPI(transport).revocarConsentimientoCartolas()
+
+        #expect(transport.requests.first?.method == .delete)
+        #expect(transport.requests.first?.path == "/api/consentimientos/cartolas")
+    }
+
+    @Test func revokingSendsAnExpiredSessionThroughTheSingleRelay() async {
+        let transport = FakeTransport.json(#"{"message":"x","code":"SESION_INVALIDA"}"#, status: .unauthorized)
+        let expired = LockedBox<[String]>([])
+
+        await #expect(throws: APIError.sessionExpired) {
+            try await makeAPI(transport, expired: { token in expired.mutate { $0.append(token) } })
+                .revocarConsentimientoCartolas()
+        }
+        #expect(expired.value == ["tok"])
+    }
+
+    @Test func revokingReportsAnUnexpectedStatus() async {
+        let transport = FakeTransport.json(#"{"message":"x"}"#, status: .internalServerError)
+
+        await #expect(throws: APIError.badStatus(500)) {
+            try await makeAPI(transport).revocarConsentimientoCartolas()
+        }
+    }
+
+    @Test func revokingReportsANetworkFailureAsIs() async {
+        let transport = FakeTransport.failing(URLError(.timedOut))
+
+        await #expect(throws: URLError.self) {
+            try await makeAPI(transport).revocarConsentimientoCartolas()
         }
     }
 }

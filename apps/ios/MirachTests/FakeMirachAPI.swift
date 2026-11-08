@@ -151,6 +151,9 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var aceptarResults: [Result<Void, any Error>] = [.success(())]
     private var _aceptarCalls = 0
     private var _aceptarGate: Gate?
+    private var revocarResults: [Result<Void, any Error>] = [.success(())]
+    private var _revocarCalls = 0
+    private var _revocarGate: Gate?
 
     init(
         versionResult: Result<VersionInfo, any Error> = .success(VersionInfo(version: "0", commit: "0")),
@@ -578,6 +581,28 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let (result, gate) = lock.withLock {
             _aceptarCalls += 1
             return (aceptarResults.count > 1 ? aceptarResults.removeFirst() : aceptarResults[0], _aceptarGate)
+        }
+        await gate?.wait()
+        try result.get()
+    }
+
+    /// Answers for the next `revocarConsentimientoCartolas()` calls, in order; the last one repeats.
+    func setRevocarResults(_ results: [Result<Void, any Error>]) {
+        lock.withLock { revocarResults = results }
+    }
+
+    var revocarCalls: Int { lock.withLock { _revocarCalls } }
+
+    /// When set, `revocarConsentimientoCartolas` waits at the gate before delivering its answer.
+    var revocarGate: Gate? {
+        get { lock.withLock { _revocarGate } }
+        set { lock.withLock { _revocarGate = newValue } }
+    }
+
+    func revocarConsentimientoCartolas() async throws {
+        let (result, gate) = lock.withLock {
+            _revocarCalls += 1
+            return (revocarResults.count > 1 ? revocarResults.removeFirst() : revocarResults[0], _revocarGate)
         }
         await gate?.wait()
         try result.get()

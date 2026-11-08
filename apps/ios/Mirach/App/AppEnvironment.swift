@@ -161,6 +161,10 @@ struct StubMirachAPI: MirachAPI {
         consent.accept()
     }
 
+    func revocarConsentimientoCartolas() async throws {
+        consent.revoke()
+    }
+
     /// The only credentials the stub accepts.
     static let reviewEmail = "revisor@example.com"
     static let reviewPassword = "correcta"
@@ -348,7 +352,7 @@ struct StubMirachAPI: MirachAPI {
     }
 }
 
-/// The stub's `cartolas` consent: accepting it lasts for the rest of the launch.
+/// The stub's `cartolas` consent: accepting or revoking it lasts for the rest of the launch.
 final class StubConsent: @unchecked Sendable {
     private let lock = NSLock()
     private var accepted: Bool
@@ -357,4 +361,5 @@ final class StubConsent: @unchecked Sendable {
 
     var inForce: Bool { lock.withLock { accepted } }
     func accept() { lock.withLock { accepted = true } }
+    func revoke() { lock.withLock { accepted = false } }
 }
