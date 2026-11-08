@@ -83,3 +83,6 @@ openapi.html
 
 # iOS secrets (public client key); the example next to it is committed
 apps/ios/Config/Secrets.xcconfig
+
+# Neon CLI context (neonctl); Mirach runs on Supabase, not Neon
+.neon
