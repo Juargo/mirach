@@ -176,14 +176,14 @@ in this change.
 ### Requirement: CI-03 — CI uses the pinned Node patch version **[observed]**
 
 CI's `setup-node` step MUST use the exact Node version pinned in
-`.node-version` (`22.22.3`), not a drifting major-only version (`22`).
+`.node-version` (`22.23.4`), not a drifting major-only version (`22`).
 
 #### Scenario: CI runner reports the pinned Node patch version
 
 - GIVEN the CI workflow's `setup-node` step configured against
   `.node-version`
 - WHEN a CI job runs
-- THEN the reported Node version is `22.22.3`, not merely `22.x`
+- THEN the reported Node version is `22.23.4`, not merely `22.x`
 
 ### Requirement: CD-01 — A push/tag that doesn't touch `apps/api/**` does not trigger an api redeploy **[observed]**
 

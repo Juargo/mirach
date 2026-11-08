@@ -534,7 +534,7 @@ final class MirachUITests: XCTestCase {
         openSubirTab(app)
 
         XCTAssertTrue(app.buttons["subir.consent.accept"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Antes de tu primera cartola"].exists)
+        XCTAssertTrue(app.staticTexts["Antes de subir tu cartola"].exists)
         XCTAssertTrue(app.buttons["subir.consent.decline"].exists)
         XCTAssertFalse(app.buttons["subir.chooseFile"].exists)
 
