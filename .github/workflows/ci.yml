@@ -986,11 +986,15 @@ jobs:
             < <(node scripts/ui-test-shard.mjs "$SHARD" 3)
           test "${#only[@]}" -gt 0
           echo "Running ${#only[@]} UI tests on shard $SHARD"
+          # A failed UI test runs once more: the hosted simulator sometimes fails to
+          # launch the app or drops a tap. A test that fails twice still fails the job,
+          # and the result bundle keeps both attempts.
           xcodebuild test \
             -project Mirach.xcodeproj -scheme Mirach \
             -onlyUsePackageVersionsFromResolvedFile \
             -destination "platform=iOS Simulator,id=${udid}" \
             -resultBundlePath "${RUNNER_TEMP}/ios-shard-${SHARD}.xcresult" \
+            -retry-tests-on-failure -test-iterations 2 \
             "${only[@]}" \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER=
