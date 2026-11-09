@@ -33,7 +33,7 @@ Out of scope: app icon (needs an image from the product owner), App Review demo 
 - [x] **T4 — Landing rebrand to Mirach.** Decision (user, 2026-10-09): everything moves to Mirach; the product name is "Mirach" and only the domain is `mirachbudget.app`. Route: delegated writer on `feat/landing-privacy-support`. Acceptance: no "MoneyDiary" or moneydiary.cl in landing source; site URL `https://mirachbudget.app`; copy describes the iPhone app (no web-app login links); checks green.
 - [x] **T5 — App icon.** Source image from the user (placeholder for now). Route: inline. Acceptance: a 1024x1024 opaque PNG in `AppIcon.appiconset` referenced by `Contents.json`; build green.
 - [x] **T6 — Android privacy and account-deletion page.** Route: delegated writer on `feat/landing-android-privacy`. Acceptance: privacy page covers the iPhone and Android apps (Apple/Google sign-in) and deletion; public `/eliminar-cuenta` page (in-app steps, email request without the app, what is deleted and kept) linked from privacy, support and footer; landing checks green. Evidence: `pnpm landing typecheck` 0 errors/warnings, `pnpm landing build` 5 pages incl. `dist/eliminar-cuenta/index.html`; links to `/eliminar-cuenta` present in home, privacy and support builds. The landing has no lint script nor unit runner, so verification is structural on `dist`. The Google Play Data safety deletion URL is `https://mirachbudget.app/eliminar-cuenta` once the landing is deployed.
-- [ ] **Owner — Deploy the landing.** The Mirach landing was never deployed (`odd/tasks/infra-mirach.md`): create the Vercel project for `apps/landing` and attach `mirachbudget.app`, so the privacy and support URLs exist for App Store Connect.
+- [x] **Owner — Deploy the landing.** The landing is live on Vercel at `https://mirachbudget.app`; `/privacidad`, `/soporte` and `/eliminar-cuenta` answer 200 (checked 2026-11-09).
 
 ## Progress
 
@@ -43,6 +43,8 @@ Out of scope: app icon (needs an image from the product owner), App Review demo 
 - 2026-10-09: T3 done in 13706ba (privacy page rewritten, `/soporte` added; RED/GREEN structural on the build: the landing has no unit-test runner). T4 done in cedf39d: brand, site URL `https://mirachbudget.app`, web-app links and `PUBLIC_APP_URL` removed, FAQ true for the iPhone app; MoneyDiary screenshots and unverifiable claims (pricing, "90% of users") removed. Still old-brand assets: `public/images/logo-icon.png`, `public/favicon.ico`, `public/og-image.png`.
 - 2026-10-09: T5: placeholder icon from the user (1376x768) center-cropped to 768 and scaled to a 1024x1024 opaque PNG. RED: `AppIconTests` failed with "CFBundleIcons is missing"; GREEN: 552/552 `MirachTests`.
 
+- 2026-11-09 tracker sync: the landing deploy is done (see the owner task). All tasks are closed.
+
 ## Next step
 
-Push both branches and open the PRs; owner deploys the landing on Vercel with `mirachbudget.app`. Optional: replace the landing logo and favicon with the new icon.
+None for this feature. Optional: replace the landing logo and favicon with the new icon.
