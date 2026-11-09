@@ -98,6 +98,13 @@ final class MirachUITests: XCTestCase {
         app.tabBars.buttons["Subir"].tap()
     }
 
+    /// Taps the fixture button once it exists: right after the tab switch it may not be built yet.
+    private func tapFixture(_ app: XCUIApplication) {
+        let fixture = app.buttons["subir.fixture"]
+        XCTAssertTrue(fixture.waitForExistence(timeout: 10))
+        fixture.tap()
+    }
+
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier].firstMatch
     }
@@ -564,7 +571,7 @@ final class MirachUITests: XCTestCase {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
 
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         XCTAssertTrue(app.buttons["subir.uploadAsIs"].waitForExistence(timeout: 10))
         XCTAssertTrue(element(app, "subir.summary").label.contains("Banco de Chile"))
         XCTAssertTrue(app.staticTexts["Nada se ha guardado aún."].exists)
@@ -582,7 +589,7 @@ final class MirachUITests: XCTestCase {
     func testDiscardAsksForConfirmationAndGoesBackToTheStart() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         XCTAssertTrue(app.buttons["subir.discard"].waitForExistence(timeout: 10))
 
         app.buttons["subir.discard"].tap()
@@ -600,7 +607,7 @@ final class MirachUITests: XCTestCase {
         let app = try launchWithFixture("cartola-protegida", "pdf")
         openSubirTab(app)
 
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         let field = app.secureTextFields["subir.password"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Este archivo está protegido. Ingresa su contraseña para continuar."].exists)
@@ -621,7 +628,7 @@ final class MirachUITests: XCTestCase {
     func testReviewingOneChangedCategoryIsConfirmedAsExactlyOneEdit() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         XCTAssertTrue(app.buttons["subir.review"].waitForExistence(timeout: 10))
         // The catalog loads after the decision shows; the button enables when it is there.
         let reviewEnabled = NSPredicate(format: "isEnabled == true")
@@ -677,7 +684,7 @@ final class MirachUITests: XCTestCase {
     func testAnIncomeRowInTheReviewIsShownAsIngresoAndHasNoEditAffordance() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
         waitForExpectations(timeout: 10)
         app.buttons["subir.review"].tap()
@@ -695,7 +702,7 @@ final class MirachUITests: XCTestCase {
     func testDiscardingFromTheReviewAsksForConfirmation() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
         waitForExpectations(timeout: 10)
         app.buttons["subir.review"].tap()
@@ -742,7 +749,7 @@ final class MirachUITests: XCTestCase {
     func testCreatingACategoryFromARowAppliesItAndReportsTheOtherMatchingRows() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
         waitForExpectations(timeout: 10)
         app.buttons["subir.review"].tap()
@@ -776,7 +783,7 @@ final class MirachUITests: XCTestCase {
     func testACategoryNameThatExistsShowsAFieldErrorAndKeepsWhatWasTyped() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["subir.review"])
         waitForExpectations(timeout: 10)
         app.buttons["subir.review"].tap()
@@ -811,7 +818,7 @@ final class MirachUITests: XCTestCase {
     func testTheSuccessScreenOpensTheImportsIncludingAFailedOneWithItsReason() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
         openSubirTab(app)
-        app.buttons["subir.fixture"].tap()
+        tapFixture(app)
         app.buttons["subir.uploadAsIs"].tap()
         XCTAssertTrue(element(app, "subir.success").waitForExistence(timeout: 10))
 
@@ -1164,10 +1171,9 @@ final class MirachUITests: XCTestCase {
         var swipes = 0
         while !first.isHittable && swipes < 3 { app.swipeUp(); swipes += 1 }
         XCTAssertTrue(first.isHittable, "first category not reachable within 3 swipes at the largest text size")
-        first.tap()
 
         let name = app.textFields["categoria.name"]
-        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(first.tapUntilExists(name))
         XCTAssertTrue(name.isHittable)
         // The first pattern and the delete button are reachable by scrolling.
         let pattern = element(app, "categoria.pattern.stub-p-lider")
@@ -1182,6 +1188,18 @@ final class MirachUITests: XCTestCase {
 }
 
 extension XCUIElement {
+    /// Taps until `target` appears. On the slow CI runner a tap on a list row that has just
+    /// been laid out can be dropped, leaving the list on screen; tapping again is what a person
+    /// would do. Gives up after `attempts` taps.
+    func tapUntilExists(_ target: XCUIElement, attempts: Int = 3, timeout: TimeInterval = 10) -> Bool {
+        for _ in 0..<attempts {
+            if target.exists { return true }
+            if isHittable { tap() }
+            if target.waitForExistence(timeout: timeout) { return true }
+        }
+        return target.exists
+    }
+
     /// Types only once the field really has keyboard focus. On the slow CI runner a
     /// `typeText` right after `tap()` can run before the keyboard attaches and fail with
     /// "Neither element nor any descendant has keyboard focus".
