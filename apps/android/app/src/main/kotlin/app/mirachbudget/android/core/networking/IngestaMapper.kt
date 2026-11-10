@@ -4,6 +4,7 @@ import app.mirachbudget.android.core.api.generated.models.CatalogoResponse
 import app.mirachbudget.android.core.api.generated.models.CategoriaResponse
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponse
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponseFilasInner
+import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponseResumenClasificacion
 import java.time.Instant
 import java.time.format.DateTimeParseException
 import kotlinx.serialization.SerializationException
@@ -26,8 +27,28 @@ internal object IngestaMapper {
             duplicados = resumen.duplicadosDetectados,
             nuevas = resumen.nuevas,
             filas = wire.filas.orEmpty().map(::row),
+            clasificacion = resumen.clasificacion?.let(::clasificacion),
         )
     }
+
+    /** Money arrives as decimal strings and is read like `cargo`/`abono`; totals are never re-summed here. */
+    private fun clasificacion(wire: PreviewIngestaResponseResumenClasificacion) = ClasificacionPreview(
+        ingresos = ClasificacionPreview.Ingresos(wire.ingresos.cantidad, money(wire.ingresos.total)),
+        // A bucket the app does not know cannot be shown: left out, like a catalog category.
+        buckets = wire.buckets.mapNotNull { group ->
+            Bucket.fromApi(group.bucket)?.let { bucket ->
+                ClasificacionPreview.BucketGroup(
+                    bucket = bucket,
+                    cantidad = group.cantidad,
+                    total = money(group.total),
+                    categorias = group.categorias.map {
+                        ClasificacionPreview.Categoria(it.categoriaId, it.nombre, it.cantidad, money(it.total), it.filas)
+                    },
+                )
+            }
+        },
+        desconocidos = wire.desconocidos,
+    )
 
     /** A category in a bucket the app does not know cannot be placed in a group: left out. */
     fun catalog(wire: CatalogoResponse): CatalogoCategorias = CatalogoCategorias(wire.categorias.mapNotNull(::category))

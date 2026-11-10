@@ -121,6 +121,20 @@ object SubirCartolaMessages {
     const val DUPLICATES = "Duplicados"
     const val NEW_ROWS = "Nuevas"
 
+    // --- classification summary (screen 04's accordion)
+
+    const val ALL_CLASSIFIED = "Todos los movimientos quedaron clasificados."
+    const val INCOMES_TITLE = "Ingresos"
+    const val UNKNOWN_CATEGORY = "Desconocido"
+
+    /** «3 movimientos quedaron en Desconocido», «1 movimiento quedó en Desconocido». */
+    fun unknowns(count: Int): String =
+        if (count == 1) "1 movimiento quedó en $UNKNOWN_CATEGORY" else "$count movimientos quedaron en $UNKNOWN_CATEGORY"
+
+    fun movements(count: Int): String = if (count == 1) "1 movimiento" else "$count movimientos"
+    const val EXPANDED = "Desplegado"
+    const val COLLAPSED = "Contraído"
+
     /** «Cuenta Corriente · 00-123-45678-09». */
     fun account(tipoCuenta: String, numeroCuenta: String): String = "$tipoCuenta · $numeroCuenta"
 
