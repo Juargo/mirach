@@ -23,6 +23,65 @@ struct CartolaPreview: Equatable, Sendable {
     let nuevas: Int
     /// Every row of the statement, in file order (`rowIndex` ascending).
     let filas: [CartolaRow]
+    /// How the server auto-classified the new rows (screen 04's accordion). `nil` when the server did
+    /// not send it (one that predates the field): the screen then shows no summary.
+    let clasificacion: ClasificacionPreview?
+
+    init(
+        banco: String, tipoCuenta: String, numeroCuenta: String, totalFilas: Int, duplicados: Int, nuevas: Int,
+        filas: [CartolaRow], clasificacion: ClasificacionPreview? = nil
+    ) {
+        self.banco = banco
+        self.tipoCuenta = tipoCuenta
+        self.numeroCuenta = numeroCuenta
+        self.totalFilas = totalFilas
+        self.duplicados = duplicados
+        self.nuevas = nuevas
+        self.filas = filas
+        self.clasificacion = clasificacion
+    }
+}
+
+/// The server's classification summary of a preview: the new rows grouped bucket → category, with
+/// counts and money totals summed server-side, and the `rowIndex` of each movement. Duplicates
+/// are not in it (the server skips them on commit). The app only renders it.
+struct ClasificacionPreview: Equatable, Sendable {
+    struct Categoria: Equatable, Sendable, Identifiable {
+        /// `nil` for a spend row without a category (not expected today).
+        let categoriaId: String?
+        let nombre: String
+        let cantidad: Int
+        /// Sum of `cargo` of its rows, whole pesos.
+        let total: Int
+        /// `rowIndex` of each row, ascending.
+        let filas: [Int]
+
+        var id: String { categoriaId ?? "sin-categoria" }
+    }
+
+    struct BucketGroup: Equatable, Sendable, Identifiable {
+        let bucket: Bucket
+        let cantidad: Int
+        /// Sum of `cargo` of its rows, whole pesos.
+        let total: Int
+        /// By total descending, then by name, as the server sorts them.
+        let categorias: [Categoria]
+
+        var id: Bucket { bucket }
+    }
+
+    struct Ingresos: Equatable, Sendable {
+        let cantidad: Int
+        /// Sum of `abono` of the income rows, whole pesos.
+        let total: Int
+    }
+
+    /// Income rows (`abono > 0`, `cargo == 0`), outside the buckets.
+    let ingresos: Ingresos
+    /// Only buckets with rows, in the fixed order Necesidades, Gustos, Ahorro.
+    let buckets: [BucketGroup]
+    /// Spend rows that fell into the default «Desconocido» (CLA-13).
+    let desconocidos: Int
 }
 
 /// One row of the preview. Money is whole pesos: `cargo` is an expense, `abono` an income.

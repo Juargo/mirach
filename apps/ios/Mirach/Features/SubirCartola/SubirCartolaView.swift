@@ -266,31 +266,56 @@ struct SubirCartolaView: View {
             .foregroundStyle(Color.Mirach.Base.foreground)
             .accessibilityIdentifier("subir.summary")
 
+            // A server that predates the summary sends none: the screen is the one before it.
+            if let clasificacion = preview.clasificacion {
+                PreviewSummaryView(preview: preview, clasificacion: clasificacion)
+            }
+
             Text("Nada se ha guardado aún.")
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
 
-            Button { Task { await viewModel.uploadAsIs() } } label: {
-                Text("Subir tal cual").frame(maxWidth: .infinity)
+            // With rows in Desconocido, reviewing is the recommended action, so it leads.
+            if preview.clasificacion.map(PreviewSummaryPresentation.reviewIsPrimary) ?? false {
+                reviewEntry(primary: true)
+                uploadAsIs(primary: false)
+            } else {
+                uploadAsIs(primary: true)
+                reviewEntry(primary: false)
             }
-            .prominentButton().controlSize(.large)
-            .accessibilityIdentifier("subir.uploadAsIs")
-            reviewEntry
             Button("Descartar", role: .destructive) { confirmingDiscard = true }
                 .buttonStyle(.bordered).controlSize(.large)
                 .accessibilityIdentifier("subir.discard")
         }
     }
 
+    @ViewBuilder
+    private func uploadAsIs(primary: Bool) -> some View {
+        let button = Button { Task { await viewModel.uploadAsIs() } } label: {
+            Text("Subir tal cual").frame(maxWidth: .infinity)
+        }
+        if primary {
+            button.prominentButton().controlSize(.large).accessibilityIdentifier("subir.uploadAsIs")
+        } else {
+            button.buttonStyle(.bordered).controlSize(.large).accessibilityIdentifier("subir.uploadAsIs")
+        }
+    }
+
     /// «Revisar y editar» needs the catalog; if it could not load, the rest of the flow still
     /// works and this says why the button is off.
     @ViewBuilder
-    private var reviewEntry: some View {
-        Button { viewModel.startReview() } label: {
+    private func reviewEntry(primary: Bool) -> some View {
+        let button = Button { viewModel.startReview() } label: {
             Text("Revisar y editar").frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered).controlSize(.large)
-        .disabled(viewModel.loadedCatalog == nil)
-        .accessibilityIdentifier("subir.review")
+        if primary {
+            button.prominentButton().controlSize(.large)
+                .disabled(viewModel.loadedCatalog == nil)
+                .accessibilityIdentifier("subir.review")
+        } else {
+            button.buttonStyle(.bordered).controlSize(.large)
+                .disabled(viewModel.loadedCatalog == nil)
+                .accessibilityIdentifier("subir.review")
+        }
         switch viewModel.catalog {
         case .loaded: EmptyView()
         case .loading:

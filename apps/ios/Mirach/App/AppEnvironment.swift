@@ -256,7 +256,45 @@ struct StubMirachAPI: MirachAPI {
         let rows = catalogStore.apply(to: Self.rows)
         return CartolaPreview(
             banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
-            totalFilas: rows.count, duplicados: 2, nuevas: rows.count - 2, filas: rows
+            totalFilas: rows.count, duplicados: 2, nuevas: rows.count - 2, filas: rows,
+            clasificacion: Self.classify(rows, catalog: catalogStore.all)
+        )
+    }
+
+    /// The summary the real server computes (`resumen.clasificacion`), from the stub's rows: duplicates
+    /// out, incomes apart, a row without suggestion lands in Deseos · Desconocido, categories by total.
+    private static func classify(_ rows: [CartolaRow], catalog: [CategoriaCatalogo]) -> ClasificacionPreview {
+        let fallback = catalog.first { $0.bucket == .deseos && $0.esInterna }
+        let live = rows.filter { !$0.esDuplicado }
+        let incomes = live.filter { $0.cargo == 0 && $0.abono > 0 }
+        let spend = live.filter { !($0.cargo == 0 && $0.abono > 0) }
+        var desconocidos = 0
+        var groups: [Bucket: [String?: [CartolaRow]]] = [:]
+        for row in spend {
+            let bucket = row.sugerido?.bucket ?? .deseos
+            let categoryId = row.sugerido?.categoriaId ?? fallback?.id
+            if categoryId == nil || categoryId == fallback?.id { desconocidos += 1 }
+            groups[bucket, default: [:]][categoryId, default: []].append(row)
+        }
+        let buckets = Bucket.allCases.compactMap { bucket -> ClasificacionPreview.BucketGroup? in
+            guard let byCategory = groups[bucket] else { return nil }
+            let categories = byCategory
+                .map { id, rows in
+                    ClasificacionPreview.Categoria(
+                        categoriaId: id, nombre: catalog.first { $0.id == id }?.nombre ?? "Desconocido",
+                        cantidad: rows.count, total: rows.reduce(0) { $0 + $1.cargo },
+                        filas: rows.map(\.rowIndex).sorted()
+                    )
+                }
+                .sorted { $0.total != $1.total ? $0.total > $1.total : $0.nombre < $1.nombre }
+            return ClasificacionPreview.BucketGroup(
+                bucket: bucket, cantidad: categories.reduce(0) { $0 + $1.cantidad },
+                total: categories.reduce(0) { $0 + $1.total }, categorias: categories
+            )
+        }
+        return ClasificacionPreview(
+            ingresos: .init(cantidad: incomes.count, total: incomes.reduce(0) { $0 + $1.abono }),
+            buckets: buckets, desconocidos: desconocidos
         )
     }
 

@@ -22,10 +22,13 @@ struct IngestaAPITests {
         return CartolaFile(url: url, filename: name, byteCount: contents.utf8.count)
     }
 
+    /// An empty classification summary, for the fixtures that do not look at it.
+    private static let noClassification = #""clasificacion":{"ingresos":{"cantidad":0,"total":"0"},"buckets":[],"desconocidos":0}"#
+
     private static let previewBody = """
     {"banco":"Banco de Chile","tipoCuenta":"Cuenta Corriente","numeroCuenta":"00-123-45678-09",
      "estructura":{"totalFilasDatos":42},"muestra":[],
-     "resumen":{"totalFilas":42,"duplicadosDetectados":5,"nuevas":37},"filas":[]}
+     "resumen":{"totalFilas":42,"duplicadosDetectados":5,"nuevas":37,\(noClassification)},"filas":[]}
     """
 
     private static let commitBody = """
@@ -41,16 +44,106 @@ struct IngestaAPITests {
 
         #expect(preview == CartolaPreview(
             banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
-            totalFilas: 42, duplicados: 5, nuevas: 37, filas: []
+            totalFilas: 42, duplicados: 5, nuevas: 37, filas: [],
+            clasificacion: ClasificacionPreview(ingresos: .init(cantidad: 0, total: 0), buckets: [], desconocidos: 0)
         ))
         #expect(transport.requests.first?.path == "/api/ingestas/preview")
     }
 
-    private static func previewBody(rows: String) -> String {
+    private static func previewBody(rows: String, classification: String = noClassification) -> String {
         """
         {"banco":"BCI","tipoCuenta":"Cuenta Vista","numeroCuenta":"1","estructura":{"totalFilasDatos":4},
-         "muestra":[],"resumen":{"totalFilas":4,"duplicadosDetectados":1,"nuevas":3},"filas":[\(rows)]}
+         "muestra":[],"resumen":{"totalFilas":4,"duplicadosDetectados":1,"nuevas":3,\(classification)},"filas":[\(rows)]}
         """
+    }
+
+    @Test func previewMapsTheClassificationSummaryWithMoneyAsPesos() async throws {
+        let classification = #"""
+        "clasificacion":{"ingresos":{"cantidad":1,"total":"1200000.00"},
+         "buckets":[{"bucket":"Necesidades","cantidad":2,"total":"55990","categorias":[
+            {"categoriaId":"cat-1","nombre":"Supermercado","cantidad":1,"total":"25990","filas":[0]},
+            {"categoriaId":null,"nombre":"Desconocido","cantidad":1,"total":"30000","filas":[2]}]},
+          {"bucket":"Deseos","cantidad":1,"total":"9990","categorias":[
+            {"categoriaId":"cat-2","nombre":"Suscripciones","cantidad":1,"total":"9990","filas":[4]}]}],
+         "desconocidos":1}
+        """#
+        let transport = FakeTransport.json(Self.previewBody(rows: "", classification: classification))
+
+        let preview = try await makeAPI(transport).previewIngesta(file: stagedFile(), password: nil)
+
+        #expect(preview.clasificacion == ClasificacionPreview(
+            ingresos: .init(cantidad: 1, total: 1_200_000),
+            buckets: [
+                .init(bucket: .necesidades, cantidad: 2, total: 55_990, categorias: [
+                    .init(categoriaId: "cat-1", nombre: "Supermercado", cantidad: 1, total: 25_990, filas: [0]),
+                    .init(categoriaId: nil, nombre: "Desconocido", cantidad: 1, total: 30_000, filas: [2]),
+                ]),
+                .init(bucket: .deseos, cantidad: 1, total: 9_990, categorias: [
+                    .init(categoriaId: "cat-2", nombre: "Suscripciones", cantidad: 1, total: 9_990, filas: [4]),
+                ]),
+            ],
+            desconocidos: 1
+        ))
+    }
+
+    /// Documents a gap, not a wish: `openapi.json` marks every object `additionalProperties: false`,
+    /// and the generated client turns that into a hard rejection of keys it does not know. So an
+    /// ADDITIVE change to a response breaks the builds already in the stores (ADR-005 does not hold for
+    /// iOS). When the contract stops forbidding extras, this test flips and should be rewritten to
+    /// assert tolerance. See `odd/tasks/preview-resumen-clasificacion.md`, L8.
+    @Test func aFieldTheAppDoesNotKnowStillRejectsThePreviewWhileTheContractForbidsExtras() async throws {
+        let classification = #"""
+        "clasificacion":{"ingresos":{"cantidad":0,"total":"0"},"buckets":[],"desconocidos":0,"otroCampo":"y"}
+        """#
+        let file = try stagedFile()
+
+        do {
+            _ = try await makeAPI(FakeTransport.json(Self.previewBody(rows: "", classification: classification)))
+                .previewIngesta(file: file, password: nil)
+            Issue.record("the generated client started tolerating unknown keys: rewrite this test to pin that")
+        } catch {
+            #expect(error is DecodingError)
+        }
+    }
+
+    @Test func aPreviewWithoutTheClassificationSummaryHasNone() async throws {
+        // A server that predates the field: the rest of the preview still decodes.
+        let body = """
+        {"banco":"BCI","tipoCuenta":"Cuenta Vista","numeroCuenta":"1","estructura":{"totalFilasDatos":4},
+         "muestra":[],"resumen":{"totalFilas":4,"duplicadosDetectados":1,"nuevas":3},"filas":[]}
+        """
+
+        let preview = try await makeAPI(FakeTransport.json(body)).previewIngesta(file: stagedFile(), password: nil)
+
+        #expect(preview.clasificacion == nil)
+        #expect(preview.nuevas == 3)
+    }
+
+    @Test func aClassificationBucketTheAppDoesNotKnowIsLeftOut() async throws {
+        let classification = #"""
+        "clasificacion":{"ingresos":{"cantidad":0,"total":"0"},
+         "buckets":[{"bucket":"Gustos","cantidad":1,"total":"1","categorias":[]}],"desconocidos":0}
+        """#
+        let transport = FakeTransport.json(Self.previewBody(rows: "", classification: classification))
+
+        let preview = try await makeAPI(transport).previewIngesta(file: stagedFile(), password: nil)
+
+        #expect(preview.clasificacion?.buckets.isEmpty == true)
+    }
+
+    @Test func aClassificationTotalThatIsNotMoneyFailsTheWholePreview() async throws {
+        let classification = #"""
+        "clasificacion":{"ingresos":{"cantidad":0,"total":"abc"},"buckets":[],"desconocidos":0}
+        """#
+        let file = try stagedFile()
+
+        do {
+            _ = try await makeAPI(FakeTransport.json(Self.previewBody(rows: "", classification: classification)))
+                .previewIngesta(file: file, password: nil)
+            Issue.record("expected a decoding error")
+        } catch {
+            #expect(error is DecodingError)
+        }
     }
 
     @Test func previewMapsEveryRowWithMoneyDateDuplicateAndSuggestion() async throws {

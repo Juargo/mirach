@@ -585,6 +585,29 @@ final class MirachUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
     }
 
+    /// Screen 04: the classification accordion opens bucket → category → movement, and with rows in
+    /// Desconocido the review leads (the stub leaves rows 1, 7 and 8 without a suggestion).
+    @MainActor
+    func testThePreviewSummaryOpensBucketThenCategoryThenMovement() throws {
+        let app = try launchWithFixture("cartola-ejemplo", "xlsx")
+        openSubirTab(app)
+
+        tapFixture(app)
+        XCTAssertTrue(app.buttons["subir.review"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["3 movimientos quedaron en Desconocido"].exists)
+        XCTAssertTrue(app.buttons["subir.uploadAsIs"].exists, "uploading as is stays available")
+        XCTAssertFalse(element(app, "subir.fila.1").exists, "the accordion starts collapsed")
+
+        element(app, "subir.bucket.Deseos").tap()
+        XCTAssertTrue(element(app, "subir.categoria.stub-des-desc").waitForExistence(timeout: 5))
+        XCTAssertFalse(element(app, "subir.fila.1").exists, "a category starts collapsed too")
+
+        element(app, "subir.categoria.stub-des-desc").tap()
+        XCTAssertTrue(element(app, "subir.fila.1").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "subir.fila.1").label.contains("TRANSF A JUAN PEREZ"))
+        XCTAssertFalse(element(app, "subir.fila.5").exists, "duplicates are not in the summary")
+    }
+
     @MainActor
     func testDiscardAsksForConfirmationAndGoesBackToTheStart() throws {
         let app = try launchWithFixture("cartola-ejemplo", "xlsx")
