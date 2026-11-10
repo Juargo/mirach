@@ -237,7 +237,16 @@ const PREVIEW_OK = {
   },
   // US-057 PR2: new PreviewIngestaResult shape ({ resumen, filas } replaces
   // { estructura, muestra }). Per-row dedup and classification included.
-  resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+  resumen: {
+    totalFilas: 2,
+    duplicadosDetectados: 0,
+    nuevas: 2,
+    clasificacion: {
+      ingresos: { cantidad: 0, total: 0n },
+      buckets: [],
+      desconocidos: 0,
+    },
+  },
   filas: [],
 };
 
@@ -253,7 +262,16 @@ describe('registrarIngestas — POST /api/ingestas/preview (T1.5)', () => {
       banco: 'BancoEstado',
       tipoCuenta: 'CuentaRUT',
       numeroCuenta: '****',
-      resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+      resumen: {
+        totalFilas: 2,
+        duplicadosDetectados: 0,
+        nuevas: 2,
+        clasificacion: {
+          ingresos: { cantidad: 0, total: '0' },
+          buckets: [],
+          desconocidos: 0,
+        },
+      },
       filas: [],
       // Legacy mirror (@deprecated compat shim, removed by US-061).
       estructura: { totalFilasDatos: 2 },

@@ -23,6 +23,7 @@
 
 package app.mirachbudget.android.core.api.generated.models
 
+import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponseResumenClasificacion
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -34,6 +35,7 @@ import kotlinx.serialization.Contextual
  * @param duplicadosDetectados 
  * @param nuevas 
  * @param totalFilas Row count PRE-dedupe, not money — plain JSON number.
+ * @param clasificacion 
  */
 @Serializable
 
@@ -47,7 +49,10 @@ data class PreviewIngestaResponseResumen (
 
     /* Row count PRE-dedupe, not money — plain JSON number. */
     @SerialName(value = "totalFilas")
-    val totalFilas: kotlin.Int
+    val totalFilas: kotlin.Int,
+
+    @SerialName(value = "clasificacion")
+    val clasificacion: PreviewIngestaResponseResumenClasificacion? = null
 
 ) {
 

@@ -3413,6 +3413,260 @@ extension Components {
             internal var numeroCuenta: Swift.String
             /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen`.
             internal struct resumenPayload: Codable, Hashable, Sendable {
+                /// How the new rows were auto-classified (bucket → category → rowIndex), with server-side totals.
+                ///
+                /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion`.
+                internal struct clasificacionPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload`.
+                    internal struct bucketsPayloadPayload: Codable, Hashable, Sendable {
+                        /// Necesidades, Deseos or Ahorro; the product calls Deseos «Gustos».
+                        ///
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/bucket`.
+                        internal var bucket: Swift.String
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/cantidad`.
+                        internal var cantidad: Swift.Int
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categoriasPayload`.
+                        internal struct categoriasPayloadPayload: Codable, Hashable, Sendable {
+                            /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categoriasPayload/cantidad`.
+                            internal var cantidad: Swift.Int
+                            /// Null only for a spend row without a category (not expected today).
+                            ///
+                            /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categoriasPayload/categoriaId`.
+                            internal var categoriaId: Swift.String?
+                            /// `rowIndex` of each row in this category, ascending.
+                            ///
+                            /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categoriasPayload/filas`.
+                            internal var filas: [Swift.Int]
+                            /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categoriasPayload/nombre`.
+                            internal var nombre: Swift.String
+                            /// Sum of `cargo` of the rows in this category (BigInt-safe decimal string).
+                            ///
+                            /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categoriasPayload/total`.
+                            internal var total: Swift.String
+                            /// Creates a new `categoriasPayloadPayload`.
+                            ///
+                            /// - Parameters:
+                            ///   - cantidad:
+                            ///   - categoriaId: Null only for a spend row without a category (not expected today).
+                            ///   - filas: `rowIndex` of each row in this category, ascending.
+                            ///   - nombre:
+                            ///   - total: Sum of `cargo` of the rows in this category (BigInt-safe decimal string).
+                            internal init(
+                                cantidad: Swift.Int,
+                                categoriaId: Swift.String? = nil,
+                                filas: [Swift.Int],
+                                nombre: Swift.String,
+                                total: Swift.String
+                            ) {
+                                self.cantidad = cantidad
+                                self.categoriaId = categoriaId
+                                self.filas = filas
+                                self.nombre = nombre
+                                self.total = total
+                            }
+                            internal enum CodingKeys: String, CodingKey {
+                                case cantidad
+                                case categoriaId
+                                case filas
+                                case nombre
+                                case total
+                            }
+                            internal init(from decoder: any Swift.Decoder) throws {
+                                let container = try decoder.container(keyedBy: CodingKeys.self)
+                                self.cantidad = try container.decode(
+                                    Swift.Int.self,
+                                    forKey: .cantidad
+                                )
+                                self.categoriaId = try container.decodeIfPresent(
+                                    Swift.String.self,
+                                    forKey: .categoriaId
+                                )
+                                self.filas = try container.decode(
+                                    [Swift.Int].self,
+                                    forKey: .filas
+                                )
+                                self.nombre = try container.decode(
+                                    Swift.String.self,
+                                    forKey: .nombre
+                                )
+                                self.total = try container.decode(
+                                    Swift.String.self,
+                                    forKey: .total
+                                )
+                                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                                    "cantidad",
+                                    "categoriaId",
+                                    "filas",
+                                    "nombre",
+                                    "total"
+                                ])
+                            }
+                        }
+                        /// Sorted by total descending, then by name.
+                        ///
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categorias`.
+                        internal typealias categoriasPayload = [Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayloadPayload.categoriasPayloadPayload]
+                        /// Sorted by total descending, then by name.
+                        ///
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/categorias`.
+                        internal var categorias: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayloadPayload.categoriasPayload
+                        /// BigInt-safe decimal string amount (never a JSON number).
+                        ///
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/bucketsPayload/total`.
+                        internal var total: Swift.String
+                        /// Creates a new `bucketsPayloadPayload`.
+                        ///
+                        /// - Parameters:
+                        ///   - bucket: Necesidades, Deseos or Ahorro; the product calls Deseos «Gustos».
+                        ///   - cantidad:
+                        ///   - categorias: Sorted by total descending, then by name.
+                        ///   - total: BigInt-safe decimal string amount (never a JSON number).
+                        internal init(
+                            bucket: Swift.String,
+                            cantidad: Swift.Int,
+                            categorias: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayloadPayload.categoriasPayload,
+                            total: Swift.String
+                        ) {
+                            self.bucket = bucket
+                            self.cantidad = cantidad
+                            self.categorias = categorias
+                            self.total = total
+                        }
+                        internal enum CodingKeys: String, CodingKey {
+                            case bucket
+                            case cantidad
+                            case categorias
+                            case total
+                        }
+                        internal init(from decoder: any Swift.Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            self.bucket = try container.decode(
+                                Swift.String.self,
+                                forKey: .bucket
+                            )
+                            self.cantidad = try container.decode(
+                                Swift.Int.self,
+                                forKey: .cantidad
+                            )
+                            self.categorias = try container.decode(
+                                Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayloadPayload.categoriasPayload.self,
+                                forKey: .categorias
+                            )
+                            self.total = try container.decode(
+                                Swift.String.self,
+                                forKey: .total
+                            )
+                            try decoder.ensureNoAdditionalProperties(knownKeys: [
+                                "bucket",
+                                "cantidad",
+                                "categorias",
+                                "total"
+                            ])
+                        }
+                    }
+                    /// Only buckets with rows, in the fixed order Necesidades, Deseos, Ahorro.
+                    ///
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/buckets`.
+                    internal typealias bucketsPayload = [Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayloadPayload]
+                    /// Only buckets with rows, in the fixed order Necesidades, Deseos, Ahorro.
+                    ///
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/buckets`.
+                    internal var buckets: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayload
+                    /// Spend rows that fell into the account's default «Desconocido» category (CLA-13).
+                    ///
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/desconocidos`.
+                    internal var desconocidos: Swift.Int
+                    /// Income rows (abono > 0 and cargo == 0), outside the buckets.
+                    ///
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/ingresos`.
+                    internal struct ingresosPayload: Codable, Hashable, Sendable {
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/ingresos/cantidad`.
+                        internal var cantidad: Swift.Int
+                        /// Sum of `abono` of the income rows.
+                        ///
+                        /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/ingresos/total`.
+                        internal var total: Swift.String
+                        /// Creates a new `ingresosPayload`.
+                        ///
+                        /// - Parameters:
+                        ///   - cantidad:
+                        ///   - total: Sum of `abono` of the income rows.
+                        internal init(
+                            cantidad: Swift.Int,
+                            total: Swift.String
+                        ) {
+                            self.cantidad = cantidad
+                            self.total = total
+                        }
+                        internal enum CodingKeys: String, CodingKey {
+                            case cantidad
+                            case total
+                        }
+                        internal init(from decoder: any Swift.Decoder) throws {
+                            let container = try decoder.container(keyedBy: CodingKeys.self)
+                            self.cantidad = try container.decode(
+                                Swift.Int.self,
+                                forKey: .cantidad
+                            )
+                            self.total = try container.decode(
+                                Swift.String.self,
+                                forKey: .total
+                            )
+                            try decoder.ensureNoAdditionalProperties(knownKeys: [
+                                "cantidad",
+                                "total"
+                            ])
+                        }
+                    }
+                    /// Income rows (abono > 0 and cargo == 0), outside the buckets.
+                    ///
+                    /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion/ingresos`.
+                    internal var ingresos: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.ingresosPayload
+                    /// Creates a new `clasificacionPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - buckets: Only buckets with rows, in the fixed order Necesidades, Deseos, Ahorro.
+                    ///   - desconocidos: Spend rows that fell into the account's default «Desconocido» category (CLA-13).
+                    ///   - ingresos: Income rows (abono > 0 and cargo == 0), outside the buckets.
+                    internal init(
+                        buckets: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayload,
+                        desconocidos: Swift.Int,
+                        ingresos: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.ingresosPayload
+                    ) {
+                        self.buckets = buckets
+                        self.desconocidos = desconocidos
+                        self.ingresos = ingresos
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case buckets
+                        case desconocidos
+                        case ingresos
+                    }
+                    internal init(from decoder: any Swift.Decoder) throws {
+                        let container = try decoder.container(keyedBy: CodingKeys.self)
+                        self.buckets = try container.decode(
+                            Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.bucketsPayload.self,
+                            forKey: .buckets
+                        )
+                        self.desconocidos = try container.decode(
+                            Swift.Int.self,
+                            forKey: .desconocidos
+                        )
+                        self.ingresos = try container.decode(
+                            Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.ingresosPayload.self,
+                            forKey: .ingresos
+                        )
+                        try decoder.ensureNoAdditionalProperties(knownKeys: [
+                            "buckets",
+                            "desconocidos",
+                            "ingresos"
+                        ])
+                    }
+                }
+                /// How the new rows were auto-classified (bucket → category → rowIndex), with server-side totals.
+                ///
+                /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/clasificacion`.
+                internal var clasificacion: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload?
                 /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/duplicadosDetectados`.
                 internal var duplicadosDetectados: Swift.Int
                 /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse/resumen/nuevas`.
@@ -3424,25 +3678,33 @@ extension Components {
                 /// Creates a new `resumenPayload`.
                 ///
                 /// - Parameters:
+                ///   - clasificacion: How the new rows were auto-classified (bucket → category → rowIndex), with server-side totals.
                 ///   - duplicadosDetectados:
                 ///   - nuevas:
                 ///   - totalFilas: Row count PRE-dedupe, not money — plain JSON number.
                 internal init(
+                    clasificacion: Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload? = nil,
                     duplicadosDetectados: Swift.Int,
                     nuevas: Swift.Int,
                     totalFilas: Swift.Int
                 ) {
+                    self.clasificacion = clasificacion
                     self.duplicadosDetectados = duplicadosDetectados
                     self.nuevas = nuevas
                     self.totalFilas = totalFilas
                 }
                 internal enum CodingKeys: String, CodingKey {
+                    case clasificacion
                     case duplicadosDetectados
                     case nuevas
                     case totalFilas
                 }
                 internal init(from decoder: any Swift.Decoder) throws {
                     let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.clasificacion = try container.decodeIfPresent(
+                        Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload.self,
+                        forKey: .clasificacion
+                    )
                     self.duplicadosDetectados = try container.decode(
                         Swift.Int.self,
                         forKey: .duplicadosDetectados
@@ -3456,6 +3718,7 @@ extension Components {
                         forKey: .totalFilas
                     )
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "clasificacion",
                         "duplicadosDetectados",
                         "nuevas",
                         "totalFilas"

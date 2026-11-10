@@ -76,6 +76,26 @@ function unResultado(filas: ReadonlyArray<PreviewFila>): PreviewIngestaResult {
       totalFilas: filas.length,
       duplicadosDetectados: 0,
       nuevas: filas.length,
+      clasificacion: {
+        ingresos: { cantidad: 0, total: 0n },
+        buckets: [
+          {
+            bucket: Bucket.Necesidades,
+            cantidad: filas.length,
+            total: 9007199254740993n, // beyond MAX_SAFE_INTEGER: must stay a string
+            categorias: [
+              {
+                categoriaId: 'cat-1',
+                nombre: 'Supermercado',
+                cantidad: filas.length,
+                total: 9007199254740993n,
+                filas: filas.map((f) => f.rowIndex),
+              },
+            ],
+          },
+        ],
+        desconocidos: 0,
+      },
     },
     filas,
   };
@@ -87,6 +107,44 @@ function unResultado(filas: ReadonlyArray<PreviewFila>): PreviewIngestaResult {
  * fixture. `filas` carries money (cargo/abono) — MUST stay decimal string.
  */
 describe('previewIngestaResponseSchema (sync guarantee)', () => {
+  it('parses resumen.clasificacion from the real DTO output with money totals as decimal strings', () => {
+    const dto = aPreviewIngestaDto(
+      unResultado([unaFila(unaTransaccion(1000n, 0n))]),
+    );
+
+    const parsed = previewIngestaResponseSchema.parse(dto);
+    expect(parsed.resumen?.clasificacion).toEqual({
+      ingresos: { cantidad: 0, total: '0' },
+      buckets: [
+        {
+          bucket: 'Necesidades',
+          cantidad: 1,
+          total: '9007199254740993',
+          categorias: [
+            {
+              categoriaId: 'cat-1',
+              nombre: 'Supermercado',
+              cantidad: 1,
+              total: '9007199254740993',
+              filas: [0],
+            },
+          ],
+        },
+      ],
+      desconocidos: 0,
+    });
+  });
+
+  it('rejects a clasificacion total sent as a JSON number', () => {
+    const dto = aPreviewIngestaDto(
+      unResultado([unaFila(unaTransaccion(1000n, 0n))]),
+    );
+    const invalid = JSON.parse(JSON.stringify(dto));
+    invalid.resumen.clasificacion.buckets[0].total = 8103; // must be a string
+
+    expect(previewIngestaResponseSchema.safeParse(invalid).success).toBe(false);
+  });
+
   it('parses the real DTO output for an empty filas array', () => {
     const dto = aPreviewIngestaDto(unResultado([]));
 

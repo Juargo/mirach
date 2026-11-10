@@ -2,6 +2,7 @@ import {
   PreviewIngestaResult,
   PreviewFila,
 } from '../../../application/use-cases/preview-ingesta.use-case';
+import { ResumenClasificacionPreview } from '../../../domain/value-objects/resumen-clasificacion-preview';
 
 /**
  * PreviewTransaccionDto — HTTP form of a single preview row (US-057 PR2).
@@ -25,11 +26,41 @@ export interface PreviewTransaccionDto {
   sugerido: { bucket: string; categoriaId: string | null } | null;
 }
 
+/** One category inside a bucket of the classification summary. Money as string. */
+export interface PreviewClasificacionCategoriaDto {
+  categoriaId: string | null;
+  nombre: string;
+  cantidad: number;
+  total: string;
+  filas: ReadonlyArray<number>;
+}
+
+/** One bucket of the classification summary (Necesidades, Deseos, Ahorro). */
+export interface PreviewClasificacionBucketDto {
+  bucket: string;
+  cantidad: number;
+  total: string;
+  categorias: ReadonlyArray<PreviewClasificacionCategoriaDto>;
+}
+
+/**
+ * Classification summary of the preview (screen 04): how the new rows were
+ * auto-classified, grouped bucket → category, with counts and money totals
+ * computed server-side. `filas` lists each row's `rowIndex` so clients can
+ * show the movements without summing anything.
+ */
+export interface PreviewClasificacionDto {
+  ingresos: { cantidad: number; total: string };
+  buckets: ReadonlyArray<PreviewClasificacionBucketDto>;
+  desconocidos: number;
+}
+
 /** Resumen agregado HTTP mirror of PreviewResumen (spec PREV-EXT-01). */
 export interface PreviewResumenDto {
   totalFilas: number;
   duplicadosDetectados: number;
   nuevas: number;
+  clasificacion: PreviewClasificacionDto;
 }
 
 /**
@@ -84,6 +115,32 @@ export interface PreviewIngestaDto {
   estructura: PreviewEstructuraLegacyDto;
   /** @deprecated Legacy first-50-rows sample in the old shape. Removed by US-061. */
   muestra: ReadonlyArray<PreviewTransaccionLegacyDto>;
+}
+
+/** Maps the classification summary; BigInt totals become decimal strings. */
+function aClasificacionDto(
+  clasificacion: ResumenClasificacionPreview,
+): PreviewClasificacionDto {
+  return {
+    ingresos: {
+      cantidad: clasificacion.ingresos.cantidad,
+      total: String(clasificacion.ingresos.total),
+    },
+    buckets: clasificacion.buckets.map((bucket) => ({
+      // Bucket is a string enum — its value IS the wire string.
+      bucket: bucket.bucket,
+      cantidad: bucket.cantidad,
+      total: String(bucket.total),
+      categorias: bucket.categorias.map((categoria) => ({
+        categoriaId: categoria.categoriaId,
+        nombre: categoria.nombre,
+        cantidad: categoria.cantidad,
+        total: String(categoria.total),
+        filas: [...categoria.filas],
+      })),
+    })),
+    desconocidos: clasificacion.desconocidos,
+  };
 }
 
 /** Maps PreviewFila to its HTTP representation. */
@@ -144,6 +201,7 @@ export function aPreviewIngestaDto(
       totalFilas: data.resumen.totalFilas,
       duplicadosDetectados: data.resumen.duplicadosDetectados,
       nuevas: data.resumen.nuevas,
+      clasificacion: aClasificacionDto(data.resumen.clasificacion),
     },
     filas,
     // Legacy mirror (@deprecated, US-061). estructura.totalFilasDatos ===

@@ -694,6 +694,79 @@ describe('PreviewIngestaUseCase', () => {
       });
     });
 
+    it('resumen.clasificacion agrupa las filas por bucket y categoría con totales en BigInt (vista previa 04)', async () => {
+      const catalogo = new FakeCatalogo();
+      catalogo.patrones = [
+        new PatronClasificacion({
+          id: 'p-1',
+          patron: 'movimiento',
+          matchType: 'CONTAINS',
+          categoria: {
+            id: 'cat-supermercado',
+            nombre: 'Supermercado',
+            bucket: Bucket.Necesidades,
+          },
+          prioridad: 10,
+        }),
+      ];
+      const { useCase } = buildUseCase({ catalogo });
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      // TXS: 'Movimiento 0' (cargo 1n) and 'Movimiento 1' (cargo 2n), both match.
+      expect(result.getValue().resumen.clasificacion).toEqual({
+        ingresos: { cantidad: 0, total: 0n },
+        buckets: [
+          {
+            bucket: Bucket.Necesidades,
+            cantidad: 2,
+            total: 3n,
+            categorias: [
+              {
+                categoriaId: 'cat-supermercado',
+                nombre: 'Supermercado',
+                cantidad: 2,
+                total: 3n,
+                filas: [0, 1],
+              },
+            ],
+          },
+        ],
+        desconocidos: 0,
+      });
+    });
+
+    it('resumen.clasificacion cuenta como desconocidas las filas que caen en la Desconocido por defecto y las lista con su nombre', async () => {
+      const { useCase } = buildUseCase(); // sin patrones → todo a Desconocido/Deseos
+
+      const result = await useCase.execute({
+        fileReader: new FakeFileReader(),
+        userId: USER_ID,
+      });
+
+      const { clasificacion } = result.getValue().resumen;
+      expect(clasificacion.desconocidos).toBe(TXS.length);
+      expect(clasificacion.buckets).toEqual([
+        {
+          bucket: Bucket.Deseos,
+          cantidad: 2,
+          total: 3n,
+          categorias: [
+            {
+              categoriaId: 'cat-desconocido-deseos-default',
+              nombre: 'Desconocido',
+              cantidad: 2,
+              total: 3n,
+              filas: [0, 1],
+            },
+          ],
+        },
+      ]);
+    });
+
     // #778 tramo 3/5: el viejo fail-safe "sin match → sugerido: null" SOLO
     // existía cuando el usuario no tenía la `Desconocido` de Deseos. Ese
     // catálogo INCOMPLETO (disponible, pero sin esa fila) ahora RECHAZA el
