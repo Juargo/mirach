@@ -16,7 +16,7 @@ settings:
     DEVELOPMENT_TEAM: SUX4J95Z5F
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "8"
+    CURRENT_PROJECT_VERSION: "9"
 
 # Apple's OpenAPI runtime and URLSession transport, pinned to exact versions.
 # The generator itself is pinned separately in scripts/openapi-generator/Package.swift.
