@@ -27,6 +27,11 @@ import {
   BUCKET_POR_DEFECTO,
   CategoriaPorDefecto,
 } from '../services/categoria-por-defecto';
+import {
+  agruparClasificacionPreview,
+  FilaClasificadaPreview,
+  ResumenClasificacionPreview,
+} from '../../domain/value-objects/resumen-clasificacion-preview';
 
 /**
  * Entrada del preview: archivo + usuario propietario (D-06: dedup scoped a
@@ -63,6 +68,12 @@ export interface PreviewResumen {
   duplicadosDetectados: number;
   /** Cuántas filas serían nuevas si se confirma la ingesta. */
   nuevas: number;
+  /**
+   * Cómo quedaron repartidas las filas nuevas entre buckets y categorías,
+   * con conteos y totales (pantalla «Vista previa» 04). Las duplicadas no
+   * cuentan: el commit las omite.
+   */
+  clasificacion: ResumenClasificacionPreview;
 }
 
 /** Salida del preview: read model de aplicación (sin artefactos de persistencia). */
@@ -234,7 +245,10 @@ export class PreviewIngestaUseCase {
     }
     const mask = maskResult.getValue();
 
-    // 4. Build filas — sugerido + esDuplicado per row (D-08: no cap)
+    // 4. Build filas — sugerido + esDuplicado per row (D-08: no cap). The
+    // same pass feeds the classification summary (buckets → categories),
+    // which needs the category NAME that `sugerido` drops.
+    const filasClasificadas: FilaClasificadaPreview[] = [];
     const filas: PreviewFila[] = transacciones.map((tx, i) => {
       const { bucket: bucketSugerido, categoria } =
         this.categorizarTransaccionUseCase
@@ -244,6 +258,14 @@ export class PreviewIngestaUseCase {
             categoriaPorDefecto,
           )
           .getValue();
+      filasClasificadas.push({
+        rowIndex: i,
+        cargo: tx.cargo,
+        abono: tx.abono,
+        esDuplicado: mask[i],
+        bucket: bucketSugerido,
+        categoria,
+      });
 
       // D-09: el catálogo garantiza una Desconocido por bucket antes de
       // llegar acá, así que `bucketSugerido` es SIEMPRE un destino real
@@ -278,6 +300,10 @@ export class PreviewIngestaUseCase {
         totalFilas,
         duplicadosDetectados,
         nuevas,
+        clasificacion: agruparClasificacionPreview(
+          filasClasificadas,
+          categoriaPorDefecto.id,
+        ),
       },
       filas,
     });

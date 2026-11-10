@@ -45,6 +45,72 @@ const previewFilaSchema = z.object({
     .nullable(),
 });
 
+const montoDecimalSchema = z
+  .string()
+  .describe('BigInt-safe decimal string amount (never a JSON number).');
+
+const previewClasificacionCategoriaSchema = z.object({
+  categoriaId: z
+    .string()
+    .nullable()
+    .describe(
+      'Null only for a spend row without a category (not expected today).',
+    ),
+  nombre: z.string(),
+  cantidad: z.number().int().nonnegative(),
+  total: montoDecimalSchema.describe(
+    'Sum of `cargo` of the rows in this category (BigInt-safe decimal string).',
+  ),
+  filas: z
+    .array(z.number().int().nonnegative())
+    .describe('`rowIndex` of each row in this category, ascending.'),
+});
+
+const previewClasificacionBucketSchema = z.object({
+  bucket: z
+    .string()
+    .describe(
+      'Necesidades, Deseos or Ahorro; the product calls Deseos «Gustos».',
+    ),
+  cantidad: z.number().int().nonnegative(),
+  total: montoDecimalSchema,
+  categorias: z
+    .array(previewClasificacionCategoriaSchema)
+    .describe('Sorted by total descending, then by name.'),
+});
+
+/**
+ * Classification summary of the preview (screen 04): server-computed grouping
+ * bucket → category of the NEW rows, with counts and money totals, so clients
+ * render an accordion without summing money. Duplicates are excluded.
+ */
+const previewClasificacionSchema = z
+  .object({
+    ingresos: z
+      .object({
+        cantidad: z.number().int().nonnegative(),
+        total: montoDecimalSchema.describe(
+          'Sum of `abono` of the income rows.',
+        ),
+      })
+      .describe('Income rows (abono > 0 and cargo == 0), outside the buckets.'),
+    buckets: z
+      .array(previewClasificacionBucketSchema)
+      .describe(
+        'Only buckets with rows, in the fixed order Necesidades, Deseos, Ahorro.',
+      ),
+    desconocidos: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe(
+        "Spend rows that fell into the account's default «Desconocido» category (CLA-13).",
+      ),
+  })
+  .describe(
+    'How the new rows were auto-classified (bucket → category → rowIndex), with server-side totals.',
+  );
+
 /**
  * Resumen agregado del preview (US-057 PR2).
  */
@@ -55,6 +121,9 @@ const previewResumenSchema = z.object({
     .describe('Row count PRE-dedupe, not money — plain JSON number.'),
   duplicadosDetectados: z.number().int(),
   nuevas: z.number().int(),
+  // Optional on the wire (the server always emits it) so a client generated from this
+  // contract keeps decoding a preview from a server that predates the field.
+  clasificacion: previewClasificacionSchema.optional(),
 });
 
 /**

@@ -44,7 +44,7 @@ Máquina de estados de la subida:
 | `previsualizando` | Archivo válido elegido, o «Reintentar» con contraseña | `decidiendo`, `protegido`, `error-previa` |
 | `protegido` | 400 `PDF_PROTEGIDO` o `PDF_PASSWORD_INCORRECTA` | Enviar contraseña, o cambiar de archivo |
 | `error-previa` | Cualquier otro fallo de la vista previa | «Reintentar» o elegir otro archivo |
-| `decidiendo` | Vista previa correcta | «Subir tal cual» (a `subiendo`), «Revisar y editar» (a `revisando`), «Descartar» (con confirmación, a `inicial`) |
+| `decidiendo` | Vista previa correcta | «Subir tal cual» (a `subiendo`), «Revisar y editar» (a `revisando`), «Descartar» (con confirmación, a `inicial`). Muestra el resumen de clasificación (ver [Estados](#estados)) |
 | `revisando` | «Revisar y editar» | «Confirmar» (a `subiendo`), «Descartar» (con confirmación) |
 | `subiendo` | Confirmar la importación | `exito` o `error-importacion` |
 | `error-importacion` | Fallo del commit | «Reintentar» (a `subiendo`), volver a revisar |
@@ -68,6 +68,7 @@ Reglas de contrato:
 - Sin coincidencia con ningún patrón, una fila que no es ingreso queda en «Gustos · Desconocido» (CLA-13).
 - Las filas con `esDuplicado: true` se muestran marcadas («Ya cargado»), no son editables y el servidor las omite (IMP-20). `duplicadosOmitidos` del commit puede ser mayor que el de la vista previa.
 - Las propiedades `estructura` y `muestra` de la vista previa están obsoletas: se usan `resumen` y `filas`.
+- **Resumen de clasificación** (`resumen.clasificacion`, opcional en el contrato aunque el servidor siempre lo emite desde que existe; si falta, la app no muestra el acordeón): el API agrupa las filas nuevas y suma el dinero; la app solo lo pinta, nunca suma montos. `ingresos` (`cantidad`, `total` como string decimal, suma de `abono`), `buckets` (solo los que tienen filas, en el orden fijo Necesidades, `Deseos`, Ahorro; cada uno con `cantidad`, `total` = suma de `cargo` y sus `categorias` ordenadas por `total` descendente y luego por nombre, cada una con `categoriaId`, `nombre`, `cantidad`, `total` y `filas` = los `rowIndex` de sus movimientos, ascendentes) y `desconocidos` (filas de gasto que cayeron en la «Desconocido» por defecto, CLA-13). Las filas con `esDuplicado: true` no entran en ningún grupo ni conteo. Un bucket que la app no conoce se omite; un `total` que no es dinero invalida la vista previa completa, igual que un monto de fila.
 - Errores de `commit`: 400 por archivo, banco o estructura: `message` del servidor y volver a `inicial`; 400 por `edits` (índice fuera de rango o categoría fuera del catálogo): mensaje genérico, recargar el catálogo y volver a revisar; 409 `CATALOGO_INCOMPLETO`: error permanente de la cuenta, copia propia «No pudimos importar tu cartola por un problema de tu cuenta. El archivo está bien y no se importó nada», sin reintento automático; 500 y 503: «Reintentar».
 
 ### PDF protegido
@@ -86,6 +87,7 @@ Ambos endpoints aceptan el campo multipart **`password`**, opcional; ausente o v
 - **Vacío** (`inicial`): formatos `.xlsx` o `.pdf`, bancos soportados y la promesa de PRI-03 (no se piden claves; el archivo se borra después de procesarlo).
 - **Error con reintento**: `error-previa`, `protegido`, `error-importacion`; el mensaje permanece visible y recibe el foco del lector de pantalla.
 - **Éxito** (`exito`): «N movimientos importados de {banco}», duplicados omitidos si hay, «Ver resumen del mes» y «Subir otra cartola». Si el procesamiento terminó en segundo plano, el Inicio muestra el aviso de la pantalla 19.
+- **Vista previa** (`decidiendo`, pantalla 04): bajo la tarjeta del banco y los contadores, una línea dice cuántas filas quedaron sin clasificar («3 movimientos quedaron en Desconocido», «1 movimiento quedó en Desconocido» o «Todos los movimientos quedaron clasificados.») y debajo un acordeón de solo lectura con tres niveles, todo plegado al inicio: «Ingresos» aparte (cantidad y total, se despliega a sus movimientos), luego un grupo por bucket (punto de color, nombre, cantidad y total de gasto) que se despliega a sus categorías (nombre, cantidad y total) y cada categoría a sus movimientos (descripción, fecha corta y monto). Los datos salen de `resumen.clasificacion`; tocar un movimiento no hace nada: editar es «Revisar y editar». Con `desconocidos > 0`, «Revisar y editar» pasa a ser el botón principal y «Subir tal cual» el secundario; con 0 se mantiene el orden habitual. Lector de pantalla: cada cabecera es un solo elemento («Gustos. 5 movimientos. Gasto de $105.490») con estado desplegado/contraído.
 - **Catálogo no disponible en la revisión**: «Subir tal cual» sigue disponible; «Revisar y editar» queda deshabilitada con «Reintentar».
 - **Reclasificación en curso** tras crear una categoría: «Actualizando la vista previa con la nueva categoría…».
 - **Confirmación de descarte**: obligatoria, haya ediciones o no.

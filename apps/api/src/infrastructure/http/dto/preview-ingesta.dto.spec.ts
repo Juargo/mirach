@@ -25,9 +25,40 @@ const BANCO = {
   numeroCuenta: '123456',
 };
 
+/** Empty classification summary for fixtures that do not exercise it. */
+const SIN_CLASIFICACION = {
+  ingresos: { cantidad: 0, total: 0n },
+  buckets: [],
+  desconocidos: 0,
+};
+
 const DATA: PreviewIngestaResult = {
   banco: BANCO,
-  resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+  resumen: {
+    totalFilas: 2,
+    duplicadosDetectados: 0,
+    nuevas: 2,
+    clasificacion: {
+      ingresos: { cantidad: 1, total: 1500000n },
+      buckets: [
+        {
+          bucket: Bucket.Necesidades,
+          cantidad: 1,
+          total: 8103n,
+          categorias: [
+            {
+              categoriaId: 'cat-abc',
+              nombre: 'Supermercado',
+              cantidad: 1,
+              total: 8103n,
+              filas: [0],
+            },
+          ],
+        },
+      ],
+      desconocidos: 0,
+    },
+  },
   filas: [
     {
       rowIndex: 0,
@@ -52,7 +83,32 @@ describe('aPreviewIngestaDto', () => {
       banco: 'BCI',
       tipoCuenta: 'Cuenta Corriente',
       numeroCuenta: '123456',
-      resumen: { totalFilas: 2, duplicadosDetectados: 0, nuevas: 2 },
+      resumen: {
+        totalFilas: 2,
+        duplicadosDetectados: 0,
+        nuevas: 2,
+        // Money totals travel as BigInt-safe decimal strings, like cargo/abono.
+        clasificacion: {
+          ingresos: { cantidad: 1, total: '1500000' },
+          buckets: [
+            {
+              bucket: 'Necesidades',
+              cantidad: 1,
+              total: '8103',
+              categorias: [
+                {
+                  categoriaId: 'cat-abc',
+                  nombre: 'Supermercado',
+                  cantidad: 1,
+                  total: '8103',
+                  filas: [0],
+                },
+              ],
+            },
+          ],
+          desconocidos: 0,
+        },
+      },
       filas: [
         {
           rowIndex: 0,
@@ -104,7 +160,12 @@ describe('aPreviewIngestaDto', () => {
   it('filas vacías: mapea a array vacío sin lanzar', () => {
     const dto = aPreviewIngestaDto({
       ...DATA,
-      resumen: { totalFilas: 0, duplicadosDetectados: 0, nuevas: 0 },
+      resumen: {
+        totalFilas: 0,
+        duplicadosDetectados: 0,
+        nuevas: 0,
+        clasificacion: SIN_CLASIFICACION,
+      },
       filas: [],
     });
 
@@ -121,7 +182,12 @@ describe('aPreviewIngestaDto', () => {
     }));
     const dto = aPreviewIngestaDto({
       ...DATA,
-      resumen: { totalFilas: 51, duplicadosDetectados: 0, nuevas: 51 },
+      resumen: {
+        totalFilas: 51,
+        duplicadosDetectados: 0,
+        nuevas: 51,
+        clasificacion: SIN_CLASIFICACION,
+      },
       filas: muchasFilas,
     });
 
@@ -149,7 +215,12 @@ describe('aPreviewIngestaDto', () => {
   it('esDuplicado se serializa correctamente', () => {
     const filaConDuplicado: PreviewIngestaResult = {
       ...DATA,
-      resumen: { totalFilas: 1, duplicadosDetectados: 1, nuevas: 0 },
+      resumen: {
+        totalFilas: 1,
+        duplicadosDetectados: 1,
+        nuevas: 0,
+        clasificacion: SIN_CLASIFICACION,
+      },
       filas: [
         {
           rowIndex: 0,
@@ -220,7 +291,12 @@ describe('aPreviewIngestaDto', () => {
       }));
       const dto = aPreviewIngestaDto({
         ...DATA,
-        resumen: { totalFilas: 51, duplicadosDetectados: 0, nuevas: 51 },
+        resumen: {
+          totalFilas: 51,
+          duplicadosDetectados: 0,
+          nuevas: 51,
+          clasificacion: SIN_CLASIFICACION,
+        },
         filas: muchasFilas,
       });
 
@@ -243,7 +319,12 @@ describe('aPreviewIngestaDto', () => {
     it('filas vacías: muestra vacía y estructura en 0', () => {
       const dto = aPreviewIngestaDto({
         ...DATA,
-        resumen: { totalFilas: 0, duplicadosDetectados: 0, nuevas: 0 },
+        resumen: {
+          totalFilas: 0,
+          duplicadosDetectados: 0,
+          nuevas: 0,
+          clasificacion: SIN_CLASIFICACION,
+        },
         filas: [],
       });
 

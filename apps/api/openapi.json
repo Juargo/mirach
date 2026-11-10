@@ -1445,6 +1445,116 @@
           "resumen": {
             "additionalProperties": false,
             "properties": {
+              "clasificacion": {
+                "additionalProperties": false,
+                "description": "How the new rows were auto-classified (bucket → category → rowIndex), with server-side totals.",
+                "properties": {
+                  "buckets": {
+                    "description": "Only buckets with rows, in the fixed order Necesidades, Deseos, Ahorro.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "bucket": {
+                          "description": "Necesidades, Deseos or Ahorro; the product calls Deseos «Gustos».",
+                          "type": "string"
+                        },
+                        "cantidad": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "categorias": {
+                          "description": "Sorted by total descending, then by name.",
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "cantidad": {
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "categoriaId": {
+                                "description": "Null only for a spend row without a category (not expected today).",
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "filas": {
+                                "description": "`rowIndex` of each row in this category, ascending.",
+                                "items": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "type": "array"
+                              },
+                              "nombre": {
+                                "type": "string"
+                              },
+                              "total": {
+                                "description": "Sum of `cargo` of the rows in this category (BigInt-safe decimal string).",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "categoriaId",
+                              "nombre",
+                              "cantidad",
+                              "total",
+                              "filas"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "total": {
+                          "description": "BigInt-safe decimal string amount (never a JSON number).",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "bucket",
+                        "cantidad",
+                        "total",
+                        "categorias"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "desconocidos": {
+                    "description": "Spend rows that fell into the account's default «Desconocido» category (CLA-13).",
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "ingresos": {
+                    "additionalProperties": false,
+                    "description": "Income rows (abono > 0 and cargo == 0), outside the buckets.",
+                    "properties": {
+                      "cantidad": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "total": {
+                        "description": "Sum of `abono` of the income rows.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "cantidad",
+                      "total"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "ingresos",
+                  "buckets",
+                  "desconocidos"
+                ],
+                "type": "object"
+              },
               "duplicadosDetectados": {
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
