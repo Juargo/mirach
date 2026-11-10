@@ -240,11 +240,17 @@ private fun Deciding(preview: CartolaPreview, state: SubirCartolaViewModel.State
         }
         Counters(preview)
     }
+    PreviewSummary(preview)
     Text(SubirCartolaMessages.NOTHING_SAVED_YET, color = MirachTheme.colors.base.mutedForeground)
-    PrimaryButton(SubirCartolaMessages.UPLOAD_AS_IS) { actions.call { it.uploadAsIs() } }
     // «Revisar y editar» needs the catalog; if it could not load, the rest still works and this says why.
-    SecondaryButton(SubirCartolaMessages.REVIEW_AND_EDIT, enabled = state.loadedCatalog != null) {
-        actions.call { it.startReview() }
+    // With rows in Desconocido, reviewing is the recommended action, so it leads and is filled.
+    val reviewEnabled = state.loadedCatalog != null
+    if (preview.clasificacion?.let(PreviewSummaryPresentation::reviewIsPrimary) == true) {
+        PrimaryButton(SubirCartolaMessages.REVIEW_AND_EDIT, enabled = reviewEnabled) { actions.call { it.startReview() } }
+        SecondaryButton(SubirCartolaMessages.UPLOAD_AS_IS) { actions.call { it.uploadAsIs() } }
+    } else {
+        PrimaryButton(SubirCartolaMessages.UPLOAD_AS_IS) { actions.call { it.uploadAsIs() } }
+        SecondaryButton(SubirCartolaMessages.REVIEW_AND_EDIT, enabled = reviewEnabled) { actions.call { it.startReview() } }
     }
     when (state.catalog) {
         is CatalogState.Loaded -> Unit

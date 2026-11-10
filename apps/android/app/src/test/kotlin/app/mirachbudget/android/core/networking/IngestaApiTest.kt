@@ -14,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -71,7 +72,13 @@ class IngestaApiTest {
     private val preview = """
         {"banco":"Banco de Chile","tipoCuenta":"Cuenta Corriente","numeroCuenta":"00-123-45678-09",
          "estructura":{"totalFilasDatos":3},"muestra":[],
-         "resumen":{"totalFilas":3,"duplicadosDetectados":1,"nuevas":2},
+         "resumen":{"totalFilas":3,"duplicadosDetectados":1,"nuevas":2,
+           "clasificacion":{"ingresos":{"cantidad":0,"total":"0"},
+             "buckets":[{"bucket":"Necesidades","cantidad":1,"total":"12990","categorias":[
+                 {"categoriaId":"cat-1","nombre":"Supermercado","cantidad":1,"total":"12990","filas":[0]}]},
+               {"bucket":"Deseos","cantidad":1,"total":"5000.00","categorias":[
+                 {"categoriaId":null,"nombre":"Desconocido","cantidad":1,"total":"5000.00","filas":[2]}]}],
+             "desconocidos":1}},
          "filas":[
            {"rowIndex":0,"fecha":"2026-01-05T00:00:00.000Z","descripcion":"SUPERMERCADO","cargo":"12990","abono":"0","esDuplicado":false,
             "sugerido":{"bucket":"Necesidades","categoriaId":"cat-1"}},
@@ -166,6 +173,20 @@ class IngestaApiTest {
                         sugerido = null,
                     ),
                 ),
+                clasificacion = ClasificacionPreview(
+                    ingresos = ClasificacionPreview.Ingresos(0, 0L),
+                    buckets = listOf(
+                        ClasificacionPreview.BucketGroup(
+                            Bucket.Necesidades, 1, 12_990L,
+                            listOf(ClasificacionPreview.Categoria("cat-1", "Supermercado", 1, 12_990L, listOf(0))),
+                        ),
+                        ClasificacionPreview.BucketGroup(
+                            Bucket.Deseos, 1, 5_000L,
+                            listOf(ClasificacionPreview.Categoria(null, "Desconocido", 1, 5_000L, listOf(2))),
+                        ),
+                    ),
+                    desconocidos = 1,
+                ),
             ),
             result,
         )
@@ -175,7 +196,47 @@ class IngestaApiTest {
     fun aSuggestionInABucketTheAppDoesNotKnowIsNoSuggestion() = runBlocking<Unit> {
         json(200, preview.replace("\"Necesidades\"", "\"Otro\""))
 
-        assertNull(api().previewIngesta(cartola(), password = null).filas[0].sugerido)
+        val result = api().previewIngesta(cartola(), password = null)
+
+        assertNull(result.filas[0].sugerido)
+        // The same unknown bucket in the classification summary is left out.
+        assertEquals(listOf(Bucket.Deseos), result.clasificacion?.buckets?.map { it.bucket })
+    }
+
+    @Test
+    fun aFieldTheAppDoesNotKnowYetIsIgnoredSoShippedBuildsSurviveAdditiveContractChanges() = runBlocking<Unit> {
+        // ADR-005: the API only adds fields. A build in the stores must keep decoding the preview when one lands.
+        val withNewFields = preview
+            .replace("\"nuevas\":2,", "\"nuevas\":2,\"campoNuevo\":{\"x\":1},")
+            .replace("\"desconocidos\":1", "\"desconocidos\":1,\"otroCampo\":\"y\"")
+
+        json(200, withNewFields)
+
+        assertEquals(2, api().previewIngesta(cartola(), password = null).nuevas)
+    }
+
+    @Test
+    fun aPreviewWithoutTheClassificationSummaryHasNone() = runBlocking<Unit> {
+        // A server that predates the field: the rest of the preview still decodes.
+        json(200, """{"banco":"B","tipoCuenta":"T","numeroCuenta":"1","estructura":{"totalFilasDatos":1},"muestra":[],
+            "resumen":{"totalFilas":1,"duplicadosDetectados":0,"nuevas":1},"filas":[]}""")
+
+        val result = api().previewIngesta(cartola(), password = null)
+
+        assertNull(result.clasificacion)
+        assertEquals(1, result.nuevas)
+    }
+
+    @Test
+    fun aClassificationTotalThatIsNotMoneyFailsTheWholePreview() = runBlocking<Unit> {
+        json(200, preview.replace("\"total\":\"12990\"", "\"total\":\"abc\""))
+
+        try {
+            api().previewIngesta(cartola(), password = null)
+            fail("expected a SerializationException")
+        } catch (e: SerializationException) {
+            assertTrue(e.message.orEmpty(), e.message.orEmpty().contains("amount"))
+        }
     }
 
     @Test
@@ -187,7 +248,7 @@ class IngestaApiTest {
 
     @Test
     fun aPreviewWithoutResumenIsMalformed() {
-        json(200, preview.replace("\"resumen\":{\"totalFilas\":3,\"duplicadosDetectados\":1,\"nuevas\":2},", ""))
+        json(200, """{"banco":"B","tipoCuenta":"T","numeroCuenta":"1","estructura":{"totalFilasDatos":1},"muestra":[],"filas":[]}""")
 
         assertThrows(SerializationException::class.java) { runBlocking { api().previewIngesta(cartola(), password = null) } }
     }

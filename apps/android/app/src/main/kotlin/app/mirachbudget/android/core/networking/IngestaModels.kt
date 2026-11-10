@@ -15,7 +15,51 @@ data class CartolaPreview(
     val nuevas: Int,
     /** Every row of the statement, in file order. */
     val filas: List<CartolaRow>,
+    /**
+     * How the server auto-classified the new rows (screen 04's accordion). `null` when the server did not send it
+     * (one that predates the field): the screen then shows no summary.
+     */
+    val clasificacion: ClasificacionPreview? = null,
 )
+
+/**
+ * The server's classification summary of a preview: the new rows grouped bucket → category, with counts
+ * and money totals summed server-side, and the `rowIndex` of each movement. Duplicates are not in it (the
+ * server skips them on commit). The app only renders it.
+ */
+data class ClasificacionPreview(
+    /** Income rows (`abono > 0`, `cargo == 0`), outside the buckets. */
+    val ingresos: Ingresos,
+    /** Only buckets with rows, in the fixed order Necesidades, Gustos, Ahorro. */
+    val buckets: List<BucketGroup>,
+    /** Spend rows that fell into the default «Desconocido» (CLA-13). */
+    val desconocidos: Int,
+) {
+    data class Ingresos(val cantidad: Int, /** Sum of `abono`, whole pesos. */ val total: Long)
+
+    data class BucketGroup(
+        val bucket: Bucket,
+        val cantidad: Int,
+        /** Sum of `cargo` of its rows, whole pesos. */
+        val total: Long,
+        /** By total descending, then by name, as the server sorts them. */
+        val categorias: List<Categoria>,
+    )
+
+    data class Categoria(
+        /** `null` for a spend row without a category (not expected today). */
+        val categoriaId: String?,
+        val nombre: String,
+        val cantidad: Int,
+        /** Sum of `cargo` of its rows, whole pesos. */
+        val total: Long,
+        /** `rowIndex` of each row, ascending. */
+        val filas: List<Int>,
+    ) {
+        /** Stable key for the accordion state. */
+        val key: String get() = categoriaId ?: "sin-categoria"
+    }
+}
 
 /** One row of the preview. Money is whole pesos: [cargo] is an expense, [abono] an income. */
 data class CartolaRow(

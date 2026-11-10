@@ -5,6 +5,7 @@ import app.mirachbudget.android.core.networking.CartolaCommitResult
 import app.mirachbudget.android.core.networking.CartolaPreview
 import app.mirachbudget.android.core.networking.CartolaRow
 import app.mirachbudget.android.core.networking.CatalogoCategorias
+import app.mirachbudget.android.core.networking.ClasificacionPreview
 import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.staging.CartolaSource
 import java.io.ByteArrayInputStream
@@ -47,7 +48,26 @@ object SubirCartolaSamples {
         row(4, duplicado = true),
     )
 
-    fun preview(rows: List<CartolaRow> = filas) = CartolaPreview(
+    /** What the server would summarize for [filas]: row 2 lands in Deseos · Desconocido, row 4 (duplicate) is out, row 3 is the income. */
+    val clasificacion = ClasificacionPreview(
+        ingresos = ClasificacionPreview.Ingresos(cantidad = 1, total = 500_000),
+        buckets = listOf(
+            ClasificacionPreview.BucketGroup(
+                Bucket.Necesidades, cantidad = 1, total = 1_000,
+                categorias = listOf(ClasificacionPreview.Categoria("cat-super", "Supermercado", 1, 1_000, listOf(0))),
+            ),
+            ClasificacionPreview.BucketGroup(
+                Bucket.Deseos, cantidad = 2, total = 2_000,
+                categorias = listOf(
+                    ClasificacionPreview.Categoria("cat-desc-deseos", "Desconocido", 1, 1_000, listOf(2)),
+                    ClasificacionPreview.Categoria("cat-resto", "Restaurantes", 1, 1_000, listOf(1)),
+                ),
+            ),
+        ),
+        desconocidos = 1,
+    )
+
+    fun preview(rows: List<CartolaRow> = filas, clasificacion: ClasificacionPreview = this.clasificacion) = CartolaPreview(
         banco = "Banco de Chile",
         tipoCuenta = "Cuenta Corriente",
         numeroCuenta = "00-123-45678-09",
@@ -55,6 +75,7 @@ object SubirCartolaSamples {
         duplicados = rows.count { it.esDuplicado },
         nuevas = rows.count { !it.esDuplicado },
         filas = rows,
+        clasificacion = clasificacion,
     )
 
     val commitResult = CartolaCommitResult(ingestaId = "ing-1", totalTransacciones = 4, duplicadosOmitidos = 1)
