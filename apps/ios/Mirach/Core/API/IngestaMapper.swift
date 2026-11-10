@@ -9,7 +9,31 @@ enum IngestaMapper {
         return CartolaPreview(
             banco: wire.banco, tipoCuenta: wire.tipoCuenta, numeroCuenta: wire.numeroCuenta,
             totalFilas: resumen.totalFilas, duplicados: resumen.duplicadosDetectados, nuevas: resumen.nuevas,
-            filas: try (wire.filas ?? []).map(row)
+            filas: try (wire.filas ?? []).map(row),
+            clasificacion: try resumen.clasificacion.map(clasificacion)
+        )
+    }
+
+    private typealias WireClasificacion = Components.Schemas.PreviewIngestaResponse.resumenPayload.clasificacionPayload
+
+    /// Money arrives as decimal strings and is read like `cargo`/`abono`; totals are never re-summed here.
+    private static func clasificacion(_ wire: WireClasificacion) throws -> ClasificacionPreview {
+        ClasificacionPreview(
+            ingresos: .init(cantidad: wire.ingresos.cantidad, total: try Money.pesos(wire.ingresos.total)),
+            // A bucket the app does not know cannot be shown: left out, like a catalog category.
+            buckets: try wire.buckets.compactMap { group in
+                guard let bucket = Bucket(apiName: group.bucket) else { return nil }
+                return ClasificacionPreview.BucketGroup(
+                    bucket: bucket, cantidad: group.cantidad, total: try Money.pesos(group.total),
+                    categorias: try group.categorias.map {
+                        ClasificacionPreview.Categoria(
+                            categoriaId: $0.categoriaId, nombre: $0.nombre, cantidad: $0.cantidad,
+                            total: try Money.pesos($0.total), filas: $0.filas
+                        )
+                    }
+                )
+            },
+            desconocidos: wire.desconocidos
         )
     }
 

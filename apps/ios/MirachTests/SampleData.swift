@@ -73,9 +73,25 @@ extension SampleData {
         ),
     ]
 
+    /// What the server would summarize for `rows`: rows 2 and 3 land in Deseos · Desconocido, row 4
+    /// (duplicate) is out, row 5 is the income.
+    static let clasificacion = ClasificacionPreview(
+        ingresos: .init(cantidad: 1, total: 1_200_000),
+        buckets: [
+            .init(bucket: .necesidades, cantidad: 1, total: 25_990, categorias: [
+                .init(categoriaId: Cat.supermercado, nombre: "Supermercado", cantidad: 1, total: 25_990, filas: [0]),
+            ]),
+            .init(bucket: .deseos, cantidad: 3, total: 70_500, categorias: [
+                .init(categoriaId: Cat.desconocidoDeseos, nombre: "Desconocido", cantidad: 2, total: 52_000, filas: [2, 3]),
+                .init(categoriaId: Cat.restaurantes, nombre: "Restaurantes", cantidad: 1, total: 18_500, filas: [1]),
+            ]),
+        ],
+        desconocidos: 2
+    )
+
     static let preview = CartolaPreview(
         banco: "Banco de Chile", tipoCuenta: "Cuenta Corriente", numeroCuenta: "00-123-45678-09",
-        totalFilas: 6, duplicados: 1, nuevas: 5, filas: rows
+        totalFilas: 6, duplicados: 1, nuevas: 5, filas: rows, clasificacion: clasificacion
     )
     static let commit = CartolaCommitResult(totalTransacciones: 37, duplicadosOmitidos: 5)
 }
