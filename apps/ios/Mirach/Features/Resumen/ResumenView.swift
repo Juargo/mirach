@@ -89,7 +89,8 @@ struct ResumenView: View {
                 periodo: mes.periodo,
                 anterior: viewModel.anterior,
                 siguiente: viewModel.siguiente,
-                select: { periodo in Task { await viewModel.select(periodo) } }
+                select: { periodo in Task { await viewModel.select(periodo) } },
+                titleFont: .mirach(.cuerpoDestacado)
             )
             if mes.sinIngreso {
                 EmptyMonth(onUpload: onUploadStatement)

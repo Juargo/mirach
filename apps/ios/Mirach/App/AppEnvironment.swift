@@ -372,7 +372,8 @@ struct StubMirachAPI: MirachAPI {
                     BucketResumen(bucket: .necesidades, total: 0, porcentajeBp: nil, metaBp: 5000, estado: nil),
                     BucketResumen(bucket: .deseos, total: 0, porcentajeBp: nil, metaBp: 3000, estado: nil),
                     BucketResumen(bucket: .ahorro, total: 0, porcentajeBp: nil, metaBp: 2000, estado: nil),
-                ]
+                ],
+                estadoMes: nil, fuenteIngreso: .detectado
             )
         default:
             let totals = Bucket.allCases.map { ledger.total($0) }
@@ -384,7 +385,8 @@ struct StubMirachAPI: MirachAPI {
                         bucket: bucket, total: figures.0, porcentajeBp: figures.0 * 10_000 / StubLedger.income,
                         metaBp: figures.1, estado: bucket == .ahorro ? nil : .amarillo
                     )
-                }
+                },
+                estadoMes: .amarillo, fuenteIngreso: .detectado
             )
         }
     }

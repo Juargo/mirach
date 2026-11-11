@@ -8,6 +8,8 @@ struct MonthSelector: View {
     let select: (Periodo) -> Void
     /// Prefix of the title's accessibility identifier (`<prefix>.month`).
     var idPrefix = "resumen"
+    /// The month title's font; the Inicio asks for `cuerpo-destacado`, the bucket detail keeps its own.
+    var titleFont: Font = .mirach(.title3).bold()
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -35,7 +37,7 @@ struct MonthSelector: View {
 
     private var title: some View {
         Text(Format.monthTitle(periodo))
-            .font(.mirach(.title3).bold())
+            .font(titleFont)
             .foregroundStyle(Color.Mirach.Base.foreground)
             .multilineTextAlignment(.center)
             .accessibilityAddTraits(.isHeader)

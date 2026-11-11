@@ -31,6 +31,30 @@ export function hexToSrgb(hex) {
   return { red, green, blue, alpha: '1.000000' };
 }
 
+// Inter faces bundled with the app (see MirachTypography.swift), by CSS font weight.
+const FACE_BY_WEIGHT = { 400: 'Inter-Regular', 500: 'Inter-Medium', 600: 'Inter-SemiBold', 700: 'Inter-Bold' };
+
+// Default point size of each system text style, as in MirachTypography.size(for:); a token style
+// scales with Dynamic Type relative to the nearest one.
+const SYSTEM_STYLE_SIZES = [
+  ['largeTitle', 34], ['title', 28], ['title2', 22], ['title3', 20], ['body', 17],
+  ['callout', 16], ['subheadline', 15], ['footnote', 13], ['caption', 12], ['caption2', 11],
+];
+
+const nearestSystemStyle = (size) =>
+  SYSTEM_STYLE_SIZES.reduce((best, cur) => (Math.abs(cur[1] - size) < Math.abs(best[1] - size) ? cur : best))[0];
+
+/** typography.text-style.* -> [{ name (camelCase), size, lineHeight, face, anchor }], in token order. */
+function collectTextStyles(tokens) {
+  return Object.entries(tokens.typography['text-style']).map(([key, leaf]) => {
+    const { fontWeight, fontSize, lineHeight } = leaf.$value;
+    const face = FACE_BY_WEIGHT[fontWeight];
+    if (!face) throw new Error(`Unsupported font weight ${fontWeight} in text style ${key}`);
+    const size = parseFloat(fontSize);
+    return { name: camel(key), size, lineHeight: parseFloat(lineHeight), face, anchor: nearestSystemStyle(size) };
+  });
+}
+
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
 function colorsetContents({ light, dark }) {
@@ -83,6 +107,12 @@ function renderSwift(tokens, colors) {
     .map(([k, leaf]) => `    static let ${camel(k)}: CGFloat = ${px(leaf)}`)
     .join('\n');
 
+  const styles = collectTextStyles(tokens);
+  const styleProperty = (type, member, value) =>
+    `    var ${member}: ${type} {\n        switch self {\n${styles
+      .map((st) => `        case .${st.name}: ${value(st)}`)
+      .join('\n')}\n        }\n    }`;
+
   return `// GENERATED FILE. DO NOT EDIT.
 // Source: design/tokens.json. Regenerate with: apps/ios/scripts/generate-tokens.sh
 // CI fails when this file is out of date (see the \`ios\` job in .github/workflows/ci.yml).
@@ -126,6 +156,27 @@ enum MirachFont {
     static let sans: [String] = ${list(fam.sans.$value ?? fam.sans)}
     /// OpenType feature required for figures (\`typography.figure-features\`).
     static let figureFeatures = ${q(tokens.typography['figure-features'].$value)}
+}
+
+/// Text styles from \`typography.text-style.*\`: Inter at the token size, scaling with Dynamic Type
+/// relative to the nearest system style. Use: \`.font(.mirach(.titulo))\` or \`.mirachText(.titulo)\`,
+/// which also applies the token line height.
+enum MirachTextStyle: CaseIterable {
+    case ${styles.map((st) => st.name).join(', ')}
+
+${styleProperty('CGFloat', 'size', (st) => st.size)}
+${styleProperty('CGFloat', 'lineHeight', (st) => st.lineHeight)}
+    /// PostScript name of the bundled Inter face.
+${styleProperty('String', 'face', (st) => q(st.face))}
+    /// The system text style the size scales with.
+${styleProperty('Font.TextStyle', 'relativeTo', (st) => `.${st.anchor}`)}
+}
+
+extension Font {
+    /// A token text style, in Inter.
+    static func mirach(_ style: MirachTextStyle) -> Font {
+        .custom(style.face, size: style.size, relativeTo: style.relativeTo)
+    }
 }
 
 extension View {

@@ -13,7 +13,9 @@ enum SampleData {
                 BucketResumen(bucket: .necesidades, total: 450_000, porcentajeBp: sinIngreso ? nil : 4500, metaBp: 5000, estado: .verde),
                 BucketResumen(bucket: .deseos, total: 305_000, porcentajeBp: sinIngreso ? nil : 3050, metaBp: 3000, estado: .amarillo),
                 BucketResumen(bucket: .ahorro, total: 0, porcentajeBp: sinIngreso ? nil : 0, metaBp: 2000, estado: nil),
-            ]
+            ],
+            estadoMes: nil,
+            fuenteIngreso: .detectado
         )
     }
 

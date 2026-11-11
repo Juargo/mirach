@@ -111,6 +111,67 @@ enum MirachFont {
     static let figureFeatures = "tnum"
 }
 
+/// Text styles from `typography.text-style.*`: Inter at the token size, scaling with Dynamic Type
+/// relative to the nearest system style. Use: `.font(.mirach(.titulo))` or `.mirachText(.titulo)`,
+/// which also applies the token line height.
+enum MirachTextStyle: CaseIterable {
+    case titulo, numeroGrande, cuerpo, cuerpoDestacado, boton, etiqueta, mini
+
+    var size: CGFloat {
+        switch self {
+        case .titulo: 28
+        case .numeroGrande: 40
+        case .cuerpo: 16
+        case .cuerpoDestacado: 16
+        case .boton: 16
+        case .etiqueta: 13
+        case .mini: 11
+        }
+    }
+    var lineHeight: CGFloat {
+        switch self {
+        case .titulo: 34
+        case .numeroGrande: 44
+        case .cuerpo: 24
+        case .cuerpoDestacado: 24
+        case .boton: 20
+        case .etiqueta: 16
+        case .mini: 14
+        }
+    }
+    /// PostScript name of the bundled Inter face.
+    var face: String {
+        switch self {
+        case .titulo: "Inter-SemiBold"
+        case .numeroGrande: "Inter-SemiBold"
+        case .cuerpo: "Inter-Regular"
+        case .cuerpoDestacado: "Inter-SemiBold"
+        case .boton: "Inter-SemiBold"
+        case .etiqueta: "Inter-Medium"
+        case .mini: "Inter-Medium"
+        }
+    }
+    /// The system text style the size scales with.
+    var relativeTo: Font.TextStyle {
+        switch self {
+        case .titulo: .title
+        case .numeroGrande: .largeTitle
+        case .cuerpo: .callout
+        case .cuerpoDestacado: .callout
+        case .boton: .callout
+        case .etiqueta: .footnote
+        case .mini: .caption2
+        }
+    }
+}
+
+extension Font {
+    /// A token text style, in Inter.
+    static func mirach(_ style: MirachTextStyle) -> Font {
+        .custom(style.face, size: style.size, relativeTo: style.relativeTo)
+    }
+}
+
 extension View {
     /// Rule "figures use tabular digits": amounts, dates and counts align in columns.
     func mirachFigures() -> some View {
