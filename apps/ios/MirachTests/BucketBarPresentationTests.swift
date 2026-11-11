@@ -44,7 +44,7 @@ struct BucketBarPresentationTests {
     @Test func theStateWordIsReadAfterTheName() {
         #expect(BucketBarPresentation.accessibilityLabel(for: item(total: 305_000, estado: .amarillo))
             == "Gustos. Cerca. Gasto de $305.000, 30,5% del ingreso. Meta 30%")
-        #expect(BucketBarPresentation.accessibilityLabel(for: item(total: 1_000, estado: .rojo)).hasPrefix("Gustos. Sobre. "))
+        #expect(BucketBarPresentation.accessibilityLabel(for: item(total: 1_000, estado: .rojo)).hasPrefix("Gustos. Fuera. "))
         #expect(BucketBarPresentation.accessibilityLabel(for: item(total: 1_000, estado: .verde)).hasPrefix("Gustos. Bien. "))
     }
 

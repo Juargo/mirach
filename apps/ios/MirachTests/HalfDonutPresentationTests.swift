@@ -28,19 +28,34 @@ struct HalfDonutPresentationTests {
         #expect(abs(ring[2].start - ring[1].end - HalfDonutPresentation.gapDegrees) < 1e-9)
     }
 
-    @Test func theOuterRingUsesTheRealShareOfTheirSumNotOfTheIncome() {
-        // Real shares 20/10/10 (sum 40): the outer ring is 90°/45°/45° whatever the target is.
+    @Test func theOuterRingUsesTheShareOfTheIncomeAndLeavesTheUnspentPartEmpty() {
+        // Real shares 20/10/10 of the income: 36°, 18° and 18° of the half; the other 108° stay empty.
         let buckets = [
             bucket(.necesidades, bp: 2000, meta: 5000), bucket(.deseos, bp: 1000, meta: 3000),
             bucket(.ahorro, bp: 1000, meta: 2000),
         ]
         let presentation = HalfDonutPresentation(buckets: buckets)
 
-        #expect(abs(presentation.outer[0].end - 89.25) < 1e-9)
-        #expect(abs(presentation.outer[1].end - 134.25) < 1e-9)
+        #expect(abs(presentation.outer[0].start - 0.75) < 1e-9)
+        #expect(abs(presentation.outer[0].end - 35.25) < 1e-9)
+        #expect(abs(presentation.outer[1].end - 53.25) < 1e-9)
+        #expect(abs(presentation.outer[2].end - 71.25) < 1e-9)
         // The inner ring follows the targets, independent of the month.
         #expect(abs(presentation.inner[0].end - 89.25) < 1e-9)
         #expect(abs(presentation.inner[1].end - 143.25) < 1e-9)
+    }
+
+    @Test func aMonthSpentOverItsIncomeFillsTheHalfInProportion() {
+        // 60/30/30 is 120% of the income: the half is split by their sum, like 50/25/25.
+        let buckets = [
+            bucket(.necesidades, bp: 6000, meta: 5000), bucket(.deseos, bp: 3000, meta: 3000),
+            bucket(.ahorro, bp: 3000, meta: 2000),
+        ]
+        let outer = HalfDonutPresentation(buckets: buckets).outer
+
+        #expect(abs(outer[0].end - 89.25) < 1e-9)
+        #expect(abs(outer[1].end - 134.25) < 1e-9)
+        #expect(abs(outer[2].end - 179.25) < 1e-9)
     }
 
     @Test func theOuterRingIsNotDrawnWhenTheRealSharesSumToZero() {

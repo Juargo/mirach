@@ -23,8 +23,8 @@ struct EstadoPresentationTests {
 
     @Test func theMonthVerdictHasOneSentencePerState() {
         #expect(ResumenPresentation.verdict(for: .verde) == "Dentro de la meta")
-        #expect(ResumenPresentation.verdict(for: .amarillo) == "Cerca de la meta")
-        #expect(ResumenPresentation.verdict(for: .rojo) == "Sobre la meta")
+        #expect(ResumenPresentation.verdict(for: .amarillo) == "Cerca del límite")
+        #expect(ResumenPresentation.verdict(for: .rojo) == "Fuera de la meta")
     }
 
     @Test func noMonthStateShowsNoVerdict() {

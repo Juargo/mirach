@@ -160,7 +160,7 @@ object MirachCopy {
     object Estado {
         const val bien = "Bien"
         const val cerca = "Cerca"
-        const val sobre = "Sobre"
+        const val sobre = "Fuera"
         const val sinDatos = "Sin datos"
     }
 }

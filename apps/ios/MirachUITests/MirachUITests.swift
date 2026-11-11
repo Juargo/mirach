@@ -146,7 +146,7 @@ final class MirachUITests: XCTestCase {
             let anywhere = NSPredicate(format: "label CONTAINS %@", text)
             XCTAssertEqual(app.descendants(matching: .any).matching(anywhere).count, 0, "found \(text)")
         }
-        XCTAssertTrue(element(app, "resumen.verdict").label.contains("Cerca de la meta"), "verdict: \(element(app, "resumen.verdict").label)")
+        XCTAssertTrue(element(app, "resumen.verdict").label.contains("Cerca del límite"), "verdict: \(element(app, "resumen.verdict").label)")
         // The legend of the half donut sits next to the bars; the donut itself is hidden from VoiceOver.
         XCTAssertEqual(element(app, "resumen.legend").label, "Anillo de afuera: tu mes. Anillo de adentro: tu meta.")
         XCTAssertEqual(

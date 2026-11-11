@@ -27,8 +27,8 @@ enum ResumenPresentation {
     static func verdict(for estado: EstadoSemaforo?) -> String? {
         switch estado {
         case .verde: "Dentro de la meta"
-        case .amarillo: "Cerca de la meta"
-        case .rojo: "Sobre la meta"
+        case .amarillo: "Cerca del límite"
+        case .rojo: "Fuera de la meta"
         case nil: nil
         }
     }
