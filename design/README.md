@@ -51,12 +51,12 @@ Las apps conservan sus nombres de rol; el valor de cada uno sale de esta variabl
 
 Los generadores (`scripts/generate-ios-tokens.mjs`, `scripts/generate-android-tokens.mjs`) producen:
 
-- iPhone: el catálogo de assets `Resources/Tokens.xcassets` (cada color con su variante oscura) y `Core/Design/GeneratedTokens.swift` (`Color.Mirach.*`, `MirachCopy`, `MirachFont`, `MirachRadius`, `MirachSpacing`).
-- Android: `core/design/GeneratedTokens.kt` (`MirachPalettes.light` y `.dark`, `MirachCopy`, `MirachFont`, `MirachRadius`, `MirachSpacing`).
+- iPhone: el catálogo de assets `Resources/Tokens.xcassets` (cada color con su variante oscura) y `Core/Design/GeneratedTokens.swift` (`Color.Mirach.*`, `MirachCopy`, `MirachFont`, `MirachTextStyle`, `MirachRadius`, `MirachSpacing`).
+- Android: `core/design/GeneratedTokens.kt` (`MirachPalettes.light` y `.dark`, `MirachCopy`, `MirachFont`, `MirachTextStyles`, `MirachRadius`, `MirachSpacing`).
 
 Las apps siguen el tema del sistema, claro u oscuro (VIS-16). No escriben colores ni etiquetas a mano: el texto de los bloques sale de `copy.bucket.*`. El API todavía nombra `Deseos` al bloque de Gustos; ese valor solo se usa para hablar con el API y como identificador de accesibilidad, nunca como texto visible.
 
-Las dos apps empaquetan Inter 4.1 (Regular, Medium, SemiBold y Bold, licencia SIL OFL 1.1): iPhone en `Resources/Fonts` con `Font.mirach(_:)`, que conserva el tamaño de cada estilo del sistema y Dynamic Type; Android en `res/font` con `MirachTypography` en el tema de Material. La escala tipográfica de Figma (`typography.text-style.*`) todavía no se genera.
+Las dos apps empaquetan Inter 4.1 (Regular, Medium, SemiBold y Bold, licencia SIL OFL 1.1): iPhone en `Resources/Fonts` con `Font.mirach(_:)`, que conserva el tamaño de cada estilo del sistema y Dynamic Type; Android en `res/font` con `MirachTypography` en el tema de Material. La escala tipográfica de Figma (`typography.text-style.*`) se genera como `MirachTextStyle` (iPhone, con `.mirachText(_:)`, que aplica la fuente y el interlineado y escala con Dynamic Type) y `MirachTextStyles` (Android, en `sp`). Por ahora la usan el Inicio y los componentes de `Core/Design`; el resto de las pantallas sigue con los estilos del sistema.
 
 ## Reglas que los tokens no pueden expresar
 
@@ -69,7 +69,7 @@ Las dos apps empaquetan Inter 4.1 (Regular, Medium, SemiBold y Bold, licencia SI
 
 `pnpm design:check` mide la razón de contraste WCAG 2.x de 41 pares por tema: 4,5:1 para texto y 3:1 para elementos gráficos (bordes de controles, rellenos de bloque y marcas de estado sobre las dos superficies).
 
-Excepción conocida, reportada al dueño del diseño y sin cambiar aquí:
+Excepción conocida, reportada al dueño del diseño y sin cambiar aquí. Las apps y Figma la evitan en la media dona: la etiqueta sobre el segmento de Ahorro usa `base.foreground`.
 
 | Par | Tema | Razón | Mínimo |
 |---|---|---|---|

@@ -75,3 +75,4 @@ Build the native iPhone app of Mirach in Swift and SwiftUI, implementing the scr
 ## Next step
 
 Pre-release: Apple revocation PR order, migration on production, Render env vars, TestFlight.
+- Product decision 2026-11-11 (supersedes 2026-10-05): the traffic light is shown again in the Resumen, as in Figma: month verdict from `estadoMes` and per-bucket state with mark and word, also in VoiceOver text. See `odd/tasks/diseno-base-inicio.md` (S5).
