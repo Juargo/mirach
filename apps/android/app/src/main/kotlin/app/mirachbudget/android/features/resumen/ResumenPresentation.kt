@@ -35,8 +35,8 @@ fun BucketResumen.accessibilityLabel(): String {
 /** The month verdict, the headline of the Inicio. Null when the API has no state for the month. */
 fun monthVerdict(estado: EstadoSemaforo?): String? = when (estado) {
     EstadoSemaforo.Verde -> "Dentro de la meta"
-    EstadoSemaforo.Amarillo -> "Cerca de la meta"
-    EstadoSemaforo.Rojo -> "Sobre la meta"
+    EstadoSemaforo.Amarillo -> "Cerca del límite"
+    EstadoSemaforo.Rojo -> "Fuera de la meta"
     null -> null
 }
 

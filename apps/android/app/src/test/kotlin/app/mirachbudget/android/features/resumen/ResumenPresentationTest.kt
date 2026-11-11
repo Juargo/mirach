@@ -46,8 +46,8 @@ class ResumenPresentationTest {
     @Test
     fun theMonthVerdictIsTheHeadlineAndIsAbsentWithoutState() {
         assertEquals("Dentro de la meta", monthVerdict(EstadoSemaforo.Verde))
-        assertEquals("Cerca de la meta", monthVerdict(EstadoSemaforo.Amarillo))
-        assertEquals("Sobre la meta", monthVerdict(EstadoSemaforo.Rojo))
+        assertEquals("Cerca del límite", monthVerdict(EstadoSemaforo.Amarillo))
+        assertEquals("Fuera de la meta", monthVerdict(EstadoSemaforo.Rojo))
         assertNull(monthVerdict(null))
     }
 

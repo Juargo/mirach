@@ -36,18 +36,21 @@ data class DonutSegment(val startAngle: Float, val sweepAngle: Float) {
 
 const val DONUT_MIN_LABEL_SWEEP = 16f
 
+/** The whole income in basis points: the visible half of the outer ring stands for it. */
+const val WHOLE_INCOME_BP = 10_000
+
 /** The ring has room for whole percentages only; the bar captions carry the exact figure. */
 fun donutLabel(bp: Int): String = Format.percent(Math.round(bp / 100.0).toInt() * 100)
 
 /**
  * The visible half runs from the top (270) through the left (180) to the bottom (90). Each share gets
- * a slice of the half proportional to its part of the sum and loses half the gap at both ends.
- * Negative or missing shares count as 0; a sum of 0 draws nothing.
+ * a slice of the half proportional to its part of [wholeBp], or of the sum when that is larger, and
+ * loses half the gap at both ends. Negative or missing shares count as 0; a sum of 0 draws nothing.
  */
-fun donutSegments(sharesBp: List<Int?>): List<DonutSegment> {
+fun donutSegments(sharesBp: List<Int?>, wholeBp: Int = 0): List<DonutSegment> {
     val shares = sharesBp.map { maxOf(it ?: 0, 0).toFloat() }
-    val sum = shares.sum()
-    if (sum == 0f) return emptyList()
+    if (shares.sum() == 0f) return emptyList()
+    val sum = maxOf(shares.sum(), wholeBp.toFloat())
     var covered = 0f
     return shares.map { share ->
         val slice = HALF_TURN * share / sum
@@ -67,7 +70,8 @@ private val innerRing = Ring(outerRadius = 104f, innerRatio = 0.80f, alpha = 0.4
 
 /**
  * Half donut centred on the trailing edge, so only the leading half shows (150dp by 300dp). The outer
- * ring is the month ([realBp], by real share), the inner one the target ([targetBp]) at 40% opacity.
+ * ring is the month ([realBp], each share of the income, so what was not spent stays empty over a
+ * track), the inner one the target ([targetBp]) at 40% opacity.
  * Hidden from screen readers: the bucket bars carry the same data.
  */
 @Composable
@@ -75,11 +79,22 @@ fun HalfDonut(fills: List<Color>, realBp: List<Int?>, targetBp: List<Int>, modif
     val colors = MirachTheme.colors.base
     val measurer = rememberTextMeasurer()
     val labelStyle = MirachTextStyles.etiqueta.copy(fontWeight = FontWeight.SemiBold)
-    val real = donutSegments(realBp)
+    val real = donutSegments(realBp, wholeBp = WHOLE_INCOME_BP)
     val target = donutSegments(targetBp)
     Canvas(modifier.size(150.dp, 300.dp).clipToBounds().clearAndSetSemantics {}) {
         val center = Offset(size.width, size.height / 2)
         // White on the jade of Ahorro is 3.51:1: the documented contrast exception uses the dark text there.
+        // The track shows through where the month has income left unspent.
+        val trackMiddle = (outerRing.outerRadius * (1 + outerRing.innerRatio) / 2).dp.toPx()
+        drawArc(
+            color = colors.card,
+            startAngle = 90f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(center.x - trackMiddle, center.y - trackMiddle),
+            size = Size(trackMiddle * 2, trackMiddle * 2),
+            style = Stroke(width = (outerRing.outerRadius * (1 - outerRing.innerRatio)).dp.toPx()),
+        )
         val outerLabels = realBp.indices.map { if (it == fills.lastIndex) colors.foreground else colors.background }
         drawRing(outerRing, center, real, fills, realBp.map { it ?: 0 }, outerLabels, measurer, labelStyle)
         drawRing(innerRing, center, target, fills, targetBp, targetBp.map { colors.foreground }, measurer, labelStyle)

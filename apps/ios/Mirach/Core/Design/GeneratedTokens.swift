@@ -97,7 +97,7 @@ enum MirachCopy {
     enum Estado {
         static let bien = "Bien"
         static let cerca = "Cerca"
-        static let sobre = "Sobre"
+        static let sobre = "Fuera"
         static let sinDatos = "Sin datos"
     }
 }

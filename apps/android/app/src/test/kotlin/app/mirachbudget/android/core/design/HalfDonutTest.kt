@@ -47,6 +47,30 @@ class HalfDonutTest {
     }
 
     @Test
+    fun sharesOfAWholeLeaveTheUnspentPartEmpty() {
+        // 20/10/10 of the income: 36, 18 and 18 degrees of the half; the other 108 stay empty.
+        val segments = donutSegments(listOf(2_000, 1_000, 1_000), wholeBp = WHOLE_INCOME_BP)
+
+        assertEquals(234.75f, segments[0].startAngle, delta)
+        assertEquals(34.5f, segments[0].sweepAngle, delta)
+        assertEquals(16.5f, segments[1].sweepAngle, delta)
+        assertEquals(198.75f, segments[2].startAngle, delta)
+        assertEquals(16.5f, segments[2].sweepAngle, delta)
+    }
+
+    @Test
+    fun sharesOverTheWholeFillTheHalfInProportion() {
+        val over = donutSegments(listOf(6_000, 3_000, 3_000), wholeBp = WHOLE_INCOME_BP)
+        val exact = donutSegments(listOf(5_000, 2_500, 2_500), wholeBp = WHOLE_INCOME_BP)
+
+        over.zip(exact).forEach { (a, b) ->
+            assertEquals(b.startAngle, a.startAngle, delta)
+            assertEquals(b.sweepAngle, a.sweepAngle, delta)
+        }
+        assertEquals(90.75f, over[2].startAngle, delta)
+    }
+
+    @Test
     fun sharesAreRelativeToTheirSumNotToTenThousand() {
         val over = donutSegments(listOf(6_000, 3_000, 3_000))
         val exact = donutSegments(listOf(5_000, 2_500, 2_500))
