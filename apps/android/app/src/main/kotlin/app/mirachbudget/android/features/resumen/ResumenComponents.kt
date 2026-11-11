@@ -1,16 +1,13 @@
 package app.mirachbudget.android.features.resumen
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,26 +19,27 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import app.mirachbudget.android.core.design.MirachCopy
+import app.mirachbudget.android.core.design.BucketBar
+import app.mirachbudget.android.core.design.EstadoMark
+import app.mirachbudget.android.core.design.HalfDonut
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextStyles
+import app.mirachbudget.android.core.design.barFractions
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.mirachFigures
 import app.mirachbudget.android.core.formatting.Format
 import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.BucketResumen
+import app.mirachbudget.android.core.networking.EstadoSemaforo
 import app.mirachbudget.android.core.networking.Periodo
 import app.mirachbudget.android.core.networking.ResumenMes
 
@@ -120,7 +118,7 @@ fun MonthSelector(periodo: Periodo, anterior: Periodo?, siguiente: Periodo?, onS
     val title: @Composable () -> Unit = {
         Text(
             Format.monthTitle(periodo),
-            style = MaterialTheme.typography.titleLarge,
+            style = MirachTextStyles.cuerpoDestacado,
             color = MirachTheme.colors.base.foreground,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
@@ -163,14 +161,12 @@ private fun Arrow(glyph: String, label: String, target: Periodo?, onSelect: (Per
     }
 }
 
-/** The month with data: income, the distribution chart and one row per bucket. */
+/** The month with data: verdict, the bucket bars with the half donut, and the income row. */
 @Composable
 fun ResumenContent(mes: ResumenMes, modifier: Modifier = Modifier, onOpenBucket: ((Bucket) -> Unit)? = null) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        IncomeCard(mes)
-        if (mes.hasSpending()) {
-            DistribucionChart(mes.buckets)
-        } else {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(MirachSpacing.m)) {
+        MonthVerdict(mes.estadoMes)
+        if (mes.buckets.none { it.total > 0 }) {
             Text(
                 "Sin gastos este mes",
                 color = MirachTheme.colors.base.mutedForeground,
@@ -178,126 +174,77 @@ fun ResumenContent(mes: ResumenMes, modifier: Modifier = Modifier, onOpenBucket:
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            mes.buckets.forEach { item -> BucketRow(item, onOpen = onOpenBucket?.let { open -> { open(item.bucket) } }) }
-        }
-    }
-}
-
-@Composable
-private fun IncomeCard(mes: ResumenMes) {
-    Column(
-        Modifier.card().clearAndSetSemantics { contentDescription = mes.incomeAccessibilityLabel() },
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(MirachCopy.Bucket.ingreso, style = MaterialTheme.typography.bodySmall, color = MirachTheme.colors.base.mutedForeground)
-        Text(
-            Format.income(mes.totalIngreso),
-            style = MaterialTheme.typography.headlineSmall.mirachFigures(),
-            color = MirachTheme.colors.ingreso.text,
-        )
-    }
-}
-
-/**
- * Donut of how the month's spend split between the three buckets: the slices are proportional to
- * each bucket's `total`, and nothing is computed or shown as a percentage here. The legend rows
- * below are the accessible way in, so the chart is read as one summary.
- */
-@Composable
-fun DistribucionChart(buckets: List<BucketResumen>, modifier: Modifier = Modifier) {
-    val colors = MirachTheme.colors
-    val sweeps = sweepAngles(buckets.map { it.total })
-    val gap = if (sweeps.count { it > 0f } > 1) 2f else 0f
-    val description = chartDescription(buckets)
-    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Canvas(
-            Modifier
-                .size(180.dp)
-                .clearAndSetSemantics {
-                    contentDescription = "Distribución del gasto"
-                    stateDescription = description
-                },
-        ) {
-            val stroke = size.minDimension * 0.19f
-            val inset = stroke / 2
-            var start = -90f
-            buckets.forEachIndexed { i, item ->
-                val sweep = sweeps[i]
-                if (sweep > 0f) {
-                    drawArc(
-                        color = colors.bucket.fill(item.bucket),
-                        startAngle = start + gap / 2,
-                        sweepAngle = (sweep - gap).coerceAtLeast(0.5f),
-                        useCenter = false,
-                        topLeft = Offset(inset, inset),
-                        size = Size(size.width - stroke, size.height - stroke),
-                        style = Stroke(width = stroke),
-                    )
-                }
-                start += sweep
+        val bars: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                mes.buckets.forEach { item -> BucketBarFor(item, onOpen = onOpenBucket?.let { open -> { open(item.bucket) } }) }
             }
         }
-    }
-}
-
-/** What TalkBack offers on a bucket row that opens its movements (iOS: «Ver los movimientos»). */
-internal const val BUCKET_ROW_HINT = "Ver los movimientos"
-
-/**
- * One legend row: swatch, name, spend, share of the income and target. Always shown, so the chart is
- * never the only way to see a bucket. With [onOpen] the row is a button that opens the bucket's movements.
- */
-@Composable
-private fun BucketRow(item: BucketResumen, onOpen: (() -> Unit)? = null) {
-    val name: @Composable () -> Unit = {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // The bucket color is a fill; the name next to it is the real label.
-            Box(Modifier.size(14.dp).background(MirachTheme.colors.bucket.fill(item.bucket)))
-            Text(item.bucket.label, style = MaterialTheme.typography.titleMedium, color = MirachTheme.colors.base.cardForeground)
-        }
-    }
-    val figures: @Composable (Alignment.Horizontal) -> Unit = { alignment ->
-        Column(horizontalAlignment = alignment, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                Format.expense(item.total),
-                style = MaterialTheme.typography.titleMedium.mirachFigures(),
-                color = MirachTheme.colors.feedback.expenseText,
-            )
-            Text(
-                "${Format.percent(item.porcentajeBp)} del ingreso",
-                style = MaterialTheme.typography.bodySmall.mirachFigures(),
-                color = MirachTheme.colors.base.mutedForeground,
-            )
-            Text(
-                "Meta: ${Format.percent(item.metaBp)}",
-                style = MaterialTheme.typography.bodySmall.mirachFigures(),
-                color = MirachTheme.colors.base.mutedForeground,
-            )
-        }
-    }
-    val label = item.accessibilityLabel()
-    val clickable = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier
-    Box(
-        clickable.card().clearAndSetSemantics {
-            contentDescription = label
-            if (onOpen != null) {
-                role = Role.Button
-                onClick(label = BUCKET_ROW_HINT) { onOpen(); true }
-            }
-        },
-    ) {
         if (isLargeText()) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                name()
-                figures(Alignment.Start)
-            }
+            // Large text: the bars take the full width; the donut and its legend are left out.
+            bars()
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                name()
-                Spacer(Modifier.weight(1f))
-                figures(Alignment.End)
+                Box(Modifier.weight(1f)) { bars() }
+                // The donut sits on the trailing edge of the screen, so it reaches into the screen padding.
+                HalfDonut(
+                    fills = mes.buckets.map { MirachTheme.colors.bucket.fill(it.bucket) },
+                    realBp = mes.buckets.map { it.porcentajeBp },
+                    targetBp = mes.buckets.map { it.metaBp },
+                    modifier = Modifier.offset(x = MirachSpacing.m),
+                )
             }
+            Text(
+                DONUT_LEGEND,
+                style = MirachTextStyles.etiqueta,
+                color = MirachTheme.colors.base.mutedForeground,
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
+            )
         }
+        IncomeRow(mes)
     }
+}
+
+/** The month verdict as the headline: a 16dp mark in the state color and the phrase in titulo. Not shown without state. */
+@Composable
+private fun MonthVerdict(estado: EstadoSemaforo?) {
+    val verdict = monthVerdict(estado) ?: return
+    Row(
+        Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MirachSpacing.s),
+    ) {
+        EstadoMark(checkNotNull(estado), size = 16.dp)
+        Text(verdict, style = MirachTextStyles.titulo, color = MirachTheme.colors.base.foreground)
+    }
+}
+
+@Composable
+private fun IncomeRow(mes: ResumenMes) {
+    Row(
+        Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = mes.incomeRowDescription() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MirachSpacing.s),
+    ) {
+        Text(INCOME_LABEL, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.mutedForeground, modifier = Modifier.weight(1f))
+        Text(mes.incomeRowText(), style = MirachTextStyles.etiqueta.mirachFigures(), color = MirachTheme.colors.base.foreground)
+    }
+}
+
+/** What TalkBack offers on a bucket bar that opens its movements (iOS: «Ver los movimientos»). */
+internal const val BUCKET_ROW_HINT = "Ver los movimientos"
+
+/** One bucket bar. Always shown, so the donut is never the only way to see a bucket. With [onOpen] it opens the bucket's movements. */
+@Composable
+private fun BucketBarFor(item: BucketResumen, onOpen: (() -> Unit)? = null) {
+    BucketBar(
+        name = item.bucket.label,
+        color = MirachTheme.colors.bucket.fill(item.bucket),
+        estado = item.estado,
+        fractions = barFractions(item.porcentajeBp, item.metaBp),
+        caption = item.barCaption(),
+        description = item.accessibilityLabel(),
+        onOpen = onOpen,
+        openHint = BUCKET_ROW_HINT,
+    )
 }

@@ -2,9 +2,12 @@ package app.mirachbudget.android.features.resumen
 
 import app.mirachbudget.android.core.design.BucketColors
 import app.mirachbudget.android.core.design.MirachCopy
+import app.mirachbudget.android.core.design.word
 import app.mirachbudget.android.core.formatting.Format
 import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.BucketResumen
+import app.mirachbudget.android.core.networking.EstadoSemaforo
+import app.mirachbudget.android.core.networking.FuenteIngreso
 import app.mirachbudget.android.core.networking.ResumenMes
 
 /** Labels come from the design tokens, never hand-typed, so the 30% bucket cannot drift from its official name. */
@@ -25,22 +28,33 @@ fun BucketColors.fill(bucket: Bucket) = when (bucket) {
 /** What TalkBack reads for a bucket row, with the same sign logic as the visible figure. */
 fun BucketResumen.accessibilityLabel(): String {
     val share = porcentajeBp?.let { "${Format.percent(it)} del ingreso" } ?: "sin porcentaje del ingreso"
-    return "${bucket.label}. ${Format.spokenExpense(total)}, $share. Meta ${Format.percent(metaBp)}"
+    val state = estado?.let { ". Estado: ${it.word}" } ?: ""
+    return "${bucket.label}. ${Format.spokenExpense(total)}, $share. Meta ${Format.percent(metaBp)}$state"
 }
 
-fun ResumenMes.incomeAccessibilityLabel(): String = "${MirachCopy.Bucket.ingreso}. ${Format.spokenIncome(totalIngreso)}"
-
-/** The chart is read as one summary; the legend rows are the accessible way to each bucket. */
-fun chartDescription(buckets: List<BucketResumen>): String =
-    buckets.joinToString(", ") { "${it.bucket.label} ${Format.money(maxOf(it.total, 0))}" }
-
-/** The distribution chart only makes sense when something was spent. */
-fun ResumenMes.hasSpending(): Boolean = buckets.any { it.total > 0 }
-
-/** Degrees of each slice, proportional to the totals; negative totals draw nothing. Drawing only: no figure is shown from these. */
-fun sweepAngles(totals: List<Long>): List<Float> {
-    val positives = totals.map { maxOf(it, 0L).toDouble() }
-    val sum = positives.sum()
-    if (sum == 0.0) return positives.map { 0f }
-    return positives.map { (it / sum * 360.0).toFloat() }
+/** The month verdict, the headline of the Inicio. Null when the API has no state for the month. */
+fun monthVerdict(estado: EstadoSemaforo?): String? = when (estado) {
+    EstadoSemaforo.Verde -> "Dentro de la meta"
+    EstadoSemaforo.Amarillo -> "Cerca de la meta"
+    EstadoSemaforo.Rojo -> "Sobre la meta"
+    null -> null
 }
+
+/** «56% de 50% · $700.000»: real share, target, amount spent. */
+fun BucketResumen.barCaption(): String = "${Format.percent(porcentajeBp)} de ${Format.percent(metaBp)} · ${Format.money(total)}"
+
+const val INCOME_LABEL = "Ingresos del mes"
+
+const val DONUT_LEGEND = "Anillo de afuera: tu mes. Anillo de adentro: tu meta."
+
+private val FuenteIngreso.word: String
+    get() = when (this) {
+        FuenteIngreso.Declarado -> "declarado"
+        FuenteIngreso.Detectado -> "detectado"
+    }
+
+/** «$1.250.000 · declarado». */
+fun ResumenMes.incomeRowText(): String = "${Format.money(totalIngreso)} · ${fuenteIngreso.word}"
+
+/** What TalkBack reads for the income row; a negative amount is money going out, never "income". */
+fun ResumenMes.incomeRowDescription(): String = "$INCOME_LABEL. ${Format.spokenIncome(totalIngreso)}, ${fuenteIngreso.word}"

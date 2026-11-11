@@ -38,6 +38,8 @@ internal object ResumenMapper {
             sinIngreso = wire.sinIngreso,
             totalIngreso = money(wire.totalIngreso),
             estadoGlobal = estado(wire.estadoGlobal),
+            estadoMes = estado(wire.estadoMes),
+            fuenteIngreso = fuente(wire.fuenteIngreso),
             buckets = ordered,
         )
     }
@@ -51,6 +53,18 @@ internal object ResumenMapper {
         ResumenMesResponse.EstadoGlobal.amarillo -> EstadoSemaforo.Amarillo
         ResumenMesResponse.EstadoGlobal.rojo -> EstadoSemaforo.Rojo
         null -> null
+    }
+
+    private fun estado(wire: ResumenMesResponse.EstadoMes?): EstadoSemaforo? = when (wire) {
+        ResumenMesResponse.EstadoMes.bien -> EstadoSemaforo.Verde
+        ResumenMesResponse.EstadoMes.cerca -> EstadoSemaforo.Amarillo
+        ResumenMesResponse.EstadoMes.sobre -> EstadoSemaforo.Rojo
+        null -> null
+    }
+
+    private fun fuente(wire: ResumenMesResponse.FuenteIngreso): FuenteIngreso = when (wire) {
+        ResumenMesResponse.FuenteIngreso.declarado -> FuenteIngreso.Declarado
+        ResumenMesResponse.FuenteIngreso.detectado -> FuenteIngreso.Detectado
     }
 
     private fun estado(wire: ResumenMesResponseBucketsInner.EstadoSemaforo?): EstadoSemaforo? = when (wire) {

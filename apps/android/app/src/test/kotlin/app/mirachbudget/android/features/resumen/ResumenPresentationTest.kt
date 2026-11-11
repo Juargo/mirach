@@ -1,9 +1,12 @@
 package app.mirachbudget.android.features.resumen
 
 import app.mirachbudget.android.core.networking.Bucket
+import app.mirachbudget.android.core.networking.BucketResumen
+import app.mirachbudget.android.core.networking.EstadoSemaforo
+import app.mirachbudget.android.core.networking.FuenteIngreso
 import app.mirachbudget.android.features.resumen.ResumenSamples.mes
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -36,34 +39,59 @@ class ResumenPresentationTest {
     }
 
     @Test
-    fun theIncomeCardIsReadWithTheSameSignLogicAsTheFigure() {
-        assertEquals("Ingreso. Ingreso de $1.000.000", mes().incomeAccessibilityLabel())
-        assertEquals("Ingreso. Sin ingreso", mes(ingreso = 0, sinIngreso = true).incomeAccessibilityLabel())
-    }
-
-    @Test
-    fun theChartIsReadAsOneSummaryWithoutNegativeSlices() {
-        val buckets = mes(totals = listOf(450_000, -10, 0)).buckets
-
-        assertEquals("Necesidades $450.000, Gustos $0, Ahorro $0", chartDescription(buckets))
-    }
-
-    @Test
-    fun theChartShowsOnlyWhenThereIsSpend() {
-        assertTrue(mes().hasSpending())
-        assertFalse(mes(totals = listOf(0, 0, 0)).hasSpending())
-        assertFalse(mes(totals = listOf(-5, 0, 0)).hasSpending())
-    }
-
-    @Test
-    fun sweepsAreProportionalToTheTotalsAndIgnoreNegatives() {
-        assertEquals(listOf(90f, 90f, 180f), sweepAngles(listOf(1, 1, 2)))
-        assertEquals(listOf(360f, 0f, 0f), sweepAngles(listOf(5, -3, 0)))
-        assertEquals(listOf(0f, 0f, 0f), sweepAngles(listOf(0, 0, 0)))
-    }
-
-    @Test
     fun aBucketRowThatOpensItsMovementsSaysSoAsIos() {
         assertEquals("Ver los movimientos", BUCKET_ROW_HINT)
+    }
+
+    @Test
+    fun theMonthVerdictIsTheHeadlineAndIsAbsentWithoutState() {
+        assertEquals("Dentro de la meta", monthVerdict(EstadoSemaforo.Verde))
+        assertEquals("Cerca de la meta", monthVerdict(EstadoSemaforo.Amarillo))
+        assertEquals("Sobre la meta", monthVerdict(EstadoSemaforo.Rojo))
+        assertNull(monthVerdict(null))
+    }
+
+    @Test
+    fun theBarCaptionReadsRealShareOfTargetAndAmount() {
+        val item = BucketResumen(Bucket.Necesidades, total = 700_000, porcentajeBp = 5_600, metaBp = 5_000, estado = null)
+
+        assertEquals("56% de 50% · $700.000", item.barCaption())
+    }
+
+    @Test
+    fun theBarCaptionWithoutIncomeShowsADashForTheShare() {
+        val item = mes(sinIngreso = true).buckets[1]
+
+        assertEquals("— de 30% · $305.000", item.barCaption())
+    }
+
+    @Test
+    fun aBarIsReadWithItsStateWordWhenItHasOne() {
+        val item = mes().buckets[0].copy(estado = EstadoSemaforo.Amarillo)
+
+        assertEquals("Necesidades. Gasto de $450.000, 45% del ingreso. Meta 50%. Estado: Cerca", item.accessibilityLabel())
+    }
+
+    @Test
+    fun theIncomeRowShowsTheAmountAndWhereItComesFrom() {
+        assertEquals("$1.000.000 · declarado", mes().incomeRowText())
+        assertEquals("$1.000.000 · detectado", mes().copy(fuenteIngreso = FuenteIngreso.Detectado).incomeRowText())
+    }
+
+    @Test
+    fun theIncomeRowIsReadWithTheSameSignLogicAsTheFigureAndItsSource() {
+        assertEquals("Ingresos del mes. Ingreso de $1.000.000, declarado", mes().incomeRowDescription())
+        val negative = mes(ingreso = -5_000).copy(fuenteIngreso = FuenteIngreso.Detectado)
+        assertEquals("Ingresos del mes. Ajuste negativo de $5.000, detectado", negative.incomeRowDescription())
+    }
+
+    @Test
+    fun theLegendNamesBothRings() {
+        assertEquals("Anillo de afuera: tu mes. Anillo de adentro: tu meta.", DONUT_LEGEND)
+    }
+
+    @Test
+    fun theIncomeRowLabelIsTheDesignCopy() {
+        assertEquals("Ingresos del mes", INCOME_LABEL)
     }
 }

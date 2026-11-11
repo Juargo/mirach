@@ -7,8 +7,10 @@ package app.mirachbudget.android.core.design
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 // region Colors
 
@@ -179,6 +181,17 @@ object MirachFont {
 
 /** Rule "figures use tabular digits": amounts, dates and counts align in columns. */
 fun TextStyle.mirachFigures(): TextStyle = copy(fontFeatureSettings = "tnum")
+
+/** Figma text styles from `typography.text-style.*` (sp, so they follow the system font scale). */
+object MirachTextStyles {
+    val titulo = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 34.sp)
+    val numeroGrande = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 40.sp, lineHeight = 44.sp)
+    val cuerpo = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp)
+    val cuerpoDestacado = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 24.sp)
+    val boton = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 20.sp)
+    val etiqueta = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 16.sp)
+    val mini = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp)
+}
 
 // endregion
 
