@@ -31,7 +31,7 @@ export const authMeResponseSchema = z
       .string()
       .nullable()
       .describe(
-        'Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.',
+        'Always present for an account with a sign-in method; an empty string for an anonymous account (ADR-013), which has no email. Nullable only at the transport shape: the API never sends null.',
       ),
     googleVinculado: z
       .boolean()

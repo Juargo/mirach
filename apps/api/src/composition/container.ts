@@ -32,6 +32,10 @@ import {
   type GoogleAuthMobileGraph,
 } from './crear-auth-google-mobile';
 import { crearAuthApple, type AppleAuthGraph } from './crear-auth-apple';
+import {
+  crearCuentaAnonima,
+  type CuentaAnonimaGraph,
+} from './crear-cuenta-anonima';
 import type { ConsentimientosGraph } from '../infrastructure/http-express/routes/consentimientos.routes';
 import { PrismaConsentimientoRepository } from '../infrastructure/persistence/prisma-consentimiento.repository';
 import {
@@ -179,6 +183,11 @@ export interface Container {
   /** Login con Apple (identity token nativo) — `undefined` cuando
    * APPLE_BUNDLE_ID está ausente. Gate independiente de los de Google. */
   readonly appleAuth?: AppleAuthGraph;
+  /** Alta anónima y vinculación posterior (ADR-013). Siempre activo. */
+  readonly crearCuentaAnonima: CuentaAnonimaGraph['crearCuentaAnonima'];
+  readonly vincularIdentidad: CuentaAnonimaGraph['vincularIdentidad'];
+  readonly altaAnonimaRateLimiter: CuentaAnonimaGraph['altaRateLimiter'];
+  readonly vincularRateLimiter: CuentaAnonimaGraph['vincularRateLimiter'];
   /** Rate limiter de login (por IP + email). */
   readonly loginRateLimiter: LoginRateLimiter;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
@@ -271,6 +280,14 @@ export function createContainer(
     logger,
     clienteApple,
     tareasEnSegundoPlano,
+  );
+
+  const cuentaAnonima = crearCuentaAnonima(
+    prisma,
+    env,
+    blindIndex,
+    crypto,
+    logger,
   );
 
   // issue #747: período ausente ya no resuelve al mes en curso sino al
@@ -461,6 +478,10 @@ export function createContainer(
     googleAuth,
     googleAuthMobile,
     appleAuth,
+    crearCuentaAnonima: cuentaAnonima.crearCuentaAnonima,
+    vincularIdentidad: cuentaAnonima.vincularIdentidad,
+    altaAnonimaRateLimiter: cuentaAnonima.altaRateLimiter,
+    vincularRateLimiter: cuentaAnonima.vincularRateLimiter,
     loginRateLimiter: auth.loginRateLimiter,
     shutdown: async () => {
       await tareasEnSegundoPlano.drenar(PLAZO_DRENADO_APAGADO_MS);

@@ -14,6 +14,10 @@ Aceptado (2026-10-25); propuesto el 2026-10-24. Inicio de sesión con Apple y Go
 y aislamiento por usuario están desplegados (**vigente**). La sesión renovable, el cierre en
 todos los dispositivos, los derechos por plan y el modelo de soporte son **nuevos**.
 
+ADR-013 (2026-11-12) ajusta este ADR: el alta ya no exige Apple o Google (cuenta
+anónima), la sesión de una cuenta anónima se renueva con el uso, y una identidad se puede
+vincular después a esa cuenta.
+
 ## Contexto
 
 - AUTH-01 y AUTH-02 piden entrar con Apple o Google, sin contraseña.

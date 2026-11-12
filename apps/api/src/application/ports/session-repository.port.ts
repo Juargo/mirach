@@ -2,6 +2,11 @@
 export interface SesionPersistida {
   readonly userId: string;
   readonly expiresAt: Date;
+  /**
+   * `true` cuando el dueño es una cuenta anónima (ADR-013): sin `appleSub`,
+   * `googleSub` ni `passwordHash`. Ausente equivale a `false`.
+   */
+  readonly anonima?: boolean;
 }
 
 /**

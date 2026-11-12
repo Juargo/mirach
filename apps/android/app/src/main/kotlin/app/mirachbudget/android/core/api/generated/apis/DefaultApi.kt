@@ -7,6 +7,7 @@ import okhttp3.RequestBody
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+import app.mirachbudget.android.core.api.generated.models.ApiAuthAnonimoPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiAuthAppleTokenPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiAuthGoogleTokenPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiAuthLoginPostRequest
@@ -16,6 +17,8 @@ import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet2
 import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet200ResponseConsentimientosInner
 import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCuentaDeleteRequest
+import app.mirachbudget.android.core.api.generated.models.ApiCuentaVincularApplePostRequest
+import app.mirachbudget.android.core.api.generated.models.ApiCuentaVincularGooglePostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiKeyUnauthorizedResponse
 import app.mirachbudget.android.core.api.generated.models.ApiMovimientosPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPatronesIdPatchRequest
@@ -39,6 +42,7 @@ import app.mirachbudget.android.core.api.generated.models.ConfigResponse
 import app.mirachbudget.android.core.api.generated.models.CredentialsUnauthorizedResponse
 import app.mirachbudget.android.core.api.generated.models.CuentaErrorResponse
 import app.mirachbudget.android.core.api.generated.models.DetalleBucketResponse
+import app.mirachbudget.android.core.api.generated.models.IdentidadInvalidaResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaCatalogoIncompletoResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaCatalogoNoDisponibleResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaErrorResponse
@@ -60,15 +64,34 @@ import app.mirachbudget.android.core.api.generated.models.ResumenMesResponse
 import app.mirachbudget.android.core.api.generated.models.SemaforoDetalleResponse
 import app.mirachbudget.android.core.api.generated.models.ServerErrorResponse
 import app.mirachbudget.android.core.api.generated.models.ServicioNoDisponibleResponse
+import app.mirachbudget.android.core.api.generated.models.TerminosNoAceptadosResponse
 import app.mirachbudget.android.core.api.generated.models.TransaccionesCategoriaResponse
 import app.mirachbudget.android.core.api.generated.models.TransaccionesParecidosResponse
 import app.mirachbudget.android.core.api.generated.models.UnauthorizedResponse
 import app.mirachbudget.android.core.api.generated.models.VersionResponse
+import app.mirachbudget.android.core.api.generated.models.VinculacionRechazadaResponse
 import app.mirachbudget.android.core.api.generated.models.VincularGoogleResponse
 
 import okhttp3.MultipartBody
 
 interface DefaultApi {
+    /**
+     * POST api/auth/anonimo
+     * Create an anonymous account
+     * Public endpoint (requires x-api-key only, session-public — no prior session needed) that creates an account with no Apple or Google identity, no email and no password, with its own copy of the classification catalog, and answers a session exactly like the sign-in endpoints. The app calls it once, when the person accepts the terms and chooses to continue without an account, and stores the token: an anonymous account cannot sign in again, so losing the token loses the data. Its session lasts 365 days and every use extends it (at most one write per day). &#x60;versionTerminos&#x60; and &#x60;versionPrivacidad&#x60; follow the sign-up rule of the token endpoints: stored with the account in the same transaction; both or neither; required when CONSENTS_REQUIRED is on. Every request counts against this endpoint&#39;s own IP budget and a successful sign-up never releases it. The account can later be linked with POST /api/cuenta/vincular/apple or /google. No Set-Cookie.
+     * Responses:
+     *  - 200: Account created — identical shape to POST /api/auth/login.
+     *  - 400: The accepted versions are missing while required, incomplete or malformed (TERMINOS_NO_ACEPTADOS). Nothing was created.
+     *  - 401: Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA).
+     *  - 429: Rate-limited: too many sign-ups from this IP.
+     *  - 503: An internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+     *
+     * @param apiAuthAnonimoPostRequest  (optional)
+     * @return [AuthLoginResponse]
+     */
+    @POST("api/auth/anonimo")
+    suspend fun apiAuthAnonimoPost(@Body apiAuthAnonimoPostRequest: ApiAuthAnonimoPostRequest? = null): Response<AuthLoginResponse>
+
     /**
      * POST api/auth/apple/token
      * Authenticate with a native Apple identity token (mobile)
@@ -370,6 +393,44 @@ interface DefaultApi {
      */
     @DELETE("api/cuenta")
     suspend fun apiCuentaDelete(@Body apiCuentaDeleteRequest: ApiCuentaDeleteRequest? = null): Response<Unit>
+
+    /**
+     * POST api/cuenta/vincular/apple
+     * Link the anonymous account to Sign in with Apple
+     * Authenticated endpoint that turns the CALLER&#39;s anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its &#x60;sub&#x60;, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body is the one of POST /api/auth/apple/token without the terms versions; the nonce is checked the same way, and &#x60;authorizationCode&#x60; is exchanged best-effort so the Apple token can be revoked when the account is deleted. 404 when APPLE_BUNDLE_ID is not configured.
+     * Responses:
+     *  - 200: Linked. A new session — identical shape to POST /api/auth/login.
+     *  - 400: Malformed or incomplete body (BODY_INVALIDO), or a token that did not verify (IDENTIDAD_INVALIDA).
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 404: Sign in with Apple is not active — APPLE_BUNDLE_ID is not configured.
+     *  - 409: The identity already owns another account (CUENTA_YA_EXISTE) or the caller is not anonymous (CUENTA_NO_ANONIMA). Nothing was written.
+     *  - 429: Rate-limited: too many attempts from this IP.
+     *  - 503: The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+     *
+     * @param apiCuentaVincularApplePostRequest  (optional)
+     * @return [AuthLoginResponse]
+     */
+    @POST("api/cuenta/vincular/apple")
+    suspend fun apiCuentaVincularApplePost(@Body apiCuentaVincularApplePostRequest: ApiCuentaVincularApplePostRequest? = null): Response<AuthLoginResponse>
+
+    /**
+     * POST api/cuenta/vincular/google
+     * Link the anonymous account to Google
+     * Authenticated endpoint that turns the CALLER&#39;s anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its &#x60;sub&#x60;, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body carries the Google ID token of the native sign-in, verified like in POST /api/auth/google/token. 404 when no mobile Google client ID is configured.
+     * Responses:
+     *  - 200: Linked. A new session — identical shape to POST /api/auth/login.
+     *  - 400: Malformed or incomplete body (BODY_INVALIDO), or a token that did not verify (IDENTIDAD_INVALIDA).
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 404: Google sign-in for the native apps is not active — no mobile client ID is configured.
+     *  - 409: The identity already owns another account (CUENTA_YA_EXISTE) or the caller is not anonymous (CUENTA_NO_ANONIMA). Nothing was written.
+     *  - 429: Rate-limited: too many attempts from this IP.
+     *  - 503: The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+     *
+     * @param apiCuentaVincularGooglePostRequest  (optional)
+     * @return [AuthLoginResponse]
+     */
+    @POST("api/cuenta/vincular/google")
+    suspend fun apiCuentaVincularGooglePost(@Body apiCuentaVincularGooglePostRequest: ApiCuentaVincularGooglePostRequest? = null): Response<AuthLoginResponse>
 
     /**
      * POST api/ingestas/commit

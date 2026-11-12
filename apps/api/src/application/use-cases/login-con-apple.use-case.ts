@@ -109,13 +109,29 @@ export class LoginConAppleUseCase {
     );
 
     if (resultado.isOk()) {
-      const { userId } = resultado.getValue();
-      this.tareas?.programar(() =>
-        this.guardarRefreshToken(userId, identidad.sub, authorizationCode),
+      this.programarGuardadoRefreshToken(
+        resultado.getValue().userId,
+        identidad.sub,
+        authorizationCode,
       );
     }
 
     return resultado;
+  }
+
+  /**
+   * Programa en segundo plano el canje del `authorizationCode` y el guardado
+   * cifrado del refresh token. Lo usa también la vinculación de una cuenta
+   * anónima (ADR-013), que obtiene la identidad Apple fuera de este use case.
+   */
+  programarGuardadoRefreshToken(
+    userId: string,
+    sub: string,
+    authorizationCode: string | null | undefined,
+  ): void {
+    this.tareas?.programar(() =>
+      this.guardarRefreshToken(userId, sub, authorizationCode),
+    );
   }
 
   /**

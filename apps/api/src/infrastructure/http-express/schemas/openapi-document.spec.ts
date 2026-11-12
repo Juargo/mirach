@@ -500,6 +500,7 @@ describe('buildOpenApiDocument', () => {
       'GET /api/auth/google',
       'GET /api/auth/google/callback',
       'GET /api/config',
+      'POST /api/auth/anonimo',
     ];
     const FAMILIA_CREDENCIALES = [
       'POST /api/auth/login',

@@ -94,7 +94,14 @@ export function crearAuth(
   }
 
   return {
-    validarSesion: new ValidarSesionUseCase(sessions, tokens, reloj, logger),
+    // `sessions` es también el renovador de la sesión anónima (ADR-013).
+    validarSesion: new ValidarSesionUseCase(
+      sessions,
+      tokens,
+      reloj,
+      logger,
+      sessions,
+    ),
     login: new LoginUseCase(
       creds,
       hasher,

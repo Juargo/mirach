@@ -13,7 +13,8 @@ export interface CredencialUsuario {
 
 /**
  * IdentidadUsuario — identidad mínima para `GET /api/auth/me` (AUTH-09) y
- * `PATCH /api/perfil` (US-040, Q2). Sin hash, sin token. `email` es siempre presente.
+ * `PATCH /api/perfil` (US-040, Q2). Sin hash, sin token. `email` es vacío
+ * para una cuenta anónima (ADR-013) y está presente en todas las demás.
  * `nombre` es REQUERIDO (US-040 delta): un campo opcional dejaría
  * que un productor lo olvide en silencio. Es PII en claro (ADR-013 no lo
  * cifra) — NUNCA loguear su valor (ADR-033, design.md D-07).
