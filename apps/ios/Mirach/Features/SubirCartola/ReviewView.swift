@@ -39,9 +39,9 @@ struct ReviewView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 8)
+            .padding(.horizontal, MirachSpacing.l)
+            .padding(.top, MirachSpacing.m)
+            .padding(.bottom, MirachSpacing.s)
         }
         .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
         .safeAreaInset(edge: .bottom, spacing: 0) { actions }
@@ -86,10 +86,10 @@ struct ReviewView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(preview.banco) · \(preview.tipoCuenta)")
-                .font(.mirach(.headline))
+                .mirachText(.cuerpoDestacado)
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Text("Revisa las filas y confirma para importar. Nada se ha guardado aún.")
-                .font(.mirach(.subheadline))
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
         // At accessibility sizes the rows are the content: keep the header from filling the
@@ -103,6 +103,7 @@ struct ReviewView: View {
     private var notices: some View {
         if let notice = viewModel.reviewNotice {
             Text(notice)
+                .mirachText(.cuerpo)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 12)
@@ -114,15 +115,17 @@ struct ReviewView: View {
         case .loaded: EmptyView()
         case .loading:
             Label("Cargando categorías…", systemImage: "arrow.triangle.2.circlepath")
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 .padding(.bottom, 12)
                 .accessibilityIdentifier("review.catalogLoading")
         case .failed:
             VStack(alignment: .leading, spacing: 8) {
                 Text("No pudimos cargar las categorías.")
+                    .mirachText(.cuerpo)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.retryCatalog() } }
-                    .buttonStyle(.bordered)
+                    .secondaryButton()
                     .accessibilityIdentifier("review.catalogRetry")
             }
             .padding(.bottom, 12)
@@ -135,6 +138,7 @@ struct ReviewView: View {
         switch viewModel.previewRefresh {
         case .updating:
             Label(SubirCartolaViewModel.updatingPreviewMessage, systemImage: "arrow.triangle.2.circlepath")
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 .padding(.bottom, 12)
                 .accessibilityFocused($noticeFocused)
@@ -142,9 +146,10 @@ struct ReviewView: View {
         case .failed(let name):
             VStack(alignment: .leading, spacing: 8) {
                 Text(SubirCartolaViewModel.refreshFailedMessage(name: name))
+                    .mirachText(.cuerpo)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.retryPreviewRefresh() } }
-                    .buttonStyle(.bordered)
+                    .secondaryButton()
                     .accessibilityIdentifier("review.refreshRetry")
             }
             .padding(.bottom, 12)
@@ -152,6 +157,7 @@ struct ReviewView: View {
         case .idle:
             if let info = viewModel.reviewInfo {
                 Text(info)
+                    .mirachText(.cuerpo)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, 12)
@@ -162,15 +168,16 @@ struct ReviewView: View {
     }
 
     private var actions: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: MirachSpacing.s) {
             Button { Task { await viewModel.confirm() } } label: {
                 Text(confirmTitle).frame(maxWidth: .infinity)
             }
-            .prominentButton().controlSize(.large)
+            .prominentButton()
             .disabled(viewModel.loadedCatalog == nil || viewModel.previewRefresh == .updating)
             .accessibilityIdentifier("review.confirm")
         }
-        .padding(16)
+        .padding(.horizontal, MirachSpacing.l)
+        .padding(.vertical, MirachSpacing.m)
         .frame(maxWidth: .infinity)
         // The pinned bar must not eat the screen at accessibility sizes.
         .dynamicTypeSize(...(typeSize.isAccessibilitySize ? .accessibility1 : .accessibility5))
@@ -200,11 +207,11 @@ private struct SectionHeader: View {
                 Rectangle().fill(bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
             }
             Text(section.title)
-                .font(.mirach(.subheadline).bold())
+                .mirachText(.cuerpoDestacado)
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Spacer(minLength: 0)
             Text(String(section.rows.count))
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .mirachFigures()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
@@ -266,14 +273,14 @@ private struct ReviewRow: View {
 
     private var description: some View {
         Text(row.descripcion)
-            .font(.mirach(.body))
+            .mirachText(.cuerpo)
             .lineLimit(2)
             .foregroundStyle(row.esDuplicado ? Color.Mirach.Base.mutedForeground : Color.Mirach.Base.foreground)
     }
 
     private var amount: some View {
         Text(row.amountText)
-            .font(.mirach(.body))
+            .mirachText(.cuerpoDestacado)
             .mirachFigures()
             .lineLimit(1)
             .minimumScaleFactor(0.6)
@@ -291,7 +298,7 @@ private struct ReviewRow: View {
             }
             // Wrap at word boundaries instead of truncating.
             .fixedSize(horizontal: false, vertical: true)
-            .font(.mirach(.footnote))
+            .mirachText(.etiqueta)
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
         } else {
             HStack(spacing: 6) {
@@ -303,7 +310,7 @@ private struct ReviewRow: View {
                     Image(systemName: "chevron.right").font(.mirach(.footnote)).accessibilityHidden(true)
                 }
             }
-            .font(.mirach(.footnote))
+            .mirachText(.etiqueta)
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
     }
@@ -365,60 +372,73 @@ struct CategorySheet<CreateForm: View>: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if let notice {
-                    Text(notice)
-                        .foregroundStyle(Color.Mirach.Feedback.errorText)
-                        .accessibilityIdentifier("\(idPrefix).sheet.notice")
-                }
-                Section {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if let notice {
+                        Text(notice)
+                            .mirachText(.cuerpo)
+                            .foregroundStyle(Color.Mirach.Feedback.errorText)
+                            .padding(.bottom, MirachSpacing.m)
+                            .accessibilityIdentifier("\(idPrefix).sheet.notice")
+                    }
                     Button { showingForm = true } label: {
                         HStack {
                             Label("Crear categoría", systemImage: "plus")
+                                .mirachText(.cuerpo)
                                 .foregroundStyle(Color.Mirach.Base.foreground)
                             Spacer()
-                            Image(systemName: "chevron.right").font(.mirach(.footnote)).accessibilityHidden(true)
+                            Image(systemName: "chevron.right")
+                                .mirachText(.etiqueta)
+                                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                                .accessibilityHidden(true)
                         }
                         .frame(minHeight: 44)
                         .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .modifier(RowDivider())
                     .accessibilityIdentifier("\(idPrefix).create")
-                }
-                ForEach(catalog.groups, id: \.bucket) { group in
-                    Section {
+                    ForEach(catalog.groups, id: \.bucket) { group in
+                        HStack(spacing: 8) {
+                            Rectangle().fill(group.bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
+                            Text(group.bucket.label)
+                        }
+                        .mirachText(.cuerpoDestacado)
+                        .foregroundStyle(Color.Mirach.Base.foreground)
+                        .padding(.top, MirachSpacing.l)
+                        .padding(.bottom, MirachSpacing.s)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(.isHeader)
                         if group.categorias.isEmpty {
-                            Text("Sin categorías").foregroundStyle(Color.Mirach.Base.mutedForeground)
+                            Text("Sin categorías")
+                                .mirachText(.cuerpo)
+                                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                                .frame(minHeight: 44, alignment: .leading)
                         }
                         ForEach(group.categorias) { category in
                             Button { onSelect(category.id) } label: {
                                 HStack {
-                                    Text(category.nombre).foregroundStyle(Color.Mirach.Base.foreground)
+                                    Text(category.nombre).mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.foreground)
                                     Spacer()
                                     if category.id == selectedID {
-                                        Image(systemName: "checkmark").accessibilityHidden(true)
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(Color.Mirach.Base.foreground)
+                                            .accessibilityHidden(true)
                                     }
                                 }
                                 .frame(minHeight: 44)
                                 .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
+                            .modifier(RowDivider())
                             .accessibilityAddTraits(category.id == selectedID ? .isSelected : [])
                             .accessibilityIdentifier("\(idPrefix).category.\(category.id)")
                         }
-                    } header: {
-                        HStack(spacing: 8) {
-                            Rectangle().fill(group.bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
-                            Text(group.bucket.label)
-                        }
-                        .font(.mirach(.subheadline).bold())
-                        .foregroundStyle(Color.Mirach.Base.foreground)
-                        .textCase(nil)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityAddTraits(.isHeader)
                     }
                 }
+                .padding(.horizontal, MirachSpacing.l)
+                .padding(.vertical, MirachSpacing.m)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
             .disabled(isBusy)
             .overlay { if isBusy { ProgressView().controlSize(.large).accessibilityLabel("Moviendo el movimiento") } }
@@ -426,7 +446,7 @@ struct CategorySheet<CreateForm: View>: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if let footer {
                     footer
-                        .padding(16)
+                        .padding(MirachSpacing.m)
                         .frame(maxWidth: .infinity)
                         .background(Color.Mirach.Base.card)
                         .overlay(alignment: .top) { Divider().overlay(Color.Mirach.Base.border) }
@@ -452,17 +472,24 @@ struct CategorySheet<CreateForm: View>: View {
 
     private var rowSummary: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(summaryTitle).font(.mirach(.headline)).lineLimit(2)
+            Text(summaryTitle).mirachText(.cuerpoDestacado).lineLimit(2)
             Text(summaryDetail)
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .mirachFigures()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
         .foregroundStyle(Color.Mirach.Base.foreground)
-        .padding(16)
+        .padding(MirachSpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.Mirach.Base.card)
         .overlay(alignment: .bottom) { Divider().overlay(Color.Mirach.Base.border) }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The hairline under a row of a list, Figma «Fila» (border/default).
+private struct RowDivider: ViewModifier {
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottom) { Rectangle().fill(Color.Mirach.Base.border).frame(height: 1) }
     }
 }

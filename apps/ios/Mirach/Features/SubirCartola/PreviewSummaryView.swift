@@ -12,9 +12,9 @@ struct PreviewSummaryView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: MirachSpacing.m) {
             Text(PreviewSummaryPresentation.unknownsMessage(clasificacion))
-                .font(.mirach(.subheadline).weight(clasificacion.desconocidos > 0 ? .semibold : .regular))
+                .mirachText(.etiqueta)
                 .foregroundStyle(clasificacion.desconocidos > 0 ? Color.Mirach.Base.foreground : Color.Mirach.Base.mutedForeground)
                 .accessibilityIdentifier("subir.desconocidos")
             if clasificacion.ingresos.cantidad > 0 || !clasificacion.buckets.isEmpty {
@@ -51,7 +51,7 @@ struct PreviewSummaryView: View {
             // The identifier goes on the label: `DisclosureGroup` does not expose its own.
             .accessibilityIdentifier("subir.ingresos")
         }
-        .padding(12)
+        .padding(.horizontal, MirachSpacing.m).padding(.vertical, 12)
     }
 
     private func bucketGroup(_ group: ClasificacionPreview.BucketGroup) -> some View {
@@ -66,7 +66,7 @@ struct PreviewSummaryView: View {
             .accessibilityLabel(PreviewSummaryPresentation.spokenSummary(of: group))
             .accessibilityIdentifier("subir.bucket.\(group.bucket.apiName)")
         }
-        .padding(12)
+        .padding(.horizontal, MirachSpacing.m).padding(.vertical, 12)
     }
 
     private func categoryGroup(_ categoria: ClasificacionPreview.Categoria, in group: ClasificacionPreview.BucketGroup) -> some View {
@@ -95,27 +95,27 @@ struct PreviewSummaryView: View {
         return layout {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 if let swatch {
-                    Circle().fill(swatch).frame(width: 10, height: 10).accessibilityHidden(true)
+                    Rectangle().fill(swatch).frame(width: 10, height: 10).accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.mirach(.headline)).foregroundStyle(Color.Mirach.Base.cardForeground)
+                    Text(title).mirachText(.cuerpoDestacado).foregroundStyle(Color.Mirach.Base.cardForeground)
                     Text(PreviewSummaryPresentation.countText(count))
-                        .font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
+                        .mirachText(.etiqueta).foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
             }
             if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
-            Text(amount).font(.mirach(.body)).mirachFigures().foregroundStyle(amountColor)
+            Text(amount).mirachText(.cuerpo).mirachFigures().foregroundStyle(amountColor)
         }
     }
 
     private func movement(_ row: CartolaRow) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(row.descripcion).font(.mirach(.body)).foregroundStyle(Color.Mirach.Base.cardForeground).lineLimit(2)
-                Text(Format.shortDate(row.fecha)).font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
+                Text(row.descripcion).mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.cardForeground).lineLimit(2)
+                Text(Format.shortDate(row.fecha)).mirachText(.etiqueta).foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             Spacer(minLength: 8)
-            Text(row.amountText).font(.mirach(.body)).mirachFigures()
+            Text(row.amountText).mirachText(.cuerpo).mirachFigures()
                 .foregroundStyle(row.cargo != 0 ? Color.Mirach.Feedback.expenseText : Color.Mirach.Base.cardForeground)
         }
         .padding(.top, 8)

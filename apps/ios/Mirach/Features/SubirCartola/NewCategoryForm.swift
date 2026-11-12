@@ -34,70 +34,85 @@ struct NewCategoryForm: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                TextField("Nombre", text: $name)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .accessibilityIdentifier("category.name")
-                fieldError(errors.name, id: "category.error.name")
-            } header: { Text("Nombre") }
-                .listRowBackground(Color.Mirach.Base.card)
-
-            Section {
-                BucketChoice(selection: $bucket, idPrefix: "category")
-                fieldError(errors.bucket, id: "category.error.bucket")
-            } header: { Text("Grupo") } footer: {
-                Text("Define cómo cuenta este gasto en tu 50/30/20; puedes cambiarlo después, pero afecta todos los meses.")
-            }
-            .listRowBackground(Color.Mirach.Base.card)
-
-            if offersIcon {
-                Section {
-                    IconPicker(selection: icon, allowsNone: true, idPrefix: "category") { icon = $0 }
-                } header: { Text("Ícono (opcional)") }
-                    .listRowBackground(Color.Mirach.Base.card)
-            }
-
-            if offersPattern {
-                Section {
-                    TextField("Texto a buscar", text: $pattern)
+        ScrollView {
+            VStack(alignment: .leading, spacing: MirachSpacing.m) {
+                field("Nombre") {
+                    TextField("Nombre", text: $name)
+                        .mirachField(isError: errors.name != nil)
                         .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .accessibilityIdentifier("category.pattern")
-                    fieldError(errors.pattern, id: "category.error.pattern")
-                } header: { Text("Patrón (opcional)") } footer: {
-                    Text("Si la descripción de un movimiento contiene este texto, queda en esta categoría. No ignora tildes. Déjalo vacío para asignarla solo a mano.")
+                        .submitLabel(.done)
+                        .accessibilityIdentifier("category.name")
+                    fieldError(errors.name, id: "category.error.name")
                 }
-                .listRowBackground(Color.Mirach.Base.card)
-            }
 
-            if let general = errors.general {
-                Section {
+                field("Grupo") {
+                    BucketSegmentedControl(selection: $bucket, idPrefix: "category")
+                    fieldError(errors.bucket, id: "category.error.bucket")
+                    Text("Define cómo cuenta este gasto en tu 50/30/20; puedes cambiarlo después, pero afecta todos los meses.")
+                        .mirachText(.etiqueta)
+                        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                }
+
+                if offersIcon {
+                    field("Ícono (opcional)") {
+                        IconPicker(selection: icon, allowsNone: true, idPrefix: "category") { icon = $0 }
+                    }
+                }
+
+                if offersPattern {
+                    field("Patrón (opcional)") {
+                        TextField("Texto a buscar", text: $pattern)
+                            .mirachField(isError: errors.pattern != nil)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("category.pattern")
+                        fieldError(errors.pattern, id: "category.error.pattern")
+                        Text("Si la descripción de un movimiento contiene este texto, queda en esta categoría. No ignora tildes. Déjalo vacío para asignarla solo a mano.")
+                            .mirachText(.etiqueta)
+                            .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    }
+                }
+
+                if let general = errors.general {
                     Text(general)
+                        .mirachText(.cuerpo)
                         .foregroundStyle(Color.Mirach.Feedback.errorText)
                         .accessibilityIdentifier("category.error.general")
                 }
-                .listRowBackground(Color.Mirach.Base.card)
             }
+            .padding(.horizontal, MirachSpacing.l)
+            .padding(.vertical, MirachSpacing.m)
         }
-        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .accessibilityIdentifier("category.form")
         .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
-        .navigationTitle("Nueva categoría")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
+        // Figma 29: the one action sits at the foot of the screen.
+        .safeAreaInset(edge: .bottom) {
+            Button(action: save) {
                 if isCreating {
                     ProgressView().accessibilityLabel("Creando…")
                 } else {
-                    Button("Crear", action: save)
-                        .disabled(!canSave)
-                        .accessibilityIdentifier("category.save")
+                    Text("Crear categoría")
                 }
             }
+            .prominentButton()
+            .disabled(!canSave)
+            .accessibilityIdentifier("category.save")
+            .padding(.horizontal, MirachSpacing.l)
+            .padding(.vertical, MirachSpacing.s)
+            .background(Color.Mirach.Base.background)
         }
+        .navigationTitle("Nueva categoría")
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: onAppear)
-        .accessibilityIdentifier("category.form")
+    }
+
+    /// A section label over its field(s), the Figma «Campo» stack.
+    private func field<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
+            SectionLabel(title)
+            content()
+        }
     }
 
     private var canSave: Bool {
@@ -116,39 +131,9 @@ struct NewCategoryForm: View {
     private func fieldError(_ text: String?, id: String) -> some View {
         if let text {
             Text(text)
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityIdentifier(id)
-        }
-    }
-}
-
-/// Three labeled options, one per row, with a check on the chosen one (not color alone). A row
-/// each, instead of a segmented control, so the labels never get squeezed at large text sizes.
-/// Shared by the creation form and the category detail; `selection` is `nil` until chosen.
-struct BucketChoice: View {
-    @Binding var selection: Bucket?
-    let idPrefix: String
-
-    var body: some View {
-        ForEach(Bucket.allCases, id: \.self) { option in
-            Button { selection = option } label: {
-                HStack(spacing: 8) {
-                    Rectangle().fill(option.fill).frame(width: 14, height: 14).accessibilityHidden(true)
-                    Text(option.label)
-                        .foregroundStyle(Color.Mirach.Base.foreground)
-                        // One line shrunk to fit: «Necesidades» must never break by syllable.
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                    Spacer()
-                    if selection == option { Image(systemName: "checkmark").accessibilityHidden(true) }
-                }
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(selection == option ? .isSelected : [])
-            .accessibilityIdentifier("\(idPrefix).bucket.\(option.apiName)")
         }
     }
 }

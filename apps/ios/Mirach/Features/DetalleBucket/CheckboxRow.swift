@@ -11,18 +11,15 @@ struct CheckboxRow: View {
 
     var body: some View {
         Button { isOn.toggle() } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Image(systemName: isOn ? "checkmark.square.fill" : "square")
-                    .font(.mirach(.body))
-                    .foregroundStyle(Color.Mirach.Base.foreground)
-                    .accessibilityHidden(true)
+            HStack(alignment: .top, spacing: 10) {
+                box
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.mirach(.body))
+                        .mirachText(.cuerpo)
                         .foregroundStyle(Color.Mirach.Base.foreground)
                     ForEach(lines, id: \.self) { line in
                         Text(line)
-                            .font(.mirach(.footnote))
+                            .mirachText(.etiqueta)
                             .foregroundStyle(Color.Mirach.Base.mutedForeground)
                     }
                 }
@@ -40,5 +37,22 @@ struct CheckboxRow: View {
         .accessibilityAddTraits(isOn ? .isSelected : [])
         .accessibilityHint(isOn ? "Toca dos veces para desmarcar" : "Toca dos veces para marcar")
         .accessibilityIdentifier(identifier)
+    }
+
+    /// Figma «Casilla»: a 22pt square, filled with the primary colour and a check when marked (the
+    /// state is also said by VoiceOver and by the check, never by colour alone).
+    private var box: some View {
+        ZStack {
+            Rectangle().fill(isOn ? Color.Mirach.Base.primary : Color.clear)
+            Rectangle().strokeBorder(isOn ? Color.Mirach.Base.primary : Color.Mirach.Base.input, lineWidth: 1)
+            if isOn {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.Mirach.Base.primaryForeground)
+            }
+        }
+        .frame(width: 22, height: 22)
+        .padding(.top, 1)
+        .accessibilityHidden(true)
     }
 }

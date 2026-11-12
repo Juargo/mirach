@@ -1,24 +1,75 @@
 import SwiftUI
 
-extension View {
-    /// The filled button: tinted with the app's primary colour, label in the token made for text
-    /// on it. The system's own white label fails contrast on the light dark-theme primary.
-    func prominentButton() -> some View {
-        buttonStyle(.borderedProminent).foregroundStyle(Color.Mirach.Base.primaryForeground)
+/// Figma «Botón»: full width, square, 52pt high, label in the Botón text style. The height is a
+/// minimum, so a label that wraps at a large Dynamic Type size grows the button.
+enum MirachButtonMetrics {
+    static let minHeight: CGFloat = 52
+}
+
+/// The filled button: the app's primary colour, label in the token made for text on it. A destructive
+/// role (`Button(role: .destructive)`) is filled with the destructive colour instead.
+struct PrimaryButtonStyle: ButtonStyle {
+    static func fill(destructive: Bool) -> Color {
+        destructive ? Color.Mirach.Base.destructive : Color.Mirach.Base.primary
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        Styled(configuration: configuration)
+    }
+
+    private struct Styled: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .mirachText(.boton)
+                .foregroundStyle(Color.Mirach.Base.primaryForeground)
+                .multilineTextAlignment(.center)
+                .padding(MirachSpacing.m)
+                .frame(maxWidth: .infinity, minHeight: MirachButtonMetrics.minHeight)
+                .background(
+                    PrimaryButtonStyle.fill(destructive: configuration.role == .destructive),
+                    in: RoundedRectangle(cornerRadius: MirachRadius.base)
+                )
+                .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.4)
+                .contentShape(Rectangle())
+        }
     }
 }
 
-/// The quiet button: the accent surface with ink picked from the tokens. A system `.bordered`
-/// button washes the tint over the page, and that wash fell under 4.5:1 for blue text in light.
+/// The alternative button: same box with the strong border and no fill. A destructive role
+/// (`Button(role: .destructive)`) takes the error text colour instead of `ink`.
 struct SecondaryButtonStyle: ButtonStyle {
-    let ink: Color
+    var ink: Color = Color.Mirach.Base.foreground
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(ink)
-            .padding(.vertical, 12).padding(.horizontal, 16)
-            .frame(maxWidth: .infinity)
-            .background(Color.Mirach.Base.accent, in: RoundedRectangle(cornerRadius: 12))
-            .opacity(configuration.isPressed ? 0.7 : 1)
+        Styled(configuration: configuration, ink: ink)
     }
+
+    private struct Styled: View {
+        let configuration: ButtonStyleConfiguration
+        let ink: Color
+        @Environment(\.isEnabled) private var isEnabled
+
+        var body: some View {
+            configuration.label
+                .mirachText(.boton)
+                .foregroundStyle(configuration.role == .destructive ? Color.Mirach.Feedback.errorText : ink)
+                .multilineTextAlignment(.center)
+                .padding(MirachSpacing.m)
+                .frame(maxWidth: .infinity, minHeight: MirachButtonMetrics.minHeight)
+                .overlay(Rectangle().strokeBorder(Color.Mirach.Base.input, lineWidth: 1))
+                .opacity(isEnabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
+                .contentShape(Rectangle())
+        }
+    }
+}
+
+extension View {
+    /// The filled button for the screen's main action.
+    func prominentButton() -> some View { buttonStyle(PrimaryButtonStyle()) }
+
+    /// The outlined button for the alternative action.
+    func secondaryButton() -> some View { buttonStyle(SecondaryButtonStyle()) }
 }

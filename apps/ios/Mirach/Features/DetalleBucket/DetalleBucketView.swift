@@ -26,10 +26,11 @@ struct DetalleBucketView: View {
     var body: some View {
         ScrollView {
             // Lazy: a month can hold hundreds of movements, only the visible ones are built.
-            LazyVStack(alignment: .leading, spacing: 12) {
+            LazyVStack(alignment: .leading, spacing: MirachSpacing.m) {
                 content
             }
-            .padding(16)
+            .padding(.horizontal, MirachSpacing.l)
+            .padding(.vertical, MirachSpacing.m)
         }
         // Pull to refresh repeats the query for the month on screen.
         .refreshable { await viewModel.refresh() }
@@ -63,9 +64,10 @@ struct DetalleBucketView: View {
     private var content: some View {
         switch viewModel.state {
         case .loading:
-            VStack(spacing: 12) {
+            VStack(spacing: MirachSpacing.m) {
                 ProgressView()
                 Text("Cargando movimientos…")
+                    .mirachText(.cuerpo)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .frame(maxWidth: .infinity)
@@ -73,10 +75,11 @@ struct DetalleBucketView: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("detalle.loading")
         case .failed(let failure):
-            VStack(spacing: 12) {
+            VStack(spacing: MirachSpacing.m) {
                 Text(failure == .connection
                     ? "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
                     : "No pudimos cargar los movimientos. Inténtalo de nuevo en unos segundos.")
+                    .mirachText(.cuerpo)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.retry() } }
@@ -92,12 +95,13 @@ struct DetalleBucketView: View {
                 anterior: viewModel.anterior,
                 siguiente: viewModel.siguiente,
                 select: { periodo in Task { await viewModel.select(periodo) } },
-                idPrefix: "detalle"
+                idPrefix: "detalle",
+                titleFont: .mirach(.cuerpoDestacado)
             )
             notices
             if detalle.grupos.isEmpty {
                 Text("Sin movimientos en \(Format.month(detalle.periodo))")
-                    .font(.mirach(.headline))
+                    .mirachText(.cuerpoDestacado)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                     .frame(maxWidth: .infinity)
@@ -123,6 +127,7 @@ struct DetalleBucketView: View {
     private var notices: some View {
         if let text = viewModel.announcement {
             Label(text, systemImage: "checkmark.circle")
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.successText)
                 // One element reading the sentence, not the icon's own description.
                 .accessibilityElement(children: .ignore)
@@ -131,6 +136,7 @@ struct DetalleBucketView: View {
         }
         if let text = viewModel.notice {
             Label(text, systemImage: "exclamationmark.triangle")
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(text)
@@ -139,42 +145,41 @@ struct DetalleBucketView: View {
     }
 }
 
+/// Figma 10: the total in Número grande, the counts under it and, when the API sends a target,
+/// the real share against it on the bar. The bucket name is the navigation title.
 private struct BucketHeader: View {
     let detalle: BucketDetalle
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                // The bucket color is a fill, the name next to it is the real label.
-                Rectangle().fill(detalle.bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
-                Text(detalle.bucket.label)
-                    .font(.mirach(.headline))
-                    .foregroundStyle(Color.Mirach.Base.cardForeground)
-            }
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
             Text(Format.expense(detalle.total))
-                .font(.mirach(.title2).bold())
+                .mirachText(.numeroGrande)
                 .mirachFigures()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .foregroundStyle(Color.Mirach.Feedback.expenseText)
+            Text("\(DetalleBucketPresentation.movements(detalle.totalTransacciones)) · \(DetalleBucketPresentation.categories(detalle.totalCategorias))")
+                .mirachText(.cuerpo)
+                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+            if let meta = detalle.metaBp {
+                BucketTrack(
+                    fill: detalle.bucket.fill,
+                    fillFraction: BucketBarPresentation.fraction(bp: detalle.porcentajeBp ?? 0),
+                    tickFraction: BucketBarPresentation.fraction(bp: meta)
+                )
+            }
             Text("\(Format.percent(bp: detalle.porcentajeBp)) del ingreso")
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .mirachFigures()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             if let meta = detalle.metaBp {
                 Text("Meta: \(Format.percent(bp: meta))")
-                    .font(.mirach(.footnote))
+                    .mirachText(.etiqueta)
                     .mirachFigures()
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
-            Text("\(DetalleBucketPresentation.movements(detalle.totalTransacciones)) · \(DetalleBucketPresentation.categories(detalle.totalCategorias))")
-                .font(.mirach(.footnote))
-                .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.Mirach.Base.card)
-        .overlay(Rectangle().stroke(Color.Mirach.Base.border))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(DetalleBucketPresentation.headerLabel(detalle))
         .accessibilityIdentifier("detalle.header")
@@ -189,17 +194,18 @@ private struct GroupHeader: View {
         // «Sin categoría» has no category to open: its header is plain.
         if let id = group.categoriaId {
             NavigationLink(value: CategoriaRoute(id: id)) {
-                HStack(spacing: 8) {
+                HStack(spacing: MirachSpacing.s) {
                     header
                     Image(systemName: "chevron.right")
-                        .font(.mirach(.footnote).weight(.semibold))
+                        .mirachText(.etiqueta)
+                        .fontWeight(.semibold)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                         .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(.top, 12)
+            .padding(.top, MirachSpacing.m)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(DetalleBucketPresentation.groupLabel(group))
@@ -208,7 +214,7 @@ private struct GroupHeader: View {
             .accessibilityIdentifier("detalle.group.\(group.id)")
         } else {
             header
-                .padding(.top, 12)
+                .padding(.top, MirachSpacing.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(DetalleBucketPresentation.groupLabel(group))
@@ -220,14 +226,14 @@ private struct GroupHeader: View {
     private var header: some View {
         Group {
             if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: MirachSpacing.xs) {
                     name
                     figures
                 }
             } else {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: MirachSpacing.s) {
                     name
-                    Spacer(minLength: 8)
+                    Spacer(minLength: MirachSpacing.s)
                     figures
                 }
             }
@@ -235,12 +241,12 @@ private struct GroupHeader: View {
     }
 
     private var name: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: MirachSpacing.s) {
             Image(systemName: CategoryIcon.symbol(for: group.icono))
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 .accessibilityHidden(true)
             Text(group.nombre)
-                .font(.mirach(.headline))
+                .mirachText(.cuerpoDestacado)
                 // A category name is one word often: capped so it wraps by word, not by syllable.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .lineLimit(2)
@@ -250,14 +256,16 @@ private struct GroupHeader: View {
     }
 
     private var figures: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: MirachSpacing.s) {
             Text(DetalleBucketPresentation.movements(group.conteo))
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                .fixedSize(horizontal: false, vertical: true)
+                // The count keeps its line; the name, which can shrink or wrap, gives way.
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             Text(Format.expense(group.subtotal))
-                .font(.mirach(.subheadline).bold())
+                .mirachText(.cuerpoDestacado)
                 .mirachFigures()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -289,16 +297,16 @@ private struct MovementRow: View {
     private var content: some View {
         Group {
             if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: MirachSpacing.xs) {
                     description
                     amount
                     subtitle
                 }
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: MirachSpacing.m) {
                         description
-                        Spacer(minLength: 8)
+                        Spacer(minLength: MirachSpacing.s)
                         amount
                     }
                     subtitle
@@ -312,7 +320,7 @@ private struct MovementRow: View {
 
     private var description: some View {
         Text(movement.descripcion)
-            .font(.mirach(.body))
+            .mirachText(.cuerpo)
             // Large text: show the whole description instead of cutting it.
             .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
             .foregroundStyle(Color.Mirach.Base.foreground)
@@ -320,7 +328,7 @@ private struct MovementRow: View {
 
     private var amount: some View {
         Text(Format.expense(movement.monto))
-            .font(.mirach(.body))
+            .mirachText(.cuerpoDestacado)
             .mirachFigures()
             .lineLimit(1)
             .minimumScaleFactor(0.6)
@@ -329,7 +337,7 @@ private struct MovementRow: View {
 
     /// Date and origin, then what the row does: the tag says it can be moved (VoiceOver gets a hint).
     private var subtitle: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: MirachSpacing.s) {
             Text("\(Format.shortDate(movement.fecha)) · \(movement.origen)")
                 // Wrap at word boundaries instead of truncating.
                 .fixedSize(horizontal: false, vertical: true)
@@ -340,7 +348,7 @@ private struct MovementRow: View {
                 Image(systemName: "tag").accessibilityHidden(true)
             }
         }
-        .font(.mirach(.footnote))
+        .mirachText(.etiqueta)
         .foregroundStyle(Color.Mirach.Base.mutedForeground)
     }
 }
@@ -351,7 +359,7 @@ private struct SaveFooter: View {
     @Bindable var viewModel: DetalleBucketViewModel
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: MirachSpacing.m) {
             if let suggestion = viewModel.suggestion {
                 CheckboxRow(
                     title: DetalleBucketPresentation.applyTitle(suggestion.parecidos.patron ?? ""),
@@ -364,10 +372,8 @@ private struct SaveFooter: View {
                     isOn: $viewModel.applyToSimilar
                 )
             }
-            Button { Task { await viewModel.save() } } label: {
-                Text("Guardar").frame(maxWidth: .infinity, minHeight: 44)
-            }
-            .prominentButton()
+            Button("Guardar") { Task { await viewModel.save() } }
+                .prominentButton()
             .disabled(!viewModel.canSave)
             .accessibilityHint(DetalleBucketPresentation.saveHint(viewModel.selection))
             .accessibilityIdentifier("detalle.saveCategory")
@@ -407,11 +413,12 @@ private struct ReclasificarSheet: View {
                         }
                     )
                 case .idle, .loading:
-                    waiting { ProgressView("Cargando categorías…").accessibilityIdentifier("detalle.catalogLoading") }
+                    waiting { ProgressView("Cargando categorías…").mirachText(.cuerpo).accessibilityIdentifier("detalle.catalogLoading") }
                 case .failed:
                     waiting {
-                        VStack(spacing: 12) {
+                        VStack(spacing: MirachSpacing.m) {
                             Text("No pudimos cargar las categorías.")
+                                .mirachText(.cuerpo)
                                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                             Button("Reintentar") { Task { await viewModel.retryCatalog() } }
                                 .prominentButton()

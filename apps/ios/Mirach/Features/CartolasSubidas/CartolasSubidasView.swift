@@ -53,9 +53,9 @@ struct CartolasSubidasView: View {
     private var content: some View {
         switch viewModel.state {
         case .loading:
-            VStack(spacing: 12) {
+            VStack(spacing: MirachSpacing.s) {
                 ProgressView()
-                Text("Cargando cartolas…").foregroundStyle(Color.Mirach.Base.mutedForeground)
+                Text("Cargando cartolas…").mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 48)
@@ -63,10 +63,11 @@ struct CartolasSubidasView: View {
             .accessibilityIdentifier("cartolas.loading")
             .plainRow()
         case .failed(let failure):
-            VStack(spacing: 12) {
+            VStack(spacing: MirachSpacing.s) {
                 Text(failure == .connection
                     ? "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
                     : "No pudimos cargar las cartolas. Inténtalo de nuevo en unos segundos.")
+                    .mirachText(.cuerpo)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.retry() } }
@@ -98,6 +99,7 @@ struct CartolasSubidasView: View {
     private var notices: some View {
         if let message = viewModel.message {
             Label(message.text, systemImage: message == .deleted ? "checkmark.circle" : "exclamationmark.triangle")
+                .mirachText(.etiqueta)
                 .foregroundStyle(message == .deleted ? Color.Mirach.Feedback.successText : Color.Mirach.Feedback.errorText)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(message.text)
@@ -107,6 +109,7 @@ struct CartolasSubidasView: View {
         }
         if let text = viewModel.refreshNotice {
             Label(text, systemImage: "exclamationmark.triangle")
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(text)
@@ -116,8 +119,9 @@ struct CartolasSubidasView: View {
     }
 
     private var empty: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: MirachSpacing.m) {
             Text("No hay cartolas cargadas. Sube una cartola para poder gestionarla aquí.")
+                .mirachText(.cuerpo)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             // Subir cartola is where this screen was opened from: going back is going there.
@@ -146,16 +150,17 @@ private struct CartolaSubidaRow: View {
     let delete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
             details
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(CartolasPresentation.rowLabel(cartola))
                 .accessibilityIdentifier("cartolas.row.\(cartola.id)")
             action
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, MirachSpacing.s)
         .listRowBackground(Color.Mirach.Base.background)
         .listRowSeparatorTint(Color.Mirach.Base.border)
+        .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if !isDeleting {
                 Button("Eliminar", role: .destructive, action: delete)
@@ -164,23 +169,23 @@ private struct CartolaSubidaRow: View {
     }
 
     private var details: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: MirachSpacing.xs) {
             Text(CartolasPresentation.banco(cartola))
-                .font(.mirach(.headline))
+                .mirachText(.cuerpoDestacado)
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Text(cartola.nombreArchivo)
-                .font(.mirach(.subheadline))
+                .mirachText(.etiqueta)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             Text(dateAndCount)
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .fixedSize(horizontal: false, vertical: true)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             status
             if let reason = CartolasPresentation.motivo(cartola) {
                 Text(reason)
-                    .font(.mirach(.footnote))
+                    .mirachText(.etiqueta)
                     // Whole words at the largest sizes, never cut by syllable.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -198,7 +203,7 @@ private struct CartolaSubidaRow: View {
     private var status: some View {
         let ok = cartola.estado == .procesada
         return Label(CartolasPresentation.estado(cartola), systemImage: ok ? "checkmark.circle" : "exclamationmark.triangle")
-            .font(.mirach(.footnote).weight(.semibold))
+            .mirachText(.etiqueta)
             .foregroundStyle(ok ? Color.Mirach.Feedback.successText : Color.Mirach.Feedback.errorText)
     }
 
@@ -207,14 +212,14 @@ private struct CartolaSubidaRow: View {
         if isDeleting {
             HStack(spacing: 8) {
                 ProgressView()
-                Text("Eliminando…").foregroundStyle(Color.Mirach.Base.mutedForeground)
+                Text("Eliminando…").mirachText(.etiqueta).foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("cartolas.deleting.\(cartola.id)")
         } else {
             // VoiceOver does not use the swipe: the same action is a button in the row.
             Button(role: .destructive, action: delete) {
-                Label("Eliminar", systemImage: "trash")
+                Label("Eliminar", systemImage: "trash").mirachText(.boton)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(Color.Mirach.Feedback.errorText)

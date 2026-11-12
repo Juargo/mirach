@@ -28,11 +28,12 @@ struct SubirCartolaView: View {
                     ReviewView(viewModel: viewModel, preview: preview, onDiscard: { confirmingDiscard = true })
                 } else {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: MirachSpacing.m) {
                             content
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
+                        .padding(.horizontal, MirachSpacing.l)
+                        .padding(.vertical, MirachSpacing.m)
                     }
                     // The colour must reach every edge, including the area the keyboard covers
                     // (the password step), so it ignores all safe areas instead of hugging the content.
@@ -87,7 +88,7 @@ struct SubirCartolaView: View {
             Button { viewModel.showConsent() } label: {
                 Text(SubirCartolaViewModel.consentReopen).frame(maxWidth: .infinity)
             }
-            .prominentButton().controlSize(.large)
+            .prominentButton()
             .accessibilityIdentifier("subir.consent.reopen")
         case .inicial(let message):
             if let message { StatusMessage(text: message, isError: true).accessibilityFocused($messageFocused) }
@@ -106,10 +107,10 @@ struct SubirCartolaView: View {
                 .accessibilityFocused($messageFocused)
                 .accessibilityIdentifier("subir.error")
             Button("Reintentar") { Task { await viewModel.retryPreview() } }
-                .prominentButton().controlSize(.large)
+                .prominentButton()
                 .accessibilityIdentifier("subir.retry")
             Button("Elegir otro archivo") { isPickingFile = true }
-                .buttonStyle(.bordered).controlSize(.large)
+                .secondaryButton()
                 .accessibilityIdentifier("subir.chooseOther")
         case .decidiendo(let preview):
             deciding(preview)
@@ -124,16 +125,16 @@ struct SubirCartolaView: View {
                 .accessibilityIdentifier("subir.error")
             if failure.isRetryable {
                 Button("Reintentar") { Task { await viewModel.retryImport() } }
-                    .prominentButton().controlSize(.large)
+                    .prominentButton()
                     .accessibilityIdentifier("subir.retry")
             }
             if viewModel.canReturnToReview {
                 Button("Volver a revisar") { viewModel.backToReview() }
-                    .buttonStyle(.bordered).controlSize(.large)
+                    .secondaryButton()
                     .accessibilityIdentifier("subir.backToReview")
             }
             Button("Empezar de nuevo") { viewModel.discard() }
-                .buttonStyle(.bordered).controlSize(.large)
+                .secondaryButton()
                 .accessibilityIdentifier("subir.startOver")
         case .exito(let summary):
             success(summary)
@@ -151,36 +152,40 @@ struct SubirCartolaView: View {
     }
 
     private var initial: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MirachSpacing.m) {
+            VStack(spacing: MirachSpacing.s) {
                 Text("Sube tu cartola")
-                    .font(.mirach(.title3).bold())
+                    .mirachText(.titulo)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                     .accessibilityAddTraits(.isHeader)
                 Text("Archivos .xlsx o .pdf de Banco de Chile, BancoEstado, BCI y Santander, de hasta 10 MB.")
+                    .mirachText(.cuerpo)
                 Text("Primero verás una vista previa. Nada se guarda hasta que confirmes.")
+                    .mirachText(.cuerpo)
             }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("subir.instructions")
 
             // PRI-03: no bank passwords, the file is deleted after reading it.
             Text(SubirCartolaViewModel.initialPrivacyMessage)
-                .font(.mirach(.subheadline))
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Base.foreground)
                 .accessibilityIdentifier("subir.privacy")
 
             Button { isPickingFile = true } label: {
                 Label("Elegir archivo", systemImage: "doc.badge.plus").frame(maxWidth: .infinity)
             }
-            .prominentButton().controlSize(.large)
+            .prominentButton()
             .accessibilityIdentifier("subir.chooseFile")
 
             importsLink
 
             if let testFixtureURL {
                 Button("Usar archivo de prueba") { Task { await viewModel.chooseFile(testFixtureURL) } }
-                    .buttonStyle(.bordered).controlSize(.large)
+                    .secondaryButton()
                     .accessibilityIdentifier("subir.fixture")
             }
         }
@@ -188,13 +193,14 @@ struct SubirCartolaView: View {
 
     /// The PRI-02 consent (Figma 16, node 114:442), shown before the first upload.
     private func consent(failed: Bool, isAccepting: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: MirachSpacing.m) {
+            VStack(spacing: MirachSpacing.s) {
                 Text(SubirCartolaViewModel.consentTitle)
-                    .font(.mirach(.title3).bold())
+                    .mirachText(.titulo)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                     .accessibilityAddTraits(.isHeader)
                 Text(SubirCartolaViewModel.consentBody)
+                    .mirachText(.cuerpo)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .multilineTextAlignment(.center)
@@ -203,19 +209,18 @@ struct SubirCartolaView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(SubirCartolaViewModel.consentListHeader)
-                    .font(.mirach(.headline))
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Base.cardForeground)
                     .accessibilityAddTraits(.isHeader)
                 ForEach(SubirCartolaViewModel.consentItems, id: \.self) { item in
                     Text(item)
-                        .font(.mirach(.subheadline))
+                        .mirachText(.etiqueta)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
             }
-            .padding(12)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.Mirach.Base.card)
-            .overlay(Rectangle().stroke(Color.Mirach.Base.border))
             .accessibilityIdentifier("subir.consent.list")
 
             if failed {
@@ -228,38 +233,38 @@ struct SubirCartolaView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .prominentButton().controlSize(.large)
+            .prominentButton()
             .disabled(isAccepting)
             .accessibilityLabel(SubirCartolaViewModel.consentAccept)
             .accessibilityIdentifier("subir.consent.accept")
             Button { viewModel.declineConsent() } label: {
                 Text(SubirCartolaViewModel.consentDecline).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered).controlSize(.large)
+            .secondaryButton()
             .disabled(isAccepting)
             .accessibilityIdentifier("subir.consent.decline")
         }
     }
 
     private func deciding(_ preview: CartolaPreview) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: MirachSpacing.m) {
             if let file = viewModel.stagedFile {
                 Text("\(file.filename) · \(file.byteCount.formatted(.byteCount(style: .file)))")
-                    .font(.mirach(.footnote))
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
                     .accessibilityIdentifier("subir.file")
             }
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(preview.banco).font(.mirach(.headline))
+                    Text(preview.banco).mirachText(.cuerpoDestacado)
                     Text("\(preview.tipoCuenta) · \(preview.numeroCuenta)")
-                        .font(.mirach(.subheadline))
+                        .mirachText(.etiqueta)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
                 .accessibilityElement(children: .combine)
                 counts(preview)
             }
-            .padding(12)
+            .padding(MirachSpacing.m)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.Mirach.Base.card)
             .overlay(Rectangle().stroke(Color.Mirach.Base.border))
@@ -272,6 +277,8 @@ struct SubirCartolaView: View {
             }
 
             Text("Nada se ha guardado aún.")
+                .mirachText(.etiqueta)
+                .frame(maxWidth: .infinity)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
 
             // With rows in Desconocido, reviewing is the recommended action, so it leads.
@@ -283,7 +290,7 @@ struct SubirCartolaView: View {
                 reviewEntry(primary: false)
             }
             Button("Descartar", role: .destructive) { confirmingDiscard = true }
-                .buttonStyle(.bordered).controlSize(.large)
+                .secondaryButton()
                 .accessibilityIdentifier("subir.discard")
         }
     }
@@ -294,9 +301,9 @@ struct SubirCartolaView: View {
             Text("Subir tal cual").frame(maxWidth: .infinity)
         }
         if primary {
-            button.prominentButton().controlSize(.large).accessibilityIdentifier("subir.uploadAsIs")
+            button.prominentButton().accessibilityIdentifier("subir.uploadAsIs")
         } else {
-            button.buttonStyle(.bordered).controlSize(.large).accessibilityIdentifier("subir.uploadAsIs")
+            button.secondaryButton().accessibilityIdentifier("subir.uploadAsIs")
         }
     }
 
@@ -308,11 +315,11 @@ struct SubirCartolaView: View {
             Text("Revisar y editar").frame(maxWidth: .infinity)
         }
         if primary {
-            button.prominentButton().controlSize(.large)
+            button.prominentButton()
                 .disabled(viewModel.loadedCatalog == nil)
                 .accessibilityIdentifier("subir.review")
         } else {
-            button.buttonStyle(.bordered).controlSize(.large)
+            button.secondaryButton()
                 .disabled(viewModel.loadedCatalog == nil)
                 .accessibilityIdentifier("subir.review")
         }
@@ -320,16 +327,16 @@ struct SubirCartolaView: View {
         case .loaded: EmptyView()
         case .loading:
             Label("Cargando categorías…", systemImage: "arrow.triangle.2.circlepath")
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 .accessibilityIdentifier("subir.catalogLoading")
         case .failed:
             Text("No pudimos cargar tus categorías, así que no se puede revisar. Puedes subir tal cual.")
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityIdentifier("subir.catalogError")
             Button("Reintentar") { Task { await viewModel.retryCatalog() } }
-                .buttonStyle(.bordered).controlSize(.regular)
+                .secondaryButton()
                 .accessibilityIdentifier("subir.catalogRetry")
         }
     }
@@ -346,8 +353,8 @@ struct SubirCartolaView: View {
         layout {
             ForEach(items, id: \.0) { label, value in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(label).font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
-                    Text(String(value)).font(.mirach(.title3).bold()).mirachFigures()
+                    Text(label).mirachText(.etiqueta).foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    Text(String(value)).mirachText(.cuerpoDestacado).mirachFigures()
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -363,20 +370,20 @@ struct SubirCartolaView: View {
                 Image(systemName: "chevron.right").accessibilityHidden(true)
             }
         }
-        .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
+        .secondaryButton()
         .accessibilityIdentifier("subir.cartolasSubidas")
     }
 
     private func success(_ summary: SubirCartolaViewModel.ImportSummary) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: MirachSpacing.m) {
+            VStack(alignment: .leading, spacing: MirachSpacing.s) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.mirach(.largeTitle))
                     .foregroundStyle(Color.Mirach.Feedback.successText)
                     .accessibilityHidden(true)
-                Text(summary.headline).font(.mirach(.title3).bold())
+                Text(summary.headline).mirachText(.titulo)
                 if let line = summary.duplicatesLine {
-                    Text(line).foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    Text(line).mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
             }
             .foregroundStyle(Color.Mirach.Base.foreground)
@@ -387,10 +394,10 @@ struct SubirCartolaView: View {
             Button { onShowSummary() } label: {
                 Text("Ver resumen del mes").frame(maxWidth: .infinity)
             }
-            .prominentButton().controlSize(.large)
+            .prominentButton()
             .accessibilityIdentifier("subir.viewSummary")
             Button("Subir otra cartola") { viewModel.discard() }
-                .buttonStyle(.bordered).controlSize(.large)
+                .secondaryButton()
                 .accessibilityIdentifier("subir.another")
             importsLink
         }
@@ -404,7 +411,7 @@ private struct Progress: View {
     var body: some View {
         VStack(spacing: 12) {
             ProgressView()
-            Text(text).foregroundStyle(Color.Mirach.Base.mutedForeground)
+            Text(text).mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 48)
@@ -419,6 +426,7 @@ private struct StatusMessage: View {
 
     var body: some View {
         Text(text)
+            .mirachText(.cuerpo)
             .foregroundStyle(isError ? Color.Mirach.Feedback.errorText : Color.Mirach.Base.foreground)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("subir.message")
@@ -438,8 +446,8 @@ private struct PasswordPrompt: View {
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(filename).font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
+        VStack(alignment: .leading, spacing: MirachSpacing.m) {
+            Text(filename).mirachText(.etiqueta).foregroundStyle(Color.Mirach.Base.mutedForeground)
             StatusMessage(
                 text: SubirCartolaViewModel.State.passwordPrompt(incorrect: incorrect), isError: incorrect
             )
@@ -453,16 +461,15 @@ private struct PasswordPrompt: View {
                 .focused($fieldFocused)
                 .submitLabel(.go)
                 .onSubmit(send)
-                .padding(12)
-                .overlay(Rectangle().stroke(Color.Mirach.Base.input))
+                .mirachField(isError: incorrect)
                 .accessibilityIdentifier("subir.password")
 
             Button("Reintentar", action: send)
-                .prominentButton().controlSize(.large)
+                .prominentButton()
                 .disabled(password.isEmpty)
                 .accessibilityIdentifier("subir.retry")
             Button("Elegir otro archivo", action: chooseOther)
-                .buttonStyle(.bordered).controlSize(.large)
+                .secondaryButton()
                 .accessibilityIdentifier("subir.chooseOther")
         }
         .onAppear { fieldFocused = true }

@@ -17,7 +17,7 @@ struct PasswordSignInForm: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: MirachSpacing.s) {
             Button(isOpen ? "Ocultar acceso con correo" : "Acceso con correo") {
                 isOpen.toggle()
             }
@@ -25,7 +25,7 @@ struct PasswordSignInForm: View {
             .accessibilityIdentifier("signin.password.toggle")
 
             if isOpen {
-                VStack(spacing: 12) {
+                VStack(spacing: MirachSpacing.s) {
                     TextField("Correo", text: $email)
                         .keyboardType(.emailAddress)
                         .textContentType(.username)
@@ -34,7 +34,7 @@ struct PasswordSignInForm: View {
                         .focused($focus, equals: .email)
                         .submitLabel(.next)
                         .onSubmit { focus = .password }
-                        .modifier(FieldFrame())
+                        .mirachField()
                         .accessibilityIdentifier("signin.email")
                     SecureField("Contraseña", text: $password)
                         .textContentType(.password)
@@ -43,7 +43,7 @@ struct PasswordSignInForm: View {
                         .focused($focus, equals: .password)
                         .submitLabel(.go)
                         .onSubmit(submit)
-                        .modifier(FieldFrame())
+                        .mirachField()
                         .accessibilityIdentifier("signin.password")
                     Button("Ingresar", action: submit)
                         .prominentButton()
@@ -60,13 +60,5 @@ struct PasswordSignInForm: View {
         focus = nil
         // The fields stay filled on failure; a success replaces this screen.
         Task { await viewModel.signInWithPassword(email: email, password: password) }
-    }
-}
-
-private struct FieldFrame: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .padding(12)
-            .overlay(Rectangle().stroke(Color.Mirach.Base.input))
     }
 }
