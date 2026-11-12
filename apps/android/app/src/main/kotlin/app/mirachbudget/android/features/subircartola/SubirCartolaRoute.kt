@@ -14,14 +14,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,14 +31,18 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import app.mirachbudget.android.core.design.MirachSecondaryButton
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.staging.CartolaFileRules
 import app.mirachbudget.android.core.staging.ContentResolverCartolaSource
@@ -117,18 +120,18 @@ fun SubirCartolaRoute(
         modifier = modifier,
         containerColor = MirachTheme.colors.base.background,
         topBar = {
-            TopAppBar(
-                title = { Text(SubirCartolaMessages.TITLE) },
+            CenterAlignedTopAppBar(
+                title = { Text(SubirCartolaMessages.TITLE, style = MirachTextStyles.cuerpoDestacado, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 // In the bar, not under «Confirmar»: it frees room for rows and is hard to hit by accident.
                 actions = {
                     if (reviewing != null) {
                         TextButton(
                             onClick = { confirmingDiscard = true },
                             colors = ButtonDefaults.textButtonColors(contentColor = MirachTheme.colors.feedback.errorText),
-                        ) { Text(SubirCartolaMessages.DISCARD) }
+                        ) { Text(SubirCartolaMessages.DISCARD, style = MirachTextStyles.boton) }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MirachTheme.colors.base.background,
                     titleContentColor = MirachTheme.colors.base.foreground,
                 ),
@@ -142,8 +145,9 @@ fun SubirCartolaRoute(
             ReviewScreen(viewModel, state, reviewing.preview, actions, Modifier.padding(padding).fillMaxSize())
         } else {
             Column(
-                Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())
+                    .padding(horizontal = MirachSpacing.l, vertical = MirachSpacing.m),
+                verticalArrangement = Arrangement.spacedBy(MirachSpacing.m),
             ) {
                 StepContent(viewModel, state, actions)
                 // The way to the imports already made, to check or undo one (iOS shows it in the same two steps).
@@ -166,7 +170,7 @@ fun SubirCartolaRoute(
 /** «Cartolas subidas», styled as a secondary action with a chevron. */
 @Composable
 private fun CartolasSubidasLink(onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    MirachSecondaryButton(onClick = onClick) {
         Row(Modifier.fillMaxWidth()) {
             Text(CartolasSubidasMessages.TITLE)
             Spacer(Modifier.weight(1f))
@@ -188,17 +192,18 @@ internal class StepActions(
 private fun DiscardDialog(onDiscard: () -> Unit, onCancel: () -> Unit) {
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text(SubirCartolaMessages.DISCARD_TITLE) },
-        text = { Text(SubirCartolaMessages.DISCARD_MESSAGE) },
+        title = { Text(SubirCartolaMessages.DISCARD_TITLE, style = MirachTextStyles.cuerpoDestacado) },
+        text = { Text(SubirCartolaMessages.DISCARD_MESSAGE, style = MirachTextStyles.cuerpo) },
         confirmButton = {
             Button(
                 onClick = onDiscard,
+                shape = RectangleShape,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MirachTheme.colors.base.destructive,
                     contentColor = MirachTheme.colors.base.primaryForeground,
                 ),
-            ) { Text(SubirCartolaMessages.DISCARD) }
+            ) { Text(SubirCartolaMessages.DISCARD, style = MirachTextStyles.boton) }
         },
-        dismissButton = { TextButton(onClick = onCancel) { Text(SubirCartolaMessages.DISCARD_CANCEL) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text(SubirCartolaMessages.DISCARD_CANCEL, style = MirachTextStyles.boton) } },
     )
 }

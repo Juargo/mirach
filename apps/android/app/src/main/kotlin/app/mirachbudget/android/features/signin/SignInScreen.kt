@@ -17,11 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,7 +38,6 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -50,6 +45,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import app.mirachbudget.android.R
+import app.mirachbudget.android.core.design.MirachPrimaryButton
+import app.mirachbudget.android.core.design.MirachSecondaryButton
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextField
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.networking.LegalDocuments
 
@@ -68,27 +68,27 @@ fun SignInScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize().imePadding()) {
         val screenHeight = maxHeight
         Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = screenHeight).padding(24.dp),
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = screenHeight).padding(MirachSpacing.l),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(
                 modifier = Modifier.padding(top = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(MirachSpacing.m),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 BrandRing()
-                Text("Mirach", style = MaterialTheme.typography.headlineLarge, color = MirachTheme.colors.base.foreground)
+                Text("Mirach", style = MirachTextStyles.numeroGrande, color = MirachTheme.colors.base.foreground)
                 Text(
                     "¿Estoy gastando bien? Te lo mostramos en un vistazo: necesidades, gustos y ahorro.",
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MirachTextStyles.cuerpo,
                     color = MirachTheme.colors.base.mutedForeground,
                     textAlign = TextAlign.Center,
                 )
                 notice?.let {
                     Text(
                         it,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MirachTextStyles.cuerpo,
                         color = MirachTheme.colors.feedback.successText,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -101,11 +101,11 @@ fun SignInScreen(
                 is SignInViewModel.Phase.ProvidersFailed -> RetryBlock(phase.message, onRetry)
                 SignInViewModel.Phase.Ready, SignInViewModel.Phase.Authenticating -> {
                     val busy = phase == SignInViewModel.Phase.Authenticating
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(verticalArrangement = Arrangement.spacedBy(MirachSpacing.s), horizontalAlignment = Alignment.CenterHorizontally) {
                         state.errorMessage?.let { ErrorBlock(it, state.errorDetail) }
                         if (busy) Loading("Iniciando sesión…")
                         if (state.googleAvailable) {
-                            OutlinedButton(onClick = onGoogle, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                            MirachSecondaryButton(onClick = onGoogle, enabled = !busy) {
                                 // Google's "G" before the text, as its branding guidelines require. The text
                                 // names the provider, so the mark has no description for TalkBack.
                                 Image(
@@ -113,7 +113,7 @@ fun SignInScreen(
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(MirachSpacing.s))
                                 Text("Continuar con Google")
                             }
                         }
@@ -131,7 +131,7 @@ private fun ErrorBlock(message: String, detail: String?) {
     if (detail == null) {
         Text(
             message,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MirachTextStyles.cuerpo,
             color = MirachTheme.colors.feedback.errorText,
             textAlign = TextAlign.Center,
         )
@@ -141,12 +141,12 @@ private fun ErrorBlock(message: String, detail: String?) {
         modifier = Modifier
             .fillMaxWidth()
             .background(MirachTheme.colors.base.card)
-            .padding(16.dp)
+            .padding(MirachSpacing.m)
             .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(message, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MirachTheme.colors.base.foreground)
-        Text(detail, style = MaterialTheme.typography.bodyMedium, color = MirachTheme.colors.base.mutedForeground)
+        Text(message, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.foreground)
+        Text(detail, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.mutedForeground)
     }
 }
 
@@ -161,9 +161,10 @@ private fun LegalNotice() {
             withLink(LinkAnnotation.Url(LegalDocuments.PRIVACIDAD_URL, linkStyle)) { append("Política de privacidad") }
             append(". No pedimos claves de tu banco.")
         },
-        style = MaterialTheme.typography.bodySmall,
+        style = MirachTextStyles.mini,
         color = MirachTheme.colors.base.mutedForeground,
         textAlign = TextAlign.Center,
+        modifier = Modifier.padding(top = MirachSpacing.s),
     )
 }
 
@@ -176,7 +177,7 @@ private fun BrandRing() {
         Triple(90f, 108f, bucket.gustos),
         Triple(198f, 72f, bucket.ahorro),
     )
-    Canvas(modifier = Modifier.size(144.dp)) {
+    Canvas(modifier = Modifier.size(140.dp)) {
         val width = 20.dp.toPx()
         val inset = Offset(width / 2, width / 2)
         val arcSize = Size(size.width - width, size.height - width)
@@ -195,32 +196,24 @@ private fun PasswordSignInForm(busy: Boolean, onSubmit: (String, String) -> Unit
     var password by remember { mutableStateOf("") }
     val canSubmit = !busy && email.isNotBlank() && password.isNotEmpty()
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        OutlinedButton(onClick = { open = !open }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (open) "Ocultar acceso con correo" else "Acceso con correo")
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(MirachSpacing.s), horizontalAlignment = Alignment.CenterHorizontally) {
+        MirachSecondaryButton(if (open) "Ocultar acceso con correo" else "Acceso con correo", onClick = { open = !open })
         if (open) {
-            OutlinedTextField(
+            MirachTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Correo") },
-                singleLine = true,
+                label = "Correo",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            MirachTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Contraseña") },
-                singleLine = true,
+                label = "Contraseña",
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
             )
             // The fields stay filled on failure; a success replaces this screen.
-            Button(onClick = { onSubmit(email, password) }, enabled = canSubmit, modifier = Modifier.fillMaxWidth()) {
-                Text("Ingresar")
-            }
+            MirachPrimaryButton("Ingresar", onClick = { onSubmit(email, password) }, enabled = canSubmit)
         }
     }
 }
@@ -229,14 +222,14 @@ private fun PasswordSignInForm(busy: Boolean, onSubmit: (String, String) -> Unit
 private fun Loading(message: String) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         CircularProgressIndicator()
-        Text(message, color = MirachTheme.colors.base.mutedForeground, textAlign = TextAlign.Center)
+        Text(message, style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground, textAlign = TextAlign.Center)
     }
 }
 
 @Composable
 private fun RetryBlock(message: String, onRetry: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(message, textAlign = TextAlign.Center, color = MirachTheme.colors.base.foreground)
-        Button(onClick = onRetry) { Text("Reintentar") }
+        Text(message, style = MirachTextStyles.cuerpo, textAlign = TextAlign.Center, color = MirachTheme.colors.base.foreground)
+        MirachPrimaryButton("Reintentar", onClick = onRetry)
     }
 }

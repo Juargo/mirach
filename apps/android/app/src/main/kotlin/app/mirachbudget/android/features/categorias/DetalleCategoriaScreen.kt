@@ -18,13 +18,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,10 +31,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -50,7 +51,14 @@ import app.mirachbudget.android.core.design.BucketChoice
 import app.mirachbudget.android.core.design.FieldError
 import app.mirachbudget.android.core.design.Footer
 import app.mirachbudget.android.core.design.FormHeader
+import app.mirachbudget.android.core.design.MirachPrimaryButton
+import app.mirachbudget.android.core.design.MirachRadius
+import app.mirachbudget.android.core.design.MirachSecondaryButton
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextField
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
+import app.mirachbudget.android.core.design.ScreenBar
 import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.core.networking.PatronCategoria
@@ -105,11 +113,11 @@ private fun DetalleCategoriaScreen(viewModel: DetalleCategoriaViewModel, onBack:
         modifier = modifier,
         containerColor = MirachTheme.colors.base.background,
         topBar = {
-            TopAppBar(
-                title = { Text(category?.nombre ?: DetalleCategoriaMessages.TITLE_FALLBACK, maxLines = 1) },
-                navigationIcon = { BackArrow(onClick = leave) },
+            ScreenBar(
+                title = category?.nombre ?: DetalleCategoriaMessages.TITLE_FALLBACK,
+                onBack = leave,
                 // Nothing to save until the category is on screen.
-                actions = {
+                trailing = {
                     if (category != null) {
                         SaveAction(state) {
                             focus.clearFocus()
@@ -117,7 +125,6 @@ private fun DetalleCategoriaScreen(viewModel: DetalleCategoriaViewModel, onBack:
                         }
                     }
                 },
-                colors = barColors(),
             )
         },
     ) { padding ->
@@ -127,7 +134,7 @@ private fun DetalleCategoriaScreen(viewModel: DetalleCategoriaViewModel, onBack:
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { scope.launch { viewModel.refresh() } },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
             ) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                     when (val content = state.content) {
@@ -138,12 +145,16 @@ private fun DetalleCategoriaScreen(viewModel: DetalleCategoriaViewModel, onBack:
                             onAction = { scope.launch { viewModel.retry() } },
                         )
                         Content.NotFound -> CenteredMessage(DetalleCategoriaMessages.GONE, DetalleCategoriaMessages.BACK_TO_LIST, onAction = onBack, isError = false)
-                        is Content.Loaded -> Form(viewModel, state, content.categoria, onDelete = {
-                            focus.clearFocus()
-                            viewModel.requestDeletion()
-                        })
+                        is Content.Loaded -> Form(viewModel, state, content.categoria)
                     }
                 }
+            }
+            // Figma pins the two actions under the scrolling content.
+            if (state.content is Content.Loaded) {
+                Actions(state, onAdd = viewModel::beginAddPattern, onDelete = {
+                    focus.clearFocus()
+                    viewModel.requestDeletion()
+                })
             }
         }
     }
@@ -161,7 +172,7 @@ private fun SaveAction(state: DetalleCategoriaViewModel.State, onSave: () -> Uni
             strokeWidth = 2.dp,
         )
     } else {
-        TextButton(onClick = onSave, enabled = state.hasChanges && !state.isProtected) { Text(DetalleCategoriaMessages.SAVE) }
+        TextButton(onClick = onSave, enabled = state.hasChanges && !state.isProtected) { Text(DetalleCategoriaMessages.SAVE, style = MirachTextStyles.boton) }
     }
 }
 
@@ -171,8 +182,8 @@ private fun Banner(state: DetalleCategoriaViewModel.State) {
     val notice = state.notice ?: state.refreshNotice
     if (announcement == null && notice == null) return
     Column(
-        Modifier.fillMaxWidth().background(MirachTheme.colors.base.card).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        Modifier.fillMaxWidth().background(MirachTheme.colors.base.card).padding(horizontal = MirachSpacing.l, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(MirachSpacing.s),
     ) {
         announcement?.let { Notice(it, isError = false) }
         notice?.let { Notice(it, isError = true) }
@@ -184,22 +195,20 @@ private fun Banner(state: DetalleCategoriaViewModel.State) {
  * still scroll and read it.
  */
 @Composable
-private fun Form(viewModel: DetalleCategoriaViewModel, state: DetalleCategoriaViewModel.State, category: CategoriaCatalogo, onDelete: () -> Unit) {
+private fun Form(viewModel: DetalleCategoriaViewModel, state: DetalleCategoriaViewModel.State, category: CategoriaCatalogo) {
     val locked = state.isProtected || state.isSaving
     val colors = MirachTheme.colors
-    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (state.isProtected) Text("🔒 " + DetalleCategoriaMessages.PROTECTED, color = colors.base.foreground)
+    Column(Modifier.fillMaxWidth().padding(horizontal = MirachSpacing.l, vertical = MirachSpacing.m), verticalArrangement = Arrangement.spacedBy(MirachSpacing.s)) {
+        if (state.isProtected) Text("🔒 " + DetalleCategoriaMessages.PROTECTED, style = MirachTextStyles.cuerpo, color = colors.base.foreground)
 
         FormHeader(DetalleCategoriaMessages.NAME)
-        OutlinedTextField(
+        MirachTextField(
             value = state.draftNombre,
             onValueChange = { viewModel.setDraftNombre(it.filterNot { c -> c == '\n' || c == '\r' }) },
-            label = { Text(DetalleCategoriaMessages.NAME) },
-            singleLine = true,
+            label = DetalleCategoriaMessages.NAME,
             enabled = !locked,
             isError = state.fieldErrors.name != null,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            modifier = Modifier.fillMaxWidth(),
         )
         FieldError(state.fieldErrors.name)
         Footer(DetalleCategoriaMessages.nameFooter(category))
@@ -215,66 +224,78 @@ private fun Form(viewModel: DetalleCategoriaViewModel, state: DetalleCategoriaVi
         FieldError(state.fieldErrors.icon)
 
         FormHeader(DetalleCategoriaMessages.PATTERNS)
-        if (category.patrones.isEmpty()) Text(DetalleCategoriaMessages.PATTERNS_EMPTY, color = colors.base.mutedForeground)
-        category.patrones.forEach { pattern ->
-            PatternRow(
-                pattern = pattern,
-                isDeleting = state.deletingPattern == pattern.id,
-                enabled = !locked,
-                onEdit = { viewModel.beginEditPattern(pattern) },
-                onDelete = { viewModel.requestPatternDeletion(pattern) },
-            )
+        if (category.patrones.isEmpty()) Text(DetalleCategoriaMessages.PATTERNS_EMPTY, style = MirachTextStyles.cuerpo, color = colors.base.mutedForeground)
+        Column {
+            category.patrones.forEach { pattern ->
+                PatternRow(
+                    pattern = pattern,
+                    isDeleting = state.deletingPattern == pattern.id,
+                    enabled = !locked,
+                    onEdit = { viewModel.beginEditPattern(pattern) },
+                    onDelete = { viewModel.requestPatternDeletion(pattern) },
+                )
+            }
         }
-        TextButton(onClick = viewModel::beginAddPattern, enabled = !locked) { Text("+ " + DetalleCategoriaMessages.ADD_PATTERN) }
         Footer(DetalleCategoriaMessages.PATTERNS_FOOTER)
 
         state.fieldErrors.general?.let { StatusMessage(it, isError = true) }
+    }
+}
 
+/** The two actions of Figma 27: add a pattern (primary) and delete the category (secondary). */
+@Composable
+private fun Actions(state: DetalleCategoriaViewModel.State, onAdd: () -> Unit, onDelete: () -> Unit) {
+    val locked = state.isProtected || state.isSaving
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = MirachSpacing.l).padding(top = MirachSpacing.s, bottom = MirachSpacing.m),
+        verticalArrangement = Arrangement.spacedBy(MirachSpacing.s),
+    ) {
+        MirachPrimaryButton(DetalleCategoriaMessages.ADD_PATTERN, onAdd, enabled = !locked)
         if (state.isDeleting) {
             Row(
-                Modifier.heightIn(min = 48.dp).semantics(mergeDescendants = true) {},
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics(mergeDescendants = true) {},
+                horizontalArrangement = Arrangement.spacedBy(MirachSpacing.s, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text(DetalleCategoriaMessages.DELETING, color = colors.base.mutedForeground)
+                Text(DetalleCategoriaMessages.DELETING, style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground)
             }
         } else {
-            TextButton(
-                onClick = onDelete,
-                enabled = !locked,
-                colors = ButtonDefaults.textButtonColors(contentColor = colors.feedback.errorText),
-            ) { Text(DetalleCategoriaMessages.DELETE_CATEGORY) }
+            MirachSecondaryButton(DetalleCategoriaMessages.DELETE_CATEGORY, onDelete, enabled = !locked)
         }
     }
 }
 
+/** Figma's pattern row: the text, how it matches, and «Quitar» in the muted color; a 1dp rule under it. */
 @Composable
 private fun PatternRow(pattern: PatronCategoria, isDeleting: Boolean, enabled: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
     val colors = MirachTheme.colors
-    Row(Modifier.fillMaxWidth().background(colors.base.card), verticalAlignment = Alignment.CenterVertically) {
-        Column(
-            Modifier
-                .weight(1f)
-                .heightIn(min = 48.dp)
-                .clickable(enabled = enabled, role = Role.Button, onClickLabel = DetalleCategoriaMessages.EDIT_PATTERN_HINT, onClick = onEdit)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .clearAndSetSemantics { contentDescription = DetalleCategoriaMessages.patternRowLabel(pattern.matchType, pattern.patron) },
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(pattern.patron, color = colors.base.cardForeground)
-            Text(DetalleCategoriaMessages.matchType(pattern.matchType), style = MaterialTheme.typography.bodySmall, color = colors.base.mutedForeground)
+    Column {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clickable(enabled = enabled, role = Role.Button, onClickLabel = DetalleCategoriaMessages.EDIT_PATTERN_HINT, onClick = onEdit)
+                    .padding(vertical = MirachSpacing.s)
+                    .clearAndSetSemantics { contentDescription = DetalleCategoriaMessages.patternRowLabel(pattern.matchType, pattern.patron) },
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(pattern.patron, style = MirachTextStyles.cuerpo, color = colors.base.foreground)
+                Text(DetalleCategoriaMessages.matchType(pattern.matchType), style = MirachTextStyles.etiqueta, color = colors.base.mutedForeground)
+            }
+            if (isDeleting) {
+                CircularProgressIndicator(Modifier.padding(12.dp).size(20.dp), strokeWidth = 2.dp)
+            } else {
+                TextButton(
+                    onClick = onDelete,
+                    enabled = enabled,
+                    colors = ButtonDefaults.textButtonColors(contentColor = colors.base.mutedForeground),
+                    modifier = Modifier.semantics { contentDescription = DetalleCategoriaMessages.deletePatternLabel(pattern.patron) },
+                ) { Text(DetalleCategoriaMessages.DELETE, style = MirachTextStyles.etiqueta) }
+            }
         }
-        if (isDeleting) {
-            CircularProgressIndicator(Modifier.padding(12.dp).size(20.dp), strokeWidth = 2.dp)
-        } else {
-            TextButton(
-                onClick = onDelete,
-                enabled = enabled,
-                colors = ButtonDefaults.textButtonColors(contentColor = colors.feedback.errorText),
-                modifier = Modifier.semantics { contentDescription = DetalleCategoriaMessages.deletePatternLabel(pattern.patron) },
-            ) { Text(DetalleCategoriaMessages.DELETE) }
-        }
+        HorizontalDivider(color = colors.base.border)
     }
 }
 
@@ -342,18 +363,21 @@ private fun Confirmation(
     val colors = MirachTheme.colors.base
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { Text(message) },
+        shape = RoundedCornerShape(MirachRadius.base),
+        containerColor = colors.background,
+        title = { Text(title, style = MirachTextStyles.cuerpoDestacado, color = colors.foreground) },
+        text = { Text(message, style = MirachTextStyles.cuerpo, color = colors.mutedForeground) },
         confirmButton = {
             Button(
                 onClick = onConfirm,
+                shape = RoundedCornerShape(MirachRadius.base),
                 colors = if (destructive) {
                     ButtonDefaults.buttonColors(containerColor = colors.destructive, contentColor = colors.primaryForeground)
                 } else {
                     ButtonDefaults.buttonColors()
                 },
-            ) { Text(confirm) }
+            ) { Text(confirm, style = MirachTextStyles.boton) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(dismiss) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(dismiss, style = MirachTextStyles.boton) } },
     )
 }

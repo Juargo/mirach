@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,24 +18,20 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,7 +43,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
@@ -61,20 +57,25 @@ import app.mirachbudget.android.core.design.CategoryIcon
 import app.mirachbudget.android.core.design.FieldError
 import app.mirachbudget.android.core.design.Footer
 import app.mirachbudget.android.core.design.FormHeader
+import app.mirachbudget.android.core.design.MirachPrimaryButton
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextField
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
+import app.mirachbudget.android.core.design.ScreenBar
 import app.mirachbudget.android.core.design.SheetBar
-import app.mirachbudget.android.core.design.Swatch
+import app.mirachbudget.android.core.design.SheetRow
 import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.core.networking.NuevaCategoria
 import app.mirachbudget.android.features.categorias.CategoriasViewModel.Content
-import app.mirachbudget.android.features.resumen.card
 import app.mirachbudget.android.features.resumen.label
 import app.mirachbudget.android.features.subircartola.StatusMessage
 import app.mirachbudget.android.features.subircartola.SubirCartolaDisplay
 import app.mirachbudget.android.features.subircartola.SubirCartolaMessages
 import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel.CategoryFormErrors
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 /**
@@ -141,21 +142,7 @@ private fun CategoriasScreen(viewModel: CategoriasViewModel, onOpen: (String) ->
     Scaffold(
         modifier = modifier,
         containerColor = MirachTheme.colors.base.background,
-        topBar = {
-            TopAppBar(
-                title = { Text(CategoriasMessages.TITLE) },
-                actions = {
-                    IconButton(
-                        onClick = openForm,
-                        enabled = state.content is Content.Loaded,
-                        modifier = Modifier.semantics { contentDescription = CategoriasMessages.NEW_CATEGORY },
-                    ) {
-                        Text("+", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.clearAndSetSemantics {})
-                    }
-                },
-                colors = barColors(),
-            )
-        },
+        topBar = { ScreenBar(CategoriasMessages.TITLE) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
@@ -165,8 +152,7 @@ private fun CategoriasScreen(viewModel: CategoriasViewModel, onOpen: (String) ->
             LazyColumn(
                 Modifier.fillMaxSize(),
                 state = listState,
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = MirachSpacing.l, vertical = MirachSpacing.m),
             ) {
                 when (val content = state.content) {
                     Content.Loading -> item { Loading(CategoriasMessages.LOADING) }
@@ -174,15 +160,21 @@ private fun CategoriasScreen(viewModel: CategoriasViewModel, onOpen: (String) ->
                         CenteredMessage(CategoriasMessages.loadFailure(content.failure), CategoriasMessages.RETRY, onAction = { scope.launch { viewModel.retry() } })
                     }
                     is Content.Loaded -> {
-                        state.announcement?.let { text -> item(key = "announcement") { Notice(text, isError = false) } }
-                        state.refreshNotice?.let { text -> item(key = "notice") { Notice(text, isError = true) } }
+                        state.announcement?.let { text -> item(key = "announcement") { Notice(text, isError = false, modifier = Modifier.padding(bottom = MirachSpacing.s)) } }
+                        state.refreshNotice?.let { text -> item(key = "notice") { Notice(text, isError = true, modifier = Modifier.padding(bottom = MirachSpacing.s)) } }
                         if (content.catalog.categorias.isEmpty()) item(key = "empty") { Empty(onCreate = openForm) }
+                        else item(key = "new") { NewCategoryRow(onClick = openForm) }
                         Bucket.entries.forEach { bucket ->
                             item(key = "group-${bucket.apiName}") { GroupHeader(bucket) }
                             val categorias = content.catalog.deBucket(bucket)
                             if (categorias.isEmpty()) {
                                 item(key = "none-${bucket.apiName}") {
-                                    Text(CategoriasMessages.NO_CATEGORIES, color = MirachTheme.colors.base.mutedForeground)
+                                    Text(
+                                        CategoriasMessages.NO_CATEGORIES,
+                                        style = MirachTextStyles.cuerpo,
+                                        color = MirachTheme.colors.base.mutedForeground,
+                                        modifier = Modifier.padding(vertical = MirachSpacing.s),
+                                    )
                                 }
                             }
                             items(categorias, key = { it.id }) { category -> CategoriaRow(category, onClick = { onOpen(category.id) }) }
@@ -206,45 +198,75 @@ private fun CategoriasScreen(viewModel: CategoriasViewModel, onOpen: (String) ->
 @Composable
 private fun Empty(onCreate: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        Modifier.fillMaxWidth().padding(vertical = MirachSpacing.m),
+        verticalArrangement = Arrangement.spacedBy(MirachSpacing.m),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(CategoriasMessages.EMPTY, color = MirachTheme.colors.base.mutedForeground, textAlign = TextAlign.Center)
-        Button(onClick = onCreate) { Text(CategoriasMessages.NEW_CATEGORY) }
+        Text(CategoriasMessages.EMPTY, style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground, textAlign = TextAlign.Center)
+        MirachPrimaryButton(CategoriasMessages.NEW_CATEGORY, onCreate)
     }
 }
 
+/** Figma's first row of the list: «+ Nueva categoría» with a chevron. The bar no longer carries a «+». */
+@Composable
+private fun NewCategoryRow(onClick: () -> Unit) {
+    // Aligned with the category rows below: the list already has the screen padding. Spoken text is the plain name.
+    androidx.compose.foundation.layout.Column(Modifier.padding(bottom = MirachSpacing.xs)) {
+        androidx.compose.foundation.layout.Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable(onClick = onClick, role = androidx.compose.ui.semantics.Role.Button),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Text(
+                "+ ${CategoriasMessages.NEW_CATEGORY}",
+                style = MirachTextStyles.cuerpo,
+                modifier = Modifier.weight(1f).semantics { contentDescription = CategoriasMessages.NEW_CATEGORY },
+            )
+            Text("›", style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground, modifier = Modifier.clearAndSetSemantics {})
+        }
+        androidx.compose.material3.HorizontalDivider(color = MirachTheme.colors.base.border)
+    }
+}
+
+/** Figma's group label: «Mini», uppercase, in the muted color. TalkBack still reads the bucket name. */
 @Composable
 private fun GroupHeader(bucket: Bucket) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 12.dp).semantics(mergeDescendants = true) { heading() },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Swatch(bucket)
-        Text(bucket.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MirachTheme.colors.base.foreground)
-    }
+    Text(
+        bucket.label.uppercase(Locale.ROOT),
+        style = MirachTextStyles.mini,
+        color = MirachTheme.colors.base.mutedForeground,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = MirachSpacing.m, bottom = MirachSpacing.xs)
+            .semantics { heading(); contentDescription = bucket.label },
+    )
 }
 
+/** Figma's «Fila de ajuste»: name, the counts and a chevron, with a 1dp rule under the row. */
 @Composable
 private fun CategoriaRow(category: CategoriaCatalogo, onClick: () -> Unit) {
     val colors = MirachTheme.colors.base
-    Row(
-        Modifier
-            .clickable(role = Role.Button, onClick = onClick)
-            .card()
-            .heightIn(min = 48.dp)
-            .clearAndSetSemantics { contentDescription = CategoriasMessages.rowLabel(category) },
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(painterResource(CategoryIcon.drawable(category.icono)), contentDescription = null, tint = colors.mutedForeground, modifier = Modifier.size(24.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(category.nombre, style = MaterialTheme.typography.titleMedium, maxLines = 2, color = colors.cardForeground)
-            Text(CategoriasMessages.counts(category), style = MaterialTheme.typography.bodySmall, color = colors.mutedForeground)
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onClick)
+                .heightIn(min = 48.dp)
+                .padding(vertical = MirachSpacing.s)
+                .clearAndSetSemantics { contentDescription = CategoriasMessages.rowLabel(category) },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MirachSpacing.s),
+        ) {
+            Icon(painterResource(CategoryIcon.drawable(category.icono)), contentDescription = null, tint = colors.mutedForeground, modifier = Modifier.size(24.dp))
+            Column(Modifier.weight(1f)) {
+                Text(category.nombre, style = MirachTextStyles.cuerpo, maxLines = 2, color = colors.foreground)
+                Text(CategoriasMessages.counts(category), style = MirachTextStyles.etiqueta, color = colors.mutedForeground)
+            }
+            Text("›", style = MirachTextStyles.cuerpo, color = colors.mutedForeground)
         }
-        Text("›", color = colors.mutedForeground)
+        HorizontalDivider(color = colors.border)
     }
 }
 
@@ -271,20 +293,18 @@ private fun NewCategorySheet(errors: CategoryFormErrors, isCreating: Boolean, on
             TextButton(
                 onClick = { bucket?.let { onCreate(NuevaCategoria(nombre = name.trim(), bucket = it, patron = null, icono = icon)) } },
                 enabled = SubirCartolaDisplay.canCreate(name, bucket, isCreating),
-            ) { Text(if (isCreating) SubirCartolaMessages.FORM_CREATING else SubirCartolaMessages.FORM_CREATE) }
+            ) { Text(if (isCreating) SubirCartolaMessages.FORM_CREATING else SubirCartolaMessages.FORM_CREATE, style = MirachTextStyles.boton) }
         }
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(MirachSpacing.m).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(MirachSpacing.s),
         ) {
-            OutlinedTextField(
+            MirachTextField(
                 value = name,
                 onValueChange = { name = it.filterNot { c -> c == '\n' || c == '\r' } },
-                label = { Text(SubirCartolaMessages.FORM_NAME) },
-                singleLine = true,
+                label = SubirCartolaMessages.FORM_NAME,
                 isError = errors.name != null,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-                modifier = Modifier.fillMaxWidth(),
             )
             FieldError(errors.name)
 

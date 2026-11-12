@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateMapOf
@@ -29,8 +27,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.mirachFigures
 import app.mirachbudget.android.core.formatting.Format
@@ -54,8 +53,7 @@ internal fun PreviewSummary(preview: CartolaPreview) {
 
     Text(
         PreviewSummaryPresentation.unknownsMessage(clasificacion),
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = if (clasificacion.desconocidos > 0) FontWeight.SemiBold else FontWeight.Normal,
+        style = if (clasificacion.desconocidos > 0) MirachTextStyles.cuerpoDestacado else MirachTextStyles.cuerpo,
         color = if (clasificacion.desconocidos > 0) MirachTheme.colors.base.foreground else MirachTheme.colors.base.mutedForeground,
         modifier = Modifier.testTag("subir.desconocidos"),
     )
@@ -151,7 +149,7 @@ private fun Group(
                     role = Role.Button
                 }
                 .testTag(tag)
-                .padding(12.dp),
+                .padding(horizontal = MirachSpacing.m, vertical = 12.dp),
         )
         if (open) Column(Modifier.padding(bottom = 4.dp)) { content() }
     }
@@ -171,24 +169,24 @@ private fun Header(
     val colors = MirachTheme.colors
     val titleBlock: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            swatch?.let { Box(Modifier.size(10.dp).background(it, CircleShape)) }
+            swatch?.let { Box(Modifier.size(10.dp).background(it)) }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = colors.base.cardForeground)
+                Text(title, style = MirachTextStyles.cuerpoDestacado, color = colors.base.cardForeground)
                 Text(
                     PreviewSummaryPresentation.countText(count),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MirachTextStyles.etiqueta,
                     color = colors.base.mutedForeground,
                 )
             }
         }
     }
     val amountText: @Composable () -> Unit = {
-        Text(amount, style = MaterialTheme.typography.bodyLarge.mirachFigures(), color = amountColor)
+        Text(amount, style = MirachTextStyles.cuerpo.mirachFigures(), color = amountColor)
     }
     val chevron: @Composable () -> Unit = {
         Text(
             "›",
-            style = MaterialTheme.typography.titleMedium,
+            style = MirachTextStyles.cuerpoDestacado,
             color = colors.base.mutedForeground,
             modifier = Modifier.rotate(if (open) 90f else 0f),
         )
@@ -226,13 +224,13 @@ private fun Movement(row: CartolaRow) {
         verticalAlignment = Alignment.Top,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(row.descripcion, style = MaterialTheme.typography.bodyLarge, color = colors.base.cardForeground, maxLines = 2)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = colors.base.mutedForeground)
+            Text(row.descripcion, style = MirachTextStyles.cuerpo, color = colors.base.cardForeground, maxLines = 2)
+            Text(detail, style = MirachTextStyles.etiqueta, color = colors.base.mutedForeground)
         }
         Spacer(Modifier.width(12.dp))
         Text(
             row.amountText,
-            style = MaterialTheme.typography.bodyLarge.mirachFigures(),
+            style = MirachTextStyles.cuerpo.mirachFigures(),
             color = if (row.cargo != 0L) colors.feedback.expenseText else colors.base.cardForeground,
         )
     }
