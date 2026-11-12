@@ -31,7 +31,7 @@ import kotlinx.serialization.Contextual
 /**
  * GET /api/auth/me and PATCH /api/perfil — the authenticated user identity, including whether Google is linked (AUTH-09, US-040, VINC041-08).
  *
- * @param email Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.
+ * @param email Always present for an account with a sign-in method; an empty string for an anonymous account (ADR-013), which has no email. Nullable only at the transport shape: the API never sends null.
  * @param googleVinculado VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.
  * @param nombre 
  * @param userId 
@@ -40,7 +40,7 @@ import kotlinx.serialization.Contextual
 
 data class AuthMeResponse (
 
-    /* Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema. */
+    /* Always present for an account with a sign-in method; an empty string for an anonymous account (ADR-013), which has no email. Nullable only at the transport shape: the API never sends null. */
     @SerialName(value = "email")
     val email: kotlin.String?,
 
