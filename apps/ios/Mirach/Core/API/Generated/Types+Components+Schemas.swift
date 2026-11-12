@@ -187,7 +187,7 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/AuthMeResponse`.
         internal struct AuthMeResponse: Codable, Hashable, Sendable {
-            /// Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.
+            /// Always present for an account with a sign-in method; an empty string for an anonymous account (ADR-013), which has no email. Nullable only at the transport shape: the API never sends null.
             ///
             /// - Remark: Generated from `#/components/schemas/AuthMeResponse/email`.
             internal var email: Swift.String?
@@ -202,7 +202,7 @@ extension Components {
             /// Creates a new `AuthMeResponse`.
             ///
             /// - Parameters:
-            ///   - email: Always present for a valid account; nullable only at the transport shape — the non-null invariant is enforced in application/domain, not by this schema.
+            ///   - email: Always present for an account with a sign-in method; an empty string for an anonymous account (ADR-013), which has no email. Nullable only at the transport shape: the API never sends null.
             ///   - googleVinculado: VINC041-08. Whether the account has a linked Google identity, derived from googleSub !== null. The raw googleSub never crosses this boundary.
             ///   - nombre:
             ///   - userId:
@@ -1597,6 +1597,55 @@ extension Components {
                     "bucket",
                     "periodo",
                     "transacciones"
+                ])
+            }
+        }
+        /// 400 body of the account-linking endpoints.
+        ///
+        /// - Remark: Generated from `#/components/schemas/IdentidadInvalidaResponse`.
+        internal struct IdentidadInvalidaResponse: Codable, Hashable, Sendable {
+            /// BODY_INVALIDO: the request body is malformed or incomplete. IDENTIDAD_INVALIDA: the Apple or Google token did not verify. Deliberately not a 401: the session itself is still valid.
+            ///
+            /// - Remark: Generated from `#/components/schemas/IdentidadInvalidaResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case BODY_INVALIDO = "BODY_INVALIDO"
+                case IDENTIDAD_INVALIDA = "IDENTIDAD_INVALIDA"
+            }
+            /// BODY_INVALIDO: the request body is malformed or incomplete. IDENTIDAD_INVALIDA: the Apple or Google token did not verify. Deliberately not a 401: the session itself is still valid.
+            ///
+            /// - Remark: Generated from `#/components/schemas/IdentidadInvalidaResponse/code`.
+            internal var code: Components.Schemas.IdentidadInvalidaResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/IdentidadInvalidaResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `IdentidadInvalidaResponse`.
+            ///
+            /// - Parameters:
+            ///   - code: BODY_INVALIDO: the request body is malformed or incomplete. IDENTIDAD_INVALIDA: the Apple or Google token did not verify. Deliberately not a 401: the session itself is still valid.
+            ///   - message:
+            internal init(
+                code: Components.Schemas.IdentidadInvalidaResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.IdentidadInvalidaResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
+                    "message"
                 ])
             }
         }
@@ -4859,6 +4908,50 @@ extension Components {
                 ])
             }
         }
+        /// 400 body of the anonymous sign-up when the accepted versions are missing while required, incomplete or malformed.
+        ///
+        /// - Remark: Generated from `#/components/schemas/TerminosNoAceptadosResponse`.
+        internal struct TerminosNoAceptadosResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/TerminosNoAceptadosResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case TERMINOS_NO_ACEPTADOS = "TERMINOS_NO_ACEPTADOS"
+            }
+            /// - Remark: Generated from `#/components/schemas/TerminosNoAceptadosResponse/code`.
+            internal var code: Components.Schemas.TerminosNoAceptadosResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/TerminosNoAceptadosResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `TerminosNoAceptadosResponse`.
+            ///
+            /// - Parameters:
+            ///   - code:
+            ///   - message:
+            internal init(
+                code: Components.Schemas.TerminosNoAceptadosResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.TerminosNoAceptadosResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
+                    "message"
+                ])
+            }
+        }
         /// PATCH /api/transacciones/:id/categoria — manual reclassification result (US-013 S4).
         ///
         /// - Remark: Generated from `#/components/schemas/TransaccionesCategoriaResponse`.
@@ -5152,6 +5245,55 @@ extension Components {
                     "commit",
                     "ref",
                     "version"
+                ])
+            }
+        }
+        /// 409 body of the account-linking endpoints.
+        ///
+        /// - Remark: Generated from `#/components/schemas/VinculacionRechazadaResponse`.
+        internal struct VinculacionRechazadaResponse: Codable, Hashable, Sendable {
+            /// CUENTA_YA_EXISTE: the Apple or Google identity already owns another account; nothing was written and the anonymous data is untouched (offer to sign in to that account). CUENTA_NO_ANONIMA: the caller already has a sign-in method.
+            ///
+            /// - Remark: Generated from `#/components/schemas/VinculacionRechazadaResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case CUENTA_YA_EXISTE = "CUENTA_YA_EXISTE"
+                case CUENTA_NO_ANONIMA = "CUENTA_NO_ANONIMA"
+            }
+            /// CUENTA_YA_EXISTE: the Apple or Google identity already owns another account; nothing was written and the anonymous data is untouched (offer to sign in to that account). CUENTA_NO_ANONIMA: the caller already has a sign-in method.
+            ///
+            /// - Remark: Generated from `#/components/schemas/VinculacionRechazadaResponse/code`.
+            internal var code: Components.Schemas.VinculacionRechazadaResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/VinculacionRechazadaResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `VinculacionRechazadaResponse`.
+            ///
+            /// - Parameters:
+            ///   - code: CUENTA_YA_EXISTE: the Apple or Google identity already owns another account; nothing was written and the anonymous data is untouched (offer to sign in to that account). CUENTA_NO_ANONIMA: the caller already has a sign-in method.
+            ///   - message:
+            internal init(
+                code: Components.Schemas.VinculacionRechazadaResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.VinculacionRechazadaResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
+                    "message"
                 ])
             }
         }

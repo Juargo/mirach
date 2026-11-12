@@ -11,6 +11,344 @@ import struct Foundation.Date
 #endif
 /// API operations, with input and output types, generated from `#/paths` in the OpenAPI document.
 internal enum Operations {
+    /// Create an anonymous account
+    ///
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that creates an account with no Apple or Google identity, no email and no password, with its own copy of the classification catalog, and answers a session exactly like the sign-in endpoints. The app calls it once, when the person accepts the terms and chooses to continue without an account, and stores the token: an anonymous account cannot sign in again, so losing the token loses the data. Its session lasts 365 days and every use extends it (at most one write per day). `versionTerminos` and `versionPrivacidad` follow the sign-up rule of the token endpoints: stored with the account in the same transaction; both or neither; required when CONSENTS_REQUIRED is on. Every request counts against this endpoint's own IP budget and a successful sign-up never releases it. The account can later be linked with POST /api/cuenta/vincular/apple or /google. No Set-Cookie.
+    ///
+    /// - Remark: HTTP `POST /api/auth/anonimo`.
+    /// - Remark: Generated from `#/paths//api/auth/anonimo/post`.
+    internal enum post_sol_api_sol_auth_sol_anonimo {
+        internal static let id: Swift.String = "post/api/auth/anonimo"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_auth_sol_anonimo.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_auth_sol_anonimo.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.post_sol_api_sol_auth_sol_anonimo.Input.Headers
+            /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/requestBody`.
+            internal enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/requestBody/json`.
+                internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// Version of the privacy policy the person accepted before signing in; see `versionTerminos`.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/requestBody/json/versionPrivacidad`.
+                    internal var versionPrivacidad: Swift.String?
+                    /// Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/requestBody/json/versionTerminos`.
+                    internal var versionTerminos: Swift.String?
+                    /// Creates a new `jsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - versionPrivacidad: Version of the privacy policy the person accepted before signing in; see `versionTerminos`.
+                    ///   - versionTerminos: Version of the terms the person accepted before signing in. Stored with the new account, in the same transaction, together with `versionPrivacidad`; send both or neither. Ignored for an existing account. 1 to 32 letters, digits, dots, hyphens or underscores. When CONSENTS_REQUIRED is on, a new account without it is rejected with the generic 401.
+                    internal init(
+                        versionPrivacidad: Swift.String? = nil,
+                        versionTerminos: Swift.String? = nil
+                    ) {
+                        self.versionPrivacidad = versionPrivacidad
+                        self.versionTerminos = versionTerminos
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case versionPrivacidad
+                        case versionTerminos
+                    }
+                }
+                /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/requestBody/content/application\/json`.
+                case json(Operations.post_sol_api_sol_auth_sol_anonimo.Input.Body.jsonPayload)
+            }
+            internal var body: Operations.post_sol_api_sol_auth_sol_anonimo.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            internal init(
+                headers: Operations.post_sol_api_sol_auth_sol_anonimo.Input.Headers = .init(),
+                body: Operations.post_sol_api_sol_auth_sol_anonimo.Input.Body? = nil
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.AuthLoginResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.AuthLoginResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Account created — identical shape to POST /api/auth/login.
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/anonimo/post/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.post_sol_api_sol_auth_sol_anonimo.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.post_sol_api_sol_auth_sol_anonimo.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.TerminosNoAceptadosResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.TerminosNoAceptadosResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// The accepted versions are missing while required, incomplete or malformed (TERMINOS_NO_ACEPTADOS). Nothing was created.
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/anonimo/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_auth_sol_anonimo.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_auth_sol_anonimo.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/401/content/application\/json`.
+                    case json(Components.Schemas.ApiKeyUnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ApiKeyUnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// Missing or invalid `x-api-key` (`code` API_KEY_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/anonimo/post/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.post_sol_api_sol_auth_sol_anonimo.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.post_sol_api_sol_auth_sol_anonimo.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct TooManyRequests: Sendable, Hashable {
+                /// Creates a new `TooManyRequests`.
+                internal init() {}
+            }
+            /// Rate-limited: too many sign-ups from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/anonimo/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.post_sol_api_sol_auth_sol_anonimo.Output.TooManyRequests)
+            /// Rate-limited: too many sign-ups from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/anonimo/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            internal static var tooManyRequests: Self {
+                .tooManyRequests(.init())
+            }
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            internal var tooManyRequests: Operations.post_sol_api_sol_auth_sol_anonimo.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/auth/anonimo/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.ServicioNoDisponibleResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ServicioNoDisponibleResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_auth_sol_anonimo.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// An internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+            ///
+            /// - Remark: Generated from `#/paths//api/auth/anonimo/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_auth_sol_anonimo.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_auth_sol_anonimo.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Authenticate with a native Apple identity token (mobile)
     ///
     /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, or a lost creation race — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers 400 BODY_INVALIDO, not this 401. If Apple cannot be reached or an internal dependency fails, the answer is 503 SERVICIO_NO_DISPONIBLE: that says nothing about the credential and is retryable. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
@@ -4965,6 +5303,860 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Link the anonymous account to Sign in with Apple
+    ///
+    /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body is the one of POST /api/auth/apple/token without the terms versions; the nonce is checked the same way, and `authorizationCode` is exchanged best-effort so the Apple token can be revoked when the account is deleted. 404 when APPLE_BUNDLE_ID is not configured.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/vincular/apple`.
+    /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post`.
+    internal enum post_sol_api_sol_cuenta_sol_vincular_sol_apple {
+        internal static let id: Swift.String = "post/api/cuenta/vincular/apple"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input.Headers
+            /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/requestBody`.
+            internal enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/requestBody/json`.
+                internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// Optional one-time authorization code from the same native authorization (expires in 5 minutes). When present the server exchanges it with Apple and stores the refresh token encrypted so it can be revoked on account deletion. Sign-in succeeds even if the exchange fails; omit or null if unavailable.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/requestBody/json/authorizationCode`.
+                    internal var authorizationCode: Swift.String?
+                    /// Apple identity token (JWT) from the native authorization.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/requestBody/json/identityToken`.
+                    internal var identityToken: Swift.String
+                    /// Full name, only available on the FIRST authorization (Apple never puts it in the token). Omit or null afterwards.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/requestBody/json/nombre`.
+                    internal var nombre: Swift.String?
+                    /// Raw nonce generated by the app. The app passes its SHA-256 (hex) to Apple; the server hashes this value and compares it with the token nonce claim.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/requestBody/json/nonce`.
+                    internal var nonce: Swift.String
+                    /// Creates a new `jsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - authorizationCode: Optional one-time authorization code from the same native authorization (expires in 5 minutes). When present the server exchanges it with Apple and stores the refresh token encrypted so it can be revoked on account deletion. Sign-in succeeds even if the exchange fails; omit or null if unavailable.
+                    ///   - identityToken: Apple identity token (JWT) from the native authorization.
+                    ///   - nombre: Full name, only available on the FIRST authorization (Apple never puts it in the token). Omit or null afterwards.
+                    ///   - nonce: Raw nonce generated by the app. The app passes its SHA-256 (hex) to Apple; the server hashes this value and compares it with the token nonce claim.
+                    internal init(
+                        authorizationCode: Swift.String? = nil,
+                        identityToken: Swift.String,
+                        nombre: Swift.String? = nil,
+                        nonce: Swift.String
+                    ) {
+                        self.authorizationCode = authorizationCode
+                        self.identityToken = identityToken
+                        self.nombre = nombre
+                        self.nonce = nonce
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case authorizationCode
+                        case identityToken
+                        case nombre
+                        case nonce
+                    }
+                }
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/requestBody/content/application\/json`.
+                case json(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input.Body.jsonPayload)
+            }
+            internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            internal init(
+                headers: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input.Headers = .init(),
+                body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input.Body? = nil
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.AuthLoginResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.AuthLoginResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Linked. A new session — identical shape to POST /api/auth/login.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.IdentidadInvalidaResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.IdentidadInvalidaResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Malformed or incomplete body (BODY_INVALIDO), or a token that did not verify (IDENTIDAD_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct NotFound: Sendable, Hashable {
+                /// Creates a new `NotFound`.
+                internal init() {}
+            }
+            /// Sign in with Apple is not active — APPLE_BUNDLE_ID is not configured.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            case notFound(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.NotFound)
+            /// Sign in with Apple is not active — APPLE_BUNDLE_ID is not configured.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            internal static var notFound: Self {
+                .notFound(.init())
+            }
+            /// The associated value of the enum case if `self` is `.notFound`.
+            ///
+            /// - Throws: An error if `self` is not `.notFound`.
+            /// - SeeAlso: `.notFound`.
+            internal var notFound: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.NotFound {
+                get throws {
+                    switch self {
+                    case let .notFound(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Conflict: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/409/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/409/content/application\/json`.
+                    case json(Components.Schemas.VinculacionRechazadaResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.VinculacionRechazadaResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Conflict.Body
+                /// Creates a new `Conflict`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Conflict.Body) {
+                    self.body = body
+                }
+            }
+            /// The identity already owns another account (CUENTA_YA_EXISTE) or the caller is not anonymous (CUENTA_NO_ANONIMA). Nothing was written.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/409`.
+            ///
+            /// HTTP response code: `409 conflict`.
+            case conflict(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Conflict)
+            /// The associated value of the enum case if `self` is `.conflict`.
+            ///
+            /// - Throws: An error if `self` is not `.conflict`.
+            /// - SeeAlso: `.conflict`.
+            internal var conflict: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.Conflict {
+                get throws {
+                    switch self {
+                    case let .conflict(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "conflict",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct TooManyRequests: Sendable, Hashable {
+                /// Creates a new `TooManyRequests`.
+                internal init() {}
+            }
+            /// Rate-limited: too many attempts from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.TooManyRequests)
+            /// Rate-limited: too many attempts from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            internal static var tooManyRequests: Self {
+                .tooManyRequests(.init())
+            }
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            internal var tooManyRequests: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/apple/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.ServicioNoDisponibleResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ServicioNoDisponibleResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
+    /// Link the anonymous account to Google
+    ///
+    /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body carries the Google ID token of the native sign-in, verified like in POST /api/auth/google/token. 404 when no mobile Google client ID is configured.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/vincular/google`.
+    /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post`.
+    internal enum post_sol_api_sol_cuenta_sol_vincular_sol_google {
+        internal static let id: Swift.String = "post/api/cuenta/vincular/google"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input.Headers
+            /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/requestBody`.
+            internal enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/requestBody/json`.
+                internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// Google ID token (JWT) from the native sign-in.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/requestBody/json/idToken`.
+                    internal var idToken: Swift.String
+                    /// Creates a new `jsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - idToken: Google ID token (JWT) from the native sign-in.
+                    internal init(idToken: Swift.String) {
+                        self.idToken = idToken
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case idToken
+                    }
+                }
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/requestBody/content/application\/json`.
+                case json(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input.Body.jsonPayload)
+            }
+            internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            internal init(
+                headers: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input.Headers = .init(),
+                body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input.Body? = nil
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.AuthLoginResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.AuthLoginResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Linked. A new session — identical shape to POST /api/auth/login.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.IdentidadInvalidaResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.IdentidadInvalidaResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Malformed or incomplete body (BODY_INVALIDO), or a token that did not verify (IDENTIDAD_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct NotFound: Sendable, Hashable {
+                /// Creates a new `NotFound`.
+                internal init() {}
+            }
+            /// Google sign-in for the native apps is not active — no mobile client ID is configured.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            case notFound(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.NotFound)
+            /// Google sign-in for the native apps is not active — no mobile client ID is configured.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/404`.
+            ///
+            /// HTTP response code: `404 notFound`.
+            internal static var notFound: Self {
+                .notFound(.init())
+            }
+            /// The associated value of the enum case if `self` is `.notFound`.
+            ///
+            /// - Throws: An error if `self` is not `.notFound`.
+            /// - SeeAlso: `.notFound`.
+            internal var notFound: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.NotFound {
+                get throws {
+                    switch self {
+                    case let .notFound(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "notFound",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Conflict: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/409/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/409/content/application\/json`.
+                    case json(Components.Schemas.VinculacionRechazadaResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.VinculacionRechazadaResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Conflict.Body
+                /// Creates a new `Conflict`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Conflict.Body) {
+                    self.body = body
+                }
+            }
+            /// The identity already owns another account (CUENTA_YA_EXISTE) or the caller is not anonymous (CUENTA_NO_ANONIMA). Nothing was written.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/409`.
+            ///
+            /// HTTP response code: `409 conflict`.
+            case conflict(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Conflict)
+            /// The associated value of the enum case if `self` is `.conflict`.
+            ///
+            /// - Throws: An error if `self` is not `.conflict`.
+            /// - SeeAlso: `.conflict`.
+            internal var conflict: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.Conflict {
+                get throws {
+                    switch self {
+                    case let .conflict(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "conflict",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct TooManyRequests: Sendable, Hashable {
+                /// Creates a new `TooManyRequests`.
+                internal init() {}
+            }
+            /// Rate-limited: too many attempts from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.TooManyRequests)
+            /// Rate-limited: too many attempts from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            internal static var tooManyRequests: Self {
+                .tooManyRequests(.init())
+            }
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            internal var tooManyRequests: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/vincular/google/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.ServicioNoDisponibleResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ServicioNoDisponibleResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
                             response: self
                         )
                     }
