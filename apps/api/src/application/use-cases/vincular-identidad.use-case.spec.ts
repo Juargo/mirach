@@ -165,6 +165,19 @@ describe('VincularIdentidadUseCase', () => {
     expect(sessions.revocarPorTokenHash).not.toHaveBeenCalled();
   });
 
+  it('still answers the new session when revoking the anonymous one fails', async () => {
+    const { sessions, ejecutar } = armar();
+    vi.mocked(sessions.revocarPorTokenHash).mockRejectedValue(
+      new Error('db down'),
+    );
+
+    const result = await ejecutar();
+
+    expect(result.isOk()).toBe(true);
+    expect(result.getValue().token).toBe('raw');
+    expect(sessions.crear).toHaveBeenCalledTimes(1);
+  });
+
   it('passes a blank name as null and caps a long one at 80 characters', async () => {
     const { cuentas, ejecutar } = armar();
 

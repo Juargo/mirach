@@ -36,7 +36,8 @@ export interface IdentidadAVincular {
  *
  * Al vincular, la sesión anónima (365 días) se reemplaza por una ordinaria:
  * primero se crea la nueva y después se revoca la anterior, para que un fallo
- * entre ambas no deje a la persona sin sesión.
+ * entre ambas no deje a la persona sin sesión. Un fallo al revocar no falla la
+ * vinculación.
  *
  * Redacción (ADR-009): nunca se loguea sub, email ni nombre.
  */
@@ -97,13 +98,33 @@ export class VincularIdentidadUseCase {
     const { token, tokenHash } = this.tokens.generar();
     const expiresAt = calcularExpiracion(this.reloj.ahora());
     await this.sessions.crear({ userId, tokenHash, expiresAt });
-    await this.sessions.revocarPorTokenHash(tokenHashActual);
+    await this.revocarSesionAnonima(userId, tokenHashActual);
     this.logger.info('vincular-identidad: cuenta vinculada', {
       userId,
       proveedor: identidad.proveedor,
     });
 
     return Result.ok({ token, userId, expiresAt });
+  }
+
+  /**
+   * La cuenta ya quedó vinculada y la sesión nueva ya existe: si revocar la
+   * anterior falla, responder un error dejaría a la app sin el token nuevo y
+   * un reintento respondería `cuenta-no-anonima`. Se registra y se sigue; la
+   * sesión anterior deja de renovarse y vence sola.
+   */
+  private async revocarSesionAnonima(
+    userId: string,
+    tokenHash: string,
+  ): Promise<void> {
+    try {
+      await this.sessions.revocarPorTokenHash(tokenHash);
+    } catch (err) {
+      this.logger.warn(
+        'vincular-identidad: no se pudo revocar la sesión anónima',
+        { userId, errorName: err instanceof Error ? err.name : 'UnknownError' },
+      );
+    }
   }
 }
 
