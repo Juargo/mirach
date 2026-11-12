@@ -11,6 +11,8 @@ import Security
 struct KeychainSessionStore: SessionStore {
     static let defaultService = "app.mirachbudget.ios.session"
     private static let account = "session"
+    /// A second item of the same service: `clear()` deletes only `account`, never this one.
+    private static let anonymousBackupAccount = "anonymous-backup"
 
     struct KeychainError: Error, Equatable {
         let status: OSStatus
@@ -23,7 +25,24 @@ struct KeychainSessionStore: SessionStore {
     }
 
     func load() -> Session? {
-        var query = baseQuery
+        load(account: Self.account)
+    }
+
+    func loadAnonymousBackup() -> Session? {
+        load(account: Self.anonymousBackupAccount)
+    }
+
+    func saveAnonymousBackup(_ session: Session) throws {
+        try write(try JSONEncoder().encode(session), account: Self.anonymousBackupAccount)
+    }
+
+    /// Only for recovery code (delivery 2) and tests: nothing in the app deletes the backup yet.
+    func clearAnonymousBackup() throws {
+        try Self.check(deleteStatus: SecItemDelete(query(account: Self.anonymousBackupAccount) as CFDictionary))
+    }
+
+    private func load(account: String) -> Session? {
+        var query = query(account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -41,11 +60,15 @@ struct KeychainSessionStore: SessionStore {
 
     /// Writes raw bytes (tests use it to plant corrupt data).
     func saveRaw(_ data: Data) throws {
+        try write(data, account: Self.account)
+    }
+
+    private func write(_ data: Data, account: String) throws {
         // Update if the item exists, add it otherwise.
         let update = [kSecValueData as String: data]
-        var status = SecItemUpdate(baseQuery as CFDictionary, update as CFDictionary)
+        var status = SecItemUpdate(query(account: account) as CFDictionary, update as CFDictionary)
         if status == errSecItemNotFound {
-            var add = baseQuery
+            var add = query(account: account)
             add[kSecValueData as String] = data
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             status = SecItemAdd(add as CFDictionary, nil)
@@ -54,7 +77,7 @@ struct KeychainSessionStore: SessionStore {
     }
 
     func clear() throws {
-        try Self.check(deleteStatus: SecItemDelete(baseQuery as CFDictionary))
+        try Self.check(deleteStatus: SecItemDelete(query(account: Self.account) as CFDictionary))
     }
 
     /// Nothing to delete is fine; any other failure means the token is still stored.
@@ -64,11 +87,11 @@ struct KeychainSessionStore: SessionStore {
         }
     }
 
-    private var baseQuery: [String: Any] {
+    private func query(account: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: Self.account,
+            kSecAttrAccount as String: account,
         ]
     }
 }

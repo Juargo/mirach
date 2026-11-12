@@ -32,8 +32,10 @@ struct RootView: View {
                     ),
                     notice: environment.session.signedOutNotice
                 )
-            case .signedIn:
-                SignedInView(environment: environment)
+            case .signedIn(let userId):
+                // Entering ANOTHER existing account from Perfil changes the user id: the tabs are
+                // rebuilt so none keeps the previous account's data. Linking keeps the same id.
+                SignedInView(environment: environment).id(userId)
             case .connectionFailed:
                 VStack(spacing: MirachSpacing.m) {
                     Text("Problema de conexión. Revisa tu conexión e inténtalo de nuevo.")

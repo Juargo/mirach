@@ -21,6 +21,18 @@ protocol MirachAPI: Sendable {
     /// `POST /api/auth/login`: only the App Review account can use it (ADR-051). The server never
     /// says why a sign-in failed. Never log the password.
     func signInWithPassword(email: String, password: String) async throws -> Session
+    /// `POST /api/auth/anonimo`: creates an account with no identity and answers its session, marked
+    /// anonymous. Sends the same terms and privacy versions as the other sign-ins.
+    func signInAnonymously() async throws -> Session
+    /// `POST /api/cuenta/vincular/apple` (needs the anonymous session). Same fields as the Apple token
+    /// route. Answers the NEW ordinary session that replaces the stored one. Throws
+    /// `APIError.accountAlreadyExists` / `.accountNotAnonymous` for the 409 and
+    /// `.linkProviderUnavailable` when the provider is off. Never log the credential.
+    func linkWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session
+    /// `POST /api/cuenta/vincular/google`. Same answers and errors as `linkWithApple`.
+    func linkWithGoogle(idToken: String) async throws -> Session
     /// `GET /api/auth/me`: validates the saved session.
     func currentUser() async throws -> CurrentUser
     /// `PATCH /api/perfil` with only the name; answers the updated identity.
@@ -102,6 +114,20 @@ protocol MirachAPI: Sendable {
 /// working and the learning features (CLA-03, CLA-15) report themselves unavailable, which the
 /// screens treat as "nothing to offer". `OpenAPIMirachAPI` implements every one of them.
 extension MirachAPI {
+    func signInAnonymously() async throws -> Session {
+        throw APIError.badStatus(501)
+    }
+
+    func linkWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session {
+        throw APIError.badStatus(501)
+    }
+
+    func linkWithGoogle(idToken: String) async throws -> Session {
+        throw APIError.badStatus(501)
+    }
+
     func crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?) async throws -> PatronCreado {
         guard moverDelPeriodo == nil else { throw APIError.badStatus(501) }
         let created = try await crearPatron(categoriaId: categoriaId, patron: patron, matchType: .contains)
@@ -140,6 +166,13 @@ enum APIError: Error, Equatable {
     case googleSignInUnavailable
     /// 429: too many attempts.
     case rateLimited
+    /// 409 `CUENTA_YA_EXISTE` on a link: the Apple or Google identity already owns an account.
+    /// Nothing was written; the anonymous data is untouched.
+    case accountAlreadyExists
+    /// 409 `CUENTA_NO_ANONIMA` on a link: the caller already has a sign-in method.
+    case accountNotAnonymous
+    /// 404 on a link route: that provider is switched off on the server.
+    case linkProviderUnavailable
 }
 
 /// `MirachAPI` backed by the generated OpenAPI client.
@@ -439,7 +472,7 @@ struct OpenAPIMirachAPI: MirachAPI {
     }
 
     /// The API sends `expiresAt` as ISO 8601 with milliseconds ("2026-10-04T12:00:00.000Z").
-    private static func parseExpiry(_ text: String) throws -> Date {
+    static func parseExpiry(_ text: String) throws -> Date {
         let withFraction = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
         if let date = try? withFraction.parse(text) { return date }
         if let date = try? Date.ISO8601FormatStyle().parse(text) { return date }

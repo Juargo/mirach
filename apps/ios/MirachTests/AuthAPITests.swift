@@ -36,6 +36,111 @@ struct AuthAPITests {
         return try #require(try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
     }
 
+    // MARK: anonymous account
+
+    @Test func signInAnonymouslySendsTheLegalVersionsAndMapsAnAnonymousSession() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        let session = try await makeAPI(transport).signInAnonymously()
+
+        #expect(session.token == "tok-abc")
+        #expect(session.userId == "u-1")
+        #expect(session.expiresAt == Date(timeIntervalSince1970: 1_791_115_200))
+        #expect(session.isAnonymous)
+        #expect(transport.requests.first?.path == "/api/auth/anonimo")
+        let sent = try sentJSON(transport)
+        #expect(sent["versionTerminos"] as? String == LegalDocuments.version)
+        #expect(sent["versionPrivacidad"] as? String == LegalDocuments.version)
+    }
+
+    @Test func signInAnonymouslyMapsEveryDocumentedFailure() async {
+        let cases: [(HTTPResponse.Status, String, APIError)] = [
+            (.unauthorized, unauthorized("API_KEY_INVALIDA"), .apiKeyRejected),
+            (.tooManyRequests, "", .rateLimited),
+            (.badRequest, #"{"code":"TERMINOS_NO_ACEPTADOS","message":"x"}"#, .badStatus(400)),
+            (.badRequest, "{}", .badStatus(400)),
+            (.serviceUnavailable, #"{"code":"SERVICIO_NO_DISPONIBLE","message":"x"}"#, .badStatus(503)),
+            (.serviceUnavailable, "<html>Bad gateway</html>", .badStatus(503)),
+        ]
+        for (status, body, expected) in cases {
+            let transport = FakeTransport.json(body, status: status)
+            await #expect(throws: expected) { _ = try await makeAPI(transport).signInAnonymously() }
+        }
+    }
+
+    // MARK: link an anonymous account
+
+    private func conflict(_ code: String) -> String { #"{"message":"x","code":"\#(code)"}"# }
+
+    @Test func linkWithAppleSendsTheCredentialWithoutTheLegalVersionsAndMapsAOrdinarySession() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        let session = try await makeAPI(transport).linkWithApple(
+            identityToken: "jwt", nonce: "raw-nonce", nombre: "Ana Pérez", authorizationCode: "code-1"
+        )
+
+        #expect(session.token == "tok-abc")
+        #expect(session.isAnonymous == false)
+        #expect(transport.requests.first?.path == "/api/cuenta/vincular/apple")
+        let sent = try sentJSON(transport)
+        #expect(sent["identityToken"] as? String == "jwt")
+        #expect(sent["nonce"] as? String == "raw-nonce")
+        #expect(sent["nombre"] as? String == "Ana Pérez")
+        #expect(sent["authorizationCode"] as? String == "code-1")
+        #expect(sent["versionTerminos"] == nil)
+    }
+
+    @Test func linkWithGoogleSendsTheIdTokenAndMapsAOrdinarySession() async throws {
+        let transport = FakeTransport.json(loginBody)
+
+        let session = try await makeAPI(transport).linkWithGoogle(idToken: "google-jwt")
+
+        #expect(session.token == "tok-abc")
+        #expect(session.isAnonymous == false)
+        #expect(transport.requests.first?.path == "/api/cuenta/vincular/google")
+        #expect(try sentJSON(transport)["idToken"] as? String == "google-jwt")
+    }
+
+    @Test func aLinkConflictReachesTheCallerAsATypedError() async {
+        let cases: [(String, APIError)] = [
+            ("CUENTA_YA_EXISTE", .accountAlreadyExists),
+            ("CUENTA_NO_ANONIMA", .accountNotAnonymous),
+        ]
+        for (code, expected) in cases {
+            let apple = FakeTransport.json(conflict(code), status: .conflict)
+            await #expect(throws: expected) {
+                _ = try await makeAPI(apple).linkWithApple(
+                    identityToken: "jwt", nonce: "n", nombre: nil, authorizationCode: nil
+                )
+            }
+            let google = FakeTransport.json(conflict(code), status: .conflict)
+            await #expect(throws: expected) { _ = try await makeAPI(google).linkWithGoogle(idToken: "g") }
+        }
+    }
+
+    @Test func linkMapsTheOtherDocumentedFailures() async {
+        let cases: [(HTTPResponse.Status, String, APIError)] = [
+            (.notFound, "", .linkProviderUnavailable),
+            (.tooManyRequests, "", .rateLimited),
+            (.badRequest, #"{"code":"IDENTIDAD_INVALIDA","message":"x"}"#, .badStatus(400)),
+            (.serviceUnavailable, "<html>Bad gateway</html>", .badStatus(503)),
+        ]
+        for (status, body, expected) in cases {
+            let transport = FakeTransport.json(body, status: status)
+            await #expect(throws: expected) { _ = try await makeAPI(transport).linkWithGoogle(idToken: "g") }
+        }
+    }
+
+    @Test func aLinkRejectedWithSesionInvalidaNotifiesTheExpiryRelay() async {
+        let counter = ExpiryCounter()
+        let transport = FakeTransport.json(unauthorized("SESION_INVALIDA"), status: .unauthorized)
+
+        await #expect(throws: APIError.sessionExpired) {
+            _ = try await makeAPI(transport, expiry: counter).linkWithGoogle(idToken: "g")
+        }
+        #expect(counter.tokens == ["tok-sent"])
+    }
+
     // MARK: sign in with Apple
 
     @Test func signInWithAppleSendsTokenNonceAndNameAndMapsTheSession() async throws {

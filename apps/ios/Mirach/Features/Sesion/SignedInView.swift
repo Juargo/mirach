@@ -45,7 +45,9 @@ struct SignedInView: View {
                 .tabItem { Label("Categorías", systemImage: "tag") }
                 .tag(Tab.categorias)
 
-            PerfilView(viewModel: PerfilViewModel(api: environment.api, session: environment.session))
+            PerfilView(viewModel: PerfilViewModel(
+                api: environment.api, session: environment.session, googleSignIn: environment.googleSignIn
+            ))
                 .tabItem { Label("Perfil", systemImage: "person.crop.circle") }
                 .tag(Tab.perfil)
         }

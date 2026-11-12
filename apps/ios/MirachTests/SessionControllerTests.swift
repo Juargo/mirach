@@ -15,6 +15,91 @@ struct SessionControllerTests {
         SessionController(api: api, store: store)
     }
 
+    // MARK: anonymous accounts
+
+    private let anonymous = Session(
+        token: "tok-anon", userId: "u-anon", expiresAt: Date(timeIntervalSince1970: 1_800_000_000), isAnonymous: true
+    )
+
+    @Test func startReadsTheAnonymousFlagOfTheSavedSession() async {
+        let api = FakeMirachAPI(currentUserResult: .success(CurrentUser(userId: "u-anon", nombre: "")))
+        let controller = makeController(store: InMemorySessionStore(session: anonymous), api: api)
+        await controller.start()
+        #expect(controller.phase == .signedIn(userId: "u-anon"))
+        #expect(controller.isAnonymous)
+
+        let ordinary = makeController(store: InMemorySessionStore(session: saved))
+        await ordinary.start()
+        #expect(ordinary.isAnonymous == false)
+    }
+
+    @Test func signingInStoresTheSessionAndTracksItsFlag() throws {
+        let store = InMemorySessionStore()
+        let controller = makeController(store: store)
+
+        try controller.signIn(anonymous)
+        #expect(store.load() == anonymous)
+        #expect(controller.isAnonymous)
+
+        // Linking replaces the stored session with the ordinary one the API returned.
+        try controller.signIn(saved)
+        #expect(store.load() == saved)
+        #expect(controller.isAnonymous == false)
+    }
+
+    @Test func parkingKeepsTheAnonymousSessionInItsOwnItem() throws {
+        let store = InMemorySessionStore(session: anonymous)
+        let controller = makeController(store: store)
+
+        try controller.parkAnonymousSession()
+
+        #expect(store.loadAnonymousBackup() == anonymous)
+        #expect(store.load() == anonymous, "the current session is untouched until the new sign-in")
+    }
+
+    @Test func parkingDoesNothingForAnOrdinarySession() throws {
+        let store = InMemorySessionStore(session: saved)
+        try makeController(store: store).parkAnonymousSession()
+        #expect(store.loadAnonymousBackup() == nil)
+    }
+
+    @Test func switchingAccountReplacesTheCurrentSessionAndEndsTheOldOne() throws {
+        let store = InMemorySessionStore(session: anonymous)
+        let controller = makeController(store: store)
+        var ended = 0
+        controller.onSessionEnded = { ended += 1 }
+
+        try controller.switchAccount(to: saved)
+
+        #expect(store.load() == saved)
+        #expect(controller.isAnonymous == false)
+        #expect(controller.phase == .signedIn(userId: "u-1"))
+        #expect(ended == 1)
+    }
+
+    @Test func signingOutKeepsTheAnonymousBackup() throws {
+        let store = InMemorySessionStore(session: saved)
+        try store.saveAnonymousBackup(anonymous)
+        let controller = makeController(store: store)
+
+        controller.signOut()
+
+        #expect(store.load() == nil)
+        #expect(store.loadAnonymousBackup() == anonymous)
+        #expect(controller.isAnonymous == false)
+    }
+
+    @Test func aRejectedAnonymousSessionStillSignsOut() {
+        let store = InMemorySessionStore(session: anonymous)
+        let controller = makeController(store: store)
+
+        controller.sessionExpired(token: "tok-anon")
+
+        #expect(store.load() == nil)
+        #expect(controller.phase == .signedOut)
+        #expect(controller.isAnonymous == false)
+    }
+
     // MARK: startup routing
 
     @Test func startsValidating() {

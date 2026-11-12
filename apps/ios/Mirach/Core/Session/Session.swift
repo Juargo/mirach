@@ -5,6 +5,25 @@ struct Session: Codable, Equatable, Sendable {
     let token: String
     let userId: String
     let expiresAt: Date
+    /// An account with no Apple or Google identity yet (ADR-013). Persisted with the session so it
+    /// survives a relaunch; a session stored by an older app version has no such key and decodes
+    /// as `false`.
+    let isAnonymous: Bool
+
+    init(token: String, userId: String, expiresAt: Date, isAnonymous: Bool = false) {
+        self.token = token
+        self.userId = userId
+        self.expiresAt = expiresAt
+        self.isAnonymous = isAnonymous
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        token = try container.decode(String.self, forKey: .token)
+        userId = try container.decode(String.self, forKey: .userId)
+        expiresAt = try container.decode(Date.self, forKey: .expiresAt)
+        isAnonymous = try container.decodeIfPresent(Bool.self, forKey: .isAnonymous) ?? false
+    }
 }
 
 /// Where the session lives between launches. A protocol so tests use an in-memory
@@ -15,6 +34,11 @@ protocol SessionStore: Sendable {
     func save(_ session: Session) throws
     /// Throws if the stored session could not be deleted (it would come back next launch).
     func clear() throws
+    /// Keeps the anonymous session in a SEPARATE item that `clear()` never touches, so the data
+    /// of an anonymous account can be recovered after the person enters an existing account
+    /// (ADR-013). Throws if it could not be written.
+    func saveAnonymousBackup(_ session: Session) throws
+    func loadAnonymousBackup() -> Session?
 }
 
 /// Test and UI-test double. A class with a lock because `SessionStore` is `Sendable`
@@ -22,6 +46,7 @@ protocol SessionStore: Sendable {
 final class InMemorySessionStore: SessionStore, @unchecked Sendable {
     private let lock = NSLock()
     private var session: Session?
+    private var anonymousBackup: Session?
 
     init(session: Session? = nil) {
         self.session = session
@@ -30,4 +55,6 @@ final class InMemorySessionStore: SessionStore, @unchecked Sendable {
     func load() -> Session? { lock.withLock { session } }
     func save(_ session: Session) throws { lock.withLock { self.session = session } }
     func clear() { lock.withLock { session = nil } }
+    func saveAnonymousBackup(_ session: Session) throws { lock.withLock { anonymousBackup = session } }
+    func loadAnonymousBackup() -> Session? { lock.withLock { anonymousBackup } }
 }

@@ -76,13 +76,22 @@ struct SignInView: View {
                 if viewModel.state == .authenticating {
                     ProgressView("Iniciando sesión…").mirachText(.cuerpo)
                 }
+                anonymousEntry
                 if viewModel.appleLoginAvailable { appleButton }
                 if viewModel.googleLoginAvailable { googleButton }
                 if viewModel.passwordLoginAvailable { PasswordSignInForm(viewModel: viewModel) }
                 legalNotice
             }
         case .noProviders:
-            retryBlock("El inicio de sesión no está disponible por ahora")
+            VStack(spacing: MirachSpacing.m) {
+                if let message = viewModel.errorMessage {
+                    errorBlock(message, detail: viewModel.errorDetail, hint: viewModel.errorHint)
+                }
+                retryBlock("El inicio de sesión no está disponible por ahora")
+                // The app works without an account, so it does not depend on any provider.
+                anonymousEntry
+                legalNotice
+            }
         case .providersFailed(let message):
             retryBlock(message)
         }
@@ -123,6 +132,25 @@ struct SignInView: View {
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
             .tint(Color.Mirach.Base.foreground)
             .accessibilityIdentifier("signin.legal")
+    }
+
+    /// First action of the screen (ADR-013): enter without registering, with the data-loss warning.
+    private var anonymousEntry: some View {
+        VStack(spacing: MirachSpacing.xs) {
+            Button {
+                Task { await viewModel.continueWithoutAccount() }
+            } label: {
+                Text(SignInViewModel.Message.anonymousButton).frame(maxWidth: .infinity)
+            }
+            .prominentButton()
+            .disabled(viewModel.state == .authenticating)
+            .accessibilityIdentifier("signin.anonymous")
+            Text(SignInViewModel.Message.anonymousWarning)
+                .mirachText(.mini)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                .accessibilityIdentifier("signin.anonymous.warning")
+        }
     }
 
     private var appleButton: some View {
