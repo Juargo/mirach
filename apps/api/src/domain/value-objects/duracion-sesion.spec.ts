@@ -1,6 +1,9 @@
 import {
+  TTL_SESION_ANONIMA_MS,
   TTL_SESION_MS,
   calcularExpiracion,
+  calcularExpiracionAnonima,
+  debeRenovarSesionAnonima,
   estaExpirada,
 } from './duracion-sesion';
 
@@ -59,5 +62,35 @@ describe('duracion-sesion', () => {
 
       expect(estaExpirada(expiresAt, ahora)).toBe(true);
     });
+  });
+});
+
+describe('duracion-sesion — anonymous account (ADR-013)', () => {
+  const AHORA = new Date('2026-11-12T00:00:00.000Z');
+
+  it('an anonymous session lasts exactly 365 days', () => {
+    expect(TTL_SESION_ANONIMA_MS).toBe(365 * 24 * 60 * 60 * 1000);
+    expect(calcularExpiracionAnonima(AHORA).toISOString()).toBe(
+      '2027-11-12T00:00:00.000Z',
+    );
+  });
+
+  it('is renewed once more than a day of its life has been used', () => {
+    const emitidaHaceUnDiaYUnMs = new Date(
+      AHORA.getTime() + TTL_SESION_ANONIMA_MS - 24 * 60 * 60 * 1000 - 1,
+    );
+
+    expect(debeRenovarSesionAnonima(emitidaHaceUnDiaYUnMs, AHORA)).toBe(true);
+  });
+
+  it('is not renewed within the first day after the last renewal', () => {
+    const emitidaHaceUnDia = new Date(
+      AHORA.getTime() + TTL_SESION_ANONIMA_MS - 24 * 60 * 60 * 1000,
+    );
+
+    expect(debeRenovarSesionAnonima(emitidaHaceUnDia, AHORA)).toBe(false);
+    expect(
+      debeRenovarSesionAnonima(calcularExpiracionAnonima(AHORA), AHORA),
+    ).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import {
   ISessionRepository,
   SesionPersistida,
 } from '../../application/ports/session-repository.port';
+import { IRenovadorSesion } from '../../application/ports/renovador-sesion.port';
 
 /**
  * PrismaSessionRepository — implementación de `ISessionRepository`.
@@ -17,7 +18,9 @@ import {
  * pasarle un cliente plano, y el wiring Nest actual sigue válido porque
  * `PrismaService extends PrismaClient`.
  */
-export class PrismaSessionRepository implements ISessionRepository {
+export class PrismaSessionRepository
+  implements ISessionRepository, IRenovadorSesion
+{
   constructor(private readonly prisma: PrismaClient) {}
 
   async crear(input: {
@@ -42,6 +45,9 @@ export class PrismaSessionRepository implements ISessionRepository {
       select: {
         userId: true,
         expiresAt: true,
+        user: {
+          select: { appleSub: true, googleSub: true, passwordHash: true },
+        },
       },
     });
 
@@ -49,10 +55,21 @@ export class PrismaSessionRepository implements ISessionRepository {
       return null;
     }
 
+    // Cuenta anónima (ADR-013): estado derivado, sin credencial alguna.
+    const { appleSub, googleSub, passwordHash } = sesion.user;
+
     return {
       userId: sesion.userId,
       expiresAt: sesion.expiresAt,
+      anonima: appleSub === null && googleSub === null && passwordHash === null,
     };
+  }
+
+  async renovar(tokenHash: string, expiresAt: Date): Promise<void> {
+    await this.prisma.session.updateMany({
+      where: { tokenHash },
+      data: { expiresAt },
+    });
   }
 
   async revocarPorTokenHash(tokenHash: string): Promise<void> {

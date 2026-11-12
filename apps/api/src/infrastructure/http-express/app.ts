@@ -38,6 +38,8 @@ import {
   registrarAuthAppleTokenDeshabilitado,
 } from './routes/auth-apple-token.routes';
 import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
+import { registrarAuthAnonimo } from './routes/auth-anonimo.routes';
+import { registrarCuentaVincular } from './routes/cuenta-vincular.routes';
 import { registrarVersion } from './routes/version.routes';
 import { registrarConfig } from './routes/config.routes';
 import { registrarCategorias } from './routes/categorias.routes';
@@ -147,6 +149,11 @@ export function createApp(container: Container, env: Env): Express {
   // Remote app configuration (ADR-005 §4.5): api-key only, no session, so an
   // outdated app can learn it must update before anything else.
   registrarConfig(authPublicApi, container.obtenerConfiguracionApp);
+  // Alta de cuenta anónima (ADR-013): api-key only, sin sesión previa.
+  registrarAuthAnonimo(authPublicApi, {
+    crearCuentaAnonima: container.crearCuentaAnonima,
+    altaRateLimiter: container.altaAnonimaRateLimiter,
+  });
   app.use('/api', authPublicApi);
 
   // Login con Google (AUTH-16, design §4.4): SIEMPRE se monta un router acá
@@ -241,6 +248,14 @@ export function createApp(container: Container, env: Env): Express {
   registrarCuenta(protectedApi, {
     eliminarCuenta: container.eliminarCuenta,
     cookieSecure,
+  });
+  // Vinculación de una cuenta anónima con Apple o Google (ADR-013). Cada
+  // proveedor responde 404 si su login nativo no está configurado.
+  registrarCuentaVincular(protectedApi, {
+    vincularIdentidad: container.vincularIdentidad,
+    vincularRateLimiter: container.vincularRateLimiter,
+    apple: container.appleAuth,
+    google: container.googleAuthMobile,
   });
   // Vinculación explícita de Google (US-041, design §1/Q2b, binding item
   // #4): MISMO gate `container.googleAuth !== undefined` que

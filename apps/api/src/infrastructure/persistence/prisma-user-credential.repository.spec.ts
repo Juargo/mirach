@@ -179,7 +179,7 @@ describe('PrismaUserCredentialRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('retorna null cuando el userId existe pero no tiene email (defensivo)', async () => {
+    it('cuenta anónima (sin email, ADR-013): retorna la identidad con email vacío, sin descifrar', async () => {
       const prisma = {
         user: {
           findUnique: vi.fn().mockResolvedValue({
@@ -200,7 +200,12 @@ describe('PrismaUserCredentialRepository', () => {
 
       const result = await repo.buscarIdentidad('user-inconsistente');
 
-      expect(result).toBeNull();
+      expect(result).toEqual({
+        userId: 'user-inconsistente',
+        nombre: 'Alguien',
+        email: '',
+        googleVinculado: false,
+      });
       expect(decryptSpy).not.toHaveBeenCalled();
     });
   });
@@ -543,7 +548,7 @@ describe('PrismaUserCredentialRepository', () => {
       });
     });
 
-    it('fila inconsistente tras el update (usuario real con email null) ⇒ LANZA (falla de infraestructura, nunca 401)', async () => {
+    it('cuenta anónima (email null, ADR-013): el update devuelve la identidad con email vacío', async () => {
       const update = vi.fn().mockResolvedValue({
         id: 'user-1',
         nombre: 'Jorge',
@@ -556,9 +561,16 @@ describe('PrismaUserCredentialRepository', () => {
         makeBlindIndex(),
       );
 
-      await expect(
-        repo.actualizarPerfil({ userId: 'user-1', nombre: 'Jorge' }),
-      ).rejects.toThrow();
+      const result = await repo.actualizarPerfil({
+        userId: 'user-1',
+        nombre: 'Jorge',
+      });
+
+      expect(result.getValue()).toMatchObject({
+        userId: 'user-1',
+        nombre: 'Jorge',
+        email: '',
+      });
     });
   });
 

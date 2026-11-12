@@ -1,8 +1,13 @@
 import { Result } from '../../shared/result';
-import { estaExpirada } from '../../domain/value-objects/duracion-sesion';
+import {
+  calcularExpiracionAnonima,
+  debeRenovarSesionAnonima,
+  estaExpirada,
+} from '../../domain/value-objects/duracion-sesion';
 import { SesionInvalidaError } from '../../domain/errors/sesion-invalida.error';
 import { ISessionRepository } from '../ports/session-repository.port';
 import { ISessionTokenService } from '../ports/session-token.port';
+import { IRenovadorSesion } from '../ports/renovador-sesion.port';
 import { IReloj } from '../ports/reloj.port';
 import { ILogger } from '../ports/logger.port';
 
@@ -27,6 +32,11 @@ export interface ValidarSesionResult {
  * cookie o `Authorization: Bearer`, esa decisión vive en `SessionGuard` (infra).
  *
  * Missing, unknown/tampered, o expirado → mismo `SesionInvalidaError`.
+ *
+ * Sesión de una cuenta anónima (ADR-013): una sesión VIGENTE se extiende a
+ * 365 días desde ahora, como máximo una vez al día. Una sesión vencida nunca
+ * se revive. Si la escritura falla, la petición sigue siendo válida: se
+ * reintenta en el próximo uso.
  */
 export class ValidarSesionUseCase {
   constructor(
@@ -34,6 +44,7 @@ export class ValidarSesionUseCase {
     private readonly tokens: ISessionTokenService,
     private readonly reloj: IReloj,
     private readonly logger: ILogger,
+    private readonly renovador?: IRenovadorSesion,
   ) {}
 
   async execute(input: {
@@ -54,9 +65,35 @@ export class ValidarSesionUseCase {
       return Result.fail(new SesionInvalidaError());
     }
 
+    if (sesion.anonima === true) {
+      await this.renovarSiCorresponde(tokenHash, sesion.expiresAt);
+    }
+
     return Result.ok({
       userId: sesion.userId,
       tokenHash,
     });
+  }
+
+  private async renovarSiCorresponde(
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    const ahora = this.reloj.ahora();
+
+    if (
+      this.renovador === undefined ||
+      !debeRenovarSesionAnonima(expiresAt, ahora)
+    ) {
+      return;
+    }
+
+    try {
+      await this.renovador.renovar(tokenHash, calcularExpiracionAnonima(ahora));
+    } catch (err) {
+      this.logger.warn('validar-sesion: no se pudo renovar la sesión anónima', {
+        errorName: err instanceof Error ? err.name : 'UnknownError',
+      });
+    }
   }
 }

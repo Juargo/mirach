@@ -145,3 +145,94 @@ describe('ValidarSesionUseCase', () => {
     });
   });
 });
+
+describe('ValidarSesionUseCase — anonymous session renewal (ADR-013)', () => {
+  const AHORA = new Date('2026-11-12T00:00:00.000Z');
+  const DIA_MS = 24 * 60 * 60 * 1000;
+
+  function armar(sesion: SesionPersistida, renovar = vi.fn()) {
+    const sessions = makeMockSessions(sesion);
+    const uc = new ValidarSesionUseCase(
+      sessions,
+      makeMockTokens('hashed-token'),
+      makeFakeReloj(AHORA),
+      new NoOpLogger(),
+      { renovar },
+    );
+    return { uc, renovar };
+  }
+
+  it('extends an anonymous session to 365 days from now when more than a day was used', async () => {
+    const { uc, renovar } = armar({
+      userId: 'anon-1',
+      expiresAt: new Date(AHORA.getTime() + 300 * DIA_MS),
+      anonima: true,
+    });
+
+    const result = await uc.execute({ token: 'raw-token' });
+
+    expect(result.getValue()).toEqual({
+      userId: 'anon-1',
+      tokenHash: 'hashed-token',
+    });
+    expect(renovar).toHaveBeenCalledTimes(1);
+    expect(renovar).toHaveBeenCalledWith(
+      'hashed-token',
+      new Date('2027-11-12T00:00:00.000Z'),
+    );
+  });
+
+  it('does not write again within a day of the last renewal', async () => {
+    const { uc, renovar } = armar({
+      userId: 'anon-1',
+      expiresAt: new Date(AHORA.getTime() + 365 * DIA_MS - 1000),
+      anonima: true,
+    });
+
+    await uc.execute({ token: 'raw-token' });
+
+    expect(renovar).not.toHaveBeenCalled();
+  });
+
+  it('never extends the session of an account with credentials', async () => {
+    const { uc, renovar } = armar({
+      userId: 'user-1',
+      expiresAt: new Date(AHORA.getTime() + 2 * DIA_MS),
+      anonima: false,
+    });
+
+    const result = await uc.execute({ token: 'raw-token' });
+
+    expect(result.isOk()).toBe(true);
+    expect(renovar).not.toHaveBeenCalled();
+  });
+
+  it('never revives an expired anonymous session', async () => {
+    const { uc, renovar } = armar({
+      userId: 'anon-1',
+      expiresAt: AHORA,
+      anonima: true,
+    });
+
+    const result = await uc.execute({ token: 'raw-token' });
+
+    expect(result.isFail()).toBe(true);
+    expect(result.getError()).toBeInstanceOf(SesionInvalidaError);
+    expect(renovar).not.toHaveBeenCalled();
+  });
+
+  it('a failed renewal does not reject a valid session', async () => {
+    const { uc } = armar(
+      {
+        userId: 'anon-1',
+        expiresAt: new Date(AHORA.getTime() + 300 * DIA_MS),
+        anonima: true,
+      },
+      vi.fn().mockRejectedValue(new Error('db down')),
+    );
+
+    const result = await uc.execute({ token: 'raw-token' });
+
+    expect(result.isOk()).toBe(true);
+  });
+});

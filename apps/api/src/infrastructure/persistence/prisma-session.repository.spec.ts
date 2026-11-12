@@ -29,6 +29,7 @@ describe('PrismaSessionRepository', () => {
       const findUnique = vi.fn().mockResolvedValue({
         userId: 'user-1',
         expiresAt,
+        user: { appleSub: null, googleSub: 'google-sub', passwordHash: null },
       });
       const prisma = { session: { findUnique } } as unknown as PrismaClient;
       const repo = new PrismaSessionRepository(prisma);
@@ -38,31 +39,11 @@ describe('PrismaSessionRepository', () => {
       expect(result).toEqual({
         userId: 'user-1',
         expiresAt,
+        anonima: false,
       });
       expect(findUnique as Mock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { tokenHash: 'hash-abc' } }),
       );
-    });
-
-    it('el select pide solo userId y expiresAt — sin join a user', async () => {
-      const expiresAt = new Date('2026-07-25T00:00:00.000Z');
-      const findUnique = vi.fn().mockResolvedValue({
-        userId: 'user-1',
-        expiresAt,
-      });
-      const prisma = { session: { findUnique } } as unknown as PrismaClient;
-      const repo = new PrismaSessionRepository(prisma);
-
-      const result = await repo.buscarPorTokenHash('hash-abc');
-
-      expect(result).toEqual({ userId: 'user-1', expiresAt });
-      expect(findUnique as Mock).toHaveBeenCalledWith({
-        where: { tokenHash: 'hash-abc' },
-        select: {
-          userId: true,
-          expiresAt: true,
-        },
-      });
     });
 
     it('retorna null cuando el hash es desconocido', async () => {
@@ -121,6 +102,68 @@ describe('PrismaSessionRepository', () => {
       await expect(
         repo.revocarOtrasPorUserId('user-1', 'hash-de-a'),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('cuenta anónima (ADR-013)', () => {
+    const expiresAt = new Date('2027-11-12T00:00:00.000Z');
+
+    function repoCon(user: Record<string, string | null>) {
+      const findUnique = vi
+        .fn()
+        .mockResolvedValue({ userId: 'user-1', expiresAt, user });
+      const repo = new PrismaSessionRepository({
+        session: { findUnique },
+      } as unknown as PrismaClient);
+      return { repo, findUnique };
+    }
+
+    it('marca anonima la sesión de un usuario sin appleSub, googleSub ni passwordHash', async () => {
+      const { repo, findUnique } = repoCon({
+        appleSub: null,
+        googleSub: null,
+        passwordHash: null,
+      });
+
+      const result = await repo.buscarPorTokenHash('hash-abc');
+
+      expect(result).toEqual({ userId: 'user-1', expiresAt, anonima: true });
+      expect(findUnique as Mock).toHaveBeenCalledWith({
+        where: { tokenHash: 'hash-abc' },
+        select: {
+          userId: true,
+          expiresAt: true,
+          user: {
+            select: { appleSub: true, googleSub: true, passwordHash: true },
+          },
+        },
+      });
+    });
+
+    it.each([
+      ['appleSub', { appleSub: 'a', googleSub: null, passwordHash: null }],
+      ['googleSub', { appleSub: null, googleSub: 'g', passwordHash: null }],
+      ['passwordHash', { appleSub: null, googleSub: null, passwordHash: 'h' }],
+    ])('no es anónima si el usuario tiene %s', async (_campo, user) => {
+      const { repo } = repoCon(user);
+
+      const result = await repo.buscarPorTokenHash('hash-abc');
+
+      expect(result?.anonima).toBe(false);
+    });
+
+    it('renovar() actualiza solo el vencimiento de ese tokenHash', async () => {
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const repo = new PrismaSessionRepository({
+        session: { updateMany },
+      } as unknown as PrismaClient);
+
+      await repo.renovar('hash-abc', expiresAt);
+
+      expect(updateMany as Mock).toHaveBeenCalledWith({
+        where: { tokenHash: 'hash-abc' },
+        data: { expiresAt },
+      });
     });
   });
 });

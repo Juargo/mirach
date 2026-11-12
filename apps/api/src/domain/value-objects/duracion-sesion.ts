@@ -21,3 +21,30 @@ export function calcularExpiracion(ahora: Date): Date {
 export function estaExpirada(expiresAt: Date, ahora: Date): boolean {
   return ahora.getTime() >= expiresAt.getTime();
 }
+
+/**
+ * Sesión de una cuenta anónima (ADR-013): 365 días, renovables con el uso.
+ * Una cuenta anónima no puede volver a iniciar sesión, así que perder la
+ * sesión es perder los datos; por eso dura más y se extiende sola.
+ */
+export const TTL_SESION_ANONIMA_MS = 365 * 24 * 60 * 60 * 1000;
+
+/** Como máximo una escritura de renovación al día por sesión. */
+const INTERVALO_RENOVACION_MS = 24 * 60 * 60 * 1000;
+
+export function calcularExpiracionAnonima(ahora: Date): Date {
+  return new Date(ahora.getTime() + TTL_SESION_ANONIMA_MS);
+}
+
+/**
+ * `true` cuando ya se consumió más de un día desde la última renovación (o
+ * desde la emisión). No decide si la sesión sigue viva: eso es `estaExpirada`.
+ */
+export function debeRenovarSesionAnonima(
+  expiresAt: Date,
+  ahora: Date,
+): boolean {
+  const restante = expiresAt.getTime() - ahora.getTime();
+
+  return restante < TTL_SESION_ANONIMA_MS - INTERVALO_RENOVACION_MS;
+}

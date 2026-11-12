@@ -113,17 +113,7 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
         },
       });
 
-      const identidad = this.aIdentidadUsuario(row);
-      if (identidad === null) {
-        // Fila inconsistente (usuario real con email null) tras un update
-        // exitoso — NO es un resultado de negocio. Falla de infraestructura
-        // ⇒ propaga, el errorMiddleware responde 500 (design.md §4.1).
-        throw new Error(
-          `Identidad inconsistente tras actualizar el perfil de ${input.userId}`,
-        );
-      }
-
-      return Result.ok(identidad);
+      return Result.ok(this.aIdentidadUsuario(row));
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -178,22 +168,17 @@ export class PrismaUserCredentialRepository implements IUserCredentialRepository
    * aIdentidadUsuario — mapper compartido entre `buscarIdentidad` y
    * `actualizarPerfil` (drift contenido estructuralmente, design.md Q2).
    *
-   * Todo usuario se crea con email: una fila sin email es un estado
-   * inconsistente — falla cerrado (`null`) en vez de exponer una identidad
-   * rota.
+   * Una cuenta anónima (ADR-013) no tiene email: su identidad lleva `email`
+   * vacío. El contrato de `GET /api/auth/me` no cambia de forma (#238).
    */
   private aIdentidadUsuario(user: {
     id: string;
     nombre: string;
     email: string | null;
     googleSub: string | null;
-  }): IdentidadUsuario | null {
-    if (user.email === null) {
-      return null;
-    }
-
+  }): IdentidadUsuario {
     // El email persistido es ciphertext v1 (US-035).
-    const email = this.crypto.decrypt(user.email);
+    const email = user.email === null ? '' : this.crypto.decrypt(user.email);
 
     return {
       userId: user.id,

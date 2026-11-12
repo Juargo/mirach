@@ -55,6 +55,14 @@ import {
 import { authGoogleTokenRequestSchema } from './auth-google-token.schema';
 import { authAppleTokenRequestSchema } from './auth-apple-token.schema';
 import {
+  authAnonimoRequestSchema,
+  cuentaVincularAppleRequestSchema,
+  cuentaVincularGoogleRequestSchema,
+  identidadInvalidaResponseSchema,
+  terminosNoAceptadosResponseSchema,
+  vinculacionRechazadaResponseSchema,
+} from './cuenta-anonima.schema';
+import {
   bodyInvalidoResponseSchema,
   servicioNoDisponibleResponseSchema,
 } from './auth-error.schema';
@@ -1536,6 +1544,137 @@ const cuentaDeleteOperation: ZodOpenApiOperationObject = {
   },
 };
 
+/** Anonymous account (ADR-013): sign-up without Apple, Google or email. */
+const authAnonimoOperation: ZodOpenApiOperationObject = {
+  summary: 'Create an anonymous account',
+  description:
+    'Public endpoint (requires x-api-key only, session-public — no prior session needed) that creates ' +
+    'an account with no Apple or Google identity, no email and no password, with its own copy of the ' +
+    'classification catalog, and answers a session exactly like the sign-in endpoints. The app calls it ' +
+    'once, when the person accepts the terms and chooses to continue without an account, and stores the ' +
+    'token: an anonymous account cannot sign in again, so losing the token loses the data. Its session ' +
+    'lasts 365 days and every use extends it (at most one write per day). `versionTerminos` and ' +
+    '`versionPrivacidad` follow the sign-up rule of the token endpoints: stored with the account in the ' +
+    'same transaction; both or neither; required when CONSENTS_REQUIRED is on. Every request counts ' +
+    "against this endpoint's own IP budget and a successful sign-up never releases it. The account can " +
+    'later be linked with POST /api/cuenta/vincular/apple or /google. No Set-Cookie.',
+  requestBody: {
+    content: { 'application/json': { schema: authAnonimoRequestSchema } },
+  },
+  responses: {
+    '401': respuesta401SoloApiKey,
+    '200': {
+      description: 'Account created — identical shape to POST /api/auth/login.',
+      content: {
+        'application/json': { schema: authLoginResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'The accepted versions are missing while required, incomplete or malformed (TERMINOS_NO_ACEPTADOS). Nothing was created.',
+      content: {
+        'application/json': { schema: terminosNoAceptadosResponseSchema },
+      },
+    },
+    '429': {
+      description: 'Rate-limited: too many sign-ups from this IP.',
+    },
+    '503': {
+      description:
+        'An internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.',
+      content: {
+        'application/json': { schema: servicioNoDisponibleResponseSchema },
+      },
+    },
+  },
+};
+
+const DESCRIPCION_VINCULAR =
+  "Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one " +
+  'by attaching a verified identity; no data is moved. The user is always the session user. On ' +
+  'success the current session is revoked and a new ordinary session is returned: replace the stored ' +
+  'token with it. If the identity already owns another account — by its `sub`, or by a verified email ' +
+  'that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: ' +
+  'the anonymous data stays untouched, and the app may offer to sign in to that account. A caller ' +
+  'that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 ' +
+  'IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. ';
+
+const respuestasVincular = {
+  '401': respuesta401Protegida,
+  '200': {
+    description:
+      'Linked. A new session — identical shape to POST /api/auth/login.',
+    content: {
+      'application/json': { schema: authLoginResponseSchema },
+    },
+  },
+  '400': {
+    description:
+      'Malformed or incomplete body (BODY_INVALIDO), or a token that did not verify (IDENTIDAD_INVALIDA).',
+    content: {
+      'application/json': { schema: identidadInvalidaResponseSchema },
+    },
+  },
+  '409': {
+    description:
+      'The identity already owns another account (CUENTA_YA_EXISTE) or the caller is not anonymous (CUENTA_NO_ANONIMA). Nothing was written.',
+    content: {
+      'application/json': { schema: vinculacionRechazadaResponseSchema },
+    },
+  },
+  '429': {
+    description: 'Rate-limited: too many attempts from this IP.',
+  },
+  '503': {
+    description:
+      'The identity could not be checked: the provider is unreachable or an internal dependency failed (SERVICIO_NO_DISPONIBLE). Retryable.',
+    content: {
+      'application/json': { schema: servicioNoDisponibleResponseSchema },
+    },
+  },
+};
+
+const cuentaVincularAppleOperation: ZodOpenApiOperationObject = {
+  summary: 'Link the anonymous account to Sign in with Apple',
+  description:
+    DESCRIPCION_VINCULAR +
+    'The body is the one of POST /api/auth/apple/token without the terms versions; the nonce is ' +
+    'checked the same way, and `authorizationCode` is exchanged best-effort so the Apple token can be ' +
+    'revoked when the account is deleted. 404 when APPLE_BUNDLE_ID is not configured.',
+  requestBody: {
+    content: {
+      'application/json': { schema: cuentaVincularAppleRequestSchema },
+    },
+  },
+  responses: {
+    ...respuestasVincular,
+    '404': {
+      description:
+        'Sign in with Apple is not active — APPLE_BUNDLE_ID is not configured.',
+    },
+  },
+};
+
+const cuentaVincularGoogleOperation: ZodOpenApiOperationObject = {
+  summary: 'Link the anonymous account to Google',
+  description:
+    DESCRIPCION_VINCULAR +
+    'The body carries the Google ID token of the native sign-in, verified like in ' +
+    'POST /api/auth/google/token. 404 when no mobile Google client ID is configured.',
+  requestBody: {
+    content: {
+      'application/json': { schema: cuentaVincularGoogleRequestSchema },
+    },
+  },
+  responses: {
+    ...respuestasVincular,
+    '404': {
+      description:
+        'Google sign-in for the native apps is not active — no mobile client ID is configured.',
+    },
+  },
+};
+
 const semaforoDetalleOperation: ZodOpenApiOperationObject = {
   summary:
     'Semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice',
@@ -1972,6 +2111,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/auth/google/callback': { get: authGoogleCallbackOperation },
   '/api/auth/google/token': { post: authGoogleTokenOperation },
   '/api/auth/apple/token': { post: authAppleTokenOperation },
+  '/api/auth/anonimo': { post: authAnonimoOperation },
   '/api/categorias': {
     get: categoriasListOperation,
     post: categoriasCreateOperation,
@@ -1997,6 +2137,8 @@ const paths: ZodOpenApiPathsObject = {
     post: perfilGoogleDesvincularOperation,
   },
   '/api/cuenta': { delete: cuentaDeleteOperation },
+  '/api/cuenta/vincular/apple': { post: cuentaVincularAppleOperation },
+  '/api/cuenta/vincular/google': { post: cuentaVincularGoogleOperation },
   '/api/resumen/semaforo': { get: semaforoDetalleOperation },
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
   '/api/ingresos/mes': { get: ingresosMesOperation },
