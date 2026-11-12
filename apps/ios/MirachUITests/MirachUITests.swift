@@ -132,18 +132,27 @@ final class MirachUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts["resumen.month"].label, "Septiembre de 2026")
-        // The three buckets, by their official names (the third has no traffic-light state).
+        // The three buckets, by their official names, each with its state word when it has one
+        // (the stub gives Necesidades and Deseos "Cerca" and Ahorro none).
         // Identifiers use the API value; the visible label is the official name ("Deseos" shows as "Gustos").
-        for (apiName, name) in [("Necesidades", "Necesidades"), ("Deseos", "Gustos"), ("Ahorro", "Ahorro")] {
+        for (apiName, expected) in [("Necesidades", "Necesidades. Cerca. "), ("Deseos", "Gustos. Cerca. "), ("Ahorro", "Ahorro. ")] {
             let row = element(app, "resumen.bucket.\(apiName)")
-            XCTAssertTrue(row.exists, "missing bucket row \(name)")
-            XCTAssertTrue(row.label.hasPrefix(name), "row label: \(row.label)")
+            XCTAssertTrue(row.exists, "missing bucket bar \(apiName)")
+            XCTAssertTrue(row.label.hasPrefix(expected), "bar label: \(row.label)")
         }
-        // The traffic light is hidden by product decision: no state label anywhere.
+        // The traffic light is shown again: the old product-decision words never come back, and the
+        // stub's month is "cerca", so the verdict headline says so.
         for text in ["Estado del mes", "Muy Saludable", "Saludable", "En peligro", "Sin datos"] {
             let anywhere = NSPredicate(format: "label CONTAINS %@", text)
             XCTAssertEqual(app.descendants(matching: .any).matching(anywhere).count, 0, "found \(text)")
         }
+        XCTAssertTrue(element(app, "resumen.verdict").label.contains("Cerca del límite"), "verdict: \(element(app, "resumen.verdict").label)")
+        // The legend of the half donut sits next to the bars; the donut itself is hidden from VoiceOver.
+        XCTAssertEqual(element(app, "resumen.legend").label, "Anillo de afuera: tu mes. Anillo de adentro: tu meta.")
+        XCTAssertEqual(
+            element(app, "resumen.ingreso").label, "Ingresos del mes. Ingreso de $1.850.000, detectado",
+            "the income row says where the base comes from"
+        )
         // The discreet API version line kept from the first screen (stubbed value).
         XCTAssertTrue(app.staticTexts["signedin.apiVersion"].waitForExistence(timeout: 10))
 

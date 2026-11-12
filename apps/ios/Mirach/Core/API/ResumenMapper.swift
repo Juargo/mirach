@@ -37,7 +37,9 @@ enum ResumenMapper {
             sinIngreso: wire.sinIngreso,
             totalIngreso: try money(wire.totalIngreso),
             estadoGlobal: estado(wire.estadoGlobal),
-            buckets: ordered
+            buckets: ordered,
+            estadoMes: estado(wire.estadoMes),
+            fuenteIngreso: wire.fuenteIngreso == .declarado ? .declarado : .detectado
         )
     }
 
@@ -48,6 +50,16 @@ enum ResumenMapper {
         case .verde: .verde
         case .amarillo: .amarillo
         case .rojo: .rojo
+        case ._empty, nil: nil
+        }
+    }
+
+    // estadoMes uses bien/cerca/sobre; the app keeps one scale for every state.
+    private static func estado(_ wire: Wire.estadoMesPayload?) -> EstadoSemaforo? {
+        switch wire {
+        case .bien: .verde
+        case .cerca: .amarillo
+        case .sobre: .rojo
         case ._empty, nil: nil
         }
     }

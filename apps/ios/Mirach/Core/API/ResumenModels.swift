@@ -9,6 +9,11 @@ enum EstadoSemaforo: Equatable, Sendable {
     case verde, amarillo, rojo
 }
 
+/// Where the percentage base of the month comes from (`fuenteIngreso`).
+enum FuenteIngreso: Equatable, Sendable {
+    case declarado, detectado
+}
+
 /// The three buckets of the 50/30/20 rule, in the order the catalog shows them.
 enum Bucket: CaseIterable, Hashable, Sendable {
     case necesidades, deseos, ahorro
@@ -62,4 +67,8 @@ struct ResumenMes: Equatable, Sendable {
     let estadoGlobal: EstadoSemaforo?
     /// Always three, in catalog order.
     let buckets: [BucketResumen]
+    /// The month's verdict (`estadoMes`: bien, cerca, sobre), on the same scale as a bucket's state;
+    /// `nil` when the month has none.
+    let estadoMes: EstadoSemaforo?
+    let fuenteIngreso: FuenteIngreso
 }

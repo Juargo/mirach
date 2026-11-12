@@ -20,3 +20,37 @@ extension Bucket {
         }
     }
 }
+
+/// Copy of the Inicio that is built from the month the API sent.
+enum ResumenPresentation {
+    /// The month's verdict, the headline of the screen; `nil` (no headline) when the month has no state.
+    static func verdict(for estado: EstadoSemaforo?) -> String? {
+        switch estado {
+        case .verde: "Dentro de la meta"
+        case .amarillo: "Cerca del límite"
+        case .rojo: "Fuera de la meta"
+        case nil: nil
+        }
+    }
+
+    /// `$1.250.000 · declarado`: the income and where the percentage base comes from.
+    static func incomeValue(_ amount: Int, fuente: FuenteIngreso) -> String {
+        "\(Format.money(amount)) · \(fuente.word)"
+    }
+
+    /// What VoiceOver reads for the income row, with the sign logic of `Format.spokenIncome`.
+    static func incomeSpoken(_ amount: Int, fuente: FuenteIngreso) -> String {
+        "\(incomeLabel). \(Format.spokenIncome(amount)), \(fuente.word)"
+    }
+
+    static let incomeLabel = "Ingresos del mes"
+}
+
+private extension FuenteIngreso {
+    var word: String {
+        switch self {
+        case .declarado: "declarado"
+        case .detectado: "detectado"
+        }
+    }
+}

@@ -15,6 +15,8 @@ struct ResumenMapperTests {
     private func body(
         periodo: String = "2026-09",
         estadoGlobal: String = #""amarillo""#,
+        estadoMes: String = "null",
+        fuenteIngreso: String = "detectado",
         ingreso: String = "1000000",
         sinIngreso: Bool = false,
         buckets: [(String, String, String, String)] = [
@@ -26,7 +28,7 @@ struct ResumenMapperTests {
         let list = buckets.map { name, total, bp, estado in
             #"{"bucket":"\#(name)","total":"\#(total)","porcentajeBp":\#(bp),"participacionGastoBp":null,"metaBp":5000,"estadoSemaforo":\#(estado),"estado":null}"#
         }.joined(separator: ",")
-        return #"{"periodo":"\#(periodo)","fechaInicio":"\#(periodo)-01","fechaFin":"\#(periodo)-28","sinIngreso":\#(sinIngreso),"totalIngreso":"\#(ingreso)","fuenteIngreso":"detectado","ingresoDetectado":"\#(ingreso)","estadoGlobal":\#(estadoGlobal),"estadoMes":null,"bloquesEstadoMes":[],"targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},"buckets":[\#(list)]}"#
+        return #"{"periodo":"\#(periodo)","fechaInicio":"\#(periodo)-01","fechaFin":"\#(periodo)-28","sinIngreso":\#(sinIngreso),"totalIngreso":"\#(ingreso)","fuenteIngreso":"\#(fuenteIngreso)","ingresoDetectado":"\#(ingreso)","estadoGlobal":\#(estadoGlobal),"estadoMes":\#(estadoMes),"bloquesEstadoMes":[],"targets":{"Necesidades":50,"Deseos":30,"Ahorro":20},"buckets":[\#(list)]}"#
     }
 
     @Test func mapsAMonthWithExactMoneyAndBasisPoints() async throws {
@@ -39,6 +41,30 @@ struct ResumenMapperTests {
         #expect(mes.buckets.map(\.total) == [450_000, 305_000, 0])
         #expect(mes.buckets.map(\.porcentajeBp) == [4500, 3050, 0])
         #expect(mes.buckets.map(\.metaBp) == [5000, 3000, 2000])
+    }
+
+    @Test func mapsTheMonthStateTheVerdictIsBuiltFrom() async throws {
+        for (wire, expected) in [(#""bien""#, EstadoSemaforo.verde), (#""cerca""#, .amarillo), (#""sobre""#, .rojo)] {
+            let mes = try await api(.json(body(estadoMes: wire))).resumen(periodo: nil)
+
+            #expect(mes.estadoMes == expected)
+        }
+    }
+
+    @Test func aNullOrEmptyMonthStateMeansNoVerdict() async throws {
+        for wire in ["null", #""""#] {
+            let mes = try await api(.json(body(estadoMes: wire))).resumen(periodo: nil)
+
+            #expect(mes.estadoMes == nil)
+        }
+    }
+
+    @Test func mapsWhereTheIncomeBaseComesFrom() async throws {
+        let declared = try await api(.json(body(fuenteIngreso: "declarado"))).resumen(periodo: nil)
+        let detected = try await api(.json(body(fuenteIngreso: "detectado"))).resumen(periodo: nil)
+
+        #expect(declared.fuenteIngreso == .declarado)
+        #expect(detected.fuenteIngreso == .detectado)
     }
 
     @Test func keepsMoneyBeyondDoublePrecisionExact() async throws {

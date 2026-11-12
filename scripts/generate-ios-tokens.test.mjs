@@ -69,3 +69,30 @@ test('a missing dark value fails the generation', () => {
   delete broken.color.dark.bucket.gustos;
   assert.throws(() => buildOutputs(broken), /Missing dark value for bucket.gustos/);
 });
+
+test('Swift file exposes every token text style with size, line height, Inter face and Dynamic Type anchor', () => {
+  const swift = buildOutputs(tokens).find((f) => f.path.endsWith('GeneratedTokens.swift')).content;
+  const expected = [
+    ['titulo', 28, 34, 'Inter-SemiBold', 'title'],
+    ['numeroGrande', 40, 44, 'Inter-SemiBold', 'largeTitle'],
+    ['cuerpo', 16, 24, 'Inter-Regular', 'callout'],
+    ['cuerpoDestacado', 16, 24, 'Inter-SemiBold', 'callout'],
+    ['boton', 16, 20, 'Inter-SemiBold', 'callout'],
+    ['etiqueta', 13, 16, 'Inter-Medium', 'footnote'],
+    ['mini', 11, 14, 'Inter-Medium', 'caption2'],
+  ];
+  assert.match(swift, /enum MirachTextStyle: CaseIterable \{\n    case titulo, numeroGrande, cuerpo, cuerpoDestacado, boton, etiqueta, mini\n/);
+  for (const [name, size, line, face, anchor] of expected) {
+    assert.match(swift, new RegExp(`case \\.${name}: ${size}\\b`), `${name} size`);
+    assert.match(swift, new RegExp(`case \\.${name}: ${line}\\b`), `${name} line height`);
+    assert.match(swift, new RegExp(`case \\.${name}: "${face}"`), `${name} face`);
+    assert.match(swift, new RegExp(`case \\.${name}: \\.${anchor}\\b`), `${name} anchor`);
+  }
+  assert.match(swift, /static func mirach\(_ style: MirachTextStyle\) -> Font/);
+});
+
+test('a text style with a weight Inter does not bundle fails the generation', () => {
+  const broken = structuredClone(tokens);
+  broken.typography['text-style'].titulo.$value.fontWeight = 300;
+  assert.throws(() => buildOutputs(broken), /Unsupported font weight 300 in text style titulo/);
+});
