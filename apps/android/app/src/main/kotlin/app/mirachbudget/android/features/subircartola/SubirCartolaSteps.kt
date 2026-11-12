@@ -8,14 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,13 +29,18 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import app.mirachbudget.android.core.design.InfoPanel
+import app.mirachbudget.android.core.design.MirachPrimaryButton
+import app.mirachbudget.android.core.design.MirachSecondaryButton
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextField
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.mirachFigures
 import app.mirachbudget.android.core.networking.CartolaPreview
@@ -81,14 +81,12 @@ internal fun StepContent(viewModel: SubirCartolaViewModel, state: SubirCartolaVi
 
 @Composable
 internal fun PrimaryButton(text: String, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
-    Button(onClick = onClick, enabled = enabled && !busy, modifier = Modifier.fillMaxWidth()) {
-        if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text(text)
-    }
+    MirachPrimaryButton(text, onClick, enabled = enabled, busy = busy)
 }
 
 @Composable
 internal fun SecondaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(text) }
+    MirachSecondaryButton(text, onClick, enabled = enabled)
 }
 
 /** A spinner with what is happening; [text] `null` while there is nothing to say yet. */
@@ -100,7 +98,7 @@ private fun Progress(text: String?) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CircularProgressIndicator()
-        text?.let { Text(it, color = MirachTheme.colors.base.mutedForeground) }
+        text?.let { Text(it, style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground) }
     }
 }
 
@@ -109,6 +107,7 @@ private fun Progress(text: String?) {
 internal fun StatusMessage(text: String, isError: Boolean, modifier: Modifier = Modifier) {
     Text(
         text,
+        style = MirachTextStyles.cuerpo,
         color = if (isError) MirachTheme.colors.feedback.errorText else MirachTheme.colors.base.foreground,
         modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
     )
@@ -123,30 +122,31 @@ private fun Consent(step: Step.Consentimiento, actions: StepActions) {
         PrimaryButton(SubirCartolaMessages.CONSENT_REOPEN) { actions.call { it.showConsent() } }
         return
     }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(MirachSpacing.s)) {
         Text(
             SubirCartolaMessages.CONSENT_TITLE,
-            style = MaterialTheme.typography.headlineSmall,
+            style = MirachTextStyles.titulo,
             color = MirachTheme.colors.base.foreground,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().semantics { heading() },
         )
         Text(
             SubirCartolaMessages.CONSENT_BODY,
+            style = MirachTextStyles.cuerpo,
             color = MirachTheme.colors.base.mutedForeground,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
     }
-    Column(Modifier.card(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    InfoPanel {
         Text(
             SubirCartolaMessages.CONSENT_LIST_HEADER,
-            style = MaterialTheme.typography.titleSmall,
+            style = MirachTextStyles.etiqueta,
             color = MirachTheme.colors.base.cardForeground,
             modifier = Modifier.semantics { heading() },
         )
         SubirCartolaMessages.CONSENT_ITEMS.forEach {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = MirachTheme.colors.base.mutedForeground)
+            Text(it, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.mutedForeground)
         }
     }
     if (step.failed) StatusMessage(SubirCartolaMessages.CONSENT_ACCEPT_FAILED, isError = true)
@@ -161,19 +161,35 @@ private fun Consent(step: Step.Consentimiento, actions: StepActions) {
 @Composable
 private fun Initial(message: String?, actions: StepActions) {
     message?.let { StatusMessage(it, isError = true) }
-    Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(MirachSpacing.s),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Text(
             SubirCartolaMessages.INITIAL_TITLE,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = MirachTextStyles.titulo,
             color = MirachTheme.colors.base.foreground,
+            textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
         )
-        Text(SubirCartolaMessages.INITIAL_FORMATS, color = MirachTheme.colors.base.mutedForeground)
-        Text(SubirCartolaMessages.INITIAL_PREVIEW_FIRST, color = MirachTheme.colors.base.mutedForeground)
+        Text(
+            SubirCartolaMessages.INITIAL_FORMATS,
+            style = MirachTextStyles.cuerpo,
+            color = MirachTheme.colors.base.mutedForeground,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            SubirCartolaMessages.INITIAL_PREVIEW_FIRST,
+            style = MirachTextStyles.cuerpo,
+            color = MirachTheme.colors.base.mutedForeground,
+            textAlign = TextAlign.Center,
+        )
     }
     // PRI-03: no bank passwords, the file is deleted after reading it.
-    Text(SubirCartolaMessages.INITIAL_PRIVACY, style = MaterialTheme.typography.bodyMedium, color = MirachTheme.colors.base.foreground)
+    InfoPanel {
+        Text(SubirCartolaMessages.INITIAL_PRIVACY, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.foreground)
+    }
     PrimaryButton(SubirCartolaMessages.CHOOSE_FILE, onClick = actions.pickFile)
 }
 
@@ -195,14 +211,14 @@ private fun PasswordPrompt(step: Step.Protegido, actions: StepActions) {
     }
     LaunchedEffect(step) { focus.requestFocus() }
 
-    Text(step.filename, style = MaterialTheme.typography.bodySmall, color = MirachTheme.colors.base.mutedForeground)
+    Text(step.filename, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.mutedForeground)
     StatusMessage(SubirCartolaMessages.passwordPrompt(step.incorrect), isError = step.incorrect)
     // Hidden; no autocorrect, capitals or suggestions: it is a bank password.
-    OutlinedTextField(
+    MirachTextField(
         value = password,
         onValueChange = { password = it },
-        label = { Text(SubirCartolaMessages.PASSWORD_FIELD) },
-        singleLine = true,
+        label = SubirCartolaMessages.PASSWORD_FIELD,
+        isError = step.incorrect,
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(
             capitalization = KeyboardCapitalization.None,
@@ -211,7 +227,7 @@ private fun PasswordPrompt(step: Step.Protegido, actions: StepActions) {
             imeAction = ImeAction.Go,
         ),
         keyboardActions = KeyboardActions(onGo = { send() }),
-        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        modifier = Modifier.focusRequester(focus),
     )
     PrimaryButton(SubirCartolaMessages.RETRY, enabled = password.isNotEmpty(), onClick = send)
     SecondaryButton(SubirCartolaMessages.CHOOSE_OTHER, onClick = actions.pickFile)
@@ -225,23 +241,29 @@ private fun Deciding(preview: CartolaPreview, state: SubirCartolaViewModel.State
     state.stagedFile?.let { file ->
         Text(
             SubirCartolaDisplay.fileLine(file.filename, Formatter.formatShortFileSize(context, file.byteCount)),
-            style = MaterialTheme.typography.bodySmall,
+            style = MirachTextStyles.etiqueta,
             color = MirachTheme.colors.base.mutedForeground,
         )
     }
     Column(Modifier.card(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(preview.banco, style = MaterialTheme.typography.titleMedium, color = MirachTheme.colors.base.cardForeground)
+            Text(preview.banco, style = MirachTextStyles.cuerpoDestacado, color = MirachTheme.colors.base.cardForeground)
             Text(
                 SubirCartolaMessages.account(preview.tipoCuenta, preview.numeroCuenta),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MirachTextStyles.cuerpo,
                 color = MirachTheme.colors.base.mutedForeground,
             )
         }
         Counters(preview)
     }
     PreviewSummary(preview)
-    Text(SubirCartolaMessages.NOTHING_SAVED_YET, color = MirachTheme.colors.base.mutedForeground)
+    Text(
+        SubirCartolaMessages.NOTHING_SAVED_YET,
+        style = MirachTextStyles.etiqueta,
+        color = MirachTheme.colors.base.mutedForeground,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
     // «Revisar y editar» needs the catalog; if it could not load, the rest still works and this says why.
     // With rows in Desconocido, reviewing is the recommended action, so it leads and is filled.
     val reviewEnabled = state.loadedCatalog != null
@@ -255,11 +277,11 @@ private fun Deciding(preview: CartolaPreview, state: SubirCartolaViewModel.State
     when (state.catalog) {
         is CatalogState.Loaded -> Unit
         CatalogState.Loading ->
-            Text(SubirCartolaMessages.LOADING_CATEGORIES, style = MaterialTheme.typography.bodySmall, color = MirachTheme.colors.base.mutedForeground)
+            Text(SubirCartolaMessages.LOADING_CATEGORIES, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.mutedForeground)
         CatalogState.Failed -> {
             Text(
                 SubirCartolaMessages.CATALOG_FAILED_DECIDING,
-                style = MaterialTheme.typography.bodySmall,
+                style = MirachTextStyles.etiqueta,
                 color = MirachTheme.colors.feedback.errorText,
             )
             SecondaryButton(SubirCartolaMessages.RETRY) { actions.call { it.retryCatalog() } }
@@ -278,11 +300,10 @@ private fun Counters(preview: CartolaPreview) {
     )
     val counter: @Composable (String, Int) -> Unit = { label, value ->
         Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MirachTheme.colors.base.mutedForeground)
+            Text(label, style = MirachTextStyles.etiqueta, color = MirachTheme.colors.base.mutedForeground)
             Text(
                 value.toString(),
-                style = MaterialTheme.typography.titleLarge.mirachFigures(),
-                fontWeight = FontWeight.Bold,
+                style = MirachTextStyles.cuerpoDestacado.mirachFigures(),
                 color = MirachTheme.colors.base.cardForeground,
             )
         }
@@ -290,7 +311,7 @@ private fun Counters(preview: CartolaPreview) {
     if (isLargeText()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { items.forEach { (l, v) -> counter(l, v) } }
     } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { items.forEach { (l, v) -> counter(l, v) } }
+        Row(horizontalArrangement = Arrangement.spacedBy(MirachSpacing.m)) { items.forEach { (l, v) -> counter(l, v) } }
     }
 }
 
@@ -305,17 +326,16 @@ private fun Success(summary: SubirCartolaViewModel.ImportSummary, actions: StepA
         // Decoration: the headline says it all.
         Text(
             "✓",
-            style = MaterialTheme.typography.displaySmall,
+            style = MirachTextStyles.numeroGrande,
             color = MirachTheme.colors.feedback.successText,
             modifier = Modifier.clearAndSetSemantics {},
         )
         Text(
             SubirCartolaMessages.headline(summary),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = MirachTextStyles.titulo,
             color = MirachTheme.colors.base.foreground,
         )
-        SubirCartolaMessages.duplicatesLine(summary)?.let { Text(it, color = MirachTheme.colors.base.mutedForeground) }
+        SubirCartolaMessages.duplicatesLine(summary)?.let { Text(it, style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground) }
     }
     PrimaryButton(SubirCartolaMessages.SHOW_SUMMARY, onClick = actions.showResumen)
     SecondaryButton(SubirCartolaMessages.UPLOAD_ANOTHER, onClick = onAnother)

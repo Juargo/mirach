@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,9 +40,10 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.mirachFigures
 import app.mirachbudget.android.core.formatting.Format
@@ -78,7 +78,7 @@ internal fun ReviewScreen(
         }
     }
 
-    LazyColumn(modifier, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp)) {
+    LazyColumn(modifier, contentPadding = PaddingValues(horizontal = MirachSpacing.m, vertical = MirachSpacing.m)) {
         item(key = "header") { ReviewHeader(preview) }
         item(key = "notices") { ReviewNotices(state, actions) }
         sections.forEach { section ->
@@ -130,7 +130,7 @@ internal fun ReviewScreen(
 internal fun ReviewActions(state: SubirCartolaViewModel.State, onConfirm: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(MirachTheme.colors.base.background).navigationBarsPadding()) {
         HorizontalDivider(color = MirachTheme.colors.base.border)
-        Box(Modifier.padding(16.dp)) {
+        Box(Modifier.padding(MirachSpacing.m)) {
             PrimaryButton(
                 SubirCartolaMessages.confirmTitle(state.edits.size),
                 enabled = state.loadedCatalog != null && state.previewRefresh != PreviewRefresh.Updating,
@@ -148,10 +148,10 @@ private fun ReviewHeader(preview: CartolaPreview) {
     ) {
         Text(
             SubirCartolaMessages.reviewHeader(preview.banco, preview.tipoCuenta),
-            style = MaterialTheme.typography.titleMedium,
+            style = MirachTextStyles.cuerpoDestacado,
             color = MirachTheme.colors.base.foreground,
         )
-        Text(SubirCartolaMessages.REVIEW_HINT, style = MaterialTheme.typography.bodyMedium, color = MirachTheme.colors.base.mutedForeground)
+        Text(SubirCartolaMessages.REVIEW_HINT, style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground)
     }
 }
 
@@ -183,6 +183,7 @@ private fun ReviewNotices(state: SubirCartolaViewModel.State, actions: StepActio
 private fun Muted(text: String, live: Boolean = false) {
     Text(
         text,
+        style = MirachTextStyles.cuerpo,
         color = MirachTheme.colors.base.mutedForeground,
         modifier = if (live) Modifier.semantics { liveRegion = LiveRegionMode.Polite } else Modifier,
     )
@@ -203,14 +204,13 @@ private fun SectionHeader(section: ReviewPresentation.Section) {
         section.bucket?.let { Swatch(it) }
         Text(
             section.title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
+            style = MirachTextStyles.cuerpoDestacado,
             color = MirachTheme.colors.base.foreground,
             modifier = Modifier.weight(1f),
         )
         Text(
             section.rows.size.toString(),
-            style = MaterialTheme.typography.bodySmall.mirachFigures(),
+            style = MirachTextStyles.etiqueta.mirachFigures(),
             color = MirachTheme.colors.base.mutedForeground,
         )
     }
@@ -242,6 +242,7 @@ private fun ReviewRow(
         val description: @Composable (Modifier) -> Unit = { m ->
             Text(
                 row.descripcion,
+                style = MirachTextStyles.cuerpo,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 color = if (row.esDuplicado) colors.base.mutedForeground else colors.base.foreground,
@@ -251,7 +252,7 @@ private fun ReviewRow(
         val amount: @Composable () -> Unit = {
             Text(
                 row.amountText,
-                style = MaterialTheme.typography.bodyLarge.mirachFigures(),
+                style = MirachTextStyles.cuerpo.mirachFigures(),
                 maxLines = 1,
                 color = if (row.cargo != 0L) colors.feedback.expenseText else colors.base.foreground,
             )
@@ -265,8 +266,8 @@ private fun ReviewRow(
         if (isLargeText()) {
             description(Modifier)
             amount()
-            Text(Format.shortDate(row.fecha), style = MaterialTheme.typography.bodySmall, color = colors.base.mutedForeground)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = colors.base.mutedForeground)
+            Text(Format.shortDate(row.fecha), style = MirachTextStyles.etiqueta, color = colors.base.mutedForeground)
+            Text(detail, style = MirachTextStyles.etiqueta, color = colors.base.mutedForeground)
         } else {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 description(Modifier.weight(1f))
@@ -275,11 +276,11 @@ private fun ReviewRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "${Format.shortDate(row.fecha)} · $detail",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MirachTextStyles.etiqueta,
                     color = colors.base.mutedForeground,
                     modifier = Modifier.weight(1f),
                 )
-                if (row.isEditable) Text("›", style = MaterialTheme.typography.bodyLarge, color = colors.base.mutedForeground)
+                if (row.isEditable) Text("›", style = MirachTextStyles.cuerpo, color = colors.base.mutedForeground)
             }
         }
     }

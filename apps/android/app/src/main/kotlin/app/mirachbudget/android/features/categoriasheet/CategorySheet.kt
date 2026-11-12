@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -19,9 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,7 +37,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,10 +45,12 @@ import app.mirachbudget.android.core.design.BucketChoice
 import app.mirachbudget.android.core.design.FieldError
 import app.mirachbudget.android.core.design.Footer
 import app.mirachbudget.android.core.design.FormHeader
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextField
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.SheetBar
 import app.mirachbudget.android.core.design.SheetRow
-import app.mirachbudget.android.core.design.Swatch
 import app.mirachbudget.android.core.design.mirachFigures
 import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.CatalogoCategorias
@@ -62,6 +60,7 @@ import app.mirachbudget.android.features.subircartola.StatusMessage
 import app.mirachbudget.android.features.subircartola.SubirCartolaDisplay
 import app.mirachbudget.android.features.subircartola.SubirCartolaMessages
 import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel.CategoryFormErrors
+import java.util.Locale
 
 /** What the "Nueva categoría" form shows; [initialPattern] `null` hides the pattern field (as iOS). */
 internal data class CategoryFormState(
@@ -148,11 +147,11 @@ private fun ColumnScope.CategoryList(
     SheetBar(SubirCartolaMessages.SHEET_TITLE, SubirCartolaMessages.SHEET_CANCEL, onLeading = { if (!isBusy) onCancel() })
     // What is being classified, so the sheet makes sense without the list behind it.
     Column(
-        Modifier.fillMaxWidth().background(colors.base.card).padding(16.dp).semantics(mergeDescendants = true) {},
+        Modifier.fillMaxWidth().background(colors.base.card).padding(MirachSpacing.m).semantics(mergeDescendants = true) {},
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(summaryTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, color = colors.base.cardForeground)
-        Text(summaryDetail, style = MaterialTheme.typography.bodySmall.mirachFigures(), color = colors.base.mutedForeground)
+        Text(summaryTitle, style = MirachTextStyles.cuerpoDestacado, maxLines = 2, overflow = TextOverflow.Ellipsis, color = colors.base.cardForeground)
+        Text(summaryDetail, style = MirachTextStyles.etiqueta.mirachFigures(), color = colors.base.mutedForeground)
     }
     HorizontalDivider(color = colors.base.border)
     if (isBusy) {
@@ -161,7 +160,7 @@ private fun ColumnScope.CategoryList(
         }
     }
     LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false)) {
-        notice?.let { text -> item(key = "notice") { StatusMessage(text, isError = true, modifier = Modifier.padding(16.dp)) } }
+        notice?.let { text -> item(key = "notice") { StatusMessage(text, isError = true, modifier = Modifier.padding(MirachSpacing.m)) } }
         item(key = "create") {
             SheetRow(onClick = { if (!isBusy) onCreateCategory() }) {
                 Text("+ ${SubirCartolaMessages.CREATE_CATEGORY}", color = colors.base.foreground, modifier = Modifier.weight(1f))
@@ -170,19 +169,21 @@ private fun ColumnScope.CategoryList(
         }
         Bucket.entries.forEach { bucket ->
             item(key = "bucket-${bucket.apiName}") {
-                Row(
-                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp).semantics(mergeDescendants = true) { heading() },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Swatch(bucket)
-                    Text(bucket.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = colors.base.foreground)
-                }
+                // Figma's group label: «Mini», uppercase, muted. TalkBack still reads the bucket name.
+                Text(
+                    bucket.label.uppercase(Locale.ROOT),
+                    style = MirachTextStyles.mini,
+                    color = colors.base.mutedForeground,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = MirachSpacing.m, end = MirachSpacing.m, top = MirachSpacing.m, bottom = MirachSpacing.xs)
+                        .semantics { heading(); contentDescription = bucket.label },
+                )
             }
             val categorias = catalog.deBucket(bucket)
             if (categorias.isEmpty()) {
                 item(key = "empty-${bucket.apiName}") {
-                    Text(SubirCartolaMessages.NO_CATEGORIES, color = colors.base.mutedForeground, modifier = Modifier.padding(16.dp))
+                    Text(SubirCartolaMessages.NO_CATEGORIES, style = MirachTextStyles.cuerpo, color = colors.base.mutedForeground, modifier = Modifier.padding(MirachSpacing.m))
                 }
             }
             items(categorias, key = { "cat-${it.id}" }) { category ->
@@ -194,11 +195,11 @@ private fun ColumnScope.CategoryList(
                 }
             }
         }
-        if (footer == null) item(key = "bottom") { Spacer(Modifier.navigationBarsPadding().size(16.dp)) }
+        if (footer == null) item(key = "bottom") { Spacer(Modifier.navigationBarsPadding().size(MirachSpacing.m)) }
     }
     if (footer != null) {
         HorizontalDivider(color = colors.base.border)
-        Box(Modifier.fillMaxWidth().background(colors.base.card).padding(16.dp).navigationBarsPadding()) { footer() }
+        Box(Modifier.fillMaxWidth().background(colors.base.card).padding(MirachSpacing.m).navigationBarsPadding()) { footer() }
     }
 }
 
@@ -226,21 +227,19 @@ private fun NewCategoryForm(
 
     SheetBar(SubirCartolaMessages.FORM_TITLE, SubirCartolaMessages.SHEET_CANCEL, onBack) {
         TextButton(onClick = { bucket?.let { onCreate(SubirCartolaDisplay.nuevaCategoria(name, it, pattern)) } }, enabled = canCreate) {
-            Text(if (form.isCreating) SubirCartolaMessages.FORM_CREATING else SubirCartolaMessages.FORM_CREATE)
+            Text(if (form.isCreating) SubirCartolaMessages.FORM_CREATING else SubirCartolaMessages.FORM_CREATE, style = MirachTextStyles.boton)
         }
     }
     Column(
-        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(MirachSpacing.m).navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(MirachSpacing.s),
     ) {
-        OutlinedTextField(
+        MirachTextField(
             value = name,
             onValueChange = { name = it.filterNot { c -> c == '\n' || c == '\r' } },
-            label = { Text(SubirCartolaMessages.FORM_NAME) },
-            singleLine = true,
+            label = SubirCartolaMessages.FORM_NAME,
             isError = errors.name != null,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            modifier = Modifier.fillMaxWidth(),
         )
         FieldError(errors.name)
 
@@ -251,14 +250,12 @@ private fun NewCategoryForm(
 
         if (form.initialPattern != null) {
             FormHeader(SubirCartolaMessages.FORM_PATTERN)
-            OutlinedTextField(
+            MirachTextField(
                 value = pattern,
                 onValueChange = { pattern = it.filterNot { c -> c == '\n' || c == '\r' } },
-                label = { Text(SubirCartolaMessages.FORM_PATTERN_FIELD) },
-                singleLine = true,
+                label = SubirCartolaMessages.FORM_PATTERN_FIELD,
                 isError = errors.pattern != null,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-                modifier = Modifier.fillMaxWidth(),
             )
             FieldError(errors.pattern)
             Footer(SubirCartolaMessages.FORM_PATTERN_FOOTER)

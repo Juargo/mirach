@@ -13,11 +13,10 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -35,21 +34,23 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import app.mirachbudget.android.core.design.FieldError
 import app.mirachbudget.android.core.design.FormHeader
+import app.mirachbudget.android.core.design.MirachPrimaryButton
+import app.mirachbudget.android.core.design.MirachSecondaryButton
+import app.mirachbudget.android.core.design.MirachSpacing
+import app.mirachbudget.android.core.design.MirachTextField
+import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.SheetBar
 import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.networking.VistaPreviaPatron
 import app.mirachbudget.android.features.categorias.DetalleCategoriaViewModel.PatternConflict
 import app.mirachbudget.android.features.categorias.DetalleCategoriaViewModel.PatternSheet
-import app.mirachbudget.android.features.subircartola.PrimaryButton
-import app.mirachbudget.android.features.subircartola.SecondaryButton
 import app.mirachbudget.android.features.subircartola.StatusMessage
 import kotlinx.coroutines.launch
 
@@ -76,18 +77,16 @@ internal fun PatternSheet(viewModel: DetalleCategoriaViewModel, state: DetalleCa
         val title = if (sheet is PatternSheet.Editing) DetalleCategoriaMessages.EDIT_PATTERN else DetalleCategoriaMessages.NEW_PATTERN
         SheetBar(title, DetalleCategoriaMessages.CANCEL, onLeading = viewModel::dismissPatternSheet)
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(MirachSpacing.m).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(MirachSpacing.s),
         ) {
             FormHeader(DetalleCategoriaMessages.PATTERN_TEXT)
-            OutlinedTextField(
+            MirachTextField(
                 value = text,
                 onValueChange = { text = it.filterNot { c -> c == '\n' || c == '\r' } },
-                label = { Text(DetalleCategoriaMessages.PATTERN_TEXT) },
-                singleLine = true,
+                label = DetalleCategoriaMessages.PATTERN_TEXT,
                 isError = state.patternErrors.pattern != null,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-                modifier = Modifier.fillMaxWidth(),
             )
             FieldError(state.patternErrors.pattern)
 
@@ -100,33 +99,37 @@ internal fun PatternSheet(viewModel: DetalleCategoriaViewModel, state: DetalleCa
 
             state.patternErrors.general?.let { StatusMessage(it, isError = true) }
 
-            Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.padding(top = MirachSpacing.s), verticalArrangement = Arrangement.spacedBy(MirachSpacing.s)) {
                 when {
                     state.isSavingPattern -> Saving()
                     conflict != null -> {
-                        PrimaryButton(DetalleCategoriaMessages.moveHere(here)) { scope.launch { viewModel.movePatternHere() } }
-                        SecondaryButton(DetalleCategoriaMessages.CANCEL, onClick = viewModel::dismissPatternSheet)
+                        MirachPrimaryButton(DetalleCategoriaMessages.moveHere(here), onClick = { scope.launch { viewModel.movePatternHere() } })
+                        MirachSecondaryButton(DetalleCategoriaMessages.CANCEL, onClick = viewModel::dismissPatternSheet)
                     }
-                    else -> PrimaryButton(DetalleCategoriaMessages.SAVE_PATTERN, enabled = text.isNotBlank()) {
-                        scope.launch { viewModel.savePattern(text) }
-                    }
+                    else -> MirachPrimaryButton(DetalleCategoriaMessages.SAVE_PATTERN, onClick = { scope.launch { viewModel.savePattern(text) } }, enabled = text.isNotBlank())
                 }
             }
         }
     }
 }
 
+/** Figma's «Aviso» in its note form: a `card` panel, 16dp padding, 6dp between its «Etiqueta» lines. */
+@Composable
+private fun NotePanel(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(
+        modifier.fillMaxWidth().background(MirachTheme.colors.base.card).padding(MirachSpacing.m),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) { content() }
+}
+
 /** Screen 30: the text already lives in another category. */
 @Composable
 private fun Conflict(conflict: PatternConflict, here: CategoriaCatalogo) {
     val colors = MirachTheme.colors.base
-    Column(
-        Modifier.fillMaxWidth().background(colors.card).padding(12.dp).semantics(mergeDescendants = true) {},
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(DetalleCategoriaMessages.conflictTitle(conflict), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = colors.cardForeground)
-        Text(DetalleCategoriaMessages.CONFLICT_RULE, style = MaterialTheme.typography.bodySmall, color = colors.mutedForeground)
-        Text(DetalleCategoriaMessages.conflictConsequence(conflict, here), style = MaterialTheme.typography.bodySmall, color = colors.mutedForeground)
+    NotePanel(Modifier.semantics(mergeDescendants = true) {}) {
+        Text(DetalleCategoriaMessages.conflictTitle(conflict), style = MirachTextStyles.etiqueta, color = colors.cardForeground)
+        Text(DetalleCategoriaMessages.CONFLICT_RULE, style = MirachTextStyles.etiqueta, color = colors.mutedForeground)
+        Text(DetalleCategoriaMessages.conflictConsequence(conflict, here), style = MirachTextStyles.etiqueta, color = colors.mutedForeground)
     }
 }
 
@@ -134,35 +137,39 @@ private fun Conflict(conflict: PatternConflict, here: CategoriaCatalogo) {
 @Composable
 private fun Preview(preview: VistaPreviaPatron, here: CategoriaCatalogo, offersMove: Boolean, moveMatches: Boolean, onMoveMatches: (Boolean) -> Unit) {
     val colors = MirachTheme.colors.base
-    Text(
-        DetalleCategoriaMessages.previewTitle(preview.total, preview.periodo),
-        style = MaterialTheme.typography.labelLarge,
-        color = colors.mutedForeground,
-        modifier = Modifier.padding(top = 8.dp).semantics { heading() },
-    )
-    preview.coincidencias.forEach { row ->
+    NotePanel {
         Text(
-            DetalleCategoriaMessages.previewRow(row),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.mutedForeground,
-            modifier = Modifier.clearAndSetSemantics { contentDescription = DetalleCategoriaMessages.previewRowLabel(row) },
+            DetalleCategoriaMessages.previewTitle(preview.total, preview.periodo),
+            style = MirachTextStyles.etiqueta,
+            color = colors.cardForeground,
+            modifier = Modifier.semantics { heading() },
         )
+        preview.coincidencias.forEach { row ->
+            Text(
+                DetalleCategoriaMessages.previewRow(row),
+                style = MirachTextStyles.etiqueta,
+                color = colors.mutedForeground,
+                modifier = Modifier.clearAndSetSemantics { contentDescription = DetalleCategoriaMessages.previewRowLabel(row) },
+            )
+        }
     }
     if (!offersMove) return
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .background(colors.card)
-            .toggleable(value = moveMatches, role = Role.Checkbox, onValueChange = onMoveMatches)
-            .padding(8.dp),
+            .toggleable(value = moveMatches, role = Role.Checkbox, onValueChange = onMoveMatches),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Checkbox(checked = moveMatches, onCheckedChange = null)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(DetalleCategoriaMessages.moveMatchesTitle(preview.total, here.nombre), color = colors.cardForeground)
-            Text(DetalleCategoriaMessages.MOVE_MATCHES_NOTE, style = MaterialTheme.typography.bodySmall, color = colors.mutedForeground)
+        Checkbox(
+            checked = moveMatches,
+            onCheckedChange = null,
+            colors = CheckboxDefaults.colors(checkedColor = colors.primary, checkmarkColor = colors.primaryForeground, uncheckedColor = colors.input),
+        )
+        Column(Modifier.weight(1f).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(DetalleCategoriaMessages.moveMatchesTitle(preview.total, here.nombre), style = MirachTextStyles.cuerpo, color = colors.foreground)
+            Text(DetalleCategoriaMessages.MOVE_MATCHES_NOTE, style = MirachTextStyles.etiqueta, color = colors.mutedForeground)
         }
     }
 }
