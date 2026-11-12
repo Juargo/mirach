@@ -11,6 +11,13 @@ import struct Foundation.Date
 #endif
 /// A type that performs HTTP operations defined by the OpenAPI document.
 internal protocol APIProtocol: Sendable {
+    /// Create an anonymous account
+    ///
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that creates an account with no Apple or Google identity, no email and no password, with its own copy of the classification catalog, and answers a session exactly like the sign-in endpoints. The app calls it once, when the person accepts the terms and chooses to continue without an account, and stores the token: an anonymous account cannot sign in again, so losing the token loses the data. Its session lasts 365 days and every use extends it (at most one write per day). `versionTerminos` and `versionPrivacidad` follow the sign-up rule of the token endpoints: stored with the account in the same transaction; both or neither; required when CONSENTS_REQUIRED is on. Every request counts against this endpoint's own IP budget and a successful sign-up never releases it. The account can later be linked with POST /api/cuenta/vincular/apple or /google. No Set-Cookie.
+    ///
+    /// - Remark: HTTP `POST /api/auth/anonimo`.
+    /// - Remark: Generated from `#/paths//api/auth/anonimo/post`.
+    func post_sol_api_sol_auth_sol_anonimo(_ input: Operations.post_sol_api_sol_auth_sol_anonimo.Input) async throws -> Operations.post_sol_api_sol_auth_sol_anonimo.Output
     /// Authenticate with a native Apple identity token (mobile)
     ///
     /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, or a lost creation race — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers 400 BODY_INVALIDO, not this 401. If Apple cannot be reached or an internal dependency fails, the answer is 503 SERVICIO_NO_DISPONIBLE: that says nothing about the credential and is retryable. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
@@ -144,6 +151,20 @@ internal protocol APIProtocol: Sendable {
     /// - Remark: HTTP `DELETE /api/cuenta`.
     /// - Remark: Generated from `#/paths//api/cuenta/delete`.
     func delete_sol_api_sol_cuenta(_ input: Operations.delete_sol_api_sol_cuenta.Input) async throws -> Operations.delete_sol_api_sol_cuenta.Output
+    /// Link the anonymous account to Sign in with Apple
+    ///
+    /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body is the one of POST /api/auth/apple/token without the terms versions; the nonce is checked the same way, and `authorizationCode` is exchanged best-effort so the Apple token can be revoked when the account is deleted. 404 when APPLE_BUNDLE_ID is not configured.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/vincular/apple`.
+    /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post`.
+    func post_sol_api_sol_cuenta_sol_vincular_sol_apple(_ input: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input) async throws -> Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output
+    /// Link the anonymous account to Google
+    ///
+    /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body carries the Google ID token of the native sign-in, verified like in POST /api/auth/google/token. 404 when no mobile Google client ID is configured.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/vincular/google`.
+    /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post`.
+    func post_sol_api_sol_cuenta_sol_vincular_sol_google(_ input: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input) async throws -> Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output
     /// List ingestas
     ///
     /// Authenticated endpoint returning the per-user ingesta history (US-004/US-018). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation). Ordering: newest first — `fecha` (when the ingesta was created) descending, ties by `id` descending.
@@ -330,6 +351,21 @@ internal protocol APIProtocol: Sendable {
 
 /// Convenience overloads for operation inputs.
 extension APIProtocol {
+    /// Create an anonymous account
+    ///
+    /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that creates an account with no Apple or Google identity, no email and no password, with its own copy of the classification catalog, and answers a session exactly like the sign-in endpoints. The app calls it once, when the person accepts the terms and chooses to continue without an account, and stores the token: an anonymous account cannot sign in again, so losing the token loses the data. Its session lasts 365 days and every use extends it (at most one write per day). `versionTerminos` and `versionPrivacidad` follow the sign-up rule of the token endpoints: stored with the account in the same transaction; both or neither; required when CONSENTS_REQUIRED is on. Every request counts against this endpoint's own IP budget and a successful sign-up never releases it. The account can later be linked with POST /api/cuenta/vincular/apple or /google. No Set-Cookie.
+    ///
+    /// - Remark: HTTP `POST /api/auth/anonimo`.
+    /// - Remark: Generated from `#/paths//api/auth/anonimo/post`.
+    internal func post_sol_api_sol_auth_sol_anonimo(
+        headers: Operations.post_sol_api_sol_auth_sol_anonimo.Input.Headers = .init(),
+        body: Operations.post_sol_api_sol_auth_sol_anonimo.Input.Body? = nil
+    ) async throws -> Operations.post_sol_api_sol_auth_sol_anonimo.Output {
+        try await post_sol_api_sol_auth_sol_anonimo(Operations.post_sol_api_sol_auth_sol_anonimo.Input(
+            headers: headers,
+            body: body
+        ))
+    }
     /// Authenticate with a native Apple identity token (mobile)
     ///
     /// Public endpoint (requires x-api-key only, session-public — no prior session needed) that verifies an Apple identity token (RS256 signature against Apple's JWKS, iss, aud = the app's bundle ID, exp) and its nonce: the app sends the RAW nonce and passes its SHA-256 (hex) to Apple; the server hashes the raw value and compares it with the token's nonce claim. The identity is the token's `sub`, never the email: an existing user is matched by appleSub; otherwise a VERIFIED, non-private-relay email may link to an existing account (unless that account already has a different appleSub); otherwise a new passwordless account is created (signup-on-first-login). Apple delivers the email and the name only on the FIRST authorization and only if the app requested the email scope — the name travels in `nombre` (it is not in the token); a NEW user arriving without an email is rejected. The 200 body is identical for login and signup and never reveals which one happened. Every failure cause — well-formed JSON with an invalid body, invalid/expired/wrong-audience token, nonce mismatch, unverified or missing email, an email linked to a different appleSub, or a lost creation race — produces the identical 401 body used by POST /api/auth/login (anti-enumeration). No Set-Cookie: mobile uses Bearer + SecureStore. A successful login of a PRE-EXISTING user releases this endpoint's own IP rate-limit budget; a successful signup never does. 404 when APPLE_BUNDLE_ID is not configured. A syntactically malformed JSON body never reaches the handler: the shared body parser rejects it and the shared error handler answers 400 BODY_INVALIDO, not this 401. If Apple cannot be reached or an internal dependency fails, the answer is 503 SERVICIO_NO_DISPONIBLE: that says nothing about the credential and is retryable. A signup with malformed or incomplete `versionTerminos`/`versionPrivacidad`, or with neither of them while CONSENTS_REQUIRED is on, takes that same 401 and creates nothing; an existing account never needs them.
@@ -569,6 +605,36 @@ extension APIProtocol {
         body: Operations.delete_sol_api_sol_cuenta.Input.Body? = nil
     ) async throws -> Operations.delete_sol_api_sol_cuenta.Output {
         try await delete_sol_api_sol_cuenta(Operations.delete_sol_api_sol_cuenta.Input(
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Link the anonymous account to Sign in with Apple
+    ///
+    /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body is the one of POST /api/auth/apple/token without the terms versions; the nonce is checked the same way, and `authorizationCode` is exchanged best-effort so the Apple token can be revoked when the account is deleted. 404 when APPLE_BUNDLE_ID is not configured.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/vincular/apple`.
+    /// - Remark: Generated from `#/paths//api/cuenta/vincular/apple/post`.
+    internal func post_sol_api_sol_cuenta_sol_vincular_sol_apple(
+        headers: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input.Headers = .init(),
+        body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input.Body? = nil
+    ) async throws -> Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Output {
+        try await post_sol_api_sol_cuenta_sol_vincular_sol_apple(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_apple.Input(
+            headers: headers,
+            body: body
+        ))
+    }
+    /// Link the anonymous account to Google
+    ///
+    /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body carries the Google ID token of the native sign-in, verified like in POST /api/auth/google/token. 404 when no mobile Google client ID is configured.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/vincular/google`.
+    /// - Remark: Generated from `#/paths//api/cuenta/vincular/google/post`.
+    internal func post_sol_api_sol_cuenta_sol_vincular_sol_google(
+        headers: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input.Headers = .init(),
+        body: Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input.Body? = nil
+    ) async throws -> Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Output {
+        try await post_sol_api_sol_cuenta_sol_vincular_sol_google(Operations.post_sol_api_sol_cuenta_sol_vincular_sol_google.Input(
             headers: headers,
             body: body
         ))
