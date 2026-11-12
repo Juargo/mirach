@@ -32,19 +32,21 @@ struct SignInView: View {
     }
 
     private var column: some View {
-            VStack(spacing: 24) {
+            VStack(spacing: MirachSpacing.m) {
                 Spacer()
-                VStack(spacing: 16) {
+                VStack(spacing: MirachSpacing.m) {
                     BrandRing()
                     Text("Mirach")
-                        .font(.mirach(.largeTitle).bold())
+                        .mirachText(.numeroGrande)
                         .foregroundStyle(Color.Mirach.Base.foreground)
                     Text("¿Estoy gastando bien? Te lo mostramos en un vistazo: necesidades, gustos y ahorro.")
+                        .mirachText(.cuerpo)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
                 if let notice {
                     Label(notice.message, systemImage: "checkmark.circle")
+                        .mirachText(.cuerpo)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color.Mirach.Feedback.successText)
                         // One VoiceOver element that reads only the message: on iOS 26 the
@@ -56,7 +58,8 @@ struct SignInView: View {
                 Spacer()
                 content
             }
-            .padding()
+            .padding(.horizontal, MirachSpacing.l)
+            .padding(.vertical, MirachSpacing.m)
             .frame(maxWidth: .infinity)
     }
 
@@ -64,14 +67,14 @@ struct SignInView: View {
     private var content: some View {
         switch viewModel.state {
         case .loadingProviders:
-            ProgressView("Cargando…")
+            ProgressView("Cargando…").mirachText(.cuerpo)
         case .ready, .authenticating:
-            VStack(spacing: 16) {
+            VStack(spacing: MirachSpacing.s) {
                 if let message = viewModel.errorMessage {
                     errorBlock(message, detail: viewModel.errorDetail, hint: viewModel.errorHint)
                 }
                 if viewModel.state == .authenticating {
-                    ProgressView("Iniciando sesión…")
+                    ProgressView("Iniciando sesión…").mirachText(.cuerpo)
                 }
                 if viewModel.appleLoginAvailable { appleButton }
                 if viewModel.googleLoginAvailable { googleButton }
@@ -88,25 +91,23 @@ struct SignInView: View {
     @ViewBuilder
     private func errorBlock(_ message: String, detail: String?, hint: String?) -> some View {
         if let detail {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(message).font(.mirach(.subheadline).weight(.medium))
+            // Figma «Aviso» Nota: title, text and the hint as lines of one box.
+            Nota {
+                Text(message).mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Base.foreground)
-                Text(detail).font(.mirach(.subheadline))
+                Text(detail).mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 if let hint {
-                    Text(hint).font(.mirach(.subheadline))
+                    Text(hint).mirachText(.etiqueta)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
-                        .padding(.top, 4)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(Color.Mirach.Base.card)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("signin.error")
         } else {
             // Never color alone: the icon and the text carry the meaning too.
             Label(message, systemImage: "exclamationmark.circle")
+                .mirachText(.cuerpo)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("signin.error")
@@ -117,7 +118,7 @@ struct SignInView: View {
         let text = "Al continuar aceptas los [Términos](\(LegalDocuments.terminosURL)) "
             + "y la [Política de privacidad](\(LegalDocuments.privacidadURL)). No pedimos claves de tu banco."
         return Text(.init(text))
-            .font(.mirach(.caption))
+            .mirachText(.mini)
             .multilineTextAlignment(.center)
             .foregroundStyle(Color.Mirach.Base.mutedForeground)
             .tint(Color.Mirach.Base.foreground)
@@ -136,7 +137,7 @@ struct SignInView: View {
             Task { await viewModel.completeAppleSignIn(Self.credential(from: result)) }
         }
         .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-        .frame(height: 50)
+        .frame(height: MirachButtonMetrics.minHeight)
         .disabled(viewModel.state == .authenticating)
         .accessibilityIdentifier("signin.apple")
     }
@@ -150,22 +151,16 @@ struct SignInView: View {
             HStack(spacing: 10) {
                 GoogleLogo()
                 Text("Continuar con Google")
-                    .font(.mirach(.body).weight(.medium))
-                    .foregroundStyle(Color.Mirach.Base.foreground)
             }
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(Color.Mirach.Base.background)
-            .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .secondaryButton()
         .disabled(viewModel.state == .authenticating)
         .accessibilityIdentifier("signin.google")
     }
 
     private func retryBlock(_ message: String) -> some View {
-        VStack(spacing: 12) {
-            Text(message).multilineTextAlignment(.center)
+        VStack(spacing: MirachSpacing.m) {
+            Text(message).mirachText(.cuerpo).multilineTextAlignment(.center)
             Button("Reintentar") { retryCount += 1 }
                 .prominentButton()
         }

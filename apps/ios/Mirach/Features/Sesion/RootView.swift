@@ -35,13 +35,14 @@ struct RootView: View {
             case .signedIn:
                 SignedInView(environment: environment)
             case .connectionFailed:
-                VStack(spacing: 12) {
+                VStack(spacing: MirachSpacing.m) {
                     Text("Problema de conexión. Revisa tu conexión e inténtalo de nuevo.")
+                        .mirachText(.cuerpo)
                         .multilineTextAlignment(.center)
                     Button("Reintentar") { retryCount += 1 }
                         .prominentButton()
                 }
-                .padding()
+                .padding(MirachSpacing.l)
             case .misconfigured:
                 ConfigurationErrorView()
             }
@@ -53,12 +54,13 @@ private struct StatusView: View {
     let message: String
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: MirachSpacing.s) {
             ProgressView()
             Text(message)
+                .mirachText(.cuerpo)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
-        .padding()
+        .padding(MirachSpacing.l)
     }
 }

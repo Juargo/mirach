@@ -16,10 +16,11 @@ struct IngresosView: View {
     var body: some View {
         ScrollView {
             // Lazy: the list is never paged, so only the visible rows are built.
-            LazyVStack(alignment: .leading, spacing: 12) {
+            LazyVStack(alignment: .leading, spacing: MirachSpacing.m) {
                 content
             }
-            .padding(16)
+            .padding(.horizontal, MirachSpacing.l)
+            .padding(.vertical, MirachSpacing.m)
         }
         // Pull to refresh repeats the query for the month on screen.
         .refreshable { await viewModel.refresh() }
@@ -35,9 +36,10 @@ struct IngresosView: View {
     private var content: some View {
         switch viewModel.state {
         case .loading:
-            VStack(spacing: 12) {
+            VStack(spacing: MirachSpacing.m) {
                 ProgressView()
                 Text("Cargando ingresos…")
+                    .mirachText(.cuerpo)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .frame(maxWidth: .infinity)
@@ -45,10 +47,11 @@ struct IngresosView: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("ingresos.loading")
         case .failed(let failure):
-            VStack(spacing: 12) {
+            VStack(spacing: MirachSpacing.m) {
                 Text(failure == .connection
                     ? "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
                     : "No pudimos cargar los ingresos. Inténtalo de nuevo en unos segundos.")
+                    .mirachText(.cuerpo)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.retry() } }
@@ -64,21 +67,24 @@ struct IngresosView: View {
                 anterior: viewModel.anterior,
                 siguiente: viewModel.siguiente,
                 select: { periodo in Task { await viewModel.select(periodo) } },
-                idPrefix: "ingresos"
+                idPrefix: "ingresos",
+                titleFont: .mirach(.cuerpoDestacado)
             )
             if let text = viewModel.refreshNotice {
                 Label(text, systemImage: "exclamationmark.triangle")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(text)
                     .accessibilityIdentifier("ingresos.notice")
             }
             if ingresos.transacciones.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: MirachSpacing.s) {
                     Text("Sin ingresos en \(Format.month(ingresos.periodo))")
-                        .font(.mirach(.headline))
+                        .mirachText(.cuerpoDestacado)
                         .foregroundStyle(Color.Mirach.Base.foreground)
                     Text("No hay ingresos registrados para este período.")
+                        .mirachText(.cuerpo)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
                 .multilineTextAlignment(.center)
@@ -98,25 +104,22 @@ private struct IngresosHeader: View {
     let ingresos: IngresosMes
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
             Text(MirachCopy.Bucket.ingreso)
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             Text(Format.income(ingresos.total))
-                .font(.mirach(.title2).bold())
+                .mirachText(.numeroGrande)
                 .mirachFigures()
                 // A figure must not wrap or truncate: it shrinks first.
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 .foregroundStyle(Color.Mirach.Ingreso.text)
             Text(IngresosPresentation.count(ingresos.conteo))
-                .font(.mirach(.footnote))
+                .mirachText(.cuerpo)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
-        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.Mirach.Base.card)
-        .overlay(Rectangle().stroke(Color.Mirach.Base.border))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(IngresosPresentation.headerLabel(ingresos))
         .accessibilityIdentifier("ingresos.header")
@@ -140,16 +143,16 @@ private struct IngresoRow: View {
     private var content: some View {
         Group {
             if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: MirachSpacing.xs) {
                     description
                     amount
                     subtitle
                 }
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: MirachSpacing.m) {
                         description
-                        Spacer(minLength: 8)
+                        Spacer(minLength: MirachSpacing.s)
                         amount
                     }
                     subtitle
@@ -162,7 +165,7 @@ private struct IngresoRow: View {
 
     private var description: some View {
         Text(ingreso.descripcion)
-            .font(.mirach(.body))
+            .mirachText(.cuerpo)
             // The description may take several lines (never cut), capped so a long word wraps
             // by word and not by syllable at the largest sizes.
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
@@ -171,7 +174,7 @@ private struct IngresoRow: View {
 
     private var amount: some View {
         Text(Format.income(ingreso.monto))
-            .font(.mirach(.body))
+            .mirachText(.cuerpoDestacado)
             .mirachFigures()
             .lineLimit(1)
             .minimumScaleFactor(0.6)
@@ -180,7 +183,7 @@ private struct IngresoRow: View {
 
     private var subtitle: some View {
         Text("\(Format.shortDate(ingreso.fecha)) · \(ingreso.origen)")
-            .font(.mirach(.footnote))
+            .mirachText(.etiqueta)
             // Wrap at word boundaries instead of truncating.
             .fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(Color.Mirach.Base.mutedForeground)

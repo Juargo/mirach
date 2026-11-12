@@ -13,11 +13,11 @@ struct PerfilView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: MirachSpacing.l) {
                     content
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(MirachSpacing.l)
             }
             // The colour reaches every edge, not only the content's height.
             .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
@@ -56,7 +56,7 @@ struct PerfilView: View {
         case .loading:
             VStack(spacing: 12) {
                 ProgressView()
-                Text("Cargando tu perfil…").foregroundStyle(Color.Mirach.Base.mutedForeground)
+                Text("Cargando tu perfil…").mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 48)
@@ -65,6 +65,7 @@ struct PerfilView: View {
         case .failed:
             VStack(spacing: 12) {
                 Text(viewModel.loadFailureMessage ?? "")
+                    .mirachText(.cuerpo)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.load() } }
@@ -86,8 +87,8 @@ struct PerfilView: View {
     // MARK: sections
 
     private var nameSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Nombre").font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
+            SectionLabel("Nombre")
             TextField("Nombre", text: $viewModel.nombre, axis: .vertical)
                 .lineLimit(1...4)
                 .textContentType(.name)
@@ -100,9 +101,7 @@ struct PerfilView: View {
                     viewModel.nombre = viewModel.nombre.filter { !$0.isNewline }
                     Task { await viewModel.save() }
                 }
-                .padding(12)
-                .overlay(Rectangle().stroke(Color.Mirach.Base.input))
-                .foregroundStyle(Color.Mirach.Base.foreground)
+                .mirachField()
                 .disabled(viewModel.isBusyWithSession)
                 .accessibilityIdentifier("perfil.nombre")
             Button {
@@ -113,17 +112,18 @@ struct PerfilView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .prominentButton().controlSize(.large)
-            .modifier(GrowingButton())
+            .prominentButton()
             .disabled(!viewModel.canSave)
             .accessibilityLabel(viewModel.saveState == .saving ? "Guardando" : "Guardar")
             .accessibilityIdentifier("perfil.save")
             if let message = viewModel.saveFailureMessage {
                 Label(message, systemImage: "exclamationmark.circle")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                     .accessibilityIdentifier("perfil.saveError")
             } else if viewModel.saveState == .saved, !viewModel.hasNameChanges {
                 Label(PerfilViewModel.savedMessage, systemImage: "checkmark.circle")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Feedback.successText)
                     .accessibilityIdentifier("perfil.saved")
             }
@@ -132,9 +132,10 @@ struct PerfilView: View {
 
     private func emailSection(_ email: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Correo").font(.mirach(.footnote)).foregroundStyle(Color.Mirach.Base.mutedForeground)
+            SectionLabel("Correo")
             // Read only. It may be Apple's private relay address.
             Text(email)
+                .mirachText(.cuerpo)
                 .foregroundStyle(Color.Mirach.Base.foreground)
                 .textSelection(.enabled)
                 // A long address wraps instead of being cut; a little scaling keeps most on one line.
@@ -146,13 +147,11 @@ struct PerfilView: View {
     }
 
     private func consentSection(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(PerfilViewModel.consentTitle)
-                    .font(.mirach(.footnote))
-                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
-                    .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
+            VStack(alignment: .leading, spacing: MirachSpacing.xs) {
+                SectionLabel(PerfilViewModel.consentTitle)
                 Text(text)
+                    .mirachText(.cuerpo)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("perfil.consent.text")
@@ -170,10 +169,12 @@ struct PerfilView: View {
             }
             if let message = viewModel.revokeFailureMessage {
                 Label(message, systemImage: "exclamationmark.circle")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                     .accessibilityIdentifier("perfil.consent.error")
             } else if let message = viewModel.revokeMessage {
                 Label(message, systemImage: "checkmark.circle")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Feedback.successText)
                     .accessibilityIdentifier("perfil.consent.revoked")
             }
@@ -182,8 +183,8 @@ struct PerfilView: View {
     }
 
     private var sessionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Divider()
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
+            Divider().overlay(Color.Mirach.Base.border)
             Button {
                 Task { await viewModel.signOut() }
             } label: {
@@ -222,15 +223,17 @@ private struct DeleteAccountSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: MirachSpacing.m) {
                     Text("Esta acción no se puede deshacer")
-                        .font(.mirach(.title3).bold())
+                        .mirachText(.titulo)
                         .foregroundStyle(Color.Mirach.Base.foreground)
                         .accessibilityAddTraits(.isHeader)
                     Text("Se eliminarán tu cuenta, tus cartolas, tus movimientos, tus categorías y tus patrones. No podrás recuperarlos.")
+                        .mirachText(.cuerpo)
                         .foregroundStyle(Color.Mirach.Base.foreground)
                         .accessibilityIdentifier("perfil.delete.warning")
                     Text("Para confirmar, escribe \(PerfilViewModel.confirmationWord).")
+                        .mirachText(.cuerpo)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
 
                     // No autocorrect, capitals or suggestions: the word must be typed exactly.
@@ -241,14 +244,13 @@ private struct DeleteAccountSheet: View {
                         .focused($fieldFocused)
                         .submitLabel(.done)
                         .onSubmit { fieldFocused = false }
-                        .padding(12)
-                        .overlay(Rectangle().stroke(Color.Mirach.Base.input))
-                        .foregroundStyle(Color.Mirach.Base.foreground)
+                        .mirachField(isError: viewModel.deleteFailureMessage != nil)
                         .disabled(viewModel.deleteState == .deleting)
                         .accessibilityIdentifier("perfil.delete.field")
 
                     if let message = viewModel.deleteFailureMessage {
                         Label(message, systemImage: "exclamationmark.circle")
+                            .mirachText(.etiqueta)
                             .foregroundStyle(Color.Mirach.Feedback.errorText)
                             .accessibilityIdentifier("perfil.delete.error")
                     }
@@ -265,15 +267,12 @@ private struct DeleteAccountSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent).controlSize(.large)
-                    .modifier(GrowingButton())
-                    .tint(Color.Mirach.Base.destructive)
-                    .foregroundStyle(Color.Mirach.Base.primaryForeground)
+                    .prominentButton()
                     .disabled(!viewModel.canDelete)
                     .accessibilityIdentifier("perfil.delete.confirm")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(MirachSpacing.l)
             }
             .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
             .navigationTitle("Eliminar cuenta")
@@ -292,15 +291,5 @@ private struct DeleteAccountSheet: View {
             .scrollDismissesKeyboard(.interactively)
             .onAppear { fieldFocused = true }
         }
-    }
-}
-
-/// A rounded rectangle instead of a capsule (labels span the full width) whose height follows the label: at
-/// the largest text sizes a wrapped label stays inside its button.
-private struct GrowingButton: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .buttonBorderShape(.roundedRectangle(radius: 12))
-            .fixedSize(horizontal: false, vertical: true)
     }
 }

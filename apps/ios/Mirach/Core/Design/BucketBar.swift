@@ -4,12 +4,12 @@ import SwiftUI
 enum BucketBarPresentation {
     /// Real share of the income as a 0...1 fraction of the track; empty without a share.
     static func fillFraction(of item: BucketResumen) -> Double {
-        clamped(bp: item.porcentajeBp ?? 0)
+        fraction(bp: item.porcentajeBp ?? 0)
     }
 
     /// Target share as a 0...1 fraction of the track.
     static func tickFraction(of item: BucketResumen) -> Double {
-        clamped(bp: item.metaBp)
+        fraction(bp: item.metaBp)
     }
 
     /// `56% de 50% · $700.000`: real share, target share, amount spent.
@@ -26,7 +26,8 @@ enum BucketBarPresentation {
             + "Meta \(Format.percent(bp: item.metaBp))"
     }
 
-    private static func clamped(bp: Int) -> Double {
+    /// A share in basis points as a 0...1 fraction of the track.
+    static func fraction(bp: Int) -> Double {
         min(max(Double(bp) / 10_000, 0), 1)
     }
 }
@@ -34,10 +35,6 @@ enum BucketBarPresentation {
 /// A bucket's name and state, its share of the income against the target, and the figures.
 struct BucketBar: View {
     let item: BucketResumen
-
-    private static let trackHeight: CGFloat = 10
-    private static let tickWidth: CGFloat = 2
-    private static let tickHeight: CGFloat = 18
 
     var body: some View {
         VStack(alignment: .leading, spacing: MirachSpacing.xs) {
@@ -62,16 +59,36 @@ struct BucketBar: View {
 
     /// The track, the fill in the bucket color and the target tick, centered on the track.
     private var track: some View {
+        BucketTrack(
+            fill: item.bucket.fill,
+            fillFraction: BucketBarPresentation.fillFraction(of: item),
+            tickFraction: BucketBarPresentation.tickFraction(of: item)
+        )
+    }
+}
+
+/// The track of Figma «Barra (real vs meta)»: the fill in the bucket color and the target tick,
+/// centered on the track. Decoration: the figures next to it say the same.
+struct BucketTrack: View {
+    let fill: Color
+    let fillFraction: Double
+    let tickFraction: Double
+
+    private static let trackHeight: CGFloat = 10
+    private static let tickWidth: CGFloat = 2
+    private static let tickHeight: CGFloat = 18
+
+    var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
             ZStack(alignment: .leading) {
                 Rectangle().fill(Color.Mirach.Base.card)
                     .frame(height: Self.trackHeight)
-                Rectangle().fill(item.bucket.fill)
-                    .frame(width: width * BucketBarPresentation.fillFraction(of: item), height: Self.trackHeight)
+                Rectangle().fill(fill)
+                    .frame(width: width * fillFraction, height: Self.trackHeight)
                 Rectangle().fill(Color.Mirach.Base.foreground)
                     .frame(width: Self.tickWidth, height: Self.tickHeight)
-                    .offset(x: width * BucketBarPresentation.tickFraction(of: item) - Self.tickWidth / 2)
+                    .offset(x: width * tickFraction - Self.tickWidth / 2)
             }
             .frame(height: Self.tickHeight)
         }

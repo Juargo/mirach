@@ -21,6 +21,12 @@ struct BucketBarPresentationTests {
         #expect(BucketBarPresentation.fillFraction(of: item(total: 0, bp: nil)) == 0)
     }
 
+    @Test func aShareInBasisPointsBecomesAClampedFractionOfTheTrack() {
+        #expect(BucketBarPresentation.fraction(bp: 5600) == 0.56)
+        #expect(BucketBarPresentation.fraction(bp: 15_000) == 1)
+        #expect(BucketBarPresentation.fraction(bp: -1) == 0)
+    }
+
     @Test func theTickIsTheTargetShareClamped() {
         #expect(BucketBarPresentation.tickFraction(of: item(total: 1, meta: 5000)) == 0.5)
         #expect(BucketBarPresentation.tickFraction(of: item(total: 1, meta: 12_000)) == 1)

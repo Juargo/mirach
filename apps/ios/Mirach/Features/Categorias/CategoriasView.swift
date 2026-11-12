@@ -49,13 +49,6 @@ struct CategoriasView: View {
                 .refreshable { await viewModel.refresh() }
                 .navigationTitle("Categorías")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { openForm() } label: { Label("Nueva categoría", systemImage: "plus") }
-                            .disabled(!isLoaded)
-                            .accessibilityIdentifier("categorias.new")
-                    }
-                }
                 // The task restarts whenever the view reappears: that must neither blank the list nor
                 // leave a load that was cancelled midway as an endless spinner.
                 .task { await viewModel.loadIfNeeded() }
@@ -119,7 +112,7 @@ struct CategoriasView: View {
         case .loading:
             VStack(spacing: 12) {
                 ProgressView()
-                Text("Cargando categorías…").foregroundStyle(Color.Mirach.Base.mutedForeground)
+                Text("Cargando categorías…").mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 48)
@@ -131,6 +124,7 @@ struct CategoriasView: View {
                 Text(failure == .connection
                     ? "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
                     : "No pudimos cargar las categorías. Inténtalo de nuevo en unos segundos.")
+                    .mirachText(.cuerpo)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.retry() } }
@@ -144,19 +138,23 @@ struct CategoriasView: View {
             .plainRow()
         case .loaded(let catalog):
             notices
+            newCategoryRow
             if catalog.categorias.isEmpty { empty }
             ForEach(catalog.groups, id: \.bucket) { group in
                 Section {
                     if group.categorias.isEmpty {
                         Text("Sin categorías")
+                            .mirachText(.etiqueta)
                             .foregroundStyle(Color.Mirach.Base.mutedForeground)
                             .accessibilityIdentifier("categorias.empty.\(group.bucket.apiName)")
                             .listRowBackground(Color.Mirach.Base.background)
+                            .listRowInsets(Self.rowInsets)
                     }
                     ForEach(group.categorias) { category in
                         NavigationLink(value: CategoriaRoute(id: category.id)) { CategoriaRow(category: category) }
                             .listRowBackground(Color.Mirach.Base.background)
                             .listRowSeparatorTint(Color.Mirach.Base.border)
+                            .listRowInsets(Self.rowInsets)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel(CategoriasPresentation.rowLabel(category))
                             .accessibilityIdentifier("categorias.row.\(category.id)")
@@ -168,10 +166,39 @@ struct CategoriasView: View {
         }
     }
 
+    /// Figma 26: the screen's side margin is the `l` step; rows are flat and ruled.
+    private static let rowInsets = EdgeInsets(top: 0, leading: MirachSpacing.l, bottom: 0, trailing: MirachSpacing.l)
+
+    /// The first row of the list: «+ Nueva categoría» with a chevron. VoiceOver keeps the old name.
+    private var newCategoryRow: some View {
+        Button { openForm() } label: {
+            HStack(spacing: MirachSpacing.s) {
+                Text("+ Nueva categoría")
+                    .mirachText(.cuerpo)
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isLoaded)
+        .accessibilityLabel("Nueva categoría")
+        .accessibilityIdentifier("categorias.new")
+        .listRowBackground(Color.Mirach.Base.background)
+        .listRowSeparatorTint(Color.Mirach.Base.border)
+        .listRowInsets(Self.rowInsets)
+    }
+
     @ViewBuilder
     private var notices: some View {
         if let text = viewModel.announcement {
             Label(text, systemImage: "checkmark.circle")
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.successText)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(text)
@@ -182,6 +209,7 @@ struct CategoriasView: View {
         }
         if let text = viewModel.refreshNotice {
             Label(text, systemImage: "exclamationmark.triangle")
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(text)
@@ -193,6 +221,7 @@ struct CategoriasView: View {
     private var empty: some View {
         VStack(spacing: 16) {
             Text("Todavía no tienes categorías. Crea tu primera categoría para empezar a clasificar tus movimientos.")
+                .mirachText(.cuerpo)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
             Button("Nueva categoría") { openForm() }
@@ -210,7 +239,9 @@ struct CategoriasView: View {
 private extension View {
     /// A row that is not a list item: no separator, no backdrop of its own.
     func plainRow() -> some View {
-        listRowBackground(Color.clear).listRowSeparator(.hidden)
+        listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(
+            EdgeInsets(top: 0, leading: MirachSpacing.l, bottom: 0, trailing: MirachSpacing.l)
+        )
     }
 }
 
@@ -218,17 +249,18 @@ private struct BucketHeader: View {
     let bucket: Bucket
 
     var body: some View {
-        HStack(spacing: 8) {
-            // The bucket color is a fill, the name next to it is the real label.
-            Rectangle().fill(bucket.fill).frame(width: 14, height: 14).accessibilityHidden(true)
-            Text(bucket.label)
-        }
-        .font(.mirach(.subheadline).bold())
-        .foregroundStyle(Color.Mirach.Base.foreground)
-        .textCase(nil)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityIdentifier("categorias.group.\(bucket.apiName)")
+        // Mini, uppercase, muted (Figma 26); VoiceOver still reads the bucket's name.
+        SectionLabel(bucket.label)
+            // The plain list already insets a header by 16pt; the rest reaches the 24pt margin.
+            .padding(.horizontal, MirachSpacing.s)
+            .padding(.top, MirachSpacing.m)
+            .padding(.bottom, MirachSpacing.xs)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .textCase(nil)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(bucket.label)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("categorias.group.\(bucket.apiName)")
     }
 }
 
@@ -237,22 +269,22 @@ private struct CategoriaRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: MirachSpacing.m - 4) {
             Image(systemName: CategoryIcon.symbol(for: category.icono))
                 // Fixed size: at the largest text sizes a scaled symbol would spill over the name.
                 .font(.system(size: 20))
                 .frame(width: 28)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: MirachSpacing.xs) {
                 Text(category.nombre)
-                    .font(.mirach(.headline))
+                    .mirachText(.cuerpo)
                     // A category name is one word often: capped so it wraps by word, not by syllable.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .lineLimit(2)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                 Text(CategoriasPresentation.counts(category))
-                    .font(.mirach(.footnote))
+                    .mirachText(.etiqueta)
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)

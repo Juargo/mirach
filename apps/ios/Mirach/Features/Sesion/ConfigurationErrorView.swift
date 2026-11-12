@@ -4,20 +4,21 @@ import SwiftUI
 /// stop rather than a crash or a sign-in loop; there is nothing the person can retry.
 struct ConfigurationErrorView: View {
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: MirachSpacing.s) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.mirach(.largeTitle))
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityHidden(true)
             Text("La app no está configurada correctamente")
-                .font(.mirach(.title3).bold())
+                .mirachText(.titulo)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Base.foreground)
             Text("Falta la clave de acceso a la API. Instala una versión actualizada de Mirach o contacta a quien te la entregó.")
+                .mirachText(.cuerpo)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.Mirach.Base.mutedForeground)
         }
-        .padding()
+        .padding(MirachSpacing.l)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("configuration.error")
     }

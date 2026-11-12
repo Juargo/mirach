@@ -136,7 +136,7 @@ struct DetalleCategoriaView: View {
         case .loading:
             centered {
                 ProgressView()
-                Text("Cargando…").foregroundStyle(Color.Mirach.Base.mutedForeground)
+                Text("Cargando…").mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("categoria.loading")
@@ -145,6 +145,7 @@ struct DetalleCategoriaView: View {
                 Text(failure == .connection
                     ? "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
                     : "No pudimos cargar la categoría. Inténtalo de nuevo en unos segundos.")
+                    .mirachText(.cuerpo)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                 Button("Reintentar") { Task { await viewModel.retry() } }
@@ -156,7 +157,7 @@ struct DetalleCategoriaView: View {
         case .notFound:
             centered {
                 Text(DetalleCategoriaPresentation.goneMessage)
-                    .font(.mirach(.headline))
+                    .mirachText(.cuerpoDestacado)
                     .foregroundStyle(Color.Mirach.Base.foreground)
                 Button("Volver a Categorías") { dismiss() }
                     .prominentButton()
@@ -173,7 +174,7 @@ struct DetalleCategoriaView: View {
         VStack(spacing: 12) { inner() }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.top, 48)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, MirachSpacing.m)
     }
 
     // MARK: form
@@ -189,87 +190,76 @@ struct DetalleCategoriaView: View {
     }
 
     private func formBody(_ category: CategoriaCatalogo, locked: Bool) -> some View {
-        Form {
-            messages
-            Section {
-                TextField("Nombre", text: $viewModel.draftNombre)
-                    .focused($nameFocused)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .accessibilityIdentifier("categoria.name")
-                fieldError(viewModel.fieldErrors.name, id: "categoria.error.name")
-            } header: { Text("Nombre") } footer: {
-                Text(DetalleBucketPresentation.movements(category.transaccionesCount) + " en total")
-            }
-            .listRowBackground(Color.Mirach.Base.card)
-            .disabled(locked)
-
-            Section {
-                BucketChoice(
-                    selection: Binding(get: { viewModel.draftBucket }, set: { if let bucket = $0 { viewModel.draftBucket = bucket } }),
-                    idPrefix: "categoria"
-                )
-                fieldError(viewModel.fieldErrors.bucket, id: "categoria.error.bucket")
-            } header: { Text("Grupo") } footer: {
-                Text("Define cómo cuenta este gasto en tu 50/30/20; afecta todos los meses.")
-            }
-            .listRowBackground(Color.Mirach.Base.card)
-            .disabled(locked)
-
-            Section {
-                IconPicker(selection: viewModel.draftIcono, allowsNone: category.icono == nil, idPrefix: "categoria") {
-                    viewModel.draftIcono = $0
-                }
-                fieldError(viewModel.fieldErrors.icon, id: "categoria.error.icon")
-            } header: { Text("Ícono") }
-                .listRowBackground(Color.Mirach.Base.card)
-                .disabled(locked)
-
-            patternsSection(category).disabled(locked)
-
-            if let general = viewModel.fieldErrors.general {
-                Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: MirachSpacing.m) {
+                messages
+                nameGroup(category).disabled(locked)
+                bucketGroup.disabled(locked)
+                iconGroup(category).disabled(locked)
+                patternsGroup(category).disabled(locked)
+                if let general = viewModel.fieldErrors.general {
                     Text(general)
+                        .mirachText(.cuerpo)
                         .foregroundStyle(Color.Mirach.Feedback.errorText)
                         .accessibilityIdentifier("categoria.error.general")
                 }
-                .listRowBackground(Color.Mirach.Base.card)
+                actions.disabled(locked)
             }
-
-            Section {
-                if viewModel.isDeleting {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                        Text("Eliminando…").foregroundStyle(Color.Mirach.Base.mutedForeground)
-                    }
-                    .accessibilityElement(children: .combine)
-                } else {
-                    Button(role: .destructive) {
-                        nameFocused = false
-                        viewModel.requestDeletion()
-                    } label: {
-                        Label("Eliminar categoría", systemImage: "trash")
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    }
-                    .foregroundStyle(Color.Mirach.Feedback.errorText)
-                    .accessibilityIdentifier("categoria.delete")
-                }
-            }
-            .listRowBackground(Color.Mirach.Base.card)
-            .disabled(locked)
+            .padding(.horizontal, MirachSpacing.l)
+            .padding(.vertical, MirachSpacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.interactively)
         .refreshable { await viewModel.refresh() }
+    }
+
+    private func nameGroup(_ category: CategoriaCatalogo) -> some View {
+        FormGroup(
+            title: "Nombre",
+            footer: DetalleBucketPresentation.movements(category.transaccionesCount) + " en total"
+        ) {
+            // The visible label is the group's; VoiceOver gets the field's own name.
+            TextField("", text: $viewModel.draftNombre)
+                .accessibilityLabel("Nombre")
+                .focused($nameFocused)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .mirachField(isError: viewModel.fieldErrors.name != nil)
+                .accessibilityIdentifier("categoria.name")
+            fieldError(viewModel.fieldErrors.name, id: "categoria.error.name")
+        }
+    }
+
+    private var bucketGroup: some View {
+        FormGroup(title: "Grupo", footer: "Define cómo cuenta este gasto en tu 50/30/20; afecta todos los meses.") {
+            BucketSegmentedControl(
+                selection: Binding(get: { viewModel.draftBucket }, set: { if let bucket = $0 { viewModel.draftBucket = bucket } }),
+                idPrefix: "categoria"
+            )
+            fieldError(viewModel.fieldErrors.bucket, id: "categoria.error.bucket")
+        }
+    }
+
+    private func iconGroup(_ category: CategoriaCatalogo) -> some View {
+        FormGroup(title: "Ícono", footer: nil) {
+            IconPicker(selection: viewModel.draftIcono, allowsNone: category.icono == nil, idPrefix: "categoria") {
+                viewModel.draftIcono = $0
+            }
+            fieldError(viewModel.fieldErrors.icon, id: "categoria.error.icon")
+        }
     }
 
     /// The system category notice stays with the form; it never changes.
     @ViewBuilder
     private var messages: some View {
         if viewModel.isProtected {
-            Label(viewModel.protectedMessage, systemImage: "lock")
-                .foregroundStyle(Color.Mirach.Base.foreground)
-                .accessibilityIdentifier("categoria.protected")
-                .listRowBackground(Color.Mirach.Base.card)
+            Nota {
+                Label(viewModel.protectedMessage, systemImage: "lock")
+                    .mirachText(.etiqueta)
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("categoria.protected")
         }
     }
 
@@ -280,6 +270,7 @@ struct DetalleCategoriaView: View {
         VStack(alignment: .leading, spacing: 8) {
             if let text = viewModel.announcement {
                 Label(text, systemImage: "checkmark.circle")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Feedback.successText)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(text)
@@ -288,6 +279,7 @@ struct DetalleCategoriaView: View {
             }
             if let text = viewModel.notice ?? viewModel.refreshNotice {
                 Label(text, systemImage: "exclamationmark.triangle")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(text)
@@ -295,45 +287,90 @@ struct DetalleCategoriaView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, MirachSpacing.l)
         .padding(.vertical, viewModel.announcement != nil || viewModel.notice != nil || viewModel.refreshNotice != nil ? 12 : 0)
         .background(Color.Mirach.Base.card)
     }
 
-    private func patternsSection(_ category: CategoriaCatalogo) -> some View {
-        Section {
+    private func patternsGroup(_ category: CategoriaCatalogo) -> some View {
+        FormGroup(
+            title: "Patrones",
+            footer: "Se aplican a las próximas importaciones. Los movimientos ya importados no cambian."
+        ) {
             if category.patrones.isEmpty {
                 Text("Sin patrones: esta categoría solo se puede asignar manualmente.")
+                    .mirachText(.etiqueta)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
                     .accessibilityIdentifier("categoria.patterns.empty")
             }
-            ForEach(category.patrones) { pattern in
-                PatternRow(
-                    pattern: pattern,
-                    isDeleting: viewModel.deletingPattern == pattern.id,
-                    edit: { viewModel.beginEditPattern(pattern) },
-                    delete: { viewModel.requestPatternDeletion(pattern) }
-                )
+            VStack(spacing: 0) {
+                ForEach(category.patrones) { pattern in
+                    PatternRow(
+                        pattern: pattern,
+                        isDeleting: viewModel.deletingPattern == pattern.id,
+                        edit: { viewModel.beginEditPattern(pattern) },
+                        delete: { viewModel.requestPatternDeletion(pattern) }
+                    )
+                    Rectangle().fill(Color.Mirach.Base.border).frame(height: 1)
+                }
             }
-            Button { viewModel.beginAddPattern() } label: {
-                Label("Agregar patrón", systemImage: "plus")
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            }
-            .accessibilityIdentifier("categoria.pattern.add")
-        } header: { Text("Patrones") } footer: {
-            Text("Se aplican a las próximas importaciones. Los movimientos ya importados no cambian.")
         }
-        .listRowBackground(Color.Mirach.Base.card)
+    }
+
+    /// Figma 27: «Agregar patrón» is the screen's primary button, «Eliminar categoría» the secondary.
+    private var actions: some View {
+        VStack(spacing: MirachSpacing.s) {
+            Button("Agregar patrón") { viewModel.beginAddPattern() }
+                .prominentButton()
+                .accessibilityIdentifier("categoria.pattern.add")
+            if viewModel.isDeleting {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Eliminando…").mirachText(.cuerpo).foregroundStyle(Color.Mirach.Base.mutedForeground)
+                }
+                .frame(minHeight: MirachButtonMetrics.minHeight)
+                .accessibilityElement(children: .combine)
+            } else {
+                Button("Eliminar categoría", role: .destructive) {
+                    nameFocused = false
+                    viewModel.requestDeletion()
+                }
+                .secondaryButton()
+                .accessibilityIdentifier("categoria.delete")
+            }
+        }
+        .padding(.top, MirachSpacing.s)
     }
 
     @ViewBuilder
     private func fieldError(_ text: String?, id: String) -> some View {
         if let text {
             Text(text)
-                .font(.mirach(.footnote))
+                .mirachText(.etiqueta)
                 .foregroundStyle(Color.Mirach.Feedback.errorText)
                 .accessibilityIdentifier(id)
         }
+    }
+}
+
+/// A labelled group of the form: the Mini label above, the content, an optional note below.
+private struct FormGroup<Content: View>: View {
+    let title: String
+    let footer: String?
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
+            SectionLabel(title)
+            content
+            if let footer {
+                Text(footer)
+                    .mirachText(.etiqueta)
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -350,11 +387,11 @@ private struct PatternRow: View {
             Button(action: edit) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(pattern.patron)
-                        .font(.mirach(.body))
+                        .mirachText(.cuerpo)
                         .foregroundStyle(Color.Mirach.Base.foreground)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(pattern.matchType.label)
-                        .font(.mirach(.footnote))
+                        .mirachText(.etiqueta)
                         .foregroundStyle(Color.Mirach.Base.mutedForeground)
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -396,54 +433,55 @@ private struct PatternSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("Texto que aparece en la cartola", text: $text)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .accessibilityIdentifier("pattern.text")
-                    if let error = viewModel.patternErrors.pattern {
-                        Text(error)
-                            .font(.mirach(.footnote))
-                            .foregroundStyle(Color.Mirach.Feedback.errorText)
-                            .accessibilityIdentifier("pattern.error.text")
-                    }
-                } header: { Text("Texto que aparece en la cartola") }
-                .listRowBackground(Color.Mirach.Base.card)
-
-                if let conflict = viewModel.patternConflict, let here = viewModel.category {
-                    Section {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(DetalleCategoriaPresentation.conflictTitle(conflict))
-                                .font(.mirach(.subheadline).weight(.semibold))
-                                .foregroundStyle(Color.Mirach.Base.foreground)
-                            Text(DetalleCategoriaPresentation.conflictRule)
-                            Text(DetalleCategoriaPresentation.conflictConsequence(conflict, here: here))
+            ScrollView {
+                VStack(alignment: .leading, spacing: MirachSpacing.m) {
+                    VStack(alignment: .leading, spacing: MirachSpacing.s) {
+                        Text("Texto que aparece en la cartola")
+                            .mirachText(.etiqueta)
+                            .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                            .accessibilityHidden(true)
+                        TextField("", text: $text)
+                            .accessibilityLabel("Texto que aparece en la cartola")
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .mirachField(isError: viewModel.patternErrors.pattern != nil)
+                            .accessibilityIdentifier("pattern.text")
+                        if let error = viewModel.patternErrors.pattern {
+                            Text(error)
+                                .mirachText(.etiqueta)
+                                .foregroundStyle(Color.Mirach.Feedback.errorText)
+                                .accessibilityIdentifier("pattern.error.text")
                         }
-                        .font(.mirach(.footnote))
-                        .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    }
+
+                    if let conflict = viewModel.patternConflict, let here = viewModel.category {
+                        Nota {
+                            Text(DetalleCategoriaPresentation.conflictTitle(conflict))
+                                .foregroundStyle(Color.Mirach.Base.foreground)
+                            Group {
+                                Text(DetalleCategoriaPresentation.conflictRule)
+                                Text(DetalleCategoriaPresentation.conflictConsequence(conflict, here: here))
+                            }
+                            .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                        }
+                        .mirachText(.etiqueta)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("pattern.conflict")
-                    }
-                    .listRowBackground(Color.Mirach.Base.card)
-                } else if let preview = viewModel.patternPreview, let here = viewModel.category {
-                    Section {
-                        ForEach(preview.coincidencias) { row in
-                            Text(DetalleCategoriaPresentation.previewRow(row))
-                                .font(.mirach(.footnote))
-                                .foregroundStyle(Color.Mirach.Base.mutedForeground)
-                                .accessibilityLabel(DetalleCategoriaPresentation.previewRowLabel(row))
+                    } else if let preview = viewModel.patternPreview, let here = viewModel.category {
+                        Nota {
+                            Text(DetalleCategoriaPresentation.previewTitle(total: preview.total, periodo: preview.periodo))
+                                .foregroundStyle(Color.Mirach.Base.foreground)
+                                .accessibilityIdentifier("pattern.preview")
+                            ForEach(preview.coincidencias) { row in
+                                Text(DetalleCategoriaPresentation.previewRow(row))
+                                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                                    .accessibilityLabel(DetalleCategoriaPresentation.previewRowLabel(row))
+                            }
                         }
-                    } header: {
-                        Text(DetalleCategoriaPresentation.previewTitle(total: preview.total, periodo: preview.periodo))
-                            .textCase(nil)
-                            .accessibilityIdentifier("pattern.preview")
-                    }
-                    .listRowBackground(Color.Mirach.Base.card)
+                        .mirachText(.etiqueta)
 
-                    if viewModel.offersMoveMatches {
-                        Section {
+                        if viewModel.offersMoveMatches {
                             CheckboxRow(
                                 title: DetalleCategoriaPresentation.moveMatchesTitle(total: preview.total, categoria: here.nombre),
                                 lines: [DetalleCategoriaPresentation.moveMatchesNote],
@@ -453,20 +491,19 @@ private struct PatternSheet: View {
                                 isOn: $viewModel.moveMatches
                             )
                         }
-                        .listRowBackground(Color.Mirach.Base.card)
                     }
-                }
 
-                if let general = viewModel.patternErrors.general {
-                    Section {
+                    if let general = viewModel.patternErrors.general {
                         Text(general)
+                            .mirachText(.cuerpo)
                             .foregroundStyle(Color.Mirach.Feedback.errorText)
                             .accessibilityIdentifier("pattern.error.general")
                     }
-                    .listRowBackground(Color.Mirach.Base.card)
                 }
+                .padding(MirachSpacing.l)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
             .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
             .safeAreaInset(edge: .bottom, spacing: 0) { actions }
             .navigationTitle(isEditing ? "Editar patrón" : "Nuevo patrón")
@@ -491,30 +528,24 @@ private struct PatternSheet: View {
     }
 
     @ViewBuilder private var actions: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: MirachSpacing.s) {
             if viewModel.isSavingPattern {
                 ProgressView().frame(minHeight: 44).accessibilityLabel("Guardando…")
             } else if viewModel.patternConflict != nil, let here = viewModel.category {
-                Button { Task { await viewModel.movePatternHere() } } label: {
-                    Text(DetalleCategoriaPresentation.moveHere(here)).frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .prominentButton()
-                .accessibilityIdentifier("pattern.moveHere")
-                Button { viewModel.dismissPatternSheet() } label: {
-                    Text("Cancelar").frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
-                .accessibilityIdentifier("pattern.conflict.cancel")
+                Button(DetalleCategoriaPresentation.moveHere(here)) { Task { await viewModel.movePatternHere() } }
+                    .prominentButton()
+                    .accessibilityIdentifier("pattern.moveHere")
+                Button("Cancelar") { viewModel.dismissPatternSheet() }
+                    .secondaryButton()
+                    .accessibilityIdentifier("pattern.conflict.cancel")
             } else {
-                Button { Task { await viewModel.savePattern(text: text) } } label: {
-                    Text("Guardar patrón").frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .prominentButton()
-                .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
-                .accessibilityIdentifier("pattern.save")
+                Button("Guardar patrón") { Task { await viewModel.savePattern(text: text) } }
+                    .prominentButton()
+                    .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityIdentifier("pattern.save")
             }
         }
-        .padding(16)
+        .padding(MirachSpacing.l)
         .background(Color.Mirach.Base.background)
     }
 }
