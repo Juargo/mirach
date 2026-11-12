@@ -52,6 +52,7 @@ Los ADRs que cargan reglas vivas:
 - **ADR-004**: el catálogo de categorías es por usuario y su unicidad es `(userId, bucketId, nombre)`. La reclasificación identifica por `categoriaId`, nunca por nombre.
 - `Categoria.icono` se valida contra la allowlist de `domain/value-objects/icono-categoria.ts`; las filas viejas quedan en `null` con fallback en el cliente.
 - **ADR-006**: sesión opaca, identidad por `sub`, aislamiento por `userId` y derechos por plan verificados en el servidor.
+- **ADR-013**: cuenta anónima. Es un estado derivado (sin `appleSub`, `googleSub` ni `passwordHash`), su sesión dura 365 días y se renueva con el uso, y se vincula después con Apple o Google. En las rutas de vinculación un token inválido es `400`, nunca `401`: un `401` cierra la sesión en la app y una cuenta anónima perdería sus datos.
 
 ---
 

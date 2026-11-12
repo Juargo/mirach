@@ -51,6 +51,7 @@ requisitos: [RNF-..., IMP-...]
 | [ADR-010](ADR-010-estrategia-de-pruebas.md) | Pirámide de pruebas y criterios de aceptación | Aceptado |
 | [ADR-011](ADR-011-observabilidad-kpis-y-logs.md) | Observabilidad: KPIs, logs, errores y métricas técnicas | Aceptado |
 | [ADR-012](ADR-012-suscripciones-y-derechos-por-plan.md) | Suscripciones y derechos por plan | Aceptado |
+| [ADR-013](ADR-013-cuenta-anonima.md) | Cuenta anónima y vinculación posterior | Aceptado |
 
 El product owner los aceptó el 2026-10-25. Las partes que describen
 lo que ya está construido y desplegado se marcan como **vigente** dentro de cada ADR; las
@@ -83,6 +84,7 @@ antiguos: `CLAUDE.md`, `apps/api/CLAUDE.md`, comentarios del código y los requi
 | ADR-010 | 014, 015 (validación y verificación), 016, 018 (accesibilidad), 054 |
 | ADR-011 | 019 (tracking y monitoring), 033 (logging) |
 | ADR-012 | Nuevo |
+| ADR-013 | Nuevo |
 
 Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y Expo) y
 027 (iconos web).
