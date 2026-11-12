@@ -4,7 +4,7 @@
 // Output (relative to apps/android/app/src/main/kotlin/app/mirachbudget/android):
 //   core/design/GeneratedTokens.kt
 //       light/dark palettes grouped like the iOS Color.Mirach.<Group>, copy, fonts,
-//       tabular figures and radii. Fully deterministic, no dependencies.
+//       text styles, tabular figures and radii. Fully deterministic, no dependencies.
 //
 // Lives at the repo root next to generate-ios-tokens.mjs because both read the same
 // source; apps/android/scripts/generate-tokens.sh is the thin wrapper.
@@ -28,6 +28,17 @@ export function hexToArgb(hex) {
 }
 
 const q = (s) => JSON.stringify(s);
+
+const FONT_WEIGHTS = { 400: 'Normal', 500: 'Medium', 600: 'SemiBold', 700: 'Bold' };
+
+/** One `typography.text-style.*` leaf as a Compose TextStyle. Only the bundled Inter faces exist. */
+function textStyleKotlin(name, leaf) {
+  const { fontFamily, fontWeight, fontSize, lineHeight } = leaf.$value;
+  if (fontFamily !== 'Inter') throw new Error(`Unsupported font family ${fontFamily} in text-style.${name}`);
+  const weight = FONT_WEIGHTS[fontWeight];
+  if (!weight) throw new Error(`Unsupported font weight ${fontWeight} in text-style.${name}`);
+  return `    val ${kotlinName(name)} = TextStyle(fontFamily = InterFontFamily, fontWeight = FontWeight.${weight}, fontSize = ${parseFloat(fontSize)}.sp, lineHeight = ${parseFloat(lineHeight)}.sp)`;
+}
 const px = (leaf) => String(parseFloat(leaf.$value));
 
 function renderKotlin(tokens, colors) {
@@ -66,6 +77,11 @@ function renderKotlin(tokens, colors) {
     .map(([k, leaf]) => `    val ${kotlinName(k)}: Dp = ${px(leaf)}.dp`)
     .join('\n');
 
+  const textStyles = Object.entries(tokens.typography['text-style'])
+    .filter(([k]) => !k.startsWith('$'))
+    .map(([k, leaf]) => textStyleKotlin(k, leaf))
+    .join('\n');
+
   return `// GENERATED FILE. DO NOT EDIT.
 // Source: design/tokens.json. Regenerate with: apps/android/scripts/generate-tokens.sh
 // CI fails when this file is out of date (see the \`android\` job in .github/workflows/ci.yml).
@@ -75,8 +91,10 @@ package ${PACKAGE}
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 // region Colors
 
@@ -118,6 +136,11 @@ object MirachFont {
 
 /** Rule "figures use tabular digits": amounts, dates and counts align in columns. */
 fun TextStyle.mirachFigures(): TextStyle = copy(fontFeatureSettings = ${q(tokens.typography['figure-features'].$value)})
+
+/** Figma text styles from \`typography.text-style.*\` (sp, so they follow the system font scale). */
+object MirachTextStyles {
+${textStyles}
+}
 
 // endregion
 

@@ -42,6 +42,8 @@ class ResumenApiTest {
     private fun body(
         periodo: String = "2026-09",
         estadoGlobal: String = "\"amarillo\"",
+        estadoMes: String = "null",
+        fuente: String = "\"detectado\"",
         ingreso: String = "1000000",
         sinIngreso: Boolean = false,
         targets: String = """{"Necesidades":50,"Deseos":30,"Ahorro":20}""",
@@ -54,7 +56,7 @@ class ResumenApiTest {
         val list = buckets.joinToString(",") {
             """{"bucket":"${it.name}","total":"${it.total}","porcentajeBp":${it.bp},"participacionGastoBp":null,"metaBp":5000,"estadoSemaforo":${it.estado},"estado":null}"""
         }
-        return """{"periodo":"$periodo","fechaInicio":"$periodo-01","fechaFin":"$periodo-28","sinIngreso":$sinIngreso,"totalIngreso":"$ingreso","fuenteIngreso":"detectado","ingresoDetectado":"$ingreso","estadoGlobal":$estadoGlobal,"estadoMes":null,"bloquesEstadoMes":[],"targets":$targets,"buckets":[$list]}"""
+        return """{"periodo":"$periodo","fechaInicio":"$periodo-01","fechaFin":"$periodo-28","sinIngreso":$sinIngreso,"totalIngreso":"$ingreso","fuenteIngreso":$fuente,"ingresoDetectado":"$ingreso","estadoGlobal":$estadoGlobal,"estadoMes":$estadoMes,"bloquesEstadoMes":[],"targets":$targets,"buckets":[$list]}"""
     }
 
     private fun three(necesidades: String = "null", deseos: String = "null", ahorro: String = "null") = listOf(
@@ -93,6 +95,44 @@ class ResumenApiTest {
         assertEquals(9_007_199_254_740_993L, mes.totalIngreso)
         assertEquals(9_007_199_254_740_993L, mes.buckets[0].total)
         assertEquals(-1_500L, mes.buckets[1].total)
+    }
+
+    @Test
+    fun mapsTheMonthStateFromEstadoMesAndLeavesEstadoGlobalAlone() = runBlocking<Unit> {
+        val expected = mapOf("bien" to EstadoSemaforo.Verde, "cerca" to EstadoSemaforo.Amarillo, "sobre" to EstadoSemaforo.Rojo)
+        for ((wire, state) in expected) {
+            json(200, body(estadoMes = "\"$wire\"", estadoGlobal = "\"verde\""))
+
+            val mes = api().resumen(null)
+
+            assertEquals(state, mes.estadoMes)
+            assertEquals(EstadoSemaforo.Verde, mes.estadoGlobal)
+        }
+    }
+
+    @Test
+    fun aNullEmptyOrUnknownMonthStateMeansNoState() = runBlocking<Unit> {
+        for (estado in listOf("null", "\"\"", "\"morado\"")) {
+            json(200, body(estadoMes = estado))
+
+            assertNull(api().resumen(null).estadoMes)
+        }
+    }
+
+    @Test
+    fun mapsWhereTheIncomeComesFrom() = runBlocking<Unit> {
+        json(200, body(fuente = "\"declarado\""))
+        assertEquals(FuenteIngreso.Declarado, api().resumen(null).fuenteIngreso)
+
+        json(200, body(fuente = "\"detectado\""))
+        assertEquals(FuenteIngreso.Detectado, api().resumen(null).fuenteIngreso)
+    }
+
+    @Test
+    fun anUnknownIncomeSourceFailsTheMonthLikeAnyOtherRequiredField() = runBlocking<Unit> {
+        json(200, body(fuente = "\"inventado\""))
+
+        assertThrows(SerializationException::class.java) { runBlocking { api().resumen(null) } }
     }
 
     @Test

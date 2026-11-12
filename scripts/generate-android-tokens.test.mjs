@@ -56,6 +56,41 @@ test('exposes fonts, tabular figures and radius', () => {
   assert.doesNotMatch(src, /mono|maxAllowed/);
 });
 
+test('exposes the text styles as sp TextStyles in Inter with the token line height', () => {
+  const src = kotlin();
+  assert.match(src, /object MirachTextStyles \{/);
+  assert.match(
+    src,
+    /val titulo = TextStyle\(fontFamily = InterFontFamily, fontWeight = FontWeight\.SemiBold, fontSize = 28\.sp, lineHeight = 34\.sp\)/,
+  );
+  assert.match(
+    src,
+    /val numeroGrande = TextStyle\(fontFamily = InterFontFamily, fontWeight = FontWeight\.SemiBold, fontSize = 40\.sp, lineHeight = 44\.sp\)/,
+  );
+  assert.match(
+    src,
+    /val cuerpo = TextStyle\(fontFamily = InterFontFamily, fontWeight = FontWeight\.Normal, fontSize = 16\.sp, lineHeight = 24\.sp\)/,
+  );
+  assert.match(src, /val cuerpoDestacado = TextStyle\([^)]*FontWeight\.SemiBold, fontSize = 16\.sp, lineHeight = 24\.sp\)/);
+  assert.match(src, /val boton = TextStyle\([^)]*FontWeight\.SemiBold, fontSize = 16\.sp, lineHeight = 20\.sp\)/);
+  assert.match(src, /val etiqueta = TextStyle\([^)]*FontWeight\.Medium, fontSize = 13\.sp, lineHeight = 16\.sp\)/);
+  assert.match(src, /val mini = TextStyle\([^)]*FontWeight\.Medium, fontSize = 11\.sp, lineHeight = 14\.sp\)/);
+  assert.match(src, /import androidx\.compose\.ui\.text\.font\.FontWeight/);
+  assert.match(src, /import androidx\.compose\.ui\.unit\.sp/);
+});
+
+test('a text style in a family other than Inter fails the generation', () => {
+  const broken = structuredClone(tokens);
+  broken.typography['text-style'].mini.$value.fontFamily = 'Roboto';
+  assert.throws(() => buildOutputs(broken), /Unsupported font family Roboto/);
+});
+
+test('a text style weight without a Compose FontWeight fails the generation', () => {
+  const broken = structuredClone(tokens);
+  broken.typography['text-style'].mini.$value.fontWeight = 550;
+  assert.throws(() => buildOutputs(broken), /Unsupported font weight 550/);
+});
+
 test('a missing dark value fails the generation', () => {
   const broken = structuredClone(tokens);
   delete broken.color.dark.bucket.gustos;

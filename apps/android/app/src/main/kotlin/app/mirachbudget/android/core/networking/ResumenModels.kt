@@ -29,8 +29,11 @@ enum class Bucket(val apiName: String) {
     }
 }
 
-/** Traffic-light state. Kept in the model although the screen hides it (product decision, 2026-10-05). */
+/** Traffic-light state (the design words are Bien, Cerca and Sobre). Shown again by the Inicio. */
 enum class EstadoSemaforo { Verde, Amarillo, Rojo }
+
+/** Where the income the percentages are measured against comes from. */
+enum class FuenteIngreso { Declarado, Detectado }
 
 data class BucketResumen(
     val bucket: Bucket,
@@ -49,6 +52,9 @@ data class ResumenMes(
     /** Whole pesos. */
     val totalIngreso: Long,
     val estadoGlobal: EstadoSemaforo?,
+    /** The month verdict (worst bucket state); null without income or when the API sends none. */
+    val estadoMes: EstadoSemaforo?,
+    val fuenteIngreso: FuenteIngreso,
     /** Always the three buckets, in catalog order. */
     val buckets: List<BucketResumen>,
 )

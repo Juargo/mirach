@@ -2,6 +2,7 @@ package app.mirachbudget.android.features.resumen
 
 import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.BucketResumen
+import app.mirachbudget.android.core.networking.FuenteIngreso
 import app.mirachbudget.android.core.networking.Periodo
 import app.mirachbudget.android.core.networking.ResumenMes
 
@@ -20,6 +21,8 @@ object ResumenSamples {
             sinIngreso = sinIngreso,
             totalIngreso = ingreso,
             estadoGlobal = null,
+            estadoMes = null,
+            fuenteIngreso = FuenteIngreso.Declarado,
             buckets = Bucket.entries.mapIndexed { i, bucket ->
                 BucketResumen(
                     bucket = bucket,
