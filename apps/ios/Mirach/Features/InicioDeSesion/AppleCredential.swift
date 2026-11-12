@@ -20,8 +20,15 @@ struct AppleCredential: Equatable, Sendable {
     }
 
     init(authorization: ASAuthorization) throws {
-        guard let apple = authorization.credential as? ASAuthorizationAppleIDCredential,
-              let tokenData = apple.identityToken,
+        guard let apple = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            throw ConversionError.missingIdentityToken
+        }
+        try self.init(credential: apple)
+    }
+
+    /// From what `AuthorizationController.performRequests` returns (`ASAuthorizationResult.appleID`).
+    init(credential apple: ASAuthorizationAppleIDCredential) throws {
+        guard let tokenData = apple.identityToken,
               let token = String(data: tokenData, encoding: .utf8) else {
             throw ConversionError.missingIdentityToken
         }

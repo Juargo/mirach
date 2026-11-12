@@ -83,6 +83,95 @@ struct SignInViewModelTests {
         #expect(h.viewModel.passwordLoginAvailable)
     }
 
+    // MARK: continue without an account
+
+    private func anonymousHarness(
+        _ api: FakeMirachAPI = FakeMirachAPI(), capabilities: AuthCapabilities? = nil
+    ) async -> Harness {
+        if let capabilities { api.setCapabilitiesResult(.success(capabilities)) }
+        let h = makeHarness(api: api)
+        await h.viewModel.loadProviders()
+        return h
+    }
+
+    @Test func continuingWithoutAnAccountStoresAnAnonymousSessionAndEntersTheApp() async {
+        let h = await anonymousHarness()
+
+        await h.viewModel.continueWithoutAccount()
+
+        #expect(h.api.anonymousSignInCalls == 1)
+        #expect(h.store.load()?.token == "tok-anon")
+        #expect(h.store.load()?.isAnonymous == true)
+        #expect(h.session.isAnonymous)
+        #expect(h.session.phase == .signedIn(userId: "u-anon"))
+        #expect(h.viewModel.errorMessage == nil)
+        #expect(h.viewModel.state == .ready)
+    }
+
+    @Test func continuingWithoutAnAccountWorksWhenEveryProviderIsOff() async {
+        let h = await anonymousHarness(capabilities: AuthCapabilities(appleLoginEnabled: false))
+        #expect(h.viewModel.state == .noProviders)
+
+        await h.viewModel.continueWithoutAccount()
+
+        #expect(h.session.phase == .signedIn(userId: "u-anon"))
+    }
+
+    @Test func continuingWithoutAnAccountIsIgnoredBeforeTheProvidersLoad() async {
+        let h = makeHarness()
+
+        await h.viewModel.continueWithoutAccount()
+
+        #expect(h.api.anonymousSignInCalls == 0)
+        #expect(h.store.load() == nil)
+    }
+
+    @Test func continuingWithoutAnAccountMapsFailuresToTheScreenMessages() async {
+        let cases: [(any Error, String)] = [
+            (URLError(.notConnectedToInternet), SignInViewModel.Message.connection),
+            (APIError.rateLimited, SignInViewModel.Message.rateLimited),
+            (APIError.apiKeyRejected, SignInViewModel.Message.misconfigured),
+            (APIError.badStatus(503), SignInViewModel.Message.anonymousFailed),
+        ]
+        for (error, message) in cases {
+            let api = FakeMirachAPI()
+            api.setAnonymousSignInResult(.failure(error))
+            let h = await anonymousHarness(api)
+
+            await h.viewModel.continueWithoutAccount()
+
+            #expect(h.viewModel.errorMessage == message)
+            #expect(h.viewModel.state == .ready)
+            #expect(h.store.load() == nil)
+        }
+    }
+
+    @Test func anAnonymousSessionThatCannotBeSavedShowsTheSaveError() async {
+        let h = makeHarness(store: FailingSessionStore())
+        await h.viewModel.loadProviders()
+
+        await h.viewModel.continueWithoutAccount()
+
+        #expect(h.viewModel.errorMessage == SignInViewModel.Message.saveFailed)
+    }
+
+    @Test func theCopyOfTheAnonymousEntryIsTheOneOfTheSpec() {
+        #expect(SignInViewModel.Message.anonymousButton == "Continuar sin cuenta")
+        #expect(SignInViewModel.Message.anonymousWarning
+            == "Tus datos quedan solo en este dispositivo. Si borras la app o cambias de teléfono sin vincular una cuenta, los pierdes.")
+    }
+
+    @Test func appleSignInStillStoresAnOrdinarySession() async {
+        let h = makeHarness(nonce: { "raw" })
+        await h.viewModel.loadProviders()
+        _ = h.viewModel.prepareAppleRequest()
+
+        await h.viewModel.completeAppleSignIn(.success(credential))
+
+        #expect(h.store.load()?.isAnonymous == false)
+        #expect(h.session.isAnonymous == false)
+    }
+
     // MARK: password sign-in
 
     private func passwordHarness(_ api: FakeMirachAPI = FakeMirachAPI()) async -> Harness {

@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 /// "Perfil": edit the name, see the email, revoke the statement consent, sign out, delete the account.
@@ -5,6 +6,7 @@ struct PerfilView: View {
     @State private var viewModel: PerfilViewModel
     @State private var confirmingDeletion = false
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.authorizationController) private var authorizationController
 
     init(viewModel: PerfilViewModel) {
         _viewModel = State(initialValue: viewModel)
@@ -47,6 +49,22 @@ struct PerfilView: View {
             } message: {
                 Text(PerfilViewModel.revokeConfirmationMessage)
             }
+            // "Entrar a esa cuenta" is the only way to continue; cancelling sends nothing.
+            .alert(PerfilViewModel.existingAccountTitle, isPresented: $viewModel.isConfirmingExistingAccount) {
+                Button(PerfilViewModel.existingAccountConfirmButton) {
+                    Task { await viewModel.enterExistingAccount() }
+                }
+                Button(PerfilViewModel.existingAccountCancelButton, role: .cancel) {
+                    viewModel.cancelExistingAccount()
+                }
+            } message: {
+                Text(PerfilViewModel.existingAccountMessage)
+            }
+            .onChange(of: viewModel.linkState) {
+                if viewModel.linkState == .linked {
+                    AccessibilityNotification.Announcement(PerfilViewModel.linkedMessage).post()
+                }
+            }
         }
     }
 
@@ -78,6 +96,13 @@ struct PerfilView: View {
         case .loaded:
             nameSection
             if let email = viewModel.email { emailSection(email) }
+            if viewModel.showsLinkSection { linkSection }
+            if let message = viewModel.linkedNotice {
+                Label(message, systemImage: "checkmark.circle")
+                    .mirachText(.etiqueta)
+                    .foregroundStyle(Color.Mirach.Feedback.successText)
+                    .accessibilityIdentifier("perfil.linked")
+            }
             // Hidden while the consent is unknown (loading, or its check failed).
             if let text = viewModel.consentText { consentSection(text) }
             sessionSection
@@ -146,6 +171,72 @@ struct PerfilView: View {
         .accessibilityIdentifier("perfil.email")
     }
 
+    /// "Respalda tus datos": only for an anonymous account, only the providers the server offers.
+    private var linkSection: some View {
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
+            VStack(alignment: .leading, spacing: MirachSpacing.xs) {
+                SectionLabel(PerfilViewModel.linkTitle)
+                Text(PerfilViewModel.linkText)
+                    .mirachText(.cuerpo)
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("perfil.link.text")
+            }
+            if viewModel.appleLinkAvailable {
+                Button {
+                    Task { await linkWithApple() }
+                } label: {
+                    Label(PerfilViewModel.linkAppleTitle, systemImage: "apple.logo").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
+                .disabled(viewModel.linkState == .linking || viewModel.isBusyWithSession)
+                .accessibilityIdentifier("perfil.link.apple")
+            }
+            if viewModel.googleLinkAvailable {
+                Button {
+                    Task { await viewModel.linkWithGoogle() }
+                } label: {
+                    HStack(spacing: 10) {
+                        GoogleLogo()
+                        Text(PerfilViewModel.linkGoogleTitle)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .secondaryButton()
+                .disabled(viewModel.linkState == .linking || viewModel.isBusyWithSession)
+                .accessibilityIdentifier("perfil.link.google")
+            }
+            if viewModel.linkState == .linking {
+                ProgressView().accessibilityIdentifier("perfil.link.progress")
+            }
+            if let message = viewModel.linkFailureMessage {
+                Label(message, systemImage: "exclamationmark.circle")
+                    .mirachText(.etiqueta)
+                    .foregroundStyle(Color.Mirach.Feedback.errorText)
+                    .accessibilityIdentifier("perfil.link.error")
+            }
+        }
+        .accessibilityIdentifier("perfil.link")
+    }
+
+    /// Reuses the sign-in feature's credential and nonce; only the sheet is requested here, with
+    /// the system's own authorization controller (the stock button's label cannot say "Vincular").
+    private func linkWithApple() async {
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = viewModel.prepareAppleLink()
+        do {
+            let result = try await authorizationController.performRequests([request])
+            guard case .appleID(let credential) = result else {
+                await viewModel.completeAppleLink(.failure(AppleCredential.ConversionError.missingIdentityToken))
+                return
+            }
+            await viewModel.completeAppleLink(Result { try AppleCredential(credential: credential) })
+        } catch {
+            await viewModel.completeAppleLink(.failure(error))
+        }
+    }
+
     private func consentSection(_ text: String) -> some View {
         VStack(alignment: .leading, spacing: MirachSpacing.s) {
             VStack(alignment: .leading, spacing: MirachSpacing.xs) {
@@ -185,21 +276,24 @@ struct PerfilView: View {
     private var sessionSection: some View {
         VStack(alignment: .leading, spacing: MirachSpacing.s) {
             Divider().overlay(Color.Mirach.Base.border)
-            Button {
-                Task { await viewModel.signOut() }
-            } label: {
-                Group {
-                    if viewModel.isSigningOut {
-                        Label("Cerrando sesión…", systemImage: "hourglass")
-                    } else {
-                        Text("Cerrar sesión")
+            // Signing out of an anonymous account would lose its data: not offered.
+            if viewModel.offersSignOut {
+                Button {
+                    Task { await viewModel.signOut() }
+                } label: {
+                    Group {
+                        if viewModel.isSigningOut {
+                            Label("Cerrando sesión…", systemImage: "hourglass")
+                        } else {
+                            Text("Cerrar sesión")
+                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
+                .disabled(viewModel.isBusyWithSession)
+                .accessibilityIdentifier("perfil.signOut")
             }
-            .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
-            .disabled(viewModel.isBusyWithSession)
-            .accessibilityIdentifier("perfil.signOut")
 
             // Easy to find, as the App Store requires, and clearly separate from signing out.
             Button(role: .destructive) {

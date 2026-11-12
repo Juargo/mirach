@@ -30,6 +30,11 @@ final class SignInViewModel {
         /// Screen 31: after an Apple failure, when Google is offered too.
         static let tryGoogle = "Si sigue sin funcionar, prueba con Google."
         static let checkConnection = "Revisa tu conexión a internet e inténtalo de nuevo."
+        /// ADR-013: the first action of the screen and the warning under it (S4, S7).
+        static let anonymousButton = "Continuar sin cuenta"
+        static let anonymousWarning =
+            "Tus datos quedan solo en este dispositivo. Si borras la app o cambias de teléfono sin vincular una cuenta, los pierdes."
+        static let anonymousFailed = "No pudimos crear tu cuenta. Inténtalo de nuevo."
         static let saveFailed = "No pudimos guardar tu sesión en este dispositivo. Inténtalo de nuevo."
     }
 
@@ -155,6 +160,38 @@ final class SignInViewModel {
             errorMessage = Message.saveFailed
         }
         state = .ready
+    }
+
+    /// "Continuar sin cuenta": creates an anonymous account and enters the app. It needs no provider,
+    /// so it also works when the server has every provider off. One attempt at a time.
+    func continueWithoutAccount() async {
+        let previous = state
+        guard previous == .ready || previous == .noProviders else { return }
+        clearError()
+        state = .authenticating
+        let newSession: Session
+        do {
+            newSession = try await api.signInAnonymously()
+        } catch {
+            state = previous
+            switch error {
+            case is CancellationError:
+                break
+            case let error as URLError where error.code == .cancelled:
+                break
+            case is URLError:
+                errorMessage = Message.connection
+            case APIError.rateLimited:
+                errorMessage = Message.rateLimited
+            case APIError.apiKeyRejected:
+                errorMessage = Message.misconfigured
+            default:
+                errorMessage = Message.anonymousFailed
+            }
+            return
+        }
+        store(newSession)
+        if state == .ready, previous == .noProviders { state = .noProviders }
     }
 
     /// Called by the review form. Both fields are required; the email is trimmed. On failure the

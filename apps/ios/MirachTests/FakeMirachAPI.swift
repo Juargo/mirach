@@ -66,6 +66,18 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _googleSignInCalls: [String] = []
     private var _passwordSignInCalls: [PasswordSignInCall] = []
     private var passwordSignInGate: Gate?
+    private var _anonymousSignInCalls = 0
+    private var _linkAppleCalls: [SignInCall] = []
+    private var _linkGoogleCalls: [String] = []
+    private var anonymousSignInResult: Result<Session, any Error> = .success(
+        Session(token: "tok-anon", userId: "u-anon", expiresAt: Date(timeIntervalSince1970: 1_800_000_000), isAnonymous: true)
+    )
+    private var linkAppleResult: Result<Session, any Error> = .success(
+        Session(token: "tok-linked", userId: "u-anon", expiresAt: Date(timeIntervalSince1970: 1_800_000_000))
+    )
+    private var linkGoogleResult: Result<Session, any Error> = .success(
+        Session(token: "tok-linked", userId: "u-anon", expiresAt: Date(timeIntervalSince1970: 1_800_000_000))
+    )
     private var _currentUserCalls = 0
     private var _capabilitiesCalls = 0
 
@@ -191,6 +203,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         lock.withLock { passwordSignInGate = gate }
     }
     var currentUserCalls: Int { lock.withLock { _currentUserCalls } }
+    var anonymousSignInCalls: Int { lock.withLock { _anonymousSignInCalls } }
+    var linkAppleCalls: [SignInCall] { lock.withLock { _linkAppleCalls } }
+    var linkGoogleCalls: [String] { lock.withLock { _linkGoogleCalls } }
+
+    func setAnonymousSignInResult(_ result: Result<Session, any Error>) { lock.withLock { anonymousSignInResult = result } }
+    func setLinkAppleResult(_ result: Result<Session, any Error>) { lock.withLock { linkAppleResult = result } }
+    func setLinkGoogleResult(_ result: Result<Session, any Error>) { lock.withLock { linkGoogleResult = result } }
     var capabilitiesCalls: Int { lock.withLock { _capabilitiesCalls } }
 
     func setCapabilitiesResult(_ result: Result<AuthCapabilities, any Error>) {
@@ -721,6 +740,34 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         }
         await gate?.wait()
         return try passwordSignInResult.get()
+    }
+
+    func signInAnonymously() async throws -> Session {
+        let result = lock.withLock {
+            _anonymousSignInCalls += 1
+            return anonymousSignInResult
+        }
+        return try result.get()
+    }
+
+    func linkWithApple(
+        identityToken: String, nonce: String, nombre: String?, authorizationCode: String?
+    ) async throws -> Session {
+        let result = lock.withLock {
+            _linkAppleCalls.append(SignInCall(
+                identityToken: identityToken, nonce: nonce, nombre: nombre, authorizationCode: authorizationCode
+            ))
+            return linkAppleResult
+        }
+        return try result.get()
+    }
+
+    func linkWithGoogle(idToken: String) async throws -> Session {
+        let result = lock.withLock {
+            _linkGoogleCalls.append(idToken)
+            return linkGoogleResult
+        }
+        return try result.get()
     }
 
     func currentUser() async throws -> CurrentUser {

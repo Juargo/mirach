@@ -26,6 +26,48 @@ private func exercise(_ store: any SessionStore) throws {
 }
 
 struct SessionStoreTests {
+    @Test func aSessionStoredByAnOlderAppVersionDecodesAsNotAnonymous() throws {
+        // What the current app version writes: no `isAnonymous` key.
+        let old = Data(#"{"token":"tok-old","userId":"u-1","expiresAt":790000000}"#.utf8)
+
+        let session = try JSONDecoder().decode(Session.self, from: old)
+
+        #expect(session.token == "tok-old")
+        #expect(session.isAnonymous == false)
+    }
+
+    @Test func theAnonymousFlagSurvivesTheKeychainRoundTrip() throws {
+        let store = KeychainSessionStore(service: "app.mirachbudget.ios.tests.\(UUID().uuidString)")
+        defer { try? store.clear() }
+        let anonymous = Session(token: "tok-a", userId: "u-a", expiresAt: sample.expiresAt, isAnonymous: true)
+
+        try store.save(anonymous)
+
+        #expect(store.load() == anonymous)
+        #expect(store.load()?.isAnonymous == true)
+    }
+
+    @Test func theAnonymousBackupLivesInItsOwnItemAndSurvivesClear() throws {
+        let store = KeychainSessionStore(service: "app.mirachbudget.ios.tests.\(UUID().uuidString)")
+        let anonymous = Session(token: "tok-a", userId: "u-a", expiresAt: sample.expiresAt, isAnonymous: true)
+        defer {
+            try? store.clear()
+            try? store.clearAnonymousBackup()
+        }
+        try store.save(anonymous)
+        #expect(store.loadAnonymousBackup() == nil)
+
+        try store.saveAnonymousBackup(anonymous)
+        try store.save(sample)
+
+        #expect(store.load() == sample, "the backup does not touch the current session")
+        #expect(store.loadAnonymousBackup() == anonymous)
+
+        try store.clear()
+        #expect(store.load() == nil)
+        #expect(store.loadAnonymousBackup() == anonymous, "signing out does not delete the backup")
+    }
+
     @Test func inMemoryStoreSavesLoadsAndClears() throws {
         try exercise(InMemorySessionStore())
     }

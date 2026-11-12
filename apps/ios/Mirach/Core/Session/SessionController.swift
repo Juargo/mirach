@@ -25,6 +25,9 @@ final class SessionController {
     }
 
     private(set) var phase: Phase = .validating
+    /// The stored session belongs to an account with no Apple or Google identity yet (ADR-013).
+    /// Kept as state (not read from the store on demand) so SwiftUI redraws when it changes.
+    private(set) var isAnonymous = false
     /// Shown once on the sign-in screen; the next sign-in clears it.
     private(set) var signedOutNotice: SignedOutNotice?
     /// Runs every time the session ends (sign-out, expiry, deletion): the app drops what is
@@ -42,10 +45,12 @@ final class SessionController {
 
     /// Startup (and retry): with a saved token ask `GET /api/auth/me`; without one go to sign-in.
     func start() async {
-        guard store.load() != nil else {
+        guard let stored = store.load() else {
+            isAnonymous = false
             phase = .signedOut
             return
         }
+        isAnonymous = stored.isAnonymous
         phase = .validating
         let validatedToken = store.load()?.token
         do {
@@ -73,8 +78,25 @@ final class SessionController {
     /// vanishes on the next launch.
     func signIn(_ session: Session) throws {
         try store.save(session)
+        isAnonymous = session.isAnonymous
         signedOutNotice = nil
         phase = .signedIn(userId: session.userId)
+    }
+
+    /// Before entering an existing account: keeps the anonymous session in its own Keychain item
+    /// (not removed by sign-out or by a 401) so its data can be recovered later. A no-op for a
+    /// session that is not anonymous. Throws if the Keychain refuses the write, and then the
+    /// caller must not sign in: the anonymous data would be unreachable.
+    func parkAnonymousSession() throws {
+        guard let current = store.load(), current.isAnonymous else { return }
+        try store.saveAnonymousBackup(current)
+    }
+
+    /// Replaces the current session with one of ANOTHER account. Everything tied to the previous
+    /// account (the staged statement and its password) is dropped, as on any session end.
+    func switchAccount(to session: Session) throws {
+        try signIn(session)
+        onSessionEnded()
     }
 
     func signOut() {
@@ -85,6 +107,7 @@ final class SessionController {
             // at the next launch. Log it (never the token itself).
             logger.error("Could not delete the saved session from the Keychain: \(String(describing: error), privacy: .public)")
         }
+        isAnonymous = false
         phase = .signedOut
         onSessionEnded()
     }
