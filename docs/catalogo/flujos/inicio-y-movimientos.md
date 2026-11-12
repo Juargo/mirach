@@ -60,6 +60,8 @@ Reglas de contrato:
 
 - **Inicio vacío** (`sinIngreso: true`): pantalla 11 del [primer uso](primer-uso.md), con «Subir cartola»; el selector de mes sigue disponible.
 - **Cargando un mes**: no se muestran datos del mes anterior.
+- **Mes con datos** (pantalla 05): el veredicto del mes va como titular y sale de `estadoMes`: «Dentro de la meta» (`bien`), «Cerca del límite» (`cerca`) o «Fuera de la meta» (`sobre`); sin `estadoMes` no se muestra. Cada bloque muestra su estado con marca y palabra (VIS-02): «Bien», «Cerca» o «Fuera». El texto no indica dirección porque `sobre` cubre tanto gastar de más como ahorrar de menos. En la media dona, el anillo de afuera reparte el medio círculo según la parte del ingreso de cada bloque y deja vacío lo no gastado; si el gasto supera el ingreso, se reparte según el total gastado. Mientras la brecha 15 siga abierta, las apps no muestran «Datos hasta el …», la frase del mes, «Sin gastar» ni los avisos del Inicio.
+- **Texto grande** (tamaños de accesibilidad en iPhone, escala de fuente 1,3 o más en Android): las barras ocupan todo el ancho y la media dona con su leyenda no se muestra; las barras llevan los mismos datos. El lector de pantalla no lee la dona.
 - **Detalle vacío** (`grupos` vacío): «Sin movimientos en {mes}».
 - **Reclasificando**: el movimiento muestra progreso y no admite otra acción.
 - **Confirmación de cambio de bloque**: «Cancelar» cierra la confirmación sin enviar nada; la hoja conserva la categoría elegida y la casilla «Aplicar a…».
