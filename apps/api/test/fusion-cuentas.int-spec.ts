@@ -97,6 +97,9 @@ describe.skipIf(!ALLOW)('Account merge (int, ADR-014)', () => {
         googleSub: `${RUN_ID}-sub-${n}`,
         email: crypto.encrypt(email),
         emailBlindIndex: blindIndex.compute(email),
+        // The goals must match the declared profile (CHECK
+        // User_perfil_predefinido_metas_check).
+        perfilPresupuesto: '60_20_20',
         metaNecesidadesBp: 6000,
         metaDeseosBp: 2000,
         metaAhorroBp: 2000,
