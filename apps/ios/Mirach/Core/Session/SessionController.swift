@@ -19,6 +19,16 @@ final class SessionController {
         case misconfigured
     }
 
+    enum MergeState: Equatable {
+        case idle
+        case merging
+        case merged
+        /// The request failed; the parked item is kept so the person can try again.
+        case failed
+        /// The server no longer knows the parked account; the parked item was cleared.
+        case unavailable
+    }
+
     /// Why the person is on the sign-in screen when it is not their own doing.
     enum SignedOutNotice: Equatable {
         case accountDeleted
@@ -28,6 +38,14 @@ final class SessionController {
     /// The stored session belongs to an account with no Apple or Google identity yet (ADR-013).
     /// Kept as state (not read from the store on demand) so SwiftUI redraws when it changes.
     private(set) var isAnonymous = false
+    /// An anonymous session is parked in its own Keychain item (ADR-013) and has not been merged.
+    /// Kept as state so Perfil redraws when the item is cleared.
+    private(set) var hasParkedAnonymousSession = false
+    /// Outcome of the last merge of the parked data (ADR-014). Lives here, not in a screen: the
+    /// account switch rebuilds the screens while the merge that follows it is still running.
+    private(set) var mergeState: MergeState = .idle
+    /// Bumped after every merge that succeeded, so the data screens read again.
+    private(set) var mergeRevision = 0
     /// Shown once on the sign-in screen; the next sign-in clears it.
     private(set) var signedOutNotice: SignedOutNotice?
     /// Runs every time the session ends (sign-out, expiry, deletion): the app drops what is
@@ -41,10 +59,12 @@ final class SessionController {
     init(api: any MirachAPI, store: any SessionStore) {
         self.api = api
         self.store = store
+        hasParkedAnonymousSession = store.loadAnonymousBackup() != nil
     }
 
     /// Startup (and retry): with a saved token ask `GET /api/auth/me`; without one go to sign-in.
     func start() async {
+        hasParkedAnonymousSession = store.loadAnonymousBackup() != nil
         guard let stored = store.load() else {
             isAnonymous = false
             phase = .signedOut
@@ -90,6 +110,43 @@ final class SessionController {
     func parkAnonymousSession() throws {
         guard let current = store.load(), current.isAnonymous else { return }
         try store.saveAnonymousBackup(current)
+        hasParkedAnonymousSession = true
+    }
+
+    /// "Unir a mi cuenta" and the end of "Entrar y unir datos": sends the parked session's token to
+    /// the merge. Only for an ordinary session; a second call while one is out does nothing. On
+    /// success (or when the server says the parked data is gone) the parked item is cleared; on any
+    /// other failure it is kept. A 401 is left to the expiry relay and says nothing here.
+    func mergeParkedAnonymousSession() async {
+        guard !isAnonymous, mergeState != .merging, let parked = store.loadAnonymousBackup() else { return }
+        mergeState = .merging
+        do {
+            try await api.mergeAnonymousAccount(originToken: parked.token)
+            clearParkedAnonymousSession()
+            mergeState = .merged
+            mergeRevision += 1
+        } catch APIError.mergeOriginInvalid {
+            clearParkedAnonymousSession()
+            mergeState = .unavailable
+        } catch APIError.sessionExpired {
+            mergeState = .idle
+        } catch is CancellationError {
+            mergeState = .idle
+        } catch let error as URLError where error.code == .cancelled {
+            mergeState = .idle
+        } catch {
+            mergeState = .failed
+        }
+    }
+
+    private func clearParkedAnonymousSession() {
+        do {
+            try store.clearAnonymousBackup()
+            hasParkedAnonymousSession = false
+        } catch {
+            // The item stays: a second try answers ORIGEN_INVALIDO and clears it then.
+            logger.error("Could not delete the parked anonymous session from the Keychain: \(String(describing: error), privacy: .public)")
+        }
     }
 
     /// Replaces the current session with one of ANOTHER account. Everything tied to the previous
@@ -108,6 +165,7 @@ final class SessionController {
             logger.error("Could not delete the saved session from the Keychain: \(String(describing: error), privacy: .public)")
         }
         isAnonymous = false
+        mergeState = .idle
         phase = .signedOut
         onSessionEnded()
     }

@@ -34,9 +34,29 @@ extension PerfilViewModel {
     static let linkedMessage = "Cuenta vinculada"
     static let existingAccountTitle = "Esa cuenta ya existe"
     static let existingAccountMessage =
-        "Si entras a ella dejarás de ver los datos de este dispositivo. Quedan guardados y podrás recuperarlos más adelante."
-    static let existingAccountConfirmButton = "Entrar a esa cuenta"
+        "Si entras a ella, uniremos los datos de este dispositivo con los de esa cuenta."
+    static let existingAccountConfirmButton = "Entrar y unir datos"
     static let existingAccountCancelButton = "Cancelar"
+
+    // MARK: merge the parked anonymous data (ADR-014)
+
+    static let mergeTitle = "Datos de este dispositivo"
+    static let mergeText = "Tienes datos guardados de cuando usaste la app sin cuenta."
+    static let mergeActionTitle = "Unir a mi cuenta"
+    static let mergedMessage = "Datos de este dispositivo unidos a tu cuenta"
+    static let mergeFailedMessage =
+        "No pudimos unir los datos de este dispositivo. Puedes intentarlo de nuevo desde Perfil."
+    static let mergeUnavailableMessage = "Esos datos ya no están disponibles."
+
+    var mergeResultMessage: String? { mergeState == .merged ? Self.mergedMessage : nil }
+
+    var mergeFailureMessage: String? {
+        switch mergeState {
+        case .failed: Self.mergeFailedMessage
+        case .unavailable: Self.mergeUnavailableMessage
+        case .idle, .merging, .merged: nil
+        }
+    }
 
     var linkedNotice: String? { linkState == .linked ? Self.linkedMessage : nil }
 

@@ -69,6 +69,9 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _anonymousSignInCalls = 0
     private var _linkAppleCalls: [SignInCall] = []
     private var _linkGoogleCalls: [String] = []
+    private var _mergeCalls: [String] = []
+    private var mergeResult: Result<Void, any Error> = .success(())
+    private var mergeGate: Gate?
     private var anonymousSignInResult: Result<Session, any Error> = .success(
         Session(token: "tok-anon", userId: "u-anon", expiresAt: Date(timeIntervalSince1970: 1_800_000_000), isAnonymous: true)
     )
@@ -206,6 +209,11 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     var anonymousSignInCalls: Int { lock.withLock { _anonymousSignInCalls } }
     var linkAppleCalls: [SignInCall] { lock.withLock { _linkAppleCalls } }
     var linkGoogleCalls: [String] { lock.withLock { _linkGoogleCalls } }
+    /// The origin tokens the merge route received.
+    var mergeCalls: [String] { lock.withLock { _mergeCalls } }
+    func setMergeResult(_ result: Result<Void, any Error>) { lock.withLock { mergeResult = result } }
+    /// Holds the merge call until the gate opens, to test a second tap while one request is out.
+    func setMergeGate(_ gate: Gate?) { lock.withLock { mergeGate = gate } }
 
     func setAnonymousSignInResult(_ result: Result<Session, any Error>) { lock.withLock { anonymousSignInResult = result } }
     func setLinkAppleResult(_ result: Result<Session, any Error>) { lock.withLock { linkAppleResult = result } }
@@ -768,6 +776,15 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
             return linkGoogleResult
         }
         return try result.get()
+    }
+
+    func mergeAnonymousAccount(originToken: String) async throws {
+        let (result, gate) = lock.withLock {
+            _mergeCalls.append(originToken)
+            return (mergeResult, mergeGate)
+        }
+        await gate?.wait()
+        try result.get()
     }
 
     func currentUser() async throws -> CurrentUser {

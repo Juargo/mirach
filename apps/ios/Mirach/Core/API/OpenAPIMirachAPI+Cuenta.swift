@@ -1,7 +1,8 @@
 import Foundation
 import OpenAPIRuntime
 
-/// The anonymous account (ADR-013): creating it and linking it to Apple or Google.
+/// The anonymous account (ADR-013): creating it, linking it to Apple or Google, and merging it
+/// into an existing account (ADR-014).
 extension OpenAPIMirachAPI {
     func signInAnonymously() async throws -> Session {
         do {
@@ -76,6 +77,35 @@ extension OpenAPIMirachAPI {
                 throw APIError.linkProviderUnavailable
             case .conflict(let conflict):
                 throw Self.linkConflict(try conflict.body.json.code)
+            case .tooManyRequests:
+                throw APIError.rateLimited
+            case .serviceUnavailable:
+                throw APIError.badStatus(503)
+            case .undocumented(let statusCode, _):
+                throw APIError.badStatus(statusCode)
+            }
+        } catch let error as ClientError {
+            throw Self.statusError(from: error, among: [400, 409, 503])
+        }
+    }
+
+    func mergeAnonymousAccount(originToken: String) async throws {
+        // The destination's token: a 401 here is about the caller's own session, never the origin's.
+        let sentToken = currentToken()
+        do {
+            let body = Operations.post_sol_api_sol_cuenta_sol_fusionar.Input.Body.jsonPayload(tokenOrigen: originToken)
+            switch try await client.post_sol_api_sol_cuenta_sol_fusionar(body: .json(body)) {
+            case .ok:
+                return
+            case .badRequest:
+                throw APIError.badStatus(400)
+            case .unauthorized(let unauthorized):
+                throw rejection(code: try unauthorized.body.json.code, sentToken: sentToken)
+            case .conflict(let conflict):
+                switch try conflict.body.json.code {
+                case .ORIGEN_INVALIDO: throw APIError.mergeOriginInvalid
+                case .DESTINO_ANONIMO: throw APIError.mergeDestinationAnonymous
+                }
             case .tooManyRequests:
                 throw APIError.rateLimited
             case .serviceUnavailable:

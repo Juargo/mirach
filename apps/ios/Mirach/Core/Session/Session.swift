@@ -39,6 +39,8 @@ protocol SessionStore: Sendable {
     /// (ADR-013). Throws if it could not be written.
     func saveAnonymousBackup(_ session: Session) throws
     func loadAnonymousBackup() -> Session?
+    /// Removes the parked session once its data was merged, or can no longer be (ADR-014).
+    func clearAnonymousBackup() throws
 }
 
 /// Test and UI-test double. A class with a lock because `SessionStore` is `Sendable`
@@ -57,4 +59,5 @@ final class InMemorySessionStore: SessionStore, @unchecked Sendable {
     func clear() { lock.withLock { session = nil } }
     func saveAnonymousBackup(_ session: Session) throws { lock.withLock { anonymousBackup = session } }
     func loadAnonymousBackup() -> Session? { lock.withLock { anonymousBackup } }
+    func clearAnonymousBackup() throws { lock.withLock { anonymousBackup = nil } }
 }

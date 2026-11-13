@@ -127,6 +127,14 @@ final class PerfilViewModel {
     /// An anonymous account that can be linked with at least one provider.
     var showsLinkSection: Bool { session.isAnonymous && (appleLinkAvailable || googleLinkAvailable) }
 
+    /// An ordinary session while an anonymous one is parked: "Datos de este dispositivo" (ADR-014).
+    var showsMergeSection: Bool { !session.isAnonymous && session.hasParkedAnonymousSession }
+
+    /// The merge request is out: the action does nothing until it answers.
+    var isMerging: Bool { mergeState == .merging }
+
+    var mergeState: SessionController.MergeState { session.mergeState }
+
     /// Signing out of an anonymous account would lose its data (the token is the only key).
     var offersSignOut: Bool { !session.isAnonymous }
 
@@ -346,6 +354,9 @@ final class PerfilViewModel {
             // A different account: the screens below are rebuilt for its user id.
             try session.switchAccount(to: newSession)
             linkState = .idle
+            // "Entrar y unir datos": the explicit action covers the merge. If it fails the person
+            // stays in the account and the parked item is kept for "Unir a mi cuenta".
+            await session.mergeParkedAnonymousSession()
         } catch {
             await fail(link: error)
         }
@@ -394,6 +405,14 @@ final class PerfilViewModel {
         default:
             linkState = .failed(.generic)
         }
+    }
+
+    // MARK: merge (ADR-014)
+
+    /// "Unir a mi cuenta": the person's explicit action. A second tap while one request is out does nothing.
+    func mergeParkedData() async {
+        guard showsMergeSection, !isMerging else { return }
+        await session.mergeParkedAnonymousSession()
     }
 
     // MARK: session

@@ -36,7 +36,7 @@ struct KeychainSessionStore: SessionStore {
         try write(try JSONEncoder().encode(session), account: Self.anonymousBackupAccount)
     }
 
-    /// Only for recovery code (delivery 2) and tests: nothing in the app deletes the backup yet.
+    /// Called once the parked data was merged into the account, or the server says it is gone.
     func clearAnonymousBackup() throws {
         try Self.check(deleteStatus: SecItemDelete(query(account: Self.anonymousBackupAccount) as CFDictionary))
     }
