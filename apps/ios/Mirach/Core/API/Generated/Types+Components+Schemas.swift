@@ -1380,6 +1380,102 @@ extension Components {
                 ])
             }
         }
+        /// 200 body of POST /api/cuenta/fusionar: what was merged.
+        ///
+        /// - Remark: Generated from `#/components/schemas/CuentaFusionarResponse`.
+        internal struct CuentaFusionarResponse: Codable, Hashable, Sendable {
+            /// Categories of the origin that had no equivalent and moved to the caller.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CuentaFusionarResponse/categoriasMovidas`.
+            internal var categoriasMovidas: Swift.Int
+            /// Bank accounts of the origin moved as they were.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CuentaFusionarResponse/cuentasMovidas`.
+            internal var cuentasMovidas: Swift.Int
+            /// Bank accounts of the origin united with an account of the caller (same bank, type and account number).
+            ///
+            /// - Remark: Generated from `#/components/schemas/CuentaFusionarResponse/cuentasUnidas`.
+            internal var cuentasUnidas: Swift.Int
+            /// Movements of a united account dropped because the caller already had them (the ingest duplicate rule).
+            ///
+            /// - Remark: Generated from `#/components/schemas/CuentaFusionarResponse/duplicadosOmitidos`.
+            internal var duplicadosOmitidos: Swift.Int
+            /// Movements that now belong to the caller.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CuentaFusionarResponse/movimientosMovidos`.
+            internal var movimientosMovidos: Swift.Int
+            /// Classification patterns that moved; patterns whose text the caller already had are dropped and not counted.
+            ///
+            /// - Remark: Generated from `#/components/schemas/CuentaFusionarResponse/patronesMovidos`.
+            internal var patronesMovidos: Swift.Int
+            /// Creates a new `CuentaFusionarResponse`.
+            ///
+            /// - Parameters:
+            ///   - categoriasMovidas: Categories of the origin that had no equivalent and moved to the caller.
+            ///   - cuentasMovidas: Bank accounts of the origin moved as they were.
+            ///   - cuentasUnidas: Bank accounts of the origin united with an account of the caller (same bank, type and account number).
+            ///   - duplicadosOmitidos: Movements of a united account dropped because the caller already had them (the ingest duplicate rule).
+            ///   - movimientosMovidos: Movements that now belong to the caller.
+            ///   - patronesMovidos: Classification patterns that moved; patterns whose text the caller already had are dropped and not counted.
+            internal init(
+                categoriasMovidas: Swift.Int,
+                cuentasMovidas: Swift.Int,
+                cuentasUnidas: Swift.Int,
+                duplicadosOmitidos: Swift.Int,
+                movimientosMovidos: Swift.Int,
+                patronesMovidos: Swift.Int
+            ) {
+                self.categoriasMovidas = categoriasMovidas
+                self.cuentasMovidas = cuentasMovidas
+                self.cuentasUnidas = cuentasUnidas
+                self.duplicadosOmitidos = duplicadosOmitidos
+                self.movimientosMovidos = movimientosMovidos
+                self.patronesMovidos = patronesMovidos
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case categoriasMovidas
+                case cuentasMovidas
+                case cuentasUnidas
+                case duplicadosOmitidos
+                case movimientosMovidos
+                case patronesMovidos
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.categoriasMovidas = try container.decode(
+                    Swift.Int.self,
+                    forKey: .categoriasMovidas
+                )
+                self.cuentasMovidas = try container.decode(
+                    Swift.Int.self,
+                    forKey: .cuentasMovidas
+                )
+                self.cuentasUnidas = try container.decode(
+                    Swift.Int.self,
+                    forKey: .cuentasUnidas
+                )
+                self.duplicadosOmitidos = try container.decode(
+                    Swift.Int.self,
+                    forKey: .duplicadosOmitidos
+                )
+                self.movimientosMovidos = try container.decode(
+                    Swift.Int.self,
+                    forKey: .movimientosMovidos
+                )
+                self.patronesMovidos = try container.decode(
+                    Swift.Int.self,
+                    forKey: .patronesMovidos
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "categoriasMovidas",
+                    "cuentasMovidas",
+                    "cuentasUnidas",
+                    "duplicadosOmitidos",
+                    "movimientosMovidos",
+                    "patronesMovidos"
+                ])
+            }
+        }
         /// GET /api/buckets/:bucket — bucket drill-down (US-017).
         ///
         /// - Remark: Generated from `#/components/schemas/DetalleBucketResponse`.
@@ -1597,6 +1693,55 @@ extension Components {
                     "bucket",
                     "periodo",
                     "transacciones"
+                ])
+            }
+        }
+        /// 409 body of POST /api/cuenta/fusionar. Nothing was written.
+        ///
+        /// - Remark: Generated from `#/components/schemas/FusionRechazadaResponse`.
+        internal struct FusionRechazadaResponse: Codable, Hashable, Sendable {
+            /// ORIGEN_INVALIDO: the origin token is unknown or expired, its account is not anonymous, or it is the caller's own account (one code for every cause). DESTINO_ANONIMO: the caller is itself an anonymous account.
+            ///
+            /// - Remark: Generated from `#/components/schemas/FusionRechazadaResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case ORIGEN_INVALIDO = "ORIGEN_INVALIDO"
+                case DESTINO_ANONIMO = "DESTINO_ANONIMO"
+            }
+            /// ORIGEN_INVALIDO: the origin token is unknown or expired, its account is not anonymous, or it is the caller's own account (one code for every cause). DESTINO_ANONIMO: the caller is itself an anonymous account.
+            ///
+            /// - Remark: Generated from `#/components/schemas/FusionRechazadaResponse/code`.
+            internal var code: Components.Schemas.FusionRechazadaResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/FusionRechazadaResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `FusionRechazadaResponse`.
+            ///
+            /// - Parameters:
+            ///   - code: ORIGEN_INVALIDO: the origin token is unknown or expired, its account is not anonymous, or it is the caller's own account (one code for every cause). DESTINO_ANONIMO: the caller is itself an anonymous account.
+            ///   - message:
+            internal init(
+                code: Components.Schemas.FusionRechazadaResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.FusionRechazadaResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
+                    "message"
                 ])
             }
         }

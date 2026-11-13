@@ -40,6 +40,7 @@ import {
 import { registrarAuthCapabilities } from './routes/auth-capabilities.routes';
 import { registrarAuthAnonimo } from './routes/auth-anonimo.routes';
 import { registrarCuentaVincular } from './routes/cuenta-vincular.routes';
+import { registrarCuentaFusionar } from './routes/cuenta-fusionar.routes';
 import { registrarVersion } from './routes/version.routes';
 import { registrarConfig } from './routes/config.routes';
 import { registrarCategorias } from './routes/categorias.routes';
@@ -256,6 +257,11 @@ export function createApp(container: Container, env: Env): Express {
     vincularRateLimiter: container.vincularRateLimiter,
     apple: container.appleAuth,
     google: container.googleAuthMobile,
+  });
+  // Fusión de una cuenta anónima en la de la sesión (ADR-014). Siempre activa.
+  registrarCuentaFusionar(protectedApi, {
+    fusionarCuenta: container.fusionarCuenta,
+    fusionarRateLimiter: container.fusionarRateLimiter,
   });
   // Vinculación explícita de Google (US-041, design §1/Q2b, binding item
   // #4): MISMO gate `container.googleAuth !== undefined` que

@@ -17,6 +17,7 @@ import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet2
 import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosGet200ResponseConsentimientosInner
 import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCuentaDeleteRequest
+import app.mirachbudget.android.core.api.generated.models.ApiCuentaFusionarPostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCuentaVincularApplePostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiCuentaVincularGooglePostRequest
 import app.mirachbudget.android.core.api.generated.models.ApiKeyUnauthorizedResponse
@@ -41,7 +42,9 @@ import app.mirachbudget.android.core.api.generated.models.CommitIngestaResponse
 import app.mirachbudget.android.core.api.generated.models.ConfigResponse
 import app.mirachbudget.android.core.api.generated.models.CredentialsUnauthorizedResponse
 import app.mirachbudget.android.core.api.generated.models.CuentaErrorResponse
+import app.mirachbudget.android.core.api.generated.models.CuentaFusionarResponse
 import app.mirachbudget.android.core.api.generated.models.DetalleBucketResponse
+import app.mirachbudget.android.core.api.generated.models.FusionRechazadaResponse
 import app.mirachbudget.android.core.api.generated.models.IdentidadInvalidaResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaCatalogoIncompletoResponse
 import app.mirachbudget.android.core.api.generated.models.IngestaCatalogoNoDisponibleResponse
@@ -393,6 +396,24 @@ interface DefaultApi {
      */
     @DELETE("api/cuenta")
     suspend fun apiCuentaDelete(@Body apiCuentaDeleteRequest: ApiCuentaDeleteRequest? = null): Response<Unit>
+
+    /**
+     * POST api/cuenta/fusionar
+     * Merge an anonymous account into the caller account
+     * Authenticated endpoint that merges the data of an ANONYMOUS account (ADR-013) into the CALLER&#39;s account (ADR-014). The destination is always the session user; the origin is the account that owns &#x60;tokenOrigen&#x60;, its session token, which proves the caller owns it. Everything happens in one database transaction: all or nothing. Bank accounts with the same bank, type and account number are united (the others are moved); movements of a united account that the caller already has are dropped with the ingest duplicate rule and counted in &#x60;duplicadosOmitidos&#x60;, the rest move keeping their category and bucket; categories with the same bucket and name are replaced by the caller ones, the others move with their patterns; patterns whose text the caller already has are dropped. The caller keeps its own name, email, budget profile, goals, cut day, declared income and consents. The origin sessions and the origin user are deleted: the merge is irreversible, and a second call with the same token answers 409 ORIGEN_INVALIDO. A bad origin token is deliberately never a 401, because the session itself is still valid. Additive endpoint: no existing contract changes.
+     * Responses:
+     *  - 200: Merged. The counts of what moved and what was dropped.
+     *  - 400: Missing or malformed body (BODY_INVALIDO). Nothing was written.
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 409: The origin token is unknown or expired, its account is not anonymous or it is the caller own account (ORIGEN_INVALIDO); or the caller is itself anonymous (DESTINO_ANONIMO). Nothing was written.
+     *  - 429: Rate-limited: too many attempts from this IP.
+     *  - 503: An internal dependency failed (SERVICIO_NO_DISPONIBLE). The transaction rolled back and nothing was written. Retryable.
+     *
+     * @param apiCuentaFusionarPostRequest  (optional)
+     * @return [CuentaFusionarResponse]
+     */
+    @POST("api/cuenta/fusionar")
+    suspend fun apiCuentaFusionarPost(@Body apiCuentaFusionarPostRequest: ApiCuentaFusionarPostRequest? = null): Response<CuentaFusionarResponse>
 
     /**
      * POST api/cuenta/vincular/apple

@@ -236,6 +236,17 @@ describe('buildOpenApiDocument', () => {
     expect(vincularPath?.post?.responses?.['404']).toBeDefined();
   });
 
+  it('registers POST /api/cuenta/fusionar as an additive protected operation with 200/400/401/409/429/503 (ADR-014)', () => {
+    const document = buildOpenApiDocument();
+
+    const operation = document.paths?.['/api/cuenta/fusionar']?.post;
+    expect(operation).toBeDefined();
+    expect(operation?.requestBody).toBeDefined();
+    for (const status of ['200', '400', '401', '409', '429', '503']) {
+      expect(operation?.responses?.[status]).toBeDefined();
+    }
+  });
+
   it('registers POST /api/perfil/google/desvincular with a JSON requestBody and 204/400/403/401 responses (US-041, VINC041-05)', () => {
     const document = buildOpenApiDocument();
 
