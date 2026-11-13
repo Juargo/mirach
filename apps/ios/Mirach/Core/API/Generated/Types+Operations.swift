@@ -5339,6 +5339,385 @@ internal enum Operations {
             }
         }
     }
+    /// Merge an anonymous account into the caller account
+    ///
+    /// Authenticated endpoint that merges the data of an ANONYMOUS account (ADR-013) into the CALLER's account (ADR-014). The destination is always the session user; the origin is the account that owns `tokenOrigen`, its session token, which proves the caller owns it. Everything happens in one database transaction: all or nothing. Bank accounts with the same bank, type and account number are united (the others are moved); movements of a united account that the caller already has are dropped with the ingest duplicate rule and counted in `duplicadosOmitidos`, the rest move keeping their category and bucket; categories with the same bucket and name are replaced by the caller ones, the others move with their patterns; patterns whose text the caller already has are dropped. The caller keeps its own name, email, budget profile, goals, cut day, declared income and consents. The origin sessions and the origin user are deleted: the merge is irreversible, and a second call with the same token answers 409 ORIGEN_INVALIDO. A bad origin token is deliberately never a 401, because the session itself is still valid. Additive endpoint: no existing contract changes.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/fusionar`.
+    /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post`.
+    internal enum post_sol_api_sol_cuenta_sol_fusionar {
+        internal static let id: Swift.String = "post/api/cuenta/fusionar"
+        internal struct Input: Sendable, Hashable {
+            /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/header`.
+            internal struct Headers: Sendable, Hashable {
+                internal var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_cuenta_sol_fusionar.AcceptableContentType>]
+                /// Creates a new `Headers`.
+                ///
+                /// - Parameters:
+                ///   - accept:
+                internal init(accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.post_sol_api_sol_cuenta_sol_fusionar.AcceptableContentType>] = .defaultValues()) {
+                    self.accept = accept
+                }
+            }
+            internal var headers: Operations.post_sol_api_sol_cuenta_sol_fusionar.Input.Headers
+            /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/requestBody`.
+            internal enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/requestBody/json`.
+                internal struct jsonPayload: Codable, Hashable, Sendable {
+                    /// Session token of the anonymous account to merge into the caller. It proves the caller owns that account.
+                    ///
+                    /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/requestBody/json/tokenOrigen`.
+                    internal var tokenOrigen: Swift.String
+                    /// Creates a new `jsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - tokenOrigen: Session token of the anonymous account to merge into the caller. It proves the caller owns that account.
+                    internal init(tokenOrigen: Swift.String) {
+                        self.tokenOrigen = tokenOrigen
+                    }
+                    internal enum CodingKeys: String, CodingKey {
+                        case tokenOrigen
+                    }
+                }
+                /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/requestBody/content/application\/json`.
+                case json(Operations.post_sol_api_sol_cuenta_sol_fusionar.Input.Body.jsonPayload)
+            }
+            internal var body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Input.Body?
+            /// Creates a new `Input`.
+            ///
+            /// - Parameters:
+            ///   - headers:
+            ///   - body:
+            internal init(
+                headers: Operations.post_sol_api_sol_cuenta_sol_fusionar.Input.Headers = .init(),
+                body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Input.Body? = nil
+            ) {
+                self.headers = headers
+                self.body = body
+            }
+        }
+        internal enum Output: Sendable, Hashable {
+            internal struct Ok: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/200/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/200/content/application\/json`.
+                    case json(Components.Schemas.CuentaFusionarResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.CuentaFusionarResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Ok.Body
+                /// Creates a new `Ok`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Ok.Body) {
+                    self.body = body
+                }
+            }
+            /// Merged. The counts of what moved and what was dropped.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post/responses/200`.
+            ///
+            /// HTTP response code: `200 ok`.
+            case ok(Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Ok)
+            /// The associated value of the enum case if `self` is `.ok`.
+            ///
+            /// - Throws: An error if `self` is not `.ok`.
+            /// - SeeAlso: `.ok`.
+            internal var ok: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Ok {
+                get throws {
+                    switch self {
+                    case let .ok(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "ok",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct BadRequest: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/400/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/400/content/application\/json`.
+                    case json(Components.Schemas.BodyInvalidoResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.BodyInvalidoResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.BadRequest.Body
+                /// Creates a new `BadRequest`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.BadRequest.Body) {
+                    self.body = body
+                }
+            }
+            /// Missing or malformed body (BODY_INVALIDO). Nothing was written.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post/responses/400`.
+            ///
+            /// HTTP response code: `400 badRequest`.
+            case badRequest(Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.BadRequest)
+            /// The associated value of the enum case if `self` is `.badRequest`.
+            ///
+            /// - Throws: An error if `self` is not `.badRequest`.
+            /// - SeeAlso: `.badRequest`.
+            internal var badRequest: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.BadRequest {
+                get throws {
+                    switch self {
+                    case let .badRequest(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "badRequest",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Unauthorized: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/401/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/401/content/application\/json`.
+                    case json(Components.Schemas.UnauthorizedResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.UnauthorizedResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Unauthorized.Body
+                /// Creates a new `Unauthorized`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Unauthorized.Body) {
+                    self.body = body
+                }
+            }
+            /// No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post/responses/401`.
+            ///
+            /// HTTP response code: `401 unauthorized`.
+            case unauthorized(Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Unauthorized)
+            /// The associated value of the enum case if `self` is `.unauthorized`.
+            ///
+            /// - Throws: An error if `self` is not `.unauthorized`.
+            /// - SeeAlso: `.unauthorized`.
+            internal var unauthorized: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Unauthorized {
+                get throws {
+                    switch self {
+                    case let .unauthorized(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Conflict: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/409/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/409/content/application\/json`.
+                    case json(Components.Schemas.FusionRechazadaResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.FusionRechazadaResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Conflict.Body
+                /// Creates a new `Conflict`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Conflict.Body) {
+                    self.body = body
+                }
+            }
+            /// The origin token is unknown or expired, its account is not anonymous or it is the caller own account (ORIGEN_INVALIDO); or the caller is itself anonymous (DESTINO_ANONIMO). Nothing was written.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post/responses/409`.
+            ///
+            /// HTTP response code: `409 conflict`.
+            case conflict(Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Conflict)
+            /// The associated value of the enum case if `self` is `.conflict`.
+            ///
+            /// - Throws: An error if `self` is not `.conflict`.
+            /// - SeeAlso: `.conflict`.
+            internal var conflict: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Conflict {
+                get throws {
+                    switch self {
+                    case let .conflict(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "conflict",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct TooManyRequests: Sendable, Hashable {
+                /// Creates a new `TooManyRequests`.
+                internal init() {}
+            }
+            /// Rate-limited: too many attempts from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            case tooManyRequests(Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.TooManyRequests)
+            /// Rate-limited: too many attempts from this IP.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post/responses/429`.
+            ///
+            /// HTTP response code: `429 tooManyRequests`.
+            internal static var tooManyRequests: Self {
+                .tooManyRequests(.init())
+            }
+            /// The associated value of the enum case if `self` is `.tooManyRequests`.
+            ///
+            /// - Throws: An error if `self` is not `.tooManyRequests`.
+            /// - SeeAlso: `.tooManyRequests`.
+            internal var tooManyRequests: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.TooManyRequests {
+                get throws {
+                    switch self {
+                    case let .tooManyRequests(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "tooManyRequests",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct ServiceUnavailable: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/503/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/cuenta/fusionar/POST/responses/503/content/application\/json`.
+                    case json(Components.Schemas.ServicioNoDisponibleResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.ServicioNoDisponibleResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.ServiceUnavailable.Body
+                /// Creates a new `ServiceUnavailable`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.ServiceUnavailable.Body) {
+                    self.body = body
+                }
+            }
+            /// An internal dependency failed (SERVICIO_NO_DISPONIBLE). The transaction rolled back and nothing was written. Retryable.
+            ///
+            /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post/responses/503`.
+            ///
+            /// HTTP response code: `503 serviceUnavailable`.
+            case serviceUnavailable(Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.ServiceUnavailable)
+            /// The associated value of the enum case if `self` is `.serviceUnavailable`.
+            ///
+            /// - Throws: An error if `self` is not `.serviceUnavailable`.
+            /// - SeeAlso: `.serviceUnavailable`.
+            internal var serviceUnavailable: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.ServiceUnavailable {
+                get throws {
+                    switch self {
+                    case let .serviceUnavailable(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "serviceUnavailable",
+                            response: self
+                        )
+                    }
+                }
+            }
+            /// Undocumented response.
+            ///
+            /// A response with a code that is not documented in the OpenAPI document.
+            case undocumented(statusCode: Swift.Int, OpenAPIRuntime.UndocumentedPayload)
+        }
+        internal enum AcceptableContentType: AcceptableProtocol {
+            case json
+            case other(Swift.String)
+            internal init?(rawValue: Swift.String) {
+                switch rawValue.lowercased() {
+                case "application/json":
+                    self = .json
+                default:
+                    self = .other(rawValue)
+                }
+            }
+            internal var rawValue: Swift.String {
+                switch self {
+                case let .other(string):
+                    return string
+                case .json:
+                    return "application/json"
+                }
+            }
+            internal static var allCases: [Self] {
+                [
+                    .json
+                ]
+            }
+        }
+    }
     /// Link the anonymous account to Sign in with Apple
     ///
     /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body is the one of POST /api/auth/apple/token without the terms versions; the nonce is checked the same way, and `authorizationCode` is exchanged best-effort so the Apple token can be revoked when the account is deleted. 404 when APPLE_BUNDLE_ID is not configured.

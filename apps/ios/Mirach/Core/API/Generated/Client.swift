@@ -2132,6 +2132,169 @@ internal struct Client: APIProtocol {
             }
         )
     }
+    /// Merge an anonymous account into the caller account
+    ///
+    /// Authenticated endpoint that merges the data of an ANONYMOUS account (ADR-013) into the CALLER's account (ADR-014). The destination is always the session user; the origin is the account that owns `tokenOrigen`, its session token, which proves the caller owns it. Everything happens in one database transaction: all or nothing. Bank accounts with the same bank, type and account number are united (the others are moved); movements of a united account that the caller already has are dropped with the ingest duplicate rule and counted in `duplicadosOmitidos`, the rest move keeping their category and bucket; categories with the same bucket and name are replaced by the caller ones, the others move with their patterns; patterns whose text the caller already has are dropped. The caller keeps its own name, email, budget profile, goals, cut day, declared income and consents. The origin sessions and the origin user are deleted: the merge is irreversible, and a second call with the same token answers 409 ORIGEN_INVALIDO. A bad origin token is deliberately never a 401, because the session itself is still valid. Additive endpoint: no existing contract changes.
+    ///
+    /// - Remark: HTTP `POST /api/cuenta/fusionar`.
+    /// - Remark: Generated from `#/paths//api/cuenta/fusionar/post`.
+    internal func post_sol_api_sol_cuenta_sol_fusionar(_ input: Operations.post_sol_api_sol_cuenta_sol_fusionar.Input) async throws -> Operations.post_sol_api_sol_cuenta_sol_fusionar.Output {
+        try await client.send(
+            input: input,
+            forOperation: Operations.post_sol_api_sol_cuenta_sol_fusionar.id,
+            serializer: { input in
+                let path = try converter.renderedPath(
+                    template: "/api/cuenta/fusionar",
+                    parameters: []
+                )
+                var request: HTTPTypes.HTTPRequest = .init(
+                    soar_path: path,
+                    method: .post
+                )
+                suppressMutabilityWarning(&request)
+                converter.setAcceptHeader(
+                    in: &request.headerFields,
+                    contentTypes: input.headers.accept
+                )
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case .none:
+                    body = nil
+                case let .json(value):
+                    body = try converter.setOptionalRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
+            },
+            deserializer: { response, responseBody in
+                switch response.status.code {
+                case 200:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Ok.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.CuentaFusionarResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .ok(.init(body: body))
+                case 400:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.BadRequest.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.BodyInvalidoResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .badRequest(.init(body: body))
+                case 401:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Unauthorized.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.UnauthorizedResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .unauthorized(.init(body: body))
+                case 409:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.Conflict.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.FusionRechazadaResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .conflict(.init(body: body))
+                case 429:
+                    return .tooManyRequests(.init())
+                case 503:
+                    let contentType = converter.extractContentTypeIfPresent(in: response.headerFields)
+                    let body: Operations.post_sol_api_sol_cuenta_sol_fusionar.Output.ServiceUnavailable.Body
+                    let chosenContentType = try converter.bestContentType(
+                        received: contentType,
+                        options: [
+                            "application/json"
+                        ]
+                    )
+                    switch chosenContentType {
+                    case "application/json":
+                        body = try await converter.getResponseBodyAsJSON(
+                            Components.Schemas.ServicioNoDisponibleResponse.self,
+                            from: responseBody,
+                            transforming: { value in
+                                .json(value)
+                            }
+                        )
+                    default:
+                        preconditionFailure("bestContentType chose an invalid content type.")
+                    }
+                    return .serviceUnavailable(.init(body: body))
+                default:
+                    return .undocumented(
+                        statusCode: response.status.code,
+                        .init(
+                            headerFields: response.headerFields,
+                            body: responseBody
+                        )
+                    )
+                }
+            }
+        )
+    }
     /// Link the anonymous account to Sign in with Apple
     ///
     /// Authenticated endpoint that turns the CALLER's anonymous account (ADR-013) into an ordinary one by attaching a verified identity; no data is moved. The user is always the session user. On success the current session is revoked and a new ordinary session is returned: replace the stored token with it. If the identity already owns another account — by its `sub`, or by a verified email that is not an Apple private relay — the answer is 409 CUENTA_YA_EXISTE and nothing is written: the anonymous data stays untouched, and the app may offer to sign in to that account. A caller that already has a sign-in method gets 409 CUENTA_NO_ANONIMA. A token that does not verify is 400 IDENTIDAD_INVALIDA, deliberately not 401, because the session itself is still valid. The body is the one of POST /api/auth/apple/token without the terms versions; the nonce is checked the same way, and `authorizationCode` is exchanged best-effort so the Apple token can be revoked when the account is deleted. 404 when APPLE_BUNDLE_ID is not configured.
