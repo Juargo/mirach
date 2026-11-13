@@ -141,6 +141,55 @@ struct AuthAPITests {
         #expect(counter.tokens == ["tok-sent"])
     }
 
+    // MARK: merge an anonymous account (ADR-014)
+
+    private let mergeBody = """
+    {"cuentasMovidas":1,"cuentasUnidas":0,"movimientosMovidos":5,"duplicadosOmitidos":0,\
+    "categoriasMovidas":0,"patronesMovidos":0}
+    """
+
+    @Test func mergeSendsTheOriginTokenToTheMergeRoute() async throws {
+        let transport = FakeTransport.json(mergeBody)
+
+        try await makeAPI(transport).mergeAnonymousAccount(originToken: "tok-origin")
+
+        #expect(transport.requests.first?.path == "/api/cuenta/fusionar")
+        #expect(try sentJSON(transport)["tokenOrigen"] as? String == "tok-origin")
+    }
+
+    @Test func aMergeConflictReachesTheCallerAsATypedError() async {
+        let cases: [(String, APIError)] = [
+            ("ORIGEN_INVALIDO", .mergeOriginInvalid),
+            ("DESTINO_ANONIMO", .mergeDestinationAnonymous),
+        ]
+        for (code, expected) in cases {
+            let transport = FakeTransport.json(conflict(code), status: .conflict)
+            await #expect(throws: expected) { _ = try await makeAPI(transport).mergeAnonymousAccount(originToken: "t") }
+        }
+    }
+
+    @Test func mergeMapsTheOtherDocumentedFailures() async {
+        let cases: [(HTTPResponse.Status, String, APIError)] = [
+            (.tooManyRequests, "", .rateLimited),
+            (.badRequest, #"{"code":"BODY_INVALIDO","message":"x"}"#, .badStatus(400)),
+            (.serviceUnavailable, "<html>Bad gateway</html>", .badStatus(503)),
+        ]
+        for (status, body, expected) in cases {
+            let transport = FakeTransport.json(body, status: status)
+            await #expect(throws: expected) { _ = try await makeAPI(transport).mergeAnonymousAccount(originToken: "t") }
+        }
+    }
+
+    @Test func aMergeRejectedWithSesionInvalidaNotifiesTheExpiryRelayWithTheCallersToken() async {
+        let counter = ExpiryCounter()
+        let transport = FakeTransport.json(unauthorized("SESION_INVALIDA"), status: .unauthorized)
+
+        await #expect(throws: APIError.sessionExpired) {
+            _ = try await makeAPI(transport, expiry: counter).mergeAnonymousAccount(originToken: "tok-origin")
+        }
+        #expect(counter.tokens == ["tok-sent"])
+    }
+
     // MARK: sign in with Apple
 
     @Test func signInWithAppleSendsTokenNonceAndNameAndMapsTheSession() async throws {

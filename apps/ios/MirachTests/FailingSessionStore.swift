@@ -8,6 +8,7 @@ struct FailingSessionStore: SessionStore {
     func clear() throws {}
     func saveAnonymousBackup(_ session: Session) throws { throw KeychainSessionStore.KeychainError(status: -25299) }
     func loadAnonymousBackup() -> Session? { nil }
+    func clearAnonymousBackup() throws {}
 }
 
 /// A store that cannot delete (Keychain delete failed) and one that counts deletes.
@@ -18,6 +19,7 @@ struct UndeletableSessionStore: SessionStore {
     func clear() throws { throw KeychainSessionStore.KeychainError(status: -25308) }
     func saveAnonymousBackup(_ session: Session) throws {}
     func loadAnonymousBackup() -> Session? { nil }
+    func clearAnonymousBackup() throws {}
 }
 
 final class CountingSessionStore: SessionStore, @unchecked Sendable {
@@ -34,4 +36,5 @@ final class CountingSessionStore: SessionStore, @unchecked Sendable {
     }
     func saveAnonymousBackup(_ session: Session) throws { try inner.saveAnonymousBackup(session) }
     func loadAnonymousBackup() -> Session? { inner.loadAnonymousBackup() }
+    func clearAnonymousBackup() throws { try inner.clearAnonymousBackup() }
 }

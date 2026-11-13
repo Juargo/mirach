@@ -49,7 +49,7 @@ struct PerfilView: View {
             } message: {
                 Text(PerfilViewModel.revokeConfirmationMessage)
             }
-            // "Entrar a esa cuenta" is the only way to continue; cancelling sends nothing.
+            // "Entrar y unir datos" is the only way to continue; cancelling sends nothing.
             .alert(PerfilViewModel.existingAccountTitle, isPresented: $viewModel.isConfirmingExistingAccount) {
                 Button(PerfilViewModel.existingAccountConfirmButton) {
                     Task { await viewModel.enterExistingAccount() }
@@ -63,6 +63,11 @@ struct PerfilView: View {
             .onChange(of: viewModel.linkState) {
                 if viewModel.linkState == .linked {
                     AccessibilityNotification.Announcement(PerfilViewModel.linkedMessage).post()
+                }
+            }
+            .onChange(of: viewModel.mergeState) {
+                if viewModel.mergeState == .merged {
+                    AccessibilityNotification.Announcement(PerfilViewModel.mergedMessage).post()
                 }
             }
         }
@@ -97,6 +102,9 @@ struct PerfilView: View {
             nameSection
             if let email = viewModel.email { emailSection(email) }
             if viewModel.showsLinkSection { linkSection }
+            if viewModel.showsMergeSection || viewModel.mergeResultMessage != nil || viewModel.mergeFailureMessage != nil {
+                mergeSection
+            }
             if let message = viewModel.linkedNotice {
                 Label(message, systemImage: "checkmark.circle")
                     .mirachText(.etiqueta)
@@ -216,7 +224,50 @@ struct PerfilView: View {
                     .accessibilityIdentifier("perfil.link.error")
             }
         }
+        // `.contain` keeps the children's own identifiers (a bare identifier here overrides them).
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("perfil.link")
+    }
+
+    /// "Datos de este dispositivo": an anonymous session parked beside an ordinary one (ADR-014).
+    /// The result stays after the parked item is gone, so it is drawn outside the section's guard.
+    private var mergeSection: some View {
+        VStack(alignment: .leading, spacing: MirachSpacing.s) {
+            if viewModel.showsMergeSection {
+                VStack(alignment: .leading, spacing: MirachSpacing.xs) {
+                    SectionLabel(PerfilViewModel.mergeTitle)
+                    Text(PerfilViewModel.mergeText)
+                        .mirachText(.cuerpo)
+                        .foregroundStyle(Color.Mirach.Base.foreground)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("perfil.merge.text")
+                }
+                Button {
+                    Task { await viewModel.mergeParkedData() }
+                } label: {
+                    Text(PerfilViewModel.mergeActionTitle).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(SecondaryButtonStyle(ink: Color.Mirach.Base.foreground))
+                .disabled(viewModel.isMerging || viewModel.isBusyWithSession)
+                .accessibilityIdentifier("perfil.merge.action")
+            }
+            if viewModel.isMerging {
+                ProgressView().accessibilityIdentifier("perfil.merge.progress")
+            }
+            if let message = viewModel.mergeFailureMessage {
+                Label(message, systemImage: "exclamationmark.circle")
+                    .mirachText(.etiqueta)
+                    .foregroundStyle(Color.Mirach.Feedback.errorText)
+                    .accessibilityIdentifier("perfil.merge.error")
+            } else if let message = viewModel.mergeResultMessage {
+                Label(message, systemImage: "checkmark.circle")
+                    .mirachText(.etiqueta)
+                    .foregroundStyle(Color.Mirach.Feedback.successText)
+                    .accessibilityIdentifier("perfil.merge.result")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("perfil.merge")
     }
 
     /// Reuses the sign-in feature's credential and nonce; only the sheet is requested here, with
@@ -270,6 +321,7 @@ struct PerfilView: View {
                     .accessibilityIdentifier("perfil.consent.revoked")
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("perfil.consent")
     }
 

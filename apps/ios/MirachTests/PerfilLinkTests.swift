@@ -96,8 +96,8 @@ struct PerfilLinkTests {
         #expect(PerfilViewModel.linkedMessage == "Cuenta vinculada")
         #expect(PerfilViewModel.existingAccountTitle == "Esa cuenta ya existe")
         #expect(PerfilViewModel.existingAccountMessage
-            == "Si entras a ella dejarás de ver los datos de este dispositivo. Quedan guardados y podrás recuperarlos más adelante.")
-        #expect(PerfilViewModel.existingAccountConfirmButton == "Entrar a esa cuenta")
+            == "Si entras a ella, uniremos los datos de este dispositivo con los de esa cuenta.")
+        #expect(PerfilViewModel.existingAccountConfirmButton == "Entrar y unir datos")
         #expect(PerfilViewModel.existingAccountCancelButton == "Cancelar")
     }
 
@@ -113,6 +113,7 @@ struct PerfilLinkTests {
         #expect(rig.api.linkAppleCalls == [.init(
             identityToken: "apple-jwt", nonce: "raw-nonce", nombre: "Ana Pérez", authorizationCode: "code-1"
         )])
+        #expect(rig.api.mergeCalls.isEmpty, "linking a new identity merges nothing")
         #expect(rig.store.load() == linked)
         #expect(rig.session.isAnonymous == false)
         #expect(rig.viewModel.showsLinkSection == false)
@@ -200,6 +201,7 @@ struct PerfilLinkTests {
         #expect(rig.store.load() == anonymous)
         #expect(rig.store.loadAnonymousBackup() == nil)
         #expect(rig.api.signInCalls.isEmpty)
+        #expect(rig.api.mergeCalls.isEmpty)
     }
 
     @Test func enteringTheExistingAccountParksTheAnonymousSessionAndSignsInWithTheSameAppleCredential() async {
@@ -214,7 +216,8 @@ struct PerfilLinkTests {
         #expect(rig.api.signInCalls == [.init(
             identityToken: "apple-jwt", nonce: "raw-nonce", nombre: "Ana Pérez", authorizationCode: "code-1"
         )])
-        #expect(rig.store.loadAnonymousBackup() == anonymous)
+        #expect(rig.api.mergeCalls == ["tok-anon"], "the parked session's token goes to the merge")
+        #expect(rig.store.loadAnonymousBackup() == nil, "merged, so the parked item is cleared")
         #expect(rig.store.load()?.isAnonymous == false)
         #expect(rig.store.load()?.token == "tok", "the session the token route returned")
         #expect(rig.session.isAnonymous == false)
@@ -229,7 +232,7 @@ struct PerfilLinkTests {
         await rig.viewModel.enterExistingAccount()
 
         #expect(rig.api.googleSignInCalls == ["google-jwt"])
-        #expect(rig.store.loadAnonymousBackup() == anonymous)
+        #expect(rig.api.mergeCalls == ["tok-anon"])
         #expect(rig.store.load()?.isAnonymous == false)
         #expect(rig.api.linkGoogleCalls == ["google-jwt"])
     }
@@ -244,6 +247,7 @@ struct PerfilLinkTests {
 
         #expect(rig.viewModel.isConfirmingExistingAccount == false)
         #expect(rig.api.googleSignInCalls.isEmpty)
+        #expect(rig.api.mergeCalls.isEmpty)
         #expect(rig.store.load() == anonymous)
         #expect(rig.store.loadAnonymousBackup() == nil)
     }
@@ -292,4 +296,5 @@ private struct ParkFailingStore: SessionStore {
     func clear() throws {}
     func saveAnonymousBackup(_ session: Session) throws { throw KeychainSessionStore.KeychainError(status: -25299) }
     func loadAnonymousBackup() -> Session? { nil }
+    func clearAnonymousBackup() throws {}
 }

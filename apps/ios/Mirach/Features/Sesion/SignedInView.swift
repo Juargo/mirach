@@ -52,6 +52,11 @@ struct SignedInView: View {
                 .tag(Tab.perfil)
         }
         .onChange(of: environment.subir.importsCompleted) { resumenReload += 1 }
+        // After a merge the account has new statements, movements and categories: everything reads again.
+        .onChange(of: environment.session.mergeRevision) {
+            resumenReload += 1
+            catalogChanged()
+        }
         // The whole area leaves the screen on sign-out (also after a 401): drop the file copy
         // and any password. Switching tabs does not trigger this.
         .onDisappear { environment.subir.discard() }

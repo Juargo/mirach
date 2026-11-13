@@ -33,6 +33,11 @@ protocol MirachAPI: Sendable {
     ) async throws -> Session
     /// `POST /api/cuenta/vincular/google`. Same answers and errors as `linkWithApple`.
     func linkWithGoogle(idToken: String) async throws -> Session
+    /// `POST /api/cuenta/fusionar` (needs the session of the account that receives the data):
+    /// merges the anonymous account whose session token is `originToken` into it (ADR-014).
+    /// `APIError.mergeOriginInvalid` for the 409 `ORIGEN_INVALIDO` (the parked data is gone) and
+    /// `.mergeDestinationAnonymous` for `DESTINO_ANONIMO`. Never log `originToken`.
+    func mergeAnonymousAccount(originToken: String) async throws
     /// `GET /api/auth/me`: validates the saved session.
     func currentUser() async throws -> CurrentUser
     /// `PATCH /api/perfil` with only the name; answers the updated identity.
@@ -128,6 +133,10 @@ extension MirachAPI {
         throw APIError.badStatus(501)
     }
 
+    func mergeAnonymousAccount(originToken: String) async throws {
+        throw APIError.badStatus(501)
+    }
+
     func crearPatron(categoriaId: String, patron: String, moverDelPeriodo: Periodo?) async throws -> PatronCreado {
         guard moverDelPeriodo == nil else { throw APIError.badStatus(501) }
         let created = try await crearPatron(categoriaId: categoriaId, patron: patron, matchType: .contains)
@@ -173,6 +182,11 @@ enum APIError: Error, Equatable {
     case accountNotAnonymous
     /// 404 on a link route: that provider is switched off on the server.
     case linkProviderUnavailable
+    /// 409 `ORIGEN_INVALIDO` on a merge: the parked session is unknown, expired, not anonymous or
+    /// the caller's own. Nothing was written and it will never succeed.
+    case mergeOriginInvalid
+    /// 409 `DESTINO_ANONIMO` on a merge: the caller is itself an anonymous account.
+    case mergeDestinationAnonymous
 }
 
 /// `MirachAPI` backed by the generated OpenAPI client.
