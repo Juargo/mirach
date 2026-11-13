@@ -56,7 +56,7 @@ para después.
 5. **Fusión de cuentas: segunda entrega.** Unir los datos de una cuenta anónima con una
    cuenta existente exige reapuntar categorías y patrones (unicidad `(userId, bucketId,
    nombre)`, ADR-004), unir cuentas bancarias repetidas y detectar movimientos duplicados
-   con la descripción cifrada (ADR-009). Se decide y se construye aparte.
+   con la descripción cifrada (ADR-009). Se decide y se construye aparte. Ver ADR-014.
 6. **Límites de tasa.** El alta anónima admite 10 por IP por hora y un alta exitosa nunca
    restablece el contador. Las rutas de vinculación usan un presupuesto por IP como las
    rutas de token. Un límite por dispositivo requeriría App Attest (iOS) y Play Integrity
