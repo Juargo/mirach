@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.14.0](https://github.com/Juargo/mirach/compare/api-v0.13.0...api-v0.14.0) (2026-11-13)
+
+
+### Features
+
+* **api:** add anonymous accounts and later linking to Apple or Google ([1a4d2fa](https://github.com/Juargo/mirach/commit/1a4d2fa330947c23927d7545f056534759b4dbb4))
+* **api:** add anonymous accounts and later linking to Apple or Google ([4f425ae](https://github.com/Juargo/mirach/commit/4f425ae5b3df809a90ef859fd4b85fa47506d7fb))
+* **api:** add the classification summary to the upload preview ([93edc25](https://github.com/Juargo/mirach/commit/93edc25fe48370f682a33eacbfc992dc7a9eb31c))
+* **api:** add the classification summary to the upload preview ([8ea2d25](https://github.com/Juargo/mirach/commit/8ea2d25b524cb286def513d1ad24829998b0b7e8))
+* **api:** merge an anonymous account into the session user's account ([8d2294f](https://github.com/Juargo/mirach/commit/8d2294ff42aac1e382f5b88b24fdab4ec4474835))
+* **api:** merge an anonymous account into the session user's account ([783edb6](https://github.com/Juargo/mirach/commit/783edb602350cf8d060f1ba3c629e32b531d587d))
+
+
+### Bug Fixes
+
+* **api:** keep the link result when revoking the anonymous session fails ([04974f1](https://github.com/Juargo/mirach/commit/04974f1837d74a09f72360c13fb614818eb749ab))
+
 ## [0.13.0](https://github.com/Juargo/mirach/compare/api-v0.12.0...api-v0.13.0) (2026-11-08)
 
 
