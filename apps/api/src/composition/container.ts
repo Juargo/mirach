@@ -188,6 +188,8 @@ export interface Container {
   readonly vincularIdentidad: CuentaAnonimaGraph['vincularIdentidad'];
   readonly altaAnonimaRateLimiter: CuentaAnonimaGraph['altaRateLimiter'];
   readonly vincularRateLimiter: CuentaAnonimaGraph['vincularRateLimiter'];
+  readonly fusionarCuenta: CuentaAnonimaGraph['fusionarCuenta'];
+  readonly fusionarRateLimiter: CuentaAnonimaGraph['fusionarRateLimiter'];
   /** Rate limiter de login (por IP + email). */
   readonly loginRateLimiter: LoginRateLimiter;
   /** Cierra la conexión Prisma. Lo invoca el bootstrap ante SIGTERM/SIGINT. */
@@ -482,6 +484,8 @@ export function createContainer(
     vincularIdentidad: cuentaAnonima.vincularIdentidad,
     altaAnonimaRateLimiter: cuentaAnonima.altaRateLimiter,
     vincularRateLimiter: cuentaAnonima.vincularRateLimiter,
+    fusionarCuenta: cuentaAnonima.fusionarCuenta,
+    fusionarRateLimiter: cuentaAnonima.fusionarRateLimiter,
     loginRateLimiter: auth.loginRateLimiter,
     shutdown: async () => {
       await tareasEnSegundoPlano.drenar(PLAZO_DRENADO_APAGADO_MS);

@@ -59,27 +59,44 @@ export function marcarDuplicados(
   existentes: ReadonlyArray<TransaccionExistente>,
   transacciones: ReadonlyArray<Transaccion>,
 ): boolean[] {
-  if (transacciones.length === 0) return [];
+  return marcarCopiasPorClave(
+    existentes.map((row) =>
+      construirClaveDuplicado({
+        fecha: row.fecha,
+        descripcion: row.descripcion,
+        cargo: row.cargo.toString(),
+        abono: row.abono.toString(),
+      }),
+    ),
+    transacciones.map((tx) =>
+      construirClaveDuplicado({
+        fecha: tx.fecha,
+        descripcion: tx.descripcion,
+        cargo: String(tx.cargo),
+        abono: String(tx.abono),
+      }),
+    ),
+  );
+}
 
-  // Copias guardadas por clave, consumidas a medida que el archivo las repite.
+/**
+ * marcarCopiasPorClave — el conteo de copias de `marcarDuplicados`, sobre
+ * claves ya construidas con `construirClaveDuplicado`. Lo comparten la
+ * ingesta y la fusión de cuentas (ADR-014), para que ambas den la misma
+ * respuesta. `resultado[i]` es `true` cuando `claves[i]` consume una copia
+ * guardada.
+ */
+export function marcarCopiasPorClave(
+  clavesExistentes: Iterable<string>,
+  claves: ReadonlyArray<string>,
+): boolean[] {
+  // Copias guardadas por clave, consumidas a medida que las claves se repiten.
   const copiasRestantes = new Map<string, number>();
-  for (const row of existentes) {
-    const clave = construirClaveDuplicado({
-      fecha: row.fecha,
-      descripcion: row.descripcion,
-      cargo: row.cargo.toString(),
-      abono: row.abono.toString(),
-    });
+  for (const clave of clavesExistentes) {
     copiasRestantes.set(clave, (copiasRestantes.get(clave) ?? 0) + 1);
   }
 
-  return transacciones.map((tx) => {
-    const clave = construirClaveDuplicado({
-      fecha: tx.fecha,
-      descripcion: tx.descripcion,
-      cargo: String(tx.cargo),
-      abono: String(tx.abono),
-    });
+  return claves.map((clave) => {
     const restantes = copiasRestantes.get(clave) ?? 0;
     if (restantes === 0) return false;
     copiasRestantes.set(clave, restantes - 1);

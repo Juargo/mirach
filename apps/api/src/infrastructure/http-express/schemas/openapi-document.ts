@@ -56,6 +56,9 @@ import { authGoogleTokenRequestSchema } from './auth-google-token.schema';
 import { authAppleTokenRequestSchema } from './auth-apple-token.schema';
 import {
   authAnonimoRequestSchema,
+  cuentaFusionarRequestSchema,
+  cuentaFusionarResponseSchema,
+  fusionRechazadaResponseSchema,
   cuentaVincularAppleRequestSchema,
   cuentaVincularGoogleRequestSchema,
   identidadInvalidaResponseSchema,
@@ -1675,6 +1678,59 @@ const cuentaVincularGoogleOperation: ZodOpenApiOperationObject = {
   },
 };
 
+const cuentaFusionarOperation: ZodOpenApiOperationObject = {
+  summary: 'Merge an anonymous account into the caller account',
+  description:
+    "Authenticated endpoint that merges the data of an ANONYMOUS account (ADR-013) into the CALLER's " +
+    'account (ADR-014). The destination is always the session user; the origin is the account that owns ' +
+    '`tokenOrigen`, its session token, which proves the caller owns it. Everything happens in one ' +
+    'database transaction: all or nothing. Bank accounts with the same bank, type and account number ' +
+    'are united (the others are moved); movements of a united account that the caller already has are ' +
+    'dropped with the ingest duplicate rule and counted in `duplicadosOmitidos`, the rest move keeping ' +
+    'their category and bucket; categories with the same bucket and name are replaced by the caller ' +
+    'ones, the others move with their patterns; patterns whose text the caller already has are dropped. ' +
+    'The caller keeps its own name, email, budget profile, goals, cut day, declared income and consents. ' +
+    'The origin sessions and the origin user are deleted: the merge is irreversible, and a second call ' +
+    'with the same token answers 409 ORIGEN_INVALIDO. A bad origin token is deliberately never a 401, ' +
+    'because the session itself is still valid. Additive endpoint: no existing contract changes.',
+  requestBody: {
+    content: { 'application/json': { schema: cuentaFusionarRequestSchema } },
+  },
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: 'Merged. The counts of what moved and what was dropped.',
+      content: {
+        'application/json': { schema: cuentaFusionarResponseSchema },
+      },
+    },
+    '400': {
+      description:
+        'Missing or malformed body (BODY_INVALIDO). Nothing was written.',
+      content: {
+        'application/json': { schema: bodyInvalidoResponseSchema },
+      },
+    },
+    '409': {
+      description:
+        'The origin token is unknown or expired, its account is not anonymous or it is the caller own account (ORIGEN_INVALIDO); or the caller is itself anonymous (DESTINO_ANONIMO). Nothing was written.',
+      content: {
+        'application/json': { schema: fusionRechazadaResponseSchema },
+      },
+    },
+    '429': {
+      description: 'Rate-limited: too many attempts from this IP.',
+    },
+    '503': {
+      description:
+        'An internal dependency failed (SERVICIO_NO_DISPONIBLE). The transaction rolled back and nothing was written. Retryable.',
+      content: {
+        'application/json': { schema: servicioNoDisponibleResponseSchema },
+      },
+    },
+  },
+};
+
 const semaforoDetalleOperation: ZodOpenApiOperationObject = {
   summary:
     'Semáforo detail: zone-band edges, diagnosis, and CLP-to-Verde advice',
@@ -2139,6 +2195,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/cuenta': { delete: cuentaDeleteOperation },
   '/api/cuenta/vincular/apple': { post: cuentaVincularAppleOperation },
   '/api/cuenta/vincular/google': { post: cuentaVincularGoogleOperation },
+  '/api/cuenta/fusionar': { post: cuentaFusionarOperation },
   '/api/resumen/semaforo': { get: semaforoDetalleOperation },
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
   '/api/ingresos/mes': { get: ingresosMesOperation },
