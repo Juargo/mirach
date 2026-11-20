@@ -38,6 +38,12 @@ overrides:
   # (high). Alcanzable en runtime vía express. 2.4.0 se publicó 2026-10-22 y
   # salió de la cuarentena de 7 días el 2026-10-29.
   body-parser: '>=2.4.0 <3.0.0'
+  # GHSA-7589-6fvf-x4pw — ReDoS en la regex compilada de
+  # Schema.TemplateLiteral (high). Transitivo de Prisma, que lo fija exacto en
+  # 3.20.0: @prisma/client -> prisma -> @prisma/config -> effect. Acotado a la
+  # línea 3.x. Retirar cuando Prisma publique @prisma/config con effect
+  # >=3.22.1.
+  effect: '>=3.22.1 <4.0.0'
 
   # --- Burn-down del baseline de ADR-021 (2026-09-04) ---
   # Cada piso retira su(s) advisory(es) de auditConfig.ignoreGhsas. Todos son
