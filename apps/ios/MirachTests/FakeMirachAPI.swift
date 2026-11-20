@@ -169,6 +169,11 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var revocarResults: [Result<Void, any Error>] = [.success(())]
     private var _revocarCalls = 0
     private var _revocarGate: Gate?
+    private var perfilPresupuestoResults: [Result<PerfilPresupuesto, any Error>] = [.success(.predefinido(.p50_30_20))]
+    private var _perfilPresupuestoCalls = 0
+    private var guardarPerfilPresupuestoResults: [Result<PerfilPresupuesto, any Error>] = []
+    private var _guardarPerfilPresupuestoCalls: [PerfilPredefinido] = []
+    private var _perfilPresupuestoGate: Gate?
 
     init(
         versionResult: Result<VersionInfo, any Error> = .success(VersionInfo(version: "0", commit: "0")),
@@ -480,6 +485,47 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         let (result, gate) = lock.withLock {
             _ingresosCalls.append(periodo)
             return (ingresosResults.count > 1 ? ingresosResults.removeFirst() : ingresosResults[0], _ingresosGate)
+        }
+        await gate?.wait()
+        return try result.get()
+    }
+
+    // MARK: perfil de presupuesto
+
+    /// Answers for the next `perfilPresupuesto()` calls, in order; the last one repeats.
+    func setPerfilPresupuestoResults(_ results: [Result<PerfilPresupuesto, any Error>]) {
+        lock.withLock { perfilPresupuestoResults = results }
+    }
+
+    /// Answers for the next `guardarPerfilPresupuesto` calls, in order; the last one repeats.
+    /// Without any, a save answers with the profile it was given.
+    func setGuardarPerfilPresupuestoResults(_ results: [Result<PerfilPresupuesto, any Error>]) {
+        lock.withLock { guardarPerfilPresupuestoResults = results }
+    }
+
+    var perfilPresupuestoCalls: Int { lock.withLock { _perfilPresupuestoCalls } }
+    var guardarPerfilPresupuestoCalls: [PerfilPredefinido] { lock.withLock { _guardarPerfilPresupuestoCalls } }
+
+    /// When set, `guardarPerfilPresupuesto` waits at the gate before answering.
+    var perfilPresupuestoGate: Gate? {
+        get { lock.withLock { _perfilPresupuestoGate } }
+        set { lock.withLock { _perfilPresupuestoGate = newValue } }
+    }
+
+    func perfilPresupuesto() async throws -> PerfilPresupuesto {
+        try lock.withLock {
+            _perfilPresupuestoCalls += 1
+            return perfilPresupuestoResults.count > 1 ? perfilPresupuestoResults.removeFirst() : perfilPresupuestoResults[0]
+        }.get()
+    }
+
+    func guardarPerfilPresupuesto(_ perfil: PerfilPredefinido) async throws -> PerfilPresupuesto {
+        let (result, gate) = lock.withLock {
+            _guardarPerfilPresupuestoCalls.append(perfil)
+            let next: Result<PerfilPresupuesto, any Error> = guardarPerfilPresupuestoResults.count > 1
+                ? guardarPerfilPresupuestoResults.removeFirst()
+                : guardarPerfilPresupuestoResults.first ?? .success(.predefinido(perfil))
+            return (next, _perfilPresupuestoGate)
         }
         await gate?.wait()
         return try result.get()
