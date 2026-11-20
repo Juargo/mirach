@@ -26,7 +26,7 @@ Assumptions (not stated by the user): S6 entry point; the on-screen note of S1 i
 
 ## Tasks
 
-- [ ] T1 — iOS screen, API method, view model, tests (S1-S7). Route: delegated (Writer trigger a: two independent units, disjoint surfaces `apps/ios/**` vs `apps/android/**`, each several files). Commit: —
+- [x] T1 — iOS screen, API method, view model, tests (S1-S7). Route: delegated (Writer trigger a: two independent units, disjoint surfaces `apps/ios/**` vs `apps/android/**`, each several files). Commit: `696a6289`
 - [x] T2 — Android screen, API method, view model, tests (S1-S7). Route: delegated (same trigger). Note: the generated `PerfilPresupuestoUpdateRequest` only models `personalizado` with required `metas`, so the predefined PUT goes through the hand-written `PerfilPresupuestoApi` Retrofit service (same pattern as `CuentaApi`). Commit: `001d69e1`
 - [x] T3 — Catalog update (S8). Route: inline (parent). Commit: the docs commit that holds this file.
 
@@ -37,4 +37,5 @@ Assumptions (not stated by the user): S6 entry point; the on-screen note of S1 i
 - L3 (2026-11-19, user, verbatim, answering whether to start with screen 49 or also bring forward screen 50): "vamos por 49 primero"
 - L5 (2026-11-19): T2 delivered. `./gradlew testDebugUnitTest` and `./gradlew assembleDebug lint` reported BUILD SUCCESSFUL by the writer (19 new tests); the parent re-run was fully cached. RED was a compile failure, not a per-assert mutation check. Writer-added copy: «No pudimos guardar el perfil. Inténtalo de nuevo en unos segundos.» Resumen reload: new `perfilRevision` counter in `RootRoute.kt`. Commit is 775 changed lines, above the ~400 heuristic: one screen with its API, view model and tests, not split artificially.
 - L6 (2026-11-20): T1 code delivered. `xcodebuild ... -only-testing:MirachTests test` reported TEST SUCCEEDED by the writer (812 tests, 16 new). The full run with MirachUITests was not completed by the writer; the parent runs that target before committing. Writer-added copy: «Cargando tu perfil de porcentajes…», «No pudimos guardar el perfil. Inténtalo de nuevo.» Resumen reload reuses the existing `resumenReload` counter. RDD is off (global), so no native review runs. Engram mirror pending: the save call could not be checked by auto mode.
+- L7 (2026-11-20): Parent ran `xcodebuild ... -only-testing:MirachUITests test`: TEST SUCCEEDED, 51 tests, 0 failures. T1 committed as `696a6289`. No UI test covers the new screen. Not verified on a device or emulator against the Figma frame. Next step: the user's visual check, then PRs per platform.
 - L4 (2026-11-19): Exploration found the API complete (#110, #111 closed), no client code beyond generated models, GH #141 open for screens 48/49/51 and #156 for screen 50. Figma node 154:1640 read; its frame includes the Plus row that S2 excludes.
