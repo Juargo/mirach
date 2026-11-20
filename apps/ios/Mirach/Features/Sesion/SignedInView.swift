@@ -45,9 +45,14 @@ struct SignedInView: View {
                 .tabItem { Label("Categorías", systemImage: "tag") }
                 .tag(Tab.categorias)
 
-            PerfilView(viewModel: PerfilViewModel(
-                api: environment.api, session: environment.session, googleSignIn: environment.googleSignIn
-            ))
+            PerfilView(
+                viewModel: PerfilViewModel(
+                    api: environment.api, session: environment.session, googleSignIn: environment.googleSignIn
+                ),
+                api: environment.api,
+                // A new profile changes every month's targets: the Resumen reads again.
+                onBudgetProfileSaved: { resumenReload += 1 }
+            )
                 .tabItem { Label("Perfil", systemImage: "person.crop.circle") }
                 .tag(Tab.perfil)
         }

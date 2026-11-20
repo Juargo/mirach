@@ -150,3 +150,12 @@ extension StubLedger {
 extension StubMirachAPI {
     func ingresosMes(periodo: Periodo) async throws -> IngresosMes { ledger.ingresos(periodo: periodo) }
 }
+
+/// The budget profile of the UI-test stub: the recommended one, and a save answers what it got.
+extension StubMirachAPI {
+    func perfilPresupuesto() async throws -> PerfilPresupuesto { .predefinido(.p50_30_20) }
+
+    func guardarPerfilPresupuesto(_ perfil: PerfilPredefinido) async throws -> PerfilPresupuesto {
+        .predefinido(perfil)
+    }
+}
