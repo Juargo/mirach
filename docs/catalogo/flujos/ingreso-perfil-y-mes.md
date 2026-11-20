@@ -20,28 +20,31 @@ Ajustes (14) también da acceso a Categorías, Historial de importaciones, priva
 |---|---|---|---|
 | GET | `/api/auth/me` | Al abrir Ajustes (nombre y correo) | 200, 401 |
 | PATCH | `/api/perfil` | Al guardar el nombre | 200, 400, 401 |
+| GET | `/api/perfil/presupuesto` | Al abrir Perfil (49): perfil guardado, metas, día de corte e ingreso declarado | 200, 401 |
+| PUT | `/api/perfil/presupuesto` | Al guardar el perfil | 200, 400, 401 |
 
-El ingreso declarado, el perfil de porcentajes y el día de inicio del mes no tienen endpoint todavía; ADR-005 §7 prevé `GET/PUT /api/perfil/presupuesto` (#110, #111).
+El ingreso declarado, el perfil de porcentajes y el día de inicio del mes comparten el recurso `/api/perfil/presupuesto` (ADR-005 §7). En el `PUT`, un campo omitido no cambia; las apps solo tienen por ahora la pantalla de perfil (49), y las de ingreso (48) e inicio del mes (51) siguen pendientes (#141).
 
 ## Acciones
 
 | Acción | Endpoint | Cuerpo | Éxito | Fallo |
 |---|---|---|---|---|
 | Guardar el nombre | `PATCH /api/perfil` | `{"nombre": "<1 a 80 caracteres>"}`; nunca `email` ni `passwordActual` | 200 `AuthMeResponse`: se reemplaza la copia local y se anuncia «Perfil guardado» | 400 `NOMBRE_INVALIDO`; lo escrito se conserva |
-| Cambiar el ingreso | Pendiente (#111) | — | Las metas y porcentajes del Inicio se recalculan en el API | — |
-| Cambiar de perfil | Pendiente (#110) | — | Se aplica a todos los meses, también los pasados (PER-06) | — |
-| Cambiar el día de inicio del mes | Pendiente (#111) | — | Días 1 a 28; se recalculan todos los meses (PER-08) | — |
+| Cambiar el ingreso | `PUT /api/perfil/presupuesto` | Pantalla pendiente (#141) | Las metas y porcentajes del Inicio se recalculan en el API | — |
+| Cambiar de perfil | `PUT /api/perfil/presupuesto` | `{"perfil": "50_30_20" \| "60_20_20" \| "70_15_15" \| "80_10_10"}`; sin `diaCorte` ni `ingresoDeclarado`, que así no cambian | 200 `PerfilPresupuestoResponse`: se vuelve a la pantalla anterior y el Inicio se recarga. Se aplica a todos los meses, también los pasados (PER-06) | 400 `PerfilErrorResponse`; la pantalla sigue abierta y conserva la selección |
+| Cambiar el día de inicio del mes | `PUT /api/perfil/presupuesto` | Pantalla pendiente (#141) | Días 1 a 28; se recalculan todos los meses (PER-08) | — |
 
 El correo llega de Apple o Google y no se edita (PER-09); puede ser `null` en el contrato o un reenvío privado de Apple: se oculta si es `null`.
 
 ## Estados
 
 - **Guardando**: botón deshabilitado con progreso; sin cambios, el botón está deshabilitado.
-- **Confirmación de recálculo**: cambiar perfil o día de inicio avisa que cambia todos los meses.
+- **Confirmación de recálculo**: cambiar perfil o día de inicio avisa que cambia todos los meses. En Perfil (49) el aviso es el texto fijo bajo el título, sin diálogo adicional.
+- **Perfil (49)**: se marca el perfil guardado; si el guardado es `personalizado`, ninguna tarjeta queda marcada. La opción «Personalizado» no se muestra hasta la v1.1 (#156).
 
 ## Navegación
 
-- Entrada: pestaña Ajustes.
+- Entrada: pestaña Ajustes. Mientras las apps no tengan esa pestaña, Perfil (49) se abre desde la fila «Perfil de porcentajes» de la pestaña Perfil.
 - Salida: volver a Ajustes; el Inicio se recarga al volver.
 
 ## Notas por plataforma
