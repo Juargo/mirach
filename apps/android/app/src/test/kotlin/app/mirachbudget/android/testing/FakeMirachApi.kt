@@ -6,6 +6,7 @@ import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.BucketDetalle
 import app.mirachbudget.android.core.networking.CategoriaCambios
 import app.mirachbudget.android.core.networking.Parecidos
+import app.mirachbudget.android.core.networking.PerfilPredefinido
 import app.mirachbudget.android.core.networking.PatronCambios
 import app.mirachbudget.android.core.networking.PatronCategoria
 import app.mirachbudget.android.core.networking.PatronCreado
@@ -38,6 +39,8 @@ class FakeMirachApi : MirachApi {
     var onPeriodos: suspend () -> List<Periodo> = { error("periodos() not scripted") }
 
     var onUpdateNombre: suspend (String) -> CurrentUser = { error("updateNombre() not scripted") }
+    var onPerfilPresupuesto: suspend () -> PerfilPredefinido? = { error("perfilPresupuesto() not scripted") }
+    var onCambiarPerfilPresupuesto: suspend (PerfilPredefinido) -> PerfilPredefinido? = { error("cambiarPerfilPresupuesto() not scripted") }
     var onLogout: suspend () -> Unit = {}
     var onDeleteAccount: suspend (String) -> Unit = {}
 
@@ -68,6 +71,8 @@ class FakeMirachApi : MirachApi {
     val resumenCalls = mutableListOf<Periodo?>()
     var periodosCalls = 0
     val updateNombreCalls = mutableListOf<String>()
+    var perfilPresupuestoCalls = 0
+    val cambiarPerfilPresupuestoCalls = mutableListOf<PerfilPredefinido>()
     var logoutCalls = 0
     val deleteCalls = mutableListOf<String>()
     val previewCalls = mutableListOf<Pair<CartolaFile, String?>>()
@@ -112,6 +117,16 @@ class FakeMirachApi : MirachApi {
     override suspend fun updateNombre(nombre: String): CurrentUser {
         updateNombreCalls += nombre
         return onUpdateNombre(nombre)
+    }
+
+    override suspend fun perfilPresupuesto(): PerfilPredefinido? {
+        perfilPresupuestoCalls++
+        return onPerfilPresupuesto()
+    }
+
+    override suspend fun cambiarPerfilPresupuesto(perfil: PerfilPredefinido): PerfilPredefinido? {
+        cambiarPerfilPresupuestoCalls += perfil
+        return onCambiarPerfilPresupuesto(perfil)
     }
 
     override suspend fun logout() {

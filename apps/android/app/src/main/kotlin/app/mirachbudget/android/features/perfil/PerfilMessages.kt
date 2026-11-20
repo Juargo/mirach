@@ -12,7 +12,7 @@ import app.mirachbudget.android.features.perfil.PerfilViewModel.SaveFailure
 object PerfilMessages {
     const val SAVED = "Perfil guardado"
 
-    private const val CONNECTION = "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
+    internal const val CONNECTION = "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
 
     fun load(failure: Failure): String = when (failure) {
         Failure.Connection -> CONNECTION

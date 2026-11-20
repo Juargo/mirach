@@ -18,6 +18,7 @@ import app.mirachbudget.android.core.api.generated.models.ApiConsentimientosPost
 import app.mirachbudget.android.core.api.generated.models.ApiCuentaDeleteRequest
 import app.mirachbudget.android.core.api.generated.models.ApiPerfilPatchRequest
 import app.mirachbudget.android.core.api.generated.models.AuthLoginResponse
+import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoPredefinido
 import app.mirachbudget.android.core.session.Session
 import java.io.IOException
 import java.time.Instant
@@ -46,6 +47,7 @@ import retrofit2.Response
 class GeneratedMirachApi(
     private val api: DefaultApi,
     private val cuenta: CuentaApi,
+    private val presupuesto: PerfilPresupuestoApi,
     private val tokenProvider: AuthTokenProvider = AuthTokenProvider.None,
     private val onSessionExpired: (String) -> Unit = {},
 ) : MirachApi {
@@ -99,6 +101,20 @@ class GeneratedMirachApi(
         }
         val me = response.bodyOrThrow("PATCH /api/perfil")
         return CurrentUser(userId = me.userId, nombre = me.nombre, email = me.email)
+    }
+
+    override suspend fun perfilPresupuesto(): PerfilPredefinido? {
+        val sentToken = tokenProvider.token()
+        val response = api.apiPerfilPresupuestoGet()
+        if (response.code() == 401) throw rejection(response, sentToken)
+        return response.bodyOrThrow("GET /api/perfil/presupuesto").perfil.toPredefinido()
+    }
+
+    override suspend fun cambiarPerfilPresupuesto(perfil: PerfilPredefinido): PerfilPredefinido? {
+        val sentToken = tokenProvider.token()
+        val response = presupuesto.apiPerfilPresupuestoPut(PerfilPresupuestoPredefinido(perfil = perfil.toWire()))
+        if (response.code() == 401) throw rejection(response, sentToken)
+        return response.bodyOrThrow("PUT /api/perfil/presupuesto").perfil.toPredefinido()
     }
 
     override suspend fun logout() {
