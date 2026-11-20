@@ -117,6 +117,11 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                     subirViewModel.catalogDidChange()
                 }
             }
+            // A new budget profile changes every target: Resumen reloads, even while its tab is hidden.
+            var perfilRevision by rememberSaveable { mutableIntStateOf(0) }
+            LaunchedEffect(perfilRevision) {
+                if (perfilRevision > 0) resumenViewModel.load()
+            }
             // A reclassification changes the categories' counts, but Resumen already refreshes itself.
             var categoriasRevision by rememberSaveable { mutableIntStateOf(0) }
             // A category opened from a bucket detail, shown inside the Resumen tab.
@@ -187,7 +192,9 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                             catalogRevision = categoriasRevision,
                         )
                     },
-                    ShellTab("perfil", "Perfil") { PerfilRoute(perfilViewModel) },
+                    ShellTab("perfil", "Perfil") {
+                        PerfilRoute(perfilViewModel, api = dependencies.api, onPresupuestoChanged = { perfilRevision++ })
+                    },
                 ),
                 selectedId = selectedTab,
                 onSelect = { selectedTab = it },

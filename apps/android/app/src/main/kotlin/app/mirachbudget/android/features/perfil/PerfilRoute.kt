@@ -1,9 +1,11 @@
 package app.mirachbudget.android.features.perfil
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -42,6 +45,7 @@ import app.mirachbudget.android.core.design.MirachSpacing
 import app.mirachbudget.android.core.design.MirachTextField
 import app.mirachbudget.android.core.design.MirachTextStyles
 import app.mirachbudget.android.core.design.MirachTheme
+import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.features.perfil.PerfilViewModel.DeleteState
 import app.mirachbudget.android.features.perfil.PerfilViewModel.LoadState
 import app.mirachbudget.android.features.perfil.PerfilViewModel.RevokeState
@@ -53,12 +57,29 @@ import kotlinx.coroutines.launch
 /** "Perfil": edit the name, see the email, revoke the statement consent, sign out, delete the account. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PerfilRoute(viewModel: PerfilViewModel, modifier: Modifier = Modifier) {
+fun PerfilRoute(
+    viewModel: PerfilViewModel,
+    api: MirachApi,
+    onPresupuestoChanged: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var confirmingDeletion by rememberSaveable { mutableStateOf(false) }
+    // The percentages screen is pushed over the tab, as Categorías opens a category.
+    var openedPresupuesto by rememberSaveable { mutableStateOf(false) }
     // Runs on entering the tab, cancelled when it goes away; a loaded profile refreshes quietly.
     LaunchedEffect(viewModel) { viewModel.load() }
+
+    if (openedPresupuesto) {
+        PerfilPresupuestoRoute(
+            api = api,
+            onBack = { openedPresupuesto = false },
+            onSaved = onPresupuestoChanged,
+            modifier = modifier,
+        )
+        return
+    }
 
     Scaffold(
         modifier = modifier,
@@ -91,6 +112,7 @@ fun PerfilRoute(viewModel: PerfilViewModel, modifier: Modifier = Modifier) {
                         onSave = { scope.launch { viewModel.save() } },
                     )
                     state.email?.let { EmailSection(it) }
+                    PresupuestoRow(onClick = { openedPresupuesto = true })
                     // Hidden while the status is unknown (loading, or its request failed).
                     state.cartolasConsent?.let { inForce ->
                         ConsentSection(state = state, inForce = inForce, onRevoke = viewModel::askRevokeConsent)
@@ -147,6 +169,21 @@ private fun NameSection(state: PerfilViewModel.State, onChange: (String) -> Unit
             }
         }
     }
+}
+
+/** The entry to the percentages screen (screen 49); the Ajustes tab of the design does not exist yet. */
+@Composable
+private fun PresupuestoRow(onClick: () -> Unit) {
+    Text(
+        PerfilPresupuestoMessages.ENTRY_ROW,
+        style = MirachTextStyles.cuerpo,
+        color = MirachTheme.colors.base.foreground,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(vertical = MirachSpacing.s),
+    )
 }
 
 @Composable
