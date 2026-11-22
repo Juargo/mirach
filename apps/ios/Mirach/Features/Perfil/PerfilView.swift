@@ -4,12 +4,17 @@ import SwiftUI
 /// "Perfil": edit the name, see the email, revoke the statement consent, sign out, delete the account.
 struct PerfilView: View {
     @State private var viewModel: PerfilViewModel
+    private let api: any MirachAPI
+    /// Called after the budget profile was saved, so the Resumen reads its new targets.
+    private let onBudgetProfileSaved: () -> Void
     @State private var confirmingDeletion = false
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.authorizationController) private var authorizationController
 
-    init(viewModel: PerfilViewModel) {
+    init(viewModel: PerfilViewModel, api: any MirachAPI, onBudgetProfileSaved: @escaping () -> Void = {}) {
         _viewModel = State(initialValue: viewModel)
+        self.api = api
+        self.onBudgetProfileSaved = onBudgetProfileSaved
     }
 
     var body: some View {
@@ -25,6 +30,9 @@ struct PerfilView: View {
             .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
             .navigationTitle("Perfil")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: PerfilPresupuestoRoute.self) { _ in
+                PerfilPresupuestoView(api: api, onSaved: onBudgetProfileSaved)
+            }
             // Runs on appearing, cancelled when the screen goes away.
             .task { await viewModel.load() }
             .sheet(isPresented: $confirmingDeletion, onDismiss: viewModel.resetDeletion) {
@@ -101,6 +109,7 @@ struct PerfilView: View {
         case .loaded:
             nameSection
             if let email = viewModel.email { emailSection(email) }
+            budgetProfileRow
             if viewModel.showsLinkSection { linkSection }
             if viewModel.showsMergeSection || viewModel.mergeResultMessage != nil || viewModel.mergeFailureMessage != nil {
                 mergeSection
@@ -161,6 +170,26 @@ struct PerfilView: View {
                     .accessibilityIdentifier("perfil.saved")
             }
         }
+    }
+
+    /// Opens "Perfil de porcentajes" (screen 49).
+    private var budgetProfileRow: some View {
+        NavigationLink(value: PerfilPresupuestoRoute()) {
+            HStack(spacing: MirachSpacing.s) {
+                Text(PerfilPresupuestoCopy.rowTitle)
+                    .mirachText(.cuerpo)
+                    .foregroundStyle(Color.Mirach.Base.foreground)
+                Spacer(minLength: MirachSpacing.s)
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, MirachSpacing.s)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("perfil.presupuesto")
     }
 
     private func emailSection(_ email: String) -> some View {

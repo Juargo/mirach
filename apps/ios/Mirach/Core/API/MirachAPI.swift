@@ -113,6 +113,10 @@ protocol MirachAPI: Sendable {
     /// `POST /api/ingestas/commit`: the API reads the file again (it keeps no preview), so the
     /// same file and password go with it. `edits` holds only the rows the person reclassified.
     func commitIngesta(file: CartolaFile, password: String?, edits: [CartolaEdit]) async throws -> CartolaCommitResult
+    /// `GET /api/perfil/presupuesto`: the budget profile in force.
+    func perfilPresupuesto() async throws -> PerfilPresupuesto
+    /// `PUT /api/perfil/presupuesto` with only `{"perfil": id}`; answers the stored profile.
+    func guardarPerfilPresupuesto(_ perfil: PerfilPredefinido) async throws -> PerfilPresupuesto
 }
 
 /// Fallbacks for conformers that only fake the API (the UI-test stub): the plain calls keep
@@ -155,6 +159,14 @@ extension MirachAPI {
     }
 
     func parecidos(transaccionId: String, categoriaId: String, periodo: Periodo) async throws -> Parecidos {
+        throw APIError.badStatus(501)
+    }
+
+    func perfilPresupuesto() async throws -> PerfilPresupuesto {
+        throw APIError.badStatus(501)
+    }
+
+    func guardarPerfilPresupuesto(_ perfil: PerfilPredefinido) async throws -> PerfilPresupuesto {
         throw APIError.badStatus(501)
     }
 }
