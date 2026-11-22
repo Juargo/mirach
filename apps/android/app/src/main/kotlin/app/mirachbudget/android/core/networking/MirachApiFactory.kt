@@ -42,6 +42,7 @@ object MirachApiFactory {
         return GeneratedMirachApi(
             api = apiClient.createService(DefaultApi::class.java),
             cuenta = apiClient.createService(CuentaApi::class.java),
+            presupuesto = apiClient.createService(PerfilPresupuestoApi::class.java),
             tokenProvider = tokenProvider,
             onSessionExpired = onSessionExpired,
         )

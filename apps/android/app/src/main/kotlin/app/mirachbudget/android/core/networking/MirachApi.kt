@@ -39,6 +39,19 @@ interface MirachApi {
      */
     suspend fun updateNombre(nombre: String): CurrentUser
 
+    /**
+     * `GET /api/perfil/presupuesto`: the stored budget profile, or `null` for a custom one (no card
+     * to select). Throws [SessionExpiredException] on 401.
+     */
+    suspend fun perfilPresupuesto(): PerfilPredefinido?
+
+    /**
+     * `PUT /api/perfil/presupuesto` with only `{"perfil": id}`: the cut-off day and the declared income
+     * stay as they are. Answers the stored profile. Throws [ApiException] for the 400 and
+     * [SessionExpiredException] on 401.
+     */
+    suspend fun cambiarPerfilPresupuesto(perfil: PerfilPredefinido): PerfilPredefinido?
+
     /** `POST /api/auth/logout`: revokes the session on the server. Throws on any failure; the caller signs out locally either way. */
     suspend fun logout()
 
