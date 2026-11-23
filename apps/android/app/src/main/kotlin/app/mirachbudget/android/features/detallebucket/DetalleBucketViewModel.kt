@@ -11,6 +11,7 @@ import app.mirachbudget.android.core.networking.NuevaCategoria
 import app.mirachbudget.android.core.networking.Parecidos
 import app.mirachbudget.android.core.networking.Periodo
 import app.mirachbudget.android.core.networking.ReclasificarException
+import app.mirachbudget.android.core.networking.Reclasificacion
 import app.mirachbudget.android.core.networking.SessionExpiredException
 import app.mirachbudget.android.features.subircartola.SubirCartolaMessages
 import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel.CategoryFormErrors
@@ -26,13 +27,15 @@ import kotlinx.coroutines.flow.update
  * State of "Detalle de bucket" (port of iOS `DetalleBucketViewModel`): one bucket and month at a
  * time, plus the reclassification of a movement in a sheet over the list (Figma 09) and the creation
  * of a category from that sheet. [onReclassified] runs once per successful move: the Resumen's
- * figures changed too.
+ * figures changed too. With [onMoved] the owner (the Movimientos tab, which shows three buckets at
+ * once) learns what moved and reloads the screen itself; without it the bucket reloads alone.
  */
 class DetalleBucketViewModel(
     private val api: MirachApi,
     val bucket: Bucket,
     periodo: Periodo,
     private val onReclassified: () -> Unit = {},
+    private val onMoved: (suspend (Move) -> Unit)? = null,
 ) : ViewModel() {
     enum class Failure {
         /** No answer from the server (offline, timeout). */
@@ -61,6 +64,15 @@ class DetalleBucketViewModel(
         val movement: MovimientoBucket,
         val category: CategoriaCatalogo,
         /** The month whose similar movements move too, when the person marked «Aplicar a…». */
+        val aplicarAParecidos: Periodo?,
+    )
+
+    /** A successful move, as [onMoved] hears it. [previousCategoryId] is `null` for a movement that had no category. */
+    data class Move(
+        val movement: MovimientoBucket,
+        val previousCategoryId: String?,
+        val result: Reclasificacion,
+        /** The month whose similar movements moved too, when the person marked «Aplicar a…». */
         val aplicarAParecidos: Periodo?,
     )
 
@@ -214,11 +226,24 @@ class DetalleBucketViewModel(
         null
     }
 
-    /** Null means "show nothing": the session expired and the root is already switching to sign-in. */
-    private fun failure(error: Exception): Failure? = when (error) {
-        is SessionExpiredException -> null
-        is IOException -> Failure.Connection
-        else -> Failure.Server
+    companion object {
+        /** Null means "show nothing": the session expired and the root is already switching to sign-in. */
+        internal fun failure(error: Exception): Failure? = when (error) {
+            is SessionExpiredException -> null
+            is IOException -> Failure.Connection
+            else -> Failure.Server
+        }
+    }
+
+    /**
+     * Asks again for the month on screen and keeps the list if that fails. `false` only when the
+     * request failed; an expired session or a newer request leave nothing to report.
+     */
+    suspend fun reloadKeepingContent(): Boolean = fetch(_state.value.periodo, keepContentOnFailure = true) != false
+
+    /** The catalog changed elsewhere: the next time the sheet opens it reads it again. */
+    fun catalogDidChange() {
+        if (_state.value.sheetMovement == null) _state.update { it.copy(catalog = CatalogState.Idle) }
     }
 
     // --- reclassification
@@ -317,6 +342,7 @@ class DetalleBucketViewModel(
     fun cancelBucketChange() = _state.update { it.copy(pendingChange = null) }
 
     private suspend fun move(movement: MovimientoBucket, category: CategoriaCatalogo, aplicarAParecidos: Periodo?) {
+        val previousCategoryId = _state.value.currentCategoryId(movement)
         _state.update { it.copy(reclassifyingId = movement.id, sheetNotice = null) }
         val result = try {
             api.reclasificar(movement.id, category.id, aplicarAParecidos)
@@ -336,6 +362,7 @@ class DetalleBucketViewModel(
             )
         }
         onReclassified()
+        onMoved?.let { return it(Move(movement, previousCategoryId, result, aplicarAParecidos)) }
         // The movement may have changed group or left this bucket: ask again.
         if (fetch(_state.value.periodo, keepContentOnFailure = true) == false) {
             _state.update { it.copy(notice = DetalleBucketMessages.RELOAD_AFTER_MOVE_FAILED) }
