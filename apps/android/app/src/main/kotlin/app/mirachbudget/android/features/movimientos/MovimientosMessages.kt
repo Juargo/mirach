@@ -17,6 +17,10 @@ object MovimientosMessages {
     const val MOVE = "Mover"
     const val UNDO = "Deshacer"
 
+    /** A failed undo, verbatim from iOS (`MovimientosPresentation.undoFailed`). */
+    const val UNDO_FAILED = "No pudimos deshacer el movimiento. Inténtalo de nuevo."
+    const val UNDO_FAILED_CONNECTION = "No pudimos deshacer el movimiento. Revisa tu conexión e inténtalo de nuevo."
+
     /** «$569.400 · 52%»: the bucket's total and its share of the income, nothing else; «—» without a share. */
     fun paneHeader(detalle: BucketDetalle): String = "${Format.money(detalle.total)} · ${Format.percent(detalle.porcentajeBp)}"
 

@@ -177,8 +177,8 @@ class MovimientosViewModel(
 
     private fun undoFailure(error: Exception): String = when (error) {
         is ReclasificarException.MovementNotFound -> DetalleBucketMessages.MOVEMENT_GONE
-        is IOException -> DetalleBucketMessages.MOVE_FAILED_CONNECTION
-        else -> DetalleBucketMessages.MOVE_FAILED
+        is IOException -> MovimientosMessages.UNDO_FAILED_CONNECTION
+        else -> MovimientosMessages.UNDO_FAILED
     }
 
     /** A pane saved a move: say so (with «Deshacer» when it can be reverted) and reload the three buckets. */

@@ -311,7 +311,7 @@ class MovimientosViewModelTest {
 
         vm.undo()
 
-        assertEquals(DetalleBucketMessages.MOVE_FAILED_CONNECTION, vm.current.warning)
+        assertEquals(MovimientosMessages.UNDO_FAILED_CONNECTION, vm.current.warning)
         assertNull(vm.current.notice)
         assertEquals(before, vm.content)
         assertTrue(api.bucketDetalleCalls.isEmpty())
