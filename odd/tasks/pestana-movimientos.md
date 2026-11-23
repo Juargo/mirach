@@ -22,10 +22,10 @@ Common rules for every spec: no API change; the apps calculate no totals, percen
 
 ## Tasks
 
-- [ ] T1 — iOS: tab, screen, view model, tests (S1–S10). Route: delegated writer (Writer trigger: two independent units with disjoint surfaces, several hundred lines each, launched together). Commit: pending.
-- [ ] T2 — Android: tab, screen, view model, tests (S1–S10). Route: delegated writer (same trigger). Commit: pending.
-- [ ] T3 — Docs (S11). Route: inline. Commit: pending.
-- [ ] T4 — Verification: parent spot check of each writer's reported commands; one independent verifier at the end if a Risk line names a high-risk item.
+- [x] T1 — iOS: tab, screen, view model, tests (S1–S10). Route: delegated writer (Writer trigger: two independent units with disjoint surfaces, several hundred lines each, launched together). Commit: `feb23a44`.
+- [x] T2 — Android: tab, screen, view model, tests (S1–S10). Route: delegated writer (same trigger). Commits: `9b51a040`, `d825dc1a`.
+- [x] T3 — Docs (S11). Route: inline. Commit: `c9da99a1`. `docs/catalogo/README.md` was left as it is: its navigation section describes the Figma plan and already says the flat list is unused.
+- [x] T4 — Verification: parent re-ran both unit suites (green); one independent verifier over `81e46c09..HEAD` (Risk item 3 on both units) found no blockers.
 
 ## Log
 
@@ -39,4 +39,6 @@ Common rules for every spec: no API change; the apps calculate no totals, percen
 - L8 (2026-11-23, user, about what tapping a bucket in Resumen does): "Dejemos eso tal como está ahora."
 - L9 (2026-11-23, user): "Mejor que todas las transacciones se vean con todos los datos Nombre completo + fecha. Sin necesidad de presionar." Then, asked whether to implement it in iOS and Android: "si".
 - L10 (2026-11-23, exploration): the bucket detail endpoint already returns everything the screen needs (`apps/api/openapi.json:124-272`: `total`, `porcentajeBp`, groups with `icono`, `subtotal`, `conteo`, movements with `fecha`, `descripcion`, `monto`), unpaged; `GET /api/movimientos` is flat and unused by the apps. `PATCH /api/transacciones/{id}/categoria` requires a non-null `categoriaId` and always sets `clasificacionManual`, so undo cannot restore «Sin categoría». Both existing view models are tied to one bucket and their row and sheet views are private. Android's `SignedInShell` composes only the selected tab, so the tab's view model is hoisted in `RootRoute.kt`.
+- L12 (2026-11-23, implementation): both apps compose one existing `DetalleBucketViewModel` per bucket instead of forking the reclassify flow; the view model gained an optional `onMoved` hook and the sheet became non-private. Android has no tab icon because `SignedInShell` renders none for any tab. With no month with data the tab opens on the current month. The failed-undo copy («No pudimos deshacer el movimiento. Inténtalo de nuevo.» and its connection variant) is the writers', equal on both platforms. Review mode is off (global), so no native review ran; assessed tier: high (item 3 escalation).
+- L13 (2026-11-23, verification): Android `./gradlew testDebugUnitTest assembleDebug lint --no-daemon` BUILD SUCCESSFUL; iOS `MirachTests` 840 tests passed; four iOS UI tests passed (three existing bucket-detail ones and the new tab one); existing bucket-detail tests and `apps/api` untouched. Not verified by running: the large-text fallback, pane heights and touch targets (read from code only); nobody opened the tab in a simulator. Open advisories: on iOS a failed reload after a successful move is hidden behind the «Movido a …» notice while Android shows a warning; on iOS a reclassify made in the bucket detail opened from Resumen does not reload this tab.
 - L11 (2026-11-23, decision): the screen replaces the flat list the catalog describes for screen 08 (`docs/catalogo/flujos/inicio-y-movimientos.md:13`, MOV-01); the user designed it in this session and no Figma node exists for it. The assumptions marked in S1, S5, S6, S7 and S9 are mine and are reported to the user.
