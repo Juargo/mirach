@@ -14,8 +14,8 @@ function tok(str: string, x: number, y: number, page = 1): PagedToken {
 const rangosXSantander = [
   { col: 'fecha' as const, xMin: 25, xMax: 90 },
   { col: 'descripcion' as const, xMin: 95, xMax: 325 },
-  { col: 'cargo' as const, xMin: 395, xMax: 450 },
-  { col: 'abono' as const, xMin: 495, xMax: 520 },
+  { col: 'cargo' as const, xMin: 375, xMax: 450 },
+  { col: 'abono' as const, xMin: 460, xMax: 520 },
 ];
 
 function estructuraBase(

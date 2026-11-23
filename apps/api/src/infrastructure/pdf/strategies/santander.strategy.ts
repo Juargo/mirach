@@ -41,18 +41,21 @@ import { EstructuraPdfBanco } from './estructura-pdf-banco';
  *     ancla para cortar la recolección de filas ahí: todo lo que venga
  *     después del "Resumen de Comisiones" no es un movimiento real.
  *
- * Auditoría cruzada 2026-09-11 (change SDD `bci-cartola-variante`, Slice 5,
- * design.md D-14): `cargo` [395,450) / `abono` [495,520) → 45pt de zona
- * muerta — el margen más ancho de los 4 bancos, a salvo por estructura.
- * Estas bandas NO formaron parte de la recalibración de 2026-08-30 (0
- * cartolas reales medidas para este banco en ese esfuerzo). Verificado
- * independientemente contra una cartola real (fuera de este repo — ver
- * Engram `sdd/bci-cartola-variante/audit-bancos`): abre y detecta
- * correctamente, sin incidentes — pocos montos en esa muestra, pero el
- * margen de 45pt hace estructuralmente imposible una inversión de signo
- * salvo un monto de un ancho jamás observado en ningún banco de este
- * módulo. No se toca ninguna banda aquí — la auditoría es solo
- * documentación.
+ * Bandas de dinero (recalibradas 2026-11-23 contra una cartola real, fuera
+ * de este repo): los montos van alineados a la DERECHA en fuente
+ * monoespaciada (4,8 pt por carácter), con borde derecho en x=441 (cargos)
+ * y x=523 (abonos). El X de inicio del token retrocede 4,8 pt por carácter,
+ * así que cada banda cubre desde un monto de 13 caracteres
+ * ("9.999.999.999") hasta uno de 1 dígito:
+ *   - `cargo` [375,450): inicios posibles 378,6 … 436,2.
+ *   - `abono` [460,520): inicios posibles 460,6 … 518,2.
+ * Las bandas anteriores (`cargo` [395,450), `abono` [495,520)) solo cubrían
+ * abonos de hasta 5 caracteres ("9.999") y cargos de hasta 9: todo abono
+ * desde 10.000 quedaba fuera y la cartola se rechazaba con
+ * `TokenSinAsignarSospechoso`. La auditoría de 2026-09-11 (design.md D-14)
+ * las dio por sanas con una muestra de pocos montos; quedó obsoleta.
+ * Quedan 10 pt de zona muerta entre ambas: un cargo nunca empieza más allá
+ * de x=436,2, así que no puede caer en la banda de abono.
  */
 export class SantanderPdfStrategy {
   private static readonly ANCLA_BANCO = 'BANCO SANTANDER CHILE';
@@ -94,14 +97,18 @@ export class SantanderPdfStrategy {
       rangosX: [
         { col: 'fecha', xMin: 25, xMax: 90 },
         { col: 'descripcion', xMin: 95, xMax: 325 },
-        { col: 'cargo', xMin: 395, xMax: 450 },
-        { col: 'abono', xMin: 495, xMax: 520 },
+        { col: 'cargo', xMin: 375, xMax: 450 },
+        { col: 'abono', xMin: 460, xMax: 520 },
       ],
       toleranciaY: 2,
       formatoFecha: 'DD/MM',
       fuenteAnio: { kind: 'inferido', desde: 'periodo-inicio' },
-      filasIgnoradas: [/Resumen de Comisiones/],
-      anclaFinTabla: /Resumen de Comisiones/,
+      // `\s+` y no un espacio literal: la cartola real emite cada palabra
+      // como token propio con tokens " " intermedios, y el join por columna
+      // deja "Resumen   de   Comisiones". Con el espacio literal el ancla no
+      // cortaba la tabla y el eco de la última fila se sumaba dos veces.
+      filasIgnoradas: [/Resumen\s+de\s+Comisiones/],
+      anclaFinTabla: /Resumen\s+de\s+Comisiones/,
     };
   }
 }
