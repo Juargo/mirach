@@ -76,9 +76,7 @@ struct DetalleBucketView: View {
             .accessibilityIdentifier("detalle.loading")
         case .failed(let failure):
             VStack(spacing: MirachSpacing.m) {
-                Text(failure == .connection
-                    ? "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
-                    : "No pudimos cargar los movimientos. Inténtalo de nuevo en unos segundos.")
+                Text(DetalleBucketPresentation.failureMessage(failure))
                     .mirachText(.cuerpo)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.Mirach.Feedback.errorText)
@@ -355,7 +353,7 @@ private struct MovementRow: View {
 
 /// «Guardar» under the categories (Figma 09), with «Aplicar a “…”» over it when the API suggested
 /// a pattern for the picked category. Nothing moves until «Guardar».
-private struct SaveFooter: View {
+struct SaveFooter: View {
     @Bindable var viewModel: DetalleBucketViewModel
 
     var body: some View {
@@ -382,7 +380,7 @@ private struct SaveFooter: View {
 }
 
 /// The sheet over the list: the user's categories, or what is happening with them.
-private struct ReclasificarSheet: View {
+struct ReclasificarSheet: View {
     let viewModel: DetalleBucketViewModel
     @Environment(\.dismiss) private var dismiss
 

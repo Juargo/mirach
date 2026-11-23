@@ -3,6 +3,13 @@ import Foundation
 /// The words of "Detalle de bucket": counts and what VoiceOver reads, with the same sign logic
 /// as the figures on screen (see `Format`).
 enum DetalleBucketPresentation {
+    /// What the list says when it could not load; shared with the «Movimientos» tab.
+    static func failureMessage(_ failure: DetalleBucketViewModel.Failure) -> String {
+        failure == .connection
+            ? "Problema de conexión. Revisa tu conexión e inténtalo de nuevo."
+            : "No pudimos cargar los movimientos. Inténtalo de nuevo en unos segundos."
+    }
+
     static func movements(_ count: Int) -> String {
         count == 1 ? "1 movimiento" : "\(count) movimientos"
     }

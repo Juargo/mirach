@@ -93,6 +93,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var resumenResult: Result<ResumenMes, any Error>
     private var periodosResult: Result<[Periodo], any Error>
     private var _resumenCalls: [Periodo?] = []
+    private var _periodosCalls = 0
     private var previewResults: [Result<CartolaPreview, any Error>] = [.success(SampleData.preview)]
     private var commitResults: [Result<CartolaCommitResult, any Error>] = [.success(SampleData.commit)]
     private var categoriasResults: [Result<CatalogoCategorias, any Error>] = [.success(SampleData.catalog)]
@@ -117,6 +118,7 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
     private var _deleteGate: Gate?
     private var _updateGate: Gate?
     private var detalleResults: [Result<BucketDetalle, any Error>] = [.success(SampleData.deseosDetalle)]
+    private var detalleByBucket: [Bucket: [Result<BucketDetalle, any Error>]] = [:]
     private var _detalleCalls: [DetalleCall] = []
     private var _detalleGate: Gate?
     private var reclasificarResults: [Result<Reclasificacion, any Error>] = [
@@ -447,6 +449,13 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         lock.withLock { detalleResults = results }
     }
 
+    /// Answers for one bucket's next detail calls, in order; the last one repeats. A bucket without
+    /// its own answers uses `setDetalleResults`. For the three requests of the Movimientos tab,
+    /// which arrive in no fixed order.
+    func setDetalleResults(_ results: [Result<BucketDetalle, any Error>], for bucket: Bucket) {
+        lock.withLock { detalleByBucket[bucket] = results }
+    }
+
     var detalleCalls: [DetalleCall] { lock.withLock { _detalleCalls } }
 
     /// When set, `bucketDetalle` waits at the gate before answering.
@@ -459,6 +468,11 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         // The answer is fixed when the request arrives; the gate only delays delivering it.
         let (result, gate) = lock.withLock {
             _detalleCalls.append(DetalleCall(bucket: bucket, periodo: periodo))
+            if var own = detalleByBucket[bucket], !own.isEmpty {
+                let next = own.count > 1 ? own.removeFirst() : own[0]
+                detalleByBucket[bucket] = own
+                return (next, _detalleGate)
+            }
             return (detalleResults.count > 1 ? detalleResults.removeFirst() : detalleResults[0], _detalleGate)
         }
         await gate?.wait()
@@ -760,8 +774,10 @@ final class FakeMirachAPI: MirachAPI, @unchecked Sendable {
         return try result.get()
     }
 
+    var periodosCalls: Int { lock.withLock { _periodosCalls } }
+
     func periodos() async throws -> [Periodo] {
-        try lock.withLock { periodosResult }.get()
+        try lock.withLock { _periodosCalls += 1; return periodosResult }.get()
     }
 
     func version() async throws -> VersionInfo { try versionResult.get() }

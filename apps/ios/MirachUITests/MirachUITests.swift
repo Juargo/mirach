@@ -161,6 +161,26 @@ final class MirachUITests: XCTestCase {
         XCTAssertFalse(app.buttons["signedin.signOut"].exists)
     }
 
+    // MARK: Movimientos
+
+    @MainActor
+    func testMovimientosTabShowsThreePanesAndAVisibleMoverButtonThatOpensTheSheet() {
+        let app = launch([savedSession])
+        XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
+
+        app.tabBars.buttons["Movimientos"].tap()
+
+        for apiName in ["Necesidades", "Deseos", "Ahorro"] {
+            XCTAssertTrue(element(app, "movimientos.pane.\(apiName)").waitForExistence(timeout: 10), "missing pane \(apiName)")
+        }
+        XCTAssertEqual(app.staticTexts["movimientos.month"].label, "Septiembre de 2026")
+        let move = app.buttons["movimientos.move.t-d1"]
+        XCTAssertTrue(move.waitForExistence(timeout: 10))
+        XCTAssertEqual(move.label, "Mover")
+        move.tap()
+        XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
+    }
+
     // MARK: Perfil
 
     private func openPerfilTab(_ app: XCUIApplication) {
