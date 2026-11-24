@@ -5,7 +5,7 @@ import Observation
 /// `DetalleBucketViewModel` (its list, its sheet to move a movement, its «Cambiar de grupo»
 /// confirmation, which compares with the bucket the movement is in), so the move flow is the
 /// bucket detail's. This type adds what only the tab has: the month, the three requests together,
-/// and the notice with «Deshacer».
+/// which pane is open, and the notice with «Deshacer».
 @MainActor
 @Observable
 final class MovimientosViewModel {
@@ -36,6 +36,9 @@ final class MovimientosViewModel {
     private(set) var periodos: [Periodo] = []
     /// Necesidades, Gustos, Ahorro: always the three, in that order.
     let panes: [DetalleBucketViewModel]
+    /// The one bucket whose movements are showing; the other two show only their header. It stays
+    /// through a month change, a move and a reload.
+    private(set) var openBucket: Bucket = Bucket.allCases[0]
     private(set) var notice: Notice?
     private(set) var isUndoing = false
 
@@ -66,6 +69,11 @@ final class MovimientosViewModel {
 
     func pane(_ bucket: Bucket) -> DetalleBucketViewModel {
         panes.first { $0.bucket == bucket }!
+    }
+
+    /// Shows the movements of `bucket` and closes the bucket that was open.
+    func open(_ bucket: Bucket) {
+        openBucket = bucket
     }
 
     /// The tab's notice, or else the first pane's (the list is out of date, the movement is gone).

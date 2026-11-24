@@ -354,4 +354,29 @@ struct MovimientosViewModelTests {
 
         #expect(vm.notice == nil)
     }
+
+    // MARK: accordion
+
+    @Test func onlyNecesidadesIsOpenAtFirstAndOpeningAnotherBucketClosesIt() async {
+        let vm = make(fake())
+        await vm.load()
+        #expect(vm.openBucket == .necesidades)
+
+        vm.open(.ahorro)
+
+        #expect(vm.openBucket == .ahorro)
+    }
+
+    @Test func theOpenBucketStaysOpenThroughAMoveAndAMonthChange() async {
+        let vm = make(fake())
+        await vm.load()
+        vm.open(.deseos)
+
+        await pick(vm, SampleData.Cat.restaurantes)
+        await vm.pane(.deseos).save()
+        #expect(vm.openBucket == .deseos)
+
+        await vm.select(agosto)
+        #expect(vm.openBucket == .deseos)
+    }
 }

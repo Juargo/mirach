@@ -164,7 +164,7 @@ final class MirachUITests: XCTestCase {
     // MARK: Movimientos
 
     @MainActor
-    func testMovimientosTabShowsThreePanesAndAVisibleMoverButtonThatOpensTheSheet() {
+    func testMovimientosTabIsAnAccordionWithOnePaneOpenAndAVisibleMoverButtonThatOpensTheSheet() {
         let app = launch([savedSession])
         XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
 
@@ -174,8 +174,22 @@ final class MirachUITests: XCTestCase {
             XCTAssertTrue(element(app, "movimientos.pane.\(apiName)").waitForExistence(timeout: 10), "missing pane \(apiName)")
         }
         XCTAssertEqual(app.staticTexts["movimientos.month"].label, "Septiembre de 2026")
+
+        // Only Necesidades is open at first: its movements show, those of Gustos do not.
         let move = app.buttons["movimientos.move.t-d1"]
+        XCTAssertTrue(app.buttons["movimientos.move.t-n1"].waitForExistence(timeout: 10))
+        XCTAssertFalse(move.exists)
+        let gustos = element(app, "movimientos.header.Deseos")
+        XCTAssertEqual(gustos.value as? String, "Cerrado")
+
+        // Opening Gustos closes Necesidades; the three headers stay on screen.
+        gustos.tap()
         XCTAssertTrue(move.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["movimientos.move.t-n1"].exists)
+        XCTAssertEqual(gustos.value as? String, "Abierto")
+        for apiName in ["Necesidades", "Deseos", "Ahorro"] {
+            XCTAssertTrue(element(app, "movimientos.header.\(apiName)").isHittable, "header \(apiName) is off screen")
+        }
         XCTAssertEqual(move.label, "Mover")
         move.tap()
         XCTAssertTrue(element(app, "detalle.sheet").waitForExistence(timeout: 10))
