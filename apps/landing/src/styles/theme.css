@@ -50,6 +50,9 @@
   --color-bucket-deseos: #6f3057;
   --color-bucket-ahorro: #3f8f72;
 
+  /* Background of the app's dark theme, behind the screenshots in /images/app. */
+  --color-app-screen: #1d1e23;
+
   /* Surface */
   --color-surface: #f9f9f9;
   --color-surface-dim: #dadada;
@@ -99,6 +102,12 @@
   --shadow-soft: 0 2px 8px rgb(71 95 133 / 0.12);
   /* Deepened variant for hover feedback on cards/tiles (Bancos, Capturas) */
   --shadow-soft-hover: 0 10px 24px rgb(71 95 133 / 0.2);
+}
+
+/* Text selection in the palette instead of the browser default. */
+::selection {
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
 }
 
 /*

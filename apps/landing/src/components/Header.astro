@@ -1,5 +1,12 @@
 ---
 import { SITE } from '../config';
+
+const NAV = [
+  { href: '/#como-funciona', label: 'Cómo se usa' },
+  { href: '/#regla-50-30-20', label: 'Regla 50/30/20' },
+  { href: '/#bancos', label: 'Bancos' },
+  { href: '/#faq', label: 'Preguntas' },
+] as const;
 ---
 
 <header
@@ -18,6 +25,22 @@ import { SITE } from '../config';
         <span class="text-primary">Mirach</span>
       </span>
     </a>
+    <nav aria-label="Secciones" class="hidden md:block">
+      <ul class="flex items-center gap-1 text-body-sm font-medium text-on-surface-variant">
+        {
+          NAV.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                class="inline-flex min-h-[44px] items-center rounded px-3 transition-colors hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
   </div>
 </header>
 

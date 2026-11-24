@@ -1,0 +1,47 @@
+---
+/**
+ * A real app screenshot inside a plain device outline. The screenshots in
+ * /images/app are 600x1234 with the iOS status bar cropped out, so the frame
+ * pads the top with the app's own background (--color-app-screen).
+ */
+export interface Props {
+  /** Omit while the screenshot is not available: the frame keeps its size. */
+  src?: string;
+  alt: string;
+  /** Above-the-fold use (hero): load eagerly and with high priority. */
+  eager?: boolean;
+  class?: string;
+}
+
+const { src, alt, eager = false, class: className } = Astro.props;
+---
+
+<div
+  class:list={[
+    'overflow-hidden rounded-[2rem] border-[5px] border-on-surface bg-app-screen pt-3 shadow-soft-hover',
+    className,
+  ]}
+>
+  {
+    src ? (
+      <img
+        src={src}
+        alt={alt}
+        width={600}
+        height={1234}
+        loading={eager ? 'eager' : 'lazy'}
+        fetchpriority={eager ? 'high' : undefined}
+        decoding="async"
+        class="block h-auto w-full"
+      />
+    ) : (
+      <div
+        role="img"
+        aria-label={alt}
+        class="flex aspect-[600/1234] w-full items-center justify-center px-6 text-center text-body-sm text-inverse-on-surface/70"
+      >
+        Captura disponible pronto
+      </div>
+    )
+  }
+</div>

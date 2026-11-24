@@ -14,7 +14,7 @@ export interface FAQItem {
 export const FAQ_ITEMS: FAQItem[] = [
   {
     q: '¿Qué es Mirach y cómo funciona?',
-    a: 'Mirach es una aplicación para iPhone que te ayuda a controlar tus finanzas personales usando la regla 50/30/20. Solo subes tu cartola bancaria en formato Excel o PDF y nosotros clasificamos automáticamente tus gastos en Necesidades, Deseos y Ahorro.',
+    a: 'Mirach es una aplicación para iPhone que te ayuda a controlar tus finanzas personales usando la regla 50/30/20. Solo subes tu cartola bancaria en formato Excel o PDF y nosotros clasificamos automáticamente tus gastos en Necesidades, Gustos y Ahorro.',
   },
   {
     q: '¿Mis datos bancarios están seguros?',

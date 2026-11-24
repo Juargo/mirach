@@ -1,3 +1,7 @@
+---
+import PhoneScreen from './PhoneScreen.astro';
+---
+
 <section
   id="hero"
   class="flex min-h-[80dvh] flex-col items-center justify-center px-6 pb-16 pt-12 md:pt-16"
@@ -32,19 +36,12 @@
       </p>
     </div>
     <div class="animate-hero-in shrink-0" style="--reveal-delay: 270ms">
-      <picture>
-        <source srcset="/images/banner-image.webp" type="image/webp" />
-        <img
-          src="/images/banner-image.png"
-          alt="Gráfico de la regla 50/30/20: 50% Necesidades, 30% Deseos y 20% Ahorro e inversión"
-          width={1002}
-          height={616}
-          fetchpriority="high"
-          loading="eager"
-          decoding="async"
-          class="w-full max-w-[500px] md:max-w-[360px] lg:max-w-[600px]"
-        />
-      </picture>
+      <PhoneScreen
+        src="/images/app/resumen.webp"
+        alt="Pantalla Resumen de Mirach: el estado del mes frente a la meta y el avance de Necesidades, Gustos y Ahorro."
+        eager
+        class="w-[240px] sm:w-[270px] lg:w-[300px]"
+      />
     </div>
   </div>
 </section>
