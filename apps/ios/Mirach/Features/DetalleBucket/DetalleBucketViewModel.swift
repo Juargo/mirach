@@ -43,6 +43,16 @@ final class DetalleBucketViewModel {
         let parecidos: Parecidos
     }
 
+    /// A move that went through, for a screen that offers to undo it (the Movimientos tab).
+    struct Move: Equatable {
+        let movement: MovimientoBucket
+        /// The category the movement was in; `nil` is «Sin categoría».
+        let previousCategoryId: String?
+        let result: Reclasificacion
+        /// The move also sent the similar movements and saved a pattern.
+        let appliedToSimilar: Bool
+    }
+
     let bucket: Bucket
     private(set) var state: State = .loading
     /// The month on screen (or being loaded).
@@ -81,14 +91,21 @@ final class DetalleBucketViewModel {
     private let api: any MirachAPI
     /// Told once per successful move: the Resumen's figures changed too.
     private let onReclassified: @MainActor () -> Void
+    /// Awaited after a successful move, before the list is read again.
+    private let onMoved: @MainActor (Move) async -> Void
     /// Bumped on every detail request so a late answer for an older choice is dropped.
     private var generation = 0
     private var needsLoad = true
     /// Bumped on every catalog read and every reset, so an answer for an older catalog is dropped.
     private var catalogGeneration = 0
 
-    init(api: any MirachAPI, bucket: Bucket, periodo: Periodo, onReclassified: @escaping @MainActor () -> Void = {}) {
+    init(
+        api: any MirachAPI, bucket: Bucket, periodo: Periodo,
+        onReclassified: @escaping @MainActor () -> Void = {},
+        onMoved: @escaping @MainActor (Move) async -> Void = { _ in }
+    ) {
         self.api = api
+        self.onMoved = onMoved
         self.bucket = bucket
         self.periodo = periodo
         self.onReclassified = onReclassified
@@ -193,7 +210,7 @@ final class DetalleBucketViewModel {
 
     /// `nil` means "show nothing": the request was cancelled (the screen went away) or the
     /// session expired, in which case the root view is already switching to sign-in.
-    private static func failure(for error: any Error) -> Failure? {
+    static func failure(for error: any Error) -> Failure? {
         switch error {
         case is CancellationError: nil
         case APIError.sessionExpired: nil
@@ -308,6 +325,7 @@ final class DetalleBucketViewModel {
     private func move(_ movement: MovimientoBucket, to category: CategoriaCatalogo, aplicarAParecidos: Periodo?) async {
         reclassifyingId = movement.id
         sheetNotice = nil
+        let previousCategoryId = currentCategoryId(of: movement)
         let result: Reclasificacion
         do {
             result = try await api.reclasificar(
@@ -322,6 +340,10 @@ final class DetalleBucketViewModel {
         sheetMovement = nil
         clearSelection()
         announcement = DetalleBucketPresentation.movedAnnouncement(result)
+        await onMoved(Move(
+            movement: movement, previousCategoryId: previousCategoryId, result: result,
+            appliedToSimilar: aplicarAParecidos != nil
+        ))
         onReclassified()
         // The movement may have changed group or left this bucket: ask again.
         if await fetch(periodo: periodo, keepingContentOnFailure: true) == false {
