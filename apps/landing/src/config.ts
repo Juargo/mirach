@@ -12,7 +12,7 @@ export const SITE = {
  * FAQ switch to the download wording.
  */
 export const APP_STORE: { url: string | null } = {
-  url: null,
+  url: 'https://apps.apple.com/cl/app/mirach-budget/id6821444803',
 };
 
 export interface FAQItem {
