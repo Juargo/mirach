@@ -1,0 +1,20 @@
+---
+/**
+ * The page's call to action: a download button once the app has a public
+ * App Store page (APP_STORE.url), the "Próximamente" notice until then.
+ */
+import CtaButton from './CtaButton.astro';
+import { APP_STORE } from '../config';
+---
+
+{
+  APP_STORE.url ? (
+    <CtaButton href={APP_STORE.url} rel="noopener">
+      Descargar en el App Store
+    </CtaButton>
+  ) : (
+    <p class="inline-flex min-h-[44px] items-center justify-center rounded border border-primary px-6 py-2.5 text-body-sm font-semibold text-primary">
+      Próximamente en el App Store
+    </p>
+  )
+}

@@ -2,17 +2,25 @@
 export interface Bank {
   name: string;
   svg: string;
+  /** Intrinsic size of the logo file, to reserve its space before it loads. */
+  width: number;
+  height: number;
+  /** Display height. The wordmarks differ in proportion, so each one is
+      sized by eye to carry the same visual weight. */
+  size: string;
 }
 
+// Official wordmarks, from Wikimedia Commons (public domain as simple text
+// logos; they remain trademarks of each bank).
 const banks: Bank[] = [
-  { name: 'BancoEstado', svg: '/images/banks/bancoestado.svg' },
-  { name: 'Banco de Chile', svg: '/images/banks/chile.svg' },
-  { name: 'BCI', svg: '/images/banks/bci.svg' },
-  { name: 'Santander', svg: '/images/banks/santander.svg' },
+  { name: 'BancoEstado', svg: '/images/banks/bancoestado.svg', width: 512, height: 100, size: 'h-8' },
+  { name: 'Banco de Chile', svg: '/images/banks/chile.svg', width: 1000, height: 199, size: 'h-7' },
+  { name: 'Bci', svg: '/images/banks/bci.svg', width: 65, height: 30, size: 'h-10' },
+  { name: 'Santander', svg: '/images/banks/santander.svg', width: 238, height: 42, size: 'h-7' },
 ];
 ---
 
-<section id="bancos" data-reveal class="px-6 py-16 sm:py-24">
+<section id="bancos" data-reveal class="scroll-mt-20 px-6 py-16 sm:py-24">
   <h2
     class="font-display text-center text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
   >
@@ -26,21 +34,24 @@ const banks: Bank[] = [
     Escríbenos y lo agregamos.
   </p>
 
-  <div class="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
+  <ul class="mx-auto mt-10 grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
     {banks.map((bank) => (
-      <div
-        class="flex flex-col items-center gap-4 card-lift rounded bg-surface p-6 shadow-soft"
-      >
+      <li class="flex h-24 items-center justify-center rounded border border-outline-variant/60 bg-surface-container-lowest px-5">
         <img
           src={bank.svg}
           alt={bank.name}
-          width="80"
-          height="80"
-          class="h-20 w-20 object-contain"
+          width={bank.width}
+          height={bank.height}
+          class:list={[bank.size, 'w-auto max-w-full object-contain']}
           loading="lazy"
+          decoding="async"
         />
-        <span class="text-sm font-semibold text-on-surface">{bank.name}</span>
-      </div>
+      </li>
     ))}
-  </div>
+  </ul>
+
+  <p class="mx-auto mt-6 max-w-md text-center text-label-caps leading-relaxed text-on-surface-variant">
+    Las marcas y logotipos pertenecen a cada banco. Mirach no está afiliada a
+    ninguno de ellos.
+  </p>
 </section>
