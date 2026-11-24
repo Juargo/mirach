@@ -2,6 +2,7 @@ package app.mirachbudget.android.features.movimientos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,8 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,6 +53,7 @@ import app.mirachbudget.android.core.design.MirachTheme
 import app.mirachbudget.android.core.design.ScreenBar
 import app.mirachbudget.android.core.design.mirachFigures
 import app.mirachbudget.android.core.formatting.Format
+import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.BucketDetalle
 import app.mirachbudget.android.core.networking.GrupoCategoria
 import app.mirachbudget.android.core.networking.MovimientoBucket
@@ -67,8 +71,9 @@ import app.mirachbudget.android.features.resumen.label
 import kotlinx.coroutines.launch
 
 /**
- * «Movimientos»: the month's movements in three bucket panes of equal height that scroll on their own,
- * each with a visible «Mover» button. At large text sizes the panes give way to one scrolling list.
+ * «Movimientos»: the month's movements in three bucket panes that work as an accordion. The three
+ * headers are always on screen; one pane is open, takes the rest of the height and scrolls on its own,
+ * each movement with a visible «Mover» button. At large text sizes the screen is one scrolling list.
  * The view model is hoisted by the root (a hidden tab's composition is dropped), so the sheet and the
  * notice survive a tab switch.
  */
@@ -105,7 +110,7 @@ fun MovimientosRoute(viewModel: MovimientosViewModel, modifier: Modifier = Modif
                             LargeTextList(viewModel, state, content.detalles, busy, onMove)
                         } else {
                             Notices(state, onUndo = { scope.launch { viewModel.undo() } }, Modifier.padding(bottom = MirachSpacing.s))
-                            FixedPanes(viewModel, content.detalles, busy, onMove)
+                            AccordionPanes(viewModel, state.openBucket, content.detalles, busy, onMove)
                         }
                     }
                 }
@@ -119,21 +124,31 @@ fun MovimientosRoute(viewModel: MovimientosViewModel, modifier: Modifier = Modif
     }
 }
 
-/** Three panes of equal height between the title and the tab bar: the screen does not scroll, each pane does. */
+/**
+ * The three headers between the title and the tab bar, always visible: the screen does not scroll. The
+ * open pane takes the height the two closed headers leave and scrolls on its own.
+ */
 @Composable
-private fun FixedPanes(viewModel: MovimientosViewModel, detalles: List<BucketDetalle>, busy: Boolean, onMove: (MovimientoBucket, DetalleBucketViewModel) -> Unit) {
+private fun AccordionPanes(
+    viewModel: MovimientosViewModel,
+    openBucket: Bucket,
+    detalles: List<BucketDetalle>,
+    busy: Boolean,
+    onMove: (MovimientoBucket, DetalleBucketViewModel) -> Unit,
+) {
     Column(Modifier.fillMaxSize().padding(bottom = MirachSpacing.s), verticalArrangement = Arrangement.spacedBy(MirachSpacing.s)) {
         detalles.forEach { detalle ->
             val pane = viewModel.pane(detalle.bucket)
-            Column(Modifier.weight(1f).fillMaxWidth().border(1.dp, MirachTheme.colors.base.border)) {
-                PaneHeader(detalle)
-                LazyColumn(Modifier.weight(1f).fillMaxWidth()) { paneRows(detalle, busy) { onMove(it, pane) } }
+            val isOpen = detalle.bucket == openBucket
+            Column((if (isOpen) Modifier.weight(1f) else Modifier).fillMaxWidth().border(1.dp, MirachTheme.colors.base.border)) {
+                PaneHeader(detalle, isOpen, onOpen = { viewModel.open(detalle.bucket) })
+                if (isOpen) LazyColumn(Modifier.weight(1f).fillMaxWidth()) { paneRows(detalle, busy) { onMove(it, pane) } }
             }
         }
     }
 }
 
-/** The same content in one list, so nothing is clipped at large text sizes. */
+/** The three headers and the open pane's rows in one list, so nothing is clipped at large text sizes. */
 @Composable
 private fun LargeTextList(
     viewModel: MovimientosViewModel,
@@ -147,8 +162,11 @@ private fun LargeTextList(
         item(key = "notices") { Notices(state, onUndo = { scope.launch { viewModel.undo() } }, Modifier) }
         detalles.forEach { detalle ->
             val pane = viewModel.pane(detalle.bucket)
-            item(key = "pane-${detalle.bucket.apiName}") { PaneHeader(detalle, Modifier.border(1.dp, MirachTheme.colors.base.border)) }
-            paneRows(detalle, busy) { onMove(it, pane) }
+            val isOpen = detalle.bucket == state.openBucket
+            item(key = "pane-${detalle.bucket.apiName}") {
+                PaneHeader(detalle, isOpen, onOpen = { viewModel.open(detalle.bucket) }, Modifier.border(1.dp, MirachTheme.colors.base.border))
+            }
+            if (isOpen) paneRows(detalle, busy) { onMove(it, pane) }
         }
     }
 }
@@ -172,21 +190,36 @@ private fun Notices(state: MovimientosViewModel.State, onUndo: () -> Unit, modif
     }
 }
 
-/** A pane's bar in its bucket colour, with the name and, under it, only the total and its percentage. */
+/**
+ * A pane's bar in its bucket colour, with the name and, under it, only the total and its percentage.
+ * The whole header is the button that opens the pane; a mark and TalkBack's state say whether it is open.
+ */
 @Composable
-private fun PaneHeader(detalle: BucketDetalle, modifier: Modifier = Modifier) {
+private fun PaneHeader(detalle: BucketDetalle, isOpen: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MirachTheme.colors
-    Column(modifier.fillMaxWidth()) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = MovimientosMessages.OPEN_ACTION, role = Role.Button, onClick = onOpen)
+            .semantics { stateDescription = MovimientosMessages.paneState(isOpen) },
+    ) {
         Box(Modifier.fillMaxWidth().height(4.dp).background(colors.bucket.fill(detalle.bucket)))
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = MirachSpacing.m, vertical = MirachSpacing.s).clearAndSetSemantics {
-                contentDescription = MovimientosMessages.paneLabel(detalle)
-                heading()
-            },
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = MirachSpacing.m, vertical = MirachSpacing.s),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MirachSpacing.s),
         ) {
-            Text(detalle.bucket.label, style = MirachTextStyles.cuerpoDestacado, color = colors.base.foreground)
-            Text(MovimientosMessages.paneHeader(detalle), style = MirachTextStyles.cuerpo.mirachFigures(), color = colors.base.mutedForeground)
+            Text(if (isOpen) "▾" else "▸", style = MirachTextStyles.cuerpoDestacado, color = colors.base.foreground, modifier = Modifier.clearAndSetSemantics {})
+            Column(
+                Modifier.weight(1f).clearAndSetSemantics {
+                    contentDescription = MovimientosMessages.paneLabel(detalle)
+                    heading()
+                },
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(detalle.bucket.label, style = MirachTextStyles.cuerpoDestacado, color = colors.base.foreground)
+                Text(MovimientosMessages.paneHeader(detalle), style = MirachTextStyles.cuerpo.mirachFigures(), color = colors.base.mutedForeground)
+            }
         }
     }
 }

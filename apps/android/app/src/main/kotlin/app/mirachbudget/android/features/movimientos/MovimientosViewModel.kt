@@ -22,7 +22,8 @@ import kotlinx.coroutines.flow.update
 
 /**
  * State of the «Movimientos» tab: one month and the three buckets side by side, each with its own
- * [DetalleBucketViewModel] (a [pane]). The panes hold the detail of their bucket and the whole
+ * [DetalleBucketViewModel] (a [pane]); only one of them is open at a time ([State.openBucket]), the other
+ * two show their header. The panes hold the detail of their bucket and the whole
  * reclassify sheet flow, so a move here goes through exactly the code the bucket detail uses; this
  * class only resolves the month once, asks for the three buckets together, and keeps the notice with
  * its «Deshacer». Every move or undo bumps [State.reclassifiedCount]: Resumen's figures changed, and the
@@ -62,6 +63,8 @@ class MovimientosViewModel(
         val warning: String? = null,
         /** Grows by one with every successful move or undo. */
         val reclassifiedCount: Int = 0,
+        /** The one bucket whose movements are showing. It stays through a month change, a move and a reload. */
+        val openBucket: Bucket = Bucket.entries.first(),
     ) {
         /** The next older month that has data (the list is most recent first), if any. */
         val anterior: Periodo? get() = neighbour(offset = 1)
@@ -85,6 +88,9 @@ class MovimientosViewModel(
     }
 
     fun pane(bucket: Bucket): DetalleBucketViewModel = panes.first { it.bucket == bucket }
+
+    /** Shows the movements of [bucket] and closes the bucket that was open. */
+    fun open(bucket: Bucket) = _state.update { it.copy(openBucket = bucket) }
 
     /** The combined state of the panes: any failure wins, then any pane still loading. */
     val content: Content get() = combine(_state.value.failure, panes.map { it.state.value.content })
