@@ -1,4 +1,5 @@
 ---
+import AppStoreCta from './AppStoreCta.astro';
 import PhoneScreen from './PhoneScreen.astro';
 ---
 
@@ -28,12 +29,9 @@ import PhoneScreen from './PhoneScreen.astro';
         finanzas, identifica oportunidades de ahorro y comienza a generar
         resultados con solo subir tu cartola bancaria.
       </p>
-      <p
-        class="animate-hero-in mt-8 inline-flex min-h-[44px] items-center justify-center rounded border border-primary px-6 py-2.5 text-body-sm font-semibold text-primary"
-        style="--reveal-delay: 180ms"
-      >
-        Próximamente en el App Store
-      </p>
+      <div class="animate-hero-in mt-8" style="--reveal-delay: 180ms">
+        <AppStoreCta />
+      </div>
     </div>
     <div class="animate-hero-in shrink-0" style="--reveal-delay: 270ms">
       <PhoneScreen

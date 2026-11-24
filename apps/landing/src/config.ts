@@ -6,6 +6,15 @@ export const SITE = {
   ogImage: '/og-image.png',
 } as const;
 
+/**
+ * Public App Store page of the iPhone app. While it is `null` the landing
+ * says "Próximamente"; set the URL and the hero, the closing section and the
+ * FAQ switch to the download wording.
+ */
+export const APP_STORE: { url: string | null } = {
+  url: null,
+};
+
 export interface FAQItem {
   q: string;
   a: string;
@@ -30,7 +39,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     q: '¿Dónde puedo usar Mirach?',
-    a: 'Mirach es una app nativa para iPhone (iOS 17 o superior) y estará disponible próximamente en el App Store. Inicias sesión con Sign in with Apple.',
+    a: `Mirach es una app nativa para iPhone (iOS 17 o superior) y ${APP_STORE.url ? 'está disponible' : 'estará disponible próximamente'} en el App Store. Inicias sesión con Sign in with Apple.`,
   },
 ];
 
