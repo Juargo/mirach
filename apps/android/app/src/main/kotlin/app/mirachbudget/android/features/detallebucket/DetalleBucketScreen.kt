@@ -157,9 +157,10 @@ fun DetalleBucketScreen(
     state.sheetMovement?.let { movement -> ReclassifySheet(viewModel, state, movement) }
 }
 
+/** The sheet over a bucket's movements, with its «Cambiar de grupo» confirmation; the Movimientos tab shows it too. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReclassifySheet(viewModel: DetalleBucketViewModel, state: DetalleBucketViewModel.State, movement: MovimientoBucket) {
+internal fun ReclassifySheet(viewModel: DetalleBucketViewModel, state: DetalleBucketViewModel.State, movement: MovimientoBucket) {
     val scope = viewModel.viewModelScope
     when (val catalog = state.catalog) {
         is CatalogState.Loaded -> CategorySheet(

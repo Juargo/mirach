@@ -27,6 +27,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import app.mirachbudget.android.core.session.SessionController.Phase
 import app.mirachbudget.android.features.session.ConnectionFailedScreen
 import app.mirachbudget.android.features.session.ValidatingScreen
+import app.mirachbudget.android.features.movimientos.MovimientosMessages
+import app.mirachbudget.android.features.movimientos.MovimientosRoute
+import app.mirachbudget.android.features.movimientos.MovimientosViewModel
 import app.mirachbudget.android.features.perfil.PerfilMessages
 import app.mirachbudget.android.features.perfil.PerfilRoute
 import app.mirachbudget.android.features.perfil.PerfilViewModel
@@ -93,6 +96,11 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                 key = "perfil-${(phase as Phase.SignedIn).userId}-$sessionsEnded",
                 factory = viewModelFactory { initializer { PerfilViewModel(dependencies.api, session) } },
             )
+            // Hoisted here: a hidden tab's composition is dropped, so its state would be lost with it.
+            val movimientosViewModel = viewModel<MovimientosViewModel>(
+                key = "movimientos-${(phase as Phase.SignedIn).userId}-$sessionsEnded",
+                factory = viewModelFactory { initializer { MovimientosViewModel(dependencies.api) } },
+            )
             val subirViewModel = viewModel<SubirCartolaViewModel>(
                 key = "subir-${(phase as Phase.SignedIn).userId}-$sessionsEnded",
                 factory = viewModelFactory { initializer { SubirCartolaViewModel(dependencies.api, dependencies.staging) } },
@@ -100,12 +108,18 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
             // A finished import changes the months with data: reload Resumen even while its tab is hidden.
             val subirState by subirViewModel.state.collectAsStateWithLifecycle()
             LaunchedEffect(subirState.importsCompleted) {
-                if (subirState.importsCompleted > 0) resumenViewModel.load()
+                if (subirState.importsCompleted > 0) {
+                    resumenViewModel.load()
+                    movimientosViewModel.reload()
+                }
             }
             // Deleting an uploaded statement also changes the months with data.
             var cartolasDeleted by rememberSaveable { mutableIntStateOf(0) }
             LaunchedEffect(cartolasDeleted) {
-                if (cartolasDeleted > 0) resumenViewModel.load()
+                if (cartolasDeleted > 0) {
+                    resumenViewModel.load()
+                    movimientosViewModel.reload()
+                }
             }
             // Any catalog change (Categorías, or a category created while reclassifying) moves
             // figures and names elsewhere: Resumen reloads, Subir re-reads its catalog, and the
@@ -115,15 +129,27 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                 if (catalogRevision > 0) {
                     resumenViewModel.load()
                     subirViewModel.catalogDidChange()
+                    movimientosViewModel.catalogDidChange()
                 }
             }
             // A new budget profile changes every target: Resumen reloads, even while its tab is hidden.
             var perfilRevision by rememberSaveable { mutableIntStateOf(0) }
             LaunchedEffect(perfilRevision) {
-                if (perfilRevision > 0) resumenViewModel.load()
+                if (perfilRevision > 0) {
+                    resumenViewModel.load()
+                    movimientosViewModel.reload()
+                }
             }
             // A reclassification changes the categories' counts, but Resumen already refreshes itself.
             var categoriasRevision by rememberSaveable { mutableIntStateOf(0) }
+            // A move or an undo in Movimientos changes Resumen's figures and the categories' counts.
+            val movimientosState by movimientosViewModel.state.collectAsStateWithLifecycle()
+            LaunchedEffect(movimientosState.reclassifiedCount) {
+                if (movimientosState.reclassifiedCount > 0) {
+                    categoriasRevision++
+                    resumenViewModel.load()
+                }
+            }
             // A category opened from a bucket detail, shown inside the Resumen tab.
             var resumenCategoria by rememberSaveable { mutableStateOf<String?>(null) }
             val resumenStates = rememberSaveableStateHolder()
@@ -175,6 +201,9 @@ fun RootRoute(dependencies: AppEnvironment.Dependencies) {
                                 )
                             }
                         }
+                    },
+                    ShellTab("movimientos", MovimientosMessages.TITLE) {
+                        MovimientosRoute(movimientosViewModel)
                     },
                     ShellTab("subir", "Subir") {
                         SubirCartolaRoute(
