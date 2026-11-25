@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// «Movimientos»: the month's movements in three fixed bucket panes, each one scrolling on its
-/// own, every movement with a visible «Mover» button. At accessibility text sizes the panes stop
-/// being fixed and the screen is one scrolling list, so nothing is clipped.
+/// «Movimientos»: the month's movements in three bucket panes that work as an accordion. The
+/// three headers are always on screen; one pane is open, takes the rest of the height and scrolls
+/// on its own, every movement with a visible «Mover» button. At accessibility text sizes the
+/// screen is one scrolling list, so nothing is clipped.
 struct MovimientosView: View {
     @State private var viewModel: MovimientosViewModel
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -98,6 +99,8 @@ struct MovimientosView: View {
         ForEach(viewModel.panes, id: \.bucket) { pane in
             BucketPane(
                 viewModel: pane, isFixed: fixedPanes,
+                isOpen: pane.bucket == viewModel.openBucket,
+                open: { viewModel.open(pane.bucket) },
                 canMove: viewModel.panes.allSatisfy { $0.reclassifyingId == nil },
                 refresh: { await viewModel.refresh() }
             )
@@ -148,11 +151,14 @@ private struct NoticeStrip: View {
     }
 }
 
-/// One bucket: its colour bar, «{total} · {porcentaje}», and its categories and movements.
+/// One bucket: its colour bar, a header with «{total} · {porcentaje}» that opens it and, when it
+/// is the open one, its categories and movements.
 private struct BucketPane: View {
     let viewModel: DetalleBucketViewModel
     /// A fixed pane scrolls inside; otherwise it is as tall as its content.
     let isFixed: Bool
+    let isOpen: Bool
+    let open: () -> Void
     let canMove: Bool
     let refresh: () async -> Void
 
@@ -160,33 +166,48 @@ private struct BucketPane: View {
         VStack(spacing: 0) {
             Rectangle().fill(viewModel.bucket.fill).frame(height: 6).accessibilityHidden(true)
             header
-            Divider().overlay(Color.Mirach.Base.border)
-            if isFixed {
-                ScrollView { rows }.refreshable { await refresh() }
-            } else {
-                rows
+            if isOpen {
+                Divider().overlay(Color.Mirach.Base.border)
+                if isFixed {
+                    ScrollView { rows }.refreshable { await refresh() }
+                } else {
+                    rows
+                }
             }
         }
-        .frame(maxHeight: isFixed ? .infinity : nil)
+        // The open pane takes the height the two closed headers leave.
+        .frame(maxHeight: isFixed && isOpen ? .infinity : nil)
         .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
+        // A container of its own: without it the identifier lands on the header and replaces its own.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("movimientos.pane.\(viewModel.bucket.apiName)")
     }
 
     @ViewBuilder
     private var header: some View {
         if case .loaded(let detalle) = viewModel.state {
-            HStack(alignment: .firstTextBaseline, spacing: MirachSpacing.s) {
-                Text(viewModel.bucket.label).mirachText(.cuerpoDestacado)
-                Spacer(minLength: MirachSpacing.s)
-                Text(MovimientosPresentation.paneHeader(detalle)).mirachText(.cuerpoDestacado).mirachFigures()
+            // The whole header is the button; the chevron and VoiceOver's value say whether it is open.
+            Button(action: open) {
+                HStack(alignment: .firstTextBaseline, spacing: MirachSpacing.s) {
+                    Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                        .font(.mirach(.etiqueta))
+                        .frame(width: 16)
+                    Text(viewModel.bucket.label).mirachText(.cuerpoDestacado)
+                    Spacer(minLength: MirachSpacing.s)
+                    Text(MovimientosPresentation.paneHeader(detalle)).mirachText(.cuerpoDestacado).mirachFigures()
+                }
+                .foregroundStyle(Color.Mirach.Base.foreground)
+                .padding(.horizontal, MirachSpacing.m)
+                .padding(.vertical, MirachSpacing.s)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .foregroundStyle(Color.Mirach.Base.foreground)
-            .padding(.horizontal, MirachSpacing.m)
-            .padding(.vertical, MirachSpacing.s)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(MovimientosPresentation.paneLabel(detalle))
-            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(MovimientosPresentation.paneState(isOpen: isOpen))
+            .accessibilityHint(isOpen ? "" : MovimientosPresentation.openHint)
+            .accessibilityAddTraits([.isHeader, .isButton])
             .accessibilityIdentifier("movimientos.header.\(viewModel.bucket.apiName)")
         }
     }

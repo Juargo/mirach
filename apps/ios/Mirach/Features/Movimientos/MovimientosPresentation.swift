@@ -20,6 +20,13 @@ enum MovimientosPresentation {
         "\(detalle.bucket.label). \(paneHeader(detalle))"
     }
 
+    /// What VoiceOver adds to a pane's header: whether its movements are showing.
+    static func paneState(isOpen: Bool) -> String {
+        isOpen ? "Abierto" : "Cerrado"
+    }
+
+    static let openHint = "Muestra los movimientos de este bloque"
+
     /// «Movido a Gustos · Ropa».
     static func moved(_ result: Reclasificacion) -> String {
         "Movido a \(result.bucket.label) · \(result.categoriaNombre)"

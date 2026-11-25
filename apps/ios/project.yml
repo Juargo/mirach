@@ -15,8 +15,8 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete      # data-race checks as errors
     DEVELOPMENT_TEAM: SUX4J95Z5F
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: "11"
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "14"
 
 # Apple's OpenAPI runtime and URLSession transport, pinned to exact versions.
 # The generator itself is pinned separately in scripts/openapi-generator/Package.swift.

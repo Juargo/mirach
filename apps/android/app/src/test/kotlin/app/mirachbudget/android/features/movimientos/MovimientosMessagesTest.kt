@@ -16,6 +16,13 @@ class MovimientosMessagesTest {
     }
 
     @Test
+    fun aPaneHeaderSaysWhetherItsMovementsAreShowing() {
+        assertEquals("Abierto", MovimientosMessages.paneState(isOpen = true))
+        assertEquals("Cerrado", MovimientosMessages.paneState(isOpen = false))
+        assertEquals("mostrar los movimientos de este bloque", MovimientosMessages.OPEN_ACTION)
+    }
+
+    @Test
     fun aPaneHeaderIsOnlyTheTotalAndItsPercentage() {
         assertEquals("$569.400 · 52%", MovimientosMessages.paneHeader(MovimientosSamples.necesidades(septiembre)))
     }

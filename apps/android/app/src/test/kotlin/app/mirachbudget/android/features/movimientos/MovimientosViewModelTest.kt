@@ -364,5 +364,30 @@ class MovimientosViewModelTest {
         assertEquals(3, api.bucketDetalleCalls.size)
     }
 
+    // --- Accordion: one bucket open at a time
+
+    @Test
+    fun onlyNecesidadesIsOpenAtFirstAndOpeningAnotherBucketClosesIt() = runTest {
+        val vm = loaded()
+        assertEquals(Bucket.Necesidades, vm.current.openBucket)
+
+        vm.open(Bucket.Ahorro)
+
+        assertEquals(Bucket.Ahorro, vm.current.openBucket)
+    }
+
+    @Test
+    fun theOpenBucketStaysOpenThroughAMoveAndAMonthChange() = runTest {
+        val vm = loaded()
+        vm.open(Bucket.Deseos)
+
+        vm.pick(cafe, vestuario.id)
+        vm.pane(Bucket.Deseos).save()
+        assertEquals(Bucket.Deseos, vm.current.openBucket)
+
+        vm.select(agosto)
+        assertEquals(Bucket.Deseos, vm.current.openBucket)
+    }
+
     private val restauranteId = "c-rest"
 }

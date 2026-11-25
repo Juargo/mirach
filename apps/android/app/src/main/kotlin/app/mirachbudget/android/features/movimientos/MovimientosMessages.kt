@@ -27,6 +27,12 @@ object MovimientosMessages {
     /** What TalkBack reads for a pane's title: «Gustos. $569.400 · 52%». */
     fun paneLabel(detalle: BucketDetalle): String = "${detalle.bucket.label}. ${paneHeader(detalle)}"
 
+    /** What TalkBack adds to a pane's title: whether its movements are showing. */
+    fun paneState(isOpen: Boolean): String = if (isOpen) "Abierto" else "Cerrado"
+
+    /** What tapping a pane's title does, after TalkBack's «Toca dos veces para». */
+    const val OPEN_ACTION = "mostrar los movimientos de este bloque"
+
     /** «Movido a Gustos · Ropa». */
     fun moved(bucket: Bucket, categoria: String): String = "Movido a ${bucket.label} · $categoria"
 

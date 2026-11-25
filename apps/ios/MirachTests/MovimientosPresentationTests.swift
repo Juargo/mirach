@@ -37,6 +37,12 @@ struct MovimientosPresentationTests {
         #expect(MovimientosPresentation.undo == "Deshacer")
     }
 
+    @Test func aPaneHeaderSaysWhetherItsMovementsAreShowing() {
+        #expect(MovimientosPresentation.paneState(isOpen: true) == "Abierto")
+        #expect(MovimientosPresentation.paneState(isOpen: false) == "Cerrado")
+        #expect(MovimientosPresentation.openHint == "Muestra los movimientos de este bloque")
+    }
+
     @Test func aMovementIsReadWithItsFullDescriptionDateAndAmount() {
         let movement = MovimientoBucket(
             id: "t", fecha: Date(timeIntervalSince1970: 1_790_985_600), descripcion: "NETFLIX.COM", origen: "Manual", monto: 15_480
