@@ -75,8 +75,8 @@ struct PerfilPresupuestoViewModelTests {
         await rig.viewModel.load()
         #expect(rig.viewModel.canSave == false)
 
-        rig.viewModel.select(.p60_20_20)
-        #expect(rig.viewModel.selection == .p60_20_20)
+        rig.viewModel.select(.p65_20_15)
+        #expect(rig.viewModel.selection == .p65_20_15)
         #expect(rig.viewModel.canSave == true)
 
         rig.viewModel.select(.p50_30_20)
@@ -86,7 +86,7 @@ struct PerfilPresupuestoViewModelTests {
     @Test func guardarIsDisabledWhileSavingAndSelectionIsLocked() async {
         let rig = makeRig()
         await rig.viewModel.load()
-        rig.viewModel.select(.p70_15_15)
+        rig.viewModel.select(.p90_5_5)
         let gate = Gate()
         rig.api.perfilPresupuestoGate = gate
 
@@ -96,11 +96,11 @@ struct PerfilPresupuestoViewModelTests {
         #expect(rig.viewModel.saveState == .saving)
         #expect(rig.viewModel.canSave == false)
         rig.viewModel.select(.p80_10_10)
-        #expect(rig.viewModel.selection == .p70_15_15)
+        #expect(rig.viewModel.selection == .p90_5_5)
 
         await gate.open()
         await saving.value
-        #expect(rig.api.guardarPerfilPresupuestoCalls == [.p70_15_15], "a second tap cannot send a second request")
+        #expect(rig.api.guardarPerfilPresupuestoCalls == [.p90_5_5], "a second tap cannot send a second request")
     }
 
     // MARK: S4/S5 save
@@ -108,12 +108,12 @@ struct PerfilPresupuestoViewModelTests {
     @Test func savingSendsTheSelectedProfileAndReportsSuccessOnce() async {
         let rig = makeRig()
         await rig.viewModel.load()
-        rig.viewModel.select(.p60_20_20)
-        rig.api.setGuardarPerfilPresupuestoResults([.success(.predefinido(.p60_20_20))])
+        rig.viewModel.select(.p65_20_15)
+        rig.api.setGuardarPerfilPresupuestoResults([.success(.predefinido(.p65_20_15))])
 
         await rig.viewModel.save()
 
-        #expect(rig.api.guardarPerfilPresupuestoCalls == [.p60_20_20])
+        #expect(rig.api.guardarPerfilPresupuestoCalls == [.p65_20_15])
         #expect(rig.viewModel.saveState == .saved)
         #expect(rig.counter.saved == 1, "the Resumen reload is requested exactly once")
         #expect(rig.viewModel.canSave == false, "the stored profile is now the selected one")
@@ -144,14 +144,14 @@ struct PerfilPresupuestoViewModelTests {
     @Test func anExpiredSessionOnSaveShowsNoMessageAndKeepsTheSelection() async {
         let rig = makeRig()
         await rig.viewModel.load()
-        rig.viewModel.select(.p60_20_20)
+        rig.viewModel.select(.p65_20_15)
         rig.api.setGuardarPerfilPresupuestoResults([.failure(APIError.sessionExpired)])
 
         await rig.viewModel.save()
 
         #expect(rig.viewModel.saveState == .idle)
         #expect(rig.viewModel.saveFailureMessage == nil)
-        #expect(rig.viewModel.selection == .p60_20_20)
+        #expect(rig.viewModel.selection == .p65_20_15)
         #expect(rig.counter.saved == 0)
     }
 
@@ -159,17 +159,17 @@ struct PerfilPresupuestoViewModelTests {
 
     @Test func theCardsCarryTheSpecCopyInOrder() {
         let cards = PerfilPredefinido.allCases
-        #expect(cards.map(\.title) == ["50 / 30 / 20", "60 / 20 / 20", "70 / 15 / 15", "80 / 10 / 10"])
+        #expect(cards.map(\.title) == ["50 / 30 / 20", "65 / 20 / 15", "80 / 10 / 10", "90 / 5 / 5"])
         #expect(cards.map(\.caption) == [
             "Equilibrado · Necesidades 50% · Gustos 30% · Ahorro 20%",
-            "Si tus gastos fijos son altos · Necesidades 60% · Gustos 20% · Ahorro 20%",
-            "Para un mes ajustado · Necesidades 70% · Gustos 15% · Ahorro 15%",
-            "Salir de deudas. Tus cuotas cuentan como necesidad · Necesidades 80% · Gustos 10% · Ahorro 10%",
+            "Si tus gastos fijos son altos · Necesidades 65% · Gustos 20% · Ahorro 15%",
+            "Para un mes ajustado o salir de deudas. Tus cuotas cuentan como necesidad · Necesidades 80% · Gustos 10% · Ahorro 10%",
+            "Con lo justo: casi todo se va en vivir · Necesidades 90% · Gustos 5% · Ahorro 5%",
         ])
         #expect(cards.filter(\.isRecommended) == [.p50_30_20])
         #expect(cards.allSatisfy { $0.shares.reduce(0, +) == 100 })
-        #expect(PerfilPredefinido.p60_20_20.accessibilityLabel
-            == "60 / 20 / 20. Si tus gastos fijos son altos · Necesidades 60% · Gustos 20% · Ahorro 20%")
+        #expect(PerfilPredefinido.p65_20_15.accessibilityLabel
+            == "65 / 20 / 15. Si tus gastos fijos son altos · Necesidades 65% · Gustos 20% · Ahorro 15%")
         #expect(PerfilPredefinido.p50_30_20.accessibilityLabel
             == "50 / 30 / 20. Recomendado. Equilibrado · Necesidades 50% · Gustos 30% · Ahorro 20%")
     }

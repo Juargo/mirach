@@ -6,18 +6,18 @@ extension PerfilPredefinido {
     var title: String {
         switch self {
         case .p50_30_20: "50 / 30 / 20"
-        case .p60_20_20: "60 / 20 / 20"
-        case .p70_15_15: "70 / 15 / 15"
+        case .p65_20_15: "65 / 20 / 15"
         case .p80_10_10: "80 / 10 / 10"
+        case .p90_5_5: "90 / 5 / 5"
         }
     }
 
     var caption: String {
         switch self {
         case .p50_30_20: "Equilibrado · Necesidades 50% · Gustos 30% · Ahorro 20%"
-        case .p60_20_20: "Si tus gastos fijos son altos · Necesidades 60% · Gustos 20% · Ahorro 20%"
-        case .p70_15_15: "Para un mes ajustado · Necesidades 70% · Gustos 15% · Ahorro 15%"
-        case .p80_10_10: "Salir de deudas. Tus cuotas cuentan como necesidad · Necesidades 80% · Gustos 10% · Ahorro 10%"
+        case .p65_20_15: "Si tus gastos fijos son altos · Necesidades 65% · Gustos 20% · Ahorro 15%"
+        case .p80_10_10: "Para un mes ajustado o salir de deudas. Tus cuotas cuentan como necesidad · Necesidades 80% · Gustos 10% · Ahorro 10%"
+        case .p90_5_5: "Con lo justo: casi todo se va en vivir · Necesidades 90% · Gustos 5% · Ahorro 5%"
         }
     }
 
@@ -25,9 +25,9 @@ extension PerfilPredefinido {
     var shares: [Int] {
         switch self {
         case .p50_30_20: [50, 30, 20]
-        case .p60_20_20: [60, 20, 20]
-        case .p70_15_15: [70, 15, 15]
+        case .p65_20_15: [65, 20, 15]
         case .p80_10_10: [80, 10, 10]
+        case .p90_5_5: [90, 5, 5]
         }
     }
 

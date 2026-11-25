@@ -23,12 +23,12 @@ function makeRepo(
 
 describe('ObtenerPerfilPresupuestoUseCase (#110)', () => {
   it("returns the requesting user's profile", async () => {
-    const repo = makeRepo(PerfilPresupuesto.predefinido('60_20_20'));
+    const repo = makeRepo(PerfilPresupuesto.predefinido('65_20_15'));
     const r = await new ObtenerPerfilPresupuestoUseCase(repo).execute({
       userId: 'user-a',
     });
     expect(repo.obtener).toHaveBeenCalledWith('user-a');
-    expect(r.getValue().perfil).toBe('60_20_20');
+    expect(r.getValue().perfil).toBe('65_20_15');
   });
 });
 
@@ -115,7 +115,7 @@ describe('ActualizarPerfilPresupuestoUseCase — financial month (#111)', () => 
 
     const r = await uc.execute({
       userId: 'user-a',
-      perfil: '60_20_20',
+      perfil: '65_20_15',
       diaCorte: 25,
       ingresoDeclarado: 1_500_000n,
     });
@@ -123,7 +123,7 @@ describe('ActualizarPerfilPresupuestoUseCase — financial month (#111)', () => 
     expect(r.getValue().mesFinanciero.diaCorte.valor).toBe(25);
     expect(r.getValue().mesFinanciero.ingresoDeclarado).toBe(1_500_000n);
     const guardado = repo.guardar.mock.calls[0][1] as PerfilPresupuesto;
-    expect(guardado.perfil).toBe('60_20_20');
+    expect(guardado.perfil).toBe('65_20_15');
     expect(guardado.mesFinanciero.diaCorte.valor).toBe(25);
     expect(guardado.mesFinanciero.ingresoDeclarado).toBe(1_500_000n);
   });

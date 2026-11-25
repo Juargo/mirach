@@ -11,9 +11,9 @@ import { z } from 'zod';
 
 const PERFILES_PREDEFINIDOS = [
   '50_30_20',
-  '60_20_20',
-  '70_15_15',
+  '65_20_15',
   '80_10_10',
+  '90_5_5',
 ] as const;
 
 const metasSchema = z

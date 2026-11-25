@@ -100,7 +100,7 @@ categoría quedan solo con el cifrado en reposo para poder sumarlos y agruparlos
 
 | Tabla o campo | Para qué | Requisitos |
 |---------------|----------|------------|
-| Perfil de presupuesto del usuario: tipo (predefinido o personalizado) y tres metas en puntos base que suman 10.000 | Perfiles 50/30/20, 60/20/20, 70/15/15, 80/10/10 y personalizado | PER-03 a PER-06 |
+| Perfil de presupuesto del usuario: tipo (predefinido o personalizado) y tres metas en puntos base que suman 10.000 | Perfiles 50/30/20, 65/20/15, 80/10/10, 90/5/5 y personalizado | PER-03 a PER-06 |
 | Día de corte del mes financiero (1 a 28, por defecto 1) e ingreso mensual declarado | Mes financiero y base de los porcentajes | PER-02, PER-08, regla 1 |
 | `Consentimiento`: tipo, versión, fecha de aceptación y de revocación | Términos, privacidad y procesamiento de cartolas | AUTH-03, PRI-02, PRI-06 |
 | `Suscripcion`: plan, estado, vencimiento, tienda, último evento procesado | Derechos por plan | PLA, ADR-012 |
