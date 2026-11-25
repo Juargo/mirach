@@ -27,14 +27,17 @@ const metas = (
   });
 
 /**
- * The four predefined profiles (PER-03). 80_10_10 is shown as «Salir de
- * deudas» (PER-04); there is no fifth profile.
+ * The four predefined profiles (PER-03), a ladder anchored on what one person
+ * needs to live on a Chilean minimum wage: 90_5_5 is that floor and 50_30_20
+ * the balanced goal. 80_10_10 is shown as «Salir de deudas» (PER-04); there
+ * is no fifth profile. 60_20_20 and 70_15_15 were retired: stored rows moved
+ * to `personalizado` (migration replace_perfiles_predefinidos).
  */
 export const PERFILES_PREDEFINIDOS = Object.freeze({
   '50_30_20': metas(5000n, 3000n, 2000n),
-  '60_20_20': metas(6000n, 2000n, 2000n),
-  '70_15_15': metas(7000n, 1500n, 1500n),
+  '65_20_15': metas(6500n, 2000n, 1500n),
   '80_10_10': metas(8000n, 1000n, 1000n),
+  '90_5_5': metas(9000n, 500n, 500n),
 });
 
 export type PerfilPredefinidoId = keyof typeof PERFILES_PREDEFINIDOS;

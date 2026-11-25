@@ -58,10 +58,10 @@ class PerfilPresupuestoViewModelTest {
         vm.load()
         assertEquals(LoadState.Failed(Failure.Server), state.load)
 
-        api.onPerfilPresupuesto = { PerfilPredefinido.P70_15_15 }
+        api.onPerfilPresupuesto = { PerfilPredefinido.P90_5_5 }
         vm.load()
         assertEquals(LoadState.Loaded, state.load)
-        assertEquals(PerfilPredefinido.P70_15_15, state.selected)
+        assertEquals(PerfilPredefinido.P90_5_5, state.selected)
     }
 
     @Test
@@ -81,7 +81,7 @@ class PerfilPresupuestoViewModelTest {
         vm.load()
         assertFalse(state.canSave)
 
-        vm.select(PerfilPredefinido.P60_20_20)
+        vm.select(PerfilPredefinido.P65_20_15)
         assertTrue(state.canSave)
 
         vm.select(PerfilPredefinido.P50_30_20)
@@ -113,7 +113,7 @@ class PerfilPresupuestoViewModelTest {
     @Test
     fun guardarIsDisabledAndTheSelectionLockedWhileSaving() = runTest {
         vm.load()
-        vm.select(PerfilPredefinido.P60_20_20)
+        vm.select(PerfilPredefinido.P65_20_15)
         val gate = CompletableDeferred<PerfilPredefinido?>()
         api.onCambiarPerfilPresupuesto = { gate.await() }
 
@@ -124,11 +124,11 @@ class PerfilPresupuestoViewModelTest {
         assertFalse(state.canSave)
         // A second tap while the request is out sends nothing, and the cards do not move.
         vm.save()
-        vm.select(PerfilPredefinido.P70_15_15)
-        assertEquals(PerfilPredefinido.P60_20_20, state.selected)
-        assertEquals(listOf(PerfilPredefinido.P60_20_20), api.cambiarPerfilPresupuestoCalls)
+        vm.select(PerfilPredefinido.P90_5_5)
+        assertEquals(PerfilPredefinido.P65_20_15, state.selected)
+        assertEquals(listOf(PerfilPredefinido.P65_20_15), api.cambiarPerfilPresupuestoCalls)
 
-        gate.complete(PerfilPredefinido.P60_20_20)
+        gate.complete(PerfilPredefinido.P65_20_15)
         job.join()
     }
 
@@ -137,29 +137,29 @@ class PerfilPresupuestoViewModelTest {
     @Test
     fun aSuccessfulSaveSendsTheSelectionStoresItAndReturns() = runTest {
         vm.load()
-        vm.select(PerfilPredefinido.P60_20_20)
+        vm.select(PerfilPredefinido.P65_20_15)
         api.onCambiarPerfilPresupuesto = { it }
 
         vm.save()
 
-        assertEquals(listOf(PerfilPredefinido.P60_20_20), api.cambiarPerfilPresupuestoCalls)
+        assertEquals(listOf(PerfilPredefinido.P65_20_15), api.cambiarPerfilPresupuestoCalls)
         // One return-and-reload signal, and the stored profile is now the saved one.
         assertEquals(1, savedCalls)
         assertEquals(SaveState.Idle, state.save)
-        assertEquals(PerfilPredefinido.P60_20_20, state.selected)
+        assertEquals(PerfilPredefinido.P65_20_15, state.selected)
         assertFalse(state.canSave)
     }
 
     @Test
     fun aFailedSaveKeepsTheSelectionShowsTheErrorAndEnablesGuardarAgain() = runTest {
         vm.load()
-        vm.select(PerfilPredefinido.P70_15_15)
+        vm.select(PerfilPredefinido.P90_5_5)
         api.onCambiarPerfilPresupuesto = { throw IOException("offline") }
 
         vm.save()
 
         assertEquals(SaveState.Failed(Failure.Connection), state.save)
-        assertEquals(PerfilPredefinido.P70_15_15, state.selected)
+        assertEquals(PerfilPredefinido.P90_5_5, state.selected)
         assertTrue(state.canSave)
         assertEquals(0, savedCalls)
 
@@ -190,11 +190,11 @@ class PerfilPresupuestoViewModelTest {
     @Test
     fun choosingAnotherCardClearsThePreviousSaveError() = runTest {
         vm.load()
-        vm.select(PerfilPredefinido.P70_15_15)
+        vm.select(PerfilPredefinido.P90_5_5)
         api.onCambiarPerfilPresupuesto = { throw ApiException(500) }
         vm.save()
 
-        vm.select(PerfilPredefinido.P60_20_20)
+        vm.select(PerfilPredefinido.P65_20_15)
 
         assertEquals(SaveState.Idle, state.save)
     }

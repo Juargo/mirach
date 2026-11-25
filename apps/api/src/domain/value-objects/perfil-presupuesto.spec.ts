@@ -18,9 +18,9 @@ const metas = (necesidades: bigint, deseos: bigint, ahorro: bigint) => ({
 describe('PerfilPresupuesto (#110, PER-03..PER-05)', () => {
   it.each([
     ['50_30_20', metas(5000n, 3000n, 2000n)],
-    ['60_20_20', metas(6000n, 2000n, 2000n)],
-    ['70_15_15', metas(7000n, 1500n, 1500n)],
+    ['65_20_15', metas(6500n, 2000n, 1500n)],
     ['80_10_10', metas(8000n, 1000n, 1000n)],
+    ['90_5_5', metas(9000n, 500n, 500n)],
   ] as const)(
     'predefined profile %s has its goals in basis points',
     (id, esperadas) => {
@@ -33,9 +33,9 @@ describe('PerfilPresupuesto (#110, PER-03..PER-05)', () => {
   it('offers exactly the four predefined profiles (PER-04: no fifth profile)', () => {
     expect(Object.keys(PERFILES_PREDEFINIDOS)).toEqual([
       '50_30_20',
-      '60_20_20',
-      '70_15_15',
+      '65_20_15',
       '80_10_10',
+      '90_5_5',
     ]);
   });
 
@@ -96,13 +96,17 @@ describe('PerfilPresupuesto (#110, PER-03..PER-05)', () => {
     expect(r.isFail()).toBe(true);
   });
 
-  it('desdePersistencia rejects an unknown profile id', () => {
-    const r = PerfilPresupuesto.desdePersistencia(
-      '90_5_5',
-      metas(9000n, 500n, 500n),
-    );
-    expect(r.isFail()).toBe(true);
-  });
+  it.each([
+    ['60_20_20', metas(6000n, 2000n, 2000n)],
+    ['70_15_15', metas(7000n, 1500n, 1500n)],
+  ] as const)(
+    'desdePersistencia rejects the retired profile id %s',
+    (id, guardadas) => {
+      const r = PerfilPresupuesto.desdePersistencia(id, guardadas);
+      expect(r.isFail()).toBe(true);
+      expect(r.getError()).toBeInstanceOf(MetaPresupuestoInvalidaError);
+    },
+  );
 
   describe('financial month (#111)', () => {
     it('defaults to the calendar month with no declared income', () => {
@@ -114,9 +118,9 @@ describe('PerfilPresupuesto (#110, PER-03..PER-05)', () => {
     it('conMesFinanciero keeps the goals and replaces the financial month', () => {
       const mes = MesFinanciero.crear(25, 900_000n).getValue();
       const perfil =
-        PerfilPresupuesto.predefinido('60_20_20').conMesFinanciero(mes);
-      expect(perfil.perfil).toBe('60_20_20');
-      expect(perfil.metas).toEqual(PERFILES_PREDEFINIDOS['60_20_20']);
+        PerfilPresupuesto.predefinido('65_20_15').conMesFinanciero(mes);
+      expect(perfil.perfil).toBe('65_20_15');
+      expect(perfil.metas).toEqual(PERFILES_PREDEFINIDOS['65_20_15']);
       expect(perfil.mesFinanciero).toBe(mes);
     });
   });

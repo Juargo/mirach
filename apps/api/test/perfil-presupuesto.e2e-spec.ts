@@ -209,7 +209,7 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
   });
 
   it('Escenario: un perfil personalizado que no suma 100% no se guarda', async () => {
-    await put({ perfil: '70_15_15' }, authMarcela).expect(200);
+    await put({ perfil: '90_5_5' }, authMarcela).expect(200);
 
     // Cuando Marcela guarda 60/30/20
     const res = await put(
@@ -225,7 +225,7 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
     const despues = await get('/api/perfil/presupuesto', authMarcela).expect(
       200,
     );
-    expect(despues.body.perfil).toBe('70_15_15');
+    expect(despues.body.perfil).toBe('90_5_5');
   });
 
   it('a valid custom profile is saved (allowed for now, S6)', async () => {
@@ -255,7 +255,9 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
   });
 
   it.each([
-    [{ perfil: '90_5_5' }],
+    // Retired profiles (replaced by 65_20_15 and 90_5_5).
+    [{ perfil: '60_20_20' }],
+    [{ perfil: '70_15_15' }],
     [
       {
         perfil: '80_10_10',
@@ -297,13 +299,13 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
 
   it('PUT saves the cut-off day and declared income; GET reads them back', async () => {
     const res = await put(
-      { perfil: '60_20_20', diaCorte: 25, ingresoDeclarado: '1500000' },
+      { perfil: '65_20_15', diaCorte: 25, ingresoDeclarado: '1500000' },
       authMarcela,
     ).expect(200);
     expect(() => perfilPresupuestoResponseSchema.parse(res.body)).not.toThrow();
     expect(res.body).toEqual({
-      perfil: '60_20_20',
-      metas: { Necesidades: 6000, Deseos: 2000, Ahorro: 2000 },
+      perfil: '65_20_15',
+      metas: { Necesidades: 6500, Deseos: 2000, Ahorro: 1500 },
       diaCorte: 25,
       ingresoDeclarado: '1500000',
     });
@@ -340,7 +342,7 @@ describe('GET/PUT /api/perfil/presupuesto (e2e, #110)', () => {
         200,
       );
       const res = await put(
-        { perfil: '70_15_15', diaCorte: dia },
+        { perfil: '90_5_5', diaCorte: dia },
         authMarcela,
       ).expect(400);
       expect(res.body.code).toBe('DIA_CORTE_INVALIDO');

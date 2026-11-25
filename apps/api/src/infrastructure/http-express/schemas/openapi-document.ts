@@ -1364,7 +1364,7 @@ const perfilPresupuestoPutOperation: ZodOpenApiOperationObject = {
   summary: "Replace the current user's budget profile",
   description:
     "Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). " +
-    'Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), ' +
+    'Send a predefined id (50_30_20, 65_20_15, 80_10_10, shown as «Salir de deudas», or 90_5_5), ' +
     'or `personalizado` with three non-negative targets in basis points. Custom targets that do not ' +
     'sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in ' +
     'both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, ' +

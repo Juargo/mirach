@@ -41,9 +41,9 @@ class PerfilPresupuestoApiTest {
     fun readingTheProfileMapsEachPredefinedId() = runBlocking<Unit> {
         val ids = mapOf(
             "50_30_20" to PerfilPredefinido.P50_30_20,
-            "60_20_20" to PerfilPredefinido.P60_20_20,
-            "70_15_15" to PerfilPredefinido.P70_15_15,
+            "65_20_15" to PerfilPredefinido.P65_20_15,
             "80_10_10" to PerfilPredefinido.P80_10_10,
+            "90_5_5" to PerfilPredefinido.P90_5_5,
         )
         for ((wire, expected) in ids) {
             json(200, stored(wire))
@@ -66,15 +66,15 @@ class PerfilPresupuestoApiTest {
 
     @Test
     fun savingSendsOnlyThePerfilAndAnswersTheStoredProfile() = runBlocking<Unit> {
-        json(200, stored("60_20_20"))
+        json(200, stored("65_20_15"))
 
-        assertEquals(PerfilPredefinido.P60_20_20, api().cambiarPerfilPresupuesto(PerfilPredefinido.P60_20_20))
+        assertEquals(PerfilPredefinido.P65_20_15, api().cambiarPerfilPresupuesto(PerfilPredefinido.P65_20_15))
 
         val r = request()
         assertEquals("PUT", r.method)
         assertEquals("/api/perfil/presupuesto", r.url.encodedPath)
         // Exact JSON: an explicit `ingresoDeclarado: null` would clear the stored income.
-        assertEquals("""{"perfil":"60_20_20"}""", r.body?.utf8())
+        assertEquals("""{"perfil":"65_20_15"}""", r.body?.utf8())
         assertEquals("Bearer tok-1", r.headers["Authorization"])
         assertEquals("key-1", r.headers["x-api-key"])
     }
@@ -83,7 +83,7 @@ class PerfilPresupuestoApiTest {
     fun aRejectedSaveIsAPlainApiException() {
         json(400, """{"code":"BODY_INVALIDO","message":"x"}""")
 
-        assertEquals(400, assertThrows(ApiException::class.java) { runBlocking { api().cambiarPerfilPresupuesto(PerfilPredefinido.P70_15_15) } }.status)
+        assertEquals(400, assertThrows(ApiException::class.java) { runBlocking { api().cambiarPerfilPresupuesto(PerfilPredefinido.P90_5_5) } }.status)
     }
 
     @Test

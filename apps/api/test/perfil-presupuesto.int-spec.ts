@@ -80,7 +80,7 @@ describe('PrismaPerfilPresupuestoRepository (#110)', () => {
 
   it('saving A leaves B untouched (isolation, RNF-SEC-006)', async () => {
     if (!ALLOW) return;
-    await repo.guardar(userIdA, PerfilPresupuesto.predefinido('70_15_15'));
+    await repo.guardar(userIdA, PerfilPresupuesto.predefinido('90_5_5'));
     const filaB = await prisma.user.findUniqueOrThrow({
       where: { id: userIdB },
       select: {
@@ -113,7 +113,7 @@ describe('PrismaPerfilPresupuestoRepository (#110)', () => {
     await expect(
       prisma.user.update({
         where: { id: userIdB },
-        data: { perfilPresupuesto: '90_5_5' },
+        data: { perfilPresupuesto: '60_20_20' },
       }),
     ).rejects.toThrow(/User_perfilPresupuesto_check/);
   });
@@ -157,10 +157,10 @@ describe('PrismaPerfilPresupuestoRepository (#110)', () => {
     const mes = MesFinanciero.crear(25, 1_234_567_890_123n).getValue();
     await repo.guardar(
       userIdA,
-      PerfilPresupuesto.predefinido('60_20_20').conMesFinanciero(mes),
+      PerfilPresupuesto.predefinido('65_20_15').conMesFinanciero(mes),
     );
     const perfil = await repo.obtener(userIdA);
-    expect(perfil.perfil).toBe('60_20_20');
+    expect(perfil.perfil).toBe('65_20_15');
     expect(perfil.mesFinanciero.diaCorte.valor).toBe(25);
     expect(perfil.mesFinanciero.ingresoDeclarado).toBe(1_234_567_890_123n);
     const fila = await prisma.user.findUniqueOrThrow({
@@ -177,7 +177,7 @@ describe('PrismaPerfilPresupuestoRepository (#110)', () => {
     if (!ALLOW) return;
     await repo.guardar(
       userIdA,
-      PerfilPresupuesto.predefinido('60_20_20').conMesFinanciero(
+      PerfilPresupuesto.predefinido('65_20_15').conMesFinanciero(
         MesFinanciero.crear(25, 500n).getValue(),
       ),
     );

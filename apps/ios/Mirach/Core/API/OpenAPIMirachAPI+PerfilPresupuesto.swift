@@ -44,9 +44,9 @@ extension OpenAPIMirachAPI {
     private static func map(_ perfil: Components.Schemas.PerfilPresupuestoResponse.perfilPayload) -> PerfilPresupuesto {
         switch perfil {
         case ._50_30_20: .predefinido(.p50_30_20)
-        case ._60_20_20: .predefinido(.p60_20_20)
-        case ._70_15_15: .predefinido(.p70_15_15)
+        case ._65_20_15: .predefinido(.p65_20_15)
         case ._80_10_10: .predefinido(.p80_10_10)
+        case ._90_5_5: .predefinido(.p90_5_5)
         case .personalizado: .personalizado
         }
     }
@@ -56,9 +56,9 @@ extension OpenAPIMirachAPI {
     ) -> Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload {
         switch perfil {
         case .p50_30_20: ._50_30_20
-        case .p60_20_20: ._60_20_20
-        case .p70_15_15: ._70_15_15
+        case .p65_20_15: ._65_20_15
         case .p80_10_10: ._80_10_10
+        case .p90_5_5: ._90_5_5
         }
     }
 }

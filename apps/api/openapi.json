@@ -1288,9 +1288,9 @@
           "perfil": {
             "enum": [
               "50_30_20",
-              "60_20_20",
-              "70_15_15",
-              "80_10_10"
+              "65_20_15",
+              "80_10_10",
+              "90_5_5"
             ],
             "type": "string"
           }
@@ -1346,9 +1346,9 @@
             "description": "Budget profile id. 80_10_10 is shown as «Salir de deudas». 50_30_20 for a user who never chose one.",
             "enum": [
               "50_30_20",
-              "60_20_20",
-              "70_15_15",
+              "65_20_15",
               "80_10_10",
+              "90_5_5",
               "personalizado"
             ],
             "type": "string"
@@ -4911,7 +4911,7 @@
         "summary": "Get the current user's budget profile"
       },
       "put": {
-        "description": "Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). Send a predefined id (50_30_20, 60_20_20, 70_15_15, or 80_10_10, shown as «Salir de deudas»), or `personalizado` with three non-negative targets in basis points. Custom targets that do not sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, `GET /api/resumen/semaforo` and `GET /api/buckets/{bucket}/detalle` measure every month against the current profile. Requires x-api-key + a valid session.",
+        "description": "Authenticated endpoint that replaces the caller's budget profile (issue #110, PER-03..PER-06). Send a predefined id (50_30_20, 65_20_15, 80_10_10, shown as «Salir de deudas», or 90_5_5), or `personalizado` with three non-negative targets in basis points. Custom targets that do not sum 10000 return 400 PERFIL_NO_SUMA_100 and a negative target returns 400 META_INVALIDA; in both cases the stored profile does not change. `GET /api/resumen`, `GET /api/resumen/anual`, `GET /api/resumen/semaforo` and `GET /api/buckets/{bucket}/detalle` measure every month against the current profile. Requires x-api-key + a valid session.",
         "requestBody": {
           "content": {
             "application/json": {

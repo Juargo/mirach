@@ -67,6 +67,11 @@ grande, IMP-10):
    publicada usa. Si hace falta, se crea uno nuevo y el viejo se retira cuando la versión
    mínima soportada ya no lo usa.
 3. Un cambio incompatible inevitable va a `/api/v2` para ese recurso.
+   - **Excepción del 25-11-2026 (PER-03):** los ids de perfil `60_20_20` y `70_15_15` se
+     reemplazaron por `65_20_15` y `90_5_5` dentro de `/api`, sin `/api/v2`, porque ningún
+     usuario los tenía guardados. Las versiones publicadas antes del cambio todavía ofrecen
+     las dos tarjetas retiradas y reciben `400` al guardarlas, y no pueden leer un perfil
+     guardado con un id nuevo. Se corrige al subir la versión mínima soportada (punto 5).
 4. Las apps envían `X-App-Version` y `X-App-Platform` en cada petición.
 5. `GET /api/config` (público, solo con `x-api-key`) devuelve la versión mínima soportada
    por plataforma, los límites del plan gratis y flags. Si la versión instalada es menor,

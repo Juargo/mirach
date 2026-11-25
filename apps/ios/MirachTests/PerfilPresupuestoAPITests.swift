@@ -28,9 +28,9 @@ struct PerfilPresupuestoAPITests {
     @Test func getMapsEachPredefinedProfileAndPersonalizado() async throws {
         let expected: [(String, PerfilPresupuesto)] = [
             ("50_30_20", .predefinido(.p50_30_20)),
-            ("60_20_20", .predefinido(.p60_20_20)),
-            ("70_15_15", .predefinido(.p70_15_15)),
+            ("65_20_15", .predefinido(.p65_20_15)),
             ("80_10_10", .predefinido(.p80_10_10)),
+            ("90_5_5", .predefinido(.p90_5_5)),
             ("personalizado", .personalizado),
         ]
         for (id, perfil) in expected {
@@ -59,16 +59,16 @@ struct PerfilPresupuestoAPITests {
     }
 
     @Test func putSendsOnlyThePerfilAndMapsTheStoredProfile() async throws {
-        let transport = FakeTransport.json(body(perfil: "70_15_15"))
+        let transport = FakeTransport.json(body(perfil: "90_5_5"))
 
-        let result = try await makeAPI(transport).guardarPerfilPresupuesto(.p70_15_15)
+        let result = try await makeAPI(transport).guardarPerfilPresupuesto(.p90_5_5)
 
-        #expect(result == .predefinido(.p70_15_15))
+        #expect(result == .predefinido(.p90_5_5))
         #expect(transport.requests.first?.method == .put)
         #expect(transport.requests.first?.path == "/api/perfil/presupuesto")
         let sent = try #require(transport.bodies.first)
         let json = try #require(try JSONSerialization.jsonObject(with: Data(sent.utf8)) as? [String: String])
-        #expect(json == ["perfil": "70_15_15"], "diaCorte and ingresoDeclarado are omitted so they stay unchanged")
+        #expect(json == ["perfil": "90_5_5"], "diaCorte and ingresoDeclarado are omitted so they stay unchanged")
     }
 
     @Test func putMapsA400AndA401() async {
@@ -90,6 +90,6 @@ struct PerfilPresupuestoAPITests {
         let stub = StubMirachAPI()
         #expect(try await stub.consentimientos() == Consentimientos(cartolasVigente: true))
         #expect(try await stub.perfilPresupuesto() == .predefinido(.p50_30_20))
-        #expect(try await stub.guardarPerfilPresupuesto(.p60_20_20) == .predefinido(.p60_20_20))
+        #expect(try await stub.guardarPerfilPresupuesto(.p65_20_15) == .predefinido(.p65_20_15))
     }
 }

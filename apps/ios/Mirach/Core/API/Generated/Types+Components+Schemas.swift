@@ -3023,9 +3023,9 @@ extension Components {
             /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido/perfil`.
             internal enum perfilPayload: String, Codable, Hashable, Sendable, CaseIterable {
                 case _50_30_20 = "50_30_20"
-                case _60_20_20 = "60_20_20"
-                case _70_15_15 = "70_15_15"
+                case _65_20_15 = "65_20_15"
                 case _80_10_10 = "80_10_10"
+                case _90_5_5 = "90_5_5"
             }
             /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoPredefinido/perfil`.
             internal var perfil: Components.Schemas.PerfilPresupuestoPredefinido.perfilPayload
@@ -3142,9 +3142,9 @@ extension Components {
             /// - Remark: Generated from `#/components/schemas/PerfilPresupuestoResponse/perfil`.
             internal enum perfilPayload: String, Codable, Hashable, Sendable, CaseIterable {
                 case _50_30_20 = "50_30_20"
-                case _60_20_20 = "60_20_20"
-                case _70_15_15 = "70_15_15"
+                case _65_20_15 = "65_20_15"
                 case _80_10_10 = "80_10_10"
+                case _90_5_5 = "90_5_5"
                 case personalizado = "personalizado"
             }
             /// Budget profile id. 80_10_10 is shown as «Salir de deudas». 50_30_20 for a user who never chose one.
