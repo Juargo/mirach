@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Same mark as the app icon: three stripes in the 50/30/20 proportion. -->
+  <rect width="50" height="100" fill="#3c5a80" />
+  <rect x="50" width="30" height="100" fill="#7b61a8" />
+  <rect x="80" width="20" height="100" fill="#009b7d" />
+</svg>

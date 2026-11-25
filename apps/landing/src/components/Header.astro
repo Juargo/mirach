@@ -1,6 +1,4 @@
 ---
-import { SITE } from '../config';
-
 const NAV = [
   { href: '/#como-funciona', label: 'Cómo se usa' },
   { href: '/#regla-50-30-20', label: 'Regla 50/30/20' },
@@ -13,16 +11,16 @@ const NAV = [
   class="sticky top-0 z-40 h-16 border-b border-outline-variant/40 bg-surface sm:h-[72px]"
 >
   <div class="mx-auto flex h-full w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-    <a href="/" class="flex shrink-0 items-center gap-2" aria-label={SITE.title}>
+    <a href="/" class="flex shrink-0 items-center gap-2">
       <img
-        src="/images/logo-icon.png"
+        src="/images/logo-mark.svg"
         alt=""
-        width={97}
-        height={96}
-        class="h-9 w-auto sm:h-10"
+        width={100}
+        height={100}
+        class="size-7 sm:size-8"
       />
-      <span class="font-display text-xl font-bold leading-none">
-        <span class="text-primary">Mirach</span>
+      <span class="font-display text-xl font-bold leading-none text-on-surface">
+        Mirach Budget
       </span>
     </a>
     <nav aria-label="Secciones" class="hidden md:block">
