@@ -111,6 +111,35 @@
 }
 
 /*
+ * Hero phone: reclined as if resting on a surface. The stacked 1px shadows
+ * follow the screen-down direction in the phone's own plane (rotateZ undone),
+ * so they read as the device's side; the last one is the ground shadow.
+ * A transform does not change layout, so the frame keeps its upright box.
+ * Below md the phone turns less so its corners stay inside a narrow viewport;
+ * the hero section also clips horizontally as a guard.
+ */
+.hero-phone {
+  transform: perspective(1500px) rotateX(30deg) rotateZ(var(--hero-phone-turn, -9deg));
+  box-shadow:
+    -0.3px 1px 0 #1b4257,
+    -0.6px 2px 0 #1b4257,
+    -1px 3px 0 #1b4257,
+    -1.3px 4px 0 #1b4257,
+    -1.6px 5px 0 #1b4257,
+    -2px 6px 0 #1b4257,
+    -2.3px 7px 0 #1b4257,
+    -2.6px 8px 0 #1b4257,
+    -14px 44px 56px rgb(71 95 133 / 0.38);
+}
+
+@media (min-width: 48rem) {
+  .hero-phone {
+    --hero-phone-turn: -18deg;
+    transform: perspective(1500px) rotateX(34deg) rotateZ(var(--hero-phone-turn));
+  }
+}
+
+/*
  * Motion (design-taste-frontend: MOTION 5, fluid CSS only).
  * Both effects below are gated under prefers-reduced-motion: no-preference,
  * so they collapse to a fully static, visible page when the user opts out.
