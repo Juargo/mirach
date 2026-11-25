@@ -26,8 +26,11 @@ const absoluteImage = pageImage.startsWith('http')
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/images/logo-mark.svg" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
+    <!-- Google Search needs a square raster icon in a multiple of 48px; browsers prefer the SVG -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/images/logo-mark.svg" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!-- Preload self-hosted fonts before the stylesheet loads (avoids FOIT/late discovery) -->
     <link rel="preload" href="/fonts/dm-sans-latin-var.woff2" as="font" type="font/woff2" crossorigin />
