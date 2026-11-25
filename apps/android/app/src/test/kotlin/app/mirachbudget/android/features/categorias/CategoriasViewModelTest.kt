@@ -164,6 +164,16 @@ class CategoriasViewModelTest {
         )
     }
 
+    @Test
+    fun theFirstBucketStartsOpenAndOpeningAnotherClosesIt() = runTest {
+        val vm = loaded()
+        assertEquals(Bucket.entries.first(), vm.state.value.openBucket)
+
+        vm.open(Bucket.Ahorro)
+
+        assertEquals(Bucket.Ahorro, vm.state.value.openBucket)
+    }
+
     // --- creating
 
     @Test
@@ -176,6 +186,7 @@ class CategoriasViewModelTest {
         assertEquals(listOf(form), api.crearCategoriaCalls)
         assertEquals(listOf("Desconocido", "Mascotas", "Restaurantes", "Vacía"), vm.catalog().deBucket(Bucket.Deseos).map { it.nombre })
         assertEquals("Categoría «Mascotas» creada", vm.state.value.announcement)
+        assertEquals("the group of the new category opens, so its row is seen", Bucket.Deseos, vm.state.value.openBucket)
         assertEquals(1, vm.state.value.createdCount)
         assertTrue(vm.state.value.formErrors.isEmpty)
         assertFalse(vm.state.value.isCreating)

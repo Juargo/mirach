@@ -28,6 +28,8 @@ final class CategoriasViewModel {
     private(set) var createdCount = 0
     /// What VoiceOver announces after a creation: «Categoría «Mascotas» creada».
     private(set) var announcement: String?
+    /// The list is an accordion: the one bucket whose categories are shown.
+    private(set) var openBucket: Bucket = Bucket.allCases[0]
 
     private let api: any MirachAPI
     /// Told once per successful write: Resumen, bucket detail and the review catalog are stale.
@@ -77,6 +79,11 @@ final class CategoriasViewModel {
         )
     }
 
+    /// Shows the categories of `bucket` and closes the bucket that was open.
+    func open(_ bucket: Bucket) {
+        openBucket = bucket
+    }
+
     // MARK: creating
 
     /// Called when the form opens: clears the errors of a previous attempt.
@@ -91,8 +98,9 @@ final class CategoriasViewModel {
         announcement = "Categoría «\(name)» eliminada"
     }
 
-    /// "Crear" in the form. On success the category joins its group at once, the form closes
-    /// (`createdCount` changes) and the other screens are told. On failure the form stays.
+    /// "Crear" in the form. On success the category joins its group at once, that group opens so
+    /// the new row is seen, the form closes (`createdCount` changes) and the other screens are
+    /// told. On failure the form stays.
     func create(_ new: NuevaCategoria) async {
         guard case .loaded(let catalog) = state, !isCreating else { return }
         isCreating = true
@@ -111,6 +119,7 @@ final class CategoriasViewModel {
         // A read that started before the creation must not take the new category away.
         generation += 1
         state = .loaded(CatalogoCategorias(categorias: Self.inserting(category, into: catalog.categorias)))
+        openBucket = category.bucket
         announcement = "Categoría «\(category.nombre)» creada"
         createdCount += 1
         onChange()

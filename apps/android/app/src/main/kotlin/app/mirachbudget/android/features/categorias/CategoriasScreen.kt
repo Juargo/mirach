@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +73,7 @@ import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.core.networking.NuevaCategoria
 import app.mirachbudget.android.features.categorias.CategoriasViewModel.Content
+import app.mirachbudget.android.features.movimientos.MovimientosMessages
 import app.mirachbudget.android.features.resumen.fill
 import app.mirachbudget.android.features.resumen.label
 import app.mirachbudget.android.features.subircartola.StatusMessage
@@ -167,7 +169,14 @@ private fun CategoriasScreen(viewModel: CategoriasViewModel, onOpen: (String) ->
                         if (content.catalog.categorias.isEmpty()) item(key = "empty") { Empty(onCreate = openForm) }
                         else item(key = "new") { NewCategoryRow(onClick = openForm) }
                         Bucket.entries.forEach { bucket ->
-                            item(key = "group-${bucket.apiName}") { BucketPane(bucket, content.catalog.deBucket(bucket), onOpen) }
+                            item(key = "group-${bucket.apiName}") {
+                                BucketPane(
+                                    bucket, content.catalog.deBucket(bucket),
+                                    isOpen = bucket == state.openBucket,
+                                    onOpenPane = { viewModel.open(bucket) },
+                                    onOpen = onOpen,
+                                )
+                            }
                         }
                     }
                 }
@@ -219,19 +228,33 @@ private fun NewCategoryRow(onClick: () -> Unit) {
     }
 }
 
-/** One bucket: its colour bar, its name and its categories, inside a border (as a pane of «Movimientos»). */
+/**
+ * One bucket of the accordion: its colour bar, its name and, when it is the open one, its categories, inside
+ * a border (as a pane of «Movimientos»). The whole header is the button that opens it; a mark and TalkBack's
+ * state say whether it is open.
+ */
 @Composable
-private fun BucketPane(bucket: Bucket, categorias: List<CategoriaCatalogo>, onOpen: (String) -> Unit) {
+private fun BucketPane(bucket: Bucket, categorias: List<CategoriaCatalogo>, isOpen: Boolean, onOpenPane: () -> Unit, onOpen: (String) -> Unit) {
     val colors = MirachTheme.colors
     // Not lazy inside: a catalog is a few dozen rows.
     Column(Modifier.padding(top = MirachSpacing.m).fillMaxWidth().border(1.dp, colors.base.border)) {
-        Box(Modifier.fillMaxWidth().height(4.dp).background(colors.bucket.fill(bucket)))
-        Text(
-            bucket.label,
-            style = MirachTextStyles.cuerpoDestacado,
-            color = colors.base.foreground,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = MirachSpacing.m, vertical = MirachSpacing.s).semantics { heading() },
-        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClickLabel = CategoriasMessages.OPEN_ACTION, role = Role.Button, onClick = onOpenPane)
+                .semantics { stateDescription = MovimientosMessages.paneState(isOpen) },
+        ) {
+            Box(Modifier.fillMaxWidth().height(4.dp).background(colors.bucket.fill(bucket)))
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = MirachSpacing.m, vertical = MirachSpacing.s),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(MirachSpacing.s),
+            ) {
+                Text(if (isOpen) "▾" else "▸", style = MirachTextStyles.cuerpoDestacado, color = colors.base.foreground, modifier = Modifier.clearAndSetSemantics {})
+                Text(bucket.label, style = MirachTextStyles.cuerpoDestacado, color = colors.base.foreground, modifier = Modifier.weight(1f).semantics { heading() })
+            }
+        }
+        if (!isOpen) return@Column
         HorizontalDivider(color = colors.base.border)
         if (categorias.isEmpty()) {
             Text(
@@ -248,7 +271,7 @@ private fun BucketPane(bucket: Bucket, categorias: List<CategoriaCatalogo>, onOp
     }
 }
 
-/** A category: a square tile in the bucket colour holding its icon, its name, the counts and a chevron. */
+/** A category: a square tile in the bucket colour holding its icon, its name, how many patterns and a chevron. */
 @Composable
 private fun CategoriaRow(bucket: Bucket, category: CategoriaCatalogo, onClick: () -> Unit) {
     val colors = MirachTheme.colors
@@ -267,7 +290,7 @@ private fun CategoriaRow(bucket: Bucket, category: CategoriaCatalogo, onClick: (
         }
         Column(Modifier.weight(1f)) {
             Text(category.nombre, style = MirachTextStyles.cuerpoDestacado, maxLines = 2, color = colors.base.foreground)
-            Text(CategoriasMessages.counts(category), style = MirachTextStyles.etiqueta, color = colors.base.mutedForeground)
+            Text(CategoriasMessages.patterns(category.patrones.size), style = MirachTextStyles.etiqueta, color = colors.base.mutedForeground)
         }
         Text("›", style = MirachTextStyles.cuerpo, color = colors.base.mutedForeground)
     }

@@ -172,6 +172,16 @@ struct CategoriasViewModelTests {
         #expect(api.categoriasCalls == 2)
     }
 
+    @Test func theFirstBucketStartsOpenAndOpeningAnotherClosesIt() async {
+        let viewModel = make(FakeMirachAPI())
+        await viewModel.load()
+        #expect(viewModel.openBucket == Bucket.allCases[0])
+
+        viewModel.open(.ahorro)
+
+        #expect(viewModel.openBucket == .ahorro)
+    }
+
     // MARK: creating
 
     @Test func creatingSendsTheFormAsIsAndTheCategoryJoinsItsGroup() async throws {
@@ -188,6 +198,7 @@ struct CategoriasViewModelTests {
         let deseos = try #require(loadedCatalog(viewModel)?.groups.first { $0.bucket == .deseos })
         #expect(deseos.categorias.map(\.nombre) == ["Desconocido", "Mascotas", "Restaurantes"], "kept sorted by name")
         #expect(viewModel.announcement == "Categoría «Mascotas» creada")
+        #expect(viewModel.openBucket == .deseos, "the group of the new category opens, so its row is seen")
         #expect(viewModel.createdCount == 1)
         #expect(viewModel.formErrors.isEmpty)
         #expect(changes.count == 1, "the other screens are told once")

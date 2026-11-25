@@ -6,13 +6,12 @@ enum CategoriasPresentation {
         count == 1 ? "1 patrón" : "\(count) patrones"
     }
 
-    /// «12 movimientos · 2 patrones»
-    static func counts(_ category: CategoriaCatalogo) -> String {
-        "\(DetalleBucketPresentation.movements(category.transaccionesCount)) · \(patterns(category.patrones.count))"
-    }
+    /// What VoiceOver hints on a closed bucket of the list.
+    static let openHint = "Muestra las categorías de este bloque"
 
+    /// The row says the same the screen shows: the name and how many patterns.
     static func rowLabel(_ category: CategoriaCatalogo) -> String {
-        var label = "\(category.nombre). \(DetalleBucketPresentation.movements(category.transaccionesCount)). \(patterns(category.patrones.count))"
+        var label = "\(category.nombre). \(patterns(category.patrones.count))"
         if category.esInterna { label += ". Categoría del sistema" }
         return label
     }

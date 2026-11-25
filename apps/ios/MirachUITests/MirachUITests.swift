@@ -973,6 +973,14 @@ final class MirachUITests: XCTestCase {
 
     // MARK: Categorías y Detalle de categoría
 
+    /// A row of the Categorías accordion: opens its bucket (by API name) first, since only the open one lists its categories.
+    private func categoriaRow(_ app: XCUIApplication, _ id: String, in bucket: String) -> XCUIElement {
+        element(app, "categorias.group.\(bucket)").tap()
+        let row = element(app, "categorias.row.\(id)")
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "row \(id) did not appear after opening \(bucket)")
+        return row
+    }
+
     private func openCategoriasTab(_ app: XCUIApplication) {
         XCTAssertTrue(app.staticTexts["resumen.month"].waitForExistence(timeout: 10))
         app.tabBars.buttons["Categorías"].tap()
@@ -1012,11 +1020,20 @@ final class MirachUITests: XCTestCase {
         for name in ["Necesidades", "Deseos", "Ahorro"] {
             XCTAssertTrue(element(app, "categorias.group.\(name)").waitForExistence(timeout: 10), name)
         }
-        let rest = element(app, "categorias.row.stub-des-rest")
-        XCTAssertTrue(rest.exists)
-        XCTAssertEqual(rest.label, "Restaurantes. 2 movimientos. 0 patrones")
-        XCTAssertEqual(element(app, "categorias.row.stub-nec-super").label, "Supermercado. 2 movimientos. 2 patrones")
+        // An accordion: the first bucket starts open and the others show only their header.
+        let supermercado = element(app, "categorias.row.stub-nec-super")
+        XCTAssertTrue(supermercado.waitForExistence(timeout: 5))
+        XCTAssertEqual(supermercado.label, "Supermercado. 2 patrones")
+        XCTAssertEqual(element(app, "categorias.group.Necesidades").value as? String, "Abierto")
+        XCTAssertEqual(element(app, "categorias.group.Deseos").value as? String, "Cerrado")
+        XCTAssertFalse(element(app, "categorias.row.stub-des-rest").exists, "a closed bucket shows no categories")
+
+        // Opening another bucket closes the one that was open.
+        let rest = categoriaRow(app, "stub-des-rest", in: "Deseos")
+        XCTAssertEqual(rest.label, "Restaurantes. 0 patrones")
         XCTAssertTrue(element(app, "categorias.row.stub-des-desc").label.hasSuffix("Categoría del sistema"))
+        XCTAssertEqual(element(app, "categorias.group.Deseos").value as? String, "Abierto")
+        XCTAssertFalse(supermercado.exists, "the bucket that was open closes")
         // The bucket shows its official name; the API value "Deseos" never reaches a label.
         XCTAssertGreaterThan(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Gustos")).count, 0)
         XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Deseos")).count, 0)
@@ -1044,7 +1061,7 @@ final class MirachUITests: XCTestCase {
         XCTAssertFalse(app.textFields["category.name"].exists, "the form closes")
         let row = element(app, "categorias.row.stub-new-1")
         XCTAssertTrue(row.exists)
-        XCTAssertEqual(row.label, "Mascotas. 0 movimientos. 0 patrones")
+        XCTAssertEqual(row.label, "Mascotas. 0 patrones")
 
         // Rename.
         row.tap()
@@ -1105,7 +1122,7 @@ final class MirachUITests: XCTestCase {
     func testChangingTheBucketAsksFirstNamesTheMovementsAndTheSummaryFollows() {
         let app = launch([savedSession])
         openCategoriasTab(app)
-        element(app, "categorias.row.stub-des-rest").tap()
+        categoriaRow(app, "stub-des-rest", in: "Deseos").tap()
         let save = app.buttons["categoria.save"]
         XCTAssertTrue(save.waitForExistence(timeout: 10))
 
@@ -1132,7 +1149,7 @@ final class MirachUITests: XCTestCase {
     func testLeavingTheDetailWithUnsavedChangesAsksFirst() {
         let app = launch([savedSession])
         openCategoriasTab(app)
-        element(app, "categorias.row.stub-des-rest").tap()
+        categoriaRow(app, "stub-des-rest", in: "Deseos").tap()
         let field = app.textFields["categoria.name"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         replaceText(field, with: "Otra")
@@ -1163,7 +1180,7 @@ final class MirachUITests: XCTestCase {
     func testPatternsAreAddedAsContainsAndDeletedAfterConfirming() {
         let app = launch([savedSession])
         openCategoriasTab(app)
-        element(app, "categorias.row.stub-des-rest").tap()
+        categoriaRow(app, "stub-des-rest", in: "Deseos").tap()
         XCTAssertTrue(reveal(app, "categoria.patterns.empty").waitForExistence(timeout: 10))
 
         // Only «Contiene» is offered (CLA-14): there is no type picker any more.

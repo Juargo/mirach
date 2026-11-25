@@ -24,16 +24,16 @@ class CategoriasMessagesTest {
     )
 
     @Test
-    fun theCountsUseTheSingularAndThePluralOfBothNouns() {
-        assertEquals("12 movimientos · 2 patrones", CategoriasMessages.counts(category(12, 2)))
-        assertEquals("1 movimiento · 1 patrón", CategoriasMessages.counts(category(1, 1)))
-        assertEquals("0 movimientos · 0 patrones", CategoriasMessages.counts(category(0, 0)))
+    fun thePatternCountUsesTheSingularAndThePlural() {
+        assertEquals("2 patrones", CategoriasMessages.patterns(2))
+        assertEquals("1 patrón", CategoriasMessages.patterns(1))
+        assertEquals("0 patrones", CategoriasMessages.patterns(0))
     }
 
     @Test
-    fun theSpokenRowNamesTheCategoryItsCountsAndThatItIsASystemOne() {
-        assertEquals("Supermercado. 12 movimientos. 2 patrones", CategoriasMessages.rowLabel(category(12, 2)))
-        assertEquals("Supermercado. 0 movimientos. 0 patrones. Categoría del sistema", CategoriasMessages.rowLabel(category(0, 0, isSystem = true)))
+    fun theSpokenRowNamesTheCategoryItsPatternsAndThatItIsASystemOneButNotItsMovements() {
+        assertEquals("Supermercado. 2 patrones", CategoriasMessages.rowLabel(category(12, 2)))
+        assertEquals("Supermercado. 0 patrones. Categoría del sistema", CategoriasMessages.rowLabel(category(0, 0, isSystem = true)))
     }
 
     @Test

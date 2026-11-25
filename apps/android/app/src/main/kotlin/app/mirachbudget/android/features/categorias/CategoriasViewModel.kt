@@ -1,6 +1,7 @@
 package app.mirachbudget.android.features.categorias
 
 import androidx.lifecycle.ViewModel
+import app.mirachbudget.android.core.networking.Bucket
 import app.mirachbudget.android.core.networking.CatalogoCategorias
 import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.networking.MirachApi
@@ -53,6 +54,8 @@ class CategoriasViewModel(
         val createdCount: Int = 0,
         /** The result of the last write: «Categoría «Mascotas» creada». */
         val announcement: String? = null,
+        /** The list is an accordion: the one bucket whose categories are shown. */
+        val openBucket: Bucket = Bucket.entries.first(),
     )
 
     private val _state = MutableStateFlow(State())
@@ -98,6 +101,9 @@ class CategoriasViewModel(
 
     // --- creating
 
+    /** Shows the categories of [bucket] and closes the bucket that was open. */
+    fun open(bucket: Bucket) = _state.update { it.copy(openBucket = bucket) }
+
     /** Called when the form opens: clears the errors of a previous attempt. */
     fun resetForm() = _state.update { it.copy(formErrors = CategoryFormErrors()) }
 
@@ -133,6 +139,8 @@ class CategoriasViewModel(
                 content = Content.Loaded(CatalogoCategorias(inserting(category, catalog.categorias))),
                 isCreating = false,
                 announcement = CategoriasMessages.created(category.nombre),
+                // Its group opens, so the new row is seen.
+                openBucket = category.bucket,
                 createdCount = state.createdCount + 1,
             )
         }

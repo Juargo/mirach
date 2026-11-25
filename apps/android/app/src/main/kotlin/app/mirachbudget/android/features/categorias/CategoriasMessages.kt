@@ -34,11 +34,12 @@ object CategoriasMessages {
 
     fun patterns(count: Int): String = if (count == 1) "1 patrón" else "$count patrones"
 
-    /** «12 movimientos · 2 patrones» */
-    fun counts(category: CategoriaCatalogo): String = "${movements(category.transaccionesCount)} · ${patterns(category.patrones.size)}"
+    /** What TalkBack says a tap on a closed bucket of the list does. */
+    const val OPEN_ACTION = "mostrar las categorías de este bloque"
 
+    /** The row says the same the screen shows: the name and how many patterns. */
     fun rowLabel(category: CategoriaCatalogo): String {
-        val label = "${category.nombre}. ${movements(category.transaccionesCount)}. ${patterns(category.patrones.size)}"
+        val label = "${category.nombre}. ${patterns(category.patrones.size)}"
         return if (category.esInterna) "$label. Categoría del sistema" else label
     }
 }

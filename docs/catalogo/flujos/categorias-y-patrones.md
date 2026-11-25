@@ -60,7 +60,8 @@ El campo `icono` acepta solo la allowlist de `apps/api/src/domain/value-objects/
 
 ## Estados
 
-- **Grupo sin categorías**: los tres bloques aparecen siempre, con «Sin categorías» si están vacíos.
+- **Lista**: un recuadro por bloque que funciona como acordeón, con el mismo aspecto que en [Movimientos](inicio-y-movimientos.md). Los tres encabezados aparecen siempre y solo un bloque está abierto a la vez: al entrar es el primero, y abrir otro cierra el anterior. Cada fila muestra el ícono de la categoría sobre el color del bloque, su nombre y cuántos patrones tiene; no muestra el número de movimientos. Al crear una categoría se abre su bloque.
+- **Grupo sin categorías**: el recuadro conserva su encabezado y, al abrirlo, muestra «Sin categorías».
 - **Vacío de patrones**: «Sin patrones: esta categoría solo se asigna a mano» con «Agregar patrón».
 - **Categoría inexistente**: «Esa categoría ya no existe» con «Volver a Categorías».
 - **Guardando**: botón deshabilitado con progreso; salir con cambios sin guardar pide confirmación.
