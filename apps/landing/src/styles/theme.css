@@ -111,30 +111,31 @@
 }
 
 /*
- * Hero phone: upright but leaning, as if held in a hand. It turns clockwise,
- * yaws so its left side comes forward and tips its top slightly back. The
- * stacked 1px shadows run toward the near (left, bottom) sides and read as the
+ * Hero phone: upright but leaning, as if held in a hand. It leans and
+ * faces toward the headline (counterclockwise, right side forward) and tips
+ * its top slightly back. The
+ * stacked 1px shadows run toward the near (right, bottom) sides and read as the
  * device's edge; the last one is the drop shadow.
  * A transform does not change layout, so the frame keeps its upright box.
  * Below md the phone leans less so its corners stay inside a narrow viewport;
  * the hero section also clips horizontally as a guard.
  */
 .hero-phone {
-  transform: perspective(1400px) rotateZ(var(--hero-phone-lean, 8deg)) rotateY(16deg)
+  transform: perspective(1400px) rotateZ(var(--hero-phone-lean, -8deg)) rotateY(-16deg)
     rotateX(8deg);
   box-shadow:
-    -1px 0.5px 0 #1b4257,
-    -2px 1px 0 #1b4257,
-    -3px 1.5px 0 #1b4257,
-    -4px 2px 0 #1b4257,
-    -5px 2.5px 0 #1b4257,
-    -6px 3px 0 #1b4257,
-    18px 40px 60px rgb(71 95 133 / 0.34);
+    1px 0.5px 0 #1b4257,
+    2px 1px 0 #1b4257,
+    3px 1.5px 0 #1b4257,
+    4px 2px 0 #1b4257,
+    5px 2.5px 0 #1b4257,
+    6px 3px 0 #1b4257,
+    -18px 40px 60px rgb(71 95 133 / 0.34);
 }
 
 @media (min-width: 48rem) {
   .hero-phone {
-    --hero-phone-lean: 12deg;
+    --hero-phone-lean: -12deg;
   }
 }
 
