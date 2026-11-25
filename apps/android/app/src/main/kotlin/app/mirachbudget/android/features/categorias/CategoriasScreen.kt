@@ -1,5 +1,7 @@
 package app.mirachbudget.android.features.categorias
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,12 +10,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -70,12 +72,12 @@ import app.mirachbudget.android.core.networking.CategoriaCatalogo
 import app.mirachbudget.android.core.networking.MirachApi
 import app.mirachbudget.android.core.networking.NuevaCategoria
 import app.mirachbudget.android.features.categorias.CategoriasViewModel.Content
+import app.mirachbudget.android.features.resumen.fill
 import app.mirachbudget.android.features.resumen.label
 import app.mirachbudget.android.features.subircartola.StatusMessage
 import app.mirachbudget.android.features.subircartola.SubirCartolaDisplay
 import app.mirachbudget.android.features.subircartola.SubirCartolaMessages
 import app.mirachbudget.android.features.subircartola.SubirCartolaViewModel.CategoryFormErrors
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 /**
@@ -165,19 +167,7 @@ private fun CategoriasScreen(viewModel: CategoriasViewModel, onOpen: (String) ->
                         if (content.catalog.categorias.isEmpty()) item(key = "empty") { Empty(onCreate = openForm) }
                         else item(key = "new") { NewCategoryRow(onClick = openForm) }
                         Bucket.entries.forEach { bucket ->
-                            item(key = "group-${bucket.apiName}") { GroupHeader(bucket) }
-                            val categorias = content.catalog.deBucket(bucket)
-                            if (categorias.isEmpty()) {
-                                item(key = "none-${bucket.apiName}") {
-                                    Text(
-                                        CategoriasMessages.NO_CATEGORIES,
-                                        style = MirachTextStyles.cuerpo,
-                                        color = MirachTheme.colors.base.mutedForeground,
-                                        modifier = Modifier.padding(vertical = MirachSpacing.s),
-                                    )
-                                }
-                            }
-                            items(categorias, key = { it.id }) { category -> CategoriaRow(category, onClick = { onOpen(category.id) }) }
+                            item(key = "group-${bucket.apiName}") { BucketPane(bucket, content.catalog.deBucket(bucket), onOpen) }
                         }
                     }
                 }
@@ -207,66 +197,79 @@ private fun Empty(onCreate: () -> Unit) {
     }
 }
 
-/** Figma's first row of the list: «+ Nueva categoría» with a chevron. The bar no longer carries a «+». */
+/** The first row of the list: «+ Nueva categoría» with a chevron, boxed like a pane. The bar no longer carries a «+». */
 @Composable
 private fun NewCategoryRow(onClick: () -> Unit) {
-    // Aligned with the category rows below: the list already has the screen padding. Spoken text is the plain name.
-    androidx.compose.foundation.layout.Column(Modifier.padding(bottom = MirachSpacing.xs)) {
-        androidx.compose.foundation.layout.Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .clickable(onClick = onClick, role = androidx.compose.ui.semantics.Role.Button),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        ) {
-            Text(
-                "+ ${CategoriasMessages.NEW_CATEGORY}",
-                style = MirachTextStyles.cuerpo,
-                modifier = Modifier.weight(1f).semantics { contentDescription = CategoriasMessages.NEW_CATEGORY },
-            )
-            Text("›", style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground, modifier = Modifier.clearAndSetSemantics {})
-        }
-        androidx.compose.material3.HorizontalDivider(color = MirachTheme.colors.base.border)
+    // Spoken text is the plain name.
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .border(1.dp, MirachTheme.colors.base.border)
+            .clickable(onClick = onClick, role = Role.Button)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = MirachSpacing.m),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "+ ${CategoriasMessages.NEW_CATEGORY}",
+            style = MirachTextStyles.cuerpo,
+            modifier = Modifier.weight(1f).semantics { contentDescription = CategoriasMessages.NEW_CATEGORY },
+        )
+        Text("›", style = MirachTextStyles.cuerpo, color = MirachTheme.colors.base.mutedForeground, modifier = Modifier.clearAndSetSemantics {})
     }
 }
 
-/** Figma's group label: «Mini», uppercase, in the muted color. TalkBack still reads the bucket name. */
+/** One bucket: its colour bar, its name and its categories, inside a border (as a pane of «Movimientos»). */
 @Composable
-private fun GroupHeader(bucket: Bucket) {
-    Text(
-        bucket.label.uppercase(Locale.ROOT),
-        style = MirachTextStyles.mini,
-        color = MirachTheme.colors.base.mutedForeground,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = MirachSpacing.m, bottom = MirachSpacing.xs)
-            .semantics { heading(); contentDescription = bucket.label },
-    )
+private fun BucketPane(bucket: Bucket, categorias: List<CategoriaCatalogo>, onOpen: (String) -> Unit) {
+    val colors = MirachTheme.colors
+    // Not lazy inside: a catalog is a few dozen rows.
+    Column(Modifier.padding(top = MirachSpacing.m).fillMaxWidth().border(1.dp, colors.base.border)) {
+        Box(Modifier.fillMaxWidth().height(4.dp).background(colors.bucket.fill(bucket)))
+        Text(
+            bucket.label,
+            style = MirachTextStyles.cuerpoDestacado,
+            color = colors.base.foreground,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = MirachSpacing.m, vertical = MirachSpacing.s).semantics { heading() },
+        )
+        HorizontalDivider(color = colors.base.border)
+        if (categorias.isEmpty()) {
+            Text(
+                CategoriasMessages.NO_CATEGORIES,
+                style = MirachTextStyles.cuerpo,
+                color = colors.base.mutedForeground,
+                modifier = Modifier.padding(MirachSpacing.m),
+            )
+        }
+        categorias.forEachIndexed { index, category ->
+            if (index > 0) HorizontalDivider(color = colors.base.border)
+            CategoriaRow(bucket, category, onClick = { onOpen(category.id) })
+        }
+    }
 }
 
-/** Figma's «Fila de ajuste»: name, the counts and a chevron, with a 1dp rule under the row. */
+/** A category: a square tile in the bucket colour holding its icon, its name, the counts and a chevron. */
 @Composable
-private fun CategoriaRow(category: CategoriaCatalogo, onClick: () -> Unit) {
-    val colors = MirachTheme.colors.base
-    Column {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clickable(role = Role.Button, onClick = onClick)
-                .heightIn(min = 48.dp)
-                .padding(vertical = MirachSpacing.s)
-                .clearAndSetSemantics { contentDescription = CategoriasMessages.rowLabel(category) },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(MirachSpacing.s),
-        ) {
-            Icon(painterResource(CategoryIcon.drawable(category.icono)), contentDescription = null, tint = colors.mutedForeground, modifier = Modifier.size(24.dp))
-            Column(Modifier.weight(1f)) {
-                Text(category.nombre, style = MirachTextStyles.cuerpo, maxLines = 2, color = colors.foreground)
-                Text(CategoriasMessages.counts(category), style = MirachTextStyles.etiqueta, color = colors.mutedForeground)
-            }
-            Text("›", style = MirachTextStyles.cuerpo, color = colors.mutedForeground)
+private fun CategoriaRow(bucket: Bucket, category: CategoriaCatalogo, onClick: () -> Unit) {
+    val colors = MirachTheme.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = MirachSpacing.m, vertical = MirachSpacing.s)
+            .clearAndSetSemantics { contentDescription = CategoriasMessages.rowLabel(category) },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MirachSpacing.m),
+    ) {
+        Box(Modifier.size(36.dp).background(colors.bucket.fill(bucket)), contentAlignment = Alignment.Center) {
+            Icon(painterResource(CategoryIcon.drawable(category.icono)), contentDescription = null, tint = colors.base.background, modifier = Modifier.size(20.dp))
         }
-        HorizontalDivider(color = colors.border)
+        Column(Modifier.weight(1f)) {
+            Text(category.nombre, style = MirachTextStyles.cuerpoDestacado, maxLines = 2, color = colors.base.foreground)
+            Text(CategoriasMessages.counts(category), style = MirachTextStyles.etiqueta, color = colors.base.mutedForeground)
+        }
+        Text("›", style = MirachTextStyles.cuerpo, color = colors.base.mutedForeground)
     }
 }
 
