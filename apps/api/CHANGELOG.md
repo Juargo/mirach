@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.15.0](https://github.com/Juargo/mirach/compare/api-v0.14.0...api-v0.15.0) (2026-11-25)
+
+
+### Features
+
+* **perfil:** replace the 60/20/20 and 70/15/15 profiles with 65/20/15 and 90/5/5 ([c88904a](https://github.com/Juargo/mirach/commit/c88904a0ec7063d6dab71e6327fb463d55b09715))
+* **perfil:** replace the 60/20/20 and 70/15/15 profiles with 65/20/15 and 90/5/5 ([a324009](https://github.com/Juargo/mirach/commit/a324009f539cf013eafd08f4edbc2d931c9a0f8b))
+
+
+### Bug Fixes
+
+* **api:** read right-aligned amounts in Santander PDF statements ([07ad7df](https://github.com/Juargo/mirach/commit/07ad7dfeee72e023557ab5a81353dc6feee06a7f))
+* **api:** read right-aligned amounts in Santander PDF statements ([2108922](https://github.com/Juargo/mirach/commit/21089229b897c95c1702132e3846387eb8d87993))
+
+
+### Documentation
+
+* **api:** condense the categorization note in CLAUDE.md ([81e46c0](https://github.com/Juargo/mirach/commit/81e46c09e9e52cd51895beb0d7c63177d73da614))
+* **api:** condense the categorization note in CLAUDE.md ([bfe4ead](https://github.com/Juargo/mirach/commit/bfe4ead662f963ce6033f6a91185be1ad53ad4c2))
+
 ## [0.14.0](https://github.com/Juargo/mirach/compare/api-v0.13.0...api-v0.14.0) (2026-11-20)
 
 
