@@ -5,7 +5,10 @@ import Footer from '../components/Footer.astro';
 import { SITE, CONTACT, ACCOUNT_DELETION } from '../config';
 ---
 
-<Layout title={`Política de privacidad — ${SITE.title}`}>
+<Layout
+  title={`Política de privacidad — ${SITE.name}`}
+  description="Qué datos trata Mirach, para qué los usa, cómo los protege y cómo puedes eliminarlos."
+>
   <Header />
   <main id="main" class="scroll-mt-20 px-6 py-16 sm:py-24">
     <div class="mx-auto max-w-2xl">

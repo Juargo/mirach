@@ -1,5 +1,5 @@
 ---
-import { SITE } from '../config';
+import { APP_STORE, SITE } from '../config';
 import { buildInfo } from '../lib/build-info';
 import '../styles/theme.css';
 
@@ -7,18 +7,21 @@ export interface Props {
   title?: string;
   description?: string;
   image?: string;
+  /** Keeps the page out of search results (error pages). */
+  noindex?: boolean;
 }
 
-const { title, description, image } = Astro.props;
+const { title, description, image, noindex = false } = Astro.props;
 const pageTitle = title ?? SITE.title;
 const pageDescription = description ?? SITE.description;
 const pageImage = image ?? SITE.ogImage;
-const pageUrl = SITE.url;
+// The one address of this page: search engines index it and social cards link to it.
+const pageUrl = new URL(Astro.url.pathname, SITE.url).href;
 
 // Build absolute URL for social cards (required by OG/Twitter crawlers)
 const absoluteImage = pageImage.startsWith('http')
   ? pageImage
-  : new URL(pageImage, pageUrl).href;
+  : new URL(pageImage, SITE.url).href;
 ---
 
 <!doctype html>
@@ -42,6 +45,8 @@ const absoluteImage = pageImage.startsWith('http')
 
     <title>{pageTitle}</title>
     <meta name="description" content={pageDescription} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={pageUrl} />}
+    {APP_STORE.url && <meta name="apple-itunes-app" content={`app-id=${APP_STORE.id}`} />}
 
     <!-- Open Graph -->
     <meta property="og:title" content={pageTitle} />
@@ -49,12 +54,16 @@ const absoluteImage = pageImage.startsWith('http')
     <meta property="og:image" content={absoluteImage} />
     <meta property="og:url" content={pageUrl} />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:locale" content={SITE.locale} />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={pageDescription} />
     <meta name="twitter:image" content={absoluteImage} />
+
+    <slot name="head" />
 
   </head>
   <body class="flex min-h-screen flex-col bg-surface font-sans leading-relaxed text-on-surface antialiased">
