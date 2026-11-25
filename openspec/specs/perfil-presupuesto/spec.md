@@ -26,8 +26,8 @@ points. A user who never chose a profile MUST get `50_30_20` with `5000`/`3000`/
 ### Requirement: PPR-02 — Predefined profiles
 
 `PUT /api/perfil/presupuesto` MUST accept `{ "perfil": <id> }` for exactly four predefined ids:
-`50_30_20`, `60_20_20`, `70_15_15` and `80_10_10` (shown as «Salir de deudas»; PER-04, no fifth
-profile). Their targets are fixed by the id; a body that also sends `metas` is 400 `BODY_INVALIDO`.
+`50_30_20`, `65_20_15`, `80_10_10` (shown as «Salir de deudas»; PER-04) and `90_5_5`; there is no
+fifth profile. The retired ids `60_20_20` and `70_15_15` are 400 `BODY_INVALIDO`. Their targets are fixed by the id; a body that also sends `metas` is 400 `BODY_INVALIDO`.
 
 ### Requirement: PPR-03 — Custom profile
 
@@ -78,7 +78,7 @@ the `PUT` response carries the same shape as `GET`.
 #### Scenario: Omitting the financial month keeps it
 
 - GIVEN a user with `diaCorte` 25 and `ingresoDeclarado` `"2000000"`
-- WHEN they call `PUT /api/perfil/presupuesto` with `{ "perfil": "60_20_20" }`
+- WHEN they call `PUT /api/perfil/presupuesto` with `{ "perfil": "65_20_15" }`
 - THEN the response carries `diaCorte` 25 and `ingresoDeclarado` `"2000000"`
 
 #### Scenario: null clears the declared income

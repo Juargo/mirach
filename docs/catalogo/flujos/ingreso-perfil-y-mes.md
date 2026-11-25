@@ -31,7 +31,7 @@ El ingreso declarado, el perfil de porcentajes y el día de inicio del mes compa
 |---|---|---|---|---|
 | Guardar el nombre | `PATCH /api/perfil` | `{"nombre": "<1 a 80 caracteres>"}`; nunca `email` ni `passwordActual` | 200 `AuthMeResponse`: se reemplaza la copia local y se anuncia «Perfil guardado» | 400 `NOMBRE_INVALIDO`; lo escrito se conserva |
 | Cambiar el ingreso | `PUT /api/perfil/presupuesto` | Pantalla pendiente (#141) | Las metas y porcentajes del Inicio se recalculan en el API | — |
-| Cambiar de perfil | `PUT /api/perfil/presupuesto` | `{"perfil": "50_30_20" \| "60_20_20" \| "70_15_15" \| "80_10_10"}`; sin `diaCorte` ni `ingresoDeclarado`, que así no cambian | 200 `PerfilPresupuestoResponse`: se vuelve a la pantalla anterior y el Inicio se recarga. Se aplica a todos los meses, también los pasados (PER-06) | 400 `PerfilErrorResponse`; la pantalla sigue abierta y conserva la selección |
+| Cambiar de perfil | `PUT /api/perfil/presupuesto` | `{"perfil": "50_30_20" \| "65_20_15" \| "80_10_10" \| "90_5_5"}`; sin `diaCorte` ni `ingresoDeclarado`, que así no cambian | 200 `PerfilPresupuestoResponse`: se vuelve a la pantalla anterior y el Inicio se recarga. Se aplica a todos los meses, también los pasados (PER-06) | 400 `PerfilErrorResponse`; la pantalla sigue abierta y conserva la selección |
 | Cambiar el día de inicio del mes | `PUT /api/perfil/presupuesto` | Pantalla pendiente (#141) | Días 1 a 28; se recalculan todos los meses (PER-08) | — |
 
 El correo llega de Apple o Google y no se edita (PER-09); puede ser `null` en el contrato o un reenvío privado de Apple: se oculta si es `null`.

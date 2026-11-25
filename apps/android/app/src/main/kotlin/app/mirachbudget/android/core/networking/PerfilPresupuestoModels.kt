@@ -9,9 +9,9 @@ import retrofit2.http.PUT
 /** The four predefined budget profiles the person can choose (`personalizado` is not offered in v1.0). */
 enum class PerfilPredefinido {
     P50_30_20,
-    P60_20_20,
-    P70_15_15,
+    P65_20_15,
     P80_10_10,
+    P90_5_5,
 }
 
 /**
@@ -27,16 +27,16 @@ interface PerfilPresupuestoApi {
 
 internal fun PerfilPredefinido.toWire(): PerfilPresupuestoPredefinido.Perfil = when (this) {
     PerfilPredefinido.P50_30_20 -> PerfilPresupuestoPredefinido.Perfil._50_30_20
-    PerfilPredefinido.P60_20_20 -> PerfilPresupuestoPredefinido.Perfil._60_20_20
-    PerfilPredefinido.P70_15_15 -> PerfilPresupuestoPredefinido.Perfil._70_15_15
+    PerfilPredefinido.P65_20_15 -> PerfilPresupuestoPredefinido.Perfil._65_20_15
     PerfilPredefinido.P80_10_10 -> PerfilPresupuestoPredefinido.Perfil._80_10_10
+    PerfilPredefinido.P90_5_5 -> PerfilPresupuestoPredefinido.Perfil._90_5_5
 }
 
 /** `null` for `personalizado`: the app offers no card for it. */
 internal fun PerfilPresupuestoResponse.Perfil.toPredefinido(): PerfilPredefinido? = when (this) {
     PerfilPresupuestoResponse.Perfil._50_30_20 -> PerfilPredefinido.P50_30_20
-    PerfilPresupuestoResponse.Perfil._60_20_20 -> PerfilPredefinido.P60_20_20
-    PerfilPresupuestoResponse.Perfil._70_15_15 -> PerfilPredefinido.P70_15_15
+    PerfilPresupuestoResponse.Perfil._65_20_15 -> PerfilPredefinido.P65_20_15
     PerfilPresupuestoResponse.Perfil._80_10_10 -> PerfilPredefinido.P80_10_10
+    PerfilPresupuestoResponse.Perfil._90_5_5 -> PerfilPredefinido.P90_5_5
     PerfilPresupuestoResponse.Perfil.personalizado -> null
 }

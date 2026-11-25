@@ -6,13 +6,15 @@ struct CategoriaRoute: Hashable {
     let id: String
 }
 
-/// "Categorías": the catalog grouped by bucket, with creation in a sheet.
+/// "Categorías": the catalog in one pane per bucket (the look of «Movimientos»: colour bar, header,
+/// border, each category's icon on a tile in the bucket colour), with creation in a sheet. The
+/// whole screen is one scrolling list.
 struct CategoriasView: View {
     @State private var viewModel: CategoriasViewModel
     @State private var showingForm = false
     /// VoiceOver jumps to the result of a creation when it appears.
     @AccessibilityFocusState private var announcementFocused: Bool
-    /// The announcement is the list's first row: when it appears with the list scrolled down (or
+    /// The announcement is the screen's first row: when it appears with the list scrolled down (or
     /// while a category's detail covers the list), the list scrolls back to it once visible, so the
     /// result of a write is always seen and stays in the accessibility tree.
     @State private var scrollToAnnouncement = false
@@ -33,8 +35,11 @@ struct CategoriasView: View {
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
-            List { content }
-                .listStyle(.plain)
+            ScrollView {
+                // Not lazy: a catalog is a few dozen rows, and the announcement must exist to be scrolled to.
+                VStack(spacing: MirachSpacing.m) { content }
+                    .padding(MirachSpacing.m)
+            }
                 .onAppear {
                     listVisible = true
                     if scrollToAnnouncement { showAnnouncement(proxy) }
@@ -43,8 +48,6 @@ struct CategoriasView: View {
                 .onChange(of: scrollToAnnouncement) {
                     if scrollToAnnouncement, listVisible { showAnnouncement(proxy) }
                 }
-                // The list paints its own backdrop otherwise: the page colour must reach every edge.
-                .scrollContentBackground(.hidden)
                 .background(Color.Mirach.Base.background.ignoresSafeArea(.all))
                 .refreshable { await viewModel.refresh() }
                 .navigationTitle("Categorías")
@@ -118,7 +121,6 @@ struct CategoriasView: View {
             .padding(.top, 48)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("categorias.loading")
-            .plainRow()
         case .failed(let failure):
             VStack(spacing: 12) {
                 Text(failure == .connection
@@ -135,41 +137,17 @@ struct CategoriasView: View {
             .padding(.top, 48)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("categorias.error")
-            .plainRow()
         case .loaded(let catalog):
             notices
             newCategoryRow
             if catalog.categorias.isEmpty { empty }
             ForEach(catalog.groups, id: \.bucket) { group in
-                Section {
-                    if group.categorias.isEmpty {
-                        Text("Sin categorías")
-                            .mirachText(.etiqueta)
-                            .foregroundStyle(Color.Mirach.Base.mutedForeground)
-                            .accessibilityIdentifier("categorias.empty.\(group.bucket.apiName)")
-                            .listRowBackground(Color.Mirach.Base.background)
-                            .listRowInsets(Self.rowInsets)
-                    }
-                    ForEach(group.categorias) { category in
-                        NavigationLink(value: CategoriaRoute(id: category.id)) { CategoriaRow(category: category) }
-                            .listRowBackground(Color.Mirach.Base.background)
-                            .listRowSeparatorTint(Color.Mirach.Base.border)
-                            .listRowInsets(Self.rowInsets)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(CategoriasPresentation.rowLabel(category))
-                            .accessibilityIdentifier("categorias.row.\(category.id)")
-                    }
-                } header: {
-                    BucketHeader(bucket: group.bucket)
-                }
+                BucketPane(bucket: group.bucket, categorias: group.categorias)
             }
         }
     }
 
-    /// Figma 26: the screen's side margin is the `l` step; rows are flat and ruled.
-    private static let rowInsets = EdgeInsets(top: 0, leading: MirachSpacing.l, bottom: 0, trailing: MirachSpacing.l)
-
-    /// The first row of the list: «+ Nueva categoría» with a chevron. VoiceOver keeps the old name.
+    /// The first row of the screen: «+ Nueva categoría» with a chevron, boxed like a pane. VoiceOver keeps the old name.
     private var newCategoryRow: some View {
         Button { openForm() } label: {
             HStack(spacing: MirachSpacing.s) {
@@ -182,16 +160,15 @@ struct CategoriasView: View {
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
                     .accessibilityHidden(true)
             }
+            .padding(.horizontal, MirachSpacing.m)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!isLoaded)
         .accessibilityLabel("Nueva categoría")
         .accessibilityIdentifier("categorias.new")
-        .listRowBackground(Color.Mirach.Base.background)
-        .listRowSeparatorTint(Color.Mirach.Base.border)
-        .listRowInsets(Self.rowInsets)
     }
 
     @ViewBuilder
@@ -204,7 +181,7 @@ struct CategoriasView: View {
                 .accessibilityLabel(text)
                 .accessibilityFocused($announcementFocused)
                 .accessibilityIdentifier("categorias.announcement")
-                .plainRow()
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .id(Self.announcementRow)
         }
         if let text = viewModel.refreshNotice {
@@ -214,7 +191,7 @@ struct CategoriasView: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(text)
                 .accessibilityIdentifier("categorias.notice")
-                .plainRow()
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -232,53 +209,69 @@ struct CategoriasView: View {
         .padding(.vertical, 16)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("categorias.empty")
-        .plainRow()
     }
 }
 
-private extension View {
-    /// A row that is not a list item: no separator, no backdrop of its own.
-    func plainRow() -> some View {
-        listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(
-            EdgeInsets(top: 0, leading: MirachSpacing.l, bottom: 0, trailing: MirachSpacing.l)
-        )
+/// One bucket: its colour bar, its name and its categories, inside a border (as a pane of «Movimientos»).
+private struct BucketPane: View {
+    let bucket: Bucket
+    let categorias: [CategoriaCatalogo]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(bucket.fill).frame(height: 6).accessibilityHidden(true)
+            Text(bucket.label)
+                .mirachText(.cuerpoDestacado)
+                .foregroundStyle(Color.Mirach.Base.foreground)
+                .padding(.horizontal, MirachSpacing.m)
+                .padding(.vertical, MirachSpacing.s)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(bucket.label)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("categorias.group.\(bucket.apiName)")
+            Divider().overlay(Color.Mirach.Base.border)
+            if categorias.isEmpty {
+                Text("Sin categorías")
+                    .mirachText(.etiqueta)
+                    .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.horizontal, MirachSpacing.m)
+                    .accessibilityIdentifier("categorias.empty.\(bucket.apiName)")
+            }
+            ForEach(categorias) { category in
+                if category.id != categorias.first?.id { Divider().overlay(Color.Mirach.Base.border) }
+                NavigationLink(value: CategoriaRoute(id: category.id)) {
+                    CategoriaRow(category: category, bucket: bucket)
+                }
+                .buttonStyle(.plain)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(CategoriasPresentation.rowLabel(category))
+                .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier("categorias.row.\(category.id)")
+            }
+        }
+        .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
     }
 }
 
-private struct BucketHeader: View {
+/// A category: a tile in the bucket colour with its icon, the name, its counts and a chevron.
+private struct CategoriaRow: View {
+    let category: CategoriaCatalogo
     let bucket: Bucket
 
     var body: some View {
-        // Mini, uppercase, muted (Figma 26); VoiceOver still reads the bucket's name.
-        SectionLabel(bucket.label)
-            // The plain list already insets a header by 16pt; the rest reaches the 24pt margin.
-            .padding(.horizontal, MirachSpacing.s)
-            .padding(.top, MirachSpacing.m)
-            .padding(.bottom, MirachSpacing.xs)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .textCase(nil)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(bucket.label)
-            .accessibilityAddTraits(.isHeader)
-            .accessibilityIdentifier("categorias.group.\(bucket.apiName)")
-    }
-}
-
-private struct CategoriaRow: View {
-    let category: CategoriaCatalogo
-    @Environment(\.dynamicTypeSize) private var typeSize
-
-    var body: some View {
-        HStack(alignment: .top, spacing: MirachSpacing.m - 4) {
+        HStack(spacing: MirachSpacing.s) {
             Image(systemName: CategoryIcon.symbol(for: category.icono))
-                // Fixed size: at the largest text sizes a scaled symbol would spill over the name.
+                // Fixed size: at the largest text sizes a scaled symbol would spill out of the tile.
                 .font(.system(size: 20))
-                .frame(width: 28)
-                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                .foregroundStyle(Color.Mirach.Base.background)
+                .frame(width: 36, height: 36)
+                .background(bucket.fill, in: Rectangle())
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: MirachSpacing.xs) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(category.nombre)
-                    .mirachText(.cuerpo)
+                    .mirachText(.cuerpoDestacado)
                     // A category name is one word often: capped so it wraps by word, not by syllable.
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .lineLimit(2)
@@ -289,8 +282,15 @@ private struct CategoriaRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(Color.Mirach.Base.mutedForeground)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.Mirach.Base.mutedForeground)
+                .accessibilityHidden(true)
         }
-        .frame(minHeight: 44)
-        .padding(.vertical, 4)
+        .padding(.horizontal, MirachSpacing.m)
+        .padding(.vertical, MirachSpacing.s)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }

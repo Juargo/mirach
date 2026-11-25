@@ -55,14 +55,14 @@ data class PerfilPresupuestoPredefinido (
     /**
      * 
      *
-     * Values: _50_30_20,_60_20_20,_70_15_15,_80_10_10
+     * Values: _50_30_20,_65_20_15,_80_10_10,_90_5_5
      */
     @Serializable
     enum class Perfil(val value: kotlin.String) {
         @SerialName(value = "50_30_20") _50_30_20("50_30_20"),
-        @SerialName(value = "60_20_20") _60_20_20("60_20_20"),
-        @SerialName(value = "70_15_15") _70_15_15("70_15_15"),
-        @SerialName(value = "80_10_10") _80_10_10("80_10_10");
+        @SerialName(value = "65_20_15") _65_20_15("65_20_15"),
+        @SerialName(value = "80_10_10") _80_10_10("80_10_10"),
+        @SerialName(value = "90_5_5") _90_5_5("90_5_5");
     }
 
 }

@@ -1,10 +1,26 @@
 export const SITE = {
-  title: 'Mirach',
+  /** Brand name: suffix of every page title and the site name Google shows. */
+  name: 'Mirach Budget',
+  shortName: 'Mirach',
+  /** Title of the home page. */
+  title: 'Mirach Budget: presupuesto 50/30/20 en tu iPhone',
   description:
     'Controla tus finanzas personales con la regla 50/30/20. Mirach, la app para iPhone, analiza tus gastos bancarios y te muestra exactamente a dónde va tu dinero.',
   url: 'https://mirachbudget.app',
   ogImage: '/og-image.png',
+  locale: 'es_CL',
 } as const;
+
+/**
+ * Public App Store page of the iPhone app. While it is `null` the landing
+ * says "Próximamente"; set the URL and the hero, the closing section and the
+ * FAQ switch to the download wording.
+ */
+export const APP_STORE: { url: string | null; id: string } = {
+  url: 'https://apps.apple.com/cl/app/mirach-budget/id6821444803',
+  /** Apple ID of the app: feeds the Smart App Banner in Safari on iPhone. */
+  id: '6821444803',
+};
 
 export interface FAQItem {
   q: string;
@@ -14,7 +30,7 @@ export interface FAQItem {
 export const FAQ_ITEMS: FAQItem[] = [
   {
     q: '¿Qué es Mirach y cómo funciona?',
-    a: 'Mirach es una aplicación para iPhone que te ayuda a controlar tus finanzas personales usando la regla 50/30/20. Solo subes tu cartola bancaria en formato Excel o PDF y nosotros clasificamos automáticamente tus gastos en Necesidades, Deseos y Ahorro.',
+    a: 'Mirach es una aplicación para iPhone que te ayuda a controlar tus finanzas personales usando la regla 50/30/20. Solo subes tu cartola bancaria en formato Excel o PDF y nosotros clasificamos automáticamente tus gastos en Necesidades, Gustos y Ahorro.',
   },
   {
     q: '¿Mis datos bancarios están seguros?',
@@ -30,7 +46,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     q: '¿Dónde puedo usar Mirach?',
-    a: 'Mirach es una app nativa para iPhone (iOS 17 o superior) y estará disponible próximamente en el App Store. Inicias sesión con Sign in with Apple.',
+    a: `Mirach es una app nativa para iPhone (iOS 17 o superior) y ${APP_STORE.url ? 'está disponible' : 'estará disponible próximamente'} en el App Store. Inicias sesión con Sign in with Apple.`,
   },
 ];
 

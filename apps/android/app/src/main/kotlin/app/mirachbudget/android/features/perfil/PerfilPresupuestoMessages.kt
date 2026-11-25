@@ -45,15 +45,16 @@ val PERFIL_CARDS: List<PerfilCard> = listOf(
         "Equilibrado · Necesidades 50% · Gustos 30% · Ahorro 20%", 50, 30, 20, recommended = true,
     ),
     PerfilCard(
-        PerfilPredefinido.P60_20_20, "60 / 20 / 20",
-        "Si tus gastos fijos son altos · Necesidades 60% · Gustos 20% · Ahorro 20%", 60, 20, 20,
-    ),
-    PerfilCard(
-        PerfilPredefinido.P70_15_15, "70 / 15 / 15",
-        "Para un mes ajustado · Necesidades 70% · Gustos 15% · Ahorro 15%", 70, 15, 15,
+        PerfilPredefinido.P65_20_15, "65 / 20 / 15",
+        "Si tus gastos fijos son altos · Necesidades 65% · Gustos 20% · Ahorro 15%", 65, 20, 15,
     ),
     PerfilCard(
         PerfilPredefinido.P80_10_10, "80 / 10 / 10",
-        "Salir de deudas. Tus cuotas cuentan como necesidad · Necesidades 80% · Gustos 10% · Ahorro 10%", 80, 10, 10,
+        "Para un mes ajustado o salir de deudas. Tus cuotas cuentan como necesidad · Necesidades 80% · Gustos 10% · Ahorro 10%",
+        80, 10, 10,
+    ),
+    PerfilCard(
+        PerfilPredefinido.P90_5_5, "90 / 5 / 5",
+        "Con lo justo: casi todo se va en vivir · Necesidades 90% · Gustos 5% · Ahorro 5%", 90, 5, 5,
     ),
 )

@@ -1,0 +1,36 @@
+---
+/**
+ * The page's call to action: Apple's official "Download on the App Store"
+ * badge once the app has a public App Store page (APP_STORE.url), the
+ * "Próximamente" notice until then.
+ *
+ * The badge is Apple's artwork (Latin American Spanish, black) and must stay
+ * unmodified per the App Store marketing guidelines: no recolor, no crop, at
+ * least 40px tall, and clear space of a quarter of its height on every side.
+ * Source: https://developer.apple.com/app-store/marketing/guidelines/
+ */
+import { APP_STORE } from '../config';
+---
+
+{
+  APP_STORE.url ? (
+    <a
+      href={APP_STORE.url}
+      rel="noopener"
+      class="inline-block rounded-[9px] transition-[opacity,transform] hover:opacity-85 motion-safe:active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+    >
+      <img
+        src="/images/badges/app-store-es.svg"
+        alt="Descárgalo en el App Store"
+        width="144"
+        height="48"
+        class="block h-12 w-auto"
+        decoding="async"
+      />
+    </a>
+  ) : (
+    <p class="inline-flex min-h-[44px] items-center justify-center rounded border border-primary px-6 py-2.5 text-body-sm font-semibold text-primary">
+      Próximamente en el App Store
+    </p>
+  )
+}

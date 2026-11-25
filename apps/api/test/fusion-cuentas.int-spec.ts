@@ -99,10 +99,10 @@ describe.skipIf(!ALLOW)('Account merge (int, ADR-014)', () => {
         emailBlindIndex: blindIndex.compute(email),
         // The goals must match the declared profile (CHECK
         // User_perfil_predefinido_metas_check).
-        perfilPresupuesto: '60_20_20',
-        metaNecesidadesBp: 6000,
+        perfilPresupuesto: '65_20_15',
+        metaNecesidadesBp: 6500,
         metaDeseosBp: 2000,
-        metaAhorroBp: 2000,
+        metaAhorroBp: 1500,
         diaCorte: 15,
         ingresoDeclarado: 900000n,
       },

@@ -1,56 +1,135 @@
 ---
+import PhoneScreen from './PhoneScreen.astro';
+
 export interface Step {
-  num: string;
+  id: string;
   title: string;
   description: string;
+  /** Missing while the screenshot is pending: the frame shows a placeholder. */
+  image?: string;
+  alt: string;
 }
 
 const steps: Step[] = [
   {
-    num: '1',
-    title: 'Subes tu cartola',
+    id: 'perfil',
+    title: 'Elige tu perfil',
     description:
-      'Descarga tu estado de cuenta desde tu banco y súbelo a Mirach en Excel o PDF.',
+      'Parte con 50/30/20 o elige un reparto que se ajuste a tu mes: 60/20/20, 70/15/15 u 80/10/10 si estás saliendo de deudas. Si lo cambias, Mirach recalcula todos tus meses.',
+    image: '/images/app/perfil.webp',
+    alt: 'Pantalla Perfil de Mirach con cuatro repartos para elegir: 50/30/20 recomendado, 60/20/20, 70/15/15 y 80/10/10.',
   },
   {
-    num: '2',
-    title: 'Categorizamos automáticamente',
+    id: 'subir',
+    title: 'Sube tu cartola',
     description:
-      'Nuestro motor clasifica cada gasto en Necesidades, Deseos o Ahorro siguiendo la regla 50/30/20.',
+      'Archivos .xlsx o .pdf de Banco de Chile, BancoEstado, BCI y Santander. No pedimos claves de tu banco y nada se guarda hasta que confirmas la vista previa.',
+    image: '/images/app/subir.webp',
+    alt: 'Pantalla Subir cartola de Mirach con el botón Elegir archivo y el acceso a las cartolas subidas.',
   },
   {
-    num: '3',
-    title: 'Ves tu semáforo mensual',
+    id: 'resumen',
+    title: 'Mira tu resumen',
     description:
-      'De un vistazo sabes si vas bien o necesitas ajustar. Verde, amarillo o rojo: simple como un semáforo.',
+      'Cada mes ves de inmediato si estás dentro o fuera de tu meta, y cuánto llevas en Necesidades, Gustos y Ahorro frente a lo que te propusiste.',
+    image: '/images/app/resumen.webp',
+    alt: 'Pantalla Resumen de Mirach: el mes aparece dentro de la meta, con el avance de Necesidades, Gustos y Ahorro y un gráfico de anillos que compara el mes con la meta.',
+  },
+  {
+    id: 'movimientos',
+    title: 'Revisa tus movimientos',
+    description:
+      'Cada gasto queda agrupado por categoría dentro de Necesidades, Gustos o Ahorro. Si uno quedó donde no corresponde, lo mueves con un toque.',
+    image: '/images/app/movimientos.webp',
+    alt: 'Pantalla Movimientos de Mirach: Necesidades abierta con la categoría Supermercado y sus compras, cada una con el botón Mover, y Gustos y Ahorro con su total del mes.',
+  },
+  {
+    id: 'categorias',
+    title: 'Ordena tus categorías',
+    description:
+      'Crea las categorías que necesites y revisa cuántos movimientos y patrones de reconocimiento tiene cada una.',
+    image: '/images/app/categorias.webp',
+    alt: 'Pantalla Categorías de Mirach con la opción Nueva categoría y la lista de categorías de Necesidades, cada una con sus movimientos y patrones.',
   },
 ];
 ---
 
-<section id="como-funciona" data-reveal class="scroll-mt-20 bg-surface-dim/50 px-6 py-16 sm:py-24">
-  <h2
-    class="font-display text-center text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl"
-  >
-    ¿Cómo funciona?
-  </h2>
+<section
+  id="como-funciona"
+  data-reveal
+  class="scroll-mt-20 bg-surface-dim/50 px-6 py-16 sm:py-24"
+>
+  <div class="mx-auto max-w-5xl">
+    <h2
+      class="font-display text-balance text-center text-headline-lg font-bold leading-[1.05] tracking-tight text-on-surface sm:text-4xl md:text-5xl lg:text-left"
+    >
+      Así se usa Mirach
+    </h2>
+    <p
+      class="mx-auto mt-4 max-w-xl text-center text-body-lg leading-relaxed text-on-surface-variant lg:mx-0 lg:text-left"
+    >
+      Cinco pasos, de tu cartola a saber cómo va tu mes.
+    </p>
 
-  <div class="mx-auto mt-12 grid max-w-6xl gap-8 md:grid-cols-3 md:gap-6">
-    {steps.map((step) => (
-      <article class="flex flex-col items-center text-center">
-        <span
-          class="flex size-12 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-primary-container text-title-md font-bold text-on-primary-container"
-        >
-          {step.num}
-        </span>
-        <h3 class="font-display mt-4 text-title-md font-semibold text-on-surface">
-          {step.title}
-        </h3>
-        <p
-          class="mt-2 max-w-xs text-body-sm leading-relaxed text-on-surface-variant"
-        >
-          {step.description}
-        </p>
-      </article>
-    ))}
+    <!--
+      One markup, two layouts, no JavaScript.
+      Below lg: a horizontal snap rail, every screen visible.
+      From lg: the steps stack on the left and the screens overlap on the
+      right; the checked radio (a sibling "peer") decides which one shows.
+    -->
+    <ol
+      class="tour-rail relative -mx-6 mt-10 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-4 lg:mx-0 lg:mt-12 lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-16 lg:gap-y-2 lg:overflow-visible lg:px-0 lg:pb-0"
+    >
+      {steps.map((step, i) => (
+        <li class="flex w-[72vw] max-w-[280px] shrink-0 snap-center flex-col lg:contents">
+          <input
+            type="radio"
+            name="tour-step"
+            id={`tour-${step.id}`}
+            class="peer sr-only"
+            checked={i === 0}
+          />
+
+          <div
+            class="relative mt-5 flex gap-4 rounded-md border border-transparent outline-offset-2 outline-primary lg:col-start-1 lg:mt-0 lg:cursor-pointer lg:items-start lg:p-5 lg:transition-colors lg:duration-300 lg:hover:bg-surface-container-lowest/60 lg:peer-checked:border-outline-variant lg:peer-checked:bg-surface-container-lowest lg:peer-checked:shadow-soft lg:peer-focus-visible:outline-2 lg:peer-checked:[&_.tour-num]:bg-primary lg:peer-checked:[&_.tour-num]:text-on-primary"
+            style={`grid-row: ${i + 1}`}
+          >
+            <span
+              aria-hidden="true"
+              class="tour-num flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container-lowest font-display text-body-sm font-bold tabular-nums text-on-surface lg:transition-colors lg:duration-300"
+            >
+              {i + 1}
+            </span>
+            <div class="min-w-0">
+              <h3 class="font-display text-title-md font-semibold leading-snug text-on-surface">
+                <label
+                  for={`tour-${step.id}`}
+                  class="lg:cursor-pointer lg:after:absolute lg:after:inset-0 lg:after:content-['']"
+                >
+                  {step.title}
+                </label>
+              </h3>
+              <p class="mt-1.5 text-body-sm leading-relaxed text-on-surface-variant">
+                {step.description}
+              </p>
+            </div>
+          </div>
+
+          <PhoneScreen
+            src={step.image}
+            alt={step.alt}
+            class="order-first lg:order-none lg:col-start-2 lg:row-span-5 lg:row-start-1 lg:self-center lg:opacity-0 lg:peer-checked:opacity-100 motion-safe:lg:transition-opacity motion-safe:lg:duration-500"
+          />
+        </li>
+      ))}
+    </ol>
   </div>
 </section>
+
+<style>
+  /* Theme the rail's scrollbar from the palette instead of the browser default. */
+  .tour-rail {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-outline-variant) transparent;
+  }
+</style>
