@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.6.0](https://github.com/Juargo/mirach/compare/landing-v0.5.0...landing-v0.6.0) (2026-11-25)
+
+
+### Features
+
+* **landing:** close the page with a call to action and prepare the App Store link ([2fe9f40](https://github.com/Juargo/mirach/commit/2fe9f40d131994a58a596191f12b7e3aea321817))
+* **landing:** improve search and sharing metadata ([f85ca58](https://github.com/Juargo/mirach/commit/f85ca588874501880f6c2894945db28bc0dbc1c8))
+* **landing:** improve search and sharing metadata ([a197090](https://github.com/Juargo/mirach/commit/a1970906301be04fded07414ec8f85e369c97b43))
+* **landing:** lean the hero phone like a hand-held device ([4a6399d](https://github.com/Juargo/mirach/commit/4a6399d2bc8941fcb78d6aad96843908fffcedc8))
+* **landing:** lean the hero phone toward the headline ([ba0f214](https://github.com/Juargo/mirach/commit/ba0f2145f8295af7958dddcfd037d4ddb4b0970a))
+* **landing:** link the download button to the App Store page ([65ff16d](https://github.com/Juargo/mirach/commit/65ff16d87f0f509ac95b613bace7983a0be966f6))
+* **landing:** recline the hero phone in 3D ([9d03c09](https://github.com/Juargo/mirach/commit/9d03c09de6a518119c89a7cf64686a1efff07e33))
+* **landing:** show each bank's official logo ([fe37f8e](https://github.com/Juargo/mirach/commit/fe37f8ed286adba0809f93e5d56994688b023d6d))
+* **landing:** show the app in a five-step tour and in the hero ([ed1a0ef](https://github.com/Juargo/mirach/commit/ed1a0ef8436c180eb6a570e8363adb708ac0178c))
+* **landing:** show the app in a five-step tour and link the App Store ([c63811c](https://github.com/Juargo/mirach/commit/c63811c87c46a5430ab9b6750b98fac07a9cb2b0))
+* **landing:** straighten the hero phone slightly ([4605840](https://github.com/Juargo/mirach/commit/4605840fe3c9e07e895c25162868095f979be153))
+* **landing:** turn the hero phone toward the headline ([fafc8cc](https://github.com/Juargo/mirach/commit/fafc8cc9d86246cedfcbb585bcc770c9837f0170))
+* **landing:** update Resumen screenshot and add Movimientos to the tour ([4604ed2](https://github.com/Juargo/mirach/commit/4604ed2254f8b8b45c326ed6a5094c9a8ff80aea))
+* **landing:** update Resumen screenshot and add Movimientos to the tour ([3fdd481](https://github.com/Juargo/mirach/commit/3fdd4810896a5a4236ff1aa05befb322e0569290))
+* **landing:** update the Categorías and Perfil screenshots in the tour ([8aa4aaa](https://github.com/Juargo/mirach/commit/8aa4aaa4377afea6a33151bf77ec1f009101a430))
+* **landing:** update the Categorías screenshot in the tour ([6759a6a](https://github.com/Juargo/mirach/commit/6759a6a2f4456f624014eac6e67bff1f79a8840f))
+* **landing:** update the Perfil screenshot and its profile list ([e33e970](https://github.com/Juargo/mirach/commit/e33e970097abc1b4bb84f722d60c8208eee29a7a))
+* **landing:** use the app's mark and the Mirach Budget name in the header ([d32530f](https://github.com/Juargo/mirach/commit/d32530f1edd75e0af576e8f480ae32a2bb6c9d81))
+* **landing:** use the app's mark and the Mirach Budget name in the header ([2ad83de](https://github.com/Juargo/mirach/commit/2ad83de44cfea517add012815f9d22ccaa25f2f3))
+* **landing:** use the official App Store badge ([9d63ab9](https://github.com/Juargo/mirach/commit/9d63ab9af5f300b734a3292a2bad2624aa17b521))
+* **landing:** use the official App Store badge ([51cf485](https://github.com/Juargo/mirach/commit/51cf485dc043b785dffab8a95ebd7541dcf27546))
+
+
+### Bug Fixes
+
+* **landing:** ship a real favicon for Google Search ([6251754](https://github.com/Juargo/mirach/commit/625175480fa4c6435f0b1bd62b5926cc778b406f))
+* **landing:** ship a real favicon for Google Search ([1cbcbcf](https://github.com/Juargo/mirach/commit/1cbcbcf09935bcfc499cb4c976a368bad81f1326))
+
 ## [0.5.0](https://github.com/Juargo/mirach/compare/landing-v0.4.0...landing-v0.5.0) (2026-11-08)
 
 
