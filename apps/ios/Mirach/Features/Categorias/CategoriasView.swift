@@ -6,9 +6,10 @@ struct CategoriaRoute: Hashable {
     let id: String
 }
 
-/// "Categorías": the catalog in one pane per bucket (the look of «Movimientos»: colour bar, header,
-/// border, each category's icon on a tile in the bucket colour), with creation in a sheet. The
-/// whole screen is one scrolling list.
+/// "Categorías": the catalog in one pane per bucket that work as an accordion (the look of
+/// «Movimientos»: colour bar, header, border, each category's icon on a tile in the bucket
+/// colour): the three headers are listed and one pane shows its categories. Creation is in a
+/// sheet. The whole screen is one scrolling list.
 struct CategoriasView: View {
     @State private var viewModel: CategoriasViewModel
     @State private var showingForm = false
@@ -142,7 +143,11 @@ struct CategoriasView: View {
             newCategoryRow
             if catalog.categorias.isEmpty { empty }
             ForEach(catalog.groups, id: \.bucket) { group in
-                BucketPane(bucket: group.bucket, categorias: group.categorias)
+                BucketPane(
+                    bucket: group.bucket, categorias: group.categorias,
+                    isOpen: group.bucket == viewModel.openBucket,
+                    open: { viewModel.open(group.bucket) }
+                )
             }
         }
     }
@@ -212,25 +217,53 @@ struct CategoriasView: View {
     }
 }
 
-/// One bucket: its colour bar, its name and its categories, inside a border (as a pane of «Movimientos»).
+/// One bucket: its colour bar, its name and, when it is the open one, its categories, inside a
+/// border (as a pane of «Movimientos»).
 private struct BucketPane: View {
     let bucket: Bucket
     let categorias: [CategoriaCatalogo]
+    let isOpen: Bool
+    let open: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             Rectangle().fill(bucket.fill).frame(height: 6).accessibilityHidden(true)
-            Text(bucket.label)
-                .mirachText(.cuerpoDestacado)
-                .foregroundStyle(Color.Mirach.Base.foreground)
-                .padding(.horizontal, MirachSpacing.m)
-                .padding(.vertical, MirachSpacing.s)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(bucket.label)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("categorias.group.\(bucket.apiName)")
-            Divider().overlay(Color.Mirach.Base.border)
+            header
+            if isOpen {
+                Divider().overlay(Color.Mirach.Base.border)
+                rows
+            }
+        }
+        .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
+    }
+
+    /// The whole header is the button; the chevron and VoiceOver's value say whether it is open.
+    private var header: some View {
+        Button(action: open) {
+            HStack(alignment: .firstTextBaseline, spacing: MirachSpacing.s) {
+                Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                    .font(.mirach(.etiqueta))
+                    .frame(width: 16)
+                Text(bucket.label).mirachText(.cuerpoDestacado)
+            }
+            .foregroundStyle(Color.Mirach.Base.foreground)
+            .padding(.horizontal, MirachSpacing.m)
+            .padding(.vertical, MirachSpacing.s)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(bucket.label)
+        .accessibilityValue(MovimientosPresentation.paneState(isOpen: isOpen))
+        .accessibilityHint(isOpen ? "" : CategoriasPresentation.openHint)
+        .accessibilityAddTraits([.isHeader, .isButton])
+        .accessibilityIdentifier("categorias.group.\(bucket.apiName)")
+    }
+
+    @ViewBuilder
+    private var rows: some View {
+        VStack(spacing: 0) {
             if categorias.isEmpty {
                 Text("Sin categorías")
                     .mirachText(.etiqueta)
@@ -251,11 +284,10 @@ private struct BucketPane: View {
                 .accessibilityIdentifier("categorias.row.\(category.id)")
             }
         }
-        .overlay(Rectangle().strokeBorder(Color.Mirach.Base.border, lineWidth: 1))
     }
 }
 
-/// A category: a tile in the bucket colour with its icon, the name, its counts and a chevron.
+/// A category: a tile in the bucket colour with its icon, the name, how many patterns and a chevron.
 private struct CategoriaRow: View {
     let category: CategoriaCatalogo
     let bucket: Bucket
@@ -276,7 +308,7 @@ private struct CategoriaRow: View {
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .lineLimit(2)
                     .foregroundStyle(Color.Mirach.Base.foreground)
-                Text(CategoriasPresentation.counts(category))
+                Text(CategoriasPresentation.patterns(category.patrones.count))
                     .mirachText(.etiqueta)
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .fixedSize(horizontal: false, vertical: true)

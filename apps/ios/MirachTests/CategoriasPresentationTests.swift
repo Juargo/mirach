@@ -9,16 +9,16 @@ struct CategoriasPresentationTests {
         )
     }
 
-    @Test func theCountsUseTheSingularAndThePluralOfBothNouns() {
-        #expect(CategoriasPresentation.counts(category(movements: 12, patterns: 2)) == "12 movimientos · 2 patrones")
-        #expect(CategoriasPresentation.counts(category(movements: 1, patterns: 1)) == "1 movimiento · 1 patrón")
-        #expect(CategoriasPresentation.counts(category(movements: 0, patterns: 0)) == "0 movimientos · 0 patrones")
+    @Test func thePatternCountUsesTheSingularAndThePlural() {
+        #expect(CategoriasPresentation.patterns(2) == "2 patrones")
+        #expect(CategoriasPresentation.patterns(1) == "1 patrón")
+        #expect(CategoriasPresentation.patterns(0) == "0 patrones")
     }
 
-    @Test func theSpokenRowNamesTheCategoryItsCountsAndThatItIsASystemOne() {
-        #expect(CategoriasPresentation.rowLabel(category(movements: 12, patterns: 2)) == "Supermercado. 12 movimientos. 2 patrones")
+    @Test func theSpokenRowNamesTheCategoryItsPatternsAndThatItIsASystemOneButNotItsMovements() {
+        #expect(CategoriasPresentation.rowLabel(category(movements: 12, patterns: 2)) == "Supermercado. 2 patrones")
         #expect(CategoriasPresentation.rowLabel(category(movements: 0, patterns: 0, isSystem: true))
-            == "Supermercado. 0 movimientos. 0 patrones. Categoría del sistema")
+            == "Supermercado. 0 patrones. Categoría del sistema")
     }
 
     @Test func everyIconOfTheListHasASpokenNameAndAnUnknownOneHasNone() {
