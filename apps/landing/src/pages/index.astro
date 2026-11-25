@@ -8,9 +8,35 @@ import Bancos from '../components/Bancos.astro';
 import FAQ from '../components/FAQ.astro';
 import Descarga from '../components/Descarga.astro';
 import Footer from '../components/Footer.astro';
+import { APP_STORE, SITE } from '../config';
+
+// Structured data: tells search engines the site name and that this page is about an iPhone app.
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE.name,
+    alternateName: SITE.shortName,
+    url: `${SITE.url}/`,
+    inLanguage: 'es-CL',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: SITE.name,
+    description: SITE.description,
+    url: `${SITE.url}/`,
+    image: new URL(SITE.ogImage, SITE.url).href,
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'iOS 17.0',
+    inLanguage: 'es-CL',
+    ...(APP_STORE.url ? { downloadUrl: APP_STORE.url, installUrl: APP_STORE.url } : {}),
+  },
+];
 ---
 
 <Layout>
+  <script type="application/ld+json" slot="head" is:inline set:html={JSON.stringify(structuredData)} />
   <Header />
   <main id="main" class="scroll-mt-20">
     <Hero />

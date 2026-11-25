@@ -5,7 +5,10 @@ import Footer from '../components/Footer.astro';
 import { SITE, CONTACT, PRIVACY, ACCOUNT_DELETION } from '../config';
 ---
 
-<Layout title={`Soporte — ${SITE.title}`}>
+<Layout
+  title={`Soporte — ${SITE.name}`}
+  description="Ayuda y contacto de Mirach: cómo escribirnos si tienes dudas o un problema con la app."
+>
   <Header />
   <main id="main" class="scroll-mt-20 px-6 py-16 sm:py-24">
     <div class="mx-auto max-w-2xl">

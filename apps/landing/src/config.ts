@@ -1,9 +1,14 @@
 export const SITE = {
-  title: 'Mirach',
+  /** Brand name: suffix of every page title and the site name Google shows. */
+  name: 'Mirach Budget',
+  shortName: 'Mirach',
+  /** Title of the home page. */
+  title: 'Mirach Budget: presupuesto 50/30/20 en tu iPhone',
   description:
     'Controla tus finanzas personales con la regla 50/30/20. Mirach, la app para iPhone, analiza tus gastos bancarios y te muestra exactamente a dónde va tu dinero.',
   url: 'https://mirachbudget.app',
   ogImage: '/og-image.png',
+  locale: 'es_CL',
 } as const;
 
 /**
@@ -11,8 +16,10 @@ export const SITE = {
  * says "Próximamente"; set the URL and the hero, the closing section and the
  * FAQ switch to the download wording.
  */
-export const APP_STORE: { url: string | null } = {
+export const APP_STORE: { url: string | null; id: string } = {
   url: 'https://apps.apple.com/cl/app/mirach-budget/id6821444803',
+  /** Apple ID of the app: feeds the Smart App Banner in Safari on iPhone. */
+  id: '6821444803',
 };
 
 export interface FAQItem {
