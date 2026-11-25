@@ -121,7 +121,7 @@
  * the hero section also clips horizontally as a guard.
  */
 .hero-phone {
-  transform: perspective(1400px) rotateZ(var(--hero-phone-lean, -8deg)) rotateY(-16deg)
+  transform: perspective(1400px) rotateZ(var(--hero-phone-lean, -5deg)) rotateY(-16deg)
     rotateX(8deg);
   box-shadow:
     1px 0.5px 0 #1b4257,
@@ -135,7 +135,7 @@
 
 @media (min-width: 48rem) {
   .hero-phone {
-    --hero-phone-lean: -12deg;
+    --hero-phone-lean: -8deg;
   }
 }
 
