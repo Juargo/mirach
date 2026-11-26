@@ -133,6 +133,14 @@ model PermisoPlan {
   @@index([motivo])
 }
 
+// ADR-012 §1: ids of the store events already applied, so a redelivered
+// webhook changes nothing. Written in the same transaction as the change.
+// Holds no user data and is never deleted with an account.
+model EventoSuscripcionProcesado {
+  id         String   @id
+  recibidoEn DateTime @default(now())
+}
+
 model Account {
   id            String        @id @default(cuid())
   userId        String
