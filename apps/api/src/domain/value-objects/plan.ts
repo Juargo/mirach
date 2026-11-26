@@ -68,14 +68,18 @@ const PLAN_GRATIS: PlanEfectivo = {
   tienda: null,
 };
 
-function suscripcionVigente(suscripcion: Suscripcion, ahora: Date): boolean {
+/** Da acceso en `ahora`: no está vencida y su fecha no pasó. */
+export function suscripcionVigente(
+  suscripcion: Pick<Suscripcion, 'estado' | 'venceEn'>,
+  ahora: Date,
+): boolean {
   return (
     suscripcion.estado !== EstadoSuscripcion.Vencida &&
     suscripcion.venceEn.getTime() > ahora.getTime()
   );
 }
 
-function permisoVigente(permiso: PermisoPlan, ahora: Date): boolean {
+export function permisoVigente(permiso: PermisoPlan, ahora: Date): boolean {
   return (
     permiso.revocadoEn === null &&
     (permiso.venceEn === null || permiso.venceEn.getTime() > ahora.getTime())
