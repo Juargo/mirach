@@ -50,10 +50,15 @@ export function crearExigirMesVisible(ventana: VentanaPlanGratis) {
     }),
     /** `fecha` of `POST /api/movimientos`. */
     fechaEnBody: exigir((req, userId) => {
-      const fecha = texto((req.body as { fecha?: unknown })?.fecha);
+      const body = req.body as { fecha?: unknown; tipo?: unknown } | undefined;
+      const fecha = texto(body?.fecha);
       return fecha === undefined
         ? Promise.resolve(Result.ok(undefined))
-        : ventana.verificarFecha(userId, new Date(fecha));
+        : ventana.verificarFecha(
+            userId,
+            new Date(fecha),
+            body?.tipo === 'Ingreso',
+          );
     }),
   };
 }

@@ -177,12 +177,17 @@ describe('VentanaPlanGratis', () => {
 
       expect(
         (
-          await ventana.verificarFecha('u1', new Date('2026-07-01T00:00:00Z'))
+          await ventana.verificarFecha(
+            'u1',
+            new Date('2026-07-01T00:00:00Z'),
+            false,
+          )
         ).isOk(),
       ).toBe(true);
       const result = await ventana.verificarFecha(
         'u1',
         new Date('2026-06-30T00:00:00Z'),
+        false,
       );
       expect(result.getError()).toBeInstanceOf(PlanPlusRequeridoError);
     });
@@ -194,14 +199,46 @@ describe('VentanaPlanGratis', () => {
 
       expect(
         (
-          await ventana.verificarFecha('u1', new Date('2026-08-25T00:00:00Z'))
+          await ventana.verificarFecha(
+            'u1',
+            new Date('2026-08-25T00:00:00Z'),
+            false,
+          )
         ).isOk(),
       ).toBe(true);
       expect(
         (
-          await ventana.verificarFecha('u1', new Date('2026-08-24T00:00:00Z'))
+          await ventana.verificarFecha(
+            'u1',
+            new Date('2026-08-24T00:00:00Z'),
+            false,
+          )
         ).isFail(),
       ).toBe(true);
+    });
+
+    it('un ingreso hasta 3 días antes del corte cuenta en el mes que parte (PER-08)', async () => {
+      // Cut-off 25, anchor 2026-10: the window starts at period 2026-08. An
+      // income from 22 Aug on is read in that period, so it is visible.
+      const { ventana } = crear({ ultimo: '2026-10', diaCorte: 25 });
+      const ingreso = (dia: string) =>
+        ventana.verificarFecha('u1', new Date(`${dia}T00:00:00Z`), true);
+
+      expect((await ingreso('2026-08-22')).isOk()).toBe(true);
+      expect((await ingreso('2026-08-24')).isOk()).toBe(true);
+      expect((await ingreso('2026-08-21')).isFail()).toBe(true);
+    });
+
+    it('un gasto en esos mismos días sigue fuera de la ventana', async () => {
+      const { ventana } = crear({ ultimo: '2026-10', diaCorte: 25 });
+
+      const result = await ventana.verificarFecha(
+        'u1',
+        new Date('2026-08-24T00:00:00Z'),
+        false,
+      );
+
+      expect(result.isFail()).toBe(true);
     });
 
     it('una fecha futura pasa', async () => {
@@ -209,7 +246,11 @@ describe('VentanaPlanGratis', () => {
 
       expect(
         (
-          await ventana.verificarFecha('u1', new Date('2027-03-01T00:00:00Z'))
+          await ventana.verificarFecha(
+            'u1',
+            new Date('2027-03-01T00:00:00Z'),
+            false,
+          )
         ).isOk(),
       ).toBe(true);
     });
@@ -218,7 +259,9 @@ describe('VentanaPlanGratis', () => {
       const { ventana } = crear();
 
       expect(
-        (await ventana.verificarFecha('u1', new Date('no es fecha'))).isOk(),
+        (
+          await ventana.verificarFecha('u1', new Date('no es fecha'), false)
+        ).isOk(),
       ).toBe(true);
     });
 
@@ -227,7 +270,11 @@ describe('VentanaPlanGratis', () => {
 
       expect(
         (
-          await ventana.verificarFecha('u1', new Date('2001-01-01T00:00:00Z'))
+          await ventana.verificarFecha(
+            'u1',
+            new Date('2001-01-01T00:00:00Z'),
+            false,
+          )
         ).isOk(),
       ).toBe(true);
       expect(ultimoReader.ultimoPeriodoConDatos).not.toHaveBeenCalled();

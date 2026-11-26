@@ -1,5 +1,6 @@
 import { LimiteBancosPlanGratis } from './limite-bancos-plan-gratis';
 import { PlanPlusRequeridoError } from '../../domain/errors/plan-plus-requerido.error';
+import type { IExclusionPorUsuario } from '../ports/exclusion-por-usuario.port';
 
 function crear(opciones: {
   plus?: boolean;
@@ -14,12 +15,19 @@ function crear(opciones: {
       .fn()
       .mockResolvedValue(opciones.bancos ?? []),
   };
+  const exclusion = {
+    enExclusiva: vi.fn(
+      (_userId: string, accion: () => Promise<unknown>): Promise<unknown> =>
+        accion(),
+    ),
+  };
   const limite = new LimiteBancosPlanGratis(
     verificador,
     reader,
     opciones.maximo ?? 2,
+    exclusion as unknown as IExclusionPorUsuario,
   );
-  return { verificador, reader, limite };
+  return { verificador, reader, exclusion, limite };
 }
 
 describe('LimiteBancosPlanGratis (IMP-24)', () => {
@@ -82,5 +90,68 @@ describe('LimiteBancosPlanGratis (IMP-24)', () => {
 
     expect((await limite.verificar('user-1', 'BCI')).isOk()).toBe(true);
     expect((await limite.verificar('user-1', 'Santander')).isFail()).toBe(true);
+  });
+
+  describe('asegurarCuenta', () => {
+    it('en el plan gratis verifica y escribe dentro de la exclusión del usuario', async () => {
+      const { exclusion, reader, limite } = crear({ bancos: ['BCI'] });
+      const orden: string[] = [];
+      exclusion.enExclusiva.mockImplementationOnce(async (_userId, accion) => {
+        orden.push('entra');
+        const resultado = await accion();
+        orden.push('sale');
+        return resultado;
+      });
+      reader.bancosEnOrdenDeImportacion.mockImplementationOnce(() => {
+        orden.push('lee');
+        return Promise.resolve(['BCI']);
+      });
+      const asegurar = vi.fn(() => {
+        orden.push('escribe');
+        return Promise.resolve('cuenta-1');
+      });
+
+      const resultado = await limite.asegurarCuenta(
+        'user-1',
+        'Santander',
+        asegurar,
+      );
+
+      expect(resultado.getValue()).toBe('cuenta-1');
+      expect(exclusion.enExclusiva).toHaveBeenCalledWith(
+        'user-1',
+        expect.any(Function),
+      );
+      expect(orden).toEqual(['entra', 'lee', 'escribe', 'sale']);
+    });
+
+    it('fuera del límite no escribe', async () => {
+      const { limite } = crear({ bancos: ['BCI', 'Santander'] });
+      const asegurar = vi.fn();
+
+      const resultado = await limite.asegurarCuenta(
+        'user-1',
+        'BancoEstado',
+        asegurar,
+      );
+
+      expect(resultado.getError()).toBeInstanceOf(PlanPlusRequeridoError);
+      expect(asegurar).not.toHaveBeenCalled();
+    });
+
+    it('con Plus escribe directo, sin exclusión ni lectura de bancos', async () => {
+      const { exclusion, reader, limite } = crear({ plus: true });
+      const asegurar = vi.fn().mockResolvedValue('cuenta-1');
+
+      const resultado = await limite.asegurarCuenta(
+        'user-1',
+        'BancoEstado',
+        asegurar,
+      );
+
+      expect(resultado.getValue()).toBe('cuenta-1');
+      expect(exclusion.enExclusiva).not.toHaveBeenCalled();
+      expect(reader.bancosEnOrdenDeImportacion).not.toHaveBeenCalled();
+    });
   });
 });

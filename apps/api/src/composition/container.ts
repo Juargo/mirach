@@ -12,6 +12,7 @@ import { ObtenerPlanUseCase } from '../application/use-cases/obtener-plan.use-ca
 import { VerificarPlusUseCase } from '../application/use-cases/verificar-plus.use-case';
 import { LimiteBancosPlanGratis } from '../application/services/limite-bancos-plan-gratis';
 import { PrismaBancosImportadosReader } from '../infrastructure/persistence/prisma-bancos-importados.reader';
+import { PrismaExclusionPorUsuario } from '../infrastructure/persistence/prisma-exclusion-por-usuario';
 import { VentanaPlanGratis } from '../application/use-cases/ventana-plan-gratis';
 import { DIAS_AVISO_FIN_PRUEBA } from '../domain/value-objects/plan';
 import { ProcesarEventoSuscripcionUseCase } from '../application/use-cases/procesar-evento-suscripcion.use-case';
@@ -429,6 +430,7 @@ export function createContainer(
     verificarPlus,
     new PrismaBancosImportadosReader(prisma),
     env.FREE_PLAN_MAX_BANKS,
+    new PrismaExclusionPorUsuario(prisma),
   );
   const previewIngesta = crearPreviewIngesta(
     prisma,

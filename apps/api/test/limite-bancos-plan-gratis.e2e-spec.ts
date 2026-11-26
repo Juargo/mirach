@@ -154,6 +154,34 @@ describe('free plan bank limit (e2e, IMP-24)', () => {
     expect(await guardado()).toEqual(antes);
   });
 
+  it('two simultaneous imports from two new banks cannot both take the last seat', async () => {
+    const pdf = (nombre: string) => join(__dirname, 'fixtures', 'pdf', nombre);
+    const importar = (archivo: string) =>
+      request(conCobro)
+        .post('/api/ingestas/commit')
+        .set('x-api-key', API_KEY)
+        .set('Authorization', auth[marcela])
+        .attach('file', pdf(archivo), `${RUN_ID}-${archivo}`);
+
+    for (let intento = 0; intento < 4; intento += 1) {
+      await limpiar();
+      await cuentaEn('Santander');
+
+      const respuestas = await Promise.all([
+        importar('bancoestado-cartola-test.pdf'),
+        importar('bancochile-cartola-test.pdf'),
+      ]);
+
+      expect(respuestas.map((res) => res.status).sort()).toEqual([201, 403]);
+      const bancos = await prisma.account.findMany({
+        where: { userId: marcela },
+        distinct: ['banco'],
+        select: { banco: true },
+      });
+      expect(bancos).toHaveLength(2);
+    }
+  });
+
   it('a second account in one of its two banks does not use another seat', async () => {
     await cuentaEn('Santander');
     await cuentaEn('Santander');

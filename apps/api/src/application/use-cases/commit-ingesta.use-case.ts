@@ -277,19 +277,19 @@ export class CommitIngestaUseCase {
       }
     }
 
-    // ── IMP-24: bank limit of the free plan — before the first write ─────────
-    // Not a failed import: nothing is registered, the account just has to
-    // choose one of its banks or move to Plus.
-    const limite = await this.limiteBancos.verificar(input.userId, banco.banco);
-    if (limite.isFail()) {
-      return Result.fail(limite.getError());
-    }
-
-    // ── 3. ensure() — create/find Account ────────────────────────────────────
-    const accountResult = await this.accountRepository.ensure(
+    // ── 3. Bank limit (IMP-24) + ensure() — create/find Account ──────────────
+    // The limit of the free plan and the first write go together, one at a
+    // time per user. A refusal is not a failed import: nothing is registered,
+    // the account just has to choose one of its banks or move to Plus.
+    const asegurada = await this.limiteBancos.asegurarCuenta(
       input.userId,
-      banco,
+      banco.banco,
+      () => this.accountRepository.ensure(input.userId, banco),
     );
+    if (asegurada.isFail()) {
+      return Result.fail(asegurada.getError());
+    }
+    const accountResult = asegurada.getValue();
     if (accountResult.isFail()) {
       return Result.fail(accountResult.getError());
     }
