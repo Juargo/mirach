@@ -53,8 +53,13 @@ function texto(valor: unknown): string | undefined {
   return typeof valor === 'string' && valor !== '' ? valor : undefined;
 }
 
+/** Largest timestamp a `Date` can hold, in milliseconds since the epoch. */
+const FECHA_MAXIMA_MS = 8.64e15;
+
 function fecha(valor: unknown): Date | undefined {
-  return typeof valor === 'number' && Number.isSafeInteger(valor)
+  return typeof valor === 'number' &&
+    Number.isSafeInteger(valor) &&
+    Math.abs(valor) <= FECHA_MAXIMA_MS
     ? new Date(valor)
     : undefined;
 }

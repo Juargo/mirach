@@ -56,6 +56,15 @@ describe('interpretarEventoRevenueCat', () => {
       expect(resultado.isFail()).toBe(true);
     });
 
+    it('rechaza una fecha del evento fuera del rango de una fecha', () => {
+      const resultado = interpretarEventoRevenueCat(
+        evento({ event_timestamp_ms: 9e15 }),
+        { productoFundador: FUNDADOR },
+      );
+
+      expect(resultado.isFail()).toBe(true);
+    });
+
     it('devuelve el id y el tipo del evento junto al cambio', () => {
       expect(interpretar()).toMatchObject({
         id: 'evt-1',
@@ -171,6 +180,12 @@ describe('interpretarEventoRevenueCat', () => {
 
     it('ignora un evento de suscripción sin vencimiento', () => {
       expect(interpretar({ expiration_at_ms: null }).cambio.tipo).toBe(
+        'ignorado',
+      );
+    });
+
+    it('ignora un vencimiento fuera del rango de una fecha', () => {
+      expect(interpretar({ expiration_at_ms: 9e15 }).cambio.tipo).toBe(
         'ignorado',
       );
     });
