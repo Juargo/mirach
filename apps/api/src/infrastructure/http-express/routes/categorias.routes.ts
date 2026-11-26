@@ -1,4 +1,4 @@
-import type { Router } from 'express';
+import type { RequestHandler, Router } from 'express';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 import {
   categoriaCreateRequestSchema,
@@ -28,6 +28,7 @@ const BODY_INVALIDO = {
 export function registrarCategorias(
   router: Router,
   catalogo: CatalogoGraph,
+  exigirPlus: RequestHandler,
 ): void {
   router.get('/categorias', async (req, res, next) => {
     try {
@@ -40,7 +41,7 @@ export function registrarCategorias(
     }
   });
 
-  router.post('/categorias', async (req, res, next) => {
+  router.post('/categorias', exigirPlus, async (req, res, next) => {
     try {
       const parsed = categoriaCreateRequestSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -67,7 +68,7 @@ export function registrarCategorias(
     }
   });
 
-  router.patch('/categorias/:id', async (req, res, next) => {
+  router.patch('/categorias/:id', exigirPlus, async (req, res, next) => {
     try {
       const parsedParams = categoriaIdPathParamsSchema.safeParse(req.params);
       const parsedBody = categoriaUpdateRequestSchema.safeParse(req.body);
@@ -95,7 +96,7 @@ export function registrarCategorias(
     }
   });
 
-  router.delete('/categorias/:id', async (req, res, next) => {
+  router.delete('/categorias/:id', exigirPlus, async (req, res, next) => {
     try {
       const parsedParams = categoriaIdPathParamsSchema.safeParse(req.params);
       if (!parsedParams.success) {

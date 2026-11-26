@@ -15,6 +15,7 @@ import {
 import { registrarIngresosMes } from './routes/ingresos.routes';
 import { registrarPeriodos } from './routes/periodos.routes';
 import { registrarPlan } from './routes/plan.routes';
+import { crearExigirPlus } from './routes/exigir-plus';
 import {
   registrarWebhookRevenueCat,
   registrarWebhookRevenueCatDeshabilitado,
@@ -258,8 +259,11 @@ export function createApp(container: Container, env: Env): Express {
     verificarConsentimientoCartolas: container.verificarConsentimientoCartolas,
   });
   registrarAuthMe(protectedApi, container.obtenerIdentidad);
-  registrarCategorias(protectedApi, container.catalogo);
-  registrarPatrones(protectedApi, container.catalogo);
+  // CLA-09: creating, editing and deleting categories and patterns is Plus.
+  // Reclassifying a movement, above, is not: it never goes through this gate.
+  const exigirPlus = crearExigirPlus(container.verificarPlus);
+  registrarCategorias(protectedApi, container.catalogo, exigirPlus);
+  registrarPatrones(protectedApi, container.catalogo, exigirPlus);
   registrarPerfil(protectedApi, container.perfil);
   registrarPerfilPresupuesto(protectedApi, container.perfilPresupuesto);
   registrarConsentimientos(protectedApi, container.consentimientos);

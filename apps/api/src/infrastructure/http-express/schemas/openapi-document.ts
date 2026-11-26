@@ -104,6 +104,8 @@ import {
 import {
   catalogoErrorResponseSchema,
   categoriaInternaErrorResponseSchema,
+  catalogoProhibidoErrorResponseSchema,
+  planPlusRequeridoErrorResponseSchema,
 } from './catalogo-error.schema';
 import {
   ingestaCatalogoIncompletoResponseSchema,
@@ -986,6 +988,13 @@ const categoriasCreateOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '403': {
+      description:
+        'The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.',
+      content: {
+        'application/json': { schema: planPlusRequeridoErrorResponseSchema },
+      },
+    },
     '401': respuesta401Protegida,
     '201': {
       description:
@@ -1032,10 +1041,11 @@ const categoriasUpdateOperation: ZodOpenApiOperationObject = {
   responses: {
     '403': {
       description:
+        'Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. ' +
         'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): ' +
         'it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.',
       content: {
-        'application/json': { schema: categoriaInternaErrorResponseSchema },
+        'application/json': { schema: catalogoProhibidoErrorResponseSchema },
       },
     },
     '401': respuesta401Protegida,
@@ -1083,10 +1093,11 @@ const categoriasDeleteOperation: ZodOpenApiOperationObject = {
   responses: {
     '403': {
       description:
+        'Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. ' +
         'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): ' +
         'it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.',
       content: {
-        'application/json': { schema: categoriaInternaErrorResponseSchema },
+        'application/json': { schema: catalogoProhibidoErrorResponseSchema },
       },
     },
     '401': respuesta401Protegida,
@@ -1134,10 +1145,11 @@ const patronesCreateOperation: ZodOpenApiOperationObject = {
     },
     '403': {
       description:
+        'Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. ' +
         'The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"), ' +
         'which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.',
       content: {
-        'application/json': { schema: categoriaInternaErrorResponseSchema },
+        'application/json': { schema: catalogoProhibidoErrorResponseSchema },
       },
     },
     '404': {
@@ -1197,9 +1209,10 @@ const patronesVistaPreviaOperation: ZodOpenApiOperationObject = {
     },
     '403': {
       description:
+        'Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. ' +
         'The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.',
       content: {
-        'application/json': { schema: categoriaInternaErrorResponseSchema },
+        'application/json': { schema: catalogoProhibidoErrorResponseSchema },
       },
     },
     '404': {
@@ -1250,10 +1263,11 @@ const patronesUpdateOperation: ZodOpenApiOperationObject = {
     },
     '403': {
       description:
+        'Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. ' +
         'The target categoriaId is a protected system category, which accepts no patterns (CLA-18). ' +
         '`code` CATEGORIA_INTERNA.',
       content: {
-        'application/json': { schema: categoriaInternaErrorResponseSchema },
+        'application/json': { schema: catalogoProhibidoErrorResponseSchema },
       },
     },
     '404': {
@@ -1284,6 +1298,13 @@ const patronesDeleteOperation: ZodOpenApiOperationObject = {
     path: patronIdPathParamsSchema,
   },
   responses: {
+    '403': {
+      description:
+        'The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.',
+      content: {
+        'application/json': { schema: planPlusRequeridoErrorResponseSchema },
+      },
+    },
     '401': respuesta401Protegida,
     '204': {
       description: 'Pattern deleted. No response body.',
@@ -1379,6 +1400,13 @@ const perfilPresupuestoPutOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '403': {
+      description:
+        'The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.',
+      content: {
+        'application/json': { schema: planPlusRequeridoErrorResponseSchema },
+      },
+    },
     '401': respuesta401Protegida,
     '200': {
       description: 'Profile saved; the stored profile is returned.',

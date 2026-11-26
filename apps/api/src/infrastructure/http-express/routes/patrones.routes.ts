@@ -1,4 +1,4 @@
-import type { Router } from 'express';
+import type { RequestHandler, Router } from 'express';
 import type { CatalogoGraph } from '../../../composition/crear-catalogo';
 import {
   patronCreateRequestSchema,
@@ -27,8 +27,9 @@ const BODY_INVALIDO = {
 export function registrarPatrones(
   router: Router,
   catalogo: CatalogoGraph,
+  exigirPlus: RequestHandler,
 ): void {
-  router.post('/patrones', async (req, res, next) => {
+  router.post('/patrones', exigirPlus, async (req, res, next) => {
     try {
       const parsed = patronCreateRequestSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -59,7 +60,7 @@ export function registrarPatrones(
 
   // CLA-15: read only. Registered before `/patrones/:id` for readability;
   // methods differ, so the order does not change routing.
-  router.post('/patrones/vista-previa', async (req, res, next) => {
+  router.post('/patrones/vista-previa', exigirPlus, async (req, res, next) => {
     try {
       const parsed = patronVistaPreviaRequestSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -85,7 +86,7 @@ export function registrarPatrones(
     }
   });
 
-  router.patch('/patrones/:id', async (req, res, next) => {
+  router.patch('/patrones/:id', exigirPlus, async (req, res, next) => {
     try {
       const parsedParams = patronIdPathParamsSchema.safeParse(req.params);
       const parsedBody = patronUpdateRequestSchema.safeParse(req.body);
@@ -114,7 +115,7 @@ export function registrarPatrones(
     }
   });
 
-  router.delete('/patrones/:id', async (req, res, next) => {
+  router.delete('/patrones/:id', exigirPlus, async (req, res, next) => {
     try {
       const parsedParams = patronIdPathParamsSchema.safeParse(req.params);
       if (!parsedParams.success) {

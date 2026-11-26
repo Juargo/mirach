@@ -1,3 +1,5 @@
+import { PlanPlusRequeridoError } from '../../../domain/errors/plan-plus-requerido.error';
+import { PLAN_PLUS_REQUERIDO } from './exigir-plus';
 import type { Router } from 'express';
 import type {
   ActualizarPerfilPresupuestoError,
@@ -43,6 +45,9 @@ export function aPerfilPresupuestoHttpError(
       code: 'INGRESO_DECLARADO_INVALIDO',
       message: error.message,
     };
+  }
+  if (error instanceof PlanPlusRequeridoError) {
+    return { status: 403, code: PLAN_PLUS_REQUERIDO, message: error.message };
   }
   const _exhaustive: never = error;
   return _exhaustive;

@@ -35,6 +35,7 @@ import app.mirachbudget.android.core.api.generated.models.AuthMeResponse
 import app.mirachbudget.android.core.api.generated.models.BodyInvalidoResponse
 import app.mirachbudget.android.core.api.generated.models.BucketDetalleMesResponse
 import app.mirachbudget.android.core.api.generated.models.CatalogoErrorResponse
+import app.mirachbudget.android.core.api.generated.models.CatalogoProhibidoErrorResponse
 import app.mirachbudget.android.core.api.generated.models.CatalogoResponse
 import app.mirachbudget.android.core.api.generated.models.CategoriaInternaErrorResponse
 import app.mirachbudget.android.core.api.generated.models.CategoriaResponse
@@ -59,6 +60,7 @@ import app.mirachbudget.android.core.api.generated.models.PerfilErrorResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoUpdateRequest
 import app.mirachbudget.android.core.api.generated.models.PeriodosResponse
+import app.mirachbudget.android.core.api.generated.models.PlanPlusRequeridoErrorResponse
 import app.mirachbudget.android.core.api.generated.models.PlanResponse
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponse
 import app.mirachbudget.android.core.api.generated.models.ReevaluarCategoriasResponse
@@ -270,7 +272,7 @@ interface DefaultApi {
      * Responses:
      *  - 204: Category (and its patterns) deleted. No response body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 403: The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
+     *  - 403: Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: the category does not exist or does not belong to the authenticated user.
      *
      * @param id 
@@ -287,7 +289,7 @@ interface DefaultApi {
      *  - 200: Category updated.
      *  - 400: Invalid nombre/bucket, an empty body, or a malformed request body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 403: The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
+     *  - 403: Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: the category does not exist or does not belong to the authenticated user.
      *  - 409: A category with that nombre already exists for this user (case-insensitive).
      *
@@ -306,6 +308,7 @@ interface DefaultApi {
      *  - 201: Category created, with its created patrones (if any) nested.
      *  - 400: Invalid nombre/bucket, a malformed request body, or a nested patrón that failed validation (CAT038-11) — in the latter case the body carries `indice`, the zero-based position of the offending entry within the submitted `patrones` array.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.
      *  - 409: A category with that nombre already exists for this user (case-insensitive), or a nested patrón collides with one already owned by the caller or with another entry in the same submitted `patrones` array (CAT038-11) — the latter case carries `indice`.
      *
      * @param apiCategoriasPostRequest  (optional)
@@ -591,6 +594,7 @@ interface DefaultApi {
      * Responses:
      *  - 204: Pattern deleted. No response body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.
      *  - 404: Anti-enumeration: the pattern does not exist or does not belong to the authenticated user.
      *
      * @param id 
@@ -607,7 +611,7 @@ interface DefaultApi {
      *  - 200: Pattern updated.
      *  - 400: Invalid patron/matchType/prioridad, an invalid REGEX, an empty body, or a malformed request body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 403: The target categoriaId is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+     *  - 403: Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The target categoriaId is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: the pattern (`PATRON_NO_ENCONTRADO`) or the target categoriaId (`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.
      *  - 409: A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). `existente` names it with its category and bucket.
      *
@@ -626,7 +630,7 @@ interface DefaultApi {
      *  - 201: Pattern created, with the count of moved movements.
      *  - 400: Invalid patron/matchType/prioridad, an invalid REGEX (write-time compile check), an invalid moverDelPeriodo (`PERIODO_INVALIDO`), or a malformed request body.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 403: The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"), which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+     *  - 403: Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category (`esInterna: true`, the per-bucket \"Desconocido\"), which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.
      *  - 409: A pattern with that text already exists for this user (case- and accent-insensitive, CLA-17). `existente` names it with its category and bucket.
      *  - 503: With moverDelPeriodo: the classification catalog could not be read; nothing was saved. `code` CATALOGO_NO_DISPONIBLE.
@@ -645,7 +649,7 @@ interface DefaultApi {
      *  - 200: Preview of the candidate pattern for the resolved periodo.
      *  - 400: Invalid patron (`PATRON_INVALIDO`), invalid periodo (`PERIODO_INVALIDO`) or a malformed body (`BODY_INVALIDO`).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 403: The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+     *  - 403: Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
      *  - 404: Anti-enumeration: categoriaId does not exist or does not belong to the authenticated user.
      *  - 503: The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.
      *
@@ -743,6 +747,7 @@ interface DefaultApi {
      *  - 200: Profile saved; the stored profile is returned.
      *  - 400: Malformed body (BODY_INVALIDO), custom targets that do not sum 10000 (PERFIL_NO_SUMA_100), or a negative target (META_INVALIDA).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.
      *
      * @param perfilPresupuestoUpdateRequest  (optional)
      * @return [PerfilPresupuestoResponse]

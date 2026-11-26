@@ -676,20 +676,42 @@ describe('buildOpenApiDocument', () => {
       // CLA-17/CLA-18: moving a pattern into a system category is refused.
       ['patch', '/api/patrones/{id}'],
       ['post', '/api/patrones/vista-previa'],
-    ] as const)('%s %s declares 403 CATEGORIA_INTERNA', (metodo, ruta) => {
-      const op = document().paths?.[ruta]?.[metodo];
+    ] as const)(
+      '%s %s declares 403 CATEGORIA_INTERNA and PLAN_PLUS_REQUERIDO',
+      (metodo, ruta) => {
+        const op = document().paths?.[ruta]?.[metodo];
+        const schema = componente(schemaRef(op, '403'));
+        expect(schema.properties.code?.enum).toEqual([
+          'CATEGORIA_INTERNA',
+          'PLAN_PLUS_REQUERIDO',
+        ]);
+        expect(schema.required).toContain('code');
+      },
+    );
+
+    it.each([
+      ['post', '/api/categorias'],
+      ['delete', '/api/patrones/{id}'],
+      ['put', '/api/perfil/presupuesto'],
+    ] as const)(
+      '%s %s declares 403 PLAN_PLUS_REQUERIDO only (Plus-only on the free plan)',
+      (metodo, ruta) => {
+        const op = document().paths?.[ruta]?.[metodo];
+        const schema = componente(schemaRef(op, '403'));
+        expect(schema.properties.code?.enum).toEqual(['PLAN_PLUS_REQUERIDO']);
+        expect(schema.required).toContain('code');
+      },
+    );
+
+    it('reclassifying a movement keeps its 403 for system categories only: it is free (CLA-03)', () => {
+      const op = document().paths?.['/api/transacciones/{id}/categoria']?.patch;
       const schema = componente(schemaRef(op, '403'));
       expect(schema.properties.code?.enum).toEqual(['CATEGORIA_INTERNA']);
-      expect(schema.required).toContain('code');
     });
 
-    it('no other categorias or patrones operation declares 403 (only system categories are protected)', () => {
+    it('reading the catalog declares no 403: it is open on the free plan (CLA-09)', () => {
       const { paths } = document();
-      const con403 = [
-        ['post', '/api/categorias'],
-        ['get', '/api/categorias'],
-        ['delete', '/api/patrones/{id}'],
-      ].filter(
+      const con403 = [['get', '/api/categorias']].filter(
         ([m, r]) =>
           (paths?.[r] as Record<string, { responses?: Json }>)?.[m]
             ?.responses?.['403'] !== undefined,

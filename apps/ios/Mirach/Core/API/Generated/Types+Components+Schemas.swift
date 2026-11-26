@@ -712,6 +712,51 @@ extension Components {
                 ])
             }
         }
+        /// 403 body: `PLAN_PLUS_REQUERIDO` when the account is on the free plan (creating, editing and deleting categories and patterns is Plus), or `CATEGORIA_INTERNA` when the category is a system category.
+        ///
+        /// - Remark: Generated from `#/components/schemas/CatalogoProhibidoErrorResponse`.
+        internal struct CatalogoProhibidoErrorResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/CatalogoProhibidoErrorResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case CATEGORIA_INTERNA = "CATEGORIA_INTERNA"
+                case PLAN_PLUS_REQUERIDO = "PLAN_PLUS_REQUERIDO"
+            }
+            /// - Remark: Generated from `#/components/schemas/CatalogoProhibidoErrorResponse/code`.
+            internal var code: Components.Schemas.CatalogoProhibidoErrorResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/CatalogoProhibidoErrorResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `CatalogoProhibidoErrorResponse`.
+            ///
+            /// - Parameters:
+            ///   - code:
+            ///   - message:
+            internal init(
+                code: Components.Schemas.CatalogoProhibidoErrorResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.CatalogoProhibidoErrorResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
+                    "message"
+                ])
+            }
+        }
         /// GET /api/categorias — the authenticated caller's full catalog (US-038, CAT038-02).
         ///
         /// - Remark: Generated from `#/components/schemas/CatalogoResponse`.
@@ -3346,6 +3391,50 @@ extension Components {
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
                     "periodos",
                     "rangos"
+                ])
+            }
+        }
+        /// 403 body: the function is part of Plus and the account is on the free plan. The app offers the plans.
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlanPlusRequeridoErrorResponse`.
+        internal struct PlanPlusRequeridoErrorResponse: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/PlanPlusRequeridoErrorResponse/code`.
+            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case PLAN_PLUS_REQUERIDO = "PLAN_PLUS_REQUERIDO"
+            }
+            /// - Remark: Generated from `#/components/schemas/PlanPlusRequeridoErrorResponse/code`.
+            internal var code: Components.Schemas.PlanPlusRequeridoErrorResponse.codePayload
+            /// - Remark: Generated from `#/components/schemas/PlanPlusRequeridoErrorResponse/message`.
+            internal var message: Swift.String
+            /// Creates a new `PlanPlusRequeridoErrorResponse`.
+            ///
+            /// - Parameters:
+            ///   - code:
+            ///   - message:
+            internal init(
+                code: Components.Schemas.PlanPlusRequeridoErrorResponse.codePayload,
+                message: Swift.String
+            ) {
+                self.code = code
+                self.message = message
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case code
+                case message
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.code = try container.decode(
+                    Components.Schemas.PlanPlusRequeridoErrorResponse.codePayload.self,
+                    forKey: .code
+                )
+                self.message = try container.decode(
+                    Swift.String.self,
+                    forKey: .message
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "code",
+                    "message"
                 ])
             }
         }
