@@ -103,7 +103,6 @@ import {
 } from './patrones.schema';
 import {
   catalogoErrorResponseSchema,
-  categoriaInternaErrorResponseSchema,
   catalogoProhibidoErrorResponseSchema,
   planPlusRequeridoErrorResponseSchema,
 } from './catalogo-error.schema';
@@ -176,6 +175,20 @@ const versionOperation: ZodOpenApiOperationObject = {
   },
 };
 
+/**
+ * 403 of the free plan window (S14): the month asked for is before the months
+ * the free plan sees. Nothing was read or written; Plus sees every month.
+ */
+const respuesta403MesOculto = {
+  description:
+    'The account is on the free plan and the month asked for is before the months it sees (the latest ' +
+    'month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). ' +
+    '`code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.',
+  content: {
+    'application/json': { schema: planPlusRequeridoErrorResponseSchema },
+  },
+};
+
 const resumenOperation: ZodOpenApiOperationObject = {
   summary: 'Monthly 50/30/20 breakdown',
   description:
@@ -185,6 +198,7 @@ const resumenOperation: ZodOpenApiOperationObject = {
     query: resumenQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description: 'Monthly resumen for the resolved period.',
@@ -209,6 +223,7 @@ const resumenAnualOperation: ZodOpenApiOperationObject = {
     query: resumenAnualQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description: 'Annual resumen for the resolved year.',
@@ -233,6 +248,7 @@ const movimientosOperation: ZodOpenApiOperationObject = {
     query: movimientosQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description: 'Monthly transaction list for the resolved period.',
@@ -258,6 +274,7 @@ const bucketsOperation: ZodOpenApiOperationObject = {
     query: bucketsQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description: 'Bucket detail for the resolved period.',
@@ -817,9 +834,10 @@ const transaccionesCategoriaOperation: ZodOpenApiOperationObject = {
     '403': {
       description:
         'With aplicarAParecidos: the category is a protected system category, which accepts no ' +
-        'patterns (CLA-18). `code` CATEGORIA_INTERNA.',
+        'patterns (CLA-18), `code` CATEGORIA_INTERNA; or the account is on the free plan and the periodo ' +
+        'is before the months it sees (S14), `code` PLAN_PLUS_REQUERIDO.',
       content: {
-        'application/json': { schema: categoriaInternaErrorResponseSchema },
+        'application/json': { schema: catalogoProhibidoErrorResponseSchema },
       },
     },
     '503': {
@@ -853,6 +871,7 @@ const transaccionesParecidosOperation: ZodOpenApiOperationObject = {
     query: transaccionesParecidosQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description: 'Suggestion for the resolved periodo.',
@@ -1773,6 +1792,7 @@ const semaforoDetalleOperation: ZodOpenApiOperationObject = {
     query: semaforoDetalleQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description: 'Semáforo detail for the resolved period.',
@@ -1802,6 +1822,7 @@ const bucketDetalleMesOperation: ZodOpenApiOperationObject = {
     query: bucketDetalleMesQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description:
@@ -1831,6 +1852,7 @@ const ingresosMesOperation: ZodOpenApiOperationObject = {
     query: ingresosMesQuerySchema,
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '200': {
       description:
@@ -2030,6 +2052,7 @@ const registrarMovimientoManualOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '403': respuesta403MesOculto,
     '401': respuesta401Protegida,
     '201': {
       description:

@@ -37,7 +37,6 @@ import app.mirachbudget.android.core.api.generated.models.BucketDetalleMesRespon
 import app.mirachbudget.android.core.api.generated.models.CatalogoErrorResponse
 import app.mirachbudget.android.core.api.generated.models.CatalogoProhibidoErrorResponse
 import app.mirachbudget.android.core.api.generated.models.CatalogoResponse
-import app.mirachbudget.android.core.api.generated.models.CategoriaInternaErrorResponse
 import app.mirachbudget.android.core.api.generated.models.CategoriaResponse
 import app.mirachbudget.android.core.api.generated.models.CommitIngestaResponse
 import app.mirachbudget.android.core.api.generated.models.ConfigResponse
@@ -228,6 +227,7 @@ interface DefaultApi {
      *  - 200: Month×bucket detail grouped by category for the resolved period (MBD-01/02/03/05/08).
      *  - 400: Invalid bucket (outside the 4-bucket allowlist, e.g. Ingresos) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError), scrubbed messages.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *
      * @param bucket Bucket name (raw path param). Validated against the domain enum by the use case, not this schema.
      * @param periodo Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema. (optional)
@@ -244,6 +244,7 @@ interface DefaultApi {
      *  - 200: Bucket detail for the resolved period.
      *  - 400: Invalid bucket (unrecognized value) or invalid periodo — both domain-level (BucketInvalidoError / PeriodoInvalidoError).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *
      * @param bucket Bucket name (raw path param). Validated against the domain enum by the use case, not this schema.
      * @param periodo Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema. (optional)
@@ -534,6 +535,7 @@ interface DefaultApi {
      *  - 200: Monthly income list for the resolved period — exactly {total, conteo, transacciones} with origen = bank name verbatim or \"Manual\" (MID-01/02/03/05).
      *  - 400: Invalid periodo — malformed YYYY-MM value (domain-level, PeriodoMes VO → PeriodoInvalidoError, MID-04); the scrubbed message never echoes the raw input.
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *
      * @param periodo Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema. (optional)
      * @return [IngresosMesResponse]
@@ -549,6 +551,7 @@ interface DefaultApi {
      *  - 200: Monthly transaction list for the resolved period.
      *  - 400: Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *
      * @param periodo Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema. (optional)
      * @return [MovimientosMesResponse]
@@ -579,6 +582,7 @@ interface DefaultApi {
      *  - 201: Movement registered. Response carries id, fecha (ISO), descripcion (plaintext), cargo/abono (BigInt-safe strings), bucket, categoriaId, and origen=\"Manual\" (D-08/D-12). No DB read-back — values sourced from the in-memory VO.
      *  - 400: Shape mismatch (Zod: stray fields on Ingreso, missing bucket/categoriaId on Gasto, monto as JSON number, wrong fecha format) OR domain validation failure (MovimientoManualInvalidoError: FECHA_FUTURA, DESCRIPCION_VACIA/LARGA, MONTO_INVALIDO/OVERFLOW, SIN_MONTOS, MONTO_NEGATIVO) OR catalog cascade failure (CategoriaFueraDeCatalogoError, BucketCategoriaNoConcuerdaError). Amounts are scrubbed from every error message (ADR-013).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *  - 500: Infrastructure fault — sentinel upsert, catalog load, or Transaccion.create failed (PersistenciaFallidaError). Retryable.
      *
      * @param apiMovimientosPostRequest  (optional)
@@ -789,6 +793,7 @@ interface DefaultApi {
      *  - 200: Annual resumen for the resolved year.
      *  - 400: Invalid anio — either a transport-shape mismatch or a malformed/out-of-range value (domain-level).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *
      * @param anio Year, e.g. 2026. Absent defaults to the current year. Range/format is validated by the domain, not this schema. (optional)
      * @return [ResumenAnualResponse]
@@ -804,6 +809,7 @@ interface DefaultApi {
      *  - 200: Monthly resumen for the resolved period.
      *  - 400: Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *
      * @param periodo Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema. (optional)
      * @return [ResumenMesResponse]
@@ -819,6 +825,7 @@ interface DefaultApi {
      *  - 200: Semáforo detail for the resolved period.
      *  - 400: Invalid periodo — either a transport-shape mismatch or a malformed YYYY-MM value (domain-level, PeriodoMes VO).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *
      * @param periodo Month period, format YYYY-MM (e.g. 2026-07). Absent defaults to the latest month with at least one transaction for this user, falling back to the current month when the user has none (issue #747). Format is validated by the domain, not this schema. (optional)
      * @return [SemaforoDetalleResponse]
@@ -834,7 +841,7 @@ interface DefaultApi {
      *  - 200: Transaction reclassified.
      *  - 400: Invalid categoriaId — the given id does not resolve against the caller's own catalog, or belongs to another user (scrubbed, CategoriaDesconocidaError; ADR-037 — the closed enum gate is retired; ADR-042 — the contract identifies the categoria by id, not name). With aplicarAParecidos also: a malformed aplicarAParecidos (`BODY_INVALIDO`), no suggested text for the glosa (`PATRON_INVALIDO`) or an invalid periodo (`PERIODO_INVALIDO`).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
-     *  - 403: With aplicarAParecidos: the category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+     *  - 403: With aplicarAParecidos: the category is a protected system category, which accepts no patterns (CLA-18), `code` CATEGORIA_INTERNA; or the account is on the free plan and the periodo is before the months it sees (S14), `code` PLAN_PLUS_REQUERIDO.
      *  - 404: Anti-enumeration: the transaction does not exist or does not belong to the authenticated user.
      *  - 503: With aplicarAParecidos: the classification catalog could not be read; nothing was saved. `code` CATALOGO_NO_DISPONIBLE.
      *
@@ -853,6 +860,7 @@ interface DefaultApi {
      *  - 200: Suggestion for the resolved periodo.
      *  - 400: Missing categoriaId (`PARAMETROS_INVALIDOS`) or an invalid periodo (`PERIODO_INVALIDO`).
      *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *  - 403: The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
      *  - 404: Anti-enumeration: the transaction (`TRANSACCION_NO_ENCONTRADA`) or the category (`CATEGORIA_NO_ENCONTRADA`) does not exist or does not belong to the authenticated user.
      *  - 503: The classification catalog could not be read; retry later. `code` CATALOGO_NO_DISPONIBLE.
      *

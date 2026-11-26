@@ -4,6 +4,7 @@ import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { transaccionesCategoriaResponseSchema } from './schemas/transacciones-categoria.schema';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
 
 /**
  * Gate de aislamiento para la reclasificación (ADR-015, RNF-SEC-006). Escritura:
@@ -32,6 +33,7 @@ function fakeContainer(): Container {
         }),
       ),
     },
+    ventanaPlanGratis: ventanaPlanGratisDoble(),
     shutdown: async () => {},
   } as unknown as Container;
 }

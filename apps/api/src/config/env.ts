@@ -296,12 +296,13 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Máximo de bancos del plan gratis (PLA-01), informado a las apps por GET /api/config.',
     ),
-  FREE_PLAN_CURRENT_MONTH_ONLY: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((value) => value === 'true')
+  FREE_PLAN_VISIBLE_MONTHS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(3)
     .describe(
-      'Si el plan gratis se limita al mes actual (PLA-01), informado por GET /api/config. Enum de strings ("true"/"false"), igual que COOKIE_SECURE.',
+      'Meses visibles del plan gratis (PLA-01): el último mes con movimientos y los anteriores hasta completar esta cantidad. Lo anterior se oculta, no se borra; Plus lo ve todo. Informado por GET /api/config.',
     ),
   APP_FLAGS: z
     .string()

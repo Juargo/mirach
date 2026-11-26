@@ -2573,6 +2573,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/buckets/{bucket}/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/buckets/{bucket}/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub_.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub_.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/buckets/{bucket}/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub_.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub_.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             /// Undocumented response.
             ///
             /// A response with a code that is not documented in the OpenAPI document.
@@ -2804,6 +2855,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/buckets/{bucket}/detalle/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/buckets/{bucket}/detalle/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub__sol_detalle.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub__sol_detalle.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/buckets/{bucket}/detalle/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub__sol_detalle.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_buckets_sol__lcub_bucket_rcub__sol_detalle.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }
@@ -7999,6 +8101,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/ingresos/mes/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/ingresos/mes/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_ingresos_sol_mes.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_ingresos_sol_mes.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/ingresos/mes/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_ingresos_sol_mes.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_ingresos_sol_mes.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             /// Undocumented response.
             ///
             /// A response with a code that is not documented in the OpenAPI document.
@@ -8212,6 +8365,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/movimientos/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/movimientos/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_movimientos.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_movimientos.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/movimientos/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_movimientos.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_movimientos.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }
@@ -8609,6 +8813,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/movimientos/POST/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/movimientos/POST/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_movimientos.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_movimientos.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/movimientos/post/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.post_sol_api_sol_movimientos.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.post_sol_api_sol_movimientos.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }
@@ -12836,6 +13091,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/resumen/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/resumen/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_resumen.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_resumen.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/resumen/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_resumen.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_resumen.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             /// Undocumented response.
             ///
             /// A response with a code that is not documented in the OpenAPI document.
@@ -13054,6 +13360,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/resumen/anual/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/resumen/anual/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_resumen_sol_anual.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_resumen_sol_anual.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/resumen/anual/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_resumen_sol_anual.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_resumen_sol_anual.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             /// Undocumented response.
             ///
             /// A response with a code that is not documented in the OpenAPI document.
@@ -13267,6 +13624,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/resumen/semaforo/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/resumen/semaforo/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_resumen_sol_semaforo.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_resumen_sol_semaforo.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/resumen/semaforo/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_resumen_sol_semaforo.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_resumen_sol_semaforo.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }
@@ -13559,12 +13967,12 @@ internal enum Operations {
                 /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/responses/403/content`.
                 internal enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/api/transacciones/{id}/categoria/PATCH/responses/403/content/application\/json`.
-                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    case json(Components.Schemas.CatalogoProhibidoErrorResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                    internal var json: Components.Schemas.CatalogoProhibidoErrorResponse {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -13583,7 +13991,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// With aplicarAParecidos: the category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            /// With aplicarAParecidos: the category is a protected system category, which accepts no patterns (CLA-18), `code` CATEGORIA_INTERNA; or the account is on the free plan and the periodo is before the months it sees (S14), `code` PLAN_PLUS_REQUERIDO.
             ///
             /// - Remark: Generated from `#/paths//api/transacciones/{id}/categoria/patch/responses/403`.
             ///
@@ -13948,6 +14356,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/transacciones/{id}/parecidos/GET/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the month asked for is before the months it sees (the latest month with movements and the ones before it, up to `planGratis.mesesVisibles` of `GET /api/config`). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written; the data stays stored and Plus sees it.
+            ///
+            /// - Remark: Generated from `#/paths//api/transacciones/{id}/parecidos/get/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.get_sol_api_sol_transacciones_sol__lcub_id_rcub__sol_parecidos.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }

@@ -1,6 +1,7 @@
 import { IPeriodosConDatosReader } from '../ports/periodos-con-datos.port';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
+import { VentanaPlanGratis } from './ventana-plan-gratis';
 
 export interface ListarPeriodosConDatosInput {
   readonly userId: string;
@@ -15,11 +16,15 @@ export interface ListarPeriodosConDatosInput {
  * `YYYY-MM` is zero-padded, so descending lexicographic order is
  * chronological order. Empty list when the user has no movements. Never
  * fails — "no data" is a valid state, not an error.
+ *
+ * The free plan lists only the months inside its window (S14); with Plus the
+ * list is whole.
  */
 export class ListarPeriodosConDatosUseCase {
   constructor(
     private readonly reader: IPeriodosConDatosReader,
     private readonly perfilReader: IPerfilPresupuestoReader,
+    private readonly ventana: VentanaPlanGratis,
   ) {}
 
   async execute(
@@ -31,9 +36,16 @@ export class ListarPeriodosConDatosUseCase {
       input.userId,
       perfil.mesFinanciero.diaCorte,
     );
-    const unicos = new Map(periodos.map((periodo) => [periodo.valor, periodo]));
-    return [...unicos.values()].sort((a, b) =>
-      a.valor < b.valor ? 1 : a.valor > b.valor ? -1 : 0,
+    const primeroVisible = await this.ventana.primerMesVisible(
+      input.userId,
+      perfil.mesFinanciero.diaCorte,
     );
+    const unicos = new Map(periodos.map((periodo) => [periodo.valor, periodo]));
+    return [...unicos.values()]
+      .filter(
+        (periodo) =>
+          primeroVisible === null || periodo.valor >= primeroVisible.valor,
+      )
+      .sort((a, b) => (a.valor < b.valor ? 1 : a.valor > b.valor ? -1 : 0));
   }
 }

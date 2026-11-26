@@ -110,6 +110,17 @@ export class PeriodoMes {
     return PeriodoMes.construir(year, month, diaCorte);
   }
 
+  /** The period `n` months before this one, with the same cut-off day. */
+  mesesAntes(n: number): PeriodoMes {
+    const indice = this.desde.getUTCFullYear() * 12 + this.desde.getUTCMonth();
+    const destino = indice - n;
+    return PeriodoMes.construir(
+      Math.floor(destino / 12),
+      (destino % 12) + 1,
+      this.diaCorte,
+    );
+  }
+
   /** The period an income credit on `fecha` counts in (PER-08 tolerance). */
   static queContieneIngreso(fecha: Date, diaCorte: DiaCorte): PeriodoMes {
     return PeriodoMes.queContiene(

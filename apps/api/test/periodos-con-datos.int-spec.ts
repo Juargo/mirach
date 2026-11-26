@@ -7,6 +7,7 @@ import { PrismaUltimoPeriodoConDatosReader } from '../src/infrastructure/persist
 import { ListarPeriodosConDatosUseCase } from '../src/application/use-cases/listar-periodos-con-datos.use-case';
 import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 import { DiaCorte } from '../src/domain/value-objects/mes-financiero';
+import { ventanaPlanGratisDoble } from './support/ventana-plan-gratis.double';
 import { perfilReaderConCorte } from './support/perfil-presupuesto-reader.double';
 import { USER_ID_FIJO } from '../src/infrastructure/persistence/constants';
 
@@ -30,6 +31,7 @@ describe('PrismaPeriodosConDatosReader (integration — real DB)', () => {
   const useCase = new ListarPeriodosConDatosUseCase(
     reader,
     perfilReaderConCorte(),
+    ventanaPlanGratisDoble(),
   );
   /** The listed labels (`YYYY-MM`) for one user, calendar months (cut-off 1). */
   const listar = async (userId: string): Promise<string[]> =>
