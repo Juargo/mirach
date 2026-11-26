@@ -34,6 +34,7 @@ const GRATIS = {
   producto: null,
   tienda: null,
   prueba: null,
+  fundador: null,
 };
 
 describe('GET /api/plan (e2e)', () => {
@@ -123,6 +124,7 @@ describe('GET /api/plan (e2e)', () => {
       producto: 'plus_anual',
       tienda: 'play_store',
       prueba: null,
+      fundador: null,
     });
   });
 
@@ -146,6 +148,7 @@ describe('GET /api/plan (e2e)', () => {
       producto: null,
       tienda: null,
       prueba: null,
+      fundador: null,
     });
   });
 
@@ -241,6 +244,57 @@ describe('GET /api/plan (e2e)', () => {
         },
       });
       expect(await prisma.user.count({ where: { id: marcela } })).toBe(1);
+    });
+  });
+
+  describe('Fundador seats (PLA-10)', () => {
+    it('counts the grants in force of every account, without sandbox or revoked ones', async () => {
+      const enVenta = buildApp({
+        PLUS_BILLING_STARTS_AT: '2026-01-01T00:00:00Z',
+        PLUS_TRIAL_DAYS: '0',
+        REVENUECAT_FUNDADOR_PRODUCT_ID: 'plus_fundador',
+        FUNDADOR_SEATS: '1000000',
+      });
+      const antes = (await leer(authMarcela, enVenta)).fundador;
+      const extras = [1, 2].map((n) => `${RUN_ID}-fundador-${n}`);
+      for (const id of extras) {
+        await prisma.user.create({ data: { id, nombre: id } });
+      }
+      await prisma.permisoPlan.createMany({
+        data: [
+          { userId: otro, motivo: 'fundador' },
+          { userId: marcela, motivo: 'fundador', sandbox: true },
+          { userId: extras[0], motivo: 'fundador', revocadoEn: new Date() },
+          { userId: extras[1], motivo: 'tester_vitalicio' },
+        ],
+      });
+
+      const despues = (await leer(authMarcela, enVenta)).fundador;
+      await prisma.permisoPlan.deleteMany({
+        where: { userId: { in: extras } },
+      });
+      await prisma.user.deleteMany({ where: { id: { in: extras } } });
+
+      expect(antes?.cuposTotales).toBe(1000000);
+      expect(despues).toEqual({
+        cuposTotales: 1000000,
+        cuposDisponibles: (antes?.cuposDisponibles ?? 0) - 1,
+      });
+    });
+
+    it('never answers a negative number of seats', async () => {
+      const agotado = buildApp({
+        REVENUECAT_FUNDADOR_PRODUCT_ID: 'plus_fundador',
+        FUNDADOR_SEATS: '0',
+      });
+      await prisma.permisoPlan.create({
+        data: { userId: otro, motivo: 'fundador' },
+      });
+
+      expect((await leer(authMarcela, agotado)).fundador).toEqual({
+        cuposTotales: 0,
+        cuposDisponibles: 0,
+      });
     });
   });
 

@@ -278,3 +278,23 @@ export function resolverPlanCuenta(
     },
   };
 }
+
+/** Cupos del plan Fundador (PLA-10). */
+export interface CuposFundador {
+  readonly cuposTotales: number;
+  readonly cuposDisponibles: number;
+}
+
+/**
+ * Las tiendas no manejan cupos, así que puede venderse alguno de más entre que
+ * se agotan y que cada app vuelve a consultar: nunca informa un número negativo.
+ */
+export function cuposFundador(
+  cuposTotales: number,
+  vendidos: number,
+): CuposFundador {
+  return {
+    cuposTotales,
+    cuposDisponibles: Math.max(0, cuposTotales - vendidos),
+  };
+}

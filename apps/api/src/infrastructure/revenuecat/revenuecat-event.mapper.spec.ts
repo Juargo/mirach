@@ -243,6 +243,21 @@ describe('interpretarEventoRevenueCat', () => {
         tipo: 'fundador_otorgado',
         usuarios: ['user-1'],
         ocurridoEn: new Date(T0),
+        sandbox: false,
+      });
+    });
+
+    it('marca como sandbox la compra Fundador hecha en el entorno de pruebas de la tienda', () => {
+      const { cambio } = interpretar({
+        type: 'NON_RENEWING_PURCHASE',
+        product_id: FUNDADOR,
+        expiration_at_ms: null,
+        environment: 'SANDBOX',
+      });
+
+      expect(cambio).toMatchObject({
+        tipo: 'fundador_otorgado',
+        sandbox: true,
       });
     });
 

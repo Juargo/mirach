@@ -1425,6 +1425,30 @@
         "additionalProperties": false,
         "description": "GET /api/plan — the plan of the session user, decided by the API (ADR-012, ADR-015).",
         "properties": {
+          "fundador": {
+            "additionalProperties": false,
+            "description": "Seats of the Fundador plan, a one-time purchase that gives Plus for life (PLA-10). null when it is not on sale.",
+            "nullable": true,
+            "properties": {
+              "cuposDisponibles": {
+                "description": "Seats left, never negative. At 0 the app stops offering the Fundador purchase.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "cuposTotales": {
+                "description": "Seats of the Fundador plan (PLA-10).",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "cuposTotales",
+              "cuposDisponibles"
+            ],
+            "type": "object"
+          },
           "origen": {
             "description": "Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.",
             "enum": [
@@ -1509,7 +1533,8 @@
           "renueva",
           "producto",
           "tienda",
-          "prueba"
+          "prueba",
+          "fundador"
         ],
         "type": "object"
       },

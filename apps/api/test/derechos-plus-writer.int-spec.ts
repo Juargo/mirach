@@ -47,7 +47,11 @@ describe('PrismaDerechosPlusWriter (integración)', () => {
     tipo: 'fundador_otorgado' | 'fundador_revocado',
     ocurridoEn: Date,
     usuario = ana,
-  ): CambioDerechosAplicable => ({ tipo, usuarios: [usuario], ocurridoEn });
+    sandbox = false,
+  ): CambioDerechosAplicable =>
+    tipo === 'fundador_otorgado'
+      ? { tipo, usuarios: [usuario], ocurridoEn, sandbox }
+      : { tipo, usuarios: [usuario], ocurridoEn };
 
   const leerSuscripcion = (userId: string) =>
     prisma.suscripcion.findUnique({ where: { userId } });
@@ -187,6 +191,28 @@ describe('PrismaDerechosPlusWriter (integración)', () => {
         venceEn: null,
         revocadoEn: null,
       });
+    });
+
+    it('guarda si la compra fue de sandbox, y una compra real posterior la reemplaza', async () => {
+      await writer.aplicar(
+        eventoId(),
+        fundador('fundador_otorgado', T0, ana, true),
+      );
+      expect((await leerFundador(ana))?.sandbox).toBe(true);
+
+      await writer.aplicar(eventoId(), fundador('fundador_revocado', T1));
+      await writer.aplicar(eventoId(), fundador('fundador_otorgado', T2));
+
+      expect(await leerFundador(ana)).toMatchObject({
+        sandbox: false,
+        revocadoEn: null,
+      });
+    });
+
+    it('una compra real no marca sandbox', async () => {
+      await writer.aplicar(eventoId(), fundador('fundador_otorgado', T0));
+
+      expect((await leerFundador(ana))?.sandbox).toBe(false);
     });
 
     it('un reembolso lo revoca sin borrar la fila', async () => {

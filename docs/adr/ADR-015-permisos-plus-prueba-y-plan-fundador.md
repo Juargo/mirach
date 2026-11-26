@@ -58,6 +58,9 @@ RevenueCat, el webhook y la regla "el API decide los derechos" de ADR-012 siguen
    cuenta los permisos `fundador` no revocados y expone los cupos que quedan; las apps
    dejan de ofrecer la compra cuando llegan a cero. Un reembolso revoca el permiso y libera
    el cupo.
+   Los cupos son `FUNDADOR_SEATS` (100). Una compra hecha en el entorno de pruebas de una
+   tienda da Plus igual, para que App Review y los testers puedan probarla, pero no usa
+   cupo. Sin `REVENUECAT_FUNDADOR_PRODUCT_ID` el Fundador no está en venta.
 6. **Un solo derecho en RevenueCat.** Los tres productos (mensual, anual y Fundador) dan
    el mismo derecho `plus`. El API distingue el Fundador por el identificador del
    producto, que vive en la configuración del API.

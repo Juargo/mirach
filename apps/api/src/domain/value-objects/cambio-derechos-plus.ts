@@ -16,7 +16,14 @@ export type CambioDerechosPlus =
       readonly ocurridoEn: Date;
     }
   | {
-      readonly tipo: 'fundador_otorgado' | 'fundador_revocado';
+      readonly tipo: 'fundador_otorgado';
+      readonly usuarios: readonly string[];
+      readonly ocurridoEn: Date;
+      /** Compra hecha en el entorno de pruebas de la tienda: no usa un cupo. */
+      readonly sandbox: boolean;
+    }
+  | {
+      readonly tipo: 'fundador_revocado';
       readonly usuarios: readonly string[];
       readonly ocurridoEn: Date;
     }

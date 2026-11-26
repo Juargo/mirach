@@ -23,6 +23,7 @@
 
 package app.mirachbudget.android.core.api.generated.models
 
+import app.mirachbudget.android.core.api.generated.models.PlanResponseFundador
 import app.mirachbudget.android.core.api.generated.models.PlanResponsePrueba
 
 import kotlinx.serialization.Serializable
@@ -32,6 +33,7 @@ import kotlinx.serialization.Contextual
 /**
  * GET /api/plan — the plan of the session user, decided by the API (ADR-012, ADR-015).
  *
+ * @param fundador 
  * @param origen Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
  * @param plan Plan in force for the session user (PLA-01).
  * @param producto Store product identifier of the subscription. null for any other origin.
@@ -43,6 +45,9 @@ import kotlinx.serialization.Contextual
 @Serializable
 
 data class PlanResponse (
+
+    @SerialName(value = "fundador")
+    val fundador: PlanResponseFundador?,
 
     /* Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan. */
     @SerialName(value = "origen")

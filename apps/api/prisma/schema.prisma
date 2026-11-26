@@ -128,6 +128,9 @@ model PermisoPlan {
   otorgadoEn DateTime  @default(now())
   venceEn    DateTime?
   revocadoEn DateTime?
+  // true when a Fundador grant came from a store sandbox purchase: it gives
+  // Plus like any other but does not use one of the seats (PLA-10).
+  sandbox    Boolean   @default(false)
 
   @@unique([userId, motivo])
   @@index([motivo])

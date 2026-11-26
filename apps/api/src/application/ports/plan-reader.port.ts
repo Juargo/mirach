@@ -7,4 +7,11 @@ import type { DerechosCuenta } from '../../domain/value-objects/plan';
  */
 export interface IPlanReader {
   leer(userId: string): Promise<DerechosCuenta>;
+
+  /**
+   * Cupos del plan Fundador ya usados: permisos `fundador` vigentes de todas
+   * las cuentas, sin las compras de sandbox (PLA-10). Es un conteo, no expone
+   * datos de ningún usuario.
+   */
+  contarFundadoresVendidos(): Promise<number>;
 }

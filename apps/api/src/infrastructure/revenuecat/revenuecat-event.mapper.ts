@@ -89,12 +89,18 @@ function transferencia(evento: Campos, ocurridoEn: Date): CambioDerechosPlus {
 }
 
 function fundador(
+  evento: Campos,
   tipo: string,
   cuentas: readonly string[],
   ocurridoEn: Date,
 ): CambioDerechosPlus {
   if (tipo === 'NON_RENEWING_PURCHASE' || tipo === 'REFUND_REVERSED') {
-    return { tipo: 'fundador_otorgado', usuarios: cuentas, ocurridoEn };
+    return {
+      tipo: 'fundador_otorgado',
+      usuarios: cuentas,
+      ocurridoEn,
+      sandbox: evento.environment === 'SANDBOX',
+    };
   }
   if (tipo === 'CANCELLATION') {
     return { tipo: 'fundador_revocado', usuarios: cuentas, ocurridoEn };
@@ -172,7 +178,7 @@ function cambio(
     return ignorado('evento sin usuario de Mirach');
   }
   if (producto === opciones.productoFundador) {
-    return fundador(tipo, cuentas, ocurridoEn);
+    return fundador(evento, tipo, cuentas, ocurridoEn);
   }
   if (tipo === 'NON_RENEWING_PURCHASE') {
     return ignorado('compra única de otro producto');
