@@ -8,6 +8,9 @@ import { LoginUseCase } from '../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identidad.use-case';
 import { ObtenerConfiguracionAppUseCase } from '../application/use-cases/obtener-configuracion-app.use-case';
+import { ObtenerPlanUseCase } from '../application/use-cases/obtener-plan.use-case';
+import { PrismaPlanReader } from '../infrastructure/persistence/prisma-plan.reader';
+import { SystemReloj } from '../infrastructure/http/auth/system-reloj';
 import { VersionApp } from '../domain/value-objects/version-app';
 import { CalcularResumenMesUseCase } from '../application/use-cases/calcular-resumen-mes.use-case';
 import { CalcularResumenAnualUseCase } from '../application/use-cases/calcular-resumen-anual.use-case';
@@ -170,6 +173,8 @@ export interface Container {
   readonly obtenerIdentidad: ObtenerIdentidadUseCase;
   /** Configuración remota de las apps (ADR-005 §4.5) — `GET /api/config`. */
   readonly obtenerConfiguracionApp: ObtenerConfiguracionAppUseCase;
+  /** Plan de la cuenta (ADR-012 §2, ADR-015 §2) — `GET /api/plan`. */
+  readonly obtenerPlan: ObtenerPlanUseCase;
   /** Login con Google (AUTH-11..18) — `undefined` cuando el feature está
    * apagado (GOOGLE_CLIENT_ID/SECRET ausentes, design §4.3/§4.4). El TIPO
    * de este campo es el seam de activación: `googleAuth !== undefined` es
@@ -464,6 +469,10 @@ export function createContainer(
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
+    obtenerPlan: new ObtenerPlanUseCase(
+      new PrismaPlanReader(prisma),
+      new SystemReloj(),
+    ),
     obtenerConfiguracionApp: new ObtenerConfiguracionAppUseCase({
       // `getValue()` cannot throw: env.ts already validated both versions with
       // this same value object, and an invalid one fails the boot.

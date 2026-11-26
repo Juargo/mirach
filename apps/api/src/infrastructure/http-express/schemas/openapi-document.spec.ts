@@ -766,6 +766,9 @@ describe('buildOpenApiDocument', () => {
       const vocabularios = [
         ['verde', 'amarillo', 'rojo', null],
         ['bien', 'cerca', 'sobre', null],
+        // GET /api/plan (ADR-015): origin and store, null on the free plan.
+        ['suscripcion', 'prueba', 'tester_vitalicio', 'fundador', null],
+        ['app_store', 'play_store', null],
       ];
 
       expect(found.length).toBeGreaterThanOrEqual(6);

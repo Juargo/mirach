@@ -14,6 +14,7 @@ import {
 } from './routes/buckets.routes';
 import { registrarIngresosMes } from './routes/ingresos.routes';
 import { registrarPeriodos } from './routes/periodos.routes';
+import { registrarPlan } from './routes/plan.routes';
 import {
   registrarMovimientos,
   registrarMovimientoManual,
@@ -246,6 +247,7 @@ export function createApp(container: Container, env: Env): Express {
   registrarPerfil(protectedApi, container.perfil);
   registrarPerfilPresupuesto(protectedApi, container.perfilPresupuesto);
   registrarConsentimientos(protectedApi, container.consentimientos);
+  registrarPlan(protectedApi, container.obtenerPlan);
   registrarCuenta(protectedApi, {
     eliminarCuenta: container.eliminarCuenta,
     cookieSecure,

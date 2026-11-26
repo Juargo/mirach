@@ -305,6 +305,13 @@ internal protocol APIProtocol: Sendable {
     /// - Remark: HTTP `GET /api/periodos`.
     /// - Remark: Generated from `#/paths//api/periodos/get`.
     func get_sol_api_sol_periodos(_ input: Operations.get_sol_api_sol_periodos.Input) async throws -> Operations.get_sol_api_sol_periodos.Output
+    /// Plan of the session user (free or Plus)
+    ///
+    /// The API decides whether the account has Plus (ADR-006): it does when it has a store subscription in force or a grant in force (the 30-day trial, the lifetime grant of a tester or the Fundador purchase). The apps show this answer and never authorise from what the store SDK reports. A subscription or grant that ends leaves the account on the free plan with all its data (PLA-07). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+    ///
+    /// - Remark: HTTP `GET /api/plan`.
+    /// - Remark: Generated from `#/paths//api/plan/get`.
+    func get_sol_api_sol_plan(_ input: Operations.get_sol_api_sol_plan.Input) async throws -> Operations.get_sol_api_sol_plan.Output
     /// Monthly 50/30/20 breakdown
     ///
     /// Authenticated endpoint returning the 50/30/20 budget breakdown for a month (US-015/016). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
@@ -929,6 +936,15 @@ extension APIProtocol {
     /// - Remark: Generated from `#/paths//api/periodos/get`.
     internal func get_sol_api_sol_periodos(headers: Operations.get_sol_api_sol_periodos.Input.Headers = .init()) async throws -> Operations.get_sol_api_sol_periodos.Output {
         try await get_sol_api_sol_periodos(Operations.get_sol_api_sol_periodos.Input(headers: headers))
+    }
+    /// Plan of the session user (free or Plus)
+    ///
+    /// The API decides whether the account has Plus (ADR-006): it does when it has a store subscription in force or a grant in force (the 30-day trial, the lifetime grant of a tester or the Fundador purchase). The apps show this answer and never authorise from what the store SDK reports. A subscription or grant that ends leaves the account on the free plan with all its data (PLA-07). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+    ///
+    /// - Remark: HTTP `GET /api/plan`.
+    /// - Remark: Generated from `#/paths//api/plan/get`.
+    internal func get_sol_api_sol_plan(headers: Operations.get_sol_api_sol_plan.Input.Headers = .init()) async throws -> Operations.get_sol_api_sol_plan.Output {
+        try await get_sol_api_sol_plan(Operations.get_sol_api_sol_plan.Input(headers: headers))
     }
     /// Monthly 50/30/20 breakdown
     ///
