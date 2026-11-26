@@ -15,6 +15,10 @@ de suscripciones (**nuevo**). No hay nada construido todavía. Decisión del pro
 (2026-10-25): los planes y el cobro entran en la **v1.1**; en la v1.0 Plus es gratis para
 todos durante el lanzamiento, y se avisa desde el inicio que Plus será pago.
 
+Ajustado por ADR-015 (2026-11-26): la prueba de 30 días (§3) la concede el API sin
+pasar por las tiendas, Plus también puede venir de un permiso concedido, y se agrega el
+plan Fundador. La puerta falsa de precios (§5, LAN-04) se descartó.
+
 ## Contexto
 
 - La monetización es una suscripción con plan gratis limitado y prueba de 30 días del plan

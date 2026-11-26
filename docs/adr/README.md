@@ -53,6 +53,7 @@ requisitos: [RNF-..., IMP-...]
 | [ADR-012](ADR-012-suscripciones-y-derechos-por-plan.md) | Suscripciones y derechos por plan | Aceptado |
 | [ADR-013](ADR-013-cuenta-anonima.md) | Cuenta anónima y vinculación posterior | Aceptado |
 | [ADR-014](ADR-014-fusion-de-cuenta-anonima.md) | Fusión de una cuenta anónima con una cuenta existente | Aceptado |
+| [ADR-015](ADR-015-permisos-plus-prueba-y-plan-fundador.md) | Permisos Plus concedidos, prueba sin tarjeta y plan Fundador | Aceptado |
 
 El product owner los aceptó el 2026-10-25. Las partes que describen
 lo que ya está construido y desplegado se marcan como **vigente** dentro de cada ADR; las
@@ -87,6 +88,7 @@ antiguos: `CLAUDE.md`, `apps/api/CLAUDE.md`, comentarios del código y los requi
 | ADR-012 | Nuevo |
 | ADR-013 | Nuevo |
 | ADR-014 | Nuevo |
+| ADR-015 | Nuevo |
 
 Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y Expo) y
 027 (iconos web).
@@ -115,5 +117,5 @@ Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y E
 |------|-----|-----------|
 | Proyecto Supabase `mirach` pausado | ADR-002 | Reactivarlo; revisar los avisos de seguridad (Data API) |
 | Transferencia internacional de datos (servidores en EE. UU.) | ADR-002, ADR-009 | Revisión legal frente a la Ley 21.719 |
-| Landing en Vercel Hobby (no permite uso comercial) | ADR-002 | Decidir al lanzar: Vercel Pro u otro hosting estático |
-| Plus gratis en la v1.0 | ADR-012 | Definir cómo se otorgan los derechos de Plus a todas las cuentas mientras no hay cobro, y cómo se pasa a la prueba de 30 días en la v1.1 |
+| Landing en Vercel Hobby (no permite uso comercial) | ADR-002 | Decidido el 2026-11-26: Cloudflare Pages. Falta leer sus términos y migrar |
+| Inicio de la prueba de 30 días | ADR-015 | Definir cuándo parte para una cuenta anónima y para las cuentas que ya existan al activar el cobro |
