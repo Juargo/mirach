@@ -1,6 +1,7 @@
 import { Result } from '../../shared/result';
 import { PeriodoAnio } from '../../domain/value-objects/periodo-anio';
 import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
+import { PlanPlusRequeridoError } from '../../domain/errors/plan-plus-requerido.error';
 import { AnioInvalidoError } from '../../domain/errors/anio-invalido.error';
 import { ResumenAnual } from '../../domain/value-objects/resumen-anual';
 import { ResumenAnualInvalidoError } from '../../domain/errors/resumen-anual-invalido.error';
@@ -11,6 +12,7 @@ import {
 import { ILogger } from '../ports/logger.port';
 import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
 import { construirResumenMesDesdeFilas } from './resumen-mes-assembly';
+import { VentanaPlanGratis } from './ventana-plan-gratis';
 
 /** Tipo de retorno del use case en caso de éxito — mirrors CalcularResumenMesResult. */
 export interface CalcularResumenAnualResult {
@@ -36,6 +38,10 @@ export interface CalcularResumenAnualResult {
  *      ResumenMes from that month's rows (empty → zeroed sinIngreso ResumenMes)
  *   5. Return Result.ok({ anio, resumenAnual })
  *
+ * Free plan (S14): a month before its window is reported exactly like a month
+ * without movements, and a year whose twelve months are all before the window
+ * is PlanPlusRequeridoError. With Plus nothing is hidden.
+ *
  * Never throws. Never imports from infrastructure. userId isolation is
  * structural — passed straight through to the reader, never a fixed constant.
  */
@@ -47,6 +53,7 @@ export class CalcularResumenAnualUseCase {
     private readonly reader: IResumenAnualReader,
     private readonly logger: ILogger,
     private readonly perfilReader: IPerfilPresupuestoReader,
+    private readonly ventana: VentanaPlanGratis,
   ) {}
 
   async execute(input: {
@@ -55,7 +62,7 @@ export class CalcularResumenAnualUseCase {
   }): Promise<
     Result<
       CalcularResumenAnualResult,
-      AnioInvalidoError | ResumenAnualInvalidoError
+      AnioInvalidoError | ResumenAnualInvalidoError | PlanPlusRequeridoError
     >
   > {
     let anioVO: PeriodoAnio;
@@ -82,6 +89,17 @@ export class CalcularResumenAnualUseCase {
     // The cut-off day of the user's financial month (#111) defines the months.
     const perfil = await this.perfilReader.obtener(input.userId);
     const diaCorte = perfil.mesFinanciero.diaCorte;
+    const primeroVisible = await this.ventana.primerMesVisible(
+      input.userId,
+      diaCorte,
+    );
+    const periodos = anioVO.meses(diaCorte);
+    const estaOculto = (periodo: PeriodoMes): boolean =>
+      primeroVisible !== null && periodo.valor < primeroVisible.valor;
+    if (periodos.every(estaOculto)) {
+      return Result.fail(new PlanPlusRequeridoError());
+    }
+
     const rows = await this.reader.sumarPorBucketAnual(
       input.userId,
       anioVO,
@@ -103,10 +121,9 @@ export class CalcularResumenAnualUseCase {
       rowsPorMes.set(row.mes, lista);
     }
 
-    const periodos = anioVO.meses(diaCorte);
     const meses = periodos.map((periodoMes) =>
       construirResumenMesDesdeFilas(
-        rowsPorMes.get(periodoMes.valor) ?? [],
+        (!estaOculto(periodoMes) && rowsPorMes.get(periodoMes.valor)) || [],
         perfil.metas,
         perfil.mesFinanciero.ingresoDeclarado,
       ),

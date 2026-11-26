@@ -10,6 +10,7 @@ import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identi
 import { ObtenerConfiguracionAppUseCase } from '../application/use-cases/obtener-configuracion-app.use-case';
 import { ObtenerPlanUseCase } from '../application/use-cases/obtener-plan.use-case';
 import { VerificarPlusUseCase } from '../application/use-cases/verificar-plus.use-case';
+import { VentanaPlanGratis } from '../application/use-cases/ventana-plan-gratis';
 import { DIAS_AVISO_FIN_PRUEBA } from '../domain/value-objects/plan';
 import { ProcesarEventoSuscripcionUseCase } from '../application/use-cases/procesar-evento-suscripcion.use-case';
 import { PrismaDerechosPlusWriter } from '../infrastructure/persistence/prisma-derechos-plus.writer';
@@ -182,6 +183,8 @@ export interface Container {
   readonly obtenerPlan: ObtenerPlanUseCase;
   /** Puerta de las funciones de Plus (PLA-01). */
   readonly verificarPlus: VerificarPlusUseCase;
+  /** The free plan window of visible months (S14). */
+  readonly ventanaPlanGratis: VentanaPlanGratis;
   /**
    * Webhook de RevenueCat (ADR-012 §1). `undefined` sin
    * `REVENUECAT_WEBHOOK_SECRET`: la ruta responde 404.
@@ -309,6 +312,20 @@ export function createContainer(
     logger,
   );
 
+  // Plan rules (ADR-012, ADR-015): one reader, one clock and one trial rule
+  // behind both `GET /api/plan` and the Plus gate, so they cannot disagree.
+  const planReader = new PrismaPlanReader(prisma);
+  const relojPlan = new SystemReloj();
+  const reglaPrueba = {
+    cobroActivoDesde: env.PLUS_BILLING_STARTS_AT ?? null,
+    diasPrueba: env.PLUS_TRIAL_DAYS,
+    diasAviso: DIAS_AVISO_FIN_PRUEBA,
+  };
+  const verificarPlus = new VerificarPlusUseCase(
+    planReader,
+    relojPlan,
+    reglaPrueba,
+  );
   // issue #747: período ausente ya no resuelve al mes en curso sino al
   // último mes del usuario con datos (resolverPeriodo). Cada use case de
   // lectura mensual recibe su PROPIA instancia de
@@ -318,6 +335,14 @@ export function createContainer(
   // #110: the summaries read the user's budget profile goals (PER-06). One
   // stateless instance shared by the readers and PUT /api/perfil/presupuesto.
   const perfilPresupuesto = new PrismaPerfilPresupuestoRepository(prisma);
+  // S14: the free plan window of visible months, over the same Plus rule.
+  const ventanaPlanGratis = new VentanaPlanGratis(
+    verificarPlus,
+    perfilPresupuesto,
+    new PrismaUltimoPeriodoConDatosReader(prisma),
+    relojPlan,
+    env.FREE_PLAN_VISIBLE_MONTHS,
+  );
   const calcularResumenMes = new CalcularResumenMesUseCase(
     new PrismaResumenMesRepository(prisma),
     new PrismaUltimoPeriodoConDatosReader(prisma),
@@ -328,6 +353,7 @@ export function createContainer(
     new PrismaResumenAnualRepository(prisma),
     logger,
     perfilPresupuesto,
+    ventanaPlanGratis,
   );
   // US-049, D-12: segunda instancia de PrismaResumenMesRepository (stateless,
   // sin costo) — matches el estilo un-`new`-por-use-case del archivo; no hay
@@ -373,6 +399,7 @@ export function createContainer(
   const listarPeriodosConDatos = new ListarPeriodosConDatosUseCase(
     new PrismaPeriodosConDatosReader(prisma),
     perfilPresupuesto,
+    ventanaPlanGratis,
   );
   const obtenerMovimientosMes = new ObtenerMovimientosMesUseCase(
     new PrismaMovimientosMesRepository(prisma, crypto),
@@ -443,20 +470,6 @@ export function createContainer(
     aceptar: new AceptarConsentimientoUseCase(consentimientos),
     revocar: new RevocarConsentimientoUseCase(consentimientos),
   };
-  // Plan rules (ADR-012, ADR-015): one reader, one clock and one trial rule
-  // behind both `GET /api/plan` and the Plus gate, so they cannot disagree.
-  const planReader = new PrismaPlanReader(prisma);
-  const relojPlan = new SystemReloj();
-  const reglaPrueba = {
-    cobroActivoDesde: env.PLUS_BILLING_STARTS_AT ?? null,
-    diasPrueba: env.PLUS_TRIAL_DAYS,
-    diasAviso: DIAS_AVISO_FIN_PRUEBA,
-  };
-  const verificarPlus = new VerificarPlusUseCase(
-    planReader,
-    relojPlan,
-    reglaPrueba,
-  );
   const perfilPresupuestoGraph: PerfilPresupuestoGraph = {
     obtener: new ObtenerPerfilPresupuestoUseCase(perfilPresupuesto),
     actualizar: new ActualizarPerfilPresupuestoUseCase(
@@ -508,6 +521,7 @@ export function createContainer(
             productoFundador: env.REVENUECAT_FUNDADOR_PRODUCT_ID,
           },
     verificarPlus,
+    ventanaPlanGratis,
     obtenerPlan: new ObtenerPlanUseCase(
       planReader,
       relojPlan,
@@ -525,7 +539,7 @@ export function createContainer(
       },
       planGratis: {
         bancosMaximos: env.FREE_PLAN_MAX_BANKS,
-        soloMesActual: env.FREE_PLAN_CURRENT_MONTH_ONLY,
+        mesesVisibles: env.FREE_PLAN_VISIBLE_MONTHS,
       },
       flagsActivos: env.APP_FLAGS,
     }),

@@ -6,6 +6,8 @@ import {
 import { Bucket } from '../../domain/value-objects/bucket';
 import { AnioInvalidoError } from '../../domain/errors/anio-invalido.error';
 import { DiaCorte } from '../../domain/value-objects/mes-financiero';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
+import { PlanPlusRequeridoError } from '../../domain/errors/plan-plus-requerido.error';
 import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
 import { NoOpLogger, FakeLogger } from '../../../test/support/logger.double';
 import { IPerfilPresupuestoReader } from '../ports/perfil-presupuesto.port';
@@ -72,6 +74,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -92,6 +95,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -128,6 +132,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -161,6 +166,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -191,6 +197,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -215,6 +222,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: undefined });
@@ -229,6 +237,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: 'not-a-year' });
@@ -243,6 +252,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: '1999' });
@@ -257,6 +267,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       const result = await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -273,6 +284,7 @@ describe('CalcularResumenAnualUseCase', () => {
           reader,
           new NoOpLogger(),
           perfilPorDefecto,
+          ventanaPlanGratisDoble(),
         );
 
         const result = await uc.execute({ userId: 'user-a', anio: rawAnio });
@@ -290,6 +302,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         new NoOpLogger(),
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -322,6 +335,7 @@ describe('CalcularResumenAnualUseCase', () => {
         reader,
         logger,
         perfilPorDefecto,
+        ventanaPlanGratisDoble(),
       );
 
       await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -348,9 +362,14 @@ describe('CalcularResumenAnualUseCase — budget profile goals (#110, PER-06)', 
       .fn()
       .mockResolvedValue(PerfilPresupuesto.predefinido('80_10_10'));
     const reader = { sumarPorBucketAnual: vi.fn().mockResolvedValue([]) };
-    const uc = new CalcularResumenAnualUseCase(reader, new NoOpLogger(), {
-      obtener,
-    });
+    const uc = new CalcularResumenAnualUseCase(
+      reader,
+      new NoOpLogger(),
+      {
+        obtener,
+      },
+      ventanaPlanGratisDoble(),
+    );
 
     const result = await uc.execute({ userId: 'user-a', anio: '2026' });
 
@@ -370,6 +389,7 @@ describe('CalcularResumenAnualUseCase — mes financiero (#111)', () => {
       reader,
       new NoOpLogger(),
       perfilReaderConCorte(25),
+      ventanaPlanGratisDoble(),
     );
 
     const result = await uc.execute({ userId: 'user-a', anio: '2026' });
@@ -389,6 +409,7 @@ describe('CalcularResumenAnualUseCase — declared income (#111, rule 1, PER-06)
       makeMockReader(rowsFor('2026-03')),
       new NoOpLogger(),
       perfilReaderConCorte(1, 2_000_000n),
+      ventanaPlanGratisDoble(),
     );
 
     const meses = (
@@ -412,6 +433,7 @@ describe('CalcularResumenAnualUseCase — declared income (#111, rule 1, PER-06)
       makeMockReader(rowsFor('2026-03')),
       new NoOpLogger(),
       perfilReaderConCorte(1, null),
+      ventanaPlanGratisDoble(),
     );
 
     const meses = (
@@ -422,5 +444,95 @@ describe('CalcularResumenAnualUseCase — declared income (#111, rule 1, PER-06)
     expect(meses[2].fuenteIngreso).toBe('detectado');
     expect(meses[2].buckets[0].porcentajeBp).toBe(5000n);
     expect(meses[0].sinIngreso).toBe(true);
+  });
+});
+
+describe('CalcularResumenAnualUseCase', () => {
+  describe('ventana del plan gratis (S14)', () => {
+    const filasDeTodoElAnio = (): BucketSumRowAnual[] =>
+      Array.from({ length: 12 }, (_, i) =>
+        rowsFor(`2026-${String(i + 1).padStart(2, '0')}`),
+      ).flat();
+
+    const ejecutar = (ventana = ventanaPlanGratisDoble(), anio = '2026') =>
+      new CalcularResumenAnualUseCase(
+        makeMockReader(filasDeTodoElAnio()),
+        new NoOpLogger(),
+        perfilPorDefecto,
+        ventana,
+      ).execute({ userId: 'user-a', anio });
+
+    it('con Plus los 12 meses se informan como siempre', async () => {
+      const result = await ejecutar(
+        ventanaPlanGratisDoble({ plus: true, ancla: '2026-09' }),
+      );
+
+      const { meses } = result.getValue().resumenAnual;
+      expect(meses.filter((m) => !m.sinIngreso)).toHaveLength(12);
+    });
+
+    it('un mes anterior a la ventana se informa igual que un mes sin movimientos', async () => {
+      const result = await ejecutar(
+        ventanaPlanGratisDoble({ plus: false, ancla: '2026-09' }),
+      );
+
+      const { meses } = result.getValue().resumenAnual;
+      // Window 2026-07..2026-09; months after the anchor answer as today.
+      expect(meses.map((m) => !m.sinIngreso)).toEqual([
+        false,
+        false,
+        false,
+        false,
+        false,
+        false, // Jan..Jun hidden
+        true,
+        true,
+        true, // Jul..Sep visible
+        true,
+        true,
+        true, // Oct..Dec as today
+      ]);
+      const oculto = meses[0];
+      const vacio = (
+        await new CalcularResumenAnualUseCase(
+          makeMockReader([]),
+          new NoOpLogger(),
+          perfilPorDefecto,
+          ventanaPlanGratisDoble(),
+        ).execute({ userId: 'user-a', anio: '2026' })
+      ).getValue().resumenAnual.meses[0];
+      expect(oculto).toEqual(vacio);
+    });
+
+    it('un año con todos los meses anteriores a la ventana es PlanPlusRequeridoError', async () => {
+      const result = await ejecutar(
+        ventanaPlanGratisDoble({ plus: false, ancla: '2027-03' }),
+        '2025',
+      );
+
+      expect(result.isFail()).toBe(true);
+      expect(result.getError()).toBeInstanceOf(PlanPlusRequeridoError);
+    });
+
+    it('un año cuyo último mes está dentro de la ventana no es error', async () => {
+      const result = await ejecutar(
+        ventanaPlanGratisDoble({ plus: false, ancla: '2027-02' }),
+        '2026',
+      );
+
+      // Window 2026-12..2027-02: only December 2026 is visible.
+      const { meses } = result.getValue().resumenAnual;
+      expect(meses.map((m) => !m.sinIngreso)).toEqual([
+        ...Array<boolean>(11).fill(false),
+        true,
+      ]);
+    });
+
+    it('un año inválido sigue siendo AnioInvalidoError y no lee el plan', async () => {
+      const ventana = ventanaPlanGratisDoble({ plus: false, ancla: '2026-09' });
+      const result = await ejecutar(ventana, 'abcd');
+
+      expect(result.getError()).toBeInstanceOf(AnioInvalidoError);
+    });
   });
 });

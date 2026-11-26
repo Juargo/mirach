@@ -11,10 +11,10 @@ import { VersionApp } from '../../domain/value-objects/version-app';
  */
 export interface ConfiguracionApp {
   readonly versionMinima: Readonly<Record<PlataformaApp, VersionApp>>;
-  /** Límites del plan gratis (PLA-01: mes actual, 2 bancos). */
+  /** Límites del plan gratis (PLA-01: ventana de meses, 2 bancos). */
   readonly planGratis: {
     readonly bancosMaximos: number;
-    readonly soloMesActual: boolean;
+    readonly mesesVisibles: number;
   };
   /** Nombres de los flags encendidos; cualquier otro se considera apagado. */
   readonly flagsActivos: readonly string[];
@@ -28,7 +28,10 @@ export interface ClienteApp {
 
 export interface ConfiguracionAppDto {
   readonly versionMinima: Readonly<Record<PlataformaApp, string>>;
-  readonly planGratis: ConfiguracionApp['planGratis'];
+  readonly planGratis: ConfiguracionApp['planGratis'] & {
+    /** `true` solo cuando la ventana es de un mes (campo previo a S14). */
+    readonly soloMesActual: boolean;
+  };
   readonly flags: Readonly<Record<string, boolean>>;
   /**
    * `true` cuando la versión instalada es menor que la mínima de su
@@ -54,7 +57,10 @@ export class ObtenerConfiguracionAppUseCase {
         ios: versionMinima.ios.toString(),
         android: versionMinima.android.toString(),
       },
-      planGratis: { ...planGratis },
+      planGratis: {
+        ...planGratis,
+        soloMesActual: planGratis.mesesVisibles === 1,
+      },
       flags: Object.fromEntries(flagsActivos.map((flag) => [flag, true])),
       actualizacionRequerida: this.actualizacionRequerida(cliente),
     };

@@ -784,50 +784,6 @@ extension Components {
                 ])
             }
         }
-        /// 403 body: the category is a system category (`esInterna: true`, the per-bucket "Desconocido") and cannot be renamed, re-bucketed or deleted.
-        ///
-        /// - Remark: Generated from `#/components/schemas/CategoriaInternaErrorResponse`.
-        internal struct CategoriaInternaErrorResponse: Codable, Hashable, Sendable {
-            /// - Remark: Generated from `#/components/schemas/CategoriaInternaErrorResponse/code`.
-            internal enum codePayload: String, Codable, Hashable, Sendable, CaseIterable {
-                case CATEGORIA_INTERNA = "CATEGORIA_INTERNA"
-            }
-            /// - Remark: Generated from `#/components/schemas/CategoriaInternaErrorResponse/code`.
-            internal var code: Components.Schemas.CategoriaInternaErrorResponse.codePayload
-            /// - Remark: Generated from `#/components/schemas/CategoriaInternaErrorResponse/message`.
-            internal var message: Swift.String
-            /// Creates a new `CategoriaInternaErrorResponse`.
-            ///
-            /// - Parameters:
-            ///   - code:
-            ///   - message:
-            internal init(
-                code: Components.Schemas.CategoriaInternaErrorResponse.codePayload,
-                message: Swift.String
-            ) {
-                self.code = code
-                self.message = message
-            }
-            internal enum CodingKeys: String, CodingKey {
-                case code
-                case message
-            }
-            internal init(from decoder: any Swift.Decoder) throws {
-                let container = try decoder.container(keyedBy: CodingKeys.self)
-                self.code = try container.decode(
-                    Components.Schemas.CategoriaInternaErrorResponse.codePayload.self,
-                    forKey: .code
-                )
-                self.message = try container.decode(
-                    Swift.String.self,
-                    forKey: .message
-                )
-                try decoder.ensureNoAdditionalProperties(knownKeys: [
-                    "code",
-                    "message"
-                ])
-            }
-        }
         /// A category with its nested classification patterns and the all-history count of the caller's own referencing transactions (US-038, US-039 CAT039-01).
         ///
         /// - Remark: Generated from `#/components/schemas/CategoriaResponse`.
@@ -1198,7 +1154,11 @@ extension Components {
                 ///
                 /// - Remark: Generated from `#/components/schemas/ConfigResponse/planGratis/bancosMaximos`.
                 internal var bancosMaximos: Swift.Int
-                /// true when the free plan only covers the current month (PLA-01).
+                /// Months the free plan sees: the latest month with movements and the ones before it up to this count (PLA-01). Older months stay stored and hidden; Plus sees them all.
+                ///
+                /// - Remark: Generated from `#/components/schemas/ConfigResponse/planGratis/mesesVisibles`.
+                internal var mesesVisibles: Swift.Int
+                /// true when the free plan window is a single month (mesesVisibles is 1). Kept for installed apps; read mesesVisibles instead.
                 ///
                 /// - Remark: Generated from `#/components/schemas/ConfigResponse/planGratis/soloMesActual`.
                 internal var soloMesActual: Swift.Bool
@@ -1206,16 +1166,20 @@ extension Components {
                 ///
                 /// - Parameters:
                 ///   - bancosMaximos: Maximum number of banks on the free plan (PLA-01).
-                ///   - soloMesActual: true when the free plan only covers the current month (PLA-01).
+                ///   - mesesVisibles: Months the free plan sees: the latest month with movements and the ones before it up to this count (PLA-01). Older months stay stored and hidden; Plus sees them all.
+                ///   - soloMesActual: true when the free plan window is a single month (mesesVisibles is 1). Kept for installed apps; read mesesVisibles instead.
                 internal init(
                     bancosMaximos: Swift.Int,
+                    mesesVisibles: Swift.Int,
                     soloMesActual: Swift.Bool
                 ) {
                     self.bancosMaximos = bancosMaximos
+                    self.mesesVisibles = mesesVisibles
                     self.soloMesActual = soloMesActual
                 }
                 internal enum CodingKeys: String, CodingKey {
                     case bancosMaximos
+                    case mesesVisibles
                     case soloMesActual
                 }
                 internal init(from decoder: any Swift.Decoder) throws {
@@ -1224,12 +1188,17 @@ extension Components {
                         Swift.Int.self,
                         forKey: .bancosMaximos
                     )
+                    self.mesesVisibles = try container.decode(
+                        Swift.Int.self,
+                        forKey: .mesesVisibles
+                    )
                     self.soloMesActual = try container.decode(
                         Swift.Bool.self,
                         forKey: .soloMesActual
                     )
                     try decoder.ensureNoAdditionalProperties(knownKeys: [
                         "bancosMaximos",
+                        "mesesVisibles",
                         "soloMesActual"
                     ])
                 }

@@ -41,7 +41,7 @@ describe('GET /api/config (e2e)', () => {
       APP_MIN_VERSION_IOS: '1.10.0',
       APP_MIN_VERSION_ANDROID: '2.0.0',
       FREE_PLAN_MAX_BANKS: '3',
-      FREE_PLAN_CURRENT_MONTH_ONLY: 'false',
+      FREE_PLAN_VISIBLE_MONTHS: '12',
       APP_FLAGS: 'nuevoResumen,importarPdf',
     });
 
@@ -65,7 +65,7 @@ describe('GET /api/config (e2e)', () => {
         APP_MIN_VERSION_IOS: undefined,
         APP_MIN_VERSION_ANDROID: undefined,
         FREE_PLAN_MAX_BANKS: undefined,
-        FREE_PLAN_CURRENT_MONTH_ONLY: undefined,
+        FREE_PLAN_VISIBLE_MONTHS: undefined,
         APP_FLAGS: undefined,
       }),
     )
@@ -78,7 +78,7 @@ describe('GET /api/config (e2e)', () => {
     expect(configResponseSchema.safeParse(res.body).success).toBe(true);
     expect(res.body).toEqual({
       versionMinima: { ios: '0.0.0', android: '0.0.0' },
-      planGratis: { bancosMaximos: 2, soloMesActual: true },
+      planGratis: { bancosMaximos: 2, soloMesActual: false, mesesVisibles: 3 },
       flags: {},
       actualizacionRequerida: false,
     });
@@ -92,7 +92,7 @@ describe('GET /api/config (e2e)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       versionMinima: { ios: '1.10.0', android: '2.0.0' },
-      planGratis: { bancosMaximos: 3, soloMesActual: false },
+      planGratis: { bancosMaximos: 3, soloMesActual: false, mesesVisibles: 12 },
       flags: { nuevoResumen: true, importarPdf: true },
       actualizacionRequerida: null,
     });

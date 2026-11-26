@@ -14,6 +14,7 @@ import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { perfilReaderConCorte } from '../../../test/support/perfil-presupuesto-reader.double';
 import { ingresosMesResponseSchema } from './schemas/ingresos-mes.schema';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
 
 /**
  * GATE de aislamiento para GET /api/ingresos/mes (US-052, ADR-015,
@@ -114,6 +115,7 @@ function fakeContainer(
     obtenerDetalleBucketMes: { execute: vi.fn() },
     // PR3 gate: el fake POBLA el campo que el mount de la ruta resuelve.
     obtenerIngresosMes: useCase as unknown as ObtenerIngresosMesUseCase,
+    ventanaPlanGratis: ventanaPlanGratisDoble(),
     shutdown: async () => {},
   } as unknown as Container;
 }

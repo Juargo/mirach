@@ -8,6 +8,7 @@ import type { ObtenerDetalleBucketMesResult } from '../../application/use-cases/
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { bucketDetalleMesResponseSchema } from './schemas/bucket-detalle-mes.schema';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
 
 /**
  * GATE de aislamiento para GET /api/buckets/:bucket/detalle (US-051,
@@ -101,6 +102,7 @@ function fakeContainer(): Container {
     obtenerDetalleBucketMes: {
       execute: vi.fn().mockResolvedValue(Result.ok(DETALLE_MES_OK)),
     },
+    ventanaPlanGratis: ventanaPlanGratisDoble(),
     shutdown: async () => {},
   } as unknown as Container;
 }

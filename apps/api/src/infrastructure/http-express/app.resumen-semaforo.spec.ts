@@ -8,6 +8,7 @@ import type { SemaforoDetalle } from '../../domain/value-objects/semaforo-detall
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
 import { semaforoDetalleResponseSchema } from './schemas/semaforo-detalle.schema';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
 
 /**
  * GATE de Slice 5 (US-049, ADR-015, RNF-SEC-006/ISO-01/ISO-02): la cadena de
@@ -87,6 +88,7 @@ function fakeContainer(): Container {
           Result.ok({ periodo: '2026-07', detalle: SEMAFORO_DETALLE_OK }),
         ),
     },
+    ventanaPlanGratis: ventanaPlanGratisDoble(),
     shutdown: async () => {},
   } as unknown as Container;
 }

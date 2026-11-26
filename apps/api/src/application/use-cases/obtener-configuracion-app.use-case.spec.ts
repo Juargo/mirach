@@ -10,7 +10,7 @@ function v(raw: string): VersionApp {
 
 const CONFIG: ConfiguracionApp = {
   versionMinima: { ios: v('1.10.0'), android: v('2.0.0') },
-  planGratis: { bancosMaximos: 2, soloMesActual: true },
+  planGratis: { bancosMaximos: 2, mesesVisibles: 3 },
   flagsActivos: ['nuevoResumen', 'importarPdf'],
 };
 
@@ -23,9 +23,28 @@ describe('ObtenerConfiguracionAppUseCase (ADR-005 §4.5)', () => {
     expect(config.versionMinima).toEqual({ ios: '1.10.0', android: '2.0.0' });
     expect(config.planGratis).toEqual({
       bancosMaximos: 2,
-      soloMesActual: true,
+      soloMesActual: false,
+      mesesVisibles: 3,
     });
     expect(config.flags).toEqual({ nuevoResumen: true, importarPdf: true });
+  });
+
+  it('soloMesActual es true solo cuando la ventana es de un mes (S14)', () => {
+    const unMes = new ObtenerConfiguracionAppUseCase({
+      ...CONFIG,
+      planGratis: { bancosMaximos: 2, mesesVisibles: 1 },
+    });
+    const dosMeses = new ObtenerConfiguracionAppUseCase({
+      ...CONFIG,
+      planGratis: { bancosMaximos: 2, mesesVisibles: 2 },
+    });
+
+    expect(unMes.execute({}).planGratis).toEqual({
+      bancosMaximos: 2,
+      soloMesActual: true,
+      mesesVisibles: 1,
+    });
+    expect(dosMeses.execute({}).planGratis.soloMesActual).toBe(false);
   });
 
   it('actualizacionRequerida=true cuando la instalada es menor que la mínima de SU plataforma', () => {

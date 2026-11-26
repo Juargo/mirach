@@ -50,7 +50,13 @@ export const configResponseSchema = z
         soloMesActual: z
           .boolean()
           .describe(
-            'true when the free plan only covers the current month (PLA-01).',
+            'true when the free plan window is a single month (mesesVisibles is 1). Kept for installed apps; read mesesVisibles instead.',
+          ),
+        mesesVisibles: z
+          .number()
+          .int()
+          .describe(
+            'Months the free plan sees: the latest month with movements and the ones before it up to this count (PLA-01). Older months stay stored and hidden; Plus sees them all.',
           ),
       })
       .describe('Free plan limits.'),

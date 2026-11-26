@@ -277,4 +277,37 @@ describe('PeriodoMes', () => {
       );
     });
   });
+  describe('mesesAntes(n)', () => {
+    it('goes back n months inside the same year', () => {
+      const periodo = PeriodoMes.crear('2026-07').getValue();
+
+      expect(periodo.mesesAntes(2).valor).toBe('2026-05');
+    });
+
+    it('crosses the year boundary', () => {
+      const periodo = PeriodoMes.crear('2026-02').getValue();
+
+      expect(periodo.mesesAntes(2).valor).toBe('2025-12');
+      expect(periodo.mesesAntes(14).valor).toBe('2024-12');
+    });
+
+    it('0 months back is the same period', () => {
+      const periodo = PeriodoMes.crear('2026-07').getValue();
+
+      expect(periodo.mesesAntes(0).valor).toBe('2026-07');
+    });
+
+    it('keeps the cut-off day of the original period', () => {
+      const periodo = PeriodoMes.crear(
+        '2026-03',
+        DiaCorte.crear(25).getValue(),
+      ).getValue();
+
+      const antes = periodo.mesesAntes(3);
+
+      expect(antes.valor).toBe('2025-12');
+      expect(antes.desde.toISOString()).toBe('2025-12-25T00:00:00.000Z');
+      expect(antes.hasta.toISOString()).toBe('2026-01-25T00:00:00.000Z');
+    });
+  });
 });

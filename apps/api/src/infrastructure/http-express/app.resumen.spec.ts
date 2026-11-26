@@ -8,6 +8,7 @@ import { PeriodoMes } from '../../domain/value-objects/periodo-mes';
 import { DiaCorte } from '../../domain/value-objects/mes-financiero';
 import { METAS_POR_DEFECTO } from '../../domain/value-objects/perfil-presupuesto';
 import { resumenResponseSchema } from './schemas/resumen.schema';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
 
 /**
  * GATE de Slice 1+2 (ADR-015, RNF-SEC-006): la cadena de auth completa montada
@@ -55,6 +56,7 @@ function fakeContainer(): Container {
           Result.ok({ resumenAnual: { anio: 2026, meses: [] } }),
         ),
     },
+    ventanaPlanGratis: ventanaPlanGratisDoble(),
     shutdown: async () => {},
   } as unknown as Container;
 }

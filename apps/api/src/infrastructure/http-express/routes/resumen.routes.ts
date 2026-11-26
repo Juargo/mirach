@@ -4,6 +4,7 @@ import { CalcularResumenAnualUseCase } from '../../../application/use-cases/calc
 import { ObtenerSemaforoDetalleUseCase } from '../../../application/use-cases/obtener-semaforo-detalle.use-case';
 import { PeriodoInvalidoError } from '../../../domain/errors/periodo-invalido.error';
 import { AnioInvalidoError } from '../../../domain/errors/anio-invalido.error';
+import { PlanPlusRequeridoError } from '../../../domain/errors/plan-plus-requerido.error';
 import { ResumenAnualInvalidoError } from '../../../domain/errors/resumen-anual-invalido.error';
 import { aResumenMesDto } from '../../http/dto/resumen-mes.dto';
 import { aResumenAnualDto } from '../../http/dto/resumen-anual.dto';
@@ -12,6 +13,7 @@ import { resumenQuerySchema } from '../schemas/resumen.schema';
 import { resumenAnualQuerySchema } from '../schemas/resumen-anual.schema';
 import { semaforoDetalleQuerySchema } from '../schemas/semaforo-detalle.schema';
 import { appLogger } from '../../logging/app-logger';
+import { responderPlanPlusRequerido } from './exigir-plus';
 
 /**
  * registrarResumen — port del ResumenController a handlers Express (ADR-028).
@@ -98,6 +100,10 @@ export function registrarResumen(
             message:
               'El año no es válido. Debe ser un entero entre 2000 y 2100.',
           });
+          return;
+        }
+        if (error instanceof PlanPlusRequeridoError) {
+          responderPlanPlusRequerido(res, error);
           return;
         }
         if (error instanceof ResumenAnualInvalidoError) {

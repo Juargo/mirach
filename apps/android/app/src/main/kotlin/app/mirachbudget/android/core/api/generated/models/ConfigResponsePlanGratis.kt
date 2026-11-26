@@ -32,7 +32,8 @@ import kotlinx.serialization.Contextual
  * Free plan limits.
  *
  * @param bancosMaximos Maximum number of banks on the free plan (PLA-01).
- * @param soloMesActual true when the free plan only covers the current month (PLA-01).
+ * @param mesesVisibles Months the free plan sees: the latest month with movements and the ones before it up to this count (PLA-01). Older months stay stored and hidden; Plus sees them all.
+ * @param soloMesActual true when the free plan window is a single month (mesesVisibles is 1). Kept for installed apps; read mesesVisibles instead.
  */
 @Serializable
 
@@ -42,7 +43,11 @@ data class ConfigResponsePlanGratis (
     @SerialName(value = "bancosMaximos")
     val bancosMaximos: kotlin.Int,
 
-    /* true when the free plan only covers the current month (PLA-01). */
+    /* Months the free plan sees: the latest month with movements and the ones before it up to this count (PLA-01). Older months stay stored and hidden; Plus sees them all. */
+    @SerialName(value = "mesesVisibles")
+    val mesesVisibles: kotlin.Int,
+
+    /* true when the free plan window is a single month (mesesVisibles is 1). Kept for installed apps; read mesesVisibles instead. */
     @SerialName(value = "soloMesActual")
     val soloMesActual: kotlin.Boolean
 

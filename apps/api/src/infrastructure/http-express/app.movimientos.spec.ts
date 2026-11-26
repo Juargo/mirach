@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
 
 /**
  * Gate de aislamiento para movimientos (ADR-015, RNF-SEC-006). Lista de
@@ -26,6 +27,7 @@ function fakeContainer(): Container {
           Result.ok({ periodo: '2026-07', transacciones: [] }),
         ),
     },
+    ventanaPlanGratis: ventanaPlanGratisDoble(),
     shutdown: async () => {},
   } as unknown as Container;
 }

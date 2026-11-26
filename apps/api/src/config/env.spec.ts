@@ -816,7 +816,7 @@ describe('loadEnv — configuración remota de las apps (GET /api/config, ADR-00
     expect(env.APP_MIN_VERSION_IOS).toBe('0.0.0');
     expect(env.APP_MIN_VERSION_ANDROID).toBe('0.0.0');
     expect(env.FREE_PLAN_MAX_BANKS).toBe(2);
-    expect(env.FREE_PLAN_CURRENT_MONTH_ONLY).toBe(true);
+    expect(env.FREE_PLAN_VISIBLE_MONTHS).toBe(3);
     expect(env.APP_FLAGS).toEqual([]);
   });
 
@@ -826,14 +826,14 @@ describe('loadEnv — configuración remota de las apps (GET /api/config, ADR-00
       APP_MIN_VERSION_IOS: '1.10.0',
       APP_MIN_VERSION_ANDROID: '2.0.3',
       FREE_PLAN_MAX_BANKS: '3',
-      FREE_PLAN_CURRENT_MONTH_ONLY: 'false',
+      FREE_PLAN_VISIBLE_MONTHS: '12',
       APP_FLAGS: ' nuevoResumen , importarPdf,, ',
     });
 
     expect(env.APP_MIN_VERSION_IOS).toBe('1.10.0');
     expect(env.APP_MIN_VERSION_ANDROID).toBe('2.0.3');
     expect(env.FREE_PLAN_MAX_BANKS).toBe(3);
-    expect(env.FREE_PLAN_CURRENT_MONTH_ONLY).toBe(false);
+    expect(env.FREE_PLAN_VISIBLE_MONTHS).toBe(12);
     expect(env.APP_FLAGS).toEqual(['nuevoResumen', 'importarPdf']);
   });
 
@@ -842,7 +842,10 @@ describe('loadEnv — configuración remota de las apps (GET /api/config, ADR-00
     ['APP_MIN_VERSION_ANDROID', 'v2.0.0'],
     ['FREE_PLAN_MAX_BANKS', '0'],
     ['FREE_PLAN_MAX_BANKS', 'dos'],
-    ['FREE_PLAN_CURRENT_MONTH_ONLY', 'yes'],
+    ['FREE_PLAN_VISIBLE_MONTHS', '0'],
+    ['FREE_PLAN_VISIBLE_MONTHS', '-3'],
+    ['FREE_PLAN_VISIBLE_MONTHS', '1.5'],
+    ['FREE_PLAN_VISIBLE_MONTHS', 'tres'],
     ['APP_FLAGS', 'nuevo-resumen'],
     ['APP_FLAGS', 'ok,Mayuscula'],
   ])('%s=%j hace fallar el boot', (key, value) => {

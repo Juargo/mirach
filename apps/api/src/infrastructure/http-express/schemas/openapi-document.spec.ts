@@ -703,10 +703,38 @@ describe('buildOpenApiDocument', () => {
       },
     );
 
-    it('reclassifying a movement keeps its 403 for system categories only: it is free (CLA-03)', () => {
+    it('reclassifying a movement is free, but its apply-to-similar period can be hidden: 403 CATEGORIA_INTERNA or PLAN_PLUS_REQUERIDO (CLA-03, S14)', () => {
       const op = document().paths?.['/api/transacciones/{id}/categoria']?.patch;
       const schema = componente(schemaRef(op, '403'));
-      expect(schema.properties.code?.enum).toEqual(['CATEGORIA_INTERNA']);
+      expect(schema.properties.code?.enum).toEqual([
+        'CATEGORIA_INTERNA',
+        'PLAN_PLUS_REQUERIDO',
+      ]);
+    });
+
+    it.each([
+      ['get', '/api/resumen'],
+      ['get', '/api/resumen/anual'],
+      ['get', '/api/resumen/semaforo'],
+      ['get', '/api/buckets/{bucket}'],
+      ['get', '/api/buckets/{bucket}/detalle'],
+      ['get', '/api/movimientos'],
+      ['post', '/api/movimientos'],
+      ['get', '/api/ingresos/mes'],
+      ['get', '/api/transacciones/{id}/parecidos'],
+    ] as const)(
+      '%s %s declares 403 PLAN_PLUS_REQUERIDO for a month hidden from the free plan (S14)',
+      (metodo, ruta) => {
+        const op = document().paths?.[ruta]?.[metodo];
+        const schema = componente(schemaRef(op, '403'));
+        expect(schema.properties.code?.enum).toEqual(['PLAN_PLUS_REQUERIDO']);
+        expect(schema.required).toContain('code');
+      },
+    );
+
+    it('GET /api/periodos declares no 403: it lists the window instead (S14)', () => {
+      const op = document().paths?.['/api/periodos']?.get;
+      expect(op?.responses?.['403']).toBeUndefined();
     });
 
     it('reading the catalog declares no 403: it is open on the free plan (CLA-09)', () => {

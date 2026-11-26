@@ -16,6 +16,7 @@ import { registrarIngresosMes } from './routes/ingresos.routes';
 import { registrarPeriodos } from './routes/periodos.routes';
 import { registrarPlan } from './routes/plan.routes';
 import { crearExigirPlus } from './routes/exigir-plus';
+import { crearExigirMesVisible } from './routes/exigir-mes-visible';
 import {
   registrarWebhookRevenueCat,
   registrarWebhookRevenueCatDeshabilitado,
@@ -229,6 +230,26 @@ export function createApp(container: Container, env: Env): Express {
   // Rutas protegidas: exigen sesión válida (además de la api-key global).
   const protectedApi = express.Router();
   protectedApi.use(sessionMiddleware(container.validarSesion));
+  // S14: the free plan window. The checks come before the handlers, so a
+  // month hidden from the free plan is answered before anything is read.
+  const exigirMesVisible = crearExigirMesVisible(container.ventanaPlanGratis);
+  protectedApi.get(
+    [
+      '/resumen',
+      '/resumen/semaforo',
+      '/buckets/:bucket',
+      '/buckets/:bucket/detalle',
+      '/movimientos',
+      '/ingresos/mes',
+      '/transacciones/:id/parecidos',
+    ],
+    exigirMesVisible.periodoEnQuery,
+  );
+  protectedApi.patch(
+    '/transacciones/:id/categoria',
+    exigirMesVisible.periodoEnAplicarAParecidos,
+  );
+  protectedApi.post('/movimientos', exigirMesVisible.fechaEnBody);
   registrarResumen(
     protectedApi,
     container.calcularResumenMes,

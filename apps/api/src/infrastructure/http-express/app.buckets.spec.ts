@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { Result } from '../../shared/result';
 import type { Container } from '../../composition/container';
 import { buildTestEnv } from '../../../test/support/env.fixture';
+import { ventanaPlanGratisDoble } from '../../../test/support/ventana-plan-gratis.double';
 
 /**
  * Gate de aislamiento para buckets (ADR-015, RNF-SEC-006). `buckets` expone
@@ -28,6 +29,7 @@ function fakeContainer(): Container {
         }),
       ),
     },
+    ventanaPlanGratis: ventanaPlanGratisDoble(),
     shutdown: async () => {},
   } as unknown as Container;
 }
