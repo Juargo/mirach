@@ -693,6 +693,9 @@ describe('buildOpenApiDocument', () => {
       ['post', '/api/categorias'],
       ['delete', '/api/patrones/{id}'],
       ['put', '/api/perfil/presupuesto'],
+      // IMP-24: a statement from a bank outside the free plan's banks.
+      ['post', '/api/ingestas/preview'],
+      ['post', '/api/ingestas/commit'],
     ] as const)(
       '%s %s declares 403 PLAN_PLUS_REQUERIDO only (Plus-only on the free plan)',
       (metodo, ruta) => {

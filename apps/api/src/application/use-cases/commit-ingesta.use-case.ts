@@ -1,3 +1,8 @@
+import {
+  SIN_LIMITE_BANCOS,
+  type ILimiteBancos,
+} from '../services/limite-bancos-plan-gratis';
+import { PlanPlusRequeridoError } from '../../domain/errors/plan-plus-requerido.error';
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
@@ -106,7 +111,9 @@ export type CommitIngestaError =
   // Catálogo CAÍDO (503, issue #778 tramo 5a) — infra transitoria/reintentable.
   | CategorizacionFallidaError
   // Otros errores de infraestructura (500)
-  | PersistenciaFallidaError;
+  | PersistenciaFallidaError
+  // Free plan bank limit (403)
+  | PlanPlusRequeridoError;
 
 // ---------------------------------------------------------------------------
 // Use case
@@ -169,6 +176,8 @@ export class CommitIngestaUseCase {
     /** Single writer of FALLIDA entries (US-004). */
     private readonly ingestaFallidaWriter: IRegistrarIngestaFallidaWriter,
     private readonly logger: ILogger,
+    /** IMP-24: bank limit of the free plan; the default applies none. */
+    private readonly limiteBancos: ILimiteBancos = SIN_LIMITE_BANCOS,
   ) {}
 
   async execute(
@@ -266,6 +275,14 @@ export class CommitIngestaUseCase {
           ),
         );
       }
+    }
+
+    // ── IMP-24: bank limit of the free plan — before the first write ─────────
+    // Not a failed import: nothing is registered, the account just has to
+    // choose one of its banks or move to Plus.
+    const limite = await this.limiteBancos.verificar(input.userId, banco.banco);
+    if (limite.isFail()) {
+      return Result.fail(limite.getError());
     }
 
     // ── 3. ensure() — create/find Account ────────────────────────────────────

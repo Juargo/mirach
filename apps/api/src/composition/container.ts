@@ -10,6 +10,8 @@ import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identi
 import { ObtenerConfiguracionAppUseCase } from '../application/use-cases/obtener-configuracion-app.use-case';
 import { ObtenerPlanUseCase } from '../application/use-cases/obtener-plan.use-case';
 import { VerificarPlusUseCase } from '../application/use-cases/verificar-plus.use-case';
+import { LimiteBancosPlanGratis } from '../application/services/limite-bancos-plan-gratis';
+import { PrismaBancosImportadosReader } from '../infrastructure/persistence/prisma-bancos-importados.reader';
 import { VentanaPlanGratis } from '../application/use-cases/ventana-plan-gratis';
 import { DIAS_AVISO_FIN_PRUEBA } from '../domain/value-objects/plan';
 import { ProcesarEventoSuscripcionUseCase } from '../application/use-cases/procesar-evento-suscripcion.use-case';
@@ -422,13 +424,26 @@ export function createContainer(
     new CategorizarTransaccionUseCase(logger),
     logger,
   );
+  // IMP-24: the free plan imports from its first FREE_PLAN_MAX_BANKS banks.
+  const limiteBancos = new LimiteBancosPlanGratis(
+    verificarPlus,
+    new PrismaBancosImportadosReader(prisma),
+    env.FREE_PLAN_MAX_BANKS,
+  );
   const previewIngesta = crearPreviewIngesta(
     prisma,
     crypto,
     blindIndex,
     logger,
+    limiteBancos,
   );
-  const commitIngesta = crearCommitIngesta(prisma, crypto, blindIndex, logger);
+  const commitIngesta = crearCommitIngesta(
+    prisma,
+    crypto,
+    blindIndex,
+    logger,
+    limiteBancos,
+  );
   const registrarMovimientoManual = crearRegistrarMovimientoManual(
     prisma,
     crypto,

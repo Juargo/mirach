@@ -1,3 +1,8 @@
+import {
+  SIN_LIMITE_BANCOS,
+  type ILimiteBancos,
+} from '../services/limite-bancos-plan-gratis';
+import { PlanPlusRequeridoError } from '../../domain/errors/plan-plus-requerido.error';
 import { Result } from '../../shared/result';
 import { Transaccion } from '../../domain/value-objects/transaccion';
 import { Bucket } from '../../domain/value-objects/bucket';
@@ -97,7 +102,8 @@ export type PreviewIngestaError =
   | SinMovimientosError
   | CatalogoIncompletoError
   | CategorizacionFallidaError
-  | PersistenciaFallidaError;
+  | PersistenciaFallidaError
+  | PlanPlusRequeridoError;
 
 /**
  * PreviewIngestaUseCase — orquesta el seam de solo-lectura:
@@ -152,6 +158,8 @@ export class PreviewIngestaUseCase {
     /** D-09: per-row classifier — injected (matches ProcessIngestaUseCase pattern, not per-request new). */
     private readonly categorizarTransaccionUseCase: CategorizarTransaccionUseCase,
     private readonly logger: ILogger,
+    /** IMP-24: bank limit of the free plan; the default applies none. */
+    private readonly limiteBancos: ILimiteBancos = SIN_LIMITE_BANCOS,
   ) {}
 
   async execute(
@@ -184,6 +192,12 @@ export class PreviewIngestaUseCase {
       return Result.fail(pipelineResult.getError());
     }
     const { banco, estructura, transacciones } = pipelineResult.getValue();
+
+    // IMP-24: checked as soon as the bank is known, before any other read.
+    const limite = await this.limiteBancos.verificar(input.userId, banco.banco);
+    if (limite.isFail()) {
+      return Result.fail(limite.getError());
+    }
 
     // spec PREV-EXT-01: `totalFilas` is the total row count of the normalized
     // set as reported by the structure step — same discrimination as

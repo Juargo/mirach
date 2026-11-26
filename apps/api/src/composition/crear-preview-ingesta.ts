@@ -1,3 +1,7 @@
+import {
+  SIN_LIMITE_BANCOS,
+  type ILimiteBancos,
+} from '../application/services/limite-bancos-plan-gratis';
 import type { PrismaClient } from '@prisma/client';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
@@ -47,6 +51,7 @@ export function crearPreviewIngesta(
   crypto: ICryptoService,
   blindIndex: IBlindIndexService,
   logger: ILogger,
+  limiteBancos: ILimiteBancos = SIN_LIMITE_BANCOS,
 ): PreviewIngestaUseCase {
   const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
     new IngestFileUseCase(logger),
@@ -75,5 +80,6 @@ export function crearPreviewIngesta(
     new PrismaCatalogoClasificacionRepository(prisma),
     new CategorizarTransaccionUseCase(logger),
     logger,
+    limiteBancos,
   );
 }
