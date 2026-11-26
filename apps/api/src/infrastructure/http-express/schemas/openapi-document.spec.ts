@@ -91,6 +91,12 @@ describe('buildOpenApiDocument', () => {
     expect(document.paths?.['/api/ingestas']?.post).toBeUndefined();
   });
 
+  it('does not document POST /api/webhooks/revenuecat: RevenueCat calls it, and this contract generates the app clients (ADR-012)', () => {
+    const doc = buildOpenApiDocument();
+
+    expect(doc.paths?.['/api/webhooks/revenuecat']).toBeUndefined();
+  });
+
   it('registers POST /api/ingestas/preview with a multipart/form-data requestBody and a response schema', () => {
     const document = buildOpenApiDocument();
 

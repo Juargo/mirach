@@ -34,6 +34,10 @@ function makePrisma() {
     categoria: modelo('categoria'),
     account: modelo('account'),
     user: modelo('user'),
+    $queryRaw: vi.fn().mockImplementation((sql: { values: unknown[] }) => {
+      llamadas.push('lock');
+      return { nombre: 'lock', valores: sql.values };
+    }),
     $transaction: vi.fn().mockResolvedValue([]) as Mock,
   };
   return { prisma: prisma as unknown as PrismaClient, raw: prisma, llamadas };
@@ -47,8 +51,20 @@ describe('PrismaCuentaRepository.eliminar', () => {
 
     expect(raw.$transaction).toHaveBeenCalledTimes(1);
     const ops = raw.$transaction.mock.calls[0][0] as Array<{ nombre: string }>;
-    expect(ops.map((o) => o.nombre)).toEqual([...TABLAS]);
-    expect(llamadas).toEqual([...TABLAS]);
+    expect(ops.map((o) => o.nombre)).toEqual(['lock', ...TABLAS]);
+    expect(llamadas).toEqual(['lock', ...TABLAS]);
+  });
+
+  it('bloquea primero la fila del usuario, igual que el webhook y la fusión', async () => {
+    const { prisma, raw } = makePrisma();
+
+    await new PrismaCuentaRepository(prisma).eliminar('user-a');
+
+    const ops = raw.$transaction.mock.calls[0][0] as Array<{
+      nombre: string;
+      valores?: unknown[];
+    }>;
+    expect(ops[0]).toEqual({ nombre: 'lock', valores: ['user-a'] });
   });
 
   it('cada deleteMany está scoped por el userId (RNF-SEC-006)', async () => {

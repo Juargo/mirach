@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { ICuentaRepository } from '../../application/ports/cuenta-repository.port';
 
 /**
@@ -21,6 +21,12 @@ export class PrismaCuentaRepository implements ICuentaRepository {
 
   async eliminar(userId: string): Promise<void> {
     await this.prisma.$transaction([
+      // Same first lock as the store webhook and the account merge: without
+      // it, a webhook that holds the `User` row and waits for `Suscripcion`
+      // deadlocks with a deletion that holds `Suscripcion` and waits for `User`.
+      this.prisma.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`,
+      ),
       this.prisma.session.deleteMany({ where: { userId } }),
       this.prisma.consentimiento.deleteMany({ where: { userId } }),
       this.prisma.suscripcion.deleteMany({ where: { userId } }),

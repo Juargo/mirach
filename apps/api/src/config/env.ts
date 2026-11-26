@@ -244,6 +244,23 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Exige los consentimientos (#112): una cuenta nueva necesita las versiones de términos y privacidad, e importar una cartola necesita el consentimiento de cartolas vigente. Apagado mientras las apps instaladas no tengan esas pantallas (#134). Encender solo cuando esa versión sea la mínima (APP_MIN_VERSION_*). Enum de strings ("true"/"false"), igual que COOKIE_SECURE.',
     ),
+  REVENUECAT_WEBHOOK_SECRET: z
+    .string()
+    .trim()
+    .transform((value) => (value === '' ? undefined : value))
+    .pipe(z.string().min(32).optional())
+    .optional()
+    .describe(
+      'Secreto del webhook de RevenueCat (ADR-012 §1): el valor que RevenueCat envía en el encabezado Authorization de POST /api/webhooks/revenuecat, configurado en su panel. Mínimo 32 caracteres; generar con: openssl rand -base64 32. Opcional: activación por presencia — ausente (o en blanco) = el webhook responde 404 y ningún evento cambia derechos.',
+    ),
+  REVENUECAT_FUNDADOR_PRODUCT_ID: z
+    .string()
+    .trim()
+    .transform((value) => (value === '' ? undefined : value))
+    .optional()
+    .describe(
+      'Identificador en las tiendas del producto del plan Fundador (ADR-015 §6), igual en App Store y Google Play. Su compra única da Plus de por vida. Opcional: ausente = el webhook ignora esa compra.',
+    ),
   FREE_PLAN_MAX_BANKS: z.coerce
     .number()
     .int()

@@ -138,6 +138,7 @@ describe('createContainer — revocación de Sign in with Apple al eliminar la c
     const modelo = { deleteMany: vi.fn() };
     const prisma = {
       $disconnect: vi.fn(),
+      $queryRaw: vi.fn(),
       $transaction: vi.fn().mockResolvedValue([]),
       user: { findUnique, deleteMany: vi.fn() },
       session: modelo,

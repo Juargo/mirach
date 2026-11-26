@@ -129,6 +129,13 @@ services:
       # la revisión de App Store; quitarla después de la aprobación.
       - key: REVIEW_LOGIN_EMAIL
         sync: false
+      # RevenueCat (ADR-012, ADR-015): secreto del webhook y producto del plan
+      # Fundador. Opcionales: sin el secreto, POST /api/webhooks/revenuecat
+      # responde 404 y ningún evento cambia derechos.
+      - key: REVENUECAT_WEBHOOK_SECRET
+        sync: false
+      - key: REVENUECAT_FUNDADOR_PRODUCT_ID
+        sync: false
       # CORS allowlist (ADR-029): orígenes de navegador autorizados a leer
       # respuestas cross-origin. Las apps nativas no usan CORS y el web está
       # dormido (ADR-046, D5), así que va VACÍA a propósito. Vacía y explícita:

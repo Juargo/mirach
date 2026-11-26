@@ -9,6 +9,9 @@ import { LogoutUseCase } from '../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identidad.use-case';
 import { ObtenerConfiguracionAppUseCase } from '../application/use-cases/obtener-configuracion-app.use-case';
 import { ObtenerPlanUseCase } from '../application/use-cases/obtener-plan.use-case';
+import { ProcesarEventoSuscripcionUseCase } from '../application/use-cases/procesar-evento-suscripcion.use-case';
+import { PrismaDerechosPlusWriter } from '../infrastructure/persistence/prisma-derechos-plus.writer';
+import type { WebhookRevenueCatGraph } from '../infrastructure/http-express/routes/webhooks-revenuecat.routes';
 import { PrismaPlanReader } from '../infrastructure/persistence/prisma-plan.reader';
 import { SystemReloj } from '../infrastructure/http/auth/system-reloj';
 import { VersionApp } from '../domain/value-objects/version-app';
@@ -175,6 +178,11 @@ export interface Container {
   readonly obtenerConfiguracionApp: ObtenerConfiguracionAppUseCase;
   /** Plan de la cuenta (ADR-012 §2, ADR-015 §2) — `GET /api/plan`. */
   readonly obtenerPlan: ObtenerPlanUseCase;
+  /**
+   * Webhook de RevenueCat (ADR-012 §1). `undefined` sin
+   * `REVENUECAT_WEBHOOK_SECRET`: la ruta responde 404.
+   */
+  readonly webhookRevenueCat?: WebhookRevenueCatGraph;
   /** Login con Google (AUTH-11..18) — `undefined` cuando el feature está
    * apagado (GOOGLE_CLIENT_ID/SECRET ausentes, design §4.3/§4.4). El TIPO
    * de este campo es el seam de activación: `googleAuth !== undefined` es
@@ -469,6 +477,17 @@ export function createContainer(
     login: auth.login,
     logout: auth.logout,
     obtenerIdentidad: auth.obtenerIdentidad,
+    webhookRevenueCat:
+      env.REVENUECAT_WEBHOOK_SECRET === undefined
+        ? undefined
+        : {
+            procesarEvento: new ProcesarEventoSuscripcionUseCase(
+              new PrismaDerechosPlusWriter(prisma),
+              logger,
+            ),
+            secreto: env.REVENUECAT_WEBHOOK_SECRET,
+            productoFundador: env.REVENUECAT_FUNDADOR_PRODUCT_ID,
+          },
     obtenerPlan: new ObtenerPlanUseCase(
       new PrismaPlanReader(prisma),
       new SystemReloj(),
