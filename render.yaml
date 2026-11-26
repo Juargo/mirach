@@ -136,6 +136,13 @@ services:
         sync: false
       - key: REVENUECAT_FUNDADOR_PRODUCT_ID
         sync: false
+      # Activación del cobro (ADR-015 §3). Sin PLUS_BILLING_STARTS_AT toda
+      # cuenta tiene Plus por el lanzamiento; definirla en el dashboard es lo
+      # que activa el cobro y la prueba de PLUS_TRIAL_DAYS días.
+      - key: PLUS_BILLING_STARTS_AT
+        sync: false
+      - key: PLUS_TRIAL_DAYS
+        value: "30"
       # CORS allowlist (ADR-029): orígenes de navegador autorizados a leer
       # respuestas cross-origin. Las apps nativas no usan CORS y el web está
       # dormido (ADR-046, D5), así que va VACÍA a propósito. Vacía y explícita:

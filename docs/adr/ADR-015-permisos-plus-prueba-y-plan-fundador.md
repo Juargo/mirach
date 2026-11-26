@@ -39,10 +39,17 @@ RevenueCat, el webhook y la regla "el API decide los derechos" de ADR-012 siguen
    (ADR-001) ni usan el estado que informa el SDK de RevenueCat para autorizar (ADR-006).
    Cuando hay más de un origen vigente, `GET /api/plan` informa el que dura más: un permiso
    sin vencimiento, luego el que vence más tarde.
-3. **Prueba sin tarjeta.** La prueba de 30 días es un permiso `prueba` que concede el API,
-   con `venceEn` a 30 días de su inicio. No pasa por las tiendas ni pide medio de pago. Se
-   concede una sola vez por cuenta. El aviso de PLA-09 se calcula con ese `venceEn`. El
+3. **Prueba sin tarjeta.** La prueba de 30 días la concede el API: no pasa por las tiendas
+   ni pide medio de pago. No se guarda una fila por cuenta, se deriva: corre desde lo más
+   tardío entre la creación de la cuenta (anónima incluida, ADR-013) y la fecha de
+   activación del cobro (`PLUS_BILLING_STARTS_AT`), durante `PLUS_TRIAL_DAYS` días. Así
+   una cuenta nueva parte con su prueba y una que ya existía recibe sus días completos
+   desde la activación. Un permiso `prueba` guardado reemplaza a la derivada, para
+   extenderla o revocarla a mano. El aviso de PLA-09 se calcula con ese vencimiento. El
    estado `prueba` de la tabla `Suscripcion` de ADR-012 ya no se usa.
+   **Antes de activar el cobro**, sin `PLUS_BILLING_STARTS_AT` o con una fecha futura, toda
+   cuenta tiene Plus con origen `lanzamiento` (el «Plus gratis durante el lanzamiento» de
+   ADR-012). Activar el cobro es definir esa variable: no hay migración ni cambio de datos.
 4. **Testers.** El Plus de por vida de los testers es un permiso `tester_vitalicio` sin
    vencimiento, concedido a mano con un script del API. Se refleja en RevenueCat como
    derecho promocional, pero la fuente de verdad es `PermisoPlan`.
@@ -75,8 +82,11 @@ RevenueCat, el webhook y la regla "el API decide los derechos" de ADR-012 siguen
   intransferible.
 - Una cuenta anónima (ADR-013) puede comprar. Si la persona borra la app sin vincular, la
   compra se recupera con "Restaurar compras" (PLA-05), que la traslada a la cuenta nueva.
-- **Pendiente:** el momento en que parte la prueba para una cuenta anónima y para las
-  cuentas que ya existan al activar el cobro.
+- Reinstalar la app con una cuenta anónima crea una cuenta nueva y, con ella, otra
+  prueba. Se acepta: la cuenta anónima pierde todos sus datos al reinstalar, y fusionar
+  cuentas (ADR-014) conserva la fecha de la cuenta de destino.
+- Quitar `PLUS_BILLING_STARTS_AT` devuelve Plus a todas las cuentas: sirve para revertir
+  la activación sin tocar datos.
 
 ## Referencias
 

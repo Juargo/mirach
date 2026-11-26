@@ -118,4 +118,3 @@ Quedan fuera por no aplicar a Mirach: 003, 008, 010, 012, 017, 022, 043 (web y E
 | Proyecto Supabase `mirach` pausado | ADR-002 | Reactivarlo; revisar los avisos de seguridad (Data API) |
 | Transferencia internacional de datos (servidores en EE. UU.) | ADR-002, ADR-009 | Revisión legal frente a la Ley 21.719 |
 | Landing en Vercel Hobby (no permite uso comercial) | ADR-002 | Decidido el 2026-11-26: Cloudflare Pages. Falta leer sus términos y migrar |
-| Inicio de la prueba de 30 días | ADR-015 | Definir cuándo parte para una cuenta anónima y para las cuentas que ya existan al activar el cobro |

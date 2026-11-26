@@ -1426,12 +1426,13 @@
         "description": "GET /api/plan — the plan of the session user, decided by the API (ADR-012, ADR-015).",
         "properties": {
           "origen": {
-            "description": "Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.",
+            "description": "Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.",
             "enum": [
               "suscripcion",
               "prueba",
               "tester_vitalicio",
               "fundador",
+              "lanzamiento",
               null
             ],
             "nullable": true,
@@ -1450,6 +1451,35 @@
             "example": "plus_anual",
             "nullable": true,
             "type": "string"
+          },
+          "prueba": {
+            "additionalProperties": false,
+            "description": "The trial of the account (PLA-02): it starts when the account is created, or when billing is turned on for an account that already existed. null while billing is not turned on, and when the account has no trial.",
+            "nullable": true,
+            "properties": {
+              "avisoDiasRestantes": {
+                "description": "Days left, rounded up, only when the trial is what gives Plus and ends within the notice period: the app shows \"Tu prueba Plus termina en N días\" (PLA-09). null otherwise.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "nullable": true,
+                "type": "integer"
+              },
+              "venceEn": {
+                "description": "When the trial ends or ended (ISO-8601 UTC timestamp).",
+                "example": "2027-01-10T12:00:00.000Z",
+                "type": "string"
+              },
+              "vigente": {
+                "description": "true while the trial is running; false once it ended (the app explains the move to the free plan, PLA-09).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "venceEn",
+              "vigente",
+              "avisoDiasRestantes"
+            ],
+            "type": "object"
           },
           "renueva": {
             "description": "true only when a store subscription will be charged again at `venceEn`.",
@@ -1478,7 +1508,8 @@
           "venceEn",
           "renueva",
           "producto",
-          "tienda"
+          "tienda",
+          "prueba"
         ],
         "type": "object"
       },

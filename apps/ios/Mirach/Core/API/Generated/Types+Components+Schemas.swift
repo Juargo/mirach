@@ -3353,7 +3353,7 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/PlanResponse`.
         internal struct PlanResponse: Codable, Hashable, Sendable {
-            /// Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+            /// Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
             ///
             /// - Remark: Generated from `#/components/schemas/PlanResponse/origen`.
             internal enum origenPayload: String, Codable, Hashable, Sendable, CaseIterable {
@@ -3361,9 +3361,10 @@ extension Components {
                 case prueba = "prueba"
                 case tester_vitalicio = "tester_vitalicio"
                 case fundador = "fundador"
+                case lanzamiento = "lanzamiento"
                 case _empty = ""
             }
-            /// Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+            /// Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
             ///
             /// - Remark: Generated from `#/components/schemas/PlanResponse/origen`.
             internal var origen: Components.Schemas.PlanResponse.origenPayload?
@@ -3382,6 +3383,67 @@ extension Components {
             ///
             /// - Remark: Generated from `#/components/schemas/PlanResponse/producto`.
             internal var producto: Swift.String?
+            /// The trial of the account (PLA-02): it starts when the account is created, or when billing is turned on for an account that already existed. null while billing is not turned on, and when the account has no trial.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/prueba`.
+            internal struct pruebaPayload: Codable, Hashable, Sendable {
+                /// Days left, rounded up, only when the trial is what gives Plus and ends within the notice period: the app shows "Tu prueba Plus termina en N días" (PLA-09). null otherwise.
+                ///
+                /// - Remark: Generated from `#/components/schemas/PlanResponse/prueba/avisoDiasRestantes`.
+                internal var avisoDiasRestantes: Swift.Int?
+                /// When the trial ends or ended (ISO-8601 UTC timestamp).
+                ///
+                /// - Remark: Generated from `#/components/schemas/PlanResponse/prueba/venceEn`.
+                internal var venceEn: Swift.String
+                /// true while the trial is running; false once it ended (the app explains the move to the free plan, PLA-09).
+                ///
+                /// - Remark: Generated from `#/components/schemas/PlanResponse/prueba/vigente`.
+                internal var vigente: Swift.Bool
+                /// Creates a new `pruebaPayload`.
+                ///
+                /// - Parameters:
+                ///   - avisoDiasRestantes: Days left, rounded up, only when the trial is what gives Plus and ends within the notice period: the app shows "Tu prueba Plus termina en N días" (PLA-09). null otherwise.
+                ///   - venceEn: When the trial ends or ended (ISO-8601 UTC timestamp).
+                ///   - vigente: true while the trial is running; false once it ended (the app explains the move to the free plan, PLA-09).
+                internal init(
+                    avisoDiasRestantes: Swift.Int? = nil,
+                    venceEn: Swift.String,
+                    vigente: Swift.Bool
+                ) {
+                    self.avisoDiasRestantes = avisoDiasRestantes
+                    self.venceEn = venceEn
+                    self.vigente = vigente
+                }
+                internal enum CodingKeys: String, CodingKey {
+                    case avisoDiasRestantes
+                    case venceEn
+                    case vigente
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.avisoDiasRestantes = try container.decodeIfPresent(
+                        Swift.Int.self,
+                        forKey: .avisoDiasRestantes
+                    )
+                    self.venceEn = try container.decode(
+                        Swift.String.self,
+                        forKey: .venceEn
+                    )
+                    self.vigente = try container.decode(
+                        Swift.Bool.self,
+                        forKey: .vigente
+                    )
+                    try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "avisoDiasRestantes",
+                        "venceEn",
+                        "vigente"
+                    ])
+                }
+            }
+            /// The trial of the account (PLA-02): it starts when the account is created, or when billing is turned on for an account that already existed. null while billing is not turned on, and when the account has no trial.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/prueba`.
+            internal var prueba: Components.Schemas.PlanResponse.pruebaPayload?
             /// true only when a store subscription will be charged again at `venceEn`.
             ///
             /// - Remark: Generated from `#/components/schemas/PlanResponse/renueva`.
@@ -3405,9 +3467,10 @@ extension Components {
             /// Creates a new `PlanResponse`.
             ///
             /// - Parameters:
-            ///   - origen: Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+            ///   - origen: Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
             ///   - plan: Plan in force for the session user (PLA-01).
             ///   - producto: Store product identifier of the subscription. null for any other origin.
+            ///   - prueba: The trial of the account (PLA-02): it starts when the account is created, or when billing is turned on for an account that already existed. null while billing is not turned on, and when the account has no trial.
             ///   - renueva: true only when a store subscription will be charged again at `venceEn`.
             ///   - tienda: Store that bills the subscription, where the user cancels it (PLA-04). null for any other origin.
             ///   - venceEn: When Plus ends (ISO-8601 UTC timestamp): the renewal date of a subscription that renews, or the last day of a cancelled subscription or a trial. null on the free plan and when Plus never expires.
@@ -3415,6 +3478,7 @@ extension Components {
                 origen: Components.Schemas.PlanResponse.origenPayload? = nil,
                 plan: Components.Schemas.PlanResponse.planPayload,
                 producto: Swift.String? = nil,
+                prueba: Components.Schemas.PlanResponse.pruebaPayload? = nil,
                 renueva: Swift.Bool,
                 tienda: Components.Schemas.PlanResponse.tiendaPayload? = nil,
                 venceEn: Swift.String? = nil
@@ -3422,6 +3486,7 @@ extension Components {
                 self.origen = origen
                 self.plan = plan
                 self.producto = producto
+                self.prueba = prueba
                 self.renueva = renueva
                 self.tienda = tienda
                 self.venceEn = venceEn
@@ -3430,6 +3495,7 @@ extension Components {
                 case origen
                 case plan
                 case producto
+                case prueba
                 case renueva
                 case tienda
                 case venceEn
@@ -3448,6 +3514,10 @@ extension Components {
                     Swift.String.self,
                     forKey: .producto
                 )
+                self.prueba = try container.decodeIfPresent(
+                    Components.Schemas.PlanResponse.pruebaPayload.self,
+                    forKey: .prueba
+                )
                 self.renueva = try container.decode(
                     Swift.Bool.self,
                     forKey: .renueva
@@ -3464,6 +3534,7 @@ extension Components {
                     "origen",
                     "plan",
                     "producto",
+                    "prueba",
                     "renueva",
                     "tienda",
                     "venceEn"

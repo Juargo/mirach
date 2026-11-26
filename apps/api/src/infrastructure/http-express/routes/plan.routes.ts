@@ -24,6 +24,14 @@ export function registrarPlan(
         renueva: plan.renueva,
         producto: plan.producto,
         tienda: plan.tienda,
+        prueba:
+          plan.prueba === null
+            ? null
+            : {
+                venceEn: plan.prueba.venceEn.toISOString(),
+                vigente: plan.prueba.vigente,
+                avisoDiasRestantes: plan.prueba.avisoDiasRestantes,
+              },
       };
       res.status(200).json(body);
     } catch (err) {

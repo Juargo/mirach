@@ -849,3 +849,53 @@ describe('loadEnv — configuración remota de las apps (GET /api/config, ADR-00
     expect(() => loadEnv({ ...baseDevSource, [key]: value })).toThrow(key);
   });
 });
+
+describe('loadEnv — cobro de Plus y webhook de RevenueCat (ADR-012, ADR-015)', () => {
+  it('sin variables: el cobro no está activo, la prueba dura 30 días y el webhook queda apagado', () => {
+    const env = loadEnv(baseDevSource);
+
+    expect(env.PLUS_BILLING_STARTS_AT).toBeUndefined();
+    expect(env.PLUS_TRIAL_DAYS).toBe(30);
+    expect(env.REVENUECAT_WEBHOOK_SECRET).toBeUndefined();
+    expect(env.REVENUECAT_FUNDADOR_PRODUCT_ID).toBeUndefined();
+  });
+
+  it('parsea la fecha de activación con su zona y los demás valores', () => {
+    const env = loadEnv({
+      ...baseDevSource,
+      PLUS_BILLING_STARTS_AT: ' 2027-01-15T00:00:00-03:00 ',
+      PLUS_TRIAL_DAYS: '0',
+      REVENUECAT_WEBHOOK_SECRET: ` ${'s'.repeat(32)} `,
+      REVENUECAT_FUNDADOR_PRODUCT_ID: ' plus_fundador ',
+    });
+
+    expect(env.PLUS_BILLING_STARTS_AT).toEqual(
+      new Date('2027-01-15T03:00:00.000Z'),
+    );
+    expect(env.PLUS_TRIAL_DAYS).toBe(0);
+    expect(env.REVENUECAT_WEBHOOK_SECRET).toBe('s'.repeat(32));
+    expect(env.REVENUECAT_FUNDADOR_PRODUCT_ID).toBe('plus_fundador');
+  });
+
+  it.each([
+    'PLUS_BILLING_STARTS_AT',
+    'REVENUECAT_WEBHOOK_SECRET',
+    'REVENUECAT_FUNDADOR_PRODUCT_ID',
+  ])('%s en blanco es lo mismo que ausente', (key) => {
+    const env = loadEnv({ ...baseDevSource, [key]: '   ' });
+
+    expect(env[key as keyof typeof env]).toBeUndefined();
+  });
+
+  it.each([
+    ['PLUS_BILLING_STARTS_AT', '2027-01-15'],
+    ['PLUS_BILLING_STARTS_AT', '2027-01-15T00:00:00'],
+    ['PLUS_BILLING_STARTS_AT', 'mañana'],
+    ['PLUS_TRIAL_DAYS', '-1'],
+    ['PLUS_TRIAL_DAYS', '366'],
+    ['PLUS_TRIAL_DAYS', '7.5'],
+    ['REVENUECAT_WEBHOOK_SECRET', 's'.repeat(31)],
+  ])('%s=%j hace fallar el boot', (key, value) => {
+    expect(() => loadEnv({ ...baseDevSource, [key]: value })).toThrow(key);
+  });
+});

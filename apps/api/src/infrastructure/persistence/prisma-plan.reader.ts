@@ -1,10 +1,8 @@
 import type { PrismaClient } from '@prisma/client';
 
+import type { IPlanReader } from '../../application/ports/plan-reader.port';
 import type {
-  DerechosGuardados,
-  IPlanReader,
-} from '../../application/ports/plan-reader.port';
-import type {
+  DerechosCuenta,
   EstadoSuscripcion,
   MotivoPermiso,
   TiendaSuscripcion,
@@ -18,8 +16,12 @@ import type {
 export class PrismaPlanReader implements IPlanReader {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async leer(userId: string): Promise<DerechosGuardados> {
-    const [suscripcion, permisos] = await Promise.all([
+  async leer(userId: string): Promise<DerechosCuenta> {
+    const [usuario, suscripcion, permisos] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { creadoEn: true },
+      }),
       this.prisma.suscripcion.findUnique({ where: { userId } }),
       this.prisma.permisoPlan.findMany({
         where: { userId },
@@ -28,6 +30,7 @@ export class PrismaPlanReader implements IPlanReader {
     ]);
 
     return {
+      cuentaCreadaEn: usuario?.creadoEn ?? null,
       suscripcion:
         suscripcion === null
           ? null

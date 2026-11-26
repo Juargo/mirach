@@ -23,6 +23,7 @@
 
 package app.mirachbudget.android.core.api.generated.models
 
+import app.mirachbudget.android.core.api.generated.models.PlanResponsePrueba
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -31,9 +32,10 @@ import kotlinx.serialization.Contextual
 /**
  * GET /api/plan — the plan of the session user, decided by the API (ADR-012, ADR-015).
  *
- * @param origen Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+ * @param origen Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
  * @param plan Plan in force for the session user (PLA-01).
  * @param producto Store product identifier of the subscription. null for any other origin.
+ * @param prueba 
  * @param renueva true only when a store subscription will be charged again at `venceEn`.
  * @param tienda Store that bills the subscription, where the user cancels it (PLA-04). null for any other origin.
  * @param venceEn When Plus ends (ISO-8601 UTC timestamp): the renewal date of a subscription that renews, or the last day of a cancelled subscription or a trial. null on the free plan and when Plus never expires.
@@ -42,7 +44,7 @@ import kotlinx.serialization.Contextual
 
 data class PlanResponse (
 
-    /* Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan. */
+    /* Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan. */
     @SerialName(value = "origen")
     val origen: PlanResponse.Origen?,
 
@@ -53,6 +55,9 @@ data class PlanResponse (
     /* Store product identifier of the subscription. null for any other origin. */
     @SerialName(value = "producto")
     val producto: kotlin.String?,
+
+    @SerialName(value = "prueba")
+    val prueba: PlanResponsePrueba?,
 
     /* true only when a store subscription will be charged again at `venceEn`. */
     @SerialName(value = "renueva")
@@ -69,16 +74,17 @@ data class PlanResponse (
 ) {
 
     /**
-     * Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+     * Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
      *
-     * Values: suscripcion,prueba,tester_vitalicio,fundador
+     * Values: suscripcion,prueba,tester_vitalicio,fundador,lanzamiento
      */
     @Serializable
     enum class Origen(val value: kotlin.String) {
         @SerialName(value = "suscripcion") suscripcion("suscripcion"),
         @SerialName(value = "prueba") prueba("prueba"),
         @SerialName(value = "tester_vitalicio") tester_vitalicio("tester_vitalicio"),
-        @SerialName(value = "fundador") fundador("fundador");
+        @SerialName(value = "fundador") fundador("fundador"),
+        @SerialName(value = "lanzamiento") lanzamiento("lanzamiento");
     }
     /**
      * Plan in force for the session user (PLA-01).
