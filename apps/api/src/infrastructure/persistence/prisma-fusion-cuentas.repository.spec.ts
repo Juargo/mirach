@@ -29,6 +29,8 @@ interface Escenario {
   patronesOrigen?: unknown[];
   patronesDestino?: unknown[];
   movimientosEnCuentasMovidas?: number;
+  suscripcionesDestino?: number;
+  motivosPermisosDestino?: string[];
 }
 
 const ESCRITURAS = [
@@ -43,6 +45,10 @@ const ESCRITURAS = [
   'categoria.deleteMany',
   'session.deleteMany',
   'consentimiento.deleteMany',
+  'suscripcion.updateMany',
+  'suscripcion.deleteMany',
+  'permisoPlan.updateMany',
+  'permisoPlan.deleteMany',
   'user.delete',
 ] as const;
 
@@ -109,6 +115,20 @@ function montar(e: Escenario = {}) {
     session: { deleteMany: registrar('session.deleteMany', { count: 1 }) },
     consentimiento: {
       deleteMany: registrar('consentimiento.deleteMany', { count: 2 }),
+    },
+    suscripcion: {
+      count: vi.fn(() => Promise.resolve(e.suscripcionesDestino ?? 0)),
+      updateMany: registrar('suscripcion.updateMany', { count: 1 }),
+      deleteMany: registrar('suscripcion.deleteMany', { count: 0 }),
+    },
+    permisoPlan: {
+      findMany: vi.fn(() =>
+        Promise.resolve(
+          (e.motivosPermisosDestino ?? []).map((motivo) => ({ motivo })),
+        ),
+      ),
+      updateMany: registrar('permisoPlan.updateMany', { count: 1 }),
+      deleteMany: registrar('permisoPlan.deleteMany', { count: 0 }),
     },
   };
   const prisma = {
@@ -307,6 +327,58 @@ describe('PrismaFusionCuentasRepository.fusionar', () => {
     });
     expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: ORIGEN } });
     expect(orden[orden.length - 1]).toBe('user.delete');
+  });
+
+  it('mueve la suscripción del origen cuando el destino no tiene una', async () => {
+    const { repo, tx, orden } = montar();
+
+    await repo.fusionar(ORIGEN, DESTINO);
+
+    expect(tx.suscripcion.count).toHaveBeenCalledWith({
+      where: { userId: DESTINO },
+    });
+    expect(tx.suscripcion.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: { userId: ORIGEN },
+      data: { userId: DESTINO },
+    });
+    expect(tx.suscripcion.deleteMany).toHaveBeenCalledExactlyOnceWith({
+      where: { userId: ORIGEN },
+    });
+    expect(orden.indexOf('suscripcion.updateMany')).toBeLessThan(
+      orden.indexOf('suscripcion.deleteMany'),
+    );
+  });
+
+  it('conserva la suscripción del destino y descarta la del origen', async () => {
+    const { repo, tx } = montar({ suscripcionesDestino: 1 });
+
+    await repo.fusionar(ORIGEN, DESTINO);
+
+    expect(tx.suscripcion.updateMany).not.toHaveBeenCalled();
+    expect(tx.suscripcion.deleteMany).toHaveBeenCalledExactlyOnceWith({
+      where: { userId: ORIGEN },
+    });
+  });
+
+  it('mueve solo los permisos que el destino no tiene: nunca una segunda prueba', async () => {
+    const { repo, tx, orden } = montar({ motivosPermisosDestino: ['prueba'] });
+
+    await repo.fusionar(ORIGEN, DESTINO);
+
+    expect(tx.permisoPlan.findMany).toHaveBeenCalledWith({
+      where: { userId: DESTINO },
+      select: { motivo: true },
+    });
+    expect(tx.permisoPlan.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: { userId: ORIGEN, motivo: { notIn: ['prueba'] } },
+      data: { userId: DESTINO },
+    });
+    expect(tx.permisoPlan.deleteMany).toHaveBeenCalledExactlyOnceWith({
+      where: { userId: ORIGEN },
+    });
+    expect(orden.indexOf('permisoPlan.updateMany')).toBeLessThan(
+      orden.indexOf('permisoPlan.deleteMany'),
+    );
   });
 
   it('si una escritura falla, el error sale y la transacción lo revierte (no se traga)', async () => {

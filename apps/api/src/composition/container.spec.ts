@@ -142,6 +142,8 @@ describe('createContainer — revocación de Sign in with Apple al eliminar la c
       user: { findUnique, deleteMany: vi.fn() },
       session: modelo,
       consentimiento: modelo,
+      suscripcion: modelo,
+      permisoPlan: modelo,
       transaccion: modelo,
       ingesta: modelo,
       patronClasificacion: modelo,
