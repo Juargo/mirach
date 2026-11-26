@@ -16,6 +16,10 @@ import { registrarIngresosMes } from './routes/ingresos.routes';
 import { registrarPeriodos } from './routes/periodos.routes';
 import { registrarPlan } from './routes/plan.routes';
 import {
+  registrarWebhookRevenueCat,
+  registrarWebhookRevenueCatDeshabilitado,
+} from './routes/webhooks-revenuecat.routes';
+import {
   registrarMovimientos,
   registrarMovimientoManual,
   registrarEliminarMovimientoManual,
@@ -123,6 +127,18 @@ export function createApp(container: Container, env: Env): Express {
 
   // Versión del build desplegado — público (fuera de /api), sin API key.
   registrarVersion(app);
+
+  // RevenueCat webhook (ADR-012 §1): RevenueCat cannot send the `x-api-key`,
+  // so its router is mounted BEFORE the api-key middleware. Its credential is
+  // its own secret. Always mounted: without the secret it answers 404 instead
+  // of falling through to the 401 of the api-key.
+  const webhooksApi = express.Router();
+  if (container.webhookRevenueCat !== undefined) {
+    registrarWebhookRevenueCat(webhooksApi, container.webhookRevenueCat);
+  } else {
+    registrarWebhookRevenueCatDeshabilitado(webhooksApi);
+  }
+  app.use('/api', webhooksApi);
 
   // API key para todo /api (health, en '/', queda fuera).
   app.use('/api', createApiKeyMiddleware(env.API_KEY));
