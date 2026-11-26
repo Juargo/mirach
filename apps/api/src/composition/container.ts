@@ -9,6 +9,7 @@ import { LogoutUseCase } from '../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identidad.use-case';
 import { ObtenerConfiguracionAppUseCase } from '../application/use-cases/obtener-configuracion-app.use-case';
 import { ObtenerPlanUseCase } from '../application/use-cases/obtener-plan.use-case';
+import { VerificarPlusUseCase } from '../application/use-cases/verificar-plus.use-case';
 import { DIAS_AVISO_FIN_PRUEBA } from '../domain/value-objects/plan';
 import { ProcesarEventoSuscripcionUseCase } from '../application/use-cases/procesar-evento-suscripcion.use-case';
 import { PrismaDerechosPlusWriter } from '../infrastructure/persistence/prisma-derechos-plus.writer';
@@ -179,6 +180,8 @@ export interface Container {
   readonly obtenerConfiguracionApp: ObtenerConfiguracionAppUseCase;
   /** Plan de la cuenta (ADR-012 §2, ADR-015 §2) — `GET /api/plan`. */
   readonly obtenerPlan: ObtenerPlanUseCase;
+  /** Puerta de las funciones de Plus (PLA-01). */
+  readonly verificarPlus: VerificarPlusUseCase;
   /**
    * Webhook de RevenueCat (ADR-012 §1). `undefined` sin
    * `REVENUECAT_WEBHOOK_SECRET`: la ruta responde 404.
@@ -440,11 +443,26 @@ export function createContainer(
     aceptar: new AceptarConsentimientoUseCase(consentimientos),
     revocar: new RevocarConsentimientoUseCase(consentimientos),
   };
+  // Plan rules (ADR-012, ADR-015): one reader, one clock and one trial rule
+  // behind both `GET /api/plan` and the Plus gate, so they cannot disagree.
+  const planReader = new PrismaPlanReader(prisma);
+  const relojPlan = new SystemReloj();
+  const reglaPrueba = {
+    cobroActivoDesde: env.PLUS_BILLING_STARTS_AT ?? null,
+    diasPrueba: env.PLUS_TRIAL_DAYS,
+    diasAviso: DIAS_AVISO_FIN_PRUEBA,
+  };
+  const verificarPlus = new VerificarPlusUseCase(
+    planReader,
+    relojPlan,
+    reglaPrueba,
+  );
   const perfilPresupuestoGraph: PerfilPresupuestoGraph = {
     obtener: new ObtenerPerfilPresupuestoUseCase(perfilPresupuesto),
     actualizar: new ActualizarPerfilPresupuestoUseCase(
       perfilPresupuesto,
       logger,
+      verificarPlus,
     ),
   };
 
@@ -489,14 +507,11 @@ export function createContainer(
             secreto: env.REVENUECAT_WEBHOOK_SECRET,
             productoFundador: env.REVENUECAT_FUNDADOR_PRODUCT_ID,
           },
+    verificarPlus,
     obtenerPlan: new ObtenerPlanUseCase(
-      new PrismaPlanReader(prisma),
-      new SystemReloj(),
-      {
-        cobroActivoDesde: env.PLUS_BILLING_STARTS_AT ?? null,
-        diasPrueba: env.PLUS_TRIAL_DAYS,
-        diasAviso: DIAS_AVISO_FIN_PRUEBA,
-      },
+      planReader,
+      relojPlan,
+      reglaPrueba,
       env.REVENUECAT_FUNDADOR_PRODUCT_ID === undefined
         ? null
         : env.FUNDADOR_SEATS,

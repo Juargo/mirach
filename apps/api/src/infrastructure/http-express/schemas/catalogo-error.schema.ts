@@ -47,3 +47,34 @@ export const categoriaInternaErrorResponseSchema = z
       '403 body: the category is a system category (`esInterna: true`, the per-bucket ' +
       '"Desconocido") and cannot be renamed, re-bucketed or deleted.',
   });
+
+/**
+ * 403 of a Plus-only function on the free plan (PLA-01): nothing was read or
+ * written. One body for every such route.
+ */
+export const planPlusRequeridoErrorResponseSchema = z
+  .object({
+    message: z.string(),
+    code: z.literal('PLAN_PLUS_REQUERIDO'),
+  })
+  .meta({
+    id: 'PlanPlusRequeridoErrorResponse',
+    description:
+      '403 body: the function is part of Plus and the account is on the free plan. The app offers the plans.',
+  });
+
+/**
+ * 403 of the routes that manage categories and patterns from settings: the
+ * account is on the free plan (CLA-09), or the category is a system category.
+ */
+export const catalogoProhibidoErrorResponseSchema = z
+  .object({
+    message: z.string(),
+    code: z.enum(['CATEGORIA_INTERNA', 'PLAN_PLUS_REQUERIDO']),
+  })
+  .meta({
+    id: 'CatalogoProhibidoErrorResponse',
+    description:
+      '403 body: `PLAN_PLUS_REQUERIDO` when the account is on the free plan (creating, editing and deleting ' +
+      'categories and patterns is Plus), or `CATEGORIA_INTERNA` when the category is a system category.',
+  });

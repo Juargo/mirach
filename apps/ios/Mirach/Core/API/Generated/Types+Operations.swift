@@ -3297,6 +3297,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/categorias/POST/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/categorias/POST/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_categorias.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_categorias.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.
+            ///
+            /// - Remark: Generated from `#/paths//api/categorias/post/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.post_sol_api_sol_categorias.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.post_sol_api_sol_categorias.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             internal struct Conflict: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/categorias/POST/responses/409/content`.
                 internal enum Body: Sendable, Hashable {
@@ -3642,12 +3693,12 @@ internal enum Operations {
                 /// - Remark: Generated from `#/paths/api/categorias/{id}/PATCH/responses/403/content`.
                 internal enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/api/categorias/{id}/PATCH/responses/403/content/application\/json`.
-                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    case json(Components.Schemas.CatalogoProhibidoErrorResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                    internal var json: Components.Schemas.CatalogoProhibidoErrorResponse {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -3666,7 +3717,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
+            /// Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
             ///
             /// - Remark: Generated from `#/paths//api/categorias/{id}/patch/responses/403`.
             ///
@@ -3960,12 +4011,12 @@ internal enum Operations {
                 /// - Remark: Generated from `#/paths/api/categorias/{id}/DELETE/responses/403/content`.
                 internal enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/api/categorias/{id}/DELETE/responses/403/content/application\/json`.
-                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    case json(Components.Schemas.CatalogoProhibidoErrorResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                    internal var json: Components.Schemas.CatalogoProhibidoErrorResponse {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -3984,7 +4035,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
+            /// Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"): it cannot be renamed, re-bucketed or deleted. `code` CATEGORIA_INTERNA.
             ///
             /// - Remark: Generated from `#/paths//api/categorias/{id}/delete/responses/403`.
             ///
@@ -9102,12 +9153,12 @@ internal enum Operations {
                 /// - Remark: Generated from `#/paths/api/patrones/POST/responses/403/content`.
                 internal enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/api/patrones/POST/responses/403/content/application\/json`.
-                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    case json(Components.Schemas.CatalogoProhibidoErrorResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                    internal var json: Components.Schemas.CatalogoProhibidoErrorResponse {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -9126,7 +9177,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"), which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            /// Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category (`esInterna: true`, the per-bucket "Desconocido"), which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/post/responses/403`.
             ///
@@ -9609,12 +9660,12 @@ internal enum Operations {
                 /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/responses/403/content`.
                 internal enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/api/patrones/{id}/PATCH/responses/403/content/application\/json`.
-                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    case json(Components.Schemas.CatalogoProhibidoErrorResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                    internal var json: Components.Schemas.CatalogoProhibidoErrorResponse {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -9633,7 +9684,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The target categoriaId is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            /// Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The target categoriaId is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/{id}/patch/responses/403`.
             ///
@@ -9918,6 +9969,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/patrones/{id}/DELETE/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/patrones/{id}/DELETE/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.delete_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.delete_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.
+            ///
+            /// - Remark: Generated from `#/paths//api/patrones/{id}/delete/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.delete_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.delete_sol_api_sol_patrones_sol__lcub_id_rcub_.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }
@@ -10256,12 +10358,12 @@ internal enum Operations {
                 /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/403/content`.
                 internal enum Body: Sendable, Hashable {
                     /// - Remark: Generated from `#/paths/api/patrones/vista-previa/POST/responses/403/content/application\/json`.
-                    case json(Components.Schemas.CategoriaInternaErrorResponse)
+                    case json(Components.Schemas.CatalogoProhibidoErrorResponse)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
                     /// - Throws: An error if `self` is not `.json`.
                     /// - SeeAlso: `.json`.
-                    internal var json: Components.Schemas.CategoriaInternaErrorResponse {
+                    internal var json: Components.Schemas.CatalogoProhibidoErrorResponse {
                         get throws {
                             switch self {
                             case let .json(body):
@@ -10280,7 +10382,7 @@ internal enum Operations {
                     self.body = body
                 }
             }
-            /// The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
+            /// Or the account is on the free plan: managing categories and patterns is Plus (CLA-09), `code` PLAN_PLUS_REQUERIDO, checked before anything else. The category is a protected system category, which accepts no patterns (CLA-18). `code` CATEGORIA_INTERNA.
             ///
             /// - Remark: Generated from `#/paths//api/patrones/vista-previa/post/responses/403`.
             ///
@@ -12134,6 +12236,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/perfil/presupuesto/PUT/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and this function is Plus (PLA-01). `code` PLAN_PLUS_REQUERIDO. Nothing was read or written.
+            ///
+            /// - Remark: Generated from `#/paths//api/perfil/presupuesto/put/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.put_sol_api_sol_perfil_sol_presupuesto.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }

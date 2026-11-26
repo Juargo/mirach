@@ -1,3 +1,6 @@
+import { crearExigirPlus } from './exigir-plus';
+import type { VerificarPlusUseCase } from '../../../application/use-cases/verificar-plus.use-case';
+import { PlanPlusRequeridoError } from '../../../domain/errors/plan-plus-requerido.error';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { registrarCategorias } from './categorias.routes';
@@ -50,7 +53,16 @@ function makeCatalogo(overrides?: Partial<CatalogoGraph>): CatalogoGraph {
   } as unknown as CatalogoGraph;
 }
 
-function probeApp(catalogo: CatalogoGraph): Express {
+const plusQue = (resultado: unknown) =>
+  ({
+    execute: vi.fn().mockResolvedValue(resultado),
+  }) as unknown as VerificarPlusUseCase;
+const CON_PLUS = plusQue(Result.ok(undefined));
+
+function probeApp(
+  catalogo: CatalogoGraph,
+  verificarPlus: VerificarPlusUseCase = CON_PLUS,
+): Express {
   const app = express();
   app.use(express.json());
   const router = express.Router();
@@ -58,7 +70,7 @@ function probeApp(catalogo: CatalogoGraph): Express {
     req.userId = 'user-x';
     next();
   });
-  registrarCategorias(router, catalogo);
+  registrarCategorias(router, catalogo, crearExigirPlus(verificarPlus));
   app.use('/api', router);
   app.use(errorMiddleware);
   return app;
@@ -479,6 +491,64 @@ describe('registrarCategorias', () => {
       expect(res.status).toBe(403);
       expect(res.body.code).toBe('CATEGORIA_INTERNA');
       expect(typeof res.body.message).toBe('string');
+    });
+  });
+
+  describe('Plus gate (CLA-09)', () => {
+    const sinPlus = () => plusQue(Result.fail(new PlanPlusRequeridoError()));
+
+    it.each([
+      ['post', '/api/categorias'],
+      ['patch', '/api/categorias/cat-1'],
+      ['delete', '/api/categorias/cat-1'],
+    ] as const)(
+      '%s %s answers 403 PLAN_PLUS_REQUERIDO on the free plan, before the body is read and without calling any use case',
+      async (metodo, ruta) => {
+        const catalogo = makeCatalogo();
+        const verificarPlus = sinPlus();
+
+        const res = await request(probeApp(catalogo, verificarPlus))
+          [metodo](ruta)
+          .send({ cualquier: 'cosa' });
+
+        expect(res.status).toBe(403);
+        expect(res.body).toEqual({
+          code: 'PLAN_PLUS_REQUERIDO',
+          message: 'Esta función es parte de Mirach Plus.',
+        });
+        expect(verificarPlus.execute).toHaveBeenCalledWith({
+          userId: 'user-x',
+        });
+        for (const useCase of Object.values(catalogo)) {
+          expect(
+            (useCase as { execute: ReturnType<typeof vi.fn> }).execute,
+          ).not.toHaveBeenCalled();
+        }
+      },
+    );
+
+    it('a failure of the plan check is a 500, never a pass', async () => {
+      const catalogo = makeCatalogo();
+      const verificarPlus = {
+        execute: vi.fn().mockRejectedValue(new Error('BD caída')),
+      } as unknown as VerificarPlusUseCase;
+
+      const res = await request(probeApp(catalogo, verificarPlus))
+        .delete('/api/categorias/x-1')
+        .send();
+
+      expect(res.status).toBe(500);
+    });
+
+    it('GET /api/categorias stays open on the free plan', async () => {
+      const verificarPlus = sinPlus();
+
+      const res = await request(probeApp(makeCatalogo(), verificarPlus)).get(
+        '/api/categorias',
+      );
+
+      expect(res.status).toBe(200);
+      expect(verificarPlus.execute).not.toHaveBeenCalled();
     });
   });
 });

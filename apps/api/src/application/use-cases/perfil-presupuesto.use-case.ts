@@ -15,6 +15,9 @@ import {
   IPerfilPresupuestoRepository,
 } from '../ports/perfil-presupuesto.port';
 import { ILogger } from '../ports/logger.port';
+import type { IVerificadorPlus } from '../ports/verificador-plus.port';
+import { PlanPlusRequeridoError } from '../../domain/errors/plan-plus-requerido.error';
+import { Bucket } from '../../domain/value-objects/bucket';
 
 /**
  * ObtenerPerfilPresupuestoUseCase — `GET /api/perfil/presupuesto` (#110).
@@ -31,6 +34,7 @@ export class ObtenerPerfilPresupuestoUseCase {
 }
 
 export type ActualizarPerfilPresupuestoError =
+  | PlanPlusRequeridoError
   | PerfilNoSuma100Error
   | MetaPresupuestoInvalidaError
   | DiaCorteInvalidoError
@@ -56,11 +60,26 @@ export type ActualizarPerfilPresupuestoInput = MesFinancieroInput &
       }
   );
 
+const BUCKETS_CON_META = [
+  Bucket.Necesidades,
+  Bucket.Deseos,
+  Bucket.Ahorro,
+] as const;
+
+/** Same profile id and the same three goals. */
+function mismoPerfil(a: PerfilPresupuesto, b: PerfilPresupuesto): boolean {
+  return (
+    a.perfil === b.perfil &&
+    BUCKETS_CON_META.every((bucket) => a.metas[bucket] === b.metas[bucket])
+  );
+}
+
 /**
  * ActualizarPerfilPresupuestoUseCase — `PUT /api/perfil/presupuesto` (#110,
  * PER-03..PER-05). An invalid custom profile is rejected before anything is
- * written, so the stored profile does not change. The custom profile is
- * allowed for every plan until ADR-012 gates it (S6). The cut-off day and
+ * written, so the stored profile does not change. A custom profile is Plus
+ * (PLA-01): a free account may keep the custom profile it already has, for
+ * instance to change its cut-off day, but not set new goals. The cut-off day and
  * declared income (#111) live in the same resource; a field left out keeps
  * its stored value.
  */
@@ -68,6 +87,7 @@ export class ActualizarPerfilPresupuestoUseCase {
   constructor(
     private readonly repo: IPerfilPresupuestoRepository,
     private readonly logger: ILogger,
+    private readonly plus: IVerificadorPlus,
   ) {}
 
   async execute(
@@ -79,7 +99,16 @@ export class ActualizarPerfilPresupuestoUseCase {
         : Result.ok(PerfilPresupuesto.predefinido(input.perfil));
     if (metas.isFail()) return this.rechazar(input.userId, metas.getError());
 
-    const actual = (await this.repo.obtener(input.userId)).mesFinanciero;
+    const guardado = await this.repo.obtener(input.userId);
+    if (
+      input.perfil === PERFIL_PERSONALIZADO &&
+      !mismoPerfil(guardado, metas.getValue()) &&
+      !(await this.plus.tienePlus(input.userId))
+    ) {
+      return this.rechazar(input.userId, new PlanPlusRequeridoError());
+    }
+
+    const actual = guardado.mesFinanciero;
     const mes = MesFinanciero.crear(
       input.diaCorte ?? actual.diaCorte.valor,
       input.ingresoDeclarado === undefined
