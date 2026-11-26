@@ -23,6 +23,8 @@ export class PrismaCuentaRepository implements ICuentaRepository {
     await this.prisma.$transaction([
       this.prisma.session.deleteMany({ where: { userId } }),
       this.prisma.consentimiento.deleteMany({ where: { userId } }),
+      this.prisma.suscripcion.deleteMany({ where: { userId } }),
+      this.prisma.permisoPlan.deleteMany({ where: { userId } }),
       this.prisma.transaccion.deleteMany({
         where: { account: { userId } },
       }),

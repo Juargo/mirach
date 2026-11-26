@@ -205,6 +205,7 @@ export class PrismaFusionCuentasRepository implements IFusionCuentasRepository {
 
     await tx.session.deleteMany({ where: { userId: origenId } });
     await tx.consentimiento.deleteMany({ where: { userId: origenId } });
+    await this.moverDerechosPlus(tx, origenId, destinoId);
     await tx.user.delete({ where: { id: origenId } });
 
     return {
@@ -272,5 +273,41 @@ export class PrismaFusionCuentasRepository implements IFusionCuentasRepository {
       ...fila,
       descripcion: this.crypto.decrypt(fila.descripcion),
     }));
+  }
+
+  /**
+   * Plus entitlements follow the person (ADR-015): the destination keeps its
+   * own, and receives the origin's subscription and each grant it does not
+   * already have. What the destination already has wins, so a merge never
+   * grants a second trial. The rest of the origin's rows go away with it.
+   */
+  private async moverDerechosPlus(
+    tx: Prisma.TransactionClient,
+    origenId: string,
+    destinoId: string,
+  ): Promise<void> {
+    const suscripcionDestino = await tx.suscripcion.count({
+      where: { userId: destinoId },
+    });
+    if (suscripcionDestino === 0) {
+      await tx.suscripcion.updateMany({
+        where: { userId: origenId },
+        data: { userId: destinoId },
+      });
+    }
+    await tx.suscripcion.deleteMany({ where: { userId: origenId } });
+
+    const permisosDestino = await tx.permisoPlan.findMany({
+      where: { userId: destinoId },
+      select: { motivo: true },
+    });
+    await tx.permisoPlan.updateMany({
+      where: {
+        userId: origenId,
+        motivo: { notIn: permisosDestino.map((permiso) => permiso.motivo) },
+      },
+      data: { userId: destinoId },
+    });
+    await tx.permisoPlan.deleteMany({ where: { userId: origenId } });
   }
 }

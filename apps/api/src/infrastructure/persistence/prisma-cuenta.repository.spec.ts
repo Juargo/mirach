@@ -5,6 +5,8 @@ import { PrismaCuentaRepository } from './prisma-cuenta.repository';
 const TABLAS = [
   'session',
   'consentimiento',
+  'suscripcion',
+  'permisoPlan',
   'transaccion',
   'ingesta',
   'patronClasificacion',
@@ -24,6 +26,8 @@ function makePrisma() {
   const prisma = {
     session: modelo('session'),
     consentimiento: modelo('consentimiento'),
+    suscripcion: modelo('suscripcion'),
+    permisoPlan: modelo('permisoPlan'),
     transaccion: modelo('transaccion'),
     ingesta: modelo('ingesta'),
     patronClasificacion: modelo('patronClasificacion'),

@@ -66,6 +66,9 @@ model User {
   // siendo un scalar de relación normal en PatronClasificacion, así que los
   // filtros `where: { userId }` funcionan igual sin esta navegación.
   categorias    Categoria[]
+  // ADR-012, ADR-015: derechos de Plus.
+  suscripcion   Suscripcion?
+  permisosPlan  PermisoPlan[]
 }
 
 model Session {
@@ -93,6 +96,41 @@ model Consentimiento {
   revocadoEn DateTime?
 
   @@index([userId])
+}
+
+// ADR-012 §1, ADR-015: the store subscription of a user, kept up to date by the
+// RevenueCat webhook. One row per user. `estado` and `tienda` are limited by a
+// CHECK in the migration because Prisma does not model them. `venceEn` is the
+// end of access (paid period or grace period); `ultimoEventoEn` orders events
+// that arrive out of order.
+model Suscripcion {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  producto       String
+  estado         String
+  tienda         String
+  venceEn        DateTime
+  ultimoEventoEn DateTime
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
+}
+
+// ADR-015 §1: a Plus entitlement granted by the API instead of a subscription
+// (trial, lifetime tester, Fundador). At most one row per user and `motivo`;
+// rows are revoked, never deleted. `motivo` is limited by a CHECK in the
+// migration. `venceEn` null means it never expires.
+model PermisoPlan {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  motivo     String
+  otorgadoEn DateTime  @default(now())
+  venceEn    DateTime?
+  revocadoEn DateTime?
+
+  @@unique([userId, motivo])
+  @@index([motivo])
 }
 
 model Account {
