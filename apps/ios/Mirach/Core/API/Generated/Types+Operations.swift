@@ -7324,6 +7324,57 @@ internal enum Operations {
                     }
                 }
             }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/ingestas/commit/POST/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/ingestas/commit/POST/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_ingestas_sol_commit.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_ingestas_sol_commit.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the statement is from a bank outside its first banks (IMP-24, `planGratis.bancosMaximos` of GET /api/config). `code` PLAN_PLUS_REQUERIDO. Nothing was persisted and no failed import was recorded: the app offers one of the banks of the account, or the plans.
+            ///
+            /// - Remark: Generated from `#/paths//api/ingestas/commit/post/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.post_sol_api_sol_ingestas_sol_commit.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.post_sol_api_sol_ingestas_sol_commit.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
+                            response: self
+                        )
+                    }
+                }
+            }
             internal struct Conflict: Sendable, Hashable {
                 /// - Remark: Generated from `#/paths/api/ingestas/commit/POST/responses/409/content`.
                 internal enum Body: Sendable, Hashable {
@@ -7725,6 +7776,57 @@ internal enum Operations {
                     default:
                         try throwUnexpectedResponseStatus(
                             expectedStatus: "unauthorized",
+                            response: self
+                        )
+                    }
+                }
+            }
+            internal struct Forbidden: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/api/ingestas/preview/POST/responses/403/content`.
+                internal enum Body: Sendable, Hashable {
+                    /// - Remark: Generated from `#/paths/api/ingestas/preview/POST/responses/403/content/application\/json`.
+                    case json(Components.Schemas.PlanPlusRequeridoErrorResponse)
+                    /// The associated value of the enum case if `self` is `.json`.
+                    ///
+                    /// - Throws: An error if `self` is not `.json`.
+                    /// - SeeAlso: `.json`.
+                    internal var json: Components.Schemas.PlanPlusRequeridoErrorResponse {
+                        get throws {
+                            switch self {
+                            case let .json(body):
+                                return body
+                            }
+                        }
+                    }
+                }
+                /// Received HTTP response body
+                internal var body: Operations.post_sol_api_sol_ingestas_sol_preview.Output.Forbidden.Body
+                /// Creates a new `Forbidden`.
+                ///
+                /// - Parameters:
+                ///   - body: Received HTTP response body
+                internal init(body: Operations.post_sol_api_sol_ingestas_sol_preview.Output.Forbidden.Body) {
+                    self.body = body
+                }
+            }
+            /// The account is on the free plan and the statement is from a bank outside its first banks (IMP-24, `planGratis.bancosMaximos` of GET /api/config). `code` PLAN_PLUS_REQUERIDO. Nothing was persisted and no failed import was recorded: the app offers one of the banks of the account, or the plans.
+            ///
+            /// - Remark: Generated from `#/paths//api/ingestas/preview/post/responses/403`.
+            ///
+            /// HTTP response code: `403 forbidden`.
+            case forbidden(Operations.post_sol_api_sol_ingestas_sol_preview.Output.Forbidden)
+            /// The associated value of the enum case if `self` is `.forbidden`.
+            ///
+            /// - Throws: An error if `self` is not `.forbidden`.
+            /// - SeeAlso: `.forbidden`.
+            internal var forbidden: Operations.post_sol_api_sol_ingestas_sol_preview.Output.Forbidden {
+                get throws {
+                    switch self {
+                    case let .forbidden(response):
+                        return response
+                    default:
+                        try throwUnexpectedResponseStatus(
+                            expectedStatus: "forbidden",
                             response: self
                         )
                     }

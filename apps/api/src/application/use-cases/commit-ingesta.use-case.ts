@@ -1,3 +1,8 @@
+import {
+  SIN_LIMITE_BANCOS,
+  type ILimiteBancos,
+} from '../services/limite-bancos-plan-gratis';
+import { PlanPlusRequeridoError } from '../../domain/errors/plan-plus-requerido.error';
 import { Result } from '../../shared/result';
 import { Bucket } from '../../domain/value-objects/bucket';
 import { PersistenciaFallidaError } from '../../domain/errors/persistencia-fallida.error';
@@ -106,7 +111,9 @@ export type CommitIngestaError =
   // Catálogo CAÍDO (503, issue #778 tramo 5a) — infra transitoria/reintentable.
   | CategorizacionFallidaError
   // Otros errores de infraestructura (500)
-  | PersistenciaFallidaError;
+  | PersistenciaFallidaError
+  // Free plan bank limit (403)
+  | PlanPlusRequeridoError;
 
 // ---------------------------------------------------------------------------
 // Use case
@@ -169,6 +176,8 @@ export class CommitIngestaUseCase {
     /** Single writer of FALLIDA entries (US-004). */
     private readonly ingestaFallidaWriter: IRegistrarIngestaFallidaWriter,
     private readonly logger: ILogger,
+    /** IMP-24: bank limit of the free plan; the default applies none. */
+    private readonly limiteBancos: ILimiteBancos = SIN_LIMITE_BANCOS,
   ) {}
 
   async execute(
@@ -268,11 +277,19 @@ export class CommitIngestaUseCase {
       }
     }
 
-    // ── 3. ensure() — create/find Account ────────────────────────────────────
-    const accountResult = await this.accountRepository.ensure(
+    // ── 3. Bank limit (IMP-24) + ensure() — create/find Account ──────────────
+    // The limit of the free plan and the first write go together, one at a
+    // time per user. A refusal is not a failed import: nothing is registered,
+    // the account just has to choose one of its banks or move to Plus.
+    const asegurada = await this.limiteBancos.asegurarCuenta(
       input.userId,
-      banco,
+      banco.banco,
+      () => this.accountRepository.ensure(input.userId, banco),
     );
+    if (asegurada.isFail()) {
+      return Result.fail(asegurada.getError());
+    }
+    const accountResult = asegurada.getValue();
     if (accountResult.isFail()) {
       return Result.fail(accountResult.getError());
     }

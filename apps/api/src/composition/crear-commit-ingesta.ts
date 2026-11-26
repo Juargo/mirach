@@ -1,3 +1,7 @@
+import {
+  SIN_LIMITE_BANCOS,
+  type ILimiteBancos,
+} from '../application/services/limite-bancos-plan-gratis';
 import type { PrismaClient } from '@prisma/client';
 import type { ICryptoService } from '../application/ports/crypto-service.port';
 import type { IBlindIndexService } from '../application/ports/blind-index-service.port';
@@ -57,6 +61,7 @@ export function crearCommitIngesta(
   crypto: ICryptoService,
   blindIndex: IBlindIndexService,
   logger: ILogger,
+  limiteBancos: ILimiteBancos = SIN_LIMITE_BANCOS,
 ): CommitIngestaUseCase {
   const ejecutarPipelineUseCase = new EjecutarPipelineIngestaUseCase(
     new IngestFileUseCase(logger),
@@ -101,5 +106,6 @@ export function crearCommitIngesta(
     // FALLIDA registration (US-004)
     new PrismaRegistrarIngestaFallidaRepository(prisma),
     logger,
+    limiteBancos,
   );
 }

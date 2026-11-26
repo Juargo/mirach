@@ -615,7 +615,7 @@ describe('free plan window of visible months (e2e)', () => {
       ).toBe(403);
     });
 
-    it('places the date of a manual movement in the financial month', async () => {
+    it('places the date of a manual income in the month it is read in', async () => {
       const antes = await contarTransacciones(usuarios.corte);
       const cuerpo = (fecha: string) => ({
         tipo: 'Ingreso',
@@ -624,21 +624,39 @@ describe('free plan window of visible months (e2e)', () => {
         monto: '5000',
       });
 
-      // 24 Apr belongs to period 2026-03 (before the window); 25 Apr starts 2026-04.
+      // Cut-off 25: period 2026-04 starts on 25 Apr. An income up to 3 days
+      // before is read in that period (PER-08), so it is visible; one 4 days
+      // before belongs to 2026-03, before the window.
+      const enviar = (fecha: string) =>
+        llamar('post', '/api/movimientos', usuarios.corte).send(cuerpo(fecha));
+      const oculto = await enviar('2026-04-21');
+      const tolerado = await enviar('2026-04-24');
+      const visible = await enviar('2026-04-25');
+
+      expect(oculto.status).toBe(403);
+      expect(tolerado.status).toBe(201);
+      expect(visible.status).toBe(201);
+      expect(await contarTransacciones(usuarios.corte)).toBe(antes + 2);
+    });
+
+    it('places the date of a manual expense in the financial month, with no tolerance', async () => {
+      const antes = await contarTransacciones(usuarios.corte);
+
       const oculto = await llamar(
         'post',
         '/api/movimientos',
         usuarios.corte,
-      ).send(cuerpo('2026-04-24'));
-      const visible = await llamar(
-        'post',
-        '/api/movimientos',
-        usuarios.corte,
-      ).send(cuerpo('2026-04-25'));
+      ).send({
+        tipo: 'Gasto',
+        fecha: '2026-04-24',
+        descripcion: `${RUN_ID} gasto corte`,
+        monto: '5000',
+        bucket: 'Deseos',
+        categoriaId,
+      });
 
       expect(oculto.status).toBe(403);
-      expect(visible.status).toBe(201);
-      expect(await contarTransacciones(usuarios.corte)).toBe(antes + 1);
+      expect(await contarTransacciones(usuarios.corte)).toBe(antes);
     });
 
     it('an account without movements anchors on the current month', async () => {

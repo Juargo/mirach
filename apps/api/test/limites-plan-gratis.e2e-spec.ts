@@ -24,6 +24,8 @@ import { createPrismaClient } from '../src/infrastructure/persistence/create-pri
 import { loadEnv } from '../src/config/env';
 import { copiarCatalogoTemplate } from '../src/infrastructure/persistence/catalogo-template';
 import { crearSesionParaUsuario } from './support/session.fixture';
+import { DiaCorte } from '../src/domain/value-objects/mes-financiero';
+import { PeriodoMes } from '../src/domain/value-objects/periodo-mes';
 
 const API_KEY = process.env.API_KEY ?? '';
 const RUN_ID = `limites-e2e-${Date.now()}`;
@@ -301,6 +303,57 @@ describe('free plan limits (e2e)', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('PERFIL_NO_SUMA_100');
+    });
+  });
+
+  describe('window and incomes near the cut-off day (S14, PER-08)', () => {
+    afterAll(async () => {
+      await prisma.user.update({ where: { id: user }, data: { diaCorte: 1 } });
+    });
+
+    it('an income up to 3 days before the first visible month starts is registered; an expense is not', async () => {
+      const diaCorte = DiaCorte.crear(25).getValue();
+      await prisma.user.update({ where: { id: user }, data: { diaCorte: 25 } });
+      await prisma.transaccion.deleteMany({
+        where: { account: { userId: user } },
+      });
+      // No movements: the anchor is the current financial month, and the
+      // window of 3 months starts two financial months before it.
+      const inicio = PeriodoMes.queContiene(new Date(), diaCorte).mesesAntes(
+        2,
+      ).desde;
+      const dosDiasAntes = new Date(inicio.getTime() - 2 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const movimiento = {
+        fecha: dosDiasAntes,
+        descripcion: `${RUN_ID} borde`,
+        monto: '55',
+      };
+      const { categoria } = await propia();
+      const bucket = await prisma.bucketPresupuesto.findUniqueOrThrow({
+        where: { id: categoria.bucketId },
+      });
+
+      const gasto = await llamar('post', '/api/movimientos').send({
+        ...movimiento,
+        tipo: 'Gasto',
+        bucket: bucket.nombre,
+        categoriaId: categoria.id,
+      });
+      const ingreso = await llamar('post', '/api/movimientos').send({
+        ...movimiento,
+        tipo: 'Ingreso',
+      });
+
+      expect(gasto.status).toBe(403);
+      expect(gasto.body).toEqual(PLUS_REQUERIDO);
+      expect(ingreso.status).toBe(201);
+      expect(
+        await prisma.transaccion.count({
+          where: { account: { userId: user } },
+        }),
+      ).toBe(1);
     });
   });
 });

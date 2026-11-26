@@ -1,3 +1,5 @@
+import { PlanPlusRequeridoError } from '../../../domain/errors/plan-plus-requerido.error';
+import { PLAN_PLUS_REQUERIDO } from './exigir-plus';
 import type { Router, RequestHandler } from 'express';
 import multer from 'multer';
 import type { ProcessIngestaError } from '../../../application/use-cases/process-ingesta.use-case';
@@ -386,6 +388,11 @@ function aCommitHttpError(error: CommitIngestaError): {
   message: string;
   code?: string;
 } {
+  // IMP-24: the free plan imports from its first banks only. Nothing was
+  // persisted: not a failed import.
+  if (error instanceof PlanPlusRequeridoError) {
+    return { status: 403, message: error.message, code: PLAN_PLUS_REQUERIDO };
+  }
   // Infrastructure errors → 500
   if (error instanceof PersistenciaFallidaError) {
     return { status: 500, message: error.message };
@@ -468,11 +475,16 @@ function aCommitHttpError(error: CommitIngestaError): {
  * con guarda de exhaustividad: una variante nueva sin mapear deja de compilar
  * en vez de caer a un status equivocado.
  */
-function aHttpError(error: ProcessIngestaError): {
+function aHttpError(error: ProcessIngestaError | PlanPlusRequeridoError): {
   status: number;
   message: string;
   code?: string;
 } {
+  // IMP-24: the free plan imports from its first banks only. Nothing was
+  // persisted: not a failed import.
+  if (error instanceof PlanPlusRequeridoError) {
+    return { status: 403, message: error.message, code: PLAN_PLUS_REQUERIDO };
+  }
   if (error instanceof PersistenciaFallidaError) {
     // Fallo de infraestructura (DB) — no es culpa del archivo enviado.
     return { status: 500, message: error.message };

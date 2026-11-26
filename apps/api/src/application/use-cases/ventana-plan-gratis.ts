@@ -53,15 +53,23 @@ export class VentanaPlanGratis {
     );
   }
 
-  /** La fecha de un movimiento a registrar: su mes no puede quedar oculto. */
+  /**
+   * La fecha de un movimiento a registrar: el mes en que se va a leer no
+   * puede quedar oculto.
+   */
   async verificarFecha(
     userId: string,
     fecha: Date,
+    esIngreso: boolean,
   ): Promise<Result<void, PlanPlusRequeridoError>> {
     if (Number.isNaN(fecha.getTime())) return Result.ok(undefined);
 
+    // An income is read in the month `queContieneIngreso` gives (PER-08: up to
+    // 3 days before the cut-off it counts in the month that starts).
     return this.exigirDentro(userId, (diaCorte) =>
-      PeriodoMes.queContiene(fecha, diaCorte),
+      esIngreso
+        ? PeriodoMes.queContieneIngreso(fecha, diaCorte)
+        : PeriodoMes.queContiene(fecha, diaCorte),
     );
   }
 

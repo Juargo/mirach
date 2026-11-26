@@ -323,6 +323,13 @@ const ingestaPreviewOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '403': {
+      description:
+        'The account is on the free plan and the statement is from a bank outside its first banks (IMP-24, `planGratis.bancosMaximos` of GET /api/config). `code` PLAN_PLUS_REQUERIDO. Nothing was persisted and no failed import was recorded: the app offers one of the banks of the account, or the plans.',
+      content: {
+        'application/json': { schema: planPlusRequeridoErrorResponseSchema },
+      },
+    },
     '401': respuesta401Protegida,
     '200': {
       description: 'Preview sample computed (not persisted).',
@@ -398,6 +405,13 @@ const ingestaCommitOperation: ZodOpenApiOperationObject = {
     },
   },
   responses: {
+    '403': {
+      description:
+        'The account is on the free plan and the statement is from a bank outside its first banks (IMP-24, `planGratis.bancosMaximos` of GET /api/config). `code` PLAN_PLUS_REQUERIDO. Nothing was persisted and no failed import was recorded: the app offers one of the banks of the account, or the plans.',
+      content: {
+        'application/json': { schema: planPlusRequeridoErrorResponseSchema },
+      },
+    },
     '401': respuesta401Protegida,
     '201': {
       description:
