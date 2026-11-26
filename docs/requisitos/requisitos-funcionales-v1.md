@@ -211,14 +211,16 @@ La app usa una suscripción con plan gratis limitado y prueba de 30 días del pl
 | ID | Requisito | Prioridad | Criterio de aceptación |
 | --- | --- | --- | --- |
 | PLA-01 | Plan gratis y plan pago | Debería | Decidido el 23-10-2026. Gratis: mes actual, 2 bancos con todas sus cartolas (cuenta corriente y cuenta vista; cambiado de 1 a 2 bancos el 23-10-2026), registro a mano, reclasificar (incluido "aplicar a parecidos", CLA-03), perfiles predefinidos y exportar sus datos. Plus: los 4 bancos a la vez, historial de meses, perfiles propios, y crear categorías y patrones desde Ajustes (CLA-09) |
-| PLA-02 | Prueba gratis de 30 días del plan pago al registrarse | Debería | Al terminar, el usuario pasa al plan gratis sin perder sus datos |
-| PLA-03 | Suscripción mensual y anual dentro de la app | Debería | Se cobra mediante las compras dentro de la app de Apple y de Google; precio de partida de $3.490 a $3.990 al mes o de $29.990 a $34.990 al año |
+| PLA-02 | Prueba gratis de 30 días del plan pago al registrarse | Debería | La concede el API, sin pedir medio de pago ni pasar por las tiendas (ADR-015; decidido el 26-11-2026). Al terminar, el usuario pasa al plan gratis sin perder sus datos |
+| PLA-03 | Suscripción mensual y anual dentro de la app | Debería | Se cobra mediante las compras dentro de la app de Apple y de Google; precio de $1.990 al mes o $14.990 al año (decidido el 26-11-2026; reemplaza el rango de $3.490 a $3.990 al mes y de $29.990 a $34.990 al año) |
 | PLA-04 | Mostrar el estado del plan | Debería | La app muestra plan, fecha de renovación y cómo cancelar desde la tienda |
 | PLA-05 | Restaurar compras | Debería | Un usuario que cambia de celular recupera su plan |
 | PLA-06 | El plan vale en las dos plataformas con la misma cuenta | Debería | El plan vale en iPhone y Android con la misma cuenta |
 | PLA-07 | Al vencer el plan, conservar los datos | Debe | Nada se borra; solo se aplican los límites del plan gratis |
 | PLA-08 | Límites y precio configurables sin publicar una versión nueva | Podría | Permite probar variantes en el A/B de precios |
 | PLA-09 | Aviso de fin de prueba | Debería | Tres días antes de que termine la prueba, el inicio muestra "Tu prueba Plus termina en 3 días" con un enlace a los planes. Es un aviso dentro de la app, no una notificación (fuera de la v1). Al terminar, la app explica el paso al plan gratis (pantallas 38 y 39). Decidido el 23-10-2026 |
+| PLA-10 | Plan Fundador | Debería | Pago único de $39.990 que da Plus de por vida, con 100 cupos y solo durante el lanzamiento. Es una compra única en cada tienda; la app deja de ofrecerla cuando el API informa que no quedan cupos (ADR-015). Decidido el 26-11-2026 |
+| PLA-11 | Plus de por vida para los testers de Android | Debería | Lo reciben solo los testers de Android inscritos al momento de activar el cobro. Lo concede el API a la cuenta de cada tester y vale en iPhone y Android (ADR-015). Decidido el 26-11-2026 |
 
 Pendiente: la decisión de qué funciones van en cada plan y los límites exactos. Las tiendas suelen exigir su propio sistema de cobro para suscripciones digitales; hay que confirmarlo en las guías vigentes.
 
@@ -253,7 +255,7 @@ El producto es una app móvil nativa que se descarga desde App Store y Google Pl
 | LAN-01 | Página única que explica el problema, el 50/30/20 y los cuatro bancos | Debe | Se entiende en menos de un minuto y se ve bien en celular |
 | LAN-02 | Botones de descarga a App Store y Google Play | Debe | Antes del lanzamiento muestran "Próximamente" y la lista de espera |
 | LAN-03 | Lista de espera por correo | Debe | Guarda el correo con consentimiento; sirve para medir interés en la validación (umbral propuesto: 5% de las visitas) |
-| LAN-04 | Botón de pago de puerta falsa con tres precios | Debería | Muestra $2.990, $3.990 o $4.990 a visitantes distintos y registra quién lo toca; avisa que aún no está disponible |
+| LAN-04 | ~~Botón de pago de puerta falsa con tres precios~~ Descartado el 26-11-2026: nunca se implementó y el precio ya está decidido (PLA-03) | Debería | Muestra $2.990, $3.990 o $4.990 a visitantes distintos y registra quién lo toca; avisa que aún no está disponible |
 | LAN-05 | Página pública de política de privacidad y términos | Debe | La URL es la misma que declaran las fichas de las tiendas |
 | LAN-06 | Página de soporte con forma de contacto | Debe | Apple pide una URL de soporte en la ficha |
 | LAN-07 | Página para solicitar la eliminación de la cuenta | Debe | Google Play exige una vía web para pedir el borrado; hay que confirmar el requisito vigente antes de publicar |
