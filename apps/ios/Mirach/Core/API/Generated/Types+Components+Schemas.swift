@@ -3349,6 +3349,127 @@ extension Components {
                 ])
             }
         }
+        /// GET /api/plan — the plan of the session user, decided by the API (ADR-012, ADR-015).
+        ///
+        /// - Remark: Generated from `#/components/schemas/PlanResponse`.
+        internal struct PlanResponse: Codable, Hashable, Sendable {
+            /// Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/origen`.
+            internal enum origenPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case suscripcion = "suscripcion"
+                case prueba = "prueba"
+                case tester_vitalicio = "tester_vitalicio"
+                case fundador = "fundador"
+                case _empty = ""
+            }
+            /// Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/origen`.
+            internal var origen: Components.Schemas.PlanResponse.origenPayload?
+            /// Plan in force for the session user (PLA-01).
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/plan`.
+            internal enum planPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case gratis = "gratis"
+                case plus = "plus"
+            }
+            /// Plan in force for the session user (PLA-01).
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/plan`.
+            internal var plan: Components.Schemas.PlanResponse.planPayload
+            /// Store product identifier of the subscription. null for any other origin.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/producto`.
+            internal var producto: Swift.String?
+            /// true only when a store subscription will be charged again at `venceEn`.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/renueva`.
+            internal var renueva: Swift.Bool
+            /// Store that bills the subscription, where the user cancels it (PLA-04). null for any other origin.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/tienda`.
+            internal enum tiendaPayload: String, Codable, Hashable, Sendable, CaseIterable {
+                case app_store = "app_store"
+                case play_store = "play_store"
+                case _empty = ""
+            }
+            /// Store that bills the subscription, where the user cancels it (PLA-04). null for any other origin.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/tienda`.
+            internal var tienda: Components.Schemas.PlanResponse.tiendaPayload?
+            /// When Plus ends (ISO-8601 UTC timestamp): the renewal date of a subscription that renews, or the last day of a cancelled subscription or a trial. null on the free plan and when Plus never expires.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/venceEn`.
+            internal var venceEn: Swift.String?
+            /// Creates a new `PlanResponse`.
+            ///
+            /// - Parameters:
+            ///   - origen: Where Plus comes from: a store subscription, the 30-day trial granted by the API, the lifetime grant of a tester or the Fundador purchase. With more than one in force, the one that lasts longest. null on the free plan.
+            ///   - plan: Plan in force for the session user (PLA-01).
+            ///   - producto: Store product identifier of the subscription. null for any other origin.
+            ///   - renueva: true only when a store subscription will be charged again at `venceEn`.
+            ///   - tienda: Store that bills the subscription, where the user cancels it (PLA-04). null for any other origin.
+            ///   - venceEn: When Plus ends (ISO-8601 UTC timestamp): the renewal date of a subscription that renews, or the last day of a cancelled subscription or a trial. null on the free plan and when Plus never expires.
+            internal init(
+                origen: Components.Schemas.PlanResponse.origenPayload? = nil,
+                plan: Components.Schemas.PlanResponse.planPayload,
+                producto: Swift.String? = nil,
+                renueva: Swift.Bool,
+                tienda: Components.Schemas.PlanResponse.tiendaPayload? = nil,
+                venceEn: Swift.String? = nil
+            ) {
+                self.origen = origen
+                self.plan = plan
+                self.producto = producto
+                self.renueva = renueva
+                self.tienda = tienda
+                self.venceEn = venceEn
+            }
+            internal enum CodingKeys: String, CodingKey {
+                case origen
+                case plan
+                case producto
+                case renueva
+                case tienda
+                case venceEn
+            }
+            internal init(from decoder: any Swift.Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.origen = try container.decodeIfPresent(
+                    Components.Schemas.PlanResponse.origenPayload.self,
+                    forKey: .origen
+                )
+                self.plan = try container.decode(
+                    Components.Schemas.PlanResponse.planPayload.self,
+                    forKey: .plan
+                )
+                self.producto = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .producto
+                )
+                self.renueva = try container.decode(
+                    Swift.Bool.self,
+                    forKey: .renueva
+                )
+                self.tienda = try container.decodeIfPresent(
+                    Components.Schemas.PlanResponse.tiendaPayload.self,
+                    forKey: .tienda
+                )
+                self.venceEn = try container.decodeIfPresent(
+                    Swift.String.self,
+                    forKey: .venceEn
+                )
+                try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "origen",
+                    "plan",
+                    "producto",
+                    "renueva",
+                    "tienda",
+                    "venceEn"
+                ])
+            }
+        }
         /// POST /api/ingestas/preview — dry-run preview. CANONICAL: resumen + filas (full set, per-row dedup and classification, US-057). DEPRECATED (removed by US-061): estructura + muestra (first 50 rows, old shape) kept for shipped clients.
         ///
         /// - Remark: Generated from `#/components/schemas/PreviewIngestaResponse`.

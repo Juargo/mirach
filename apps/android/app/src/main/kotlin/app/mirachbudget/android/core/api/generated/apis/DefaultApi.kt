@@ -59,6 +59,7 @@ import app.mirachbudget.android.core.api.generated.models.PerfilErrorResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoResponse
 import app.mirachbudget.android.core.api.generated.models.PerfilPresupuestoUpdateRequest
 import app.mirachbudget.android.core.api.generated.models.PeriodosResponse
+import app.mirachbudget.android.core.api.generated.models.PlanResponse
 import app.mirachbudget.android.core.api.generated.models.PreviewIngestaResponse
 import app.mirachbudget.android.core.api.generated.models.ReevaluarCategoriasResponse
 import app.mirachbudget.android.core.api.generated.models.RegistrarMovimientoManualResponse
@@ -761,6 +762,19 @@ interface DefaultApi {
      */
     @GET("api/periodos")
     suspend fun apiPeriodosGet(): Response<PeriodosResponse>
+
+    /**
+     * GET api/plan
+     * Plan of the session user (free or Plus)
+     * The API decides whether the account has Plus (ADR-006): it does when it has a store subscription in force or a grant in force (the 30-day trial, the lifetime grant of a tester or the Fundador purchase). The apps show this answer and never authorise from what the store SDK reports. A subscription or grant that ends leaves the account on the free plan with all its data (PLA-07). Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).
+     * Responses:
+     *  - 200: The caller's plan.
+     *  - 401: No valid API key (`code` API_KEY_INVALIDA) or no valid session — missing, unknown or expired token (`code` SESION_INVALIDA).
+     *
+     * @return [PlanResponse]
+     */
+    @GET("api/plan")
+    suspend fun apiPlanGet(): Response<PlanResponse>
 
     /**
      * GET api/resumen/anual

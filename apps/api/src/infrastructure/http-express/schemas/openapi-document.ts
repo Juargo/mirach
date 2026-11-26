@@ -36,6 +36,7 @@ import {
   ingresosMesResponseSchema,
 } from './ingresos-mes.schema';
 import { periodosResponseSchema } from './periodos.schema';
+import { planResponseSchema } from './plan.schema';
 import { ingestasResponseSchema } from './ingestas.schema';
 import {
   previewIngestaRequestSchema,
@@ -1819,6 +1820,28 @@ const ingresosMesOperation: ZodOpenApiOperationObject = {
   },
 };
 
+/**
+ * `GET /api/plan` (ADR-012 §2, ADR-015 §2) — the plan of the session user.
+ */
+const planOperation: ZodOpenApiOperationObject = {
+  summary: 'Plan of the session user (free or Plus)',
+  description:
+    'The API decides whether the account has Plus (ADR-006): it does when it has a store subscription ' +
+    'in force or a grant in force (the 30-day trial, the lifetime grant of a tester or the Fundador ' +
+    'purchase). The apps show this answer and never authorise from what the store SDK reports. ' +
+    'A subscription or grant that ends leaves the account on the free plan with all its data (PLA-07). ' +
+    'Requires x-api-key + a valid session (RNF-SEC-006, per-user isolation).',
+  responses: {
+    '401': respuesta401Protegida,
+    '200': {
+      description: "The caller's plan.",
+      content: {
+        'application/json': { schema: planResponseSchema },
+      },
+    },
+  },
+};
+
 const periodosOperation: ZodOpenApiOperationObject = {
   summary: 'Months that have movements for the session user',
   description:
@@ -2200,6 +2223,7 @@ const paths: ZodOpenApiPathsObject = {
   '/api/buckets/{bucket}/detalle': { get: bucketDetalleMesOperation },
   '/api/ingresos/mes': { get: ingresosMesOperation },
   '/api/periodos': { get: periodosOperation },
+  '/api/plan': { get: planOperation },
   '/api/ingestas/commit': { post: ingestaCommitOperation },
   '/api/transacciones/reevaluar': { post: reevaluarCategoriasOperation },
   '/api/config': { get: configOperation },

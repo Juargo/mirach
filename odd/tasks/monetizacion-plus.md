@@ -1,6 +1,6 @@
 # Monetization: Plus plan, backend grants and store billing
 
-Objective: charge for Plus (monthly, yearly and the one-time Fundador purchase) through RevenueCat, with the API as the source of truth for entitlements, a 30-day trial granted by the backend and lifetime grants for the Android testers. Branch: `feat/monetizacion-plus`. Delivery: `ask-on-risk`; the forecast is far above 400 changed lines, so the chain strategy is asked before the second commit. Runners: API `pnpm api test`, `pnpm api lint:ci`, `pnpm api exec tsc --noEmit`, `pnpm api openapi:check`, `pnpm api env:example:check`, `pnpm api build`; integration `pnpm api test:integration` (local Postgres, `pnpm api db:up`).
+Objective: charge for Plus (monthly, yearly and the one-time Fundador purchase) through RevenueCat, with the API as the source of truth for entitlements, a 30-day trial granted by the backend and lifetime grants for the Android testers. Branch: `feat/monetizacion-plus`. Delivery: `ask-on-risk`, chain strategy `stacked-to-main` (decided by the user on 2026-11-26); each slice is its own branch `feat/monetizacion-plus-NN-<slice>` built on the previous one. Push and PR creation stay with the user. Runners: API `pnpm api test`, `pnpm api lint:ci`, `pnpm api exec tsc --noEmit`, `pnpm api openapi:check`, `pnpm api env:example:check`, `pnpm api build`; integration `pnpm api test:integration` (local Postgres, `pnpm api db:up`).
 
 ## Specs
 
@@ -24,8 +24,8 @@ Objective: charge for Plus (monthly, yearly and the one-time Fundador purchase) 
 
 ## Tasks
 
-- [x] **T1** (S2, S6, S7, S8) Docs: ADR-015 amending ADR-012, PLA-02/PLA-03 and the new requirements. Route: inline.
-- [ ] **T2** (S4, S5) API: `Suscripcion` and `PermisoPlan` tables, the domain rule for the effective plan and `GET /api/plan`. Route: inline. Risk: none expected (new tables, new route).
+- [x] **T1** (S2, S6, S7, S8) Docs: ADR-015 amending ADR-012, PLA-02/PLA-03, PLA-10, PLA-11, LAN-04 discarded. Route: inline. Commit `f660d407`.
+- [x] **T2** (S4, S5) API: the domain rule for the effective plan, the `Suscripcion` and `PermisoPlan` tables (account deletion and merge handle the new rows) and `GET /api/plan` with the Swift and Kotlin clients regenerated. Route: inline. Three slices, see Slices. Risk: item 3 on slice 03 (the deletion and merge transactions are shared with existing routes). Pending proof: `test/plan.e2e-spec.ts` and the integration suite were not run locally (Docker stopped, no `apps/api/.env.test`); CI runs them.
 - [ ] **T3** (S3, S8) API: RevenueCat webhook, idempotent, mapping subscriptions and the Fundador purchase. Route: inline. Risk: item 2 (webhook authentication), own commit.
 - [ ] **T4** (S6) API: trial grant and the PLA-09 notice. Blocked on the open point of S6.
 - [ ] **T5** (S8) API: Fundador seats (count of sales against 100, exposed to the apps).
@@ -35,6 +35,19 @@ Objective: charge for Plus (monthly, yearly and the one-time Fundador purchase) 
 - [ ] **T9** (S10) Android.
 - [ ] **T10** (S11) Landing on Cloudflare Pages.
 - [ ] **T11** (S3) Privacy policy and store listings declare RevenueCat (ADR-012, consequences).
+
+## Slices
+
+Stacked to `main`, in order. Authored lines exclude `openapi.json` and the generated clients.
+
+| # | Branch | Holds | Commit | Authored lines |
+|---|--------|-------|--------|----------------|
+| 01 | `feat/monetizacion-plus-01-adr` | T1 | `f660d407` | 146 |
+| 02 | `feat/monetizacion-plus-02-regla-plan` | T2: domain rule | `1df030f8` | 355 |
+| 03 | `feat/monetizacion-plus-03-tablas` | T2: tables, reader, deletion and merge | `ca8aa885` | 274 |
+| 04 | `feat/monetizacion-plus-04-api-plan` | T2: use case, `GET /api/plan`, contract, clients, e2e | this commit | about 450 |
+
+Slice 03 carries a migration: it is applied to production before its PR merges.
 
 ## Log
 
@@ -46,3 +59,6 @@ Objective: charge for Plus (monthly, yearly and the one-time Fundador purchase) 
 - **L2** (2026-11-26) Repo state found: nothing of billing exists. `GET /api/config` exposes `planGratis` (`bancosMaximos`, `soloMesActual`) but no route enforces it. ADR-012 already decides RevenueCat, the webhook, `Suscripcion` and `GET /api/plan`. The landing is static (`apps/landing/astro.config.ts`, `output: 'static'`, no adapter).
 - **L3** (2026-11-26) Question asked: store introductory offer (ADR-012 §3) or backend trial. Answer, verbatim: "la concede el backend sin tarjeta".
 - **L4** (2026-11-26) Order agreed by default (proposed, not objected): API entitlements, API limits, apps, landing. RDD is off (`gentle-ai review mode status`: off, decided by global).
+- **L5** (2026-11-26) T2 evidence. RED: `plan.spec.ts` and `obtener-plan.use-case.spec.ts` failed on the missing module before the code existed. GREEN: `pnpm api test` 3708 passed; `lint:ci` 0 errors; `tsc --noEmit`, `openapi:check`, `env:example:check` and `build` clean. Mutation: removing the `notIn` filter and the destination guard of `moverDerechosPlus` turns two merge tests red. `GET /api/plan` answers `{ plan, origen, venceEn, renueva, producto, tienda }`; T4 and T5 add fields before any app reads the route.
+- **L6** (2026-11-26) Left for later tasks. T3: a merge moves the subscription to the destination, but RevenueCat keeps the origin id as `app_user_id`, so the webhook must resolve a user that no longer exists (aliases or a transfer). T8/T9: deleting an account removes its rows but does not cancel the store subscription; the apps must say so before deleting. A deleted Fundador account frees its seat.
+- **L7** (2026-11-26) Question asked: stacked PRs to `main` or a chain on the feature branch. Answer, verbatim: "PRs apilados contra main". The single T2 commit was split into slices 02 to 04; slice 03 was checked alone (`tsc`, `lint:ci`, 3704 unit tests, `openapi:check`).
