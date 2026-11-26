@@ -33,19 +33,28 @@ const GRATIS = {
   renueva: false,
   producto: null,
   tienda: null,
+  prueba: null,
 };
 
 describe('GET /api/plan (e2e)', () => {
+  const prismas: PrismaClient[] = [];
   let prisma: PrismaClient;
   let app: Express;
+
+  function buildApp(extra: Record<string, string | undefined>): Express {
+    const env = loadEnv({ ...process.env, ...extra });
+    const client = createPrismaClient(env);
+    prismas.push(client);
+    return createApp(createContainer(env, client), env);
+  }
   let authMarcela: string;
   let authOtro: string;
   const [marcela, otro] = [`${RUN_ID}-marcela`, `${RUN_ID}-otro`];
   const usuarios = [marcela, otro];
   const cuenta = { where: { userId: { in: usuarios } } };
 
-  const leer = async (auth: string) => {
-    const res = await request(app)
+  const leer = async (auth: string, enApp: Express = app) => {
+    const res = await request(enApp)
       .get('/api/plan')
       .set('x-api-key', API_KEY)
       .set('Authorization', auth);
@@ -66,9 +75,12 @@ describe('GET /api/plan (e2e)', () => {
     });
 
   beforeAll(async () => {
-    const env = loadEnv();
-    prisma = createPrismaClient(env);
-    app = createApp(createContainer(env, prisma), env);
+    // Billing on and no trial: the plan only reflects what is stored.
+    app = buildApp({
+      PLUS_BILLING_STARTS_AT: '2026-01-01T00:00:00Z',
+      PLUS_TRIAL_DAYS: '0',
+    });
+    prisma = prismas[0];
     for (const id of usuarios) {
       await prisma.user.create({ data: { id, nombre: id } });
     }
@@ -86,7 +98,7 @@ describe('GET /api/plan (e2e)', () => {
     await prisma.permisoPlan.deleteMany(cuenta);
     await prisma.session.deleteMany(cuenta);
     await prisma.user.deleteMany({ where: { id: { in: usuarios } } });
-    await prisma.$disconnect();
+    await Promise.all(prismas.map((p) => p.$disconnect()));
   });
 
   it('401 without a session', async () => {
@@ -110,6 +122,7 @@ describe('GET /api/plan (e2e)', () => {
       renueva: true,
       producto: 'plus_anual',
       tienda: 'play_store',
+      prueba: null,
     });
   });
 
@@ -132,6 +145,7 @@ describe('GET /api/plan (e2e)', () => {
       renueva: false,
       producto: null,
       tienda: null,
+      prueba: null,
     });
   });
 
@@ -143,16 +157,91 @@ describe('GET /api/plan (e2e)', () => {
     expect(await leer(authMarcela)).toEqual(GRATIS);
   });
 
-  it('is the free plan with an expired trial', async () => {
+  it('is the free plan with an expired stored trial, and says the trial ended', async () => {
+    const venceEn = new Date(Date.now() - DIA);
     await prisma.permisoPlan.create({
-      data: {
-        userId: marcela,
-        motivo: 'prueba',
-        venceEn: new Date(Date.now() - DIA),
-      },
+      data: { userId: marcela, motivo: 'prueba', venceEn },
     });
 
-    expect(await leer(authMarcela)).toEqual(GRATIS);
+    expect(await leer(authMarcela)).toEqual({
+      ...GRATIS,
+      prueba: {
+        venceEn: venceEn.toISOString(),
+        vigente: false,
+        avisoDiasRestantes: null,
+      },
+    });
+  });
+
+  describe('billing switch and trial (ADR-015 §3)', () => {
+    it('every account has Plus while billing is not turned on', async () => {
+      const lanzamiento = buildApp({
+        PLUS_BILLING_STARTS_AT: undefined,
+        PLUS_TRIAL_DAYS: '30',
+      });
+
+      expect(await leer(authMarcela, lanzamiento)).toEqual({
+        ...GRATIS,
+        plan: 'plus',
+        origen: 'lanzamiento',
+      });
+    });
+
+    it('an account that already existed gets its trial from the day billing starts', async () => {
+      const inicio = new Date(Date.now() - 2 * DIA);
+      const conPrueba = buildApp({
+        PLUS_BILLING_STARTS_AT: inicio.toISOString(),
+        PLUS_TRIAL_DAYS: '30',
+      });
+      await prisma.user.update({
+        where: { id: marcela },
+        data: { creadoEn: new Date(Date.now() - 200 * DIA) },
+      });
+      const venceEn = new Date(inicio.getTime() + 30 * DIA).toISOString();
+
+      expect(await leer(authMarcela, conPrueba)).toEqual({
+        ...GRATIS,
+        plan: 'plus',
+        origen: 'prueba',
+        venceEn,
+        prueba: { venceEn, vigente: true, avisoDiasRestantes: null },
+      });
+    });
+
+    it('a new account gets its trial from its creation, with the notice in the last days', async () => {
+      const conPrueba = buildApp({
+        PLUS_BILLING_STARTS_AT: '2026-01-01T00:00:00Z',
+        PLUS_TRIAL_DAYS: '30',
+      });
+      const creadoEn = new Date(Date.now() - 28.5 * DIA);
+      await prisma.user.update({ where: { id: marcela }, data: { creadoEn } });
+      const venceEn = new Date(creadoEn.getTime() + 30 * DIA).toISOString();
+
+      expect(await leer(authMarcela, conPrueba)).toMatchObject({
+        plan: 'plus',
+        origen: 'prueba',
+        prueba: { venceEn, vigente: true, avisoDiasRestantes: 2 },
+      });
+    });
+
+    it('after the trial the account is on the free plan and keeps everything', async () => {
+      const conPrueba = buildApp({
+        PLUS_BILLING_STARTS_AT: '2026-01-01T00:00:00Z',
+        PLUS_TRIAL_DAYS: '30',
+      });
+      const creadoEn = new Date(Date.now() - 31 * DIA);
+      await prisma.user.update({ where: { id: marcela }, data: { creadoEn } });
+
+      expect(await leer(authMarcela, conPrueba)).toEqual({
+        ...GRATIS,
+        prueba: {
+          venceEn: new Date(creadoEn.getTime() + 30 * DIA).toISOString(),
+          vigente: false,
+          avisoDiasRestantes: null,
+        },
+      });
+      expect(await prisma.user.count({ where: { id: marcela } })).toBe(1);
+    });
   });
 
   it("never answers with another user's plan (RNF-SEC-006)", async () => {

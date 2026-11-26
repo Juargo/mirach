@@ -9,6 +9,7 @@ import { LogoutUseCase } from '../application/use-cases/logout.use-case';
 import { ObtenerIdentidadUseCase } from '../application/use-cases/obtener-identidad.use-case';
 import { ObtenerConfiguracionAppUseCase } from '../application/use-cases/obtener-configuracion-app.use-case';
 import { ObtenerPlanUseCase } from '../application/use-cases/obtener-plan.use-case';
+import { DIAS_AVISO_FIN_PRUEBA } from '../domain/value-objects/plan';
 import { ProcesarEventoSuscripcionUseCase } from '../application/use-cases/procesar-evento-suscripcion.use-case';
 import { PrismaDerechosPlusWriter } from '../infrastructure/persistence/prisma-derechos-plus.writer';
 import type { WebhookRevenueCatGraph } from '../infrastructure/http-express/routes/webhooks-revenuecat.routes';
@@ -491,6 +492,11 @@ export function createContainer(
     obtenerPlan: new ObtenerPlanUseCase(
       new PrismaPlanReader(prisma),
       new SystemReloj(),
+      {
+        cobroActivoDesde: env.PLUS_BILLING_STARTS_AT ?? null,
+        diasPrueba: env.PLUS_TRIAL_DAYS,
+        diasAviso: DIAS_AVISO_FIN_PRUEBA,
+      },
     ),
     obtenerConfiguracionApp: new ObtenerConfiguracionAppUseCase({
       // `getValue()` cannot throw: env.ts already validated both versions with

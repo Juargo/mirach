@@ -96,6 +96,9 @@ describe('POST /api/webhooks/revenuecat (e2e)', () => {
     app = buildApp({
       REVENUECAT_WEBHOOK_SECRET: SECRETO,
       REVENUECAT_FUNDADOR_PRODUCT_ID: FUNDADOR,
+      // Billing on and no trial, so the plan only reflects what the events store.
+      PLUS_BILLING_STARTS_AT: '2026-01-01T00:00:00Z',
+      PLUS_TRIAL_DAYS: '0',
     });
     apagado = buildApp({
       REVENUECAT_WEBHOOK_SECRET: undefined,

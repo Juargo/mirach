@@ -1,16 +1,10 @@
-import type { PermisoPlan, Suscripcion } from '../../domain/value-objects/plan';
-
-/** Lo que el API guarda sobre los derechos de Plus de un usuario. */
-export interface DerechosGuardados {
-  readonly suscripcion: Suscripcion | null;
-  /** Todos los permisos del usuario, vigentes o no. */
-  readonly permisos: readonly PermisoPlan[];
-}
+import type { DerechosCuenta } from '../../domain/value-objects/plan';
 
 /**
- * IPlanReader — lectura de la suscripción y los permisos de un usuario
- * (ADR-012 §2, ADR-015 §1). Acotada por `userId` (RNF-SEC-006).
+ * IPlanReader — lectura de lo que decide el plan de un usuario: cuándo se creó
+ * su cuenta, su suscripción y sus permisos (ADR-012 §2, ADR-015). Acotada por
+ * `userId` (RNF-SEC-006).
  */
 export interface IPlanReader {
-  leer(userId: string): Promise<DerechosGuardados>;
+  leer(userId: string): Promise<DerechosCuenta>;
 }

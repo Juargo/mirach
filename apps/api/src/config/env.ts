@@ -261,6 +261,25 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Identificador en las tiendas del producto del plan Fundador (ADR-015 §6), igual en App Store y Google Play. Su compra única da Plus de por vida. Opcional: ausente = el webhook ignora esa compra.',
     ),
+  PLUS_BILLING_STARTS_AT: z
+    .string()
+    .trim()
+    .transform((value) => (value === '' ? undefined : value))
+    .pipe(z.iso.datetime({ offset: true }).optional())
+    .optional()
+    .transform((value) => (value === undefined ? undefined : new Date(value)))
+    .describe(
+      'Desde cuándo se cobra Plus (ADR-015 §3), como fecha y hora ISO-8601 con zona, p. ej. 2027-01-15T00:00:00-03:00. Opcional: ausente (o una fecha futura) = el cobro no está activo y toda cuenta tiene Plus por el lanzamiento. Desde esa fecha, cada cuenta tiene su prueba de PLUS_TRIAL_DAYS días, contados desde su creación o desde esta fecha si ya existía, y después queda en el plan gratis. Definirla es lo que "activa el cobro"; quitarla devuelve Plus a todas las cuentas.',
+    ),
+  PLUS_TRIAL_DAYS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(365)
+    .default(30)
+    .describe(
+      'Días de la prueba gratis de Plus que concede el API sin medio de pago (PLA-02). 0 = sin prueba. Solo aplica con PLUS_BILLING_STARTS_AT definida.',
+    ),
   FREE_PLAN_MAX_BANKS: z.coerce
     .number()
     .int()

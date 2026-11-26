@@ -1,19 +1,33 @@
 import { ObtenerPlanUseCase } from './obtener-plan.use-case';
-import type { DerechosGuardados, IPlanReader } from '../ports/plan-reader.port';
+import type { IPlanReader } from '../ports/plan-reader.port';
 import {
   EstadoSuscripcion,
   MotivoPermiso,
   OrigenSuscripcion,
   Plan,
   TiendaSuscripcion,
+  type DerechosCuenta,
+  type ReglaPrueba,
 } from '../../domain/value-objects/plan';
 
 const ahora = new Date('2026-12-10T12:00:00.000Z');
 const enUnMes = new Date('2027-01-10T12:00:00.000Z');
 
-function crear(derechos: DerechosGuardados) {
-  const reader: IPlanReader = { leer: vi.fn().mockResolvedValue(derechos) };
-  const useCase = new ObtenerPlanUseCase(reader, { ahora: () => ahora });
+const creada = new Date('2026-12-01T12:00:00.000Z');
+const REGLA: ReglaPrueba = {
+  cobroActivoDesde: new Date('2026-11-01T00:00:00.000Z'),
+  diasPrueba: 0,
+  diasAviso: 3,
+};
+
+function crear(
+  derechos: Omit<DerechosCuenta, 'cuentaCreadaEn'>,
+  regla: ReglaPrueba = REGLA,
+) {
+  const reader: IPlanReader = {
+    leer: vi.fn().mockResolvedValue({ cuentaCreadaEn: creada, ...derechos }),
+  };
+  const useCase = new ObtenerPlanUseCase(reader, { ahora: () => ahora }, regla);
   return { reader, useCase };
 }
 
@@ -36,6 +50,7 @@ describe('ObtenerPlanUseCase', () => {
       renueva: false,
       producto: null,
       tienda: null,
+      prueba: null,
     });
   });
 
@@ -57,6 +72,37 @@ describe('ObtenerPlanUseCase', () => {
       renueva: true,
       producto: 'plus_anual',
       tienda: TiendaSuscripcion.PlayStore,
+      prueba: null,
+    });
+  });
+
+  it('aplica la regla de la prueba a la fecha de creación de la cuenta', async () => {
+    const { useCase } = crear(
+      { suscripcion: null, permisos: [] },
+      { ...REGLA, diasPrueba: 30 },
+    );
+
+    expect(await useCase.execute({ userId: 'user-1' })).toMatchObject({
+      plan: Plan.Plus,
+      origen: MotivoPermiso.Prueba,
+      prueba: {
+        venceEn: new Date('2026-12-31T12:00:00.000Z'),
+        vigente: true,
+        avisoDiasRestantes: null,
+      },
+    });
+  });
+
+  it('sin fecha de activación del cobro responde Plus por el lanzamiento', async () => {
+    const { useCase } = crear(
+      { suscripcion: null, permisos: [] },
+      { ...REGLA, cobroActivoDesde: null },
+    );
+
+    expect(await useCase.execute({ userId: 'user-1' })).toMatchObject({
+      plan: Plan.Plus,
+      origen: 'lanzamiento',
+      prueba: null,
     });
   });
 
