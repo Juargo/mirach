@@ -23,6 +23,7 @@
     "test:db:seed": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 tsx prisma/seed.ts",
     "test:db:setup": "pnpm test:db:migrate && pnpm test:db:seed",
     "review:create-user": "tsx prisma/crear-usuario-revision.ts",
+    "plus:grant-testers": "tsx prisma/conceder-plus-vitalicio.ts",
     "us037:rehearsal": "DOTENV_CONFIG_PATH=.env.test ALLOW_DESTRUCTIVE_DB=1 tsx prisma/rehearsals/us037-catalogo-rehearsal.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
