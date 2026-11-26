@@ -261,6 +261,14 @@ export const EnvObjectSchema = z.object({
     .describe(
       'Identificador en las tiendas del producto del plan Fundador (ADR-015 §6), igual en App Store y Google Play. Su compra única da Plus de por vida. Opcional: ausente = el webhook ignora esa compra.',
     ),
+  FUNDADOR_SEATS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .default(100)
+    .describe(
+      'Cupos del plan Fundador (PLA-10), informados a las apps por GET /api/plan junto a los que quedan. Solo aplica con REVENUECAT_FUNDADOR_PRODUCT_ID definida; sin ella el Fundador no está en venta. Las compras de sandbox no usan cupo.',
+    ),
   PLUS_BILLING_STARTS_AT: z
     .string()
     .trim()

@@ -48,4 +48,10 @@ export class PrismaPlanReader implements IPlanReader {
       })),
     };
   }
+
+  contarFundadoresVendidos(): Promise<number> {
+    return this.prisma.permisoPlan.count({
+      where: { motivo: 'fundador', revocadoEn: null, sandbox: false },
+    });
+  }
 }

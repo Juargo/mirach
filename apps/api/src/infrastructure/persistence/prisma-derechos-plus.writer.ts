@@ -58,7 +58,7 @@ export class PrismaDerechosPlusWriter implements IDerechosPlusWriter {
         );
       }
       return cambio.tipo === 'fundador_otorgado'
-        ? this.otorgarFundador(tx, userId, cambio.ocurridoEn)
+        ? this.otorgarFundador(tx, userId, cambio.ocurridoEn, cambio.sandbox)
         : this.revocarFundador(tx, userId, cambio.ocurridoEn);
     });
   }
@@ -125,6 +125,7 @@ export class PrismaDerechosPlusWriter implements IDerechosPlusWriter {
     tx: Tx,
     userId: string,
     ocurridoEn: Date,
+    sandbox: boolean,
   ): Promise<ResultadoCambioDerechos> {
     const where = { userId_motivo: { userId, motivo: FUNDADOR } };
     const actual = await tx.permisoPlan.findUnique({ where });
@@ -136,7 +137,12 @@ export class PrismaDerechosPlusWriter implements IDerechosPlusWriter {
       return 'aplicado';
     }
 
-    const datos = { otorgadoEn: ocurridoEn, venceEn: null, revocadoEn: null };
+    const datos = {
+      otorgadoEn: ocurridoEn,
+      venceEn: null,
+      revocadoEn: null,
+      sandbox,
+    };
     await tx.permisoPlan.upsert({
       where,
       create: { userId, motivo: FUNDADOR, ...datos },

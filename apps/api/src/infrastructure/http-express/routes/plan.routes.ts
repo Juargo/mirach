@@ -24,6 +24,7 @@ export function registrarPlan(
         renueva: plan.renueva,
         producto: plan.producto,
         tienda: plan.tienda,
+        fundador: plan.fundador,
         prueba:
           plan.prueba === null
             ? null

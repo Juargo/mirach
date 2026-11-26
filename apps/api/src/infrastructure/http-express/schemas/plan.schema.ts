@@ -73,6 +73,24 @@ export const planResponseSchema = z
         'The trial of the account (PLA-02): it starts when the account is created, or when billing is turned on for an account that already existed. ' +
           'null while billing is not turned on, and when the account has no trial.',
       ),
+    fundador: z
+      .object({
+        cuposTotales: z
+          .number()
+          .int()
+          .describe('Seats of the Fundador plan (PLA-10).'),
+        cuposDisponibles: z
+          .number()
+          .int()
+          .describe(
+            'Seats left, never negative. At 0 the app stops offering the Fundador purchase.',
+          ),
+      })
+      .strict()
+      .nullable()
+      .describe(
+        'Seats of the Fundador plan, a one-time purchase that gives Plus for life (PLA-10). null when it is not on sale.',
+      ),
   })
   .strict()
   .meta({

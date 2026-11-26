@@ -3353,6 +3353,54 @@ extension Components {
         ///
         /// - Remark: Generated from `#/components/schemas/PlanResponse`.
         internal struct PlanResponse: Codable, Hashable, Sendable {
+            /// Seats of the Fundador plan, a one-time purchase that gives Plus for life (PLA-10). null when it is not on sale.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/fundador`.
+            internal struct fundadorPayload: Codable, Hashable, Sendable {
+                /// Seats left, never negative. At 0 the app stops offering the Fundador purchase.
+                ///
+                /// - Remark: Generated from `#/components/schemas/PlanResponse/fundador/cuposDisponibles`.
+                internal var cuposDisponibles: Swift.Int
+                /// Seats of the Fundador plan (PLA-10).
+                ///
+                /// - Remark: Generated from `#/components/schemas/PlanResponse/fundador/cuposTotales`.
+                internal var cuposTotales: Swift.Int
+                /// Creates a new `fundadorPayload`.
+                ///
+                /// - Parameters:
+                ///   - cuposDisponibles: Seats left, never negative. At 0 the app stops offering the Fundador purchase.
+                ///   - cuposTotales: Seats of the Fundador plan (PLA-10).
+                internal init(
+                    cuposDisponibles: Swift.Int,
+                    cuposTotales: Swift.Int
+                ) {
+                    self.cuposDisponibles = cuposDisponibles
+                    self.cuposTotales = cuposTotales
+                }
+                internal enum CodingKeys: String, CodingKey {
+                    case cuposDisponibles
+                    case cuposTotales
+                }
+                internal init(from decoder: any Swift.Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    self.cuposDisponibles = try container.decode(
+                        Swift.Int.self,
+                        forKey: .cuposDisponibles
+                    )
+                    self.cuposTotales = try container.decode(
+                        Swift.Int.self,
+                        forKey: .cuposTotales
+                    )
+                    try decoder.ensureNoAdditionalProperties(knownKeys: [
+                        "cuposDisponibles",
+                        "cuposTotales"
+                    ])
+                }
+            }
+            /// Seats of the Fundador plan, a one-time purchase that gives Plus for life (PLA-10). null when it is not on sale.
+            ///
+            /// - Remark: Generated from `#/components/schemas/PlanResponse/fundador`.
+            internal var fundador: Components.Schemas.PlanResponse.fundadorPayload?
             /// Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
             ///
             /// - Remark: Generated from `#/components/schemas/PlanResponse/origen`.
@@ -3467,6 +3515,7 @@ extension Components {
             /// Creates a new `PlanResponse`.
             ///
             /// - Parameters:
+            ///   - fundador: Seats of the Fundador plan, a one-time purchase that gives Plus for life (PLA-10). null when it is not on sale.
             ///   - origen: Where Plus comes from: a store subscription, the trial granted by the API, the lifetime grant of a tester, the Fundador purchase, or `lanzamiento` while billing is not turned on yet and every account has Plus. With more than one in force, the one that lasts longest. null on the free plan.
             ///   - plan: Plan in force for the session user (PLA-01).
             ///   - producto: Store product identifier of the subscription. null for any other origin.
@@ -3475,6 +3524,7 @@ extension Components {
             ///   - tienda: Store that bills the subscription, where the user cancels it (PLA-04). null for any other origin.
             ///   - venceEn: When Plus ends (ISO-8601 UTC timestamp): the renewal date of a subscription that renews, or the last day of a cancelled subscription or a trial. null on the free plan and when Plus never expires.
             internal init(
+                fundador: Components.Schemas.PlanResponse.fundadorPayload? = nil,
                 origen: Components.Schemas.PlanResponse.origenPayload? = nil,
                 plan: Components.Schemas.PlanResponse.planPayload,
                 producto: Swift.String? = nil,
@@ -3483,6 +3533,7 @@ extension Components {
                 tienda: Components.Schemas.PlanResponse.tiendaPayload? = nil,
                 venceEn: Swift.String? = nil
             ) {
+                self.fundador = fundador
                 self.origen = origen
                 self.plan = plan
                 self.producto = producto
@@ -3492,6 +3543,7 @@ extension Components {
                 self.venceEn = venceEn
             }
             internal enum CodingKeys: String, CodingKey {
+                case fundador
                 case origen
                 case plan
                 case producto
@@ -3502,6 +3554,10 @@ extension Components {
             }
             internal init(from decoder: any Swift.Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.fundador = try container.decodeIfPresent(
+                    Components.Schemas.PlanResponse.fundadorPayload.self,
+                    forKey: .fundador
+                )
                 self.origen = try container.decodeIfPresent(
                     Components.Schemas.PlanResponse.origenPayload.self,
                     forKey: .origen
@@ -3531,6 +3587,7 @@ extension Components {
                     forKey: .venceEn
                 )
                 try decoder.ensureNoAdditionalProperties(knownKeys: [
+                    "fundador",
                     "origen",
                     "plan",
                     "producto",

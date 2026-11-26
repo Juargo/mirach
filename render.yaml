@@ -136,6 +136,8 @@ services:
         sync: false
       - key: REVENUECAT_FUNDADOR_PRODUCT_ID
         sync: false
+      - key: FUNDADOR_SEATS
+        value: "100"
       # Activación del cobro (ADR-015 §3). Sin PLUS_BILLING_STARTS_AT toda
       # cuenta tiene Plus por el lanzamiento; definirla en el dashboard es lo
       # que activa el cobro y la prueba de PLUS_TRIAL_DAYS días.

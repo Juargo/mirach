@@ -10,6 +10,7 @@ const FUNDADOR: CambioDerechosPlus = {
   tipo: 'fundador_otorgado',
   usuarios: ['user-1'],
   ocurridoEn: new Date('2026-12-10T12:00:00.000Z'),
+  sandbox: false,
 };
 
 function crear(resultado: ResultadoCambioDerechos = 'aplicado') {

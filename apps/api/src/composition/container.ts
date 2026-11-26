@@ -497,6 +497,9 @@ export function createContainer(
         diasPrueba: env.PLUS_TRIAL_DAYS,
         diasAviso: DIAS_AVISO_FIN_PRUEBA,
       },
+      env.REVENUECAT_FUNDADOR_PRODUCT_ID === undefined
+        ? null
+        : env.FUNDADOR_SEATS,
     ),
     obtenerConfiguracionApp: new ObtenerConfiguracionAppUseCase({
       // `getValue()` cannot throw: env.ts already validated both versions with

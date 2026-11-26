@@ -23,11 +23,19 @@ const REGLA: ReglaPrueba = {
 function crear(
   derechos: Omit<DerechosCuenta, 'cuentaCreadaEn'>,
   regla: ReglaPrueba = REGLA,
+  cuposFundador: number | null = null,
+  vendidos = 0,
 ) {
   const reader: IPlanReader = {
     leer: vi.fn().mockResolvedValue({ cuentaCreadaEn: creada, ...derechos }),
+    contarFundadoresVendidos: vi.fn().mockResolvedValue(vendidos),
   };
-  const useCase = new ObtenerPlanUseCase(reader, { ahora: () => ahora }, regla);
+  const useCase = new ObtenerPlanUseCase(
+    reader,
+    { ahora: () => ahora },
+    regla,
+    cuposFundador,
+  );
   return { reader, useCase };
 }
 
@@ -51,6 +59,7 @@ describe('ObtenerPlanUseCase', () => {
       producto: null,
       tienda: null,
       prueba: null,
+      fundador: null,
     });
   });
 
@@ -73,6 +82,7 @@ describe('ObtenerPlanUseCase', () => {
       producto: 'plus_anual',
       tienda: TiendaSuscripcion.PlayStore,
       prueba: null,
+      fundador: null,
     });
   });
 
@@ -103,6 +113,7 @@ describe('ObtenerPlanUseCase', () => {
       plan: Plan.Plus,
       origen: 'lanzamiento',
       prueba: null,
+      fundador: null,
     });
   });
 
@@ -122,5 +133,46 @@ describe('ObtenerPlanUseCase', () => {
     const plan = await useCase.execute({ userId: 'user-1' });
 
     expect(plan.plan).toBe(Plan.Gratis);
+  });
+
+  describe('cupos del plan Fundador (PLA-10)', () => {
+    const sinDerechos = { suscripcion: null, permisos: [] };
+
+    it('sin el Fundador en venta no cuenta nada y responde null', async () => {
+      const { reader, useCase } = crear(sinDerechos, REGLA, null, 7);
+
+      const plan = await useCase.execute({ userId: 'user-1' });
+
+      expect(plan.fundador).toBeNull();
+      expect(reader.contarFundadoresVendidos).not.toHaveBeenCalled();
+    });
+
+    it('informa los cupos que quedan', async () => {
+      const { useCase } = crear(sinDerechos, REGLA, 100, 37);
+
+      const plan = await useCase.execute({ userId: 'user-1' });
+
+      expect(plan.fundador).toEqual({
+        cuposTotales: 100,
+        cuposDisponibles: 63,
+      });
+    });
+
+    it.each([
+      ['justo los cupos', 100],
+      ['más que los cupos', 103],
+    ])(
+      'con %s vendidos no queda ninguno, nunca un número negativo',
+      async (_caso, vendidos) => {
+        const { useCase } = crear(sinDerechos, REGLA, 100, vendidos);
+
+        const plan = await useCase.execute({ userId: 'user-1' });
+
+        expect(plan.fundador).toEqual({
+          cuposTotales: 100,
+          cuposDisponibles: 0,
+        });
+      },
+    );
   });
 });
